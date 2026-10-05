@@ -229,3 +229,20 @@ export interface OwnerWithdrawal {
   created_at: string;
   updated_at: string;
 }
+
+/** Unwithdrawn profit moved from one month into the next (migration 071). */
+export interface OwnerProfitCarryover {
+  id: string;
+  club_id: string;
+  /** First day of the month the money leaves. */
+  from_month: string;
+  /** First day of the following month, which receives the money. */
+  to_month: string;
+  source: OwnerWithdrawalSource;
+  /** Required for Game Club; null for Bar. */
+  payment_method: OwnerWithdrawalPaymentMethod | null;
+  amount: number;
+  comment: string | null;
+  created_by: string;
+  created_at: string;
+}

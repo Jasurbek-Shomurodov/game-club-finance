@@ -6,6 +6,7 @@ import {
   calendarTodayIso,
   currentYearMonth,
   monthRange,
+  nextYearMonth,
   normalizeBusinessDayStartHour,
   serverTodayIso,
   todayIso,
@@ -35,6 +36,11 @@ describe('business day date helpers', () => {
 
   it('returns month boundaries for a selected month', () => {
     expect(monthRange('2026-02')).toEqual({ from: '2026-02-01', to: '2026-02-28' });
+  });
+
+  it('returns the following month across a year boundary', () => {
+    expect(nextYearMonth('2026-09')).toBe('2026-10');
+    expect(nextYearMonth('2026-12')).toBe('2027-01');
   });
 
   it('returns a date object shifted to the business day when before 6:00 AM', () => {

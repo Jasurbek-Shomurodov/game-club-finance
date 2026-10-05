@@ -18,3 +18,13 @@ export function isMissingDatabaseColumn(
   return error.code === '42703'
     && (error.message?.includes(columnName) ?? false);
 }
+
+export function isMissingDatabaseTable(
+  error: { code?: string; message?: string } | null | undefined,
+  tableName: string,
+): boolean {
+  if (!error) return false;
+  if (error.code) return error.code === 'PGRST205' || error.code === '42P01';
+  const message = error.message ?? '';
+  return message.includes(tableName) && /could not find|does not exist/i.test(message);
+}

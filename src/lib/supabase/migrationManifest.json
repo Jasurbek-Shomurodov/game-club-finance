@@ -68,5 +68,6 @@
   "067_owner_only_payroll_terms.sql",
   "068_unify_expense_categories.sql",
   "069_remove_other_expense_category.sql",
-  "070_salary_kpi_basis.sql"
+  "070_salary_kpi_basis.sql",
+  "071_owner_profit_carryovers.sql"
 ]

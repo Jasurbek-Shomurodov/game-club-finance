@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isMissingDatabaseColumn, isMissingDatabaseFunction } from './errors';
+import { isMissingDatabaseColumn, isMissingDatabaseFunction, isMissingDatabaseTable } from './errors';
 
 describe('isMissingDatabaseFunction', () => {
   it('recognizes PostgREST missing-function errors', () => {
@@ -35,5 +35,18 @@ describe('isMissingDatabaseFunction', () => {
       { code: '42501', message: 'permission denied for feature_access' },
       'feature_access',
     )).toBe(false);
+  });
+});
+
+describe('isMissingDatabaseTable', () => {
+  it('recognizes a missing table without hiding other query failures', () => {
+    expect(isMissingDatabaseTable({ code: 'PGRST205' }, 'owner_profit_carryovers')).toBe(true);
+    expect(isMissingDatabaseTable({ code: '42P01' }, 'owner_profit_carryovers')).toBe(true);
+    expect(isMissingDatabaseTable(
+      { message: "Could not find the table 'public.owner_profit_carryovers' in the schema cache" },
+      'owner_profit_carryovers',
+    )).toBe(true);
+    expect(isMissingDatabaseTable({ code: '42501', message: 'permission denied for table owner_profit_carryovers' }, 'owner_profit_carryovers')).toBe(false);
+    expect(isMissingDatabaseTable(null, 'owner_profit_carryovers')).toBe(false);
   });
 });

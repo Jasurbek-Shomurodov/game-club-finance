@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownToLine, RefreshCcw, Trash2 } from 'lucide-react';
+import { ArrowDownToLine, CalendarArrowUp, RefreshCcw, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useClub } from '@/components/layout/DashboardShell';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
@@ -38,14 +38,16 @@ import {
   type AvailableMoneyByMonth,
 } from '@/lib/calculations/availableMoney';
 import {
+  applyOwnerProfitCarryovers,
   availableForPaymentMethod,
   buildOwnerProfitSnapshot,
+  carryoversForMonth,
   gameClubWithdrawalsByMethod,
   type OwnerProfitSnapshotPayload,
 } from '@/lib/calculations/ownerProfitSnapshot';
 import type { StockPurchaseCostRow } from '@/lib/calculations/barMoney';
 import { clampWithdrawalInput } from '@/lib/withdrawalInput';
-import { isMissingDatabaseColumn, isMissingDatabaseFunction } from '@/lib/supabase/errors';
+import { isMissingDatabaseColumn, isMissingDatabaseFunction, isMissingDatabaseTable } from '@/lib/supabase/errors';
 import {
   calculateGameClubMoneyLeftByPaymentMethod,
   DailyCashRow,
@@ -61,10 +63,11 @@ import {
   formatDateTime,
   formatYearMonth,
 } from '@/lib/formatters';
-import { currentYearMonth, todayIso } from '@/lib/utils';
+import { currentYearMonth, nextYearMonth, todayIso } from '@/lib/utils';
 import {
   OWNER_WITHDRAWAL_PAYMENT_METHODS,
   OWNER_WITHDRAWAL_SOURCES,
+  type OwnerProfitCarryover,
   type OwnerWithdrawal,
   type OwnerWithdrawalPaymentMethod,
   type OwnerWithdrawalSource,
@@ -80,6 +83,8 @@ interface BreakdownRow {
   label: string;
   /** null when the row has no earnings of its own (withdrawals without a method). */
   earned: number | null;
+  /** Net money carried in from the previous month (+) or on to the next (−). */
+  carried: number;
   withdrawn: number;
   available: number | null;
   nested?: boolean;
@@ -91,9 +96,12 @@ interface WithdrawalMethodRow {
   payment_method: OwnerWithdrawalPaymentMethod;
 }
 
-interface HistoryRow {
-  month: string;
-  withdrawal: OwnerWithdrawal;
+type HistoryRow =
+  | { kind: 'withdrawal'; id: string; month: string; withdrawal: OwnerWithdrawal }
+  | { kind: 'carryover'; id: string; month: string; carryover: OwnerProfitCarryover };
+
+function historyCreatedAt(row: HistoryRow): string {
+  return row.kind === 'withdrawal' ? row.withdrawal.created_at : row.carryover.created_at;
 }
 
 export default function MoneyTakenPage() {
@@ -108,10 +116,13 @@ export default function MoneyTakenPage() {
   const [balancesByMonth, setBalancesByMonth] = useState<AvailableMoneyByMonth>({});
   const [paymentMethodBalancesByMonth, setPaymentMethodBalancesByMonth] = useState<Record<string, MoneyLeftByPaymentMethod>>({});
   const [withdrawals, setWithdrawals] = useState<OwnerWithdrawal[]>([]);
+  const [carryovers, setCarryovers] = useState<OwnerProfitCarryover[]>([]);
+  /** Migration 071 is applied: unwithdrawn profit can be moved to the next month. */
+  const [carryoversSupported, setCarryoversSupported] = useState(false);
   /** Migration 066 is applied: Game Club withdrawals record a payment method. */
   const [methodsSupported, setMethodsSupported] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState<'withdraw' | 'carry' | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   /** Balances failed to load; mutations stay disabled until a successful reload. */
   const [error, setError] = useState(false);
@@ -147,6 +158,7 @@ export default function MoneyTakenPage() {
         setBalancesByMonth({});
         setPaymentMethodBalancesByMonth({});
         setWithdrawals([]);
+        setCarryovers([]);
         setLoading(false);
         return;
       }
@@ -154,7 +166,7 @@ export default function MoneyTakenPage() {
       if (!silent) setLoading(true);
       setError(false);
       const supabase = createClient();
-      const [snapshotResult, methodRes] = await Promise.all([
+      const [snapshotResult, methodRes, carryoverRes] = await Promise.all([
         supabase.rpc('get_owner_profit_snapshot', {
           p_club_id: selectedClubId,
           p_through_date: businessToday,
@@ -165,9 +177,27 @@ export default function MoneyTakenPage() {
           .eq('club_id', selectedClubId)
           .not('payment_method', 'is', null)
           .order('id')),
+        fetchAllRows<OwnerProfitCarryover>(() => supabase
+          .from('owner_profit_carryovers')
+          .select('id,club_id,from_month,to_month,source,payment_method,amount,comment,created_by,created_at')
+          .eq('club_id', selectedClubId)
+          .lte('from_month', `${currentMonth}-01`)
+          .order('id')),
       ]);
 
       if (id !== requestId.current) return;
+
+      // Before migration 071 there is nothing to carry: balances stay per month.
+      const carryoversMissing = isMissingDatabaseTable(carryoverRes.error as { code?: string; message?: string } | null, 'owner_profit_carryovers');
+      if (carryoverRes.error && !carryoversMissing) {
+        setError(true);
+        setLoading(false);
+        return;
+      }
+      const carryoverRows = (carryoverRes.data ?? []).map((row) => ({ ...row, amount: Number(row.amount) }));
+      setCarryovers(carryoverRows);
+      setCarryoversSupported(!carryoversMissing);
+      const withCarryovers = (byMonth: AvailableMoneyByMonth) => applyOwnerProfitCarryovers(byMonth, carryoverRows, currentMonth);
 
       // Before migration 066 there is no payment_method column: keep every
       // withdrawal unassigned and record new ones by source only.
@@ -186,7 +216,7 @@ export default function MoneyTakenPage() {
 
       if (!snapshotResult.error && snapshotResult.data?.paymentMethodBalancesByMonth) {
         const snapshot = buildOwnerProfitSnapshot(snapshotResult.data as OwnerProfitSnapshotPayload);
-        setBalancesByMonth(snapshot.byMonth);
+        setBalancesByMonth(withCarryovers(snapshot.byMonth));
         setWithdrawals(withMethods(snapshot.withdrawals));
         setPaymentMethodBalancesByMonth(snapshot.paymentMethodBalancesByMonth);
         setLoading(false);
@@ -265,10 +295,10 @@ export default function MoneyTakenPage() {
         debtPaymentRows: debtPaymentRes.data ?? [],
         withdrawalRows,
       };
-      setBalancesByMonth(calculateAvailableMoneyByMonth({
+      setBalancesByMonth(withCarryovers(calculateAvailableMoneyByMonth({
         ...nextLedgerRows,
         throughDate: businessToday,
-      }));
+      })));
       setWithdrawals(withMethods(withdrawalRows));
       const months = new Set([
         ...nextLedgerRows.cashRows,
@@ -316,9 +346,14 @@ export default function MoneyTakenPage() {
   const paymentMethodBalances = paymentMethodBalancesByMonth[form.month] ?? emptyMoneyLeftByPaymentMethod;
   const monthlyBalance = balancesByMonth[form.month];
   const methodBreakdown = useMemo(
-    () => gameClubWithdrawalsByMethod(paymentMethodBalances, withdrawals, form.month),
-    [paymentMethodBalances, withdrawals, form.month],
+    () => gameClubWithdrawalsByMethod(paymentMethodBalances, withdrawals, form.month, carryovers),
+    [paymentMethodBalances, withdrawals, form.month, carryovers],
   );
+  const monthCarried = useMemo(() => carryoversForMonth(carryovers, form.month), [carryovers, form.month]);
+  const monthlyCarried = monthCarried.bySource.game_club + monthCarried.bySource.bar;
+  const monthHasCarryovers = carryovers.some((row) => (
+    row.from_month.slice(0, 7) === form.month || row.to_month.slice(0, 7) === form.month
+  ));
   const usesPaymentMethod = methodsSupported && form.source === 'game_club';
   /** Per method: its own balance, capped by what is left of Game Club profit this month. */
   const methodWithdrawable = useMemo(() => {
@@ -359,6 +394,9 @@ export default function MoneyTakenPage() {
   const monthlyAvailable = monthlyBalance?.totalAvailable ?? 0;
   const amountValue = parseCurrencyInput(form.amount);
   const amountValid = Number.isFinite(amountValue) && amountValue > 0 && amountValue <= withdrawable;
+  // Carryovers move money between months of one source (and one Game Club method).
+  const carrySourceSelected = form.source !== 'all' && (form.source !== 'game_club' || Boolean(form.paymentMethod));
+  const canCarry = carryoversSupported && carrySourceSelected && amountValid;
 
   function setField(field: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -380,7 +418,7 @@ export default function MoneyTakenPage() {
 
     const operationRequestId = requestId.current;
     mutationPending.current = true;
-    setSaving(true);
+    setSaving('withdraw');
     try {
       const supabase = createClient();
       const rpcName = usesPaymentMethod ? 'withdraw_owner_game_club_money_by_method' : 'withdraw_owner_money_for_month';
@@ -418,7 +456,115 @@ export default function MoneyTakenPage() {
       await loadData({ silent: true });
     } finally {
       mutationPending.current = false;
-      setSaving(false);
+      setSaving(null);
+    }
+  }
+
+  async function handleCarry() {
+    if (mutationPending.current || loading || error || !canCarry) return;
+    const amount = parseCurrencyInput(form.amount);
+
+    if (!selectedClubId || !isOwner) {
+      showToast(t('ownerOnly'), 'error');
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0 || amount > withdrawable) {
+      showToast(t('exceedsAvailable'), 'error');
+      return;
+    }
+
+    const requestIdBeforeConfirm = requestId.current;
+    const confirmed = await confirm({
+      title: t('carryTitle'),
+      description: t('carryConfirm', {
+        amount: currency(amount),
+        source: formSourceLabel,
+        from: formatYearMonth(form.month, locale),
+        to: formatYearMonth(nextYearMonth(form.month), locale),
+      }),
+      confirmLabel: t('carryButton'),
+      tone: 'primary',
+    });
+    if (!confirmed || requestIdBeforeConfirm !== requestId.current || mutationPending.current) return;
+
+    const operationRequestId = requestId.current;
+    mutationPending.current = true;
+    setSaving('carry');
+    try {
+      const supabase = createClient();
+      const { error: carryError } = await supabase.rpc('carry_owner_profit_to_next_month', {
+        p_club_id: selectedClubId,
+        p_from_month: `${form.month}-01`,
+        p_source: form.source,
+        p_payment_method: form.source === 'game_club' ? form.paymentMethod : null,
+        p_amount: amount,
+        p_comment: form.comment.trim() || null,
+      });
+
+      if (operationRequestId !== requestId.current) return;
+      if (carryError) {
+        showToast(isMissingDatabaseFunction(carryError, 'carry_owner_profit_to_next_month')
+          ? t('carryMigrationRequired')
+          : carryError.code === '23514' ? t('exceedsAvailable') : t('carryError'), 'error');
+        await loadData({ silent: true });
+        return;
+      }
+
+      setForm((current) => ({ ...current, comment: '', amount: '' }));
+      showToast(t('carried'), 'success');
+      await loadData({ silent: true });
+    } catch {
+      if (operationRequestId !== requestId.current) return;
+      showToast(t('carryError'), 'error');
+      await loadData({ silent: true });
+    } finally {
+      mutationPending.current = false;
+      setSaving(null);
+    }
+  }
+
+  async function handleDeleteCarryover(row: OwnerProfitCarryover) {
+    if (mutationPending.current || loading || error || row.club_id !== selectedClubId) return;
+    if (!selectedClubId || !isOwner) return;
+    const requestIdBeforeConfirm = requestId.current;
+    const confirmed = await confirm({
+      title: tc('delete'),
+      description: t('carryDeleteConfirm', {
+        amount: currency(row.amount),
+        source: carryoverSourceLabel(row),
+        from: formatYearMonth(row.from_month.slice(0, 7), locale),
+        to: formatYearMonth(row.to_month.slice(0, 7), locale),
+      }),
+      confirmLabel: tc('delete'),
+    });
+    if (!confirmed || requestIdBeforeConfirm !== requestId.current || mutationPending.current) return;
+
+    const operationRequestId = requestId.current;
+    mutationPending.current = true;
+    setDeletingId(row.id);
+    try {
+      const supabase = createClient();
+      const { error: deleteError } = await supabase.rpc('delete_owner_profit_carryover', {
+        p_club_id: selectedClubId,
+        p_carryover_id: row.id,
+      });
+
+      if (operationRequestId !== requestId.current) return;
+      if (deleteError) {
+        showToast(deleteError.code === '23514' ? t('carryDeleteUsed') : t('deleteError'), 'error');
+        await loadData({ silent: true });
+        return;
+      }
+
+      showToast(t('carryDeleted'), 'success');
+      await loadData({ silent: true });
+    } catch {
+      if (operationRequestId !== requestId.current) return;
+      showToast(t('deleteError'), 'error');
+      await loadData({ silent: true });
+    } finally {
+      mutationPending.current = false;
+      setDeletingId(null);
     }
   }
 
@@ -471,10 +617,15 @@ export default function MoneyTakenPage() {
   const methodLabel = (method: OwnerWithdrawalPaymentMethod) => (
     method === 'playstation' ? t('playstation') : tc(`paymentMethods.${method}`)
   );
-  function withdrawalSourceLabel(row: OwnerWithdrawal) {
+  function withdrawalSourceLabel(row: Pick<OwnerWithdrawal, 'source' | 'payment_method'>) {
     const source = t(`sources.${row.source}`);
     return row.payment_method ? `${source} · ${methodLabel(row.payment_method)}` : source;
   }
+  const carryoverSourceLabel = (row: OwnerProfitCarryover) => withdrawalSourceLabel(row);
+  const formSourceLabel = withdrawalSourceLabel({
+    source: form.source === 'all' ? 'game_club' : form.source,
+    payment_method: form.source === 'game_club' && form.paymentMethod ? form.paymentMethod : null,
+  });
   const sourceOptions = PROFIT_SOURCES.map((source) => ({ value: source, label: t(`sources.${source}`) }));
 
   const breakdownRows: BreakdownRow[] = [
@@ -482,6 +633,7 @@ export default function MoneyTakenPage() {
       key: 'game_club',
       label: t('sources.game_club'),
       earned: monthlyBalance?.gameClub.earned ?? 0,
+      carried: monthCarried.bySource.game_club,
       withdrawn: monthlyBalance?.gameClub.withdrawn ?? 0,
       available: monthlyBalance?.gameClub.available ?? 0,
     },
@@ -489,6 +641,7 @@ export default function MoneyTakenPage() {
       key: `method:${row.method}`,
       label: methodLabel(row.method),
       earned: row.earned,
+      carried: row.carried,
       withdrawn: row.withdrawn,
       available: row.available,
       nested: true,
@@ -497,6 +650,7 @@ export default function MoneyTakenPage() {
       key: 'method:unassigned',
       label: t('unassignedMethod'),
       earned: null,
+      carried: 0,
       withdrawn: methodBreakdown.unassignedWithdrawn,
       available: null,
       nested: true,
@@ -506,6 +660,7 @@ export default function MoneyTakenPage() {
       key: 'bar',
       label: t('sources.bar'),
       earned: monthlyBalance?.bar.earned ?? 0,
+      carried: monthCarried.bySource.bar,
       withdrawn: monthlyBalance?.bar.withdrawn ?? 0,
       available: monthlyBalance?.bar.available ?? 0,
     },
@@ -515,8 +670,15 @@ export default function MoneyTakenPage() {
   const amountCell = (amount: number, className: string) => (
     <span className={cn('tabular-nums', className)}>{formatCurrency(amount)}</span>
   );
-  // Fixed widths keep the three money columns aligned between source and method rows.
-  const moneyColumnClassName = 'w-[22%] whitespace-nowrap';
+  const carriedCell = (amount: number, className?: string) => (amount === 0
+    ? <span className="tabular-nums text-gray-400">0</span>
+    : (
+      <span className={cn('tabular-nums', amount > 0 ? 'text-success-600' : 'text-gray-600', className)}>
+        {amount > 0 ? '+' : '−'}{formatCurrency(Math.abs(amount))}
+      </span>
+    ));
+  // Fixed widths keep the money columns aligned between source and method rows.
+  const moneyColumnClassName = monthHasCarryovers ? 'w-[16%] whitespace-nowrap' : 'w-[22%] whitespace-nowrap';
 
   const breakdownColumns: DataTableColumn<BreakdownRow>[] = [
     {
@@ -547,6 +709,13 @@ export default function MoneyTakenPage() {
           metricToneClassName[toneForAmount(row.earned, row.nested ? 'muted' : 'default')],
         ))),
     },
+    ...(monthHasCarryovers ? [{
+      key: 'carried',
+      header: t('carriedColumn'),
+      align: 'right' as const,
+      className: moneyColumnClassName,
+      render: (row: BreakdownRow) => (row.earned === null ? emptyCell : carriedCell(row.carried, row.nested ? undefined : 'font-semibold')),
+    }] : []),
     {
       key: 'withdrawn',
       header: t('monthlyWithdrawn'),
@@ -574,11 +743,19 @@ export default function MoneyTakenPage() {
   const breakdownFooter = {
     label: tc('total'),
     earned: amountCell(monthlyOverallProfit, metricToneClassName[toneForAmount(monthlyOverallProfit, 'default')]),
+    carried: carriedCell(monthlyCarried),
     withdrawn: amountCell(monthlyWithdrawn, monthlyWithdrawn > 0 ? 'text-danger-600' : 'text-gray-400'),
     available: amountCell(monthlyAvailable, metricToneClassName[toneForAmount(monthlyAvailable)]),
   };
 
-  const historyRows: HistoryRow[] = withdrawalMonths.flatMap(([month, rows]) => rows.map((withdrawal) => ({ month, withdrawal })));
+  const historyRows: HistoryRow[] = [
+    ...withdrawalMonths.flatMap(([month, rows]) => rows.map((withdrawal) => ({
+      kind: 'withdrawal' as const, id: withdrawal.id, month, withdrawal,
+    }))),
+    ...carryovers.map((carryover) => ({
+      kind: 'carryover' as const, id: carryover.id, month: carryover.from_month.slice(0, 7), carryover,
+    })),
+  ].sort((a, b) => b.month.localeCompare(a.month) || historyCreatedAt(b).localeCompare(historyCreatedAt(a)));
 
   const historyColumns: DataTableColumn<HistoryRow>[] = [
     {
@@ -591,54 +768,68 @@ export default function MoneyTakenPage() {
       key: 'source',
       header: t('source'),
       className: 'whitespace-nowrap',
-      render: (row) => (
-        <span className="flex flex-col items-start gap-1">
-          <Badge variant="neutral">{t(`sources.${row.withdrawal.source}`)}</Badge>
-          {row.withdrawal.source === 'game_club' ? (
-            <span className={cn('text-xs', row.withdrawal.payment_method ? 'text-gray-600' : 'text-gray-400')}>
-              {row.withdrawal.payment_method ? methodLabel(row.withdrawal.payment_method) : t('unassignedMethod')}
-            </span>
-          ) : null}
-        </span>
-      ),
+      render: (row) => {
+        const entry = row.kind === 'withdrawal' ? row.withdrawal : row.carryover;
+        return (
+          <span className="flex flex-col items-start gap-1">
+            <Badge variant="neutral">{t(`sources.${entry.source}`)}</Badge>
+            {entry.source === 'game_club' ? (
+              <span className={cn('text-xs', entry.payment_method ? 'text-gray-600' : 'text-gray-400')}>
+                {entry.payment_method ? methodLabel(entry.payment_method) : t('unassignedMethod')}
+              </span>
+            ) : null}
+          </span>
+        );
+      },
     },
     {
       key: 'amount',
       header: t('amount'),
       align: 'right',
       className: 'whitespace-nowrap',
-      render: (row) => <span className="font-semibold text-danger-600">−{formatCurrency(row.withdrawal.amount)}</span>,
+      render: (row) => (row.kind === 'withdrawal'
+        ? <span className="font-semibold text-danger-600">−{formatCurrency(row.withdrawal.amount)}</span>
+        : (
+          <span className="flex flex-col items-end gap-1">
+            <span className="font-semibold text-gray-700">{formatCurrency(row.carryover.amount)}</span>
+            <Badge variant="info">{t('carriedTo', { month: formatYearMonth(row.carryover.to_month.slice(0, 7), locale) })}</Badge>
+          </span>
+        )),
     },
     {
       key: 'comment',
       header: t('comment'),
       className: 'min-w-[160px]',
-      render: (row) => (row.withdrawal.comment
-        ? <span className="break-words text-gray-600">{row.withdrawal.comment}</span>
-        : emptyCell),
+      render: (row) => {
+        const comment = row.kind === 'withdrawal' ? row.withdrawal.comment : row.carryover.comment;
+        return comment ? <span className="break-words text-gray-600">{comment}</span> : emptyCell;
+      },
     },
     {
       key: 'recorded',
       header: t('recordedColumn'),
       className: 'whitespace-nowrap',
-      render: (row) => <span className="text-gray-500">{formatDateTime(row.withdrawal.created_at, locale)}</span>,
+      render: (row) => <span className="text-gray-500">{formatDateTime(historyCreatedAt(row), locale)}</span>,
     },
     ...(isOwner ? [{
       key: 'actions',
       header: <span className="sr-only">{tc('actions')}</span>,
       align: 'right' as const,
       className: 'w-14',
-      render: (row: HistoryRow) => (
-        <IconButton
-          variant="danger"
-          size="sm"
-          label={`${tc('delete')}: ${withdrawalSourceLabel(row.withdrawal)} · ${currency(row.withdrawal.amount)}`}
-          icon={<Trash2 size={16} />}
-          loading={deletingId === row.withdrawal.id}
-          disabled={loading || !!error || saving || deletingId !== null}
-          onClick={() => handleDelete(row.withdrawal)}
-        />
-      ),
+      render: (row: HistoryRow) => {
+        const entry = row.kind === 'withdrawal' ? row.withdrawal : row.carryover;
+        return (
+          <IconButton
+            variant="danger"
+            size="sm"
+            label={`${tc('delete')}: ${withdrawalSourceLabel(entry)} · ${currency(entry.amount)}`}
+            icon={<Trash2 size={16} />}
+            loading={deletingId === row.id}
+            disabled={loading || !!error || saving !== null || deletingId !== null}
+            onClick={() => (row.kind === 'withdrawal' ? handleDelete(row.withdrawal) : handleDeleteCarryover(row.carryover))}
+          />
+        );
+      },
     }] : []),
   ];
 
@@ -693,6 +884,12 @@ export default function MoneyTakenPage() {
                   <dt className="text-gray-500">{t('monthlyWithdrawn')}</dt>
                   <dd className={cn('font-semibold tabular-nums', monthlyWithdrawn > 0 ? 'text-danger-600' : 'text-gray-900')}>{formatCurrency(monthlyWithdrawn)}</dd>
                 </div>
+                {monthHasCarryovers ? (
+                  <div className="flex items-baseline gap-2">
+                    <dt className="text-gray-500">{t('carriedColumn')}</dt>
+                    <dd className="font-semibold">{carriedCell(monthlyCarried)}</dd>
+                  </div>
+                ) : null}
               </dl>
             )}
           </div>
@@ -810,16 +1007,37 @@ export default function MoneyTakenPage() {
                   />
                 </Field>
 
-                <Button
-                  type="submit"
-                  fullWidth
-                  disabled={loading || !!error || deletingId !== null || !amountValid}
-                  loading={saving}
-                  loadingLabel={tc('saving')}
-                  icon={<ArrowDownToLine size={18} aria-hidden="true" />}
-                >
-                  {t('recordButton')}
-                </Button>
+                <div className="space-y-2">
+                  <Button
+                    type="submit"
+                    fullWidth
+                    disabled={loading || !!error || deletingId !== null || saving === 'carry' || !amountValid}
+                    loading={saving === 'withdraw'}
+                    loadingLabel={tc('saving')}
+                    icon={<ArrowDownToLine size={18} aria-hidden="true" />}
+                  >
+                    {t('recordButton')}
+                  </Button>
+                  {carryoversSupported ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        fullWidth
+                        disabled={loading || !!error || deletingId !== null || saving === 'withdraw' || !canCarry}
+                        loading={saving === 'carry'}
+                        loadingLabel={tc('saving')}
+                        icon={<CalendarArrowUp size={18} aria-hidden="true" />}
+                        onClick={() => void handleCarry()}
+                      >
+                        {t('carryButtonTo', { month: formatYearMonth(nextYearMonth(form.month), locale) })}
+                      </Button>
+                      <p className="text-xs leading-5 text-gray-500">
+                        {form.source === 'all' ? t('carryChooseSource') : t('carryHint')}
+                      </p>
+                    </>
+                  ) : null}
+                </div>
               </div>
             </Card>
           ) : null}
@@ -828,7 +1046,7 @@ export default function MoneyTakenPage() {
             <CardHeader>
               <SectionHeading title={t('historyTitle')} description={t('historyDescription')} />
             </CardHeader>
-            {error && withdrawals.length === 0 ? null : (
+            {error && historyRows.length === 0 ? null : (
               <DataTable
                 bare
                 dense
@@ -836,7 +1054,7 @@ export default function MoneyTakenPage() {
                 minWidth={isOwner ? 720 : 640}
                 columns={historyColumns}
                 data={historyRows}
-                keyExtractor={(row) => row.withdrawal.id}
+                keyExtractor={(row) => `${row.kind}:${row.id}`}
                 emptyState={<EmptyState compact title={t('noHistory')} />}
               />
             )}

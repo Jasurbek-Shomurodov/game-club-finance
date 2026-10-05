@@ -79,6 +79,16 @@ Game Club available for the month)`; see `gameClubWithdrawalsByMethod` and
 `availableForPaymentMethod` in `ownerProfitSnapshot.ts`. Withdrawals without a
 method (older rows and `all`) are shown as unassigned, never guessed.
 
+Unwithdrawn profit can be moved into the next calendar month
+(`owner_profit_carryovers`, migration 071) through
+`carry_owner_profit_to_next_month`; Game Club moves name a payment method and
+land in the same method. A carryover is neither earnings nor a withdrawal:
+reported earnings and withdrawn totals (including salary KPI on owner
+withdrawals) are unchanged, while `available` becomes
+`earned + carried in - carried out - withdrawn`
+(`applyOwnerProfitCarryovers`). `delete_owner_profit_carryover` refuses when the
+next month has already withdrawn or moved that money.
+
 ## Debts
 
 - New debts begin unpaid with `paid_amount = 0` and the full amount remaining.

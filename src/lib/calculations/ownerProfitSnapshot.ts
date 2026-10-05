@@ -1,10 +1,13 @@
 import {
   OWNER_WITHDRAWAL_PAYMENT_METHODS,
+  type OwnerProfitCarryover,
   type OwnerWithdrawal,
   type OwnerWithdrawalPaymentMethod,
+  type OwnerWithdrawalSource,
 } from '../../types';
 import {
   sumAvailableMoneyResults,
+  type AvailableSourceBalance,
   type AvailableMoneyByMonth,
   type AvailableMoneyResult,
 } from './availableMoney';
@@ -92,6 +95,8 @@ export interface PaymentMethodWithdrawalBalance {
   method: OwnerWithdrawalPaymentMethod;
   /** Game Club money left in this method after operating expenses, before withdrawals. */
   earned: number;
+  /** Net money carried into this month (positive) or on to the next month (negative). */
+  carried: number;
   withdrawn: number;
   available: number;
 }
@@ -110,7 +115,9 @@ export function gameClubWithdrawalsByMethod(
   balances: MoneyLeftByPaymentMethod,
   withdrawals: readonly OwnerWithdrawal[],
   month: string,
+  carryovers: readonly OwnerProfitCarryover[] = [],
 ): GameClubWithdrawalsByMethod {
+  const { byMethod } = carryoversForMonth(carryovers, month);
   const withdrawn = Object.fromEntries(
     OWNER_WITHDRAWAL_PAYMENT_METHODS.map((method) => [method, 0]),
   ) as Record<OwnerWithdrawalPaymentMethod, number>;
@@ -126,7 +133,8 @@ export function gameClubWithdrawalsByMethod(
   return {
     methods: OWNER_WITHDRAWAL_PAYMENT_METHODS.map((method) => {
       const earned = Number(balances[method] ?? 0);
-      return { method, earned, withdrawn: withdrawn[method], available: earned - withdrawn[method] };
+      const carried = byMethod[method];
+      return { method, earned, carried, withdrawn: withdrawn[method], available: earned + carried - withdrawn[method] };
     }),
     unassignedWithdrawn,
   };
@@ -135,4 +143,73 @@ export function gameClubWithdrawalsByMethod(
 /** What can still be taken from one method: never more than the Game Club month balance. */
 export function availableForPaymentMethod(methodAvailable: number, gameClubAvailable: number): number {
   return Math.max(0, Math.min(methodAvailable, gameClubAvailable));
+}
+
+export interface MonthCarryovers {
+  /** Net carried per source: money in from the previous month minus money on to the next. */
+  bySource: Record<OwnerWithdrawalSource, number>;
+  /** Net carried per Game Club payment method. */
+  byMethod: Record<OwnerWithdrawalPaymentMethod, number>;
+}
+
+/** Net carryovers touching one YYYY-MM month: incoming adds, outgoing subtracts. */
+export function carryoversForMonth(
+  carryovers: readonly OwnerProfitCarryover[],
+  month: string,
+): MonthCarryovers {
+  const bySource: Record<OwnerWithdrawalSource, number> = { game_club: 0, bar: 0 };
+  const byMethod = Object.fromEntries(
+    OWNER_WITHDRAWAL_PAYMENT_METHODS.map((method) => [method, 0]),
+  ) as Record<OwnerWithdrawalPaymentMethod, number>;
+
+  for (const row of carryovers) {
+    const sign = row.to_month.slice(0, 7) === month ? 1 : row.from_month.slice(0, 7) === month ? -1 : 0;
+    if (sign === 0) continue;
+    const amount = sign * Number(row.amount ?? 0);
+    bySource[row.source] += amount;
+    if (row.source === 'game_club' && row.payment_method && row.payment_method in byMethod) {
+      byMethod[row.payment_method] += amount;
+    }
+  }
+
+  return { bySource, byMethod };
+}
+
+function withCarried(balance: AvailableSourceBalance, carried: number): AvailableSourceBalance {
+  const available = balance.available + carried;
+  return { ...balance, available, overdrawnBy: Math.max(0, -available) };
+}
+
+/**
+ * Applies carryovers to independent month balances. Earnings and withdrawals
+ * stay as recorded; only what is left to take moves between months. Months
+ * after `throughMonth` (YYYY-MM) are left out, like future withdrawals.
+ */
+export function applyOwnerProfitCarryovers(
+  byMonth: AvailableMoneyByMonth,
+  carryovers: readonly OwnerProfitCarryover[],
+  throughMonth?: string,
+): AvailableMoneyByMonth {
+  const months = new Set(Object.keys(byMonth));
+  for (const row of carryovers) {
+    months.add(row.from_month.slice(0, 7));
+    months.add(row.to_month.slice(0, 7));
+  }
+
+  const result: AvailableMoneyByMonth = {};
+  for (const month of [...months].sort()) {
+    if (throughMonth !== undefined && month > throughMonth) continue;
+    const base = byMonth[month] ?? sumAvailableMoneyResults([]);
+    const { bySource } = carryoversForMonth(carryovers, month);
+    const gameClub = withCarried(base.gameClub, bySource.game_club);
+    const bar = withCarried(base.bar, bySource.bar);
+    result[month] = {
+      ...base,
+      gameClub,
+      bar,
+      totalAvailable: gameClub.available + bar.available,
+      hasOverWithdrawal: gameClub.overdrawnBy > 0 || bar.overdrawnBy > 0 || base.invalidWithdrawals.length > 0,
+    };
+  }
+  return result;
 }

@@ -18,6 +18,7 @@ migrations.
 | `new_debts` | Debt principal ledger | Append-only to application users. |
 | `debt_payments` | Debt collection ledger | Append-only; trigger updates parent. |
 | `owner_withdrawals` | Monthly/source withdrawals; Game Club rows may name a `payment_method` (066) | Insert through `withdraw_owner_money_for_month` or `withdraw_owner_game_club_money_by_method`. |
+| `owner_profit_carryovers` | Unwithdrawn profit moved from `from_month` to the next month (071) | Select only; write through `carry_owner_profit_to_next_month` and `delete_owner_profit_carryover`. |
 | `telegram_report_deliveries` | Service-only delivery state | Never expose to browser roles. |
 
 Retired read-only ledgers: `income_transactions`, `expense_transactions`, and
@@ -171,6 +172,14 @@ trigger still caps the overall Game Club month. Older rows stay unassigned and
 are never reclassified. The 050/051 function bodies tracked by migration health
 are unchanged. Owner Profit reads the column separately and falls back to
 source-only withdrawals when it is missing.
+
+Migration 071 adds `owner_profit_carryovers` and redefines the internal helpers
+`owner_source_earned_for_month` and `owner_payment_method_earned_for_month` to
+add money carried in and subtract money carried out, so the unchanged 051/066
+withdrawal triggers and RPCs respect carryovers. The 050/051 bodies tracked by
+migration health are untouched; `get_owner_profit_snapshot` does not include
+carryovers, so Owner Profit reads the table separately and treats a missing
+table as no carryovers.
 
 Migration 068 fixes expense categories to `rent, salary, electricity, internet, repair, cleaning, food_drinks, marketing, equipment, tax, correction, discount, other` (`src/lib/expenseCategories.ts`, with a `expenses_category_known` check and validation in `POST /api/expenses`). Earlier free-text categories were remapped; the original text was moved into the start of the expense comment. Do not reintroduce user-defined categories; add a new key to the list, all three message files and the Telegram labels instead.
 
