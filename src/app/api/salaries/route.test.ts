@@ -74,6 +74,26 @@ describe('POST /api/salaries', () => {
     expect(mocks.sendTelegramMessage).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    ['bonus', '🎁 Премия'],
+    ['fine', '⚠️ Штраф'],
+  ])('records a %s and notifies the club group without payment details', async (kind, title) => {
+    const { rpc } = mockSupabase();
+    const response = await post({ action: 'record_entry', clubId: CLUB, employeeId: EMPLOYEE, requestId: REQUEST, date: '2026-10-01', kind, amount: 50000, comment: 'Late shift', paymentMethod: 'cash', paymentSource: 'bar' });
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('record_salary_entry', expect.objectContaining({ p_kind: kind, p_amount: 50000, p_payment_method: null, p_payment_source: null }));
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledTimes(1);
+    const { chatId, text } = mocks.sendTelegramMessage.mock.calls[0][0];
+    expect(chatId).toBe('-100123');
+    expect(text).toContain(title);
+    expect(text).toContain('Сотрудник: Izzat');
+    expect(text).toContain('Комментарий: Late shift');
+    expect(text).toContain('Добавил(а): Owner Name');
+    expect(text).not.toContain('Источник');
+    expect(text).not.toContain('Способ оплаты');
+    expect((await response.json()).notificationSent).toBe(true);
+  });
+
   it('returns the database error and skips Telegram when the write fails', async () => {
     mockSupabase({ rpcError: { message: 'Only a club owner can change payroll terms.', code: '42501' } });
     const response = await post({ action: 'change_term', clubId: CLUB, employeeId: EMPLOYEE, kind: 'kpi', amount: 5 });
