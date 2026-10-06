@@ -64,6 +64,9 @@ interface TeamMembership {
 
 interface TeamMember extends Profile {
   memberships: TeamMembership[];
+  /** Has a membership in some club, including inactive clubs not listed here. */
+  hasAnyMembership: boolean;
+  access_rejected_at?: string | null;
 }
 
 interface AccessDraft {
@@ -142,7 +145,7 @@ export default function TeamPageClient() {
         .order('created_at', { ascending: true }),
       supabase
         .from('profiles')
-        .select('id, full_name, email, role, created_at, updated_at')
+        .select('id, full_name, email, role, created_at, updated_at, access_rejected_at')
         .order('full_name', { ascending: true }),
       supabase
         .from('clubs')
@@ -174,8 +177,22 @@ export default function TeamPageClient() {
       setFeatureAccessAvailable(true);
     }
 
-    if (membershipError || profileRes.error || clubRes.error) {
-      console.error('Failed to load team', membershipError ?? profileRes.error ?? clubRes.error);
+    let profileRows = (profileRes.data ?? []) as Array<Profile & { access_rejected_at?: string | null }>;
+    let profileError = profileRes.error;
+
+    // Before 072 there is no rejection mark; every member-less profile is pending.
+    if (isMissingDatabaseColumn(profileRes.error, 'access_rejected_at')) {
+      const fallbackProfileRes = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role, created_at, updated_at')
+        .order('full_name', { ascending: true });
+      if (requestId !== requestSequence.current) return;
+      profileRows = (fallbackProfileRes.data ?? []) as typeof profileRows;
+      profileError = fallbackProfileRes.error;
+    }
+
+    if (membershipError || profileError || clubRes.error) {
+      console.error('Failed to load team', membershipError ?? profileError ?? clubRes.error);
       setError(t('loadError'));
       setProfiles([]);
       setClubs([]);
@@ -186,6 +203,7 @@ export default function TeamPageClient() {
     const clubRows = ((clubRes.data as Club[] | null) ?? []);
     const clubById = new Map(clubRows.map((club) => [club.id, club]));
     const membershipsByUser = new Map<string, TeamMembership[]>();
+    const usersWithAnyMembership = new Set(membershipRows.map((membership) => membership.user_id));
 
     for (const membership of membershipRows) {
       const club = clubById.get(membership.club_id);
@@ -205,9 +223,10 @@ export default function TeamPageClient() {
       userMemberships.sort((a, b) => a.clubName.localeCompare(b.clubName));
     }
 
-    const teamRows = ((profileRes.data as Profile[] | null) ?? []).map((profile) => ({
+    const teamRows = profileRows.map((profile) => ({
       ...profile,
       memberships: membershipsByUser.get(profile.id) ?? [],
+      hasAnyMembership: usersWithAnyMembership.has(profile.id),
     }));
 
     setClubs(clubRows);
@@ -284,7 +303,9 @@ export default function TeamPageClient() {
   }, [authorized, loadProfiles]);
 
   const pendingProfiles = useMemo(
-    () => profiles.filter((profile) => profile.memberships.length === 0),
+    // A request is someone with no club access at all; access to an inactive
+    // club still counts, and the server refuses to reject such a person.
+    () => profiles.filter((profile) => !profile.hasAnyMembership && !profile.access_rejected_at),
     [profiles],
   );
 
@@ -501,6 +522,11 @@ export default function TeamPageClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: profile.id }),
       });
+      if (response.status === 409) {
+        showError(t('rejectHasAccess'));
+        await loadProfiles({ silent: true });
+        return;
+      }
       if (!response.ok) throw new Error(`Reject failed: ${response.status}`);
       showToast(t('rejected'));
       await loadProfiles({ silent: true });

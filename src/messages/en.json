@@ -765,9 +765,10 @@
     "everything": "Everything",
     "reject": "Reject",
     "rejectTitle": "Reject request?",
-    "rejectDescription": "{name} will be removed and will not get access. They can sign in again later to send a new request.",
+    "rejectDescription": "{name} will not get access to any club and the request will be removed.",
     "rejected": "Request rejected",
-    "rejectError": "Could not reject the request. Try again."
+    "rejectError": "Could not reject the request. Try again.",
+    "rejectHasAccess": "This person already has access to a club, so the request cannot be rejected."
   },
   "approval": {
     "title": "Waiting for owner approval",

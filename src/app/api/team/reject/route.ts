@@ -13,6 +13,10 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * and a fresh request appears. Only club owners may reject, and only people
  * with no memberships anywhere, so an active teammate can never be removed
  * through this route.
+ *
+ * A former teammate's account is still referenced by the records they created,
+ * so the delete is refused. Their profile is marked rejected instead (072),
+ * which hides the request and keeps that history intact.
  */
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -42,11 +46,21 @@ export async function POST(request: Request) {
     .limit(1);
   if (membershipError) return Response.json({ error: membershipError.message }, { status: 400 });
   if (memberships && memberships.length > 0) {
-    return Response.json({ error: 'User already has club access' }, { status: 409 });
+    return Response.json({ error: 'User already has club access', code: 'has_access' }, { status: 409 });
   }
 
   const { error: deleteError } = await service.auth.admin.deleteUser(userId);
-  if (deleteError) return Response.json({ error: deleteError.message }, { status: 400 });
+  if (!deleteError) return Response.json({ ok: true, outcome: 'deleted' });
 
-  return Response.json({ ok: true });
+  const { data: rejected, error: rejectError } = await service
+    .from('profiles')
+    .update({ access_rejected_at: new Date().toISOString(), access_rejected_by: user.id })
+    .eq('id', userId)
+    .select('id');
+  if (rejectError || !rejected || rejected.length === 0) {
+    console.error('Failed to reject access request', deleteError, rejectError);
+    return Response.json({ error: deleteError.message }, { status: 400 });
+  }
+
+  return Response.json({ ok: true, outcome: 'hidden' });
 }

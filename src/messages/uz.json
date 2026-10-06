@@ -765,9 +765,10 @@
     "everything": "Hammasi",
     "reject": "Rad etish",
     "rejectTitle": "So‘rov rad etilsinmi?",
-    "rejectDescription": "{name} o‘chiriladi va ruxsat olmaydi. Keyinroq u qayta kirib, yangi so‘rov yuborishi mumkin.",
+    "rejectDescription": "{name} hech qaysi klubga ruxsat olmaydi va so‘rov o‘chiriladi.",
     "rejected": "So‘rov rad etildi",
-    "rejectError": "So‘rovni rad etib bo‘lmadi. Qayta urinib ko‘ring."
+    "rejectError": "So‘rovni rad etib bo‘lmadi. Qayta urinib ko‘ring.",
+    "rejectHasAccess": "Bu odamda allaqachon klubga ruxsat bor, shuning uchun so‘rovni rad etib bo‘lmaydi."
   },
   "approval": {
     "title": "Owner tasdig'i kutilmoqda",
