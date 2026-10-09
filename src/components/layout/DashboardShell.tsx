@@ -20,6 +20,7 @@ import {
   type FeatureKey,
 } from '@/lib/permissions';
 import { normalizeBusinessDayStartHour } from '@/lib/utils';
+import { useLatestRef } from '@/components/i18n/useLatestRef';
 
 interface DashboardShellProps {
   initialEmail?: string;
@@ -145,6 +146,7 @@ export function DashboardShell({
   const pathname = usePathname();
   const tc = useTranslations('common');
   const tn = useTranslations('nav');
+  const tnRef = useLatestRef(tn);
   const initialMemberships = useMemo(() => membershipOptions(initialMembershipRows), [initialMembershipRows]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileRole, setProfileRole] = useState<UserRole>(initialProfileRole);
@@ -297,13 +299,13 @@ export function DashboardShell({
 
     let cancelled = false;
     refreshClubs().catch(() => {
-      if (!cancelled) setShellError(tn('shellLoadError'));
+      if (!cancelled) setShellError(tnRef.current('shellLoadError'));
     });
 
     return () => {
       cancelled = true;
     };
-  }, [initialMembershipRows.length, refreshClubs, tn]);
+  }, [initialMembershipRows.length, refreshClubs, tnRef]);
 
   useEffect(() => {
     // Route changed: clear the pending indicator, close the drawer (also on

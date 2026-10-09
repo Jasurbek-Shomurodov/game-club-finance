@@ -74,6 +74,7 @@ import {
   ShoppingCart,
 } from 'lucide-react';
 import type { Product } from '@/types';
+import { useLatestRef } from '@/components/i18n/useLatestRef';
 
 interface PurchaseQuantity {
   product_id: string;
@@ -270,6 +271,7 @@ interface DateSelection {
 
 export default function ClosingStockPage() {
   const t = useTranslations('closingStock');
+  const tRef = useLatestRef(t);
   const tc = useTranslations('common');
   const { locale } = useAppLocale();
   const { selectedClubId, selectedClub, role: currentRole, businessDayStartHour } = useClub();
@@ -334,7 +336,7 @@ export default function ClosingStockPage() {
     const requestId = ++requestSequence.current;
     const isCurrent = () => requestId === requestSequence.current;
     const fail = () => {
-      setLoadError(t('loadFailed'));
+      setLoadError(tRef.current('loadFailed'));
       if (!silent) setRows([]);
       setLoading(false);
       setRefreshing(false);
@@ -449,7 +451,7 @@ export default function ClosingStockPage() {
           const product: Product = {
             id: relation?.id ?? count.product_id,
             club_id: relation?.club_id ?? selectedClubId,
-            name: relation?.name ?? t('unknownProduct'),
+            name: relation?.name ?? tRef.current('unknownProduct'),
             category: relation?.category ?? null,
             sale_price: Number(count.sale_price ?? 0),
             cost_price: Number(count.cost_price ?? 0),
@@ -526,7 +528,7 @@ export default function ClosingStockPage() {
       businessDayStartHour,
       draftMode,
     ) : editableRows, existingCounts.length > 0);
-  }, [buildEditableRows, businessDayStartHour, currentRole, selectedClubId, t, today, usesSoldEntry]);
+  }, [buildEditableRows, businessDayStartHour, currentRole, selectedClubId, today, usesSoldEntry, tRef]);
 
   // Keep "today" current while the page stays open (overnight tabs, sleep).
   // Unsaved edits are never discarded by a day rollover; the clock catches up
@@ -569,12 +571,12 @@ export default function ClosingStockPage() {
     const silent = silentReload.current;
     silentReload.current = false;
     loadData(date, silent).catch(() => {
-      setLoadError(t('loadFailed'));
+      setLoadError(tRef.current('loadFailed'));
       setLoading(false);
       setRefreshing(false);
     });
     return () => { requestSequence.current += 1; };
-  }, [date, loadData, reloadKey, t]);
+  }, [date, loadData, reloadKey, tRef]);
 
   useEffect(() => {
     if (!selectedCategory) return;
@@ -1012,7 +1014,7 @@ export default function ClosingStockPage() {
                       <th className={`${stickyHeaderCellClass} text-right`}>{t('costBasis')}<br /><span className="text-gray-400">({tc('currency')})</span></th>
                       <th className={`${stickyHeaderCellClass} text-center`} title={t('openingStockHint')}>{t('previousStock')}<br /><span className="text-gray-400">({t('pcs')})</span></th>
                       <th className={`${addedTodayHeaderCellClass} text-center`}>{t('addedToday')}<br /><span className="text-gray-400">({t('pcs')})</span></th>
-                      <th className={`${stickyHeaderCellClass} min-w-[190px] text-center`}>
+                      <th className={`${stickyHeaderCellClass} min-w-[150px] text-center`}>
                         {t('adjustment')}
                         <br />
                         <span className="text-gray-400">({t('pcs')})</span>
@@ -1062,9 +1064,9 @@ export default function ClosingStockPage() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-4 text-right font-medium tabular-nums text-gray-900">{formatCurrency(row.product.sale_price)}</td>
+                          <td className="whitespace-nowrap px-4 py-4 text-right font-medium tabular-nums text-gray-900">{formatCurrency(row.product.sale_price)}</td>
                           <td className="px-4 py-4 text-right">
-                            <p className="font-medium tabular-nums text-gray-900">{formatUnitCurrency(row.product.cost_price)}</p>
+                            <p className="whitespace-nowrap font-medium tabular-nums text-gray-900">{formatUnitCurrency(row.product.cost_price)}</p>
                             <p className="mt-1 text-xs text-gray-500">
                               {!tracksInventory
                                 ? t('notIncludedInStockValue')
@@ -1098,7 +1100,7 @@ export default function ClosingStockPage() {
                             {!tracksInventory ? (
                               <p className="text-center font-semibold text-gray-400">—</p>
                             ) : isOwner && !rowReadOnly ? (
-                              <div className="mx-auto w-44 space-y-2">
+                              <div className="mx-auto w-32 space-y-2">
                                 <Input
                                   type="text"
                                   inputMode="numeric"
@@ -1170,8 +1172,8 @@ export default function ClosingStockPage() {
                               <p className="text-center font-semibold text-gray-900">{formatNumber(summary.soldQuantity)}</p>
                             )}
                           </td>
-                          <td className="px-4 py-4 text-right font-medium tabular-nums text-success-600">{formatCurrency(summary.barIncome)}</td>
-                          <td className="px-5 py-4 text-right font-medium tabular-nums text-success-600">{formatCurrency(summary.barProfit)}</td>
+                          <td className="whitespace-nowrap px-4 py-4 text-right font-medium tabular-nums text-success-600">{formatCurrency(summary.barIncome)}</td>
+                          <td className="whitespace-nowrap px-5 py-4 text-right font-medium tabular-nums text-success-600">{formatCurrency(summary.barProfit)}</td>
                         </tr>
                       );
                     })}
@@ -1179,7 +1181,7 @@ export default function ClosingStockPage() {
                       <td className={stickyIndexCellClass} />
                       <td className={stickyProductCellClass}>{t('totalRow', { count: filteredRows.length })}</td>
                       <td className="px-4 py-4" />
-                      <td className="px-4 py-4 text-right">
+                      <td className="whitespace-nowrap px-4 py-4 text-right">
                         <span className="block text-xs font-medium text-gray-500">{t('stockValue')}</span>
                         {formatCurrency(filteredTotals.stockValue)}
                       </td>
@@ -1188,8 +1190,8 @@ export default function ClosingStockPage() {
                       <td className="px-4 py-4 text-center">—</td>
                       <td className="px-4 py-4 text-center">—</td>
                       <td className="px-4 py-4 text-center">{formatNumber(filteredTotals.sold)}</td>
-                      <td className="px-4 py-4 text-right text-success-600">{formatCurrency(filteredTotals.income)}</td>
-                      <td className="px-5 py-4 text-right text-success-600">{formatCurrency(filteredTotals.profit)}</td>
+                      <td className="whitespace-nowrap px-4 py-4 text-right text-success-600">{formatCurrency(filteredTotals.income)}</td>
+                      <td className="whitespace-nowrap px-5 py-4 text-right text-success-600">{formatCurrency(filteredTotals.profit)}</td>
                     </tr>
                   </tbody>
                 </table>

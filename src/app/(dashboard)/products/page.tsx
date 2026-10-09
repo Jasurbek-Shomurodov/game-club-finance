@@ -39,6 +39,7 @@ import { LOW_STOCK_DEFAULT, resolveLowStockThreshold, stockLevel } from '@/lib/c
 import { cn } from '@/lib/utils';
 import { AlertTriangle, ArrowDown, ArrowUp, Check, ListOrdered, Lock, Package, Pencil, Plus, RefreshCcw, Trash2 } from 'lucide-react';
 import type { Product } from '@/types';
+import { useLatestRef } from '@/components/i18n/useLatestRef';
 
 type ProductForm = ProductWriteForm;
 type StockFilter = 'all' | 'low' | 'out' | 'inactive';
@@ -64,6 +65,7 @@ function productCategory(value: string | null | undefined): string {
 
 export default function ProductsPage() {
   const t = useTranslations('products');
+  const tRef = useLatestRef(t);
   const tc = useTranslations('common');
   const { selectedClubId, role: currentRole } = useClub();
   const { showToast, toastElement } = useToast();
@@ -141,18 +143,18 @@ export default function ProductsPage() {
       .eq('club_id', selectedClubId)
       .order('name', { ascending: true });
 
-    if (fallback.error) return finish(silent ? null : [], t('loadFailed'));
+    if (fallback.error) return finish(silent ? null : [], tRef.current('loadFailed'));
     finish((fallback.data ?? []) as Product[]);
-  }, [selectedClubId, t]);
+  }, [selectedClubId, tRef]);
 
   useEffect(() => {
     loadProducts().catch(() => {
       setProducts([]);
-      setLoadError(t('loadFailed'));
+      setLoadError(tRef.current('loadFailed'));
       setLoading(false);
     });
     return () => { requestSequence.current += 1; };
-  }, [loadProducts, t]);
+  }, [loadProducts, tRef]);
 
   // An open editor belongs to the previous club's product; never save it
   // against the newly selected club.

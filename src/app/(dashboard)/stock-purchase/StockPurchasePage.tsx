@@ -64,6 +64,7 @@ import {
 } from 'lucide-react';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
 import type { EntryPaymentMethod, Product, StockPurchase } from '@/types';
+import { useLatestRef } from '@/components/i18n/useLatestRef';
 
 const PURCHASES_PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -115,6 +116,7 @@ async function fetchActiveProductsOrdered(supabase: ReturnType<typeof createClie
 
 export default function StockPurchasePage() {
   const t = useTranslations('stockPurchase');
+  const tRef = useLatestRef(t);
   const tc = useTranslations('common');
   const { selectedClubId, businessDayStartHour, enabledPaymentMethods, role } = useClub();
   const canWrite = role === 'owner' || role === 'admin';
@@ -194,7 +196,7 @@ export default function StockPurchasePage() {
       setProductsLoading(false);
 
       if (productsRes.error) {
-        setProductsError(t('productsLoadFailed'));
+        setProductsError(tRef.current('productsLoadFailed'));
         return;
       }
 
@@ -203,9 +205,9 @@ export default function StockPurchasePage() {
     } catch {
       if (!isCurrent()) return;
       setProductsLoading(false);
-      setProductsError(t('productsLoadFailed'));
+      setProductsError(tRef.current('productsLoadFailed'));
     }
-  }, [selectedClubId, t]);
+  }, [selectedClubId, tRef]);
 
   const loadPurchases = useCallback(async (page: number) => {
     const requestId = ++purchaseRequest.current;
@@ -246,14 +248,14 @@ export default function StockPurchasePage() {
     setPurchasesLoading(false);
 
     if (purchasesError) {
-      setPurchasesError(t('purchasesLoadFailed'));
+      setPurchasesError(tRef.current('purchasesLoadFailed'));
       return;
     }
 
     setPurchasesError('');
     setPurchases((data as PurchaseWithProduct[]) ?? []);
     setPurchaseCount(count ?? 0);
-  }, [debouncedQuery, matchingProductKey, selectedClubId, t]);
+  }, [debouncedQuery, matchingProductKey, selectedClubId, tRef]);
 
   // A different club has different products: never carry a product, prices or
   // comment from the previous club into this form.
@@ -288,10 +290,10 @@ export default function StockPurchasePage() {
   useEffect(() => {
     loadPurchases(purchasePage).catch(() => {
       setPurchasesLoading(false);
-      setPurchasesError(t('purchasesLoadFailed'));
+      setPurchasesError(tRef.current('purchasesLoadFailed'));
     });
     return () => { purchaseRequest.current += 1; };
-  }, [loadPurchases, purchasePage, t]);
+  }, [loadPurchases, purchasePage, tRef]);
 
   const selectedProduct = products.find((product) => product.id === form.product_id) ?? null;
   const quantity = parseQuantity(form.quantity);

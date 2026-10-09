@@ -28,6 +28,7 @@ import { normalizePaymentMethods } from '@/lib/paymentMethods';
 import { normalizeBusinessDayStartHour } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { PAYMENT_METHODS, type EntryPaymentMethod, type UserRole } from '@/types';
+import { useLatestRef } from '@/components/i18n/useLatestRef';
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 
@@ -52,6 +53,7 @@ function SettingRow({ id, title, help, children }: { id: string; title: string; 
 
 export function SettingsPageClient() {
   const t = useTranslations('settings');
+  const tRef = useLatestRef(t);
   const tc = useTranslations('common');
   const tRoles = useTranslations('team.roles');
   const { memberships, role: clubRole, selectedClub, setSelectedClubId, refreshClubs } = useClub();
@@ -108,7 +110,7 @@ export function SettingsPageClient() {
       .catch((loadError) => {
         if (!cancelled) {
           console.error('Failed to load account', loadError);
-          setAccountLoadError(t('accountLoadError'));
+          setAccountLoadError(tRef.current('accountLoadError'));
         }
       })
       .finally(() => {
@@ -118,7 +120,7 @@ export function SettingsPageClient() {
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, [tRef]);
 
   useEffect(() => {
     setBusinessDayStartHour(normalizeBusinessDayStartHour(selectedClub?.business_day_start_hour));

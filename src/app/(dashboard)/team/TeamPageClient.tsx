@@ -52,6 +52,7 @@ import {
   updateFeatureAccessSelection,
   type FeatureKey,
 } from '@/lib/permissions';
+import { useLatestRef } from '@/components/i18n/useLatestRef';
 
 const ROLES: UserRole[] = ['owner', 'admin', 'viewer'];
 
@@ -88,6 +89,7 @@ const ROLE_BADGE_VARIANT: Record<UserRole, BadgeVariant> = {
 export default function TeamPageClient() {
   const router = useRouter();
   const t = useTranslations('team');
+  const tRef = useLatestRef(t);
   const tc = useTranslations('common');
   const { locale } = useAppLocale();
   const { selectedClubId, role: currentClubRole, loading: clubLoading, memberships: currentMemberships, refreshClubs } = useClub();
@@ -193,7 +195,7 @@ export default function TeamPageClient() {
 
     if (membershipError || profileError || clubRes.error) {
       console.error('Failed to load team', membershipError ?? profileError ?? clubRes.error);
-      setError(t('loadError'));
+      setError(tRef.current('loadError'));
       setProfiles([]);
       setClubs([]);
       setLoading(false);
@@ -232,7 +234,7 @@ export default function TeamPageClient() {
     setClubs(clubRows);
     setProfiles(teamRows);
     setLoading(false);
-  }, [t]);
+  }, [tRef]);
 
   const loadProfiles = useCallback(async ({ silent = false } = {}) => {
     const requestId = ++requestSequence.current;
@@ -250,10 +252,10 @@ export default function TeamPageClient() {
     } catch (loadError) {
       if (requestId !== requestSequence.current) return;
       console.error('Failed to load team', loadError);
-      setError(t('loadError'));
+      setError(tRef.current('loadError'));
       setLoading(false);
     }
-  }, [fetchProfiles, selectedClubId, t]);
+  }, [fetchProfiles, selectedClubId, tRef]);
 
 
   useEffect(() => {
@@ -286,7 +288,7 @@ export default function TeamPageClient() {
     authorize().catch((err) => {
       if (cancelled) return;
       console.error('Failed to authorize team page', err);
-      setError(t('loadError'));
+      setError(tRef.current('loadError'));
       setAuthorized(false);
       setAccessDenied(false);
     });
@@ -294,7 +296,7 @@ export default function TeamPageClient() {
     return () => {
       cancelled = true;
     };
-  }, [clubLoading, currentClubRole, router, t]);
+  }, [clubLoading, currentClubRole, router, tRef]);
 
   useEffect(() => {
     if (!authorized) return;

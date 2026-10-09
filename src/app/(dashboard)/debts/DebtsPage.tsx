@@ -37,6 +37,7 @@ import { getDebtDateIssue, validateDebtPayment } from '@/lib/validation';
 import { AlertTriangle, Plus, RefreshCw, Users, Wallet } from 'lucide-react';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
 import type { NewDebt, DebtPayment, EntryPaymentMethod } from '@/types';
+import { useLatestRef } from '@/components/i18n/useLatestRef';
 
 type DebtStatusVariant = 'danger' | 'warning' | 'success';
 
@@ -53,6 +54,7 @@ function remainingFor(debt: Pick<NewDebt, 'amount' | 'paid_amount'>): number {
 
 export default function DebtsPage() {
   const t = useTranslations('debts');
+  const tRef = useLatestRef(t);
   const tc = useTranslations('common');
   const { selectedClubId, businessDayStartHour, enabledPaymentMethods, role } = useClub();
   const { locale } = useAppLocale();
@@ -133,7 +135,7 @@ export default function DebtsPage() {
       if (requestId !== requestSequence.current) return;
       if (fetchError) {
         console.error('Failed to load debts', fetchError);
-        setLoadError(t('loadError'));
+        setLoadError(tRef.current('loadError'));
         setLoading(false);
         return;
       }
@@ -143,10 +145,10 @@ export default function DebtsPage() {
     } catch (fetchError) {
       if (requestId !== requestSequence.current) return;
       console.error('Failed to load debts', fetchError);
-      setLoadError(t('loadError'));
+      setLoadError(tRef.current('loadError'));
       setLoading(false);
     }
-  }, [selectedClubId, t]);
+  }, [selectedClubId, tRef]);
 
   useEffect(() => {
     void fetchDebts();
