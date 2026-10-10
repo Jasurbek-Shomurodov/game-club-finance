@@ -159,28 +159,39 @@ export async function DELETE(request: Request) {
   if (!expense) return Response.json({ error: 'Expense not found' }, { status: 404 });
 
   if (expense.salary_entry_id) {
-    return Response.json({ error: 'Salary payments cannot be deleted.', code: 'SALARY_PAYMENT_IMMUTABLE' }, { status: 409 });
+    // Payroll-linked expenses are only removable through the audited RPC, which
+    // soft-deletes the salary entry and removes the linked expense atomically.
+    const { error: salaryError } = await supabase.rpc('delete_salary_record', {
+      p_club_id: body.clubId,
+      p_id: expense.salary_entry_id,
+      p_kind: 'entry',
+    });
+    if (salaryError) {
+      console.error('[expenses] salary payment deletion failed', { clubId: body.clubId, expenseId: body.expenseId, error: salaryError.message });
+      return Response.json({ error: salaryError.message }, { status: 400 });
+    }
+    return Response.json({ deleted: true });
   }
 
+  // Telegram cleanup is best-effort: the bot cannot remove messages older than
+  // 48 hours (or ones it lost access to), and that must never stop the owner
+  // from deleting the ledger entry itself.
   if (expense.telegram_chat_id && expense.telegram_message_id) {
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    if (!botToken) {
-      return Response.json({ error: 'Telegram deletion is not configured' }, { status: 503 });
-    }
-
-    try {
-      await deleteTelegramMessage({
-        botToken,
-        chatId: expense.telegram_chat_id,
-        messageId: Number(expense.telegram_message_id),
-      });
-    } catch (telegramError) {
-      console.error('[telegram/expense] message deletion failed', {
-        clubId: body.clubId,
-        expenseId: body.expenseId,
-        error: telegramError instanceof Error ? telegramError.message : String(telegramError),
-      });
-      return Response.json({ error: 'Could not delete the corresponding Telegram message' }, { status: 502 });
+    if (botToken) {
+      try {
+        await deleteTelegramMessage({
+          botToken,
+          chatId: expense.telegram_chat_id,
+          messageId: Number(expense.telegram_message_id),
+        });
+      } catch (telegramError) {
+        console.error('[telegram/expense] message deletion failed', {
+          clubId: body.clubId,
+          expenseId: body.expenseId,
+          error: telegramError instanceof Error ? telegramError.message : String(telegramError),
+        });
+      }
     }
   }
 
@@ -190,6 +201,9 @@ export async function DELETE(request: Request) {
     .eq('club_id', body.clubId)
     .eq('id', body.expenseId);
 
-  if (deleteError) return Response.json({ error: deleteError.message }, { status: 400 });
+  if (deleteError) {
+    console.error('[expenses] deletion failed', { clubId: body.clubId, expenseId: body.expenseId, error: deleteError.message });
+    return Response.json({ error: deleteError.message }, { status: 400 });
+  }
   return Response.json({ deleted: true });
 }

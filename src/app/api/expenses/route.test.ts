@@ -58,6 +58,7 @@ function mockSupabase(expense: {
   const membershipQuery = queryResult({ role: 'owner' });
   const expenseQuery = queryResult(expense);
   const deleteQuery = queryResult(null);
+  const rpc = vi.fn().mockResolvedValue({ error: null });
   let expenseCall = 0;
   const from = vi.fn((table: string) => {
     if (table === 'club_memberships') return membershipQuery;
@@ -67,8 +68,9 @@ function mockSupabase(expense: {
   mocks.createClient.mockResolvedValue({
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }) },
     from,
+    rpc,
   });
-  return { deleteQuery };
+  return { deleteQuery, rpc };
 }
 
 describe('expense deletion route', () => {
@@ -99,7 +101,7 @@ describe('expense deletion route', () => {
     );
   });
 
-  it('keeps the expense when Telegram refuses deletion', async () => {
+  it('still deletes the expense when Telegram refuses deletion', async () => {
     const { deleteQuery } = mockSupabase({
       id: EXPENSE_ID,
       telegram_chat_id: '-1001',
@@ -110,15 +112,15 @@ describe('expense deletion route', () => {
 
     const response = await DELETE(deleteRequest());
 
-    expect(response.status).toBe(502);
-    expect(deleteQuery.delete).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(deleteQuery.delete).toHaveBeenCalledOnce();
   });
 
-  it('protects payroll payments before attempting Telegram or expense deletion', async () => {
-    const { deleteQuery } = mockSupabase({ id: EXPENSE_ID, salary_entry_id: 'salary-entry', telegram_chat_id: '-1001', telegram_message_id: 42 });
+  it('deletes payroll payments through the audited salary RPC', async () => {
+    const { deleteQuery, rpc } = mockSupabase({ id: EXPENSE_ID, salary_entry_id: 'salary-entry', telegram_chat_id: '-1001', telegram_message_id: 42 });
     const response = await DELETE(deleteRequest());
-    expect(response.status).toBe(409);
-    expect(mocks.deleteTelegramMessage).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('delete_salary_record', { p_club_id: CLUB_ID, p_id: 'salary-entry', p_kind: 'entry' });
     expect(deleteQuery.delete).not.toHaveBeenCalled();
   });
 
