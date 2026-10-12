@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
+import { backdropMotion, sheetMotion, useHeldWhileClosing, usePresence } from './motion';
 
 type ModalSize = 'sm' | 'md' | 'lg' | 'xl';
 
@@ -84,7 +85,9 @@ export function trapFocus(event: KeyboardEvent, container: HTMLElement | null) {
 
 /**
  * Accessible dialog: bottom sheet on phones, centered card on larger screens.
- * Handles Escape, backdrop click, body scroll lock, and initial focus.
+ * Handles Escape, backdrop click, body scroll lock, and initial focus. It
+ * slides up (phones) or fades and scales in, and plays the reverse on close
+ * while still showing its last open content.
  */
 export function Modal({
   open,
@@ -104,6 +107,8 @@ export function Modal({
   const descriptionId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const layerId = useModalLayer(open);
+  const { mounted, visible } = usePresence(open);
+  const content = useHeldWhileClosing(open, { title, description, footer, children });
   const onCloseRef = useRef(onClose);
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -141,34 +146,42 @@ export function Modal({
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [layerId, locked, open]);
 
-  if (!open) return null;
+  if (!mounted) return null;
 
   function requestClose() {
-    if (!locked) onClose();
+    if (open && !locked) onClose();
   }
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onMouseDown={requestClose} aria-hidden="true" />
+    <div
+      className={cn('fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-4', !open && 'pointer-events-none')}
+      aria-hidden={!open || undefined}
+    >
+      <div
+        className={cn('absolute inset-0 bg-black/40 backdrop-blur-[2px]', backdropMotion(visible))}
+        onMouseDown={requestClose}
+        aria-hidden="true"
+      />
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={title ? titleId : ariaLabelledBy}
-        aria-describedby={description ? descriptionId : undefined}
+        aria-labelledby={content.title ? titleId : ariaLabelledBy}
+        aria-describedby={content.description ? descriptionId : undefined}
         aria-busy={locked || undefined}
         tabIndex={-1}
         className={cn(
           'relative z-10 flex max-h-[calc(100dvh-1rem)] w-full flex-col overflow-hidden rounded-t-2xl bg-surface shadow-pop outline-none sm:rounded-2xl',
           sizeClasses[size],
+          sheetMotion(visible),
           className,
         )}
       >
-        {(title || description) && (
+        {(content.title || content.description) && (
           <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 sm:px-6">
             <div className="min-w-0">
-              {title && <h2 id={titleId} className="text-lg font-bold tracking-tight text-gray-950">{title}</h2>}
-              {description && <p id={descriptionId} className="mt-1 text-sm text-gray-500">{description}</p>}
+              {content.title && <h2 id={titleId} className="text-lg font-bold tracking-tight text-gray-950">{content.title}</h2>}
+              {content.description && <p id={descriptionId} className="mt-1 text-sm text-gray-500">{content.description}</p>}
             </div>
             <button
               type="button"
@@ -182,10 +195,10 @@ export function Modal({
             </button>
           </div>
         )}
-        <div className={cn('min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6', bodyClassName)}>{children}</div>
-        {footer && (
+        <div className={cn('min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6', bodyClassName)}>{content.children}</div>
+        {content.footer && (
           <div className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-gray-50/80 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:px-6">
-            {footer}
+            {content.footer}
           </div>
         )}
       </div>

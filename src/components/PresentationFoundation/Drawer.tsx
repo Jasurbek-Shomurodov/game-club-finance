@@ -1,13 +1,11 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import { isTopModal, trapFocus, useModalLayer } from './Modal';
-
-/** Matches the panel's `duration-300`; the drawer stays mounted this long after closing. */
-const EXIT_MS = 300;
+import { backdropMotion, slideMotion, usePresence } from './motion';
 
 export interface DrawerProps {
   open: boolean;
@@ -53,11 +51,7 @@ export function Drawer({
   const titleId = useId();
   const descriptionId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
-  // `mounted` keeps the DOM during the exit transition; `shown` drives the CSS state.
-  const [mounted, setMounted] = useState(open);
-  const [shown, setShown] = useState(false);
-  if (open && !mounted) setMounted(true);
-  const visible = open && shown;
+  const { mounted, visible } = usePresence(open);
   const layerId = useModalLayer(open);
   const onCloseRef = useRef(onClose);
   useEffect(() => {
@@ -65,26 +59,7 @@ export function Drawer({
   });
 
   useEffect(() => {
-    if (open) {
-      // Two frames: the closed state must paint once before the transition can run.
-      let second = 0;
-      const first = requestAnimationFrame(() => {
-        second = requestAnimationFrame(() => setShown(true));
-      });
-      return () => {
-        cancelAnimationFrame(first);
-        cancelAnimationFrame(second);
-      };
-    }
-    const timer = window.setTimeout(() => {
-      setMounted(false);
-      setShown(false);
-    }, EXIT_MS);
-    return () => window.clearTimeout(timer);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open || !mounted) return;
+    if (!open) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const previouslyFocused = document.activeElement as HTMLElement | null;
@@ -106,19 +81,14 @@ export function Drawer({
       document.body.style.overflow = previousOverflow;
       previouslyFocused?.focus?.({ preventScroll: true });
     };
-  }, [layerId, mounted, open]);
+  }, [layerId, open]);
 
   if (!mounted) return null;
-
-  const hiddenTransform = side === 'left' ? '-translate-x-full' : 'translate-x-full';
 
   return (
     <div className={cn('fixed inset-0 z-[60]', !open && 'pointer-events-none', className)}>
       <div
-        className={cn(
-          'absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity duration-300 ease-out motion-reduce:transition-none',
-          visible ? 'opacity-100' : 'opacity-0',
-        )}
+        className={cn('absolute inset-0 bg-black/40 backdrop-blur-[2px]', backdropMotion(visible))}
         onClick={() => onCloseRef.current()}
         aria-hidden="true"
       />
@@ -133,9 +103,8 @@ export function Drawer({
         tabIndex={-1}
         className={cn(
           'absolute inset-y-0 flex w-full max-w-md flex-col bg-surface shadow-pop outline-none',
-          'transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none',
           side === 'left' ? 'left-0' : 'right-0',
-          visible ? 'translate-x-0' : hiddenTransform,
+          slideMotion(visible, side),
           panelClassName,
         )}
       >

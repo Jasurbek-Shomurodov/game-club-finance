@@ -18,6 +18,7 @@ import { formatDatePickerValue, formatYearMonth } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { Button } from './Button';
 import { isTopModal, trapFocus, useModalLayer } from './Modal';
+import { backdropMotion, sheetMotion, usePresence } from './motion';
 
 /**
  * Dialog plumbing shared by the date and month pickers: joins the modal stack
@@ -211,6 +212,7 @@ function CalendarDialog({ open, mode, from, to = '', min, max, onClose, onApply 
 
   const panelRef = useRef<HTMLElement>(null);
   usePickerDialog(open, onClose, panelRef);
+  const { mounted, visible } = usePresence(open);
 
   const presets = useMemo(() => {
     // Callers cap pickers at the club's business date; "today" presets must not
@@ -255,7 +257,7 @@ function CalendarDialog({ open, mode, from, to = '', min, max, onClose, onApply 
       }));
   }, [max, min]);
 
-  if (!open) return null;
+  if (!mounted) return null;
 
   function selectDate(date: string) {
     if (mode === 'single') {
@@ -284,14 +286,22 @@ function CalendarDialog({ open, mode, from, to = '', min, max, onClose, onApply 
   const secondMonth = addMonths(viewMonth, 1);
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/45 p-0 backdrop-blur-[2px] sm:items-center sm:p-4" onMouseDown={onClose}>
+    <div
+      className={cn('fixed inset-0 z-[80] flex items-end justify-center p-0 sm:items-center sm:p-4', !open && 'pointer-events-none')}
+      aria-hidden={!open || undefined}
+      onMouseDown={() => open && onClose()}
+    >
+      <div className={cn('absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]', backdropMotion(visible))} aria-hidden="true" />
       <section
         ref={panelRef}
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={mode === 'range' ? t('selectRange') : t('selectDate')}
-        className="flex max-h-[94dvh] w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl border border-gray-200 bg-surface shadow-2xl outline-none sm:rounded-2xl"
+        className={cn(
+          'relative flex max-h-[94dvh] w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl border border-gray-200 bg-surface shadow-2xl outline-none sm:rounded-2xl',
+          sheetMotion(visible),
+        )}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="shrink-0 border-b border-gray-100 px-4 py-4 sm:px-5">
@@ -529,6 +539,7 @@ export function MonthPicker({ value, onChange, min, max, disabled = false, class
   const panelRef = useRef<HTMLElement>(null);
   const closeMonthPicker = useMemo(() => () => setOpen(false), []);
   usePickerDialog(open, closeMonthPicker, panelRef);
+  const { mounted, visible } = usePresence(open);
 
   useEffect(() => {
     if (!open) return;
@@ -548,15 +559,23 @@ export function MonthPicker({ value, onChange, min, max, disabled = false, class
         <ChevronDown size={16} className="shrink-0 text-gray-400" />
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/45 backdrop-blur-[2px] sm:items-center sm:p-4" onMouseDown={() => setOpen(false)}>
+      {mounted && (
+        <div
+          className={cn('fixed inset-0 z-[80] flex items-end justify-center sm:items-center sm:p-4', !open && 'pointer-events-none')}
+          aria-hidden={!open || undefined}
+          onMouseDown={() => setOpen(false)}
+        >
+          <div className={cn('absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]', backdropMotion(visible))} aria-hidden="true" />
           <section
             ref={panelRef}
             tabIndex={-1}
             role="dialog"
             aria-modal="true"
             aria-label={t('selectMonth')}
-            className="w-full max-w-xl rounded-t-2xl border border-gray-200 bg-surface pb-[env(safe-area-inset-bottom)] shadow-2xl outline-none sm:rounded-2xl"
+            className={cn(
+              'relative w-full max-w-xl rounded-t-2xl border border-gray-200 bg-surface pb-[env(safe-area-inset-bottom)] shadow-2xl outline-none sm:rounded-2xl',
+              sheetMotion(visible),
+            )}
             onMouseDown={(event) => event.stopPropagation()}
           >
             <header className="flex items-center gap-3 border-b border-gray-100 px-4 py-4 sm:px-5">

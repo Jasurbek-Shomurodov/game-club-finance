@@ -63,6 +63,11 @@ Rules of thumb:
   mobile drawer register with one modal stack, so Escape and the Tab focus trap
   only act on the top dialog. A bespoke overlay must use `useModalLayer` +
   `trapFocus` from `./Modal` to join it.
+- Overlays animate through `./motion`: `usePresence` keeps an overlay mounted
+  while it plays its exit, and `backdropMotion`/`sheetMotion`/`slideMotion`
+  give the shared fade, bottom-sheet/scale and side-slide transitions (skipped
+  for reduced motion). `Modal` holds its last open content while closing, so
+  callers may clear the state that fed it as soon as it closes.
 - `SegmentedControl` is a radio group: one Tab stop, arrow keys move and select.
 - Toasts appear at the top on phones (never over a bottom sheet's Save button)
   and bottom-right on larger screens; errors stay 8 s and pause on hover/focus.
