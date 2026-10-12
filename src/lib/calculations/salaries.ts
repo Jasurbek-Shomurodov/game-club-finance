@@ -168,6 +168,28 @@ export function salaryBalance(months: SalaryMonth[]): number {
   return money(months.reduce((sum, month) => sum + month.balance, 0));
 }
 
+/**
+ * Every employee's months added together, oldest first, for the club-wide
+ * history. KPI profit and percentage are per-employee figures, so they are 0.
+ */
+export function combineSalaryMonths(byEmployee: Record<string, SalaryMonth[]>): SalaryMonth[] {
+  const totals = new Map<string, SalaryMonth>();
+  for (const months of Object.values(byEmployee)) {
+    for (const row of months) {
+      const total = totals.get(row.month) ?? { month: row.month, base: 0, bonus: 0, fine: 0, kpi: 0, paid: 0, earned: 0, balance: 0, kpiProfit: 0, effectiveKpiPercent: 0 };
+      total.base = money(total.base + row.base);
+      total.bonus = money(total.bonus + row.bonus);
+      total.fine = money(total.fine + row.fine);
+      total.kpi = money(total.kpi + row.kpi);
+      total.paid = money(total.paid + row.paid);
+      total.earned = money(total.earned + row.earned);
+      total.balance = money(total.balance + row.balance);
+      totals.set(row.month, total);
+    }
+  }
+  return [...totals.values()].sort((a, b) => a.month.localeCompare(b.month));
+}
+
 /** Keep an editable baseline; deleted audit rows do not count as a live rate. */
 export function canDeleteSalaryRate(rates: SalaryRate[], rate: SalaryRate): boolean {
   return !rate.deleted_at && rates.some((other) => other.employee_id === rate.employee_id && other.id !== rate.id && !other.deleted_at);

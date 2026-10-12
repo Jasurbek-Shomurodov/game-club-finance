@@ -39,7 +39,7 @@ import { cn } from '@/lib/utils';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { createClient } from '@/lib/supabase/client';
 import { loadSalaries } from '@/lib/supabase/salaries';
-import { calculateSalaries, salaryBalance, canDeleteSalaryRate, type KpiBasis, type SalaryEmployee, type SalaryEntry, type SalaryRate } from '@/lib/calculations/salaries';
+import { calculateSalaries, combineSalaryMonths, salaryBalance, canDeleteSalaryRate, type KpiBasis, type SalaryEmployee, type SalaryEntry, type SalaryRate } from '@/lib/calculations/salaries';
 import { formatCurrency, formatCurrencyInput, parseCurrencyInput, formatDateOnly, formatDateTime, formatYearMonth } from '@/lib/formatters';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
 import { canAccessFeature } from '@/lib/permissions';
@@ -126,7 +126,12 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   const upcomingCount = data.employees.filter((e) => e.joined_on > today && displayRate(e)?.active).length;
   const activeCount = data.employees.filter((e) => currentRate(e.id)?.active).length;
   const due = data.employees.reduce((sum, e) => sum + Math.max(0, salaryBalance(balances[e.id] ?? [])), 0);
-  const historyMonths = balances[employeeId ?? ''] ?? [];
+  // Without an employee in the route, history covers the whole club.
+  const historyMonths = useMemo(() => (employeeId ? balances[employeeId] ?? [] : combineSalaryMonths(balances)), [balances, employeeId]);
+  const historyEntries = data.entries.filter((e) => !historyEmployee || e.employee_id === historyEmployee.id);
+  const historyRates = data.rates.filter((r) => !historyEmployee || r.employee_id === historyEmployee.id);
+  // In the club-wide history each row names its employee.
+  const employeePrefix = (id: string) => (historyEmployee ? '' : `${data.employees.find((e) => e.id === id)?.name ?? ''} · `);
   const paid = data.entries.filter((e) => !e.deleted_at && e.kind === 'payment').reduce((sum, e) => sum + Number(e.amount), 0);
   const roleLabel = (value: string) => {
     const known = knownEmployeeRole(value);
@@ -317,7 +322,6 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
     label: t(mode === 'new' ? 'addEmployee' : mode === 'salary' ? 'changeSalary' : mode === 'kpi' ? 'changeKpi' : 'editEmployee'),
   }));
   const entryKindOptions = (['payment', 'bonus', 'fine'] as const).map((kind) => ({ value: kind, label: t(kind) }));
-  // History is per employee, so it only opens once an employee route provided one.
   const viewOptions: SegmentedOption<SalaryView>[] = [
     { value: 'employees', label: t('employees') },
     { value: 'operations', label: t('dailyOperations') },
@@ -590,7 +594,8 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   const employeesSorted = [...data.employees].sort((a, b) => a.name.localeCompare(b.name));
   const inactiveEmployees = employeesSorted.filter((employee) => !displayRate(employee)?.active);
   const liveEmployees = employeesSorted.filter((employee) => displayRate(employee)?.active);
-  const dueValue = view === 'history' ? salaryBalance(historyMonths) : due;
+  // Club-wide due keeps one employee's overpayment from hiding what another is owed.
+  const dueValue = view === 'history' && employeeId ? salaryBalance(historyMonths) : due;
   const currencySuffix = <span className="ml-1.5 text-sm font-medium tracking-normal text-gray-500">{tc('currency')}</span>;
   const metricMoney = (value: number) => <>{formatCurrency(value)}{currencySuffix}</>;
 
@@ -675,21 +680,11 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
         </>
       )}
 
-      {view === 'history' && employeeId && loading && <TableSkeleton rows={6} columns={7} />}
-      {view === 'history' && !employeeId && (
-        <Card>
-          <EmptyState
-            icon={History}
-            title={t('historyEmptyTitle')}
-            description={t('historyEmptyDescription')}
-            action={<Button variant="outline" onClick={() => setView('employees')}>{t('employees')}</Button>}
-          />
-        </Card>
-      )}
+      {view === 'history' && loading && <TableSkeleton rows={6} columns={7} />}
       {view === 'history' && employeeId && !loading && !loadError && !historyEmployee && (
         <Card><EmptyState icon={Users} title={t('employeeNotFound')} /></Card>
       )}
-      {view === 'history' && historyEmployee && (
+      {view === 'history' && (historyEmployee || (!employeeId && !loading && !loadError)) && (
         <Card as="section" padding="lg">
           <div className="space-y-6">
             <div>
@@ -714,10 +709,10 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
             <div>
               <SectionHeading size="sm" title={t('transactions')} className="mb-3" />
               <div className="space-y-2">
-                {data.entries.filter((e) => e.employee_id === historyEmployee.id).sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at)).map((entry) => (
+                {historyEntries.sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at)).map((entry) => (
                   <div key={entry.id} className={`flex flex-wrap items-start justify-between gap-4 rounded-xl border border-gray-200 p-3 text-sm ${entry.deleted_at ? 'opacity-60' : ''}`}>
                     <div className="min-w-0">
-                      <p className="font-semibold text-gray-900">{t(entry.kind)} · {formatDateOnly(entry.date, locale)}</p>
+                      <p className="font-semibold text-gray-900">{employeePrefix(entry.employee_id)}{t(entry.kind)} · {formatDateOnly(entry.date, locale)}</p>
                       {entry.payment_method && <p className="mt-1 text-xs text-gray-500">{tc(`paymentMethods.${entry.payment_method}`)} · {tp(`paymentSources.${entry.payment_source}`)}</p>}
                       {entry.comment && <p className="mt-1 break-words text-gray-500">{entry.comment}</p>}
                     </div>
@@ -725,25 +720,25 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
                     {entry.deleted_at ? (
                       <Badge variant="neutral" size="sm">{t('deleted')} · {formatDateTime(entry.deleted_at, locale)}</Badge>
                     ) : canEdit && (
-                      <Button variant="dangerOutline" size="sm" disabled={saving} onClick={() => { setDeleteError(''); setDeletion({ id: entry.id, kind: 'entry', label: `${t(entry.kind)} · ${formatDateOnly(entry.date, locale)} · ${currency(Number(entry.amount))}` }); }}>
+                      <Button variant="dangerOutline" size="sm" disabled={saving} onClick={() => { setDeleteError(''); setDeletion({ id: entry.id, kind: 'entry', label: `${employeePrefix(entry.employee_id)}${t(entry.kind)} · ${formatDateOnly(entry.date, locale)} · ${currency(Number(entry.amount))}` }); }}>
                         {t('delete')}
                       </Button>
                     )}
                   </div>
                 ))}
-                {!data.entries.some((e) => e.employee_id === historyEmployee.id) && <EmptyState compact bordered title={t('noTransactions')} />}
+                {historyEntries.length === 0 && <EmptyState compact bordered title={t('noTransactions')} />}
               </div>
             </div>
             <div>
               <SectionHeading size="sm" title={t('rateHistory')} className="mb-3" />
-              {!data.rates.some((r) => r.employee_id === historyEmployee.id) && <EmptyState compact bordered title={t('noRates')} />}
+              {historyRates.length === 0 && <EmptyState compact bordered title={t('noRates')} />}
               <ul className="divide-y divide-gray-100">
-                {data.rates.filter((r) => r.employee_id === historyEmployee.id).sort((a, b) => b.effective_date.localeCompare(a.effective_date)).map((rate) => {
+                {historyRates.sort((a, b) => b.effective_date.localeCompare(a.effective_date)).map((rate) => {
                   const deletable = canDeleteSalaryRate(data.rates, rate);
                   return (
                     <li className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm text-gray-600" key={rate.id}>
                       <p className={rate.deleted_at ? 'line-through opacity-60' : ''}>
-                        {formatDateOnly(rate.effective_date, locale)} · {t(rate.salary_type)} · {currency(Number(rate.amount))} · {t('kpi')}: {Number(rate.kpi_percent)}% ({kpiSummary(rate)}) · {t(rate.active ? 'active' : 'inactive')}
+                        {employeePrefix(rate.employee_id)}{formatDateOnly(rate.effective_date, locale)} · {t(rate.salary_type)} · {currency(Number(rate.amount))} · {t('kpi')}: {Number(rate.kpi_percent)}% ({kpiSummary(rate)}) · {t(rate.active ? 'active' : 'inactive')}
                       </p>
                       {rate.deleted_at ? (
                         <Badge variant="neutral" size="sm">{t('deleted')} · {formatDateTime(rate.deleted_at, locale)}</Badge>
@@ -754,7 +749,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
                             size="sm"
                             disabled={saving || !deletable}
                             aria-describedby={!deletable ? `rate-delete-hint-${rate.id}` : undefined}
-                            onClick={() => { setDeleteError(''); setDeletion({ id: rate.id, kind: 'rate', label: `${formatDateOnly(rate.effective_date, locale)} · ${currency(Number(rate.amount))} · ${Number(rate.kpi_percent)}%` }); }}
+                            onClick={() => { setDeleteError(''); setDeletion({ id: rate.id, kind: 'rate', label: `${employeePrefix(rate.employee_id)}${formatDateOnly(rate.effective_date, locale)} · ${currency(Number(rate.amount))} · ${Number(rate.kpi_percent)}%` }); }}
                           >
                             {t('delete')}
                           </Button>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateSalaries, salaryBalance, canDeleteSalaryRate, type SalaryEmployee, type SalaryEntry, type SalaryRate } from './salaries';
+import { calculateSalaries, combineSalaryMonths, salaryBalance, canDeleteSalaryRate, type SalaryEmployee, type SalaryEntry, type SalaryRate } from './salaries';
 
 const employee: SalaryEmployee = { id: 'one', club_id: 'club', name: 'Employee', job_title: '', joined_on: '2026-09-01' };
 const rate: SalaryRate = { id: 'rate', employee_id: 'one', effective_date: '2026-09-01', salary_type: 'daily', amount: 100, kpi_percent: 10, active: true };
@@ -62,6 +62,16 @@ describe('salary accrual and owner profit after all salary costs', () => {
   it('handles no employees and no income', () => {
     expect(calculate({ employees: [], rates: [] })).toEqual({});
     expect(calculate({ monthlyProfit: [] }).one[0]).toMatchObject({ base: 1000, kpi: 0 });
+  });
+  it('adds every employee month together for the club-wide history', () => {
+    const second = { ...employee, id: 'two' };
+    const rows = calculate({ throughDate: '2026-10-02', employees: [employee, second], rates: [rate, { ...rate, id: 'r2', employee_id: 'two' }], entries: [entry('payment', 500)] });
+    const combined = combineSalaryMonths(rows);
+    expect(combined.map((month) => month.month)).toEqual(['2026-09', '2026-10']);
+    expect(combined[0].base).toBe(rows.one[0].base + rows.two[0].base);
+    expect(combined[0].paid).toBe(500);
+    expect(salaryBalance(combined)).toBe(salaryBalance(rows.one) + salaryBalance(rows.two));
+    expect(combineSalaryMonths({})).toEqual([]);
   });
   it('keeps future employees at zero without reducing current employees KPI', () => {
     const upcoming = { ...employee, id:'future', joined_on:'2026-10-01' };
