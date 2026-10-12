@@ -1,5 +1,6 @@
 'use client';
 
+import { createPortal } from 'react-dom';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -177,7 +178,7 @@ export function Modal({
     if (open && !locked) onClose();
   }
 
-  return (
+  return createPortal(
     <div
       className={cn('fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-4', !open && 'pointer-events-none')}
       aria-hidden={!open || undefined}
@@ -227,6 +228,7 @@ export function Modal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

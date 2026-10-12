@@ -4,7 +4,7 @@
  * Every reusable presentational building block lives here. Pages should
  * compose these instead of writing bespoke Tailwind class strings.
  *
- * Layout & surfaces: Card, CardHeader, CardBody, CardFooter, SectionHeading, PageHeader
+ * Layout & surfaces: Card, CardHeader, CardBody, CardFooter, SectionHeading, PageHeader, TopBarSlotProvider
  * Actions:           Button, ButtonLink, IconButton, Stepper
  * Forms:             Field, Input, CurrencyInput, Textarea, Select, Checkbox, SearchInput,
  *                    SegmentedControl, DatePicker, DateRangePicker, MonthPicker
@@ -40,6 +40,7 @@ export { ThemeToggle } from './ThemeToggle';
 export { AmountCard, MetricCard, StatTile, metricToneClassName, toneForAmount, type MetricTone } from './MetricCard';
 export { Modal } from './Modal';
 export { PageHeader } from './PageHeader';
+export { TopBarSlotProvider, useTopBarSlot } from './TopBarSlot';
 export { SearchInput } from './SearchInput';
 export { SegmentedControl, type SegmentedOption } from './SegmentedControl';
 export {

@@ -341,7 +341,6 @@ export default function DebtsPage() {
     <div className="space-y-5">
       <PageHeader
         title={t('title')}
-        description={t('description')}
         action={canManage ? (
           <Button onClick={() => openAddDebtModal()} icon={<Plus size={16} aria-hidden="true" />}>
             {t('addDebt')}

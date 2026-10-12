@@ -600,16 +600,15 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
         back={view === 'history' && employeeId ? '/salaries/employees' : undefined}
         backLabel={t('employees')}
         title={pageTitle}
-        description={t(view === 'history' ? 'history' : 'description')}
-      />
-
-      <SegmentedControl
-        variant="soft"
-        label={t('viewSwitcher')}
-        options={viewOptions}
-        value={view}
-        onChange={setView}
-        className="sm:max-w-xl"
+        tabs={(
+          <SegmentedControl
+            variant="tabs"
+            label={t('viewSwitcher')}
+            options={viewOptions}
+            value={view}
+            onChange={setView}
+          />
+        )}
       />
 
       {loadError && (

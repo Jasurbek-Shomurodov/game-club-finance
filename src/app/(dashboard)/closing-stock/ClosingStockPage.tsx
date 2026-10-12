@@ -65,7 +65,6 @@ import {
 import {
   AlertTriangle,
   CalendarX,
-  HelpCircle,
   Info,
   Package,
   RefreshCcw,
@@ -827,17 +826,9 @@ export default function ClosingStockPage() {
 
       <PageHeader
         title={t('title')}
-        description={isReadOnly ? undefined : (
-          <span className="inline-flex flex-wrap items-center gap-1.5">
-            {t('description')}
-            <span className="inline-flex cursor-help text-gray-400 hover:text-gray-600" title={t('infoBody')} tabIndex={0} aria-label={t('infoBody')}>
-              <HelpCircle size={15} aria-hidden="true" />
-            </span>
-          </span>
-        )}
         meta={dirty ? <Badge variant="warning" size="sm">{t('unsavedChanges')}</Badge> : undefined}
         action={(
-          <div className="flex w-full flex-col gap-2 sm:w-auto">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <div className="flex flex-wrap items-center gap-2">
               <DatePicker
                 ariaLabel={t('date')}

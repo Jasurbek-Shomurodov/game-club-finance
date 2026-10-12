@@ -1,5 +1,6 @@
 'use client';
 
+import { createPortal } from 'react-dom';
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -85,7 +86,7 @@ export function Drawer({
 
   if (!mounted) return null;
 
-  return (
+  return createPortal(
     <div className={cn('fixed inset-0 z-[60]', !open && 'pointer-events-none', className)}>
       <div
         className={cn('absolute inset-0 bg-black/40 backdrop-blur-[2px]', backdropMotion(visible))}
@@ -131,6 +132,7 @@ export function Drawer({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
-import { getLocale, getTranslations } from 'next-intl/server';
+import { getTranslations } from 'next-intl/server';
 import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { Badge, ButtonLink, Card, EmptyState, InlineAlert, PageHeader } from '@/components/PresentationFoundation';
@@ -10,7 +10,7 @@ import { calculateGameClubIncome } from '@/lib/calculations/dailyCash';
 import { calculateBarMoney } from '@/lib/calculations/barMoney';
 import { calculateRemainingDebt } from '@/lib/calculations/debt';
 import { todayIso } from '@/lib/utils';
-import { formatDateOnly, formatNumber } from '@/lib/formatters';
+import { formatNumber } from '@/lib/formatters';
 
 interface CheckResult {
   name: string;
@@ -25,7 +25,7 @@ export default async function TestChecklistPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
-  const [t, locale] = await Promise.all([getTranslations('testChecklist'), getLocale()]);
+  const t = await getTranslations('testChecklist');
 
   const { data: memberships } = await supabase
     .from('club_memberships')
@@ -64,7 +64,7 @@ export default async function TestChecklistPage() {
     console.error('Test checklist query failed', queryError);
     return (
       <div className="mx-auto w-full max-w-3xl space-y-6">
-        <PageHeader title={t('title')} description={t('subtitle', { date: formatDateOnly(today, locale) })} className="mb-0" />
+        <PageHeader title={t('title')} className="mb-0" />
         <Card>
           <EmptyState
             icon={AlertTriangle}
@@ -176,7 +176,7 @@ export default async function TestChecklistPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
-      <PageHeader title={t('title')} description={t('subtitle', { date: formatDateOnly(today, locale) })} className="mb-0" />
+      <PageHeader title={t('title')} className="mb-0" />
 
       <InlineAlert variant={allPass ? 'success' : 'warning'}>
         {allPass ? t('allPassed', { count: checks.length }) : t('somePassed', { passed: passCount, count: checks.length })}

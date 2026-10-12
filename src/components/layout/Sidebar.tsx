@@ -23,6 +23,7 @@ import {
   BarChart3,
   HandCoins,
   ChartPie,
+  PanelLeft,
 } from 'lucide-react';
 import type { Club, UserRole } from '@/types';
 import { canAccessFeature, featureForPath, type FeatureKey } from '@/lib/permissions';
@@ -40,6 +41,9 @@ interface SidebarProps {
   selectedClubId?: string;
   onSelectClub?: (clubId: string) => void;
   mobileOpen?: boolean;
+  /** Desktop only: the sidebar slides fully off-canvas when collapsed. */
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
   activePathname?: string;
   featureAccess?: FeatureKey[];
   onClose?: () => void;
@@ -124,6 +128,8 @@ export function Sidebar({
   selectedClubId = '',
   onSelectClub,
   mobileOpen,
+  collapsed = false,
+  onToggleCollapsed,
   activePathname,
   featureAccess = [],
   onClose,
@@ -242,6 +248,16 @@ export function Sidebar({
             className="lg:hidden"
           />
         )}
+        {onToggleCollapsed && (
+          <IconButton
+            variant="ghost"
+            label={t('toggleSidebar')}
+            title={t('toggleSidebar')}
+            icon={<PanelLeft size={18} />}
+            onClick={onToggleCollapsed}
+            className="hidden lg:inline-flex"
+          />
+        )}
       </div>
 
       <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-2" aria-label={t('mainNavigation')}>
@@ -306,7 +322,16 @@ export function Sidebar({
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-gray-200 lg:flex">{content}</aside>
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-40 hidden overflow-hidden border-gray-200 transition-[width] duration-200 ease-linear lg:flex',
+          collapsed ? 'w-0 border-r-0' : 'w-64 border-r',
+        )}
+        inert={collapsed}
+        aria-hidden={collapsed || undefined}
+      >
+        <div className="w-64 shrink-0">{content}</div>
+      </aside>
 
       <Drawer
         open={Boolean(mobileOpen)}

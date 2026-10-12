@@ -388,7 +388,6 @@ export default function ProductsPage() {
     <div>
       <PageHeader
         title={t('title')}
-        description={t('description')}
         action={canManageInventory ? (
           <Button onClick={openAdd} icon={<Plus size={16} aria-hidden="true" />}>{t('addProduct')}</Button>
         ) : undefined}

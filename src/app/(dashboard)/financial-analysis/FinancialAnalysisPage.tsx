@@ -340,10 +340,6 @@ export default function FinancialAnalysisPage() {
     <div className="space-y-6">
       <PageHeader
         title={t('title')}
-        description={`${t('subtitle')} · ${t('comparedWith', {
-          from: formatDateShort(previousRange.from, locale),
-          to: formatDateShort(previousRange.to, locale),
-        })}`}
         className="mb-0"
         action={(
           <DateRangePicker

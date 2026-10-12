@@ -2,13 +2,13 @@
 
 // Dashboard layout shell and shared club/date context.
 
-import { useCallback, useEffect, useMemo, useRef, useState, createContext, useContext } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, createContext, useContext, type RefObject } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Clock3, Gamepad2, LogOut, Menu, ShieldCheck } from 'lucide-react';
 import { useSignOut } from './useSignOut';
 import { Sidebar } from './Sidebar';
-import { Button, Card, EmptyState, IconButton, InlineAlert, PageSkeleton, ThemeToggle } from '@/components/PresentationFoundation';
+import { Button, Card, EmptyState, IconButton, InlineAlert, PageSkeleton, ThemeToggle, TopBarSlotProvider, useTopBarSlot } from '@/components/PresentationFoundation';
 import { createClient } from '@/lib/supabase/client';
 import { isMissingDatabaseColumn } from '@/lib/supabase/errors';
 import { normalizePaymentMethods } from '@/lib/paymentMethods';
@@ -19,7 +19,7 @@ import {
   featureAccessForMembership,
   type FeatureKey,
 } from '@/lib/permissions';
-import { normalizeBusinessDayStartHour } from '@/lib/utils';
+import { cn, normalizeBusinessDayStartHour } from '@/lib/utils';
 import { useLatestRef } from '@/components/i18n/useLatestRef';
 
 interface DashboardShellProps {
@@ -84,6 +84,7 @@ function relatedClub(relation: ClubMembership['clubs']): Club | null {
 
 const SELECTED_CLUB_STORAGE_KEY = 'game-club-finance:selected-club-id';
 const SELECTED_CLUB_COOKIE = 'game-club-finance-selected-club-id';
+const DESKTOP_QUERY = '(min-width: 1024px)';
 
 function persistSelectedClubId(clubId: string) {
   if (clubId) {
@@ -134,6 +135,83 @@ function membershipOptions(rows: ClubMembership[]): ClubOption[] {
     .sort((a, b) => a.club.name.localeCompare(b.club.name));
 }
 
+/** Where `PageHeader` portals the open page's title. */
+function TopBarTitleSlot() {
+  const slot = useTopBarSlot();
+  return <div ref={slot?.titleRef} data-top-bar-title className="peer flex min-w-0 flex-1 items-center gap-5 empty:hidden" />;
+}
+
+/** Where `PageHeader` portals the open page's actions, compacted to the bar's one line. */
+function TopBarActionsSlot() {
+  const slot = useTopBarSlot();
+  return (
+    <div
+      ref={slot?.actionsRef}
+      data-top-bar-actions
+      className="flex shrink-0 items-center gap-2 border-r border-gray-200 pr-3 empty:hidden [&_[data-range-label]]:hidden [&_[data-range-trigger]]:min-h-11 [&_[data-range-trigger]]:py-1 [&_[data-field-label]]:sr-only"
+    />
+  );
+}
+
+function subscribeDesktop(change: () => void) {
+  const query = window.matchMedia(DESKTOP_QUERY);
+  query.addEventListener('change', change);
+  return () => query.removeEventListener('change', change);
+}
+
+function useIsDesktop() {
+  return useSyncExternalStore(subscribeDesktop, () => window.matchMedia(DESKTOP_QUERY).matches, () => false);
+}
+
+/** Widths of `element`'s children laid side by side with `gap` between them. */
+function childrenWidth(element: Element | null | undefined, gap: number) {
+  const children = [...element?.children ?? []].filter((child) => child.getBoundingClientRect().width > 0);
+  return children.reduce((total, child) => total + child.getBoundingClientRect().width, 0) + gap * Math.max(0, children.length - 1);
+}
+
+/**
+ * Whether the page's actions would overflow the top bar's one line. Worked out
+ * from the widths everything needs wherever the actions sit now (bar or page),
+ * with a little slack so the answer doesn't flicker at the edge.
+ */
+function useTopBarCrowded(barRef: RefObject<HTMLElement | null>, enabled: boolean) {
+  const [crowded, setCrowded] = useState(false);
+
+  useEffect(() => {
+    const bar = barRef.current;
+    if (!enabled || !bar) return;
+
+    const check = () => {
+      const actions = document.querySelector('[data-page-actions]');
+      const tabs = document.querySelector('[data-page-tabs]');
+      if (!actions && !tabs) return;
+      // Title, then the tabs 20px after it, wherever the tabs are now.
+      const titleWidth = (bar.querySelector('[data-top-bar-title] h1')?.scrollWidth ?? 0)
+        + (tabs ? 20 + childrenWidth(tabs.firstElementChild, 12) : 0);
+      const own = [...bar.children].filter((child) => !child.matches('[data-top-bar-title], [data-top-bar-actions]'));
+      const ownWidth = own.reduce((total, child) => total + child.getBoundingClientRect().width, 0);
+      const visibleItems = own.filter((child) => child.getBoundingClientRect().width > 0).length + 2;
+      // Actions slot: its children, 12px padding and a 1px divider.
+      const needed = titleWidth + ownWidth + childrenWidth(actions, 8) + 13 + 12 * (visibleItems - 1);
+      const style = getComputedStyle(bar);
+      const room = bar.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      setCrowded((previous) => (previous ? needed + 8 > room : needed > room));
+    };
+
+    const resized = new ResizeObserver(check);
+    const changed = new MutationObserver(check);
+    resized.observe(bar);
+    changed.observe(bar, { childList: true, subtree: true });
+    check();
+    return () => {
+      resized.disconnect();
+      changed.disconnect();
+    };
+  }, [barRef, enabled]);
+
+  return enabled && crowded;
+}
+
 export function DashboardShell({
   initialEmail = '',
   initialFullName = '',
@@ -149,6 +227,10 @@ export function DashboardShell({
   const tnRef = useLatestRef(tn);
   const initialMemberships = useMemo(() => membershipOptions(initialMembershipRows), [initialMembershipRows]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const topBarRef = useRef<HTMLDivElement>(null);
+  const isDesktop = useIsDesktop();
+  const topBarCrowded = useTopBarCrowded(topBarRef, isDesktop);
   const [profileRole, setProfileRole] = useState<UserRole>(initialProfileRole);
   const [fullName, setFullName] = useState(initialFullName || initialEmail);
   const [memberships, setMemberships] = useState<ClubOption[]>(initialMemberships);
@@ -325,6 +407,25 @@ export function DashboardShell({
     return () => window.clearTimeout(timer);
   }, [navigatingTo]);
 
+  const toggleSidebar = useCallback(() => {
+    if (window.matchMedia(DESKTOP_QUERY).matches) {
+      setSidebarCollapsed((collapsed) => !collapsed);
+    } else {
+      setSidebarOpen((open) => !open);
+    }
+  }, []);
+
+  useEffect(() => {
+    // ⌘B / Ctrl+B toggles the sidebar (the mobile drawer on small screens).
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key.toLowerCase() !== 'b' || !(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
+      event.preventDefault();
+      toggleSidebar();
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleSidebar]);
+
   function handleSelectClub(clubId: string) {
     setSelectedClubId(clubId);
     setSidebarOpen(false);
@@ -363,6 +464,7 @@ export function DashboardShell({
 
   return (
       <ClubContext.Provider value={clubContextValue}>
+      <TopBarSlotProvider>
       <div className="relative min-h-dvh overflow-x-clip bg-gray-50">
         <a
           href="#main-content"
@@ -388,30 +490,35 @@ export function DashboardShell({
           featureAccess={featureAccess}
           onSelectClub={handleSelectClub}
           mobileOpen={sidebarOpen}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={toggleSidebar}
           onClose={() => setSidebarOpen(false)}
           onNavigate={handleNavigate}
         />
 
-        <div className="flex min-w-0 flex-1 flex-col lg:pl-64">
-          {/* Top bar: the drawer button and club name on phones; the light/dark toggle in the top-right corner on every size. */}
-          <div className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-3 border-b border-gray-200 bg-surface/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur lg:sticky lg:border-b-0 lg:bg-gray-50/90 lg:px-8">
+        <div className={cn('flex min-w-0 flex-1 flex-col transition-[padding] duration-200 ease-linear', sidebarCollapsed ? 'lg:pl-0' : 'lg:pl-64')}>
+          {/* Top bar: the drawer button, the open page's title (the club name on phones until a page sets one), and the light/dark toggle. */}
+          <div ref={topBarRef} className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-3 border-b border-gray-200 bg-surface/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur lg:sticky lg:border-b-0 lg:bg-gray-50/90 lg:px-8">
+            {/* On desktop the toggle only appears once the sidebar is collapsed. */}
             <IconButton
-              className="lg:hidden"
+              className={sidebarCollapsed ? undefined : 'lg:hidden'}
               variant="ghost"
               label={tn('openNavigation')}
               icon={<Menu size={20} />}
-              onClick={() => setSidebarOpen(true)}
+              onClick={toggleSidebar}
               aria-expanded={sidebarOpen}
               aria-controls="mobile-nav"
               aria-haspopup="dialog"
             />
-            <div className="flex min-w-0 items-center gap-2.5 lg:hidden">
+            <TopBarTitleSlot />
+            <div className="flex min-w-0 items-center gap-2.5 peer-[:not(:empty)]:hidden lg:hidden">
               <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-gray-950 text-gray-50">
                 <Gamepad2 size={16} aria-hidden="true" />
               </div>
               <p className="truncate text-sm font-semibold text-gray-950">{selectedClub?.name ?? tn('appName')}</p>
             </div>
-            <ThemeToggle className="ml-auto" />
+            {isDesktop && !topBarCrowded && <TopBarActionsSlot />}
+            <ThemeToggle className="ml-auto shrink-0" />
           </div>
 
           <main id="main-content" ref={mainRef} tabIndex={-1} className="min-w-0 flex-1 overflow-x-clip outline-none">
@@ -439,6 +546,7 @@ export function DashboardShell({
           </main>
         </div>
       </div>
+      </TopBarSlotProvider>
       </ClubContext.Provider>
   );
 }

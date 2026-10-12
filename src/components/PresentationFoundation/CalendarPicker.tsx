@@ -1,5 +1,6 @@
 'use client';
 
+import { createPortal } from 'react-dom';
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import {
   addDays,
@@ -285,7 +286,7 @@ function CalendarDialog({ open, mode, from, to = '', min, max, onClose, onApply 
 
   const secondMonth = addMonths(viewMonth, 1);
 
-  return (
+  return createPortal(
     <div
       className={cn('fixed inset-0 z-[80] flex items-end justify-center p-0 sm:items-center sm:p-4', !open && 'pointer-events-none')}
       aria-hidden={!open || undefined}
@@ -401,7 +402,8 @@ function CalendarDialog({ open, mode, from, to = '', min, max, onClose, onApply 
           </Button>
         </footer>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -495,15 +497,16 @@ export function DateRangePicker({
         type="button"
         disabled={disabled}
         onClick={() => setOpen(true)}
+        data-range-trigger
         className="grid min-h-14 w-full grid-cols-[1fr_auto_1fr_auto] items-center gap-2 rounded-xl border border-gray-200 bg-surface px-3 py-2 text-left shadow-sm transition hover:border-primary-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:bg-gray-50"
       >
         <span className="min-w-0">
-          <span className="block text-[10px] font-bold uppercase tracking-widest text-gray-400">{fromLabel ?? t('from')}</span>
+          <span data-range-label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400">{fromLabel ?? t('from')}</span>
           <span className="mt-0.5 block truncate text-sm font-bold text-gray-950">{formatDatePickerValue(from, locale)}</span>
         </span>
         <span className="text-gray-300">→</span>
         <span className="min-w-0">
-          <span className="block text-[10px] font-bold uppercase tracking-widest text-gray-400">{toLabel ?? t('to')}</span>
+          <span data-range-label className="block text-[10px] font-bold uppercase tracking-widest text-gray-400">{toLabel ?? t('to')}</span>
           <span className="mt-0.5 block truncate text-sm font-bold text-gray-950">{formatDatePickerValue(to, locale)}</span>
         </span>
         <CalendarRange size={18} className="shrink-0 text-primary-600" />
@@ -559,7 +562,7 @@ export function MonthPicker({ value, onChange, min, max, disabled = false, class
         <ChevronDown size={16} className="shrink-0 text-gray-400" />
       </button>
 
-      {mounted && (
+      {mounted && createPortal(
         <div
           className={cn('fixed inset-0 z-[80] flex items-end justify-center sm:items-center sm:p-4', !open && 'pointer-events-none')}
           aria-hidden={!open || undefined}
@@ -621,7 +624,8 @@ export function MonthPicker({ value, onChange, min, max, disabled = false, class
               <Button variant="outline" size="sm" onClick={() => setOpen(false)}>{t('cancel')}</Button>
             </footer>
           </section>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

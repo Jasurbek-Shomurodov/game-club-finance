@@ -12,7 +12,7 @@ import { Button, Card, Field, Input, InlineAlert, PageHeader } from '@/component
 
 | Need | Use |
 |---|---|
-| Page title, description, actions, back link | `PageHeader` |
+| Page title, tabs, actions, back link | `PageHeader` |
 | White panel / section | `Card` (+ `SectionHeading`, `CardHeader`, `CardBody`, `CardFooter`) |
 | Any clickable action | `Button` (`variant`: primary, outline, secondary, ghost, danger, dangerOutline, success), `ButtonLink` for navigation, `IconButton` for icon-only |
 | Text / money / select / textarea | `Field` + `Input` / `CurrencyInput` / `Select` / `Textarea` / `Checkbox` |
@@ -41,8 +41,13 @@ Design rules ("quiet surfaces, loud numbers"):
   muted suffix on the same line. Don't add a coloured icon chip or a sentence
   of explanation under every number; use one subtitle per section or a
   `title=` tooltip.
-- `PageHeader` no longer draws an icon tile, so every page opens the same way:
-  title, one-line description, actions on the right (they wrap on phones).
+- `PageHeader` no longer draws an icon tile or a subtitle, so every page opens
+  the same way: title, then actions on the right (they wrap on phones). Inside
+  the dashboard shell (`TopBarSlotProvider`) the title renders in the top bar,
+  and `tabs` (a `SegmentedControl` with `variant="tabs"`, right after the
+  title) and the actions join it on wide screens while they fit on the bar's one line;
+  meta sits beside the title and the back link stays on the page. Keep header
+  actions to one row of compact controls so they can move up.
 - Disabled `Button`s are plainly grey; secondary actions are `outline` or
   `ghost`, never a primary that happens to be disabled.
 - The currency label is always `tc('currency')` (сум / so'm / UZS), never a

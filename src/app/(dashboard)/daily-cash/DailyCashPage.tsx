@@ -408,7 +408,6 @@ export default function DailyCashPage() {
   const header = (
     <PageHeader
       title={t('title')}
-      description={t('headerDescription')}
       action={(
         <div className="flex flex-wrap gap-2">
           {canAccessFeature(currentRole, featureAccess, 'expenses') && (

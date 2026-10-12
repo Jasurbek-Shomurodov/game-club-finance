@@ -6,10 +6,6 @@ import { normalizeBusinessDayStartHour, serverTodayIso } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/server';
 import { getDashboardBootstrap } from '@/lib/supabase/dashboardBootstrap';
 import {
-  dashboardPeriodForRange,
-  initialDashboardRange,
-} from '@/lib/calculations/dashboardRangeState';
-import {
   getDashboardComparisonRange,
   getDashboardRange,
   type InventorySnapshotRow,
@@ -18,8 +14,6 @@ import {
   buildDashboardDataFromSnapshot,
   type DashboardSnapshotPayload,
 } from '@/lib/calculations/dashboardSnapshot';
-
-type PageSearchParams = Record<string, string | string[] | undefined>;
 
 function relatedClub(relation: ClubMembership['clubs']): Club | null {
   if (!relation) return null;
@@ -33,25 +27,16 @@ function selectedMembership(
   return memberships.find((membership) => membership.club_id === clubId);
 }
 
-export default function DashboardRoute(props: {
-  searchParams: Promise<PageSearchParams>;
-}) {
+export default function DashboardRoute() {
   return (
     <Suspense fallback={<PageSkeleton />}>
-      <DashboardSnapshotRoute {...props} />
+      <DashboardSnapshotRoute />
     </Suspense>
   );
 }
 
-async function DashboardSnapshotRoute({
-  searchParams,
-}: {
-  searchParams: Promise<PageSearchParams>;
-}) {
-  const [bootstrap, resolvedSearchParams] = await Promise.all([
-    getDashboardBootstrap(),
-    searchParams,
-  ]);
+async function DashboardSnapshotRoute() {
+  const bootstrap = await getDashboardBootstrap();
 
   if (!bootstrap?.initialSelectedClubId) return <DashboardPage />;
 
@@ -62,12 +47,6 @@ async function DashboardSnapshotRoute({
   const club = relatedClub(membership?.clubs ?? null);
   if (!club) return <DashboardPage />;
 
-  const query = {
-    get(name: string) {
-      const value = resolvedSearchParams[name];
-      return typeof value === 'string' ? value : null;
-    },
-  };
   // The server runs in UTC; compute the club's business date in the app time
   // zone so the snapshot matches the range the browser will ask for.
   const now = new Date();
@@ -75,11 +54,11 @@ async function DashboardSnapshotRoute({
     now,
     normalizeBusinessDayStartHour(club.business_day_start_hour),
   );
-  const range = initialDashboardRange(query, businessToday);
-  const period = dashboardPeriodForRange(range, businessToday);
+  // The dashboard always shows the club's current business month.
+  const period = 'month' as const;
+  const range = getDashboardRange(period, businessToday);
   const previousRange = getDashboardComparisonRange(period, range);
-  const lastMonthRange = getDashboardRange('lastMonth', businessToday);
-  const inventoryComparisonRange = period === 'lastMonth' ? previousRange : lastMonthRange;
+  const inventoryComparisonRange = getDashboardRange('lastMonth', businessToday);
   const supabase = await createClient();
   const snapshotResult = await supabase.rpc('get_dashboard_snapshot', {
     p_club_id: bootstrap.initialSelectedClubId,

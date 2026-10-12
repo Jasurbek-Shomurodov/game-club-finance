@@ -835,7 +835,14 @@ export default function MoneyTakenPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title={t('title')} description={t('description')} />
+      <PageHeader
+        title={t('title')}
+        action={(
+          <Field label={t('month')} className="sm:w-64">
+            <MonthPicker value={form.month} max={currentMonth} onChange={(value) => setField('month', value)} />
+          </Field>
+        )}
+      />
 
       {error ? (
         <InlineAlert
@@ -893,9 +900,6 @@ export default function MoneyTakenPage() {
               </dl>
             )}
           </div>
-          <Field label={t('month')} className="w-full sm:w-64 sm:shrink-0">
-            <MonthPicker value={form.month} max={currentMonth} onChange={(value) => setField('month', value)} />
-          </Field>
         </div>
       </Card>
 

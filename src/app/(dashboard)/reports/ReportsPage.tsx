@@ -582,7 +582,38 @@ export default function ReportsPage() {
     <div className="space-y-5">
       <PageHeader
         title={t('title')}
-        description={t('description')}
+        action={hasReportsAccess ? (
+          <>
+            <DateRangePicker
+              from={range.from}
+              to={range.to}
+              fromLabel={t('from')}
+              toLabel={t('to')}
+              className="sm:w-80"
+              onChange={setRange}
+            />
+            <Select
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value as MoneyReportCategoryFilter)}
+              aria-label={t('filterByCategory')}
+              className="sm:w-60"
+            >
+              <option value="all">{t('allCategories')}</option>
+              <optgroup label={t('incomeCategories')}>
+                <option value="income">{t('dailyClubIncome')}</option>
+                <option value="debt_payment">{t('debtPayment')}</option>
+              </optgroup>
+              <optgroup label={t('expenseCategories')}>
+                <option value="expense">{t('allExpenses')}</option>
+                {EXPENSE_CATEGORIES.map((category) => (
+                  <option key={category} value={`expense:${category}`}>
+                    {te(category)}
+                  </option>
+                ))}
+              </optgroup>
+            </Select>
+          </>
+        ) : undefined}
       />
 
       {!hasReportsAccess && <InlineAlert variant="info">{tc('accessDeniedDescription')}</InlineAlert>}
@@ -608,35 +639,6 @@ export default function ReportsPage() {
 
       {hasReportsAccess && (
         <>
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(240px,320px)]">
-            <DateRangePicker
-              from={range.from}
-              to={range.to}
-              fromLabel={t('from')}
-              toLabel={t('to')}
-              onChange={setRange}
-            />
-            <Select
-              value={categoryFilter}
-              onChange={(event) => setCategoryFilter(event.target.value as MoneyReportCategoryFilter)}
-              aria-label={t('filterByCategory')}
-            >
-                <option value="all">{t('allCategories')}</option>
-                <optgroup label={t('incomeCategories')}>
-                  <option value="income">{t('dailyClubIncome')}</option>
-                  <option value="debt_payment">{t('debtPayment')}</option>
-                </optgroup>
-                <optgroup label={t('expenseCategories')}>
-                  <option value="expense">{t('allExpenses')}</option>
-                  {EXPENSE_CATEGORIES.map((category) => (
-                    <option key={category} value={`expense:${category}`}>
-                      {te(category)}
-                    </option>
-                  ))}
-                </optgroup>
-            </Select>
-          </div>
-
           <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <SummaryCard loading={loading} label={t('totalCollected')} value={report.totalCollected} icon={WalletCards} tone="success" />
             <SummaryCard loading={loading} label={t('expenses')} value={report.totalExpenses} icon={ReceiptText} tone="danger" />

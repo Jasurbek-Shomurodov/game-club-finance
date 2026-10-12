@@ -196,7 +196,6 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
         back={backHref}
         backLabel={t('backToDashboard')}
         title={labels.title}
-        description={labels.description}
         className="mb-0"
         action={(
           <DateRangePicker

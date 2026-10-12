@@ -783,7 +783,6 @@ export default function TeamPageClient() {
     <div>
       <PageHeader
         title={t('title')}
-        description={t('subtitle')}
         action={(
           <Button onClick={() => setInviteOpen(true)} icon={<UserPlus size={16} aria-hidden="true" />}>
             {t('invite')}

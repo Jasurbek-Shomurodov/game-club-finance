@@ -39,7 +39,7 @@ export function Field({ label, htmlFor, required, hint, error, labelAddon, child
   return (
     <div className={cn('min-w-0', className)}>
       {label && (
-        <label htmlFor={htmlFor} className={cn(labelClassName, 'flex items-center gap-1.5')}>
+        <label data-field-label htmlFor={htmlFor} className={cn(labelClassName, 'flex items-center gap-1.5')}>
           <span>{label}</span>
           {required && <span className="text-danger-500" aria-hidden="true">*</span>}
           {labelAddon}

@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
-import { usePathname, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
@@ -27,7 +26,6 @@ import {
   ButtonLink,
   Card,
   ChartSkeleton,
-  DateRangePicker,
   InlineAlert,
   MetricCard,
   PageHeader,
@@ -55,10 +53,6 @@ import {
   type StockCountRow,
   type StockPurchaseCostRow,
 } from '@/lib/calculations/dashboardMetrics';
-import {
-  dashboardPeriodForRange,
-  initialDashboardRange,
-} from '@/lib/calculations/dashboardRangeState';
 import {
   buildDashboardDataFromSnapshot,
   emptyDashboardData,
@@ -203,6 +197,8 @@ export interface InitialDashboardSnapshot {
 // snapshot younger than this is trusted without a silent client refetch.
 const INITIAL_SNAPSHOT_MAX_AGE_MS = 15_000;
 
+const DASHBOARD_PERIOD = 'month' as const;
+
 function isInitialSnapshotFresh(snapshot: InitialDashboardSnapshot): boolean {
   if (typeof snapshot.generatedAt !== 'number') return false;
   return Date.now() - snapshot.generatedAt < INITIAL_SNAPSHOT_MAX_AGE_MS;
@@ -213,12 +209,11 @@ export default function DashboardPage({
 }: {
   initialSnapshot?: InitialDashboardSnapshot | null;
 }) {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { selectedClubId, businessDayStartHour } = useClub();
   const { locale } = useAppLocale();
   const businessToday = useMemo(() => todayIso(new Date(), businessDayStartHour), [businessDayStartHour]);
-  const [range, setRange] = useState(() => initialDashboardRange(searchParams, businessToday));
+  // The dashboard always shows the club's current business month.
+  const range = useMemo(() => getDashboardRange(DASHBOARD_PERIOD, businessToday), [businessToday]);
   const initialSnapshotMatches = initialSnapshot?.clubId === selectedClubId
     && initialSnapshot.range.from === range.from
     && initialSnapshot.range.to === range.to;
@@ -239,32 +234,9 @@ export default function DashboardPage({
   /** Key of the data currently on screen; a refetch for the same key is silent. */
   const displayedRequestKey = useRef(initialSnapshotMatches ? initialRequestKey : '');
   const loadedRequestKey = useRef(initialSnapshotFresh ? initialRequestKey : '');
-  const hasMountedRangeSync = useRef(false);
   const t = useTranslations('dashboard');
   const tc = useTranslations('common');
   const currency = tc('currency');
-
-  const period = useMemo(
-    () => dashboardPeriodForRange(range, businessToday),
-    [businessToday, range],
-  );
-
-  useEffect(() => {
-    if (!hasMountedRangeSync.current) {
-      hasMountedRangeSync.current = true;
-      return;
-    }
-
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete('period');
-    params.set('from', range.from);
-    params.set('to', range.to);
-
-    const nextQuery = params.toString();
-    if (nextQuery !== searchParams.toString()) {
-      window.history.replaceState(null, '', nextQuery ? `${pathname}?${nextQuery}` : pathname);
-    }
-  }, [pathname, range.from, range.to, searchParams]);
 
   const fetchDashboard = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     const requestId = ++requestSequence.current;
@@ -282,12 +254,9 @@ export default function DashboardPage({
 
     try {
       const supabase = createClient();
-      const previousRange = getDashboardComparisonRange(period, range);
-      const lastMonthRange = getDashboardRange('lastMonth', businessToday);
-      const inventoryComparisonRange = period === 'lastMonth' ? previousRange : lastMonthRange;
-      const inventoryQueryRange = period === 'lastMonth'
-        ? { from: previousRange.from, to: range.to }
-        : lastMonthRange;
+      const previousRange = getDashboardComparisonRange(DASHBOARD_PERIOD, range);
+      const inventoryComparisonRange = getDashboardRange('lastMonth', businessToday);
+      const inventoryQueryRange = inventoryComparisonRange;
 
       if (shouldTryPerformanceRpc()) {
         const snapshotResult = await supabase.rpc('get_dashboard_snapshot', {
@@ -307,7 +276,7 @@ export default function DashboardPage({
             inventoryRows?: InventorySnapshotRow[];
           };
           setData(buildDashboardDataFromSnapshot({
-            period,
+            period: DASHBOARD_PERIOD,
             range,
             previousRange,
             inventoryComparisonRange,
@@ -476,7 +445,7 @@ export default function DashboardPage({
       const totals = {
         ...liveTotals,
         inventoryValue: calculateDashboardInventoryValue(
-          period,
+          DASHBOARD_PERIOD,
           liveTotals.inventoryValue,
           inventorySnapshotRows,
           range,
@@ -537,7 +506,7 @@ export default function DashboardPage({
       setError(true);
       setLoading(false);
     }
-  }, [businessToday, period, range, selectedClubId]);
+  }, [businessToday, range, selectedClubId]);
 
   useEffect(() => {
     const requestKey = `${selectedClubId}:${range.from}:${range.to}`;
@@ -572,14 +541,7 @@ export default function DashboardPage({
 
   const { totals, previousTotals } = data;
 
-  const incomeComparisonLabel =
-    period === 'today'
-      ? t('vsYesterday')
-      : period === 'week'
-        ? t('vsLastWeek')
-        : period === 'month'
-          ? t('vsLastMonth')
-          : t('vsPreviousPeriod');
+  const incomeComparisonLabel = t('vsLastMonth');
 
   const comparisonFor = (current: number, previous: number, label = incomeComparisonLabel) => {
     const value = percentChange(current, previous);
@@ -623,32 +585,18 @@ export default function DashboardPage({
     ? comparisonFor(
         totals.inventoryValue,
         data.inventoryComparisonValue,
-        period === 'lastMonth' ? t('vsPreviousPeriod') : t('vsLastMonth'),
+        t('vsLastMonth'),
       )
     : undefined;
   const inventoryHelper = data.hasInventoryComparisonData
-    ? `${period === 'lastMonth' ? t('previousMonthInventoryValue') : t('lastMonthInventoryValue')}: ${formatCurrency(data.inventoryComparisonValue)} ${currency}`
-    : period === 'lastMonth'
-      ? undefined
-      : t('lowStockAlertsCount', { count: data.lowStockCount });
+    ? `${t('lastMonthInventoryValue')}: ${formatCurrency(data.inventoryComparisonValue)} ${currency}`
+    : t('lowStockAlertsCount', { count: data.lowStockCount });
 
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
         title={t('title')}
-        description={t('subtitle')}
         className="mb-0"
-        action={(
-          <DateRangePicker
-            from={range.from}
-            to={range.to}
-            fromLabel={t('from')}
-            toLabel={t('to')}
-            max={businessToday}
-            className="sm:w-80"
-            onChange={setRange}
-          />
-        )}
       />
 
       {error && (
@@ -757,7 +705,7 @@ export default function DashboardPage({
         />
         <MetricCard
           loading={loading}
-          label={<span title={period === 'lastMonth' ? t('inventoryValuePeriodDesc') : t('inventoryValueDesc')}>{t('inventoryValue')}</span>}
+          label={<span title={t('inventoryValueDesc')}>{t('inventoryValue')}</span>}
           helper={inventoryHelper}
           {...secondaryMetric(totals.inventoryValue, inventoryComparison)}
         />

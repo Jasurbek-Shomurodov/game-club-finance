@@ -483,7 +483,6 @@ export default function StockPurchasePage() {
     <div className="space-y-5">
       <PageHeader
         title={t('title')}
-        description={t('description')}
       />
 
       {!canWrite && (
