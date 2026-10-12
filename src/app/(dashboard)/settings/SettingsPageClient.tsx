@@ -289,7 +289,7 @@ export function SettingsPageClient() {
   ];
 
   return (
-    <div className="mx-auto w-full max-w-6xl">
+    <div className="w-full">
       <PageHeader title={t('title')} description={selectedClub?.name ?? t('description')} />
 
       {accountLoadError && <InlineAlert variant="danger" className="mb-4">{accountLoadError}</InlineAlert>}

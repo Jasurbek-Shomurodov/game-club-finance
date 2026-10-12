@@ -412,7 +412,7 @@ export function DashboardShell({
           </div>
 
           <main id="main-content" ref={mainRef} tabIndex={-1} className="min-w-0 flex-1 overflow-x-clip outline-none">
-            <div className="mx-auto w-full max-w-[1400px] px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[4.5rem] sm:px-6 lg:px-8 lg:py-8">
+            <div className="w-full px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[4.5rem] sm:px-6 lg:px-8 lg:py-8">
               {shellError ? (
                 <InlineAlert
                   variant="danger"
