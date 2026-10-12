@@ -7,6 +7,7 @@ import {
   ArrowRight,
   ArrowDownRight,
   ArrowUpRight,
+  ChartPie,
   MonitorSmartphone,
   RefreshCcw,
   ShoppingBag,
@@ -24,6 +25,7 @@ import {
   AmountCard,
   Button,
   ButtonLink,
+  Card,
   ChartSkeleton,
   DateRangePicker,
   InlineAlert,
@@ -33,11 +35,9 @@ import {
   toneForAmount,
   type MetricTone,
 } from '@/components/PresentationFoundation';
-import { ChartCard, chartColors } from '@/components/dashboard/ChartCard';
 import { formatCurrency } from '@/lib/formatters';
 import {
   buildPeriodTrend,
-  buildMonthlyAverageGameClubIncome,
   calculateAverageDailyIncome,
   calculateDashboardInventoryValue,
   calculateDashboardTotals,
@@ -77,36 +77,10 @@ function ChartLoading() {
   return <ChartSkeleton />;
 }
 
-const DashboardBarChart = dynamic(
-  () => import('@/components/dashboard/DashboardBarChart').then((module) => module.DashboardBarChart),
-  { ssr: false, loading: ChartLoading },
-);
-const PaymentMethodChart = dynamic(
-  () => import('@/components/dashboard/PaymentMethodChart').then((module) => module.PaymentMethodChart),
-  { ssr: false, loading: ChartLoading },
-);
 const IncomeTrendChart = dynamic(
   () => import('@/components/dashboard/IncomeTrendChart').then((module) => module.IncomeTrendChart),
   { ssr: false, loading: ChartLoading },
 );
-const IncomeCategoryChart = dynamic(
-  () => import('@/components/dashboard/IncomeCategoryChart').then((module) => module.IncomeCategoryChart),
-  { ssr: false, loading: ChartLoading },
-);
-const ExpensesByCategoryChart = dynamic(
-  () => import('@/components/dashboard/ExpensesByCategoryChart').then((module) => module.ExpensesByCategoryChart),
-  { ssr: false, loading: ChartLoading },
-);
-const MoneyLeftBreakdownChart = dynamic(
-  () => import('@/components/dashboard/MoneyLeftBreakdownChart').then((module) => module.MoneyLeftBreakdownChart),
-  { ssr: false, loading: ChartLoading },
-);
-const MonthlyAverageIncomeChart = dynamic(
-  () => import('@/components/dashboard/MonthlyAverageIncomeChart').then((module) => module.MonthlyAverageIncomeChart),
-  { ssr: false, loading: ChartLoading },
-);
-
-import type { MonthlyAverageIncomePoint } from '@/components/dashboard/MonthlyAverageIncomeChart';
 
 interface StockPurchaseRow extends StockPurchaseCostRow {
   id: string;
@@ -254,9 +228,6 @@ export default function DashboardPage({
   const [loading, setLoading] = useState(!initialSnapshotMatches);
   const [error, setError] = useState(false);
   const [renderCharts, setRenderCharts] = useState(false);
-  const [monthlyAverageIncome, setMonthlyAverageIncome] = useState<MonthlyAverageIncomePoint[]>([]);
-  const [monthlyError, setMonthlyError] = useState(false);
-  const [monthlyReloadToken, setMonthlyReloadToken] = useState(0);
   const requestSequence = useRef(0);
   const chartsAnchorRef = useRef<HTMLDivElement>(null);
   // Freshness only decides whether to refetch; the matching snapshot is always
@@ -569,48 +540,6 @@ export default function DashboardPage({
   }, [businessToday, period, range, selectedClubId]);
 
   useEffect(() => {
-    if (!selectedClubId) {
-      setMonthlyAverageIncome([]);
-      return;
-    }
-    // This history is only used by the below-the-fold charts. Keep the initial
-    // connection free for the current dashboard and operational page reads.
-    if (!renderCharts) return;
-
-    let cancelled = false;
-    setMonthlyError(false);
-    const supabase = createClient();
-    async function loadMonthlyAverageIncome() {
-      const currentMonth = businessToday.slice(0, 7);
-      const [year, month] = currentMonth.split('-').map(Number);
-      const firstMonthDate = new Date(year, month - 12, 1);
-      const firstMonth = `${firstMonthDate.getFullYear()}-${String(firstMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
-      const result = await fetchAllRows<DailyCashRow>(() => supabase
-        .from('daily_cash_entries')
-        .select('date,cash_income,terminal_income,card_income')
-        .eq('club_id', selectedClubId)
-        .gte('date', firstMonth)
-        .lte('date', businessToday)
-        .order('date', { ascending: true }));
-      if (cancelled) return;
-      if (result.error) {
-        setMonthlyError(true);
-        setMonthlyAverageIncome([]);
-        return;
-      }
-      setMonthlyAverageIncome(buildMonthlyAverageGameClubIncome(result.data ?? [], businessToday));
-    }
-
-    loadMonthlyAverageIncome().catch(() => {
-      if (cancelled) return;
-      setMonthlyError(true);
-      setMonthlyAverageIncome([]);
-    });
-
-    return () => { cancelled = true; };
-  }, [businessToday, monthlyReloadToken, renderCharts, selectedClubId]);
-
-  useEffect(() => {
     const requestKey = `${selectedClubId}:${range.from}:${range.to}`;
     if (loadedRequestKey.current === requestKey) return;
     loadedRequestKey.current = requestKey;
@@ -643,22 +572,6 @@ export default function DashboardPage({
 
   const { totals, previousTotals } = data;
 
-  const periodLabel = period === 'today'
-    ? t('today')
-    : period === 'yesterday'
-      ? t('yesterday')
-      : period === 'last7Days'
-        ? t('last7Days')
-        : period === 'week'
-          ? t('thisWeek')
-          : period === 'lastWeek'
-            ? t('lastWeek')
-            : period === 'month'
-              ? t('thisMonth')
-              : period === 'lastMonth'
-                ? t('lastMonth')
-                : `${formatDateShort(range.from, locale)} - ${formatDateShort(range.to, locale)}`;
-
   const incomeComparisonLabel =
     period === 'today'
       ? t('vsYesterday')
@@ -686,35 +599,6 @@ export default function DashboardPage({
   const averageBarIncome = calculateAverageDailyIncome(totals.barSales, averageBarDayCount);
 
 
-  const incomeExpenseData = [
-    { name: t('gameClubIncome'), value: totals.computerIncome, fill: chartColors.primary },
-    { name: t('playstationIncome'), value: totals.playstationIncome, fill: chartColors.purple },
-    { name: t('barSales'), value: totals.barSales, fill: chartColors.orange },
-    { name: t('barCostOfGoodsSold'), value: totals.barCost, fill: chartColors.warning },
-    { name: t('totalExpenses'), value: totals.totalExpenses, fill: chartColors.danger },
-    { name: t('netProfit'), value: totals.accountingNetProfit, fill: chartColors.success },
-  ];
-
-  const paymentData = [
-    { name: t('cash'), value: totals.cashIncome, color: chartColors.success },
-    { name: t('terminal'), value: totals.terminalIncome, color: chartColors.primary },
-    { name: t('card'), value: totals.cardIncome, color: chartColors.purple },
-    { name: t('debtIncome'), value: totals.debtIncome, color: chartColors.warning },
-  ];
-
-  const moneyLeftData = [
-    { name: t('cash'), value: data.moneyLeftByPaymentMethod.cash, color: chartColors.success },
-    { name: t('terminal'), value: data.moneyLeftByPaymentMethod.terminal, color: chartColors.primary },
-    { name: t('card'), value: data.moneyLeftByPaymentMethod.card, color: chartColors.purple },
-    { name: t('playstation'), value: data.moneyLeftByPaymentMethod.playstation, color: chartColors.orange },
-  ];
-
-  const categoryData = [
-    { name: t('gameClub'), value: totals.computerIncome, color: chartColors.primary },
-    { name: t('playstation'), value: totals.playstationIncome, color: chartColors.purple },
-    { name: t('barSales'), value: totals.barSales, color: chartColors.orange },
-  ];
-  const incomeCategoryTotal = categoryData.reduce((sum, row) => sum + row.value, 0);
   const detailsQuery = new URLSearchParams({ from: range.from, to: range.to }).toString();
 
   // Secondary metrics: a MetricCard each; a zero with no comparison is muted.
@@ -808,6 +692,7 @@ export default function DashboardPage({
           icon={ArrowDownRight}
           tone="danger"
           comparison={comparisonFor(totals.totalExpenses, previousTotals.totalExpenses)}
+          comparisonGoodWhen="down"
         />
         <AmountCard
           loading={loading}
@@ -879,75 +764,37 @@ export default function DashboardPage({
       </MetricSection>
 
       {!renderCharts ? (
-        <div
-          ref={chartsAnchorRef}
-          className="space-y-4"
-          role="status"
-          aria-label={t('loading')}
-        >
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-            <ChartLoading />
-            <ChartLoading />
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <ChartLoading />
-            <ChartLoading />
-          </div>
+        <div ref={chartsAnchorRef} role="status" aria-label={t('loading')}>
+          <ChartLoading />
         </div>
       ) : (
-        // Once rendered, charts stay mounted across range/club changes and are
-        // dimmed while the next data loads instead of swapping to skeletons.
+        // Once rendered, the chart stays mounted across range/club changes and is
+        // dimmed while the next data loads instead of swapping to a skeleton.
         <div
-          className={cn('space-y-4 transition-opacity', loading && 'pointer-events-none opacity-60')}
+          className={cn('transition-opacity', loading && 'pointer-events-none opacity-60')}
           aria-busy={loading || undefined}
         >
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-            <IncomeTrendChart data={trend} />
-            <PaymentMethodChart
-              title={`${t('incomeByPaymentMethod')} (${periodLabel})`}
-              data={paymentData}
-              total={paymentData.reduce((sum, row) => sum + row.value, 0)}
-            />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <ExpensesByCategoryChart data={data.expenseCategories} total={totals.totalExpenses} />
-            <MoneyLeftBreakdownChart
-              title={`${t('totalMoneyLeftByCategory')} (${periodLabel})`}
-              data={moneyLeftData}
-              total={totals.gameClubMoneyLeft}
-            />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <DashboardBarChart title={`${t('incomeVsExpenses')} (${periodLabel})`} data={incomeExpenseData} />
-            <IncomeCategoryChart data={categoryData} total={incomeCategoryTotal} />
-          </div>
-
-          {monthlyError ? (
-            <ChartCard title={t('monthlyAverageIncomeTitle')} description={t('monthlyAverageIncomeDescription')}>
-              <InlineAlert
-                variant="danger"
-                className="mt-4"
-                action={(
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setMonthlyReloadToken((token) => token + 1)}
-                    icon={<RefreshCcw size={15} aria-hidden="true" />}
-                  >
-                    {tc('retry')}
-                  </Button>
-                )}
-              >
-                {t('monthlyChartLoadError')}
-              </InlineAlert>
-            </ChartCard>
-          ) : monthlyAverageIncome.length > 0 ? (
-            <MonthlyAverageIncomeChart data={monthlyAverageIncome} locale={locale} />
-          ) : null}
+          <IncomeTrendChart data={trend} />
         </div>
       )}
+
+      <Card as="section" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <ChartPie size={20} className="mt-0.5 shrink-0 text-primary-600" aria-hidden="true" />
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-gray-950">{t('analysisLinkTitle')}</h2>
+            <p className="mt-0.5 text-xs leading-5 text-gray-500">{t('analysisLinkDesc')}</p>
+          </div>
+        </div>
+        <ButtonLink
+          href={`/financial-analysis?${detailsQuery}`}
+          variant="outline"
+          size="sm"
+          iconRight={<ArrowRight size={15} aria-hidden="true" />}
+        >
+          {t('analysisLinkAction')}
+        </ButtonLink>
+      </Card>
     </div>
   );
 }

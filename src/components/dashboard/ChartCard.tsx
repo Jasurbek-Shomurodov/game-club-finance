@@ -1,9 +1,7 @@
 'use client';
 
 import { useId, type ReactNode } from 'react';
-import { useTranslations } from 'next-intl';
 import { Card, EmptyState } from '@/components/PresentationFoundation';
-import { formatCurrency } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 
 /**
@@ -46,86 +44,8 @@ export function ChartCard({ title, description, action, className, children }: {
   );
 }
 
-/** Dot + name + right-aligned amount legend row used under pie charts. */
-export function ChartLegend({ items, total }: {
-  items: Array<{ key: string; name: string; value: number; color: string }>;
-  total: number;
-}) {
-  const currency = useTranslations('common')('currency');
-  return (
-    <ul className="divide-y divide-gray-100">
-      {items.map((item) => {
-        const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
-        return (
-          <li key={item.key} className="flex items-center gap-3 py-2 text-sm">
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} aria-hidden="true" />
-            <p className="min-w-0 flex-1 break-words text-gray-700">{item.name}</p>
-            <p className="shrink-0 text-right font-semibold tabular-nums text-gray-950">
-              {formatCurrency(item.value)}
-              <span className="ml-1 text-xs font-medium text-gray-500">{currency}</span>
-              <span className="ml-2 inline-block w-9 text-right text-xs font-medium tabular-nums text-gray-400">{pct}%</span>
-            </p>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
-/** Plain big total shown above a chart: label, number, currency suffix on one line. */
-export function ChartTotal({ value, label, tone = 'neutral', className }: {
-  value: number;
-  label: string;
-  tone?: 'neutral' | 'danger' | 'success';
-  className?: string;
-}) {
-  const currency = useTranslations('common')('currency');
-  const toneClassName = {
-    neutral: 'text-gray-950',
-    danger: 'text-danger-600',
-    success: 'text-success-600',
-  };
-  return (
-    <div className={cn('min-w-0', className)}>
-      <p className="text-xs font-medium text-gray-500">{label}</p>
-      <p className={cn('mt-1 break-words text-2xl font-bold leading-none tracking-tight tabular-nums', toneClassName[tone])}>
-        {formatCurrency(value)}
-        <span className="ml-1.5 text-sm font-medium tracking-normal text-gray-500">{currency}</span>
-      </p>
-    </div>
-  );
-}
-
 export function ChartEmpty({ title, className }: { title: string; className?: string }) {
   return <EmptyState compact bordered title={title} className={cn('min-h-56 border-gray-200', className)} />;
-}
-
-/** Horizontal bar list used by the income/expense, expenses-by-category and money-left charts. */
-export function HorizontalBars({ data }: { data: Array<{ name: string; value: number; color: string }> }) {
-  const currency = useTranslations('common')('currency');
-  const maxValue = data.reduce((max, item) => Math.max(max, Math.abs(item.value)), 0);
-  return (
-    <ul className="space-y-3">
-      {data.map((item, index) => {
-        const width = maxValue > 0 ? `${(Math.abs(item.value) / maxValue) * 100}%` : '0%';
-        const color = item.value < 0 ? chartColors.danger : item.color;
-        return (
-          <li key={`${index}-${item.name}`} className="space-y-1.5" aria-label={`${item.name}: ${formatCurrency(item.value)} ${currency}`}>
-            <div className="flex items-baseline justify-between gap-3">
-              <p className="min-w-0 break-words text-sm leading-5 text-gray-700">{item.name}</p>
-              <p className={cn('shrink-0 text-sm font-semibold tabular-nums', item.value < 0 ? 'text-danger-600' : 'text-gray-950')}>
-                {formatCurrency(item.value)}
-                <span className="ml-1 text-xs font-medium text-gray-500">{currency}</span>
-              </p>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
-              <div className="h-full rounded-full" style={{ width, minWidth: item.value === 0 ? undefined : '0.5rem', backgroundColor: color }} />
-            </div>
-          </li>
-        );
-      })}
-    </ul>
-  );
 }
 
 // App locale -> BCP 47 tag for number formatting (matches src/lib/formatters.ts).

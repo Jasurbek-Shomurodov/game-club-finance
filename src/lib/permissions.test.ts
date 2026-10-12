@@ -30,6 +30,7 @@ describe('feature permissions', () => {
 
   it('maps detail and retired redirect routes to their destination feature', () => {
     expect(featureForPath('/game-club-money-details')).toBe('dashboard');
+    expect(featureForPath('/financial-analysis')).toBe('dashboard');
     expect(featureForPath('/monthly-report')).toBe('reports');
     expect(featureForPath('/expense')).toBe('expenses');
     expect(featureForPath('/balance')).toBe('expenses');

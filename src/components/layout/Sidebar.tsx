@@ -22,6 +22,7 @@ import {
   CircleDollarSign,
   BarChart3,
   HandCoins,
+  ChartPie,
 } from 'lucide-react';
 import type { Club, UserRole } from '@/types';
 import { canAccessFeature, featureForPath, type FeatureKey } from '@/lib/permissions';
@@ -150,7 +151,10 @@ export function Sidebar({
   // and occasional management.
   const allGroups: Array<{ label?: string; items: NavItem[] }> = [
     {
-      items: [{ href: '/', icon: LayoutDashboard, label: t('dashboard'), feature: 'dashboard' }],
+      items: [
+        { href: '/', icon: LayoutDashboard, label: t('dashboard'), feature: 'dashboard' },
+        { href: '/financial-analysis', icon: ChartPie, label: t('financialAnalysis'), feature: 'dashboard' },
+      ],
     },
     {
       label: t('groupDaily'),
@@ -184,6 +188,10 @@ export function Sidebar({
 
   function isActive(item: NavItem) {
     if (item.href === '/reports') return activeFeature === 'reports' || activeFeature === 'expenses';
+    // Both dashboard-feature routes share a feature; tell them apart by path.
+    const onAnalysis = pathname === '/financial-analysis' || pathname.startsWith('/financial-analysis/');
+    if (item.href === '/financial-analysis') return onAnalysis;
+    if (item.href === '/') return activeFeature === 'dashboard' && !onAnalysis;
     return activeFeature === item.feature;
   }
 

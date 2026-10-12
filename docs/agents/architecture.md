@@ -62,8 +62,11 @@ user may never visit. During an uncached navigation the current page remains
 visible with a slim progress indicator instead of a full-page loading skeleton.
 The dashboard root does not prefetch because its server response embeds live
 financial totals that can change while the user edits another screen.
-The annual chart history starts only when the dashboard's chart intersection
-observer enables charts, rather than competing with initial data reads.
+The dashboard keeps only headline totals and the income trend; its chart
+starts only when the intersection observer enables it. Detailed breakdowns
+(sankey money flow, categories, daily and 12-month trends, payment methods,
+largest payments) live on `/financial-analysis`, which uses the `dashboard`
+feature gate and `src/lib/calculations/financialAnalysis.ts`.
 
 ## Page and calculation boundaries
 

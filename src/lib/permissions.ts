@@ -60,7 +60,11 @@ export function updateFeatureAccessSelection(
 
 export function featureForPath(pathname: string): FeatureKey | null {
   const normalizedPath = pathname !== '/' ? pathname.replace(/\/$/, '') : pathname;
-  if (normalizedPath === '/bar-money-details' || normalizedPath === '/game-club-money-details') {
+  if (
+    normalizedPath === '/bar-money-details'
+    || normalizedPath === '/game-club-money-details'
+    || normalizedPath === '/financial-analysis'
+  ) {
     return 'dashboard';
   }
   if (normalizedPath === '/test-checklist') return 'team';

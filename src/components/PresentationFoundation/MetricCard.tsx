@@ -94,6 +94,8 @@ export interface AmountCardProps {
   iconClassName?: string;
   currency?: string;
   comparison?: { value: number | null; label: string };
+  /** Spending-style cards set 'down' so a rise is shown in red. */
+  comparisonGoodWhen?: 'up' | 'down';
   subMetric?: { label: string; amount: number | null; unavailableLabel?: string };
   helper?: string;
   loading?: boolean;
@@ -109,6 +111,7 @@ export function AmountCard({
   iconClassName,
   currency: currencyProp,
   comparison,
+  comparisonGoodWhen = 'up',
   subMetric,
   helper,
   loading = false,
@@ -117,6 +120,7 @@ export function AmountCard({
   const tc = useTranslations('common');
   const currency = currencyProp ?? tc('currency');
   const isPositive = typeof comparison?.value === 'number' && comparison.value >= 0;
+  const isGood = comparisonGoodWhen === 'up' ? isPositive : typeof comparison?.value === 'number' && comparison.value <= 0;
 
   return (
     <div className="flex min-w-0 flex-col rounded-2xl border border-gray-200 bg-surface p-4 text-left shadow-card sm:p-5">
@@ -139,7 +143,7 @@ export function AmountCard({
         comparison.value === null ? (
           <p className="mt-2 text-xs font-medium text-gray-500">{comparison.label}</p>
         ) : (
-          <p className={cn('mt-2 flex flex-wrap items-center gap-1 text-xs font-semibold', isPositive ? 'text-success-600' : 'text-danger-600')}>
+          <p className={cn('mt-2 flex flex-wrap items-center gap-1 text-xs font-semibold', isGood ? 'text-success-600' : 'text-danger-600')}>
             {isPositive ? <ArrowUp size={12} aria-hidden="true" /> : <ArrowDown size={12} aria-hidden="true" />}
             {Math.abs(comparison.value)}% <span className="font-medium text-gray-500">{comparison.label}</span>
           </p>
