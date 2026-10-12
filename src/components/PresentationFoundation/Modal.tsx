@@ -140,10 +140,15 @@ export function Modal({
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
-    const focusTarget = panelRef.current?.querySelector<HTMLElement>(
-      'input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]):not([data-modal-close])',
-    );
-    (focusTarget ?? panelRef.current)?.focus({ preventScroll: true });
+    // A control marked `autoFocus` (e.g. the confirm button) already took focus
+    // during the commit; respect it. Otherwise start at the first field or action.
+    const panel = panelRef.current;
+    if (!(panel && panel !== document.activeElement && panel.contains(document.activeElement))) {
+      const focusTarget = panel?.querySelector<HTMLElement>(
+        'input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]):not([data-modal-close])',
+      );
+      (focusTarget ?? panel)?.focus({ preventScroll: true });
+    }
 
     return () => {
       document.body.style.overflow = previousOverflow;
