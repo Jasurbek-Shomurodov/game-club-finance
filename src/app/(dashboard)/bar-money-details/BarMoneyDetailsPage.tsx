@@ -134,7 +134,6 @@ export default function BarMoneyDetailsPage({ requestedFrom, requestedTo }: { re
       loadRows={loadRows}
       labels={{
         title: t('barMoneyCalculation'),
-        description: t('barMoneyCalculationDesc'),
         resultLabel: t('barMoneyLeft'),
         resultDescription: t('barMoneyLeftDesc'),
         collectedLabel: t('barSales'),

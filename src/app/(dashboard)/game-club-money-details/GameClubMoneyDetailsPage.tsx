@@ -133,7 +133,6 @@ export default function GameClubMoneyDetailsPage({ requestedFrom, requestedTo }:
       loadRows={loadRows}
       labels={{
         title: t('gameClubMoneyCalculation'),
-        description: t('gameClubMoneyCalculationDesc'),
         resultLabel: t('totalMoneyLeft'),
         resultDescription: t('totalMoneyLeftDesc'),
         collectedLabel: t('totalCollected'),

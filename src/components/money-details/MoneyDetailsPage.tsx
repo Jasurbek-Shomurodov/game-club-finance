@@ -61,7 +61,6 @@ export interface MoneyDetailsPageProps {
   loadRows: (clubId: string, from: string, to: string) => Promise<MoneyDetailRow[]>;
   labels: {
     title: string;
-    description: string;
     resultLabel: string;
     resultDescription: string;
     collectedLabel: string;
