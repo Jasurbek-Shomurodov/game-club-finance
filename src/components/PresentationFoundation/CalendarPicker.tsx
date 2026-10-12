@@ -17,7 +17,7 @@ import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { formatDatePickerValue, formatYearMonth } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { Button } from './Button';
-import { isTopModal, trapFocus, useModalLayer } from './Modal';
+import { isTopModal, trapFocus, useFocusOrigin, useModalLayer } from './Modal';
 import { backdropMotion, sheetMotion, usePresence } from './motion';
 
 /**
@@ -27,6 +27,7 @@ import { backdropMotion, sheetMotion, usePresence } from './motion';
  */
 function usePickerDialog(open: boolean, onClose: () => void, panelRef: RefObject<HTMLElement | null>) {
   const layerId = useModalLayer(open);
+  const focusOrigin = useFocusOrigin(open);
   const onCloseRef = useRef(onClose);
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -36,7 +37,6 @@ function usePickerDialog(open: boolean, onClose: () => void, panelRef: RefObject
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const previouslyFocused = document.activeElement as HTMLElement | null;
     const panel = panelRef.current;
     const target =
       panel?.querySelector<HTMLElement>('[data-picker-selected="true"]:not([disabled])') ??
@@ -56,9 +56,9 @@ function usePickerDialog(open: boolean, onClose: () => void, panelRef: RefObject
     return () => {
       document.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = previousOverflow;
-      previouslyFocused?.focus?.({ preventScroll: true });
+      focusOrigin?.focus?.({ preventScroll: true });
     };
-  }, [layerId, open, panelRef]);
+  }, [focusOrigin, layerId, open, panelRef]);
 }
 
 function parseIsoDate(value: string): Date {

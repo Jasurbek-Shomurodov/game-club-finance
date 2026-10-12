@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
-import { isTopModal, trapFocus, useModalLayer } from './Modal';
+import { isTopModal, trapFocus, useFocusOrigin, useModalLayer } from './Modal';
 import { backdropMotion, slideMotion, usePresence } from './motion';
 
 export interface DrawerProps {
@@ -53,6 +53,7 @@ export function Drawer({
   const panelRef = useRef<HTMLDivElement>(null);
   const { mounted, visible } = usePresence(open);
   const layerId = useModalLayer(open);
+  const focusOrigin = useFocusOrigin(open);
   const onCloseRef = useRef(onClose);
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -62,7 +63,6 @@ export function Drawer({
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const previouslyFocused = document.activeElement as HTMLElement | null;
     const panel = panelRef.current;
     (panel?.querySelector<HTMLElement>('[data-autofocus], [aria-current="page"]') ?? panel)?.focus({ preventScroll: true });
 
@@ -79,9 +79,9 @@ export function Drawer({
     return () => {
       document.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = previousOverflow;
-      previouslyFocused?.focus?.({ preventScroll: true });
+      focusOrigin?.focus?.({ preventScroll: true });
     };
-  }, [layerId, open]);
+  }, [focusOrigin, layerId, open]);
 
   if (!mounted) return null;
 

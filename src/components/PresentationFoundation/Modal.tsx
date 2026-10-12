@@ -60,6 +60,26 @@ export function useModalLayer(open: boolean) {
   return id;
 }
 
+function focusedElement(): HTMLElement | null {
+  return typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null);
+}
+
+/**
+ * The element that had focus when `open` became true, to give focus back to on
+ * close. It is read while rendering, before React commits the dialog, because
+ * an `autoFocus` control inside the dialog (the confirm button) takes focus
+ * during the commit, before any effect could look.
+ */
+export function useFocusOrigin(open: boolean): HTMLElement | null {
+  const [origin, setOrigin] = useState<HTMLElement | null>(() => (open ? focusedElement() : null));
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setOrigin(focusedElement());
+  }
+  return origin;
+}
+
 /** Keeps Tab / Shift+Tab inside `container` while it is the top dialog. */
 export function trapFocus(event: KeyboardEvent, container: HTMLElement | null) {
   if (event.key !== 'Tab' || !container) return;
@@ -107,6 +127,7 @@ export function Modal({
   const descriptionId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const layerId = useModalLayer(open);
+  const focusOrigin = useFocusOrigin(open);
   const { mounted, visible } = usePresence(open);
   const content = useHeldWhileClosing(open, { title, description, footer, children });
   const onCloseRef = useRef(onClose);
@@ -118,7 +139,6 @@ export function Modal({
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const previouslyFocused = document.activeElement as HTMLElement | null;
 
     const focusTarget = panelRef.current?.querySelector<HTMLElement>(
       'input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]):not([data-modal-close])',
@@ -127,9 +147,9 @@ export function Modal({
 
     return () => {
       document.body.style.overflow = previousOverflow;
-      previouslyFocused?.focus?.({ preventScroll: true });
+      focusOrigin?.focus?.({ preventScroll: true });
     };
-  }, [open]);
+  }, [focusOrigin, open]);
 
   useEffect(() => {
     if (!open) return;
