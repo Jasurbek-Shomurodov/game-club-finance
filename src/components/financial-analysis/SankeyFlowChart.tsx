@@ -50,6 +50,9 @@ export interface SankeyFlowChartProps {
   targetColor: (key: string) => string;
   locale: string;
   currency: string;
+  /** Opens the details of a right-hand node; nodes it returns false for stay static. */
+  onTargetClick?: (key: string) => void;
+  isTargetClickable?: (key: string) => boolean;
 }
 
 /** Three-column flow: income sources → total income → where it went (costs, categories, profit). */
@@ -62,6 +65,8 @@ export function SankeyFlowChart({
   targetColor,
   locale,
   currency,
+  onTargetClick,
+  isTargetClickable = () => true,
 }: SankeyFlowChartProps) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [wrapRef, measuredWidth] = useElementWidth();
@@ -108,6 +113,8 @@ export function SankeyFlowChart({
   const targets = layout(sankey.targets);
   const linkOpacity = (key: string) => (hovered === key ? 0.55 : hovered ? 0.12 : 0.3);
   const hover = (key: string) => ({ onMouseEnter: () => setHovered(key), onMouseLeave: () => setHovered(null) });
+  const clickable = (key: string) => Boolean(onTargetClick) && isTargetClickable(key);
+  const targetClick = (key: string) => (clickable(key) ? { onClick: () => onTargetClick?.(key) } : {});
   const money = (amount: number) => `${formatCurrency(amount)} ${currency}`;
   const share = (amount: number) => formatShare((amount / total) * 100, locale);
 
@@ -139,8 +146,9 @@ export function SankeyFlowChart({
               stroke={targetColor(node.key)}
               strokeWidth={Math.max(1, node.band)}
               strokeOpacity={linkOpacity(`t-${node.key}`)}
-              className="transition-[stroke-opacity]"
+              className={cn('transition-[stroke-opacity]', clickable(node.key) && 'cursor-pointer')}
               {...hover(`t-${node.key}`)}
+              {...targetClick(node.key)}
             >
               <title>{`${hubLabel} → ${targetLabel(node.key)}: ${money(node.amount)} (${share(node.amount)})`}</title>
             </path>
@@ -173,7 +181,12 @@ export function SankeyFlowChart({
           </text>
 
           {targets.map((node) => (
-            <g key={`t-${node.key}`} {...hover(`t-${node.key}`)}>
+            <g
+              key={`t-${node.key}`}
+              className={clickable(node.key) ? 'cursor-pointer' : undefined}
+              {...hover(`t-${node.key}`)}
+              {...targetClick(node.key)}
+            >
               <title>{`${targetLabel(node.key)}: ${money(node.amount)} (${share(node.amount)})`}</title>
               <rect x={rightX} y={node.y} width={nodeWidth} height={node.h} rx={3} fill={targetColor(node.key)} />
               <text

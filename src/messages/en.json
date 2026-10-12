@@ -173,7 +173,7 @@
       "shortfall": "Loss (not covered)"
     },
     "categoriesTitle": "Expenses by category",
-    "categoriesDesc": "Operating expenses only; the bar cost of goods sold is not included.",
+    "categoriesDesc": "Operating expenses only; the bar cost of goods sold is not included. Tap a category to see its payments.",
     "spentTotal": "Expenses",
     "compareTitle": "Categories vs previous period",
     "compareDesc": "Red means the category cost more than before.",
@@ -198,7 +198,15 @@
     "methodsTitle": "Game club money by payment method",
     "methodsDesc": "Collections and debt payments in, game-club-paid expenses out.",
     "empty": "No data for this period",
-    "noExpenses": "No expenses for this period"
+    "noExpenses": "No expenses for this period",
+    "drawerTotal": "Total",
+    "drawerShare": "Share of expenses",
+    "drawerCount": "Payments",
+    "drawerAverage": "Average payment",
+    "drawerPaidFrom": "Paid from",
+    "drawerPayments": "Payments",
+    "drawerNoComment": "No comment",
+    "drawerOtherHint": "All smaller categories together."
   },
   "reports": {
     "title": "Reports",

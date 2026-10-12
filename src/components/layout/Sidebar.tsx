@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useState, type MouseEvent } from 'react';
 import { cn } from '@/lib/utils';
 import { useSignOut } from './useSignOut';
 import { usePendingTeamCount } from './usePendingTeamCount';
@@ -26,8 +26,7 @@ import {
 } from 'lucide-react';
 import type { Club, UserRole } from '@/types';
 import { canAccessFeature, featureForPath, type FeatureKey } from '@/lib/permissions';
-import { Avatar, ClubLogo, IconButton, LanguageSwitcher, ThemeSwitcher } from '@/components/PresentationFoundation';
-import { isTopModal, trapFocus, useModalLayer } from '@/components/PresentationFoundation/Modal';
+import { Avatar, ClubLogo, Drawer, IconButton, LanguageSwitcher, ThemeSwitcher } from '@/components/PresentationFoundation';
 
 interface SidebarClubOption {
   club: Club;
@@ -285,66 +284,17 @@ export function Sidebar({
     <>
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-gray-200 lg:flex">{content}</aside>
 
-      {mobileOpen && (
-        <MobileDrawer label={t('mainNavigation')} onClose={onClose}>
-          {content}
-        </MobileDrawer>
-      )}
-    </>
-  );
-}
-
-/**
- * Off-canvas navigation for phones and tablets: a real modal dialog (focus
- * moves in and is trapped, Escape closes, page behind doesn't scroll, focus
- * returns to the menu button).
- */
-function MobileDrawer({ label, onClose, children }: { label: string; onClose?: () => void; children: React.ReactNode }) {
-  const panelRef = useRef<HTMLElement>(null);
-  const layerId = useModalLayer(true);
-  const onCloseRef = useRef(onClose);
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  });
-
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    const panel = panelRef.current;
-    (panel?.querySelector<HTMLElement>('[aria-current="page"]') ?? panel?.querySelector<HTMLElement>('a[href], button'))?.focus({ preventScroll: true });
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (!isTopModal(layerId)) return;
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onCloseRef.current?.();
-        return;
-      }
-      trapFocus(event, panelRef.current);
-    }
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = previousOverflow;
-      previouslyFocused?.focus?.({ preventScroll: true });
-    };
-  }, [layerId]);
-
-  return (
-    <div className="fixed inset-0 z-40 lg:hidden">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} aria-hidden="true" />
-      <aside
-        ref={panelRef}
+      <Drawer
+        open={Boolean(mobileOpen)}
+        onClose={() => onClose?.()}
+        side="left"
         id="mobile-nav"
-        role="dialog"
-        aria-modal="true"
-        aria-label={label}
-        tabIndex={-1}
-        className="absolute bottom-0 left-0 top-0 z-50 w-[min(18rem,86vw)] shadow-pop outline-none"
+        ariaLabel={t('mainNavigation')}
+        className="lg:hidden"
+        panelClassName="w-[min(18rem,86vw)] max-w-none"
       >
-        {children}
-      </aside>
-    </div>
+        {content}
+      </Drawer>
+    </>
   );
 }

@@ -378,3 +378,52 @@ export function buildMonthlyAnalysis(
     return { month: `${key}-01`, income, spent, profit: totals.accountingNetProfit };
   });
 }
+
+export interface CategoryDetail {
+  category: string;
+  /** Newest first. */
+  rows: ExpenseRow[];
+  total: number;
+  count: number;
+  average: number;
+  previousTotal: number;
+  changePct: number | null;
+  /** Share of all expenses in the period, percent. */
+  share: number | null;
+  gameClubTotal: number;
+  barTotal: number;
+}
+
+/**
+ * Payments behind one slice of the analysis. The folded "other" slice holds
+ * every category outside the named top categories, including "other" itself.
+ */
+export function buildCategoryDetail(
+  category: string,
+  current: ExpenseRow[],
+  previous: ExpenseRow[],
+  topCategories: CategoryAmount[],
+): CategoryDetail {
+  const named = new Set(topCategories.map((row) => row.category).filter((key) => key !== OTHER_CATEGORY));
+  const matches = (row: ExpenseRow) => (
+    category === OTHER_CATEGORY ? !named.has(row.category || OTHER_CATEGORY) : row.category === category
+  );
+  const rows = current
+    .filter(matches)
+    .sort((a, b) => b.date.localeCompare(a.date) || (b.created_at ?? '').localeCompare(a.created_at ?? ''));
+  const total = sum(rows, amountOf);
+  const previousTotal = sum(previous.filter(matches), amountOf);
+  const barTotal = sum(rows.filter((row) => row.payment_source === 'bar'), amountOf);
+  return {
+    category,
+    rows,
+    total,
+    count: rows.length,
+    average: rows.length ? Math.round(total / rows.length) : 0,
+    previousTotal,
+    changePct: percentChange(total, previousTotal),
+    share: pct(total, sum(current, amountOf)),
+    gameClubTotal: total - barTotal,
+    barTotal,
+  };
+}

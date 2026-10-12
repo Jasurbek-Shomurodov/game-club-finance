@@ -4,6 +4,7 @@ import {
   OTHER_CATEGORY,
   PROFIT_TARGET,
   buildCategoryComparison,
+  buildCategoryDetail,
   buildFinancialAnalysis,
   buildMonthlyAnalysis,
   foldCategories,
@@ -134,5 +135,29 @@ describe('buildMonthlyAnalysis', () => {
     expect(months[0].month).toBe('2025-10-01');
     expect(months[11]).toEqual({ month: '2026-09-01', income: 345_000, spent: 130_000, profit: 215_000 });
     expect(months[10]).toEqual({ month: '2026-08-01', income: 0, spent: 0, profit: 0 });
+  });
+});
+
+describe('buildCategoryDetail', () => {
+  const current = [
+    expense('1', '2026-09-01', 100, 'rent'),
+    expense('2', '2026-09-03', 50, 'rent', { payment_source: 'bar' }),
+    expense('3', '2026-09-02', 30, 'tax'),
+    expense('4', '2026-09-02', 20, OTHER_CATEGORY),
+  ];
+  const previous = [expense('5', '2026-08-01', 120, 'rent'), expense('6', '2026-08-01', 10, 'tax')];
+  const top = foldCategories(groupExpensesByCategory(current), 1);
+
+  it('lists one category newest first with totals and change', () => {
+    const detail = buildCategoryDetail('rent', current, previous, top);
+    expect(detail.rows.map((row) => row.id)).toEqual(['2', '1']);
+    expect(detail).toMatchObject({ total: 150, count: 2, average: 75, previousTotal: 120, changePct: 25, share: 75, gameClubTotal: 100, barTotal: 50 });
+  });
+
+  it('collects every folded category for the other slice', () => {
+    const detail = buildCategoryDetail(OTHER_CATEGORY, current, previous, top);
+    expect(detail.rows.map((row) => row.id).sort()).toEqual(['3', '4']);
+    expect(detail.total).toBe(50);
+    expect(detail.previousTotal).toBe(10);
   });
 });

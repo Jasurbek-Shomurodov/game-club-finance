@@ -173,7 +173,7 @@
       "shortfall": "Zarar (qoplanmagan)"
     },
     "categoriesTitle": "Toifalar bo‘yicha xarajatlar",
-    "categoriesDesc": "Faqat operatsion xarajatlar, bar tannarxisiz.",
+    "categoriesDesc": "Faqat operatsion xarajatlar, bar tannarxisiz. To‘lovlarni ko‘rish uchun toifani bosing.",
     "spentTotal": "Xarajatlar",
     "compareTitle": "Toifalar oldingi davrga nisbatan",
     "compareDesc": "Qizil — toifa avvalgidan qimmatga tushgan.",
@@ -198,7 +198,15 @@
     "methodsTitle": "To‘lov usullari bo‘yicha klub pullari",
     "methodsDesc": "Tushumlar va qarz to‘lovlari — kirim, klub xarajatlari — chiqim.",
     "empty": "Bu davr uchun ma’lumot yo‘q",
-    "noExpenses": "Bu davr uchun xarajatlar yo‘q"
+    "noExpenses": "Bu davr uchun xarajatlar yo‘q",
+    "drawerTotal": "Jami",
+    "drawerShare": "Xarajatlardagi ulushi",
+    "drawerCount": "To‘lovlar soni",
+    "drawerAverage": "O‘rtacha to‘lov",
+    "drawerPaidFrom": "Qayerdan to‘langan",
+    "drawerPayments": "To‘lovlar",
+    "drawerNoComment": "Izohsiz",
+    "drawerOtherHint": "Barcha kichik toifalar birgalikda."
   },
   "reports": {
     "title": "Hisobotlar",

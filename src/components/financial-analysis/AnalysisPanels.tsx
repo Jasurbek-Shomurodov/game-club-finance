@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, ChevronRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Badge } from '@/components/PresentationFoundation';
 import { ChartEmpty, chartColors } from '@/components/dashboard/ChartCard';
@@ -28,11 +28,13 @@ export function CategoryDonut({
   labelFor,
   locale,
   currency,
+  onSelect,
 }: CommonProps & {
   categories: CategoryAmount[];
   colors: Record<string, string>;
   total: number;
   labelFor: (category: string) => string;
+  onSelect: (category: string) => void;
 }) {
   const t = useTranslations('financialAnalysis');
   const [hovered, setHovered] = useState<string | null>(null);
@@ -66,9 +68,10 @@ export function CategoryDonut({
                 strokeDasharray={`${Math.max(0.5, length - gap)} ${circumference}`}
                 strokeDashoffset={-offset}
                 opacity={hovered && hovered !== row.category ? 0.35 : 1}
-                className="transition-[opacity,stroke-width]"
+                className="cursor-pointer transition-[opacity,stroke-width]"
                 onMouseEnter={() => setHovered(row.category)}
                 onMouseLeave={() => setHovered(null)}
+                onClick={() => onSelect(row.category)}
               >
                 <title>{`${labelFor(row.category)}: ${formatCurrency(row.amount)} ${currency}`}</title>
               </circle>
@@ -83,18 +86,27 @@ export function CategoryDonut({
       </svg>
       <ul className="w-full min-w-0 space-y-0.5">
         {categories.map((row) => (
-          <li
-            key={row.category}
-            onMouseEnter={() => setHovered(row.category)}
-            onMouseLeave={() => setHovered(null)}
-            className={cn('flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors', hovered === row.category && 'bg-gray-100')}
-          >
-            <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: colors[row.category] ?? chartColors.gray }} aria-hidden="true" />
-            <span className="min-w-0 flex-1 truncate text-gray-700">{labelFor(row.category)}</span>
-            <span className="text-xs font-medium tabular-nums text-gray-400">{formatShare(row.share, locale)}</span>
-            <span className="w-28 text-right font-semibold tabular-nums text-gray-950">
-              {formatCurrency(row.amount)}
-            </span>
+          <li key={row.category}>
+            <button
+              type="button"
+              onClick={() => onSelect(row.category)}
+              onMouseEnter={() => setHovered(row.category)}
+              onMouseLeave={() => setHovered(null)}
+              onFocus={() => setHovered(row.category)}
+              onBlur={() => setHovered(null)}
+              className={cn(
+                'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+                hovered === row.category ? 'bg-gray-100' : 'hover:bg-gray-100',
+              )}
+            >
+              <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: colors[row.category] ?? chartColors.gray }} aria-hidden="true" />
+              <span className="min-w-0 flex-1 truncate text-gray-700">{labelFor(row.category)}</span>
+              <span className="text-xs font-medium tabular-nums text-gray-400">{formatShare(row.share, locale)}</span>
+              <span className="w-28 text-right font-semibold tabular-nums text-gray-950">
+                {formatCurrency(row.amount)}
+              </span>
+              <ChevronRight size={14} className="shrink-0 text-gray-400" aria-hidden="true" />
+            </button>
           </li>
         ))}
       </ul>
@@ -109,10 +121,12 @@ export function CategoryComparison({
   labelFor,
   locale,
   currency,
+  onSelect,
 }: CommonProps & {
   rows: CategoryComparisonRow[];
   colors: Record<string, string>;
   labelFor: (category: string) => string;
+  onSelect: (category: string) => void;
 }) {
   const t = useTranslations('financialAnalysis');
   if (!rows.length) return <ChartEmpty title={t('noExpenses')} className="mt-4" />;
@@ -124,29 +138,33 @@ export function CategoryComparison({
         <span className="inline-flex items-center gap-1.5"><span className="h-2 w-4 rounded-sm bg-gray-700" aria-hidden="true" />{t('current')}</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-2 w-4 rounded-sm bg-gray-300" aria-hidden="true" />{t('previous')}</span>
       </div>
-      <ul className="max-h-[340px] space-y-3 overflow-y-auto overscroll-contain pr-2 [scrollbar-gutter:stable]">
+      <ul className="max-h-[340px] space-y-1 overflow-y-auto overscroll-contain pr-2 [scrollbar-gutter:stable]">
         {rows.map((row) => {
           const up = row.change > 0;
           const Icon = up ? ArrowUpRight : ArrowDownRight;
           return (
-            <li
-              key={row.category}
-              aria-label={`${labelFor(row.category)}: ${t('current')} ${formatCurrency(row.current)} ${currency}, ${t('previous')} ${formatCurrency(row.previous)} ${currency}`}
-            >
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <span className="min-w-0 truncate text-sm text-gray-700">{labelFor(row.category)}</span>
-                <Badge variant={row.change === 0 ? 'neutral' : up ? 'danger' : 'success'} className="shrink-0 tabular-nums">
-                  {row.change !== 0 && <Icon size={11} aria-hidden="true" />}
-                  {row.changePct === null ? t('newItem') : formatShare(Math.abs(row.changePct), locale)}
-                  <span className="ml-1 opacity-80">
-                    {row.change > 0 ? '+' : row.change < 0 ? '−' : ''}{formatCompactMoney(Math.abs(row.change), locale)}
-                  </span>
-                </Badge>
-              </div>
-              <div className="space-y-0.5" aria-hidden="true">
-                <div className="h-2 rounded-r" style={{ width: `${Math.max(0.5, (row.current / max) * 100)}%`, backgroundColor: colors[row.category] ?? chartColors.gray }} />
-                <div className="h-2 rounded-r bg-gray-300" style={{ width: `${Math.max(0.5, (row.previous / max) * 100)}%` }} />
-              </div>
+            <li key={row.category}>
+              <button
+                type="button"
+                onClick={() => onSelect(row.category)}
+                aria-label={`${labelFor(row.category)}: ${t('current')} ${formatCurrency(row.current)} ${currency}, ${t('previous')} ${formatCurrency(row.previous)} ${currency}`}
+                className="w-full rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              >
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <span className="min-w-0 truncate text-sm text-gray-700">{labelFor(row.category)}</span>
+                  <Badge variant={row.change === 0 ? 'neutral' : up ? 'danger' : 'success'} className="shrink-0 tabular-nums">
+                    {row.change !== 0 && <Icon size={11} aria-hidden="true" />}
+                    {row.changePct === null ? t('newItem') : formatShare(Math.abs(row.changePct), locale)}
+                    <span className="ml-1 opacity-80">
+                      {row.change > 0 ? '+' : row.change < 0 ? '−' : ''}{formatCompactMoney(Math.abs(row.change), locale)}
+                    </span>
+                  </Badge>
+                </div>
+                <div className="space-y-0.5" aria-hidden="true">
+                  <div className="h-2 rounded-r" style={{ width: `${Math.max(0.5, (row.current / max) * 100)}%`, backgroundColor: colors[row.category] ?? chartColors.gray }} />
+                  <div className="h-2 rounded-r bg-gray-300" style={{ width: `${Math.max(0.5, (row.previous / max) * 100)}%` }} />
+                </div>
+              </button>
             </li>
           );
         })}
@@ -207,10 +225,12 @@ export function LargestPayments({
   labelFor,
   locale,
   currency,
+  onSelect,
 }: CommonProps & {
   rows: ExpenseRow[];
   colors: Record<string, string>;
   labelFor: (category: string) => string;
+  onSelect: (category: string) => void;
 }) {
   const t = useTranslations('financialAnalysis');
   if (!rows.length) return <ChartEmpty title={t('noExpenses')} className="mt-4" />;
@@ -221,22 +241,28 @@ export function LargestPayments({
       {rows.map((row) => {
         const amount = Number(row.amount ?? 0);
         return (
-          <li key={row.id} className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 py-2.5">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-gray-950">
-                {labelFor(row.category)}
-                {row.comment && <span className="font-normal text-gray-500"> · {row.comment}</span>}
+          <li key={row.id}>
+            <button
+              type="button"
+              onClick={() => onSelect(row.category)}
+              className="grid w-full grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 rounded-lg px-1.5 py-2.5 text-left transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-gray-950">
+                  {labelFor(row.category)}
+                  {row.comment && <span className="font-normal text-gray-500"> · {row.comment}</span>}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {formatDateShort(row.date, locale)} · {row.payment_source === 'bar' ? t('paidFromBar') : t('paidFromGameClub')}
+                </p>
+              </div>
+              <p className="text-right text-sm font-semibold tabular-nums text-gray-950">
+                {formatCurrency(amount)} <span className="text-xs font-medium text-gray-500">{currency}</span>
               </p>
-              <p className="text-xs text-gray-500">
-                {formatDateShort(row.date, locale)} · {row.payment_source === 'bar' ? t('paidFromBar') : t('paidFromGameClub')}
-              </p>
-            </div>
-            <p className="text-right text-sm font-semibold tabular-nums text-gray-950">
-              {formatCurrency(amount)} <span className="text-xs font-medium text-gray-500">{currency}</span>
-            </p>
-            <div className="col-span-2 h-1.5 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
-              <div className="h-full rounded-full" style={{ width: `${(amount / max) * 100}%`, backgroundColor: colors[row.category] ?? chartColors.gray }} />
-            </div>
+              <div className="col-span-2 h-1.5 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
+                <div className="h-full rounded-full" style={{ width: `${(amount / max) * 100}%`, backgroundColor: colors[row.category] ?? chartColors.gray }} />
+              </div>
+            </button>
           </li>
         );
       })}

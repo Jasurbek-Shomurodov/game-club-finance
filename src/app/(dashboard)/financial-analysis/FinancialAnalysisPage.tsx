@@ -52,6 +52,7 @@ import {
   BAR_COST_TARGET,
   PROFIT_TARGET,
   buildCategoryComparison,
+  buildCategoryDetail,
   buildFinancialAnalysis,
   buildMonthlyAnalysis,
   type AnalysisLedgers,
@@ -66,6 +67,7 @@ import {
   LargestPayments,
   PaymentMethodFlow,
 } from '@/components/financial-analysis/AnalysisPanels';
+import { CategoryDrawer } from '@/components/financial-analysis/CategoryDrawer';
 import { SOURCE_COLORS, categoryColors, formatShare } from '@/components/financial-analysis/analysisFormat';
 
 function ChartLoading() {
@@ -234,6 +236,9 @@ export default function FinancialAnalysisPage() {
   const [monthlyError, setMonthlyError] = useState(false);
   const [monthlyReloadToken, setMonthlyReloadToken] = useState(0);
   const requestSequence = useRef(0);
+  // The category stays set while the drawer slides out, so its content does not vanish mid-animation.
+  const [drawerCategory, setDrawerCategory] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Keep the range shareable, like the dashboard.
   useEffect(() => {
@@ -299,6 +304,16 @@ export default function FinancialAnalysisPage() {
     [current.expenseRows, previous.expenseRows],
   );
   const colors = useMemo(() => categoryColors(analysis.topCategories), [analysis.topCategories]);
+  const categoryDetail = useMemo(
+    () => (drawerCategory
+      ? buildCategoryDetail(drawerCategory, current.expenseRows, previous.expenseRows, analysis.topCategories)
+      : null),
+    [analysis.topCategories, current.expenseRows, drawerCategory, previous.expenseRows],
+  );
+  const openCategory = useCallback((category: string) => {
+    setDrawerCategory(category);
+    setDrawerOpen(true);
+  }, []);
 
   const categoryName = useCallback((category: string) => {
     if (category === BAR_COST_TARGET) return t('barCost');
@@ -453,6 +468,8 @@ export default function FinancialAnalysisPage() {
                     targetColor={(key) => colors[key]}
                     locale={locale}
                     currency={currency}
+                    onTargetClick={openCategory}
+                    isTargetClickable={(key) => key !== BAR_COST_TARGET && key !== PROFIT_TARGET}
                   />
                 ) : (
                   <ChartEmpty title={t('empty')} />
@@ -469,10 +486,18 @@ export default function FinancialAnalysisPage() {
                   labelFor={categoryName}
                   locale={locale}
                   currency={currency}
+                  onSelect={openCategory}
                 />
               </ChartCard>
               <ChartCard title={t('compareTitle')} description={t('compareDesc')}>
-                <CategoryComparison rows={comparison} colors={colors} labelFor={categoryName} locale={locale} currency={currency} />
+                <CategoryComparison
+                  rows={comparison}
+                  colors={colors}
+                  labelFor={categoryName}
+                  locale={locale}
+                  currency={currency}
+                  onSelect={openCategory}
+                />
               </ChartCard>
             </div>
           </Section>
@@ -508,7 +533,14 @@ export default function FinancialAnalysisPage() {
           <Section title={t('detailsSection')}>
             <div className="grid gap-4 lg:grid-cols-2">
               <ChartCard title={t('largestTitle')} description={t('largestDesc')}>
-                <LargestPayments rows={analysis.largest} colors={colors} labelFor={categoryName} locale={locale} currency={currency} />
+                <LargestPayments
+                  rows={analysis.largest}
+                  colors={colors}
+                  labelFor={categoryName}
+                  locale={locale}
+                  currency={currency}
+                  onSelect={openCategory}
+                />
               </ChartCard>
               <ChartCard title={t('methodsTitle')} description={t('methodsDesc')}>
                 <PaymentMethodFlow rows={visibleMethods} methodLabel={methodName} locale={locale} currency={currency} />
@@ -517,6 +549,17 @@ export default function FinancialAnalysisPage() {
           </Section>
         </div>
       )}
+
+      <CategoryDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        detail={categoryDetail}
+        color={(drawerCategory && colors[drawerCategory]) || colors.other}
+        labelFor={categoryName}
+        periodLabel={`${formatDateShort(range.from, locale)} – ${formatDateShort(range.to, locale)}`}
+        locale={locale}
+        currency={currency}
+      />
     </div>
   );
 }

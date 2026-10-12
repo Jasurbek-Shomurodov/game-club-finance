@@ -24,7 +24,7 @@ import { Button, Card, Field, Input, InlineAlert, PageHeader } from '@/component
 | Dates and months | `DatePicker`, `DateRangePicker`, `MonthPicker` |
 | Save results, errors, notes | `InlineAlert` (inline) or `useToast` (transient) |
 | Destructive confirmation | `useConfirm` / `ConfirmDialog` (never `window.confirm`) |
-| Dialogs | `Modal` |
+| Dialogs | `Modal`, `Drawer` (animated side panel) |
 | KPI numbers | `MetricCard` (formatted value), `AmountCard` (money with comparison), `StatTile` (compact) |
 | Tables | `DataTable` (supports totals row, sticky header, empty state; pass `label` so keyboard users can scroll wide tables) |
 | Nothing to show | `EmptyState` |
@@ -59,7 +59,7 @@ Rules of thumb:
 - Money and prices: `Money` shows the translated currency (сум / so'm / UZS)
   by default; `CurrencyInput` keeps the caret in place while separators move
   and ignores a pasted decimal part ("1 500,50" → 1 500).
-- Dialogs stack: `Modal`, `ConfirmDialog`, the date/month pickers and the
+- Dialogs stack: `Modal`, `Drawer`, `ConfirmDialog`, the date/month pickers and the
   mobile drawer register with one modal stack, so Escape and the Tab focus trap
   only act on the top dialog. A bespoke overlay must use `useModalLayer` +
   `trapFocus` from `./Modal` to join it.

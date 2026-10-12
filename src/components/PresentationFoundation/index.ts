@@ -8,7 +8,7 @@
  * Actions:           Button, ButtonLink, IconButton, Stepper
  * Forms:             Field, Input, CurrencyInput, Textarea, Select, Checkbox, SearchInput,
  *                    SegmentedControl, DatePicker, DateRangePicker, MonthPicker
- * Feedback:          InlineAlert, Toast/useToast, Modal, ConfirmDialog/useConfirm, EmptyState,
+ * Feedback:          InlineAlert, Toast/useToast, Modal, Drawer, ConfirmDialog/useConfirm, EmptyState,
  *                    Badge, Spinner, skeletons
  * Data display:      MetricCard, AmountCard, StatTile, DataTable
  * Misc:              LanguageSwitcher, ThemeSwitcher
@@ -21,6 +21,7 @@ export { DatePicker, DateRangePicker, MonthPicker } from './CalendarPicker';
 export { Card, CardBody, CardFooter, CardHeader, SectionHeading } from './Card';
 export { ConfirmDialog, useConfirm } from './ConfirmDialog';
 export { DataTable, type DataTableColumn } from './DataTable';
+export { Drawer, type DrawerProps } from './Drawer';
 export { EmptyState } from './EmptyState';
 export {
   Checkbox,
