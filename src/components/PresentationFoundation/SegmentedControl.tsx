@@ -105,7 +105,7 @@ export function SegmentedControl<T extends string>({
                     ? 'bg-surface font-semibold text-gray-950 shadow-sm'
                     : 'text-gray-500 hover:text-gray-900')
                   : cn('rounded-xl border px-2', height, selected
-                    ? 'border-primary-600 bg-primary-600 font-semibold text-white shadow-sm'
+                    ? 'border-primary-600 bg-primary-600 font-semibold text-on-accent shadow-sm'
                     : 'border-gray-200 bg-surface text-gray-700 hover:border-gray-300 hover:bg-gray-50'),
             )}
           >

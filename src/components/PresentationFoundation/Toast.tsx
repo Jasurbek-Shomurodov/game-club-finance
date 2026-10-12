@@ -39,7 +39,7 @@ export function Toast({ message, type, onClose, durationMs }: ToastProps) {
       onBlur={() => setPaused(false)}
       className={cn(
         'fixed left-4 right-4 top-[max(1rem,env(safe-area-inset-top))] z-[90] flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium shadow-pop sm:bottom-[max(1rem,env(safe-area-inset-bottom))] sm:left-auto sm:top-auto sm:max-w-sm',
-        type === 'success' ? 'bg-gray-950 text-gray-50' : 'bg-danger-600 text-white',
+        type === 'success' ? 'bg-gray-950 text-gray-50' : 'bg-danger-600 text-on-accent',
       )}
     >
       {type === 'success' ? <CheckCircle size={18} className="text-success-500" aria-hidden="true" /> : <XCircle size={18} aria-hidden="true" />}

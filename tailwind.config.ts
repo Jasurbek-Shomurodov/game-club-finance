@@ -35,6 +35,9 @@ const config: Config = {
       colors: {
         // Card / panel background: white in light mode, a raised dark slate in dark mode.
         surface: "rgb(var(--c-surface) / <alpha-value>)",
+        // Text on a filled accent (primary/success/danger buttons): white in light mode,
+        // dark ink in dark mode where the accent fills are light.
+        "on-accent": "rgb(var(--c-on-accent) / <alpha-value>)",
         // Slate-tinted neutrals replace Tailwind's pure greys everywhere.
         gray: scale("gray", [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]),
         primary: scale("primary", [50, 100, 200, 300, 400, 500, 600, 700, 800, 900]),

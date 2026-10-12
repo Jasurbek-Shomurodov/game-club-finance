@@ -5,20 +5,22 @@ import { Card, EmptyState } from '@/components/PresentationFoundation';
 import { cn } from '@/lib/utils';
 
 /**
- * Chart palette: the same hexes as the Tailwind tokens so Recharts (which
- * cannot read Tailwind classes) stays on the design system's colours.
+ * Chart palette: the Tailwind tokens as CSS colours, so Recharts (which cannot
+ * read Tailwind classes) stays on the design system and follows the theme.
  */
+const token = (name: string, alpha?: number) => `rgb(var(--c-${name})${alpha === undefined ? '' : ` / ${alpha}`})`;
+
 export const chartColors = {
-  primary: '#2f52e0',
-  success: '#12a36f',
-  danger: '#e0453f',
-  warning: '#e39a1e',
-  purple: '#7c5cf2',
-  orange: '#f07a2b',
-  gray: '#98a2b3',
-  axis: '#667085',
-  grid: 'rgba(102, 112, 133, 0.25)',
-  cursor: 'rgba(102, 112, 133, 0.12)',
+  primary: token('primary-600'),
+  success: token('success-500'),
+  danger: token('danger-500'),
+  warning: token('warning-500'),
+  purple: token('purple-500'),
+  orange: token('orange-500'),
+  gray: token('gray-400'),
+  axis: token('gray-500'),
+  grid: token('gray-500', 0.25),
+  cursor: token('gray-500', 0.12),
 } as const;
 
 /** Card wrapper shared by every dashboard chart; the section is named by its heading. */

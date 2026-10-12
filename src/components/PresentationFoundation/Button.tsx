@@ -25,7 +25,7 @@ const baseClasses =
 // so a form's "nothing to save yet" is readable at a glance.
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    'bg-primary-600 text-white shadow-sm hover:bg-primary-700 dark:hover:bg-primary-500 disabled:bg-gray-200 disabled:text-gray-500 disabled:shadow-none',
+    'bg-primary-600 text-on-accent shadow-sm hover:bg-primary-700 dark:hover:bg-primary-400 disabled:bg-gray-200 disabled:text-gray-500 disabled:shadow-none',
   secondary:
     'bg-gray-100 text-gray-800 hover:bg-gray-200 disabled:bg-gray-100 disabled:text-gray-400',
   outline:
@@ -33,11 +33,11 @@ const variantClasses: Record<ButtonVariant, string> = {
   ghost:
     'text-gray-600 hover:bg-gray-100 hover:text-gray-900 disabled:text-gray-400 disabled:hover:bg-transparent',
   danger:
-    'bg-danger-600 text-white shadow-sm hover:bg-danger-700 focus-visible:ring-danger-500 disabled:bg-gray-200 disabled:text-gray-500 disabled:shadow-none',
+    'bg-danger-600 text-on-accent shadow-sm hover:bg-danger-700 focus-visible:ring-danger-500 disabled:bg-gray-200 disabled:text-gray-500 disabled:shadow-none',
   dangerOutline:
     'border border-danger-100 bg-surface text-danger-600 hover:border-danger-400 hover:bg-danger-50 focus-visible:ring-danger-500 disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-400',
   success:
-    'bg-success-600 text-white shadow-sm hover:bg-success-700 focus-visible:ring-success-500 disabled:bg-gray-200 disabled:text-gray-500 disabled:shadow-none',
+    'bg-success-600 text-on-accent shadow-sm hover:bg-success-700 focus-visible:ring-success-500 disabled:bg-gray-200 disabled:text-gray-500 disabled:shadow-none',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

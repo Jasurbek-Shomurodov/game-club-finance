@@ -12,6 +12,7 @@
 :root {
   color-scheme: light;
   --c-surface: 255 255 255;
+  --c-on-accent: 255 255 255;
   --c-gray-50: 247 248 250;
   --c-gray-100: 239 241 245;
   --c-gray-200: 227 231 238;
@@ -62,113 +63,118 @@
 }
 
 /*
- * Dark tokens. "System" (no data-theme) follows the OS setting; the in-app
- * theme switch sets data-theme on <html> to force light or dark.
+ * Dark tokens, matching the personal-finance app: green-tinted near-black
+ * neutrals, one teal accent, green for money in and salmon for money out.
+ * Accent fills are light here, so text on them uses the dark `on-accent` ink.
+ * "System" (no data-theme) follows the OS setting; the in-app theme switch
+ * sets data-theme on <html> to force light or dark.
  */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --c-surface: 21 27 38;
-    --c-gray-50: 15 19 27;
-    --c-gray-100: 22 28 39;
-    --c-gray-200: 35 43 58;
-    --c-gray-300: 47 58 77;
-    --c-gray-400: 91 104 125;
-    --c-gray-500: 139 151 171;
-    --c-gray-600: 167 177 193;
-    --c-gray-700: 197 205 216;
-    --c-gray-800: 223 228 236;
-    --c-gray-900: 238 241 246;
-    --c-gray-950: 248 250 252;
-    --c-primary-50: 27 36 68;
-    --c-primary-100: 35 48 96;
-    --c-primary-200: 44 63 133;
-    --c-primary-300: 63 91 184;
-    --c-primary-400: 95 134 255;
-    --c-primary-500: 111 146 255;
-    --c-primary-600: 59 99 246;
-    --c-primary-700: 143 168 255;
-    --c-primary-800: 185 205 255;
-    --c-primary-900: 220 230 255;
-    --c-success-50: 18 41 31;
-    --c-success-100: 25 64 51;
-    --c-success-500: 47 191 135;
-    --c-success-600: 60 207 149;
-    --c-success-700: 111 224 178;
-    --c-danger-50: 46 23 23;
-    --c-danger-100: 71 32 31;
-    --c-danger-400: 240 138 134;
-    --c-danger-500: 239 107 102;
-    --c-danger-600: 255 122 115;
-    --c-danger-700: 255 161 156;
-    --c-warning-50: 43 35 20;
-    --c-warning-100: 61 49 24;
-    --c-warning-500: 230 180 96;
-    --c-warning-600: 240 194 110;
-    --c-warning-700: 247 212 143;
-    --c-orange-50: 46 28 16;
-    --c-orange-100: 66 40 26;
-    --c-orange-500: 245 144 79;
-    --c-orange-600: 249 164 104;
-    --c-orange-700: 255 189 138;
-    --c-purple-50: 34 28 61;
-    --c-purple-100: 46 37 85;
-    --c-purple-500: 155 130 255;
-    --c-purple-600: 173 152 255;
-    --c-purple-700: 196 181 255;
+    --c-surface: 24 30 27;
+    --c-on-accent: 5 46 42;
+    --c-gray-50: 16 20 18;
+    --c-gray-100: 34 42 37;
+    --c-gray-200: 48 59 51;
+    --c-gray-300: 59 73 63;
+    --c-gray-400: 104 119 109;
+    --c-gray-500: 140 155 145;
+    --c-gray-600: 161 175 165;
+    --c-gray-700: 193 205 196;
+    --c-gray-800: 220 229 223;
+    --c-gray-900: 237 243 239;
+    --c-gray-950: 247 250 248;
+    --c-primary-50: 25 48 44;
+    --c-primary-100: 29 63 57;
+    --c-primary-200: 38 92 83;
+    --c-primary-300: 53 132 121;
+    --c-primary-400: 76 178 164;
+    --c-primary-500: 92 200 185;
+    --c-primary-600: 92 200 185;
+    --c-primary-700: 127 216 203;
+    --c-primary-800: 167 233 223;
+    --c-primary-900: 208 245 239;
+    --c-success-50: 20 42 32;
+    --c-success-100: 28 64 48;
+    --c-success-500: 76 195 138;
+    --c-success-600: 76 195 138;
+    --c-success-700: 125 216 172;
+    --c-danger-50: 50 30 28;
+    --c-danger-100: 74 41 37;
+    --c-danger-400: 232 140 129;
+    --c-danger-500: 236 150 139;
+    --c-danger-600: 240 160 150;
+    --c-danger-700: 247 192 184;
+    --c-warning-50: 45 37 24;
+    --c-warning-100: 64 52 32;
+    --c-warning-500: 223 184 131;
+    --c-warning-600: 223 184 131;
+    --c-warning-700: 238 211 172;
+    --c-orange-50: 48 31 20;
+    --c-orange-100: 68 43 27;
+    --c-orange-500: 236 150 96;
+    --c-orange-600: 242 168 120;
+    --c-orange-700: 249 196 158;
+    --c-purple-50: 36 31 58;
+    --c-purple-100: 49 41 82;
+    --c-purple-500: 160 140 245;
+    --c-purple-600: 176 159 250;
+    --c-purple-700: 200 188 255;
   }
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --c-surface: 21 27 38;
-  --c-gray-50: 15 19 27;
-  --c-gray-100: 22 28 39;
-  --c-gray-200: 35 43 58;
-  --c-gray-300: 47 58 77;
-  --c-gray-400: 91 104 125;
-  --c-gray-500: 139 151 171;
-  --c-gray-600: 167 177 193;
-  --c-gray-700: 197 205 216;
-  --c-gray-800: 223 228 236;
-  --c-gray-900: 238 241 246;
-  --c-gray-950: 248 250 252;
-  --c-primary-50: 27 36 68;
-  --c-primary-100: 35 48 96;
-  --c-primary-200: 44 63 133;
-  --c-primary-300: 63 91 184;
-  --c-primary-400: 95 134 255;
-  --c-primary-500: 111 146 255;
-  --c-primary-600: 59 99 246;
-  --c-primary-700: 143 168 255;
-  --c-primary-800: 185 205 255;
-  --c-primary-900: 220 230 255;
-  --c-success-50: 18 41 31;
-  --c-success-100: 25 64 51;
-  --c-success-500: 47 191 135;
-  --c-success-600: 60 207 149;
-  --c-success-700: 111 224 178;
-  --c-danger-50: 46 23 23;
-  --c-danger-100: 71 32 31;
-  --c-danger-400: 240 138 134;
-  --c-danger-500: 239 107 102;
-  --c-danger-600: 255 122 115;
-  --c-danger-700: 255 161 156;
-  --c-warning-50: 43 35 20;
-  --c-warning-100: 61 49 24;
-  --c-warning-500: 230 180 96;
-  --c-warning-600: 240 194 110;
-  --c-warning-700: 247 212 143;
-  --c-orange-50: 46 28 16;
-  --c-orange-100: 66 40 26;
-  --c-orange-500: 245 144 79;
-  --c-orange-600: 249 164 104;
-  --c-orange-700: 255 189 138;
-  --c-purple-50: 34 28 61;
-  --c-purple-100: 46 37 85;
-  --c-purple-500: 155 130 255;
-  --c-purple-600: 173 152 255;
-  --c-purple-700: 196 181 255;
+  --c-surface: 24 30 27;
+  --c-on-accent: 5 46 42;
+  --c-gray-50: 16 20 18;
+  --c-gray-100: 34 42 37;
+  --c-gray-200: 48 59 51;
+  --c-gray-300: 59 73 63;
+  --c-gray-400: 104 119 109;
+  --c-gray-500: 140 155 145;
+  --c-gray-600: 161 175 165;
+  --c-gray-700: 193 205 196;
+  --c-gray-800: 220 229 223;
+  --c-gray-900: 237 243 239;
+  --c-gray-950: 247 250 248;
+  --c-primary-50: 25 48 44;
+  --c-primary-100: 29 63 57;
+  --c-primary-200: 38 92 83;
+  --c-primary-300: 53 132 121;
+  --c-primary-400: 76 178 164;
+  --c-primary-500: 92 200 185;
+  --c-primary-600: 92 200 185;
+  --c-primary-700: 127 216 203;
+  --c-primary-800: 167 233 223;
+  --c-primary-900: 208 245 239;
+  --c-success-50: 20 42 32;
+  --c-success-100: 28 64 48;
+  --c-success-500: 76 195 138;
+  --c-success-600: 76 195 138;
+  --c-success-700: 125 216 172;
+  --c-danger-50: 50 30 28;
+  --c-danger-100: 74 41 37;
+  --c-danger-400: 232 140 129;
+  --c-danger-500: 236 150 139;
+  --c-danger-600: 240 160 150;
+  --c-danger-700: 247 192 184;
+  --c-warning-50: 45 37 24;
+  --c-warning-100: 64 52 32;
+  --c-warning-500: 223 184 131;
+  --c-warning-600: 223 184 131;
+  --c-warning-700: 238 211 172;
+  --c-orange-50: 48 31 20;
+  --c-orange-100: 68 43 27;
+  --c-orange-500: 236 150 96;
+  --c-orange-600: 242 168 120;
+  --c-orange-700: 249 196 158;
+  --c-purple-50: 36 31 58;
+  --c-purple-100: 49 41 82;
+  --c-purple-500: 160 140 245;
+  --c-purple-600: 176 159 250;
+  --c-purple-700: 200 188 255;
 }
 
 @layer base {

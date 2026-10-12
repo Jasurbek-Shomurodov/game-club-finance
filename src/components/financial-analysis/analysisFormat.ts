@@ -34,7 +34,7 @@ export const SPENDING_GROUP_COLORS: Record<SpendingGroupKey, string> = {
   barExpenses: chartColors.purple,
 };
 
-const CATEGORY_PALETTE = ['#e0453f', '#2f52e0', '#7c5cf2', '#0e9fb3', '#e39a1e', '#d6408f', '#5b6b84'];
+const CATEGORY_PALETTE = [chartColors.danger, chartColors.primary, chartColors.purple, '#0e9fb3', chartColors.warning, '#d6408f', chartColors.axis];
 
 /** One colour per expense category, shared by the sankey, donut and comparison bars. */
 export function categoryColors(topCategories: CategoryAmount[]): Record<string, string> {

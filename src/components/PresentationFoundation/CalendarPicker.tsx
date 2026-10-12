@@ -179,7 +179,7 @@ function CalendarMonth({
                 'relative flex h-10 items-center justify-center rounded-xl text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1',
                 outsideMonth ? 'text-gray-300' : 'text-gray-700 hover:bg-primary-50 hover:text-primary-700',
                 inRange && 'rounded-none bg-primary-50 text-primary-700 hover:bg-primary-100',
-                endpoint && 'bg-primary-600 text-white shadow-sm hover:bg-primary-700 hover:text-white',
+                endpoint && 'bg-primary-600 text-on-accent shadow-sm hover:bg-primary-700 hover:text-on-accent',
                 iso === today && !endpoint && 'ring-1 ring-inset ring-primary-300',
                 disabled && 'cursor-not-allowed text-gray-200 hover:bg-transparent hover:text-gray-200',
               )}
@@ -607,7 +607,7 @@ export function MonthPicker({ value, onChange, min, max, disabled = false, class
                       }}
                       className={cn(
                         'min-h-12 rounded-xl px-3 text-sm font-bold capitalize transition',
-                        value === month ? 'bg-primary-600 text-white shadow-sm' : 'bg-gray-50 text-gray-700 hover:bg-primary-50 hover:text-primary-700',
+                        value === month ? 'bg-primary-600 text-on-accent shadow-sm' : 'bg-gray-50 text-gray-700 hover:bg-primary-50 hover:text-primary-700',
                         unavailable && 'cursor-not-allowed bg-gray-50 text-gray-300 hover:bg-gray-50 hover:text-gray-300',
                       )}
                     >
