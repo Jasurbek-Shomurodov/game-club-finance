@@ -8,7 +8,7 @@ import { useTranslations } from 'next-intl';
 import { Clock3, Gamepad2, LogOut, Menu, ShieldCheck } from 'lucide-react';
 import { useSignOut } from './useSignOut';
 import { Sidebar } from './Sidebar';
-import { Button, Card, EmptyState, IconButton, InlineAlert, PageSkeleton } from '@/components/PresentationFoundation';
+import { Button, Card, EmptyState, IconButton, InlineAlert, PageSkeleton, ThemeToggle } from '@/components/PresentationFoundation';
 import { createClient } from '@/lib/supabase/client';
 import { isMissingDatabaseColumn } from '@/lib/supabase/errors';
 import { normalizePaymentMethods } from '@/lib/paymentMethods';
@@ -393,8 +393,10 @@ export function DashboardShell({
         />
 
         <div className="flex min-w-0 flex-1 flex-col lg:pl-64">
-          <div className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-3 border-b border-gray-200 bg-surface/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
+          {/* Top bar: the drawer button and club name on phones; the light/dark toggle in the top-right corner on every size. */}
+          <div className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-3 border-b border-gray-200 bg-surface/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur lg:sticky lg:border-b-0 lg:bg-gray-50/90 lg:px-8">
             <IconButton
+              className="lg:hidden"
               variant="ghost"
               label={tn('openNavigation')}
               icon={<Menu size={20} />}
@@ -403,16 +405,17 @@ export function DashboardShell({
               aria-controls="mobile-nav"
               aria-haspopup="dialog"
             />
-            <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex min-w-0 items-center gap-2.5 lg:hidden">
               <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-gray-950 text-gray-50">
                 <Gamepad2 size={16} aria-hidden="true" />
               </div>
               <p className="truncate text-sm font-semibold text-gray-950">{selectedClub?.name ?? tn('appName')}</p>
             </div>
+            <ThemeToggle className="ml-auto" />
           </div>
 
           <main id="main-content" ref={mainRef} tabIndex={-1} className="min-w-0 flex-1 overflow-x-clip outline-none">
-            <div className="w-full px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[4.5rem] sm:px-6 lg:px-8 lg:py-8">
+            <div className="w-full px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[4.5rem] sm:px-6 lg:px-8 lg:pb-8 lg:pt-2">
               {shellError ? (
                 <InlineAlert
                   variant="danger"

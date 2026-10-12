@@ -1032,6 +1032,7 @@
     },
     "theme": {
       "label": "Theme",
+      "toggle": "Switch light / dark mode",
       "light": "Light",
       "dark": "Dark",
       "system": "System"

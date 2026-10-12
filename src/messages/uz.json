@@ -1032,6 +1032,7 @@
     },
     "theme": {
       "label": "Mavzu",
+      "toggle": "Yorug‘ / qorong‘i rejimni almashtirish",
       "light": "Yorug‘",
       "dark": "Qorong‘i",
       "system": "Tizimdagidek"

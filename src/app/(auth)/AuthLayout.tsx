@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { Gamepad2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { LanguageSwitcher, ThemeSwitcher } from '@/components/PresentationFoundation';
+import { LanguageSwitcher, ThemeToggle } from '@/components/PresentationFoundation';
 
 /**
  * Split sign-in layout: a dark brand panel on the left (hidden on phones) and
@@ -46,7 +46,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
             <span className="text-sm font-semibold text-gray-950">{tn('appName')}</span>
           </div>
           <div className="flex items-center gap-2">
-            <ThemeSwitcher />
+            <ThemeToggle />
             <LanguageSwitcher />
           </div>
         </div>

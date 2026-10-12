@@ -15,9 +15,9 @@ import {
   Users,
   LogOut,
   X,
+  ChevronRight,
   ChevronsUpDown,
   Archive,
-  Settings,
   Shield,
   CircleDollarSign,
   BarChart3,
@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import type { Club, UserRole } from '@/types';
 import { canAccessFeature, featureForPath, type FeatureKey } from '@/lib/permissions';
-import { Avatar, ClubLogo, Drawer, IconButton, LanguageSwitcher, ThemeSwitcher } from '@/components/PresentationFoundation';
+import { Avatar, ClubLogo, Drawer, IconButton, LanguageSwitcher } from '@/components/PresentationFoundation';
 
 interface SidebarClubOption {
   club: Club;
@@ -177,7 +177,6 @@ export function Sidebar({
       items: [
         { href: '/products', icon: Package, label: t('products'), feature: 'inventory' },
         { href: '/team', icon: Shield, label: t('team'), feature: 'team', badge: pendingCount },
-        { href: '/settings', icon: Settings, label: t('settings'), feature: 'settings' },
       ],
     },
   ];
@@ -193,6 +192,16 @@ export function Sidebar({
     if (item.href === '/') return activeFeature === 'dashboard' && !onAnalysis;
     return activeFeature === item.feature;
   }
+
+  const profile = (
+    <>
+      <Avatar name={fullName} size="sm" />
+      <span className="min-w-0 flex-1 text-left leading-tight">
+        <span className="block truncate text-[13px] font-semibold text-gray-950">{fullName}</span>
+        <span className="block truncate text-[11px] text-gray-500">{tTeam(`roles.${role}`)}</span>
+      </span>
+    </>
+  );
 
   const content = (
     <div className="flex h-full flex-col bg-surface">
@@ -257,12 +266,31 @@ export function Sidebar({
       </nav>
 
       <div className="space-y-2 border-t border-gray-100 px-3 py-3">
-        <div className="flex items-center gap-2.5 px-1">
-          <Avatar name={fullName} size="sm" />
-          <div className="min-w-0 flex-1 text-left leading-tight">
-            <p className="truncate text-[13px] font-semibold text-gray-950">{fullName}</p>
-            <p className="truncate text-[11px] text-gray-500">{tTeam(`roles.${role}`)}</p>
-          </div>
+        <LanguageSwitcher className="flex w-full [&>button]:flex-1" />
+        <div className="flex items-center gap-1">
+          {/* Tapping the profile opens Settings, which no longer has its own nav item. */}
+          {allowed('settings') ? (
+            <Link
+              href="/settings"
+              onClick={(event) => {
+                if (!event.defaultPrevented && event.button === 0 && !event.metaKey && !event.altKey && !event.ctrlKey && !event.shiftKey) {
+                  onNavigate?.('/settings');
+                }
+              }}
+              aria-current={activeFeature === 'settings' ? 'page' : undefined}
+              aria-label={`${fullName}, ${t('settings')}`}
+              title={t('settings')}
+              className={cn(
+                'flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-xl px-1.5 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+                activeFeature === 'settings' ? 'bg-primary-50' : 'hover:bg-gray-100',
+              )}
+            >
+              {profile}
+              <ChevronRight size={16} className="shrink-0 text-gray-400" aria-hidden="true" />
+            </Link>
+          ) : (
+            <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 px-1.5 py-1.5">{profile}</div>
+          )}
           <IconButton
             variant="ghost"
             size="sm"
@@ -271,10 +299,6 @@ export function Sidebar({
             onClick={signOut}
             loading={signingOut}
           />
-        </div>
-        <div className="flex gap-2 px-1">
-          <LanguageSwitcher className="min-w-0 flex-1 [&>button]:flex-1" />
-          <ThemeSwitcher />
         </div>
       </div>
     </div>
