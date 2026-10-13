@@ -70,5 +70,6 @@
   "069_remove_other_expense_category.sql",
   "070_salary_kpi_basis.sql",
   "071_owner_profit_carryovers.sql",
-  "072_reject_access_requests.sql"
+  "072_reject_access_requests.sql",
+  "073_daily_report_cron_0800_tashkent.sql"
 ]

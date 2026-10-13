@@ -11,11 +11,12 @@ Supabase data -> calculations -> SVG -> PNG -> Telegram sendPhoto
   -> delivery status saved
 ```
 
-Supabase Cron owns the production schedule. It runs daily at `01:00 UTC`, which
-is `06:00 Asia/Tashkent`, and invokes the production endpoint for the previous
+Supabase Cron owns the production schedule. It runs daily at `03:00 UTC`, which
+is `08:00 Asia/Tashkent`, and invokes the production endpoint for the previous
 Tashkent business date. Migration
-`041_supabase_daily_report_cron_and_delivery_audit.sql` replaces the named job
-idempotently and reads its bearer credential from Supabase Vault.
+`041_supabase_daily_report_cron_and_delivery_audit.sql` creates the named job and
+reads its bearer credential from Supabase Vault; migration
+`073_daily_report_cron_0800_tashkent.sql` idempotently reschedules it to 08:00.
 
 The retry route files are recovery entry points, not independent production
 schedules.

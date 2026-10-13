@@ -10,11 +10,11 @@ describe('Telegram report recovery crons', () => {
 
     expect(config.crons).toBeUndefined();
     const migration = readFileSync(
-      resolve(process.cwd(), 'migrations/041_supabase_daily_report_cron_and_delivery_audit.sql'),
+      resolve(process.cwd(), 'migrations/073_daily_report_cron_0800_tashkent.sql'),
       'utf8',
     );
     expect(migration).toContain("'game-club-daily-finance-report'");
-    expect(migration).toContain("'0 1 * * *'");
+    expect(migration).toContain("'0 3 * * *'");
   });
 
   it('keeps both recovery aliases routed through the primary ledger-backed handler', () => {

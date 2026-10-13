@@ -124,7 +124,7 @@ PNG, with a safe text fallback when rendering fails before dispatch:
 Supabase data → calculations → SVG → PNG → Telegram sendPhoto → delivery status saved
 ```
 
-Supabase Cron runs it at `01:00 UTC` (`06:00 Asia/Tashkent`) for the previous
+Supabase Cron runs it at `03:00 UTC` (`08:00 Asia/Tashkent`) for the previous
 Tashkent business date. Delivery is idempotent, and uncertain post-dispatch
 outcomes are held for manual review rather than automatically resent. See the
 [Telegram report runbook](docs/runbooks/telegram-report.md) for configuration,

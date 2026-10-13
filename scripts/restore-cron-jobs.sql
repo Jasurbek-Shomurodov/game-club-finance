@@ -1,7 +1,7 @@
 -- Recreate the Supabase Cron jobs after scripts/db-restore.sh. A dump of public and
 -- auth does not carry the cron schema. Run in the SQL editor of the restored project
 -- AFTER the Vault secret from docs/runbooks/telegram-report.md exists.
--- Copied from the scheduling blocks of migrations 041 and 042; do not rerun those
+-- Copied from the scheduling blocks of migrations 073 and 042; do not rerun those
 -- migrations in full, because 043 later replaced functions that 042 defines.
 create extension if not exists pg_cron with schema pg_catalog;
 create extension if not exists pg_net with schema extensions;
@@ -20,7 +20,7 @@ begin
 
   perform cron.schedule(
     'game-club-daily-finance-report',
-    '0 1 * * *',
+    '0 3 * * *',
     'select public.invoke_game_club_daily_finance_report();'
   );
 end;

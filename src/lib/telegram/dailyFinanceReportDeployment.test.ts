@@ -27,10 +27,18 @@ describe('daily finance image deployment configuration', () => {
 });
 
 describe('Supabase daily finance report cron', () => {
-  it('runs at 06:00 Asia/Tashkent using the equivalent 01:00 UTC schedule', () => {
-    expect(migration).toContain("'game-club-daily-finance-report'");
-    expect(migration).toContain("'0 1 * * *'");
-    expect(migration).toContain('01:00 UTC is 06:00 in Asia/Tashkent');
+  it('runs at 08:00 Asia/Tashkent using the equivalent 03:00 UTC schedule', () => {
+    const reschedule = readFileSync(
+      resolve(process.cwd(), 'migrations/073_daily_report_cron_0800_tashkent.sql'),
+      'utf8',
+    );
+    expect(reschedule).toContain("'game-club-daily-finance-report'");
+    expect(reschedule).toContain("'0 3 * * *'");
+    expect(reschedule).toContain('03:00 UTC is 08:00 in Asia/Tashkent');
+    expect(reschedule).toContain("where jobname = 'game-club-daily-finance-report'");
+    expect(reschedule).toContain('perform cron.unschedule(existing_job_id)');
+    expect(readFileSync(resolve(process.cwd(), 'scripts/restore-cron-jobs.sql'), 'utf8'))
+      .toContain("'0 3 * * *'");
   });
 
   it('loads the Bearer secret from Vault and invokes only production', () => {
