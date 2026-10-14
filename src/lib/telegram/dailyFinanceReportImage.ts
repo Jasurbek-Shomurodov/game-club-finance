@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import { formatCurrency } from '../formatters';
 import type { LowStockProduct } from '../calculations/stock';
-import type { DailyFinanceIncomePoint, DailyFinanceReportInput } from './dailyFinanceReport';
+import type { DailyFinanceIncomePoint, DailyFinancePromoGiveaway, DailyFinanceReportInput } from './dailyFinanceReport';
 import { REPORT_FONT_DIRECTORY, REPORT_FONT_FILES } from './reportFontConfig';
 
 const WIDTH = 1200;
@@ -307,6 +307,42 @@ function lowStockSection(items: LowStockProduct[], y: number): { svg: string; he
   };
 }
 
+const GLYPH_GIFT = '<rect x="-14" y="-4" width="28" height="18" rx="2"/><line x1="-16" y1="-4" x2="16" y2="-4"/><line x1="0" y1="-4" x2="0" y2="14"/><path d="M0,-4 C-6,-4 -10,-8 -8,-12 C-5,-15 -1,-10 0,-4 C1,-10 5,-15 8,-12 C10,-8 6,-4 0,-4 Z"/>';
+const PROMO_MAX_ITEMS = 8;
+const PROMO_ROW_HEIGHT = 40;
+
+/** Units handed out free under promotions on the report date. */
+function promoGiveawaySection(items: DailyFinancePromoGiveaway[], y: number): { svg: string; height: number } {
+  const visible = items.slice(0, PROMO_MAX_ITEMS);
+  const hidden = items.length - visible.length;
+  const units = items.reduce((sum, item) => sum + item.quantity, 0);
+  const cost = items.reduce((sum, item) => sum + item.cost, 0);
+  const height = 96 + visible.length * PROMO_ROW_HEIGHT + (hidden > 0 ? 36 : 0) + 16;
+  const x = PAGE_X + 28;
+  const right = WIDTH - PAGE_X - 28;
+  const itemsSvg = visible.map((item, index) => {
+    const rowY = y + 100 + index * PROMO_ROW_HEIGHT;
+    const label = item.promotionName ? `${item.productName} — ${item.promotionName}` : item.productName;
+    return `<circle cx="${x + 7}" cy="${rowY - 7}" r="6" fill="${PURPLE}"/>
+    <text x="${x + 26}" y="${rowY}" font-size="20" fill="${TEXT}">${escapeXml(truncate(label, 60))}</text>
+    <text x="${right - 220}" y="${rowY}" text-anchor="end" font-size="20" font-weight="700" fill="${PURPLE}">${escapeXml(lowStockQuantity(item.quantity))} шт.</text>
+    <text x="${right}" y="${rowY}" text-anchor="end" font-size="18" fill="${MUTED}">${escapeXml(money(item.cost))}</text>`;
+  }).join('\n    ');
+  const more = hidden > 0
+    ? `<text x="${x}" y="${y + 100 + visible.length * PROMO_ROW_HEIGHT}" font-size="18" fill="${MUTED}">и ещё ${hidden} — см. «Закрытие склада» в приложении</text>`
+    : '';
+
+  return {
+    height,
+    svg: `${card(PAGE_X, y, PAGE_WIDTH, height, '#F8F5FF', '#DDD2F7')}
+    ${iconBadge(PAGE_X + 46, y + 44, 18, PURPLE, GLYPH_GIFT)}
+    <text x="${PAGE_X + 76}" y="${y + 51}" font-size="20" font-weight="800" fill="${INK}">БОНУСЫ ПО АКЦИЯМ · ${escapeXml(lowStockQuantity(units))} шт.</text>
+    <text x="${right}" y="${y + 51}" text-anchor="end" font-size="16" fill="${MUTED}">себестоимость ${escapeXml(money(cost))} · не считается продажей</text>
+    ${itemsSvg}
+    ${more}`,
+  };
+}
+
 export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): string {
   const monthClubIncome = input.monthToDateRevenue;
   const monthBarSales = input.monthBarSales ?? input.barMoneyLeft;
@@ -341,10 +377,13 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
   // Key indicators and footer.
   const kpiY = detailY + detailHeight + 24;
   const kpiHeight = 300;
-  const lowStock = input.lowStockProducts?.length
-    ? lowStockSection(input.lowStockProducts, kpiY + kpiHeight + 24)
+  const promo = input.promoGiveaways?.length
+    ? promoGiveawaySection(input.promoGiveaways, kpiY + kpiHeight + 24)
     : null;
-  const footerY = kpiY + kpiHeight + (lowStock ? 24 + lowStock.height : 0) + 20;
+  const lowStock = input.lowStockProducts?.length
+    ? lowStockSection(input.lowStockProducts, kpiY + kpiHeight + 24 + (promo ? promo.height + 24 : 0))
+    : null;
+  const footerY = kpiY + kpiHeight + (promo ? 24 + promo.height : 0) + (lowStock ? 24 + lowStock.height : 0) + 20;
   const height = footerY + 60;
 
   const clubRows = [
@@ -492,6 +531,7 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
     ${kpiTile(kpiX(2) + 3, kpiY + 62, kpiWidth - 12, ORANGE, GLYPH_CUP, ['ДОХОД БАРА', 'ЗА МЕСЯЦ'], input.barMoneyLeft, 'к прошлому месяцу', input.barMoneyLeftChange)}
     ${kpiTile(kpiX(3), kpiY + 62, kpiWidth - 12, SLATE, GLYPH_BOX, ['СТОИМОСТЬ', 'СКЛАДА'], input.inventoryValue, 'к прошлому месяцу', input.inventoryValueChange)}
     ${kpiTile(kpiX(4) - 6, kpiY + 62, kpiWidth - 6, RED, GLYPH_ALERT, ['АКТИВНЫЕ', 'ДОЛГИ'], input.activeDebts, 'долги клиентов')}
+    ${promo?.svg ?? ''}
     ${lowStock?.svg ?? ''}
 
     <circle cx="${PAGE_X + 18}" cy="${footerY + 18}" r="11" fill="${MUTED}"/>

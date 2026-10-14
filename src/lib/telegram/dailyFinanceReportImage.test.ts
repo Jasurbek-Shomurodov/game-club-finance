@@ -218,4 +218,24 @@ describe('daily finance report image', () => {
       expect(fontHasCodePoint(font, 'я'.codePointAt(0)!)).toBe(true);
     }
   });
+
+  it('adds a promo giveaway card only when bonuses were handed out', () => {
+    const promoGiveaways = Array.from({ length: 10 }, (_, index) => ({
+      productName: `Напиток ${index}`,
+      promotionName: index === 0 ? 'Cola for 50k' : null,
+      quantity: 10 - index,
+      cost: (10 - index) * 3000,
+    }));
+    const empty = buildDailyFinanceReportSvg({ ...reportInput(), promoGiveaways: [] });
+    const withPromo = buildDailyFinanceReportSvg({ ...reportInput(), promoGiveaways });
+
+    expect(empty).toContain('height="1776"');
+    expect(empty).not.toContain('БОНУСЫ ПО АКЦИЯМ');
+    expect(withPromo).toContain('БОНУСЫ ПО АКЦИЯМ · 55 шт.');
+    expect(withPromo).toContain('Напиток 0 — Cola for 50k');
+    expect(withPromo).toContain('Напиток 7');
+    expect(withPromo).not.toContain('Напиток 8');
+    expect(withPromo).toContain('и ещё 2');
+    expect(withPromo).toContain('себестоимость 165 000 UZS');
+  });
 });

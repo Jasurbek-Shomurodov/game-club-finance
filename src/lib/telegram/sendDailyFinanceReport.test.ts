@@ -4,6 +4,7 @@ import {
   buildDailyFinanceTelegramReport,
   getClubBusinessDayStartHour,
   getLowStockProductRows,
+  getPromoGiveawayRows,
   sendTelegramMessage,
   sendTelegramPhoto,
   TELEGRAM_MESSAGE_MAX_LENGTH,
@@ -99,6 +100,7 @@ function productsClient(result: { data: unknown[] | null; error: unknown }) {
   const query = {
     select: () => query,
     eq: () => query,
+    gt: () => query,
     order: () => query,
     range: async () => result,
   };
@@ -540,5 +542,16 @@ describe('sendTelegramPhoto', () => {
     expect(photo).toBeInstanceOf(Blob);
     expect((photo as File).name).toBe('daily-finance.png');
     expect((photo as Blob).type).toBe('image/png');
+  });
+});
+
+describe('getPromoGiveawayRows', () => {
+  it('omits the section instead of failing when giveaway columns are missing', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const error = Object.assign(new Error('column daily_stock_counts.giveaway_quantity does not exist'), { code: '42703' });
+    await expect(getPromoGiveawayRows(productsClient({ data: null, error }), 'club', '2026-10-15')).resolves.toBeUndefined();
+    const rows = [{ product_id: 'a', giveaway_quantity: 2, giveaway_cost: 6000, products: { name: 'Cola' }, promotions: null }];
+    await expect(getPromoGiveawayRows(productsClient({ data: rows, error: null }), 'club', '2026-10-15')).resolves.toEqual(rows);
+    consoleError.mockRestore();
   });
 });

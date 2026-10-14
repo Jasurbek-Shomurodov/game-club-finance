@@ -62,6 +62,25 @@ export interface DailyFinanceReportInput {
   monthDailyGameClubIncome?: DailyFinanceIncomePoint[];
   /** Active tracked products that are out of stock or at/below their threshold. */
   lowStockProducts?: LowStockProduct[];
+  /** Units handed out free under promotions on the report date, by product. */
+  promoGiveaways?: DailyFinancePromoGiveaway[];
+}
+
+export interface DailyFinancePromoGiveaway {
+  productName: string;
+  promotionName: string | null;
+  quantity: number;
+  /** quantity × cost price; already inside bar cost. */
+  cost: number;
+}
+
+/** A saved stock count with a promo giveaway, joined to its product and promotion names. */
+export interface DailyFinanceGiveawayRow {
+  product_id: string;
+  giveaway_quantity: number | string | null;
+  giveaway_cost: number | string | null;
+  products?: { name?: string | null } | { name?: string | null }[] | null;
+  promotions?: { name?: string | null } | { name?: string | null }[] | null;
 }
 
 export interface DailyFinanceIncomePoint {
@@ -129,6 +148,42 @@ export interface DailyFinanceReportRows {
   laterDebtPaymentRows?: DailyFinanceReportLaterDebtPaymentRow[];
   /** Live product catalog rows; omitted when the catalog could not be read. */
   lowStockProductRows?: LowStockProductInput[];
+  /** Report-date stock counts with giveaways; omitted when they could not be read. */
+  giveawayRows?: DailyFinanceGiveawayRow[];
+}
+
+function relationName(value: DailyFinanceGiveawayRow['products']): string | null {
+  const relation = Array.isArray(value) ? value[0] : value;
+  const name = relation?.name?.trim();
+  return name ? name : null;
+}
+
+/** Giveaways with units, largest first, then by product name. */
+export function summarizePromoGiveaways(rows: DailyFinanceGiveawayRow[]): DailyFinancePromoGiveaway[] {
+  return rows
+    .map((row) => ({
+      productName: relationName(row.products) ?? 'Товар',
+      promotionName: relationName(row.promotions),
+      quantity: Number(row.giveaway_quantity ?? 0) || 0,
+      cost: Number(row.giveaway_cost ?? 0) || 0,
+    }))
+    .filter((item) => item.quantity > 0)
+    .sort((a, b) => b.quantity - a.quantity || a.productName.localeCompare(b.productName, 'ru'));
+}
+
+function quantityLabel(value: number): string {
+  return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(value)} шт.`;
+}
+
+function promoGiveawayLines(items: DailyFinancePromoGiveaway[] | undefined): string[] {
+  if (!items?.length) return [];
+  const units = items.reduce((sum, item) => sum + item.quantity, 0);
+  const cost = items.reduce((sum, item) => sum + item.cost, 0);
+  return [
+    '',
+    `🎁 Бонусы по акциям: ${quantityLabel(units)}, себестоимость ${money(cost)}`,
+    ...items.map((item) => `  • ${item.productName}: ${quantityLabel(item.quantity)}${item.promotionName ? ` — ${item.promotionName}` : ''}`),
+  ];
 }
 
 function money(value: number): string {
@@ -410,6 +465,9 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
     lowStockProducts: rows.lowStockProductRows === undefined
       ? undefined
       : listLowStockProducts(rows.lowStockProductRows),
+    promoGiveaways: rows.giveawayRows === undefined
+      ? undefined
+      : summarizePromoGiveaways(rows.giveawayRows),
   };
 }
 
@@ -455,6 +513,7 @@ export function formatRussianDailyFinanceReport(input: DailyFinanceReportInput):
     '',
     `📦 Стоимость склада: ${money(input.inventoryValue)}`,
     `🤝 Активные долги: ${money(input.activeDebts)}`,
+    ...promoGiveawayLines(input.promoGiveaways),
     ...lowStockLines(input.lowStockProducts),
   ].join('\n');
 }
@@ -463,6 +522,9 @@ export function formatRussianDailyFinanceReportCaption(input: DailyFinanceReport
   return [
     '📊 Ежедневный финансовый отчёт',
     `Рабочий день: ${input.businessDateLabel}`,
+    ...(input.promoGiveaways?.length
+      ? [`🎁 Бонусы по акциям: ${quantityLabel(input.promoGiveaways.reduce((sum, item) => sum + item.quantity, 0))}`]
+      : []),
     ...(input.lowStockProducts?.length
       ? [`⚠️ Заканчивается на складе: ${input.lowStockProducts.length}`]
       : []),

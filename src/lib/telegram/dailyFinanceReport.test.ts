@@ -545,3 +545,41 @@ describe('calculateOutstandingDebtsAsOf', () => {
     ], '2026-09-03')).toBe(110);
   });
 });
+
+describe('promo giveaways in the daily report', () => {
+  const baseRows = {
+    clubName: 'Pixel',
+    businessDate: '2026-09-29',
+    businessDateLabel: '29 сентября 2026',
+    cashRows: [],
+    stockRows: [],
+    stockPurchaseRows: [],
+    expenseRows: [],
+    debtRows: [],
+  };
+
+  it('lists given-away units with their promotion and cost, largest first', () => {
+    const input = buildDailyFinanceReportInput({
+      ...baseRows,
+      giveawayRows: [
+        { product_id: 'a', giveaway_quantity: '2', giveaway_cost: '12000', products: { name: 'Fanta' }, promotions: null },
+        { product_id: 'b', giveaway_quantity: 20, giveaway_cost: 60000, products: [{ name: 'Coca-Cola' }], promotions: [{ name: 'Cola for 50k' }] },
+        { product_id: 'c', giveaway_quantity: 0, giveaway_cost: 0, products: { name: 'Water' }, promotions: null },
+      ],
+    });
+    expect(input.promoGiveaways).toEqual([
+      { productName: 'Coca-Cola', promotionName: 'Cola for 50k', quantity: 20, cost: 60000 },
+      { productName: 'Fanta', promotionName: null, quantity: 2, cost: 12000 },
+    ]);
+    const text = formatRussianDailyFinanceReport(input);
+    expect(text).toContain('🎁 Бонусы по акциям: 22 шт., себестоимость 72 000 UZS');
+    expect(text).toContain('  • Coca-Cola: 20 шт. — Cola for 50k');
+    expect(text).toContain('  • Fanta: 2 шт.');
+    expect(formatRussianDailyFinanceReportCaption(input)).toContain('🎁 Бонусы по акциям: 22 шт.');
+
+    const none = buildDailyFinanceReportInput({ ...baseRows, giveawayRows: [] });
+    expect(none.promoGiveaways).toEqual([]);
+    expect(formatRussianDailyFinanceReport(none)).not.toContain('Бонусы');
+    expect(buildDailyFinanceReportInput(baseRows).promoGiveaways).toBeUndefined();
+  });
+});

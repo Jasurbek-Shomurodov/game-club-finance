@@ -22,6 +22,7 @@ import type { LowStockProductInput } from '../calculations/stock';
 import type {
   DailyFinanceReportDebtPaymentRow,
   DailyFinanceReportDebtRow,
+  DailyFinanceGiveawayRow,
   DailyFinanceReportLaterDebtPaymentRow,
 } from './dailyFinanceReport';
 
@@ -130,6 +131,33 @@ export async function getLowStockProductRows(
   }
 }
 
+/**
+ * Report-date counts with promo giveaways (migration 078). Older databases
+ * have no giveaway columns; a failure only drops the section.
+ */
+export async function getPromoGiveawayRows(
+  supabase: SupabaseClient,
+  clubId: string,
+  businessDate: string,
+): Promise<DailyFinanceGiveawayRow[] | undefined> {
+  try {
+    const { data, error } = await fetchAllRows<DailyFinanceGiveawayRow>(() =>
+      supabase
+        .from('daily_stock_counts')
+        .select('product_id,giveaway_quantity,giveaway_cost,products(name),promotions(name)')
+        .eq('club_id', clubId)
+        .eq('date', businessDate)
+        .gt('giveaway_quantity', 0)
+        .order('product_id', { ascending: true }),
+    );
+    if (error) throw error;
+    return (data ?? []) as DailyFinanceGiveawayRow[];
+  } catch (error) {
+    console.error('[telegram/daily-finance] promo giveaways unavailable; omitting section:', error);
+    return undefined;
+  }
+}
+
 async function getClub(supabase: SupabaseClient, clubId: string): Promise<ClubRow> {
   const { data, error } = await supabase
     .from('clubs')
@@ -156,7 +184,7 @@ export async function buildDailyFinanceTelegramReport(
 ): Promise<DailyFinanceReportBuildResult> {
   const monthStart = monthStartIso(businessDate);
   const previousMonthRange = previousComparableMonthRangeIso(businessDate);
-  const [clubRes, cashRes, stockRes, purchaseRes, expenseRes, inventoryRes, debtRes, laterDebtPaymentRes, debtPaymentRes, monthCashRes, monthStockRes, monthPurchaseRes, monthExpenseRes, previousCashRes, previousStockRes, previousPurchaseRes, previousExpenseRes, previousDebtPaymentRes, lowStockProductRows] = await Promise.all([
+  const [clubRes, cashRes, stockRes, purchaseRes, expenseRes, inventoryRes, debtRes, laterDebtPaymentRes, debtPaymentRes, monthCashRes, monthStockRes, monthPurchaseRes, monthExpenseRes, previousCashRes, previousStockRes, previousPurchaseRes, previousExpenseRes, previousDebtPaymentRes, lowStockProductRows, giveawayRows] = await Promise.all([
     getClub(supabase, clubId),
     fetchAllRows<DailyCashRow>(() =>
       supabase
@@ -322,6 +350,7 @@ export async function buildDailyFinanceTelegramReport(
         .order('id', { ascending: true }),
     ),
     getLowStockProductRows(supabase, clubId),
+    getPromoGiveawayRows(supabase, clubId, businessDate),
   ]);
 
   const firstError = [
@@ -373,6 +402,7 @@ export async function buildDailyFinanceTelegramReport(
     debtPaymentRows: (debtPaymentRes.data ?? []) as DailyFinanceReportDebtPaymentRow[],
     laterDebtPaymentRows: (laterDebtPaymentRes.data ?? []) as DailyFinanceReportLaterDebtPaymentRow[],
     lowStockProductRows,
+    giveawayRows,
   });
   let imagePng: Buffer | null = null;
   try {

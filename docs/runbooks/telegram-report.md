@@ -74,6 +74,15 @@ debts recorded later are excluded and payments recorded later are added back to
 the live remaining amount, so recovery runs for past dates are not distorted by
 later collections.
 
+## Promo giveaways section
+
+When migration 078 is applied, the report adds "Бонусы по акциям": the units
+handed out free on the report date per product (with the promotion name), their
+total and their cost. `getPromoGiveawayRows` reads report-date
+`daily_stock_counts` rows with `giveaway_quantity > 0`; on an older database
+the read fails and the section is omitted without blocking the report. The
+cost is already inside bar cost, so no total changes.
+
 ## Low-stock section
 
 The report lists active, inventory-tracked products that are out of stock or at
