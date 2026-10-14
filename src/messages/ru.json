@@ -131,8 +131,6 @@
     "terminal": "Терминал",
     "card": "Карта",
     "playstation": "PlayStation",
-    "analysisLinkTitle": "Финансовый анализ",
-    "analysisLinkDesc": "Откуда приходят деньги и куда уходят: потоки, категории, динамика и крупнейшие платежи.",
     "analysisLinkAction": "Открыть анализ"
   },
   "financialAnalysis": {

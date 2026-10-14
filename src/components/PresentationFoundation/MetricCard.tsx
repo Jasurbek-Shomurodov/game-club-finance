@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, type LucideIcon } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/formatters';
+import { RollingText } from './RollingText';
 import { Skeleton } from './Skeleton';
 
 export type MetricTone = 'default' | 'success' | 'danger' | 'primary' | 'warning' | 'muted';
@@ -27,7 +28,7 @@ const metricValueClassName = 'break-words text-[1.375rem] font-bold leading-none
 
 export interface MetricCardProps {
   label: ReactNode;
-  /** Already formatted value (money, count, percentage). */
+  /** Already formatted value (money, count, percentage); a string rolls into place. */
   value: ReactNode;
   icon?: LucideIcon;
   iconClassName?: string;
@@ -54,7 +55,7 @@ export function MetricCard({
 }: MetricCardProps) {
   const tc = useTranslations('common');
   return (
-    <div className={cn('min-w-0 rounded-2xl border border-gray-200 bg-surface p-4 shadow-card sm:p-5', className)}>
+    <div className={cn('min-w-0 rounded-2xl border border-gray-200 bg-surface px-4 py-3.5 shadow-card sm:px-5 sm:py-4', className)}>
       <div className="flex items-center gap-2">
         {Icon && <Icon size={15} className={cn('shrink-0 text-gray-400', iconClassName)} aria-hidden="true" />}
         <p className="min-w-0 break-words text-[13px] font-medium text-gray-500">{label}</p>
@@ -65,7 +66,9 @@ export function MetricCard({
           <Skeleton className="h-3 w-20 bg-gray-100" />
         </div>
       ) : (
-        <p className={cn('mt-2.5', metricValueClassName, metricToneClassName[tone])}>{value}</p>
+        <p className={cn('mt-2', metricValueClassName, metricToneClassName[tone])}>
+          {typeof value === 'string' ? <RollingText text={value} /> : value}
+        </p>
       )}
       {!loading && trendLabel && (
         <p
@@ -134,8 +137,8 @@ export function AmountCard({
           <Skeleton className="h-3 w-12 bg-gray-100" />
         </div>
       ) : (
-        <p className={cn('mt-2.5', metricValueClassName, metricToneClassName[tone])}>
-          {formatCurrency(amount)}
+        <p className={cn('mt-2', metricValueClassName, metricToneClassName[tone])}>
+          <RollingText text={formatCurrency(amount)} />
           <span className="ml-1.5 text-sm font-medium tracking-normal text-gray-500">{currency}</span>
         </p>
       )}
@@ -145,7 +148,7 @@ export function AmountCard({
         ) : (
           <p className={cn('mt-2 flex flex-wrap items-center gap-1 text-xs font-semibold', isGood ? 'text-success-600' : 'text-danger-600')}>
             {isPositive ? <ArrowUp size={12} aria-hidden="true" /> : <ArrowDown size={12} aria-hidden="true" />}
-            {Math.abs(comparison.value)}% <span className="font-medium text-gray-500">{comparison.label}</span>
+            <RollingText text={`${Math.abs(comparison.value)}%`} /> <span className="font-medium text-gray-500">{comparison.label}</span>
           </p>
         )
       ) : null}

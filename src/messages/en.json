@@ -131,8 +131,6 @@
     "terminal": "Terminal",
     "card": "Card",
     "playstation": "PlayStation",
-    "analysisLinkTitle": "Financial analysis",
-    "analysisLinkDesc": "See where the money comes from and where it goes: flows, categories, trends and the largest payments.",
     "analysisLinkAction": "Open analysis"
   },
   "financialAnalysis": {

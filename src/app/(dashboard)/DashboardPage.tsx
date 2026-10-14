@@ -7,7 +7,6 @@ import {
   ArrowRight,
   ArrowDownRight,
   ArrowUpRight,
-  ChartPie,
   MonitorSmartphone,
   RefreshCcw,
   ShoppingBag,
@@ -24,7 +23,6 @@ import {
   AmountCard,
   Button,
   ButtonLink,
-  Card,
   ChartSkeleton,
   InlineAlert,
   MetricCard,
@@ -32,6 +30,7 @@ import {
   SectionHeading,
   toneForAmount,
   type MetricTone,
+  RollingText,
 } from '@/components/PresentationFoundation';
 import { formatCurrency } from '@/lib/formatters';
 import {
@@ -139,7 +138,7 @@ interface MetricSectionProps {
 function MetricSection({ id, title, children, actionLabel, actionHref }: MetricSectionProps) {
   const headingId = `${id}-heading`;
   return (
-    <section className="space-y-3" aria-labelledby={headingId}>
+    <section className="space-y-2.5" aria-labelledby={headingId}>
       <SectionHeading
         size="sm"
         title={<span id={headingId}>{title}</span>}
@@ -150,7 +149,7 @@ function MetricSection({ id, title, children, actionLabel, actionHref }: MetricS
           </ButtonLink>
         )}
       />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{children}</div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{children}</div>
     </section>
   );
 }
@@ -159,7 +158,7 @@ function MetricSection({ id, title, children, actionLabel, actionHref }: MetricS
 function MetricAmount({ amount, currency }: { amount: number; currency: string }) {
   return (
     <>
-      {formatCurrency(amount)}
+      <RollingText text={formatCurrency(amount)} />
       <span className="ml-1.5 text-sm font-medium tracking-normal text-gray-500">{currency}</span>
     </>
   );
@@ -174,7 +173,7 @@ function comparisonTrend(comparison: Comparison | undefined): Pick<ComponentProp
     trend: comparison.value > 0 ? 'up' : comparison.value < 0 ? 'down' : 'neutral',
     trendLabel: (
       <>
-        {Math.abs(comparison.value)}% <span className="font-normal text-gray-500">{comparison.label}</span>
+        <RollingText text={`${Math.abs(comparison.value)}%`} /> <span className="font-normal text-gray-500">{comparison.label}</span>
       </>
     ),
   };
@@ -549,11 +548,12 @@ export default function DashboardPage({
   };
 
   const trend = useMemo(
-    () => data.trend.map((row) => ({
+    // Days after today have no data yet; drawing them only adds an empty tail.
+    () => data.trend.filter((row, index) => index === 0 || row.date <= businessToday).map((row) => ({
       ...row,
       date: formatDateShort(row.date, locale),
     })),
-    [data.trend, locale],
+    [data.trend, businessToday, locale],
   );
   const averageBarDayCount = countDashboardRangeDaysThroughDate(range, data.latestBarEntryDate);
   const averageGameClubDayCount = countDashboardRangeDaysThroughDate(range, data.latestDailyCashEntryDate);
@@ -593,7 +593,7 @@ export default function DashboardPage({
     : t('lowStockAlertsCount', { count: data.lowStockCount });
 
   return (
-    <div className="space-y-5 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-5">
       <PageHeader
         title={t('title')}
         className="mb-0"
@@ -613,7 +613,7 @@ export default function DashboardPage({
       )}
 
       {/* Headline numbers: the four figures an owner checks first. */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <AmountCard
           loading={loading}
           currency={currency}
@@ -722,27 +722,22 @@ export default function DashboardPage({
           className={cn('transition-opacity', loading && 'pointer-events-none opacity-60')}
           aria-busy={loading || undefined}
         >
-          <IncomeTrendChart data={trend} />
+          <IncomeTrendChart
+            data={trend}
+            link={(
+              <ButtonLink
+                href={`/financial-analysis?${detailsQuery}`}
+                variant="ghost"
+                size="sm"
+                iconRight={<ArrowRight size={15} aria-hidden="true" />}
+              >
+                {t('analysisLinkAction')}
+              </ButtonLink>
+            )}
+          />
         </div>
       )}
 
-      <Card as="section" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <ChartPie size={20} className="mt-0.5 shrink-0 text-primary-600" aria-hidden="true" />
-          <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-gray-950">{t('analysisLinkTitle')}</h2>
-            <p className="mt-0.5 text-xs leading-5 text-gray-500">{t('analysisLinkDesc')}</p>
-          </div>
-        </div>
-        <ButtonLink
-          href={`/financial-analysis?${detailsQuery}`}
-          variant="outline"
-          size="sm"
-          iconRight={<ArrowRight size={15} aria-hidden="true" />}
-        >
-          {t('analysisLinkAction')}
-        </ButtonLink>
-      </Card>
     </div>
   );
 }
