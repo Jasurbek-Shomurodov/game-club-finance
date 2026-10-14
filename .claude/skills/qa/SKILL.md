@@ -1,0 +1,116 @@
+---
+name: qa
+description: Thorough functional QA of a feature, page, request or recent change in Game Club Finance. Tests the real app end to end (logic, totals, forms, permissions, locales, themes, edge cases) and reports pass/fail with evidence. Use when the user types /qa.
+argument-hint: "[feature, page, request text, commit/PR, or empty for the uncommitted diff]"
+disable-model-invocation: true
+---
+
+# /qa: functional QA
+
+Target: `$ARGUMENTS`. If empty, QA whatever the uncommitted diff (or else the
+last commit) changed.
+
+Your job is to prove the feature works for a real club owner, or to find
+exactly where it does not. Do not stop at "tests pass". Investigate until every
+item in the checklist below is either verified with evidence or explicitly
+marked as not testable, with the reason.
+
+Default to **report only**. Fix bugs only if the user's request says "fix", or
+after asking at the end.
+
+## 1. Understand what "correct" means
+
+1. Restate the request in one or two sentences: what the user should be able
+   to do, and what they should see.
+2. Find the change: `git status`, `git diff`, `git log -5 --stat`, or the
+   named commit/PR (`gh pr view`, `gh pr diff`).
+3. Read only the guides the change touches (see the table in `AGENTS.md`):
+   finance → `docs/agents/domain-finance.md`, stock → `docs/agents/inventory.md`,
+   DB/RLS → `docs/agents/database.md`, Telegram → `docs/runbooks/telegram-report.md`.
+4. Trace the code path end to end: page component → query/RPC →
+   `src/lib/calculations` formula → rendering. Write down the expected values
+   for the cases you will test **before** looking at the screen.
+
+## 2. Automated checks
+
+Run the narrowest related tests first, then the risk-appropriate set from
+`docs/agents/testing.md`:
+
+```bash
+npx vitest run <related test files>
+npm run typecheck
+npm run lint
+npm test
+```
+
+Add `npm run build` for routing, config or shared-type changes. Note any
+missing test for new logic as a finding.
+
+## 3. Drive the real app
+
+The dev server normally already runs on `http://localhost:3000` (otherwise use
+`preview_start` with the `web` config in `.claude/launch.json`). The app
+requires sign-in:
+
+- Prefer **Claude in Chrome** (the user's Chrome is already signed in). Work in
+  a new tab.
+- If only the built-in browser is available and it shows `/login`, ask the user
+  to sign in there. Never type passwords or use Google sign-in yourself.
+- Do not create, edit or delete real club data unless the user says the club is
+  a test club. Read-only checks are always fine. Never trigger a live Telegram
+  send.
+
+For each scenario, use `get_page_text` or `read_page` for values and take
+screenshots for anything visual.
+
+### Checklist (cover everything that applies)
+
+- **Happy path**: the main flow, done the way a real owner would do it.
+- **Numbers**: compare shown totals against your hand-computed expectation, and
+  across the places that must agree: dashboard ↔ money-details page ↔ daily and
+  monthly report ↔ financial analysis. Accounting profit and cash-left must stay
+  separate.
+- **Dates**: today, start of month, a past month, an empty range, the
+  business-day boundary (`businessDayStartHour`). Future days must not be
+  invented.
+- **Forms**: required fields, invalid input, zero, negative, very large amounts,
+  `1 000 000` separators while typing, decimals where unit prices allow them,
+  double submit, cancel, the error toast or alert.
+- **States**: loading skeleton, empty state, error with retry, slow network
+  (dimmed rather than flashing).
+- **Permissions**: owner, admin and viewer where relevant. A different club must
+  never see this club's data.
+- **Locales**: RU, UZ, EN. No missing keys or raw message ids, no overflow or
+  wrapping in long Russian/Uzbek strings, dates and money formatted for the
+  language.
+- **Themes**: light and dark (theme toggle in the top bar). Nothing white-on-white
+  or invisible.
+- **Widths**: 375 px (phone), 768 px, 1280 px, 1920 px. No horizontal scroll,
+  nothing clipped.
+- **Console and network**: `read_console_messages` (errors and React warnings),
+  `read_network_requests` (failed requests, 4xx/5xx, N+1 bursts).
+- **Regression**: nearby features that share the changed component or formula.
+
+## 4. Report
+
+Reply in this shape:
+
+```
+QA: <target>        Verdict: PASS | PASS WITH ISSUES | FAIL
+
+Bugs (most severe first)
+1. [High] <what is wrong> (where: page / file:line)
+   Steps: ...  Expected: ...  Actual: ...  Evidence: screenshot / value / log
+
+Verified
+- <scenario>: OK (how it was checked)
+
+Not tested
+- <scenario>: <why>, e.g. needs a viewer account
+
+Automated: vitest X/Y, typecheck, lint, build: <results>
+```
+
+Severity: **High** = wrong money/data, data leak, or a crash. **Medium** = a
+broken flow or a misleading UI. **Low** = cosmetic. Finish by offering to fix
+the bugs found.
