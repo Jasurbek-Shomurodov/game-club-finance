@@ -87,8 +87,13 @@ screenshots for anything visual.
   or invisible.
 - **Widths**: 375 px (phone), 768 px, 1280 px, 1920 px. No horizontal scroll,
   nothing clipped.
-- **Console and network**: `read_console_messages` (errors and React warnings),
-  `read_network_requests` (failed requests, 4xx/5xx, N+1 bursts).
+- **Console**: `read_console_messages` for errors, React warnings and
+  hydration mismatches.
+- **Network**: `read_network_requests` on first load and after each key action.
+  Record the request count, failures (4xx/5xx), duplicate or per-row (N+1)
+  requests, serial waterfalls, slow responses (over ~1 s) and oversized
+  payloads. Switch club and date range quickly: the last selection must win,
+  with no stale data flashing in. Double-click save buttons: exactly one write.
 - **Regression**: nearby features that share the changed component or formula.
 
 ## 4. Report

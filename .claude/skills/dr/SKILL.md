@@ -75,6 +75,11 @@ three languages?
 - Charts: readable axes, tooltips themed, legend matches the series, and no
   misleading scales.
 
+**Perceived performance**
+- With `read_network_requests`: how long until the main numbers show, whether
+  the layout jumps when data arrives, and whether slow requests leave blank
+  areas instead of skeletons.
+
 **Responsiveness and accessibility**
 - No horizontal page scroll at 375 px; tables become scrollable or turn into
   cards.

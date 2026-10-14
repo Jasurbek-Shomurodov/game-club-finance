@@ -1,6 +1,6 @@
 ---
 name: cr
-description: Deep code review of the uncommitted diff, a commit range, a branch or a PR in Game Club Finance. Checks correctness, financial logic, club scoping/RLS, migrations, i18n, formatting rules and design-system use against AGENTS.md. Use when the user types /cr.
+description: Deep code review of the uncommitted diff, a commit range, a branch or a PR in Game Club Finance. Checks correctness, financial logic, club scoping/RLS, migrations, i18n, formatting, design-system use, network and data fetching, performance, cleanup, DRY and SOLID. Use when the user types /cr.
 argument-hint: "[empty = uncommitted diff | commit | A..B | branch | PR number] [fix]"
 disable-model-invocation: true
 ---
@@ -87,11 +87,77 @@ npm run typecheck && npm run lint
 Run `npm test` and `npm run build` for financial, auth, migration or
 cross-route changes. A failing check is a finding.
 
-### 6. Simplicity and performance
+### 6. Network and data fetching
 
-Duplicated logic that an existing helper already covers, needless re-renders or
-queries, O(n²) filters over large row sets, oversized client bundles (charts
-should stay dynamically imported).
+For every Supabase query, RPC, `fetch` and API route the change touches or
+calls:
+
+- **Waterfalls**: independent queries awaited one after another instead of
+  `Promise.all`; a client fetch that could be server-rendered or preloaded.
+- **N+1 and duplicates**: queries inside loops or per row or card, the same
+  data fetched by sibling components, refetching on every render or focus.
+- **Payload**: `select('*')` or unused columns, missing date/`club_id` filters
+  that pull extra rows, missing `fetchAllRows` past 1,000 rows, large JSON sent
+  to the client that only feeds a total.
+- **Races and staleness**: no abort/ignore of a stale response when the club or
+  range changes fast; cache or snapshot reuse past its freshness; optimistic
+  UI that is never rolled back.
+- **Failure handling**: unchecked `error`, no retry or error state, partial
+  writes. Writes must be idempotent or atomic (RPC) where a double click or
+  retry can repeat them.
+- **API routes**: auth via `auth.getUser()`, input validation, correct status
+  codes, no secrets or stack traces in responses, and cron/Telegram endpoints
+  protected by `CRON_SECRET`.
+
+If the app is reachable, confirm the suspicion with `read_network_requests`
+(request count, order, timing, size) rather than guessing.
+
+### 7. Performance
+
+- Expensive derivations recomputed every render (`useMemo` where it measurably
+  helps; not by reflex), unstable props or callbacks that defeat memoized
+  children, context values that re-render the whole tree.
+- O(n²) work over row sets (`filter` inside `map` per day). Index once with a
+  `Map`.
+- Long lists or tables rendered in full where pagination or virtualization is
+  needed.
+- Client bundle: heavy libraries (charts, xlsx, date libs) imported statically
+  into routes that rarely need them. Charts stay `dynamic()`; `'use client'`
+  only where interactivity requires it.
+- Work that belongs on the server or in the database (aggregation in SQL/RPC
+  instead of downloading every row to sum in the browser).
+
+### 8. Cleanup, DRY and SOLID
+
+**Cleanup**: unused imports, variables, exports, props, CSS and translation
+keys; commented-out code; stale comments that no longer match the code;
+misleading names; leftover `console.log`; files or components that grew past
+one clear purpose.
+
+**DRY**: the same markup, formula, query or formatting repeated in two or more
+places. Point to the existing helper to reuse, or name the shared home for a new
+one: `@/components/PresentationFoundation` for UI, `src/lib/calculations` for
+formulas, `src/lib/supabase` for queries, `src/lib/formatters.ts` for
+formatting. Do not merge code that only looks alike but changes for different
+reasons.
+
+**SOLID** (in React/TypeScript terms; only report it when it causes a real
+cost):
+- *Single responsibility*: a component that fetches, calculates and renders at
+  once. Move formulas to `src/lib/calculations` and queries to a helper or hook.
+- *Open/closed*: a component or function that needs another boolean flag or
+  `if (page === ...)` for every new caller. Prefer composition (children,
+  slots, render props) or a config map.
+- *Liskov/interface segregation*: props interfaces that force callers to pass
+  things they do not use; wrappers that break the contract of the component
+  they wrap (for example dropping `className`, `aria-*` or `ref`).
+- *Dependency inversion*: UI coupled directly to table shapes or the Supabase
+  client where a typed query helper or RPC should sit in between, which makes
+  it untestable.
+
+Every finding here needs a concrete cost (a bug risk, duplicated maintenance,
+a measurable slowdown, or blocked testing), plus the smallest refactor that
+removes it. Skip pure taste.
 
 ## Report
 
@@ -103,7 +169,7 @@ Findings (most severe first)
    Scenario: <inputs or state → wrong result>
    Fix: <concrete change>
 
-Checked and fine: <short list of risky areas you verified>
+Checked and fine: <risky areas verified, incl. network, performance, DRY/SOLID>
 Checks run: <commands and results>
 ```
 
