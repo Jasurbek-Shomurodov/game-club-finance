@@ -26,6 +26,20 @@ export function toneForAmount(amount: number, positive: MetricTone = 'success'):
 // smaller step on phones so "68 314 000 сум" never wraps mid-number.
 const metricValueClassName = 'break-words text-[1.375rem] font-bold leading-none tracking-tight tabular-nums sm:text-2xl';
 
+/**
+ * Money value for a MetricCard: the number rolls into place and the muted
+ * currency follows it. Only the gap before the currency can wrap, never the number.
+ */
+export function MetricMoney({ amount, currency }: { amount: number; currency?: string }) {
+  const tc = useTranslations('common');
+  return (
+    <>
+      <RollingText text={formatCurrency(amount)} />{' '}
+      <span className="text-sm font-medium tracking-normal text-gray-500">{currency ?? tc('currency')}</span>
+    </>
+  );
+}
+
 export interface MetricCardProps {
   label: ReactNode;
   /** Already formatted value (money, count, percentage); a string rolls into place. */
@@ -138,8 +152,7 @@ export function AmountCard({
         </div>
       ) : (
         <p className={cn('mt-2', metricValueClassName, metricToneClassName[tone])}>
-          <RollingText text={formatCurrency(amount)} />
-          <span className="ml-1.5 text-sm font-medium tracking-normal text-gray-500">{currency}</span>
+          <MetricMoney amount={amount} currency={currency} />
         </p>
       )}
       {!loading && comparison ? (

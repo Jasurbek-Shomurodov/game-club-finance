@@ -37,7 +37,7 @@ export { IconButton } from './IconButton';
 export { InlineAlert, type InlineAlertVariant } from './InlineAlert';
 export { LanguageSwitcher } from './LanguageSwitcher';
 export { ThemeToggle } from './ThemeToggle';
-export { AmountCard, MetricCard, StatTile, metricToneClassName, toneForAmount, type MetricTone } from './MetricCard';
+export { AmountCard, MetricCard, MetricMoney, StatTile, metricToneClassName, toneForAmount, type MetricTone } from './MetricCard';
 export { Modal } from './Modal';
 export { PageHeader } from './PageHeader';
 export { TopBarSlotProvider, useTopBarSlot } from './TopBarSlot';

@@ -226,3 +226,8 @@ roll-digit { overflow: hidden; }
 roll-strip { display: flex; flex-direction: column; transition: transform 0.9s cubic-bezier(0.16, 1, 0.3, 1) var(--roll-delay, 0ms); }
 roll-strip > roll-char { display: block; height: 1lh; }
 @media (prefers-reduced-motion: reduce) { roll-strip { transition: none; } }
+/* Browsers without the lh unit (Safari < 16.4): fix the line box so 1.2em is exactly one line. */
+@supports not (height: 1lh) {
+  roll-chars { line-height: 1.2; }
+  roll-chars > *, roll-strip > roll-char { height: 1.2em; }
+}

@@ -26,6 +26,7 @@ import {
   ChartSkeleton,
   InlineAlert,
   MetricCard,
+  MetricMoney,
   PageHeader,
   SectionHeading,
   toneForAmount,
@@ -151,16 +152,6 @@ function MetricSection({ id, title, children, actionLabel, actionHref }: MetricS
       />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{children}</div>
     </section>
-  );
-}
-
-/** Money for a MetricCard: number plus a small muted currency suffix on the same line. */
-function MetricAmount({ amount, currency }: { amount: number; currency: string }) {
-  return (
-    <>
-      <RollingText text={formatCurrency(amount)} />
-      <span className="ml-1.5 text-sm font-medium tracking-normal text-gray-500">{currency}</span>
-    </>
   );
 }
 
@@ -571,7 +562,7 @@ export default function DashboardPage({
   ) => {
     const idle = isIdleMetric(amount, comparison);
     return {
-      value: <MetricAmount amount={amount} currency={currency} />,
+      value: <MetricMoney amount={amount} currency={currency} />,
       tone: idle ? ('muted' as const) : tone,
       ...(idle ? {} : comparisonTrend(comparison)),
     };

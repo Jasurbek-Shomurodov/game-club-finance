@@ -22,6 +22,7 @@ import {
   StatTile,
   TableSkeleton,
   toneForAmount,
+  MetricMoney,
 } from '@/components/PresentationFoundation';
 import { todayIso } from '@/lib/utils';
 import { formatCurrency, formatNumber } from '@/lib/formatters';
@@ -230,7 +231,6 @@ export default function DailyReportPage() {
 
   const hasData = cashEntry !== null || stockCounts.length > 0 || stockPurchases.length > 0 || expenses.length > 0 || debtIncome > 0;
   const currency = tc('currency');
-  const money = (amount: number) => `${formatCurrency(amount)} ${currency}`;
 
   const kpis = [
     { label: t('manualIncome'), amount: manualIncome, icon: TrendingUp, tone: 'success' as const },
@@ -296,7 +296,7 @@ export default function DailyReportPage() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {kpis.map((kpi) => (
-              <MetricCard key={kpi.label} label={kpi.label} value={money(kpi.amount)} icon={kpi.icon} tone={kpi.tone} />
+              <MetricCard key={kpi.label} label={kpi.label} value={<MetricMoney amount={kpi.amount} currency={currency} />} icon={kpi.icon} tone={kpi.tone} />
             ))}
           </div>
           <p className="text-xs text-gray-500">{t('barCashFormula')}</p>

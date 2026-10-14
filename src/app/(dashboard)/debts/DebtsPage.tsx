@@ -28,7 +28,7 @@ import {
   SegmentedControl,
   Skeleton,
   useToast,
-  RollingText,
+  MetricMoney,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { cn, todayIso } from '@/lib/utils';
@@ -336,7 +336,6 @@ export default function DebtsPage() {
     value: method,
     label: tc(`paymentMethods.${method}`),
   }));
-  const currencySuffix = <span className="ml-1.5 text-sm font-medium tracking-normal text-gray-500">{tc('currency')}</span>;
 
   return (
     <div className="space-y-5">
@@ -378,11 +377,11 @@ export default function DebtsPage() {
           <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <MetricCard
               label={t('outstandingTotal')}
-              value={<><RollingText text={formatCurrency(outstandingTotal)} />{currencySuffix}</>}
+              value={<MetricMoney amount={outstandingTotal} />}
               tone={outstandingTotal > 0 ? 'danger' : 'default'}
             />
             <MetricCard label={t('debtorsCount')} value={formatNumber(debtorCount)} />
-            <MetricCard label={t('paidTotal')} value={<><RollingText text={formatCurrency(paidTotal)} />{currencySuffix}</>} />
+            <MetricCard label={t('paidTotal')} value={<MetricMoney amount={paidTotal} />} />
           </section>
 
           {unpaid.length > 0 && (

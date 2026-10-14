@@ -19,6 +19,7 @@ import {
   PageHeader,
   TableSkeleton,
   toneForAmount,
+  MetricMoney,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { currentYearMonth, monthRange } from '@/lib/utils';
@@ -297,7 +298,6 @@ export default function MonthlyReportPage() {
     [rows],
   );
   const currency = tc('currency');
-  const money = (amount: number) => `${formatCurrency(amount)} ${currency}`;
   const signed = (amount: number) => (
     <span className={amount >= 0 ? 'font-semibold text-success-600' : 'font-semibold text-danger-600'}>{formatCurrency(amount)}</span>
   );
@@ -355,7 +355,7 @@ export default function MonthlyReportPage() {
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {summaryCards.map((card) => (
-              <MetricCard key={card.label} label={card.label} value={money(card.amount)} tone={card.tone} />
+              <MetricCard key={card.label} label={card.label} value={<MetricMoney amount={card.amount} currency={currency} />} tone={card.tone} />
             ))}
           </div>
           <p className="text-xs text-gray-500">{t('barCashFormula')}</p>
