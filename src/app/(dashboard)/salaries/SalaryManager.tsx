@@ -34,6 +34,7 @@ import {
   useConfirm,
   useToast,
   type SegmentedOption,
+  RollingText,
 } from '@/components/PresentationFoundation';
 import { cn } from '@/lib/utils';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
@@ -597,7 +598,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   // Club-wide due keeps one employee's overpayment from hiding what another is owed.
   const dueValue = view === 'history' && employeeId ? salaryBalance(historyMonths) : due;
   const currencySuffix = <span className="ml-1.5 text-sm font-medium tracking-normal text-gray-500">{tc('currency')}</span>;
-  const metricMoney = (value: number) => <>{formatCurrency(value)}{currencySuffix}</>;
+  const metricMoney = (value: number) => <><RollingText text={formatCurrency(value)} />{currencySuffix}</>;
 
   return (
     <div className="space-y-5">

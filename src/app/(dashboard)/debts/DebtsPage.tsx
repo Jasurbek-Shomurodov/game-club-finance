@@ -28,6 +28,7 @@ import {
   SegmentedControl,
   Skeleton,
   useToast,
+  RollingText,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { cn, todayIso } from '@/lib/utils';
@@ -377,11 +378,11 @@ export default function DebtsPage() {
           <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <MetricCard
               label={t('outstandingTotal')}
-              value={<>{formatCurrency(outstandingTotal)}{currencySuffix}</>}
+              value={<><RollingText text={formatCurrency(outstandingTotal)} />{currencySuffix}</>}
               tone={outstandingTotal > 0 ? 'danger' : 'default'}
             />
             <MetricCard label={t('debtorsCount')} value={formatNumber(debtorCount)} />
-            <MetricCard label={t('paidTotal')} value={<>{formatCurrency(paidTotal)}{currencySuffix}</>} />
+            <MetricCard label={t('paidTotal')} value={<><RollingText text={formatCurrency(paidTotal)} />{currencySuffix}</>} />
           </section>
 
           {unpaid.length > 0 && (

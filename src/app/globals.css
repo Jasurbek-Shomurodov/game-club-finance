@@ -214,3 +214,15 @@
     @apply rounded-full bg-gray-300;
   }
 }
+
+/*
+ * Rolling figures (RollingText): each digit is a 0–9 strip that slides into
+ * place like an odometer. Same timing as the personal-finance app.
+ */
+roll-text { font-variant-numeric: tabular-nums; }
+roll-chars { display: inline-flex; align-items: flex-start; white-space: pre; }
+roll-chars > * { display: inline-block; height: 1lh; }
+roll-digit { overflow: hidden; }
+roll-strip { display: flex; flex-direction: column; transition: transform 0.9s cubic-bezier(0.16, 1, 0.3, 1) var(--roll-delay, 0ms); }
+roll-strip > roll-char { display: block; height: 1lh; }
+@media (prefers-reduced-motion: reduce) { roll-strip { transition: none; } }

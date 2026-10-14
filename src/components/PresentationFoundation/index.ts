@@ -57,3 +57,4 @@ export { Spinner } from './Spinner';
 export { Stepper } from './Stepper';
 export { Toast, useToast, type ToastType } from './Toast';
 export { Money } from './Money';
+export { RollingText, rollingColumns } from './RollingText';
