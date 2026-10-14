@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateSalaries, combineSalaryMonths, salaryBalance, canDeleteSalaryRate, type SalaryEmployee, type SalaryEntry, type SalaryRate } from './salaries';
+import { applySalaryPaymentChanges, calculateSalaries, combineSalaryMonths, displayedRate, employeeStatus, rateInForce, salaryBalance, canDeleteSalaryRate, type SalaryEmployee, type SalaryEntry, type SalaryRate } from './salaries';
 
 const employee: SalaryEmployee = { id: 'one', club_id: 'club', name: 'Employee', job_title: '', joined_on: '2026-09-01' };
 const rate: SalaryRate = { id: 'rate', employee_id: 'one', effective_date: '2026-09-01', salary_type: 'daily', amount: 100, kpi_percent: 10, active: true };
@@ -135,5 +135,53 @@ describe('KPI basis and profit pools', () => {
     });
     expect(rows.one[0].kpi).toBe(1545.45);
     expect(rows.two[0].kpi).toBe(1000);
+  });
+});
+
+describe('rate in force and employee status', () => {
+  const rates: SalaryRate[] = [
+    { ...rate, id: 'old', effective_date: '2026-09-01' },
+    { ...rate, id: 'new', effective_date: '2026-09-20', active: false },
+    { ...rate, id: 'gone', effective_date: '2026-09-15', deleted_at: '2026-09-16T00:00:00Z' },
+    { ...rate, id: 'other', employee_id: 'two', effective_date: '2026-10-05' },
+  ];
+  it('picks the latest live rate effective on the date', () => {
+    expect(rateInForce(rates, 'one', '2026-09-16')?.id).toBe('old');
+    expect(rateInForce(rates, 'one', '2026-09-20')?.id).toBe('new');
+    expect(rateInForce(rates, 'two', '2026-09-20')).toBeUndefined();
+  });
+  it('shows the first future rate for staff who have not started', () => {
+    expect(displayedRate(rates, 'two', '2026-09-20')?.id).toBe('other');
+    expect(displayedRate(rates, 'one', '2026-09-16')?.id).toBe('old');
+    expect(displayedRate(rates, 'nobody', '2026-09-16')).toBeUndefined();
+  });
+  it('classifies upcoming, active and inactive employees', () => {
+    const future = { ...employee, id: 'two', joined_on: '2026-10-05' };
+    expect(employeeStatus(future, displayedRate(rates, 'two', '2026-09-20'), '2026-09-20')).toBe('upcoming');
+    expect(employeeStatus(employee, displayedRate(rates, 'one', '2026-09-16'), '2026-09-16')).toBe('active');
+    expect(employeeStatus(employee, displayedRate(rates, 'one', '2026-09-20'), '2026-09-20')).toBe('inactive');
+    expect(employeeStatus(employee, undefined, '2026-09-20')).toBe('inactive');
+  });
+});
+
+describe('applying salary payment changes to loaded profit', () => {
+  const payment = (id: string, amount: number, source: 'game_club' | 'bar', date = '2026-09-10', deleted = false): SalaryEntry => ({
+    ...entry('payment', amount, date), id, payment_source: source, deleted_at: deleted ? '2026-09-11T00:00:00Z' : null,
+  });
+  it('lowers earned cash for new payments and restores it for deleted ones', () => {
+    const before = [payment('a', 300, 'bar')];
+    const after = [payment('a', 300, 'bar', '2026-09-10', true), payment('b', 500, 'game_club'), { ...entry('bonus', 50), id: 'c' }];
+    expect(applySalaryPaymentChanges([profit(12000)], before, after)).toEqual([{ ...profit(11500), bar_earned: 300 }]);
+  });
+  it('adds a month row when the payment month has none and keeps rows untouched without changes', () => {
+    const rows = [profit(12000)];
+    expect(applySalaryPaymentChanges(rows, [], [payment('a', 200, 'bar', '2026-10-02')])).toEqual([profit(12000), { ...profit(0, '2026-10'), bar_earned: -200 }]);
+    expect(applySalaryPaymentChanges(rows, [payment('a', 1, 'bar')], [payment('a', 1, 'bar')])).toBe(rows);
+  });
+  it('keeps KPI identical to a full reload after a payment', () => {
+    const loaded = calculate().one[0];
+    const patched = calculate({ entries: [entry('payment', 500)], monthlyProfit: applySalaryPaymentChanges([profit(12000)], [], [entry('payment', 500)]) }).one[0];
+    expect(patched.kpi).toBe(loaded.kpi);
+    expect(patched.balance).toBe(loaded.balance - 500);
   });
 });

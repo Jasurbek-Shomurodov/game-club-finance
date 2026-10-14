@@ -49,6 +49,20 @@ PostgreSQL and compares read/write results, cross-club denial, and the query pla
 Owner-only behavior includes team management and destructive/sensitive finance
 operations. At least one owner must remain in a club.
 
+Migration 074 makes team access club-scoped, because unrelated owners share one
+database. Owning one club grants nothing in another: membership inserts,
+updates and deletes require `current_user_club_role(club_id) = 'owner'`, and an
+insert may only add an open access request (no memberships, not rejected) or
+someone who already shares a club with the caller. Profiles are readable as
+self, by club-mates, or (for owners) as open requests; updates are limited to
+people in a club the caller owns. A membership's `club_id`/`user_id` cannot be
+changed. `current_user_is_global_owner()` remains only for
+`create_club_with_owner`. `reject_access_request` locks the profile, re-checks
+that it is still an open request and marks it rejected; `/api/team/reject`
+deletes the auth user only after it returns `rejected`. Open requests are still
+visible to every club owner until requests are targeted at a club.
+`clubScopedTeamAccess.test.ts` runs 014/031/072/074 in local PostgreSQL.
+
 ## Client selection
 
 - Browser: `src/lib/supabase/client.ts`; respects the user's RLS.
@@ -73,6 +87,9 @@ operations. At least one owner must remain in a club.
 | `get_stock_opening_balances` | Latest closing plus receipts on intervening unclosed dates. |
 | `get_latest_stock_closings` | Raw latest product closings for older clients. |
 | Delivery ledger RPCs | Claim, begin dispatch, and complete Telegram delivery. |
+| `reject_access_request` | Atomically reject an open access request (074). |
+| `get_owner_profit_snapshot_with_methods` | 050 owner-profit payload plus each withdrawal's `payment_method` (076). |
+| `record_salary_entry_with_status` | `record_salary_entry` that also reports whether it inserted (077). |
 
 PostgreSQL functions execute as `PUBLIC` unless restricted. Security-definer
 functions must set a safe `search_path`, validate actor/club access, and have
@@ -186,3 +203,17 @@ Migration 068 fixes expense categories to `rent, salary, electricity, internet, 
 Migration 069 removes the vague `other` expense category: existing `other` rows became `supplies` and the check constraint no longer allows `other`. The form requires an explicit category choice, and `salary` is no longer selectable: salary expenses come only from `record_salary_entry` (the constraint still allows them; `POST /api/expenses` rejects them). `other` remains only as a label for legacy rows and the dashboard chart's "small slices" bucket.
 
 Migration 070 adds `kpi_basis` (`overall_profit` default, `owner_profit`), `kpi_game_club` and `kpi_bar` to `salary_rates`, replaces `save_salary_employee` and `change_salary_term` with versions that accept them (null keeps the rate in force today), and makes `get_salary_profit_snapshot` return monthly withdrawn totals per pool.
+
+Migration 075 defaults `new_debts.created_by` to `auth.uid()` and requires it to
+equal `auth.uid()` on insert, so the debt author cannot be forged.
+
+Migration 076 adds `get_owner_profit_snapshot_with_methods` instead of
+replacing 050, whose body is fingerprinted by migration health and also used by
+payroll. The app falls back to 050 plus a method query when it is missing.
+
+Migration 077 adds `record_salary_entry_with_status` (062 body, new return
+shape) so `POST /api/salaries` notifies only for a newly inserted entry; older
+databases fall back to a lookup plus `record_salary_entry`. Entry and rate
+deletes also go through `POST /api/salaries` (`delete_record`) and notify.
+`POST /api/expenses` accepts a client `id` for idempotent retries and rejects
+payment methods the club has not enabled.

@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, type KeyboardEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
-import { fetchStockOpeningBalances, fetchStockPurchasesForDate } from '@/lib/supabase/stockOpeningBalances';
+import { loadClosingStockDay } from '@/lib/supabase/closingStockQueries';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
   Avatar,
@@ -49,14 +49,17 @@ import {
   calculatePurchaseCostsByProduct,
   clearClosingStockDraft,
   closingStockRowTotalsInput,
+  isReadOnlyClosingStockProduct,
   isSignedWholeNumberInput,
   isWholeNumberInput,
   normalizeStockCount,
   normalizeStockAdjustment,
   readClosingStockDraft,
   saveClosingStockDraft,
+  usesSoldQuantityEntry,
   validateClosingStockRows,
   type ClosingStockExistingCount,
+  type ClosingStockPurchaseQuantity,
   type ClosingStockRowData,
   type BulkStockOrderItem,
   type BulkStockOrderSummary,
@@ -74,28 +77,6 @@ import {
 } from 'lucide-react';
 import type { Product } from '@/types';
 import { useLatestRef } from '@/components/i18n/useLatestRef';
-
-interface PurchaseQuantity {
-  product_id: string;
-  quantity: number;
-  cost_price: number;
-}
-
-interface StockCountRow {
-  product_id: string;
-  previous_stock: number;
-  added_today: number;
-  adjustment_quantity: number;
-  adjustment_reason: string | null;
-  closing_stock: number;
-  sold_quantity: number;
-  sale_price: number;
-  cost_price: number;
-  products?:
-    | Pick<Product, 'id' | 'club_id' | 'name' | 'category' | 'current_stock' | 'tracks_inventory' | 'low_stock_threshold' | 'sort_order' | 'is_active' | 'is_deleted' | 'created_at' | 'updated_at'>
-    | Pick<Product, 'id' | 'club_id' | 'name' | 'category' | 'current_stock' | 'tracks_inventory' | 'low_stock_threshold' | 'sort_order' | 'is_active' | 'is_deleted' | 'created_at' | 'updated_at'>[]
-    | null;
-}
 
 type RowData = ClosingStockRowData;
 
@@ -156,14 +137,6 @@ function productCategory(value: string | null | undefined): string {
   return String(value ?? '').trim();
 }
 
-function isMissingSortOrder(error: { message?: string } | null | undefined) {
-  return error?.message?.includes('sort_order') ?? false;
-}
-
-function isMissingDeletedColumn(error: { message?: string } | null | undefined) {
-  return error?.message?.includes('is_deleted') ?? false;
-}
-
 const stickyHeaderCellClass = 'sticky top-0 z-20 border-b border-gray-100 bg-gray-50 px-4 py-3 align-bottom';
 // The row number stays visible next to the product while the wide table scrolls horizontally.
 const stickyIndexHeaderCellClass = 'sticky left-0 top-0 z-30 w-12 border-b border-gray-100 bg-gray-50 px-3 py-3 align-bottom';
@@ -173,40 +146,6 @@ const stickyProductHeaderCellClass = 'sticky left-12 top-0 z-30 border-b border-
 const stickyProductCellClass = 'sticky left-12 z-10 bg-surface px-4 py-4 shadow-[1px_0_0_0_rgb(var(--c-gray-200))] group-hover:bg-gray-50';
 const CLOCK_REFRESH_MS = 60_000;
 const addedTodayHeaderCellClass = stickyHeaderCellClass;
-
-async function fetchActiveProductsOrdered(supabase: ReturnType<typeof createClient>, clubId: string) {
-  const ordered = await supabase
-    .from('products')
-    .select('*')
-    .eq('club_id', clubId)
-    .eq('is_active', true)
-    .eq('is_deleted', false)
-    .order('sort_order', { ascending: true })
-    .order('name', { ascending: true });
-
-  if (!ordered.error) return ordered;
-
-  if (isMissingSortOrder(ordered.error)) {
-    const named = await supabase
-      .from('products')
-      .select('*')
-      .eq('club_id', clubId)
-      .eq('is_active', true)
-      .eq('is_deleted', false)
-      .order('name', { ascending: true });
-
-    if (!named.error) return named;
-  }
-
-  if (!isMissingDeletedColumn(ordered.error)) return ordered;
-
-  return supabase
-    .from('products')
-    .select('*')
-    .eq('club_id', clubId)
-    .eq('is_active', true)
-    .order('name', { ascending: true });
-}
 
 function withClosingStock(row: RowData, value: string): RowData {
   return {
@@ -305,8 +244,7 @@ export default function ClosingStockPage() {
   const isOwner = currentRole === 'owner';
   const isAdmin = currentRole === 'admin';
   const canEditStockCounts = isOwner || (isAdmin && !isHistoricalDate);
-  const isPixelGameClub = selectedClub?.name.toLowerCase().includes('pixel') ?? false;
-  const usesSoldEntry = canEditStockCounts && isPixelGameClub;
+  const usesSoldEntry = canEditStockCounts && usesSoldQuantityEntry(selectedClub);
   const usesClosingEntry = canEditStockCounts && !usesSoldEntry;
   const canSave = usesClosingEntry || usesSoldEntry;
   const isReadOnly = !canSave;
@@ -316,7 +254,7 @@ export default function ClosingStockPage() {
     (
       products: Product[],
       counts: ClosingStockExistingCount[],
-      purchases: PurchaseQuantity[],
+      purchases: ClosingStockPurchaseQuantity[],
       previousClosings: Record<string, number>,
       isCurrentDate: boolean,
     ) => {
@@ -371,162 +309,34 @@ export default function ClosingStockPage() {
     const canUseDraft = currentRole === 'owner' || (currentRole === 'admin' && !readOnlyDate);
     const draftMode = usesSoldEntry ? 'soldQuantity' : 'closingStock';
 
-    if (readOnlyDate) {
-      const countsWithOrder = await supabase
-        .from('daily_stock_counts')
-        .select('product_id,previous_stock,added_today,adjustment_quantity,adjustment_reason,closing_stock,sold_quantity,sale_price,cost_price,products(id,club_id,name,category,current_stock,tracks_inventory,low_stock_threshold,sort_order,is_active,is_deleted,created_at,updated_at)')
-        .eq('club_id', selectedClubId)
-        .eq('date', selectedDate)
-        .order('updated_at', { ascending: false });
-      if (!isCurrent()) return;
-
-      let data: unknown = countsWithOrder.data;
-      let countsError = countsWithOrder.error;
-
-      if (isMissingSortOrder(countsWithOrder.error)) {
-        const countsWithoutOrder = await supabase
-          .from('daily_stock_counts')
-          .select('product_id,previous_stock,added_today,adjustment_quantity,adjustment_reason,closing_stock,sold_quantity,sale_price,cost_price,products(id,club_id,name,category,current_stock,tracks_inventory,low_stock_threshold,is_active,is_deleted,created_at,updated_at)')
-          .eq('club_id', selectedClubId)
-          .eq('date', selectedDate)
-          .order('updated_at', { ascending: false });
-
-        if (!isCurrent()) return;
-        data = countsWithoutOrder.data;
-        countsError = countsWithoutOrder.error;
-      }
-
-      if (countsError) {
-        fail();
-        return;
-      }
-
-      const stockCountRows = (data as StockCountRow[] | null) ?? [];
-
-      if (stockCountRows.length === 0 && currentRole === 'owner') {
-        const [productsRes, purchasesRes, previousClosingsRes] = await Promise.all([
-          fetchActiveProductsOrdered(supabase, selectedClubId),
-          fetchStockPurchasesForDate(supabase, selectedDate, selectedClubId),
-          fetchStockOpeningBalances(supabase, selectedDate, selectedClubId, selectedDate === today),
-        ]);
-        if (!isCurrent()) return;
-
-        if (productsRes.error || purchasesRes.error || previousClosingsRes.error) {
-          fail();
-          return;
-        }
-
-        const purchases = ((purchasesRes.data as PurchaseQuantity[]) ?? []);
-        setPurchaseCostsByProduct(calculatePurchaseCostsByProduct(purchases));
-        const editableRows = buildEditableRows(
-            (productsRes.data ?? []) as Product[],
-            [],
-            purchases,
-            previousClosingsRes.data ?? {},
-            false,
-        );
-        finish(canUseDraft ? applyBrowserDraft(
-          selectedDate,
-          selectedClubId,
-          editableRows,
-          businessDayStartHour,
-          draftMode,
-        ) : editableRows, false);
-        return;
-      }
-
-      const purchasesRes = await fetchStockPurchasesForDate(supabase, selectedDate, selectedClubId);
-      if (!isCurrent()) return;
-
-      if (purchasesRes.error) {
-        fail();
-        return;
-      }
-
-      const purchases = ((purchasesRes.data as PurchaseQuantity[]) ?? []);
-      setPurchaseCostsByProduct(calculatePurchaseCostsByProduct(purchases));
-      const productsFromCounts = stockCountRows.flatMap((count) => {
-          const relation = Array.isArray(count.products) ? count.products[0] : count.products;
-          const product: Product = {
-            id: relation?.id ?? count.product_id,
-            club_id: relation?.club_id ?? selectedClubId,
-            name: relation?.name ?? tRef.current('unknownProduct'),
-            category: relation?.category ?? null,
-            sale_price: Number(count.sale_price ?? 0),
-            cost_price: Number(count.cost_price ?? 0),
-            current_stock: relation?.current_stock ?? Number(count.closing_stock ?? 0),
-            tracks_inventory: relation?.tracks_inventory ?? true,
-            low_stock_threshold: relation?.low_stock_threshold ?? null,
-            sort_order: relation?.sort_order ?? null,
-            is_active: relation?.is_active ?? false,
-            is_deleted: relation?.is_deleted ?? false,
-            created_at: relation?.created_at ?? '',
-            updated_at: relation?.updated_at ?? '',
-          };
-
-          return [product];
-        });
-      const savedRows = buildEditableRows(
-        productsFromCounts,
-        stockCountRows,
-        purchases,
-        {},
-        false,
-      );
-      finish(savedRows, stockCountRows.length > 0);
-      return;
-    }
-
-    const [productsRes, countsRes, purchasesRes, previousClosingsRes] = await Promise.all([
-      fetchActiveProductsOrdered(supabase, selectedClubId),
-      supabase
-        .from('daily_stock_counts')
-        .select('*')
-        .eq('club_id', selectedClubId)
-        .eq('date', selectedDate),
-      fetchStockPurchasesForDate(supabase, selectedDate, selectedClubId),
-      fetchStockOpeningBalances(supabase, selectedDate, selectedClubId, selectedDate === today),
-    ]);
+    const { data: day } = await loadClosingStockDay(supabase, {
+      clubId: selectedClubId,
+      date: selectedDate,
+      today,
+      isOwner: currentRole === 'owner',
+      unknownProductName: tRef.current('unknownProduct'),
+    });
     if (!isCurrent()) return;
-
-    if (productsRes.error || countsRes.error || purchasesRes.error || previousClosingsRes.error) {
+    if (!day) {
       fail();
       return;
     }
 
-    const purchases = ((purchasesRes.data as PurchaseQuantity[]) ?? []);
-    setPurchaseCostsByProduct(calculatePurchaseCostsByProduct(purchases));
-    const existingCounts = (countsRes.data ?? []) as ClosingStockExistingCount[];
-    // Retain already-saved archived rows even on the current business day.
-    const activeProducts = (productsRes.data ?? []) as Product[];
-    const activeIds = new Set(activeProducts.map((product) => product.id));
-    const missingIds = existingCounts.map((count) => count.product_id)
-      .filter((id) => !activeIds.has(id));
-    let savedProducts: Product[] = [];
-    if (missingIds.length > 0) {
-      const result = await supabase.from('products').select('*')
-        .eq('club_id', selectedClubId).eq('is_deleted', true).in('id', missingIds);
-      if (!isCurrent()) return;
-      if (result.error) {
-        fail();
-        return;
-      }
-      savedProducts = (result.data ?? []) as Product[];
-    }
+    setPurchaseCostsByProduct(calculatePurchaseCostsByProduct(day.purchases));
     const editableRows = buildEditableRows(
-        [...activeProducts, ...savedProducts],
-        existingCounts,
-        purchases,
-        previousClosingsRes.data ?? {},
-        selectedDate === today,
+      day.products,
+      day.counts,
+      day.purchases,
+      day.previousClosings,
+      day.isCurrentDate,
     );
-    finish(canUseDraft && existingCounts.length === 0 ? applyBrowserDraft(
+    finish(canUseDraft && day.draftEligible ? applyBrowserDraft(
       selectedDate,
       selectedClubId,
       editableRows,
       businessDayStartHour,
       draftMode,
-    ) : editableRows, existingCounts.length > 0);
+    ) : editableRows, day.hasSavedCounts);
   }, [buildEditableRows, businessDayStartHour, currentRole, selectedClubId, today, usesSoldEntry, tRef]);
 
   // Keep "today" current while the page stays open (overnight tabs, sleep).
@@ -656,7 +466,7 @@ export default function ClosingStockPage() {
     [rows],
   );
 
-  const bulkRows = useMemo(() => rows.filter((row) => !row.product.is_deleted), [rows]);
+  const bulkRows = useMemo(() => rows.filter((row) => !isReadOnlyClosingStockProduct(row.product)), [rows]);
 
   // KPIs describe the whole day; filters only narrow the table and its footer.
   const totals = useMemo(() => summarizeStockRows(rows.map((row) => (
@@ -723,7 +533,9 @@ export default function ClosingStockPage() {
   ): Promise<{ ok: boolean; message: string | null }> {
     if (isReadOnly) return { ok: false, message: t('readOnlyBody') };
 
-    nextRows = nextRows.filter((row) => !row.product.is_deleted);
+    // Inactive and archived rows stay on screen but the save RPC rejects
+    // them; it leaves their saved rows untouched when they are omitted.
+    nextRows = nextRows.filter((row) => !isReadOnlyClosingStockProduct(row.product));
     if (nextRows.length === 0) return { ok: false, message: tc('noData') };
     if (!selectedClubId) return { ok: false, message: tc('error') };
 
@@ -1035,7 +847,7 @@ export default function ClosingStockPage() {
                   <tbody className="divide-y divide-gray-50">
                     {filteredRows.map((row) => {
                       const productId = row.product.id;
-                      const rowReadOnly = !canSave || !!row.product.is_deleted;
+                      const rowReadOnly = !canSave || isReadOnlyClosingStockProduct(row.product);
                       const inputsDisabled = saving || refreshing;
                       const summary = rowSummary(row);
                       const tracksInventory = row.product.tracks_inventory !== false;

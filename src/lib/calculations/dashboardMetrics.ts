@@ -233,10 +233,21 @@ export function getPreviousDashboardRange(range: {
   return { from: localIsoDate(previousFrom), to: localIsoDate(previousTo) };
 }
 
+/**
+ * The period a range is compared against. A range that is still in progress
+ * (it contains the business today but ends later) is compared with the same
+ * number of elapsed days, so month-to-date is not measured against a whole
+ * month: 1–14 October compares with 1–14 September. The previous month's end
+ * clamps the day, so 31 March compares with 1–28/29 February. Completed
+ * ranges, such as last month, compare in full.
+ */
 export function getDashboardComparisonRange(
   period: DashboardPeriod,
   range: { from: string; to: string },
+  businessToday: string,
 ): { from: string; to: string } {
+  const inProgressTo = businessToday >= range.from && businessToday < range.to ? businessToday : null;
+
   if (period === 'month' || period === 'lastMonth') {
     const currentMonthStart = parseLocalIsoDate(range.from);
     const previousMonthStart = new Date(
@@ -249,10 +260,24 @@ export function getDashboardComparisonRange(
       currentMonthStart.getMonth(),
       0,
     );
-    return { from: localIsoDate(previousMonthStart), to: localIsoDate(previousMonthEnd) };
+    const previousTo = period === 'month' && inProgressTo
+      ? new Date(
+          previousMonthStart.getFullYear(),
+          previousMonthStart.getMonth(),
+          Math.min(parseLocalIsoDate(inProgressTo).getDate(), previousMonthEnd.getDate()),
+        )
+      : previousMonthEnd;
+    return { from: localIsoDate(previousMonthStart), to: localIsoDate(previousTo) };
   }
 
-  return getPreviousDashboardRange(range);
+  const previous = getPreviousDashboardRange(range);
+  if (!inProgressTo) return previous;
+
+  const elapsedDays = countDashboardRangeDays({ from: range.from, to: inProgressTo });
+  return {
+    from: previous.from,
+    to: localIsoDate(addDays(parseLocalIsoDate(previous.from), elapsedDays - 1)),
+  };
 }
 
 export function countDashboardRangeDays(range: { from: string; to: string }): number {
@@ -300,42 +325,6 @@ export function calculateAverageDailyIncome(total: number, days: number): number
   return Math.round(total / Math.max(1, days));
 }
 
-export interface MonthlyAverageGameClubIncomePoint {
-  month: string;
-  average_daily_income: number;
-  is_current: boolean;
-}
-
-export function buildMonthlyAverageGameClubIncome(
-  rows: DailyCashRow[],
-  businessDate: string,
-): MonthlyAverageGameClubIncomePoint[] {
-  const [year, month, currentDay] = businessDate.split('-').map(Number);
-  const currentMonthIndex = year * 12 + month - 1;
-
-  return Array.from({ length: 12 }, (_, index) => {
-    const absoluteMonth = currentMonthIndex - 11 + index;
-    const pointYear = Math.floor(absoluteMonth / 12);
-    const pointMonth = absoluteMonth % 12 + 1;
-    const monthKey = `${pointYear}-${String(pointMonth).padStart(2, '0')}`;
-    const total = rows.reduce((sum, row) => {
-      if (!row.date.startsWith(monthKey)) return sum;
-      return sum
-        + Number(row.cash_income ?? 0)
-        + Number(row.terminal_income ?? 0)
-        + Number(row.card_income ?? 0);
-    }, 0);
-    const isCurrent = absoluteMonth === currentMonthIndex;
-    const dayCount = isCurrent ? currentDay : new Date(pointYear, pointMonth, 0).getDate();
-
-    return {
-      month: `${monthKey}-01`,
-      average_daily_income: calculateAverageDailyIncome(total, dayCount),
-      is_current: isCurrent,
-    };
-  });
-}
-
 export function sumGameClubRows(rows: DailyCashRow[]): Pick<
   DashboardTotals,
   | 'cashIncome'
@@ -360,7 +349,7 @@ export function sumGameClubRows(rows: DailyCashRow[]): Pick<
   };
 }
 
-function gameClubExpensePaymentBucket(method: string | null | undefined): 'cash' | 'terminal' | 'card' {
+export function gameClubExpensePaymentBucket(method: string | null | undefined): 'cash' | 'terminal' | 'card' {
   if (method === 'cash') return 'cash';
   if (method === 'terminal') return 'terminal';
   return 'card';
@@ -514,26 +503,10 @@ export function percentChange(current: number, previous: number): number | null 
   return Math.round(((current - previous) / Math.abs(previous)) * 100);
 }
 
-export function buildIncomeTrend(
-  endDate: string,
-  cashRows: DailyCashRow[],
-  stockRows: StockCountRow[],
-  purchaseRows: StockPurchaseCostRow[],
-  expenseRows: ExpenseRow[],
-  debtRows: DebtValueRow[] = [],
-): TrendRow[] {
-  const trendDates = Array.from({ length: 7 }, (_, index) =>
-    localIsoDate(addDays(parseLocalIsoDate(endDate), index - 6)),
-  );
-
-  return buildTrendForDates(trendDates, cashRows, stockRows, purchaseRows, expenseRows, debtRows);
-}
-
 export function buildPeriodTrend(
   range: { from: string; to: string },
   cashRows: DailyCashRow[],
   stockRows: StockCountRow[],
-  purchaseRows: StockPurchaseCostRow[],
   expenseRows: ExpenseRow[],
   debtRows: DebtValueRow[] = [],
 ): TrendRow[] {
@@ -542,17 +515,8 @@ export function buildPeriodTrend(
   const days = Math.max(1, Math.round((to.getTime() - from.getTime()) / 86_400_000) + 1);
   const trendDates = Array.from({ length: days }, (_, index) => localIsoDate(addDays(from, index)));
 
-  return buildTrendForDates(trendDates, cashRows, stockRows, purchaseRows, expenseRows, debtRows);
-}
-
-function buildTrendForDates(
-  trendDates: string[],
-  cashRows: DailyCashRow[],
-  stockRows: StockCountRow[],
-  _purchaseRows: StockPurchaseCostRow[],
-  expenseRows: ExpenseRow[],
-  debtRows: DebtValueRow[],
-): TrendRow[] {
+  // Expenses use cost of goods sold (bar_cost), not stock purchases, so the
+  // trend matches accounting profit.
   return trendDates.map((date) => {
     const dayCash = cashRows.filter((row) => row.date === date);
     const dayStock = stockRows.filter((row) => row.date === date);

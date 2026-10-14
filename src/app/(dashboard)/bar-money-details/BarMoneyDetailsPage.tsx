@@ -3,7 +3,7 @@
 import { useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import MoneyDetailsPage, { inRangeQuery, type MoneyDetailRow } from '@/components/money-details/MoneyDetailsPage';
-import { STOCK_PURCHASE_DEDUCTION_START_DATE } from '@/lib/calculations/barMoney';
+import { STOCK_PURCHASE_DEDUCTION_START_DATE, sumStockPurchaseCost } from '@/lib/calculations/barMoney';
 import { fetchFinanceReportSnapshot } from '@/lib/supabase/financeReportSnapshot';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import { createClient } from '@/lib/supabase/client';
@@ -55,9 +55,11 @@ function buildRows(
     row.collected[0].amount += Number(stockRow.bar_income ?? 0);
   }
   for (const purchaseRow of purchaseRows) {
-    const row = rowFor(purchaseRow.date);
+    // Purchases before the deduction start date never reduce bar money, so they
+    // must not create an otherwise empty day either.
     if (purchaseRow.date < STOCK_PURCHASE_DEDUCTION_START_DATE) continue;
-    const amount = Number(purchaseRow.quantity ?? 0) * Number(purchaseRow.cost_price ?? 0);
+    const row = rowFor(purchaseRow.date);
+    const amount = sumStockPurchaseCost([purchaseRow]);
     const product = Array.isArray(purchaseRow.products) ? purchaseRow.products[0] : purchaseRow.products;
     row.deductions.push({
       kind: 'purchase',
@@ -106,17 +108,17 @@ export default function BarMoneyDetailsPage({ requestedFrom, requestedTo }: { re
     // Compatibility path while migration 049 is being deployed.
     const [stockRes, purchaseRes, expenseRes] = await Promise.all([
       fetchAllRows<StockRow>(() => inRangeQuery(
-        supabase.from('daily_stock_counts').select('date,bar_income').eq('club_id', clubId).order('date', { ascending: true }),
+        supabase.from('daily_stock_counts').select('date,bar_income').eq('club_id', clubId).order('date', { ascending: true }).order('id', { ascending: true }),
         from,
         to,
       )),
       fetchAllRows<PurchaseRow>(() => inRangeQuery(
-        supabase.from('stock_purchases').select('date,quantity,cost_price,comment,products(name)').eq('club_id', clubId).order('date', { ascending: true }),
+        supabase.from('stock_purchases').select('date,quantity,cost_price,comment,products(name)').eq('club_id', clubId).order('date', { ascending: true }).order('id', { ascending: true }),
         from,
         to,
       )),
       fetchAllRows<ExpenseRow>(() => inRangeQuery(
-        supabase.from('expenses').select('date,amount,category,payment_source,comment').eq('club_id', clubId).order('date', { ascending: true }),
+        supabase.from('expenses').select('date,amount,category,payment_source,comment').eq('club_id', clubId).order('date', { ascending: true }).order('id', { ascending: true }),
         from,
         to,
       )),

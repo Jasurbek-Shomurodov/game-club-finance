@@ -4,6 +4,12 @@
   "functions": {
     "src/app/api/cron/daily-finance-report/route.ts": {
       "includeFiles": "{node_modules/@img/sharp-libvips-linux-x64/**,src/assets/fonts/*.ttf}"
+    },
+    "src/app/api/cron/daily-finance-report-retry-1/route.ts": {
+      "includeFiles": "{node_modules/@img/sharp-libvips-linux-x64/**,src/assets/fonts/*.ttf}"
+    },
+    "src/app/api/cron/daily-finance-report-retry-2/route.ts": {
+      "includeFiles": "{node_modules/@img/sharp-libvips-linux-x64/**,src/assets/fonts/*.ttf}"
     }
   }
 }

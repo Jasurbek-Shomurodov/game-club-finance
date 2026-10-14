@@ -17,6 +17,7 @@ import type {
   ProductValueRow,
 } from '../calculations/dashboardMetrics';
 import { listLowStockProducts } from '../calculations/stock';
+import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
 import type { LowStockProduct, LowStockProductInput } from '../calculations/stock';
 
 export interface DailyFinanceReportInput {
@@ -43,7 +44,6 @@ export interface DailyFinanceReportInput {
   utilitiesCosts: number;
   otherOperatingCosts: number;
   monthToDateRevenue: number;
-  averageDailyRevenue: number;
   gameClubMoneyLeft: number;
   averageDailyGameClubIncome: number;
   barMoneyLeft: number;
@@ -75,6 +75,7 @@ export interface DailyFinanceExpenseCategory {
 }
 
 export interface DailyFinanceReportDebtRow {
+  id?: string;
   date?: string;
   amount?: number;
   remaining_amount: number;
@@ -85,6 +86,13 @@ export interface DailyFinanceReportDebtPaymentRow {
   date: string;
   amount: number;
   payment_method: string;
+}
+
+/** A debt payment recorded after the report date (used to rewind balances). */
+export interface DailyFinanceReportLaterDebtPaymentRow {
+  debt_id: string;
+  date: string;
+  amount: number;
 }
 
 export interface DailyFinanceReportRows {
@@ -106,10 +114,19 @@ export interface DailyFinanceReportRows {
   previousMonthDebtPaymentRows?: DailyFinanceReportDebtPaymentRow[];
   previousMonthInventoryRows?: InventorySnapshotRow[];
   productRows?: ProductValueRow[];
-  /** Saved closing balances for the report date, including archived products. */
+  /**
+   * Saved closing counts on or before the report date, including archived
+   * products. The warehouse value uses each product's latest count in these
+   * rows, so a day without a count still shows the last known stock.
+   */
   inventoryRows?: InventorySnapshotRow[];
   debtRows: DailyFinanceReportDebtRow[];
   debtPaymentRows?: DailyFinanceReportDebtPaymentRow[];
+  /**
+   * Debt payments dated after the report date. Adding them back to the live
+   * remaining balance gives the debt outstanding at the end of the report date.
+   */
+  laterDebtPaymentRows?: DailyFinanceReportLaterDebtPaymentRow[];
   /** Live product catalog rows; omitted when the catalog could not be read. */
   lowStockProductRows?: LowStockProductInput[];
 }
@@ -117,23 +134,6 @@ export interface DailyFinanceReportRows {
 function money(value: number): string {
   return `${formatCurrency(value)} UZS`;
 }
-
-const RUSSIAN_EXPENSE_CATEGORY_LABELS: Record<string, string> = {
-  rent: 'Аренда',
-  salary: 'Зарплата',
-  electricity: 'Электричество',
-  internet: 'Интернет',
-  repair: 'Ремонт',
-  cleaning: 'Уборка',
-  food_drinks: 'Еда / Напитки',
-  marketing: 'Маркетинг',
-  equipment: 'Оборудование',
-  tax: 'Налог',
-  correction: 'Исправление / ошибка',
-  discount: 'Скидки и бонусы клиентам',
-  supplies: 'Расходные материалы и хозтовары',
-  other: 'Другое',
-};
 
 function expenseName(row: ExpenseRow): string {
   const comment = row.comment?.trim();
@@ -243,7 +243,12 @@ export function buildDailyGameClubIncomeSeries(
   return points;
 }
 
-function previousComparableMonthRange(date: string): { from: string; to: string } {
+export function monthStartIso(date: string): string {
+  return `${date.slice(0, 7)}-01`;
+}
+
+/** The previous month from its 1st through the same day (clamped to its length). */
+export function previousComparableMonthRangeIso(date: string): { from: string; to: string } {
   const [year, month, day] = date.split('-').map(Number);
   const previousMonthStart = new Date(Date.UTC(year, month - 2, 1));
   const previousMonthLastDay = new Date(Date.UTC(year, month - 1, 0)).getUTCDate();
@@ -253,10 +258,37 @@ function previousComparableMonthRange(date: string): { from: string; to: string 
   return { from: `${prefix}-01`, to: `${prefix}-${String(comparableDay).padStart(2, '0')}` };
 }
 
+/**
+ * Customer debt still owed at the end of `businessDate`. Debts recorded later
+ * are excluded, and payments recorded later are added back to the live
+ * remaining balance (the payment ledger is append-only and the database keeps
+ * `remaining_amount` in step with it), so recovery runs for past dates show
+ * that day's balance rather than today's.
+ */
+export function calculateOutstandingDebtsAsOf(
+  debtRows: DailyFinanceReportDebtRow[],
+  laterPaymentRows: DailyFinanceReportLaterDebtPaymentRow[],
+  businessDate: string,
+): number {
+  const laterPaidByDebt = laterPaymentRows.reduce((map, payment) => {
+    if (payment.date > businessDate) {
+      map.set(payment.debt_id, (map.get(payment.debt_id) ?? 0) + Number(payment.amount ?? 0));
+    }
+    return map;
+  }, new Map<string, number>());
+
+  return debtRows.reduce((sum, debt) => {
+    if (debt.date && debt.date > businessDate) return sum;
+    const liveRemaining = debt.status === 'paid' ? 0 : Number(debt.remaining_amount ?? 0);
+    const outstanding = liveRemaining + (debt.id ? laterPaidByDebt.get(debt.id) ?? 0 : 0);
+    const principal = debt.amount === undefined ? Number.POSITIVE_INFINITY : Number(debt.amount);
+    return sum + Math.max(0, Math.min(outstanding, principal));
+  }, 0);
+}
+
 export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): DailyFinanceReportInput {
-  const monthStart = `${rows.businessDate.slice(0, 7)}-01`;
-  const monthRange = { from: monthStart, to: rows.businessDate };
-  const previousMonthRange = previousComparableMonthRange(rows.businessDate);
+  const monthRange = { from: monthStartIso(rows.businessDate), to: rows.businessDate };
+  const previousMonthRange = previousComparableMonthRangeIso(rows.businessDate);
   const dailyDebtRows = rows.debtRows.filter((row) => row.date === rows.businessDate);
   const monthDebtRows = rows.debtRows.filter(
     (row) => Boolean(row.date && row.date >= monthRange.from && row.date <= monthRange.to),
@@ -322,8 +354,12 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
   const inventoryValue = rows.inventoryRows === undefined
     ? dailyTotals.inventoryValue
     : calculateInventoryValueFromLatestStockCounts(
-      rows.inventoryRows.filter((row) => row.date === rows.businessDate),
+      rows.inventoryRows.filter((row) => row.date <= rows.businessDate),
     );
+  const averageDailyGameClubIncome = calculateAverageDailyIncome(
+    monthTotals.gameClubIncome,
+    averageRevenueDayCount,
+  );
   const dailyRevenue = dailyTotals.gameClubIncome + dailyTotals.barSales;
   const monthToDateRevenue = monthTotals.gameClubIncome;
   const operatingCosts = summarizeOperatingCosts(rows.expenseRows);
@@ -348,18 +384,21 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
     barExpenseCategories: summarizeExpenseCategories(rows.expenseRows, 'bar'),
     ...operatingCosts,
     monthToDateRevenue,
-    averageDailyRevenue: calculateAverageDailyIncome(monthToDateRevenue, averageRevenueDayCount),
     gameClubMoneyLeft: monthTotals.gameClubMoneyLeft,
-    averageDailyGameClubIncome: calculateAverageDailyIncome(monthTotals.gameClubIncome, averageRevenueDayCount),
+    averageDailyGameClubIncome,
     barMoneyLeft: monthTotals.barIncome,
     inventoryValue,
     averageDailyGameClubIncomeChange: percentChange(
-      calculateAverageDailyIncome(monthTotals.gameClubIncome, averageRevenueDayCount),
+      averageDailyGameClubIncome,
       previousAverageDailyGameClubIncome,
     ),
     barMoneyLeftChange: percentChange(monthTotals.barIncome, previousMonthTotals.barIncome),
     inventoryValueChange: percentChange(inventoryValue, previousInventoryValue),
-    activeDebts: dailyTotals.activeDebts,
+    activeDebts: calculateOutstandingDebtsAsOf(
+      rows.debtRows,
+      rows.laterDebtPaymentRows ?? [],
+      rows.businessDate,
+    ),
     monthBarSales: monthTotals.barSales,
     monthGameClubProfit: monthTotals.gameClubIncome - monthTotals.gameClubExpenses,
     monthTotalIncome: monthTotals.gameClubIncome + monthTotals.barSales,
@@ -410,7 +449,6 @@ export function formatRussianDailyFinanceReport(input: DailyFinanceReportInput):
     ...(input.monthTotalIncome === undefined
       ? []
       : [`🏦 Общий доход за месяц (клуб + бар): ${money(input.monthTotalIncome)}`]),
-    `📊 Средний доход клуба в день: ${money(input.averageDailyRevenue)}`,
     `💰 Остаток денег клуба за месяц: ${money(input.gameClubMoneyLeft)}`,
     `📈 Средний дневной доход клуба за месяц: ${money(input.averageDailyGameClubIncome)}`,
     `🧾 Остаток денег бара за месяц: ${money(input.barMoneyLeft)}`,

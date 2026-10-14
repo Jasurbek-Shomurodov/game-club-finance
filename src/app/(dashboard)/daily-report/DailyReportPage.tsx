@@ -2,7 +2,7 @@
 
 // Route: /daily-report
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 import { useClub } from '@/components/layout/DashboardShell';
@@ -24,22 +24,12 @@ import {
   toneForAmount,
   MetricMoney,
 } from '@/components/PresentationFoundation';
-import { todayIso } from '@/lib/utils';
+import { useBusinessToday } from '@/lib/useBusinessToday';
 import { formatCurrency, formatNumber } from '@/lib/formatters';
-import { calculateFinancialReportTotals } from '@/lib/calculations/dailyReport';
-import { calculateGameClubIncome } from '@/lib/calculations/dailyCash';
-import { fetchFinanceReportSnapshot } from '@/lib/supabase/financeReportSnapshot';
-import { fetchAllRows } from '@/lib/supabase/pagination';
+import { calculateFinancialReportTotals, calculateManualIncome } from '@/lib/calculations/dailyReport';
+import { loadFinanceReportRows, type FinanceStockCountRow } from '@/lib/supabase/financeReportSnapshot';
 import { FileText, RefreshCcw, TrendingUp, TrendingDown, DollarSign, Users } from 'lucide-react';
-import type { DailyCashEntry, DailyStockCount, Expense, StockPurchase } from '@/types';
-
-interface ProductRow extends DailyStockCount {
-  products: { name: string; sort_order?: number | null } | null;
-}
-
-function isMissingSortOrder(error: { message?: string } | null | undefined) {
-  return error?.message?.includes('sort_order') ?? false;
-}
+import type { DailyCashEntry, Expense, StockPurchase } from '@/types';
 
 export default function DailyReportPage() {
   const t = useTranslations('dailyReport');
@@ -47,10 +37,10 @@ export default function DailyReportPage() {
   const te = useTranslations('expenses');
   const { selectedClubId, businessDayStartHour } = useClub();
 
-  const businessToday = useMemo(() => todayIso(new Date(), businessDayStartHour), [businessDayStartHour]);
+  const businessToday = useBusinessToday(businessDayStartHour);
   const [date, setDate] = useState(() => businessToday);
   const [cashEntry, setCashEntry] = useState<DailyCashEntry | null>(null);
-  const [stockCounts, setStockCounts] = useState<ProductRow[]>([]);
+  const [stockCounts, setStockCounts] = useState<FinanceStockCountRow[]>([]);
   const [stockPurchases, setStockPurchases] = useState<StockPurchase[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [debtIncome, setDebtIncome] = useState(0);
@@ -59,167 +49,63 @@ export default function DailyReportPage() {
   const [reloadToken, setReloadToken] = useState(0);
   const requestSequence = useRef(0);
 
+  const clearReport = useCallback(() => {
+    setCashEntry(null);
+    setStockCounts([]);
+    setStockPurchases([]);
+    setExpenses([]);
+    setDebtIncome(0);
+  }, []);
+
   const fetchData = useCallback(async (selectedDate: string) => {
     const requestId = ++requestSequence.current;
 
     if (!selectedClubId) {
-      setCashEntry(null);
-      setStockCounts([]);
-      setStockPurchases([]);
-      setExpenses([]);
-      setDebtIncome(0);
+      clearReport();
       setLoading(false);
       return;
     }
 
     setLoading(true);
     setLoadError(false);
-    const supabase = createClient();
+    try {
+      const result = await loadFinanceReportRows(createClient(), selectedClubId, selectedDate, selectedDate, 'day');
+      if (requestId !== requestSequence.current) return;
+      if (!result.data) throw new Error(result.error?.message);
 
-    const snapshotResult = await fetchFinanceReportSnapshot(
-      supabase,
-      selectedClubId,
-      selectedDate,
-      selectedDate,
-      ['cash', 'stock_counts', 'purchases', 'expenses', 'debts'],
-    );
-
-    if (requestId !== requestSequence.current) return;
-
-    if (snapshotResult.error) {
-      setCashEntry(null);
-      setStockCounts([]);
-      setStockPurchases([]);
-      setExpenses([]);
-      setDebtIncome(0);
+      setCashEntry(result.data.cashRows[0] ?? null);
+      setStockCounts(result.data.stockCountRows);
+      setStockPurchases(result.data.purchaseRows);
+      setExpenses(result.data.expenseRows);
+      setDebtIncome(result.data.debtRows.reduce((sum, debt) => sum + Number(debt.amount ?? 0), 0));
+      setLoading(false);
+    } catch {
+      // A superseded load must not paint its failure over a newer request.
+      if (requestId !== requestSequence.current) return;
+      clearReport();
       setLoadError(true);
       setLoading(false);
-      return;
     }
-
-    if (snapshotResult.data) {
-      const snapshot = snapshotResult.data;
-      setCashEntry(snapshot.cashRows[0] ?? null);
-      setStockCounts(snapshot.stockCountRows.map((row) => ({
-        ...row,
-        products: row.product_name
-          ? { name: row.product_name, sort_order: row.sort_order }
-          : null,
-      })));
-      setStockPurchases(snapshot.purchaseRows);
-      setExpenses(snapshot.expenseRows);
-      setDebtIncome(snapshot.debtRows.reduce(
-        (sum, debt) => sum + Number(debt.amount ?? 0),
-        0,
-      ));
-      setLoading(false);
-      return;
-    }
-
-    // Compatibility path while migration 049 is being deployed.
-    const [cashRes, initialStockRes, purchaseRes, expRes, debtRes] = await Promise.all([
-      supabase
-        .from('daily_cash_entries')
-        .select('*')
-        .eq('club_id', selectedClubId)
-        .eq('date', selectedDate)
-        .maybeSingle(),
-      fetchAllRows<ProductRow>(() => supabase
-        .from('daily_stock_counts')
-        .select('*, products(name, sort_order)')
-        .eq('club_id', selectedClubId)
-        .eq('date', selectedDate)
-        .order('product_id', { ascending: true })),
-      fetchAllRows<StockPurchase>(() => supabase
-        .from('stock_purchases')
-        .select('*')
-        .eq('club_id', selectedClubId)
-        .eq('date', selectedDate)
-        .order('id', { ascending: true })),
-      fetchAllRows<Expense>(() => supabase
-        .from('expenses')
-        .select('*')
-        .eq('club_id', selectedClubId)
-        .eq('date', selectedDate)
-        .order('created_at', { ascending: true })
-        .order('id', { ascending: true })),
-      fetchAllRows<{ amount: number | null }>(() => supabase
-        .from('new_debts')
-        .select('amount')
-        .eq('club_id', selectedClubId)
-        .eq('date', selectedDate)
-        .order('id', { ascending: true })),
-    ]);
-
-    let stockRes = initialStockRes;
-    if (isMissingSortOrder(stockRes.error)) {
-      stockRes = await fetchAllRows<ProductRow>(() => supabase
-        .from('daily_stock_counts')
-        .select('*, products(name)')
-        .eq('club_id', selectedClubId)
-        .eq('date', selectedDate)
-        .order('product_id', { ascending: true }));
-    }
-
-    if (requestId !== requestSequence.current) return;
-
-    const firstError = [cashRes, stockRes, purchaseRes, expRes, debtRes]
-      .find((result) => result.error)?.error;
-    if (firstError) {
-      setCashEntry(null);
-      setStockCounts([]);
-      setStockPurchases([]);
-      setExpenses([]);
-      setDebtIncome(0);
-      setLoadError(true);
-      setLoading(false);
-      return;
-    }
-
-    setCashEntry(cashRes.data as DailyCashEntry | null);
-    setStockCounts(
-      ((stockRes.data as ProductRow[]) ?? []).sort((a, b) => {
-        const orderA = a.products?.sort_order ?? Number.MAX_SAFE_INTEGER;
-        const orderB = b.products?.sort_order ?? Number.MAX_SAFE_INTEGER;
-        if (orderA !== orderB) return orderA - orderB;
-        return (a.products?.name ?? a.product_id).localeCompare(b.products?.name ?? b.product_id);
-      }),
-    );
-    setStockPurchases((purchaseRes.data as StockPurchase[]) ?? []);
-    setExpenses((expRes.data as Expense[]) ?? []);
-    setDebtIncome(((debtRes.data ?? []) as Array<{ amount: number | null }>).reduce(
-      (sum, debt) => sum + Number(debt.amount ?? 0),
-      0,
-    ));
-    setLoadError(false);
-    setLoading(false);
-  }, [selectedClubId]);
+  }, [clearReport, selectedClubId]);
 
   useEffect(() => {
-    fetchData(date).catch(() => {
-      setCashEntry(null);
-      setStockCounts([]);
-      setStockPurchases([]);
-      setExpenses([]);
-      setDebtIncome(0);
-      setLoadError(true);
-      setLoading(false);
-    });
+    void fetchData(date);
     return () => { requestSequence.current += 1; };
   }, [date, fetchData, reloadToken]);
 
+  // A club switch opens the current business day; a day rollover moves the
+  // report forward only if it was still showing the previous day.
+  const previousBusinessToday = useRef(businessToday);
+  const previousClubId = useRef(selectedClubId);
   useEffect(() => {
-    setDate(businessToday);
+    const previousToday = previousBusinessToday.current;
+    const clubChanged = previousClubId.current !== selectedClubId;
+    previousBusinessToday.current = businessToday;
+    previousClubId.current = selectedClubId;
+    setDate((current) => (clubChanged || current === previousToday ? businessToday : current));
   }, [businessToday, selectedClubId]);
 
-  const manualIncome = cashEntry
-    ? calculateGameClubIncome({
-        cashIncome: cashEntry.cash_income,
-        terminalIncome: cashEntry.terminal_income,
-        cardIncome: cashEntry.card_income,
-        playstationIncome: cashEntry.playstation_income ?? 0,
-      })
-    : 0;
+  const manualIncome = cashEntry ? calculateManualIncome(cashEntry) : 0;
 
   const reportTotals = calculateFinancialReportTotals({
     manualIncome,
@@ -326,7 +212,7 @@ export default function DailyReportPage() {
                 keyExtractor={(row) => row.id}
                 data={stockCounts}
                 columns={[
-                  { key: 'product', header: t('product'), className: 'sticky left-0 z-10 bg-gray-50', cellClassName: 'bg-surface', render: (row) => <span className="font-medium text-gray-900">{row.products?.name ?? row.product_id}</span> },
+                  { key: 'product', header: t('product'), className: 'sticky left-0 z-10 bg-gray-50', cellClassName: 'bg-surface', render: (row) => <span className="font-medium text-gray-900">{row.product_name ?? row.product_id}</span> },
                   { key: 'sold', header: t('sold'), align: 'right', render: (row) => formatNumber(row.sold_quantity) },
                   { key: 'income', header: t('barSales'), align: 'right', render: (row) => <span className="text-success-600">{formatCurrency(row.bar_income)}</span> },
                   { key: 'cost', header: t('costOfGoodsSold'), align: 'right', render: (row) => <span className="text-danger-600">{formatCurrency(row.bar_cost)}</span> },

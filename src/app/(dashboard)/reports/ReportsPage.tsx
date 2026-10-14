@@ -61,9 +61,11 @@ import { formatCurrency, formatDateOnly, formatTime } from '@/lib/formatters';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import { createClient, mutateFinanceRequest } from '@/lib/supabase/client';
 import { isMissingDatabaseFunction } from '@/lib/supabase/errors';
+import { deleteDailyCashEntry } from '@/lib/supabase/dailyCashEntries';
 import { cn } from '@/lib/utils';
-import { todayIso } from '@/lib/utils';
+import { useBusinessToday } from '@/lib/useBusinessToday';
 import { canAccessFeature } from '@/lib/permissions';
+import ExpenseRegistrationForm from './ExpenseRegistrationForm';
 import { EXPENSE_CATEGORIES, isKnownExpenseCategory } from '@/lib/expenseCategories';
 
 const emptyReportRows = {
@@ -100,7 +102,7 @@ function activityKindVariant(kind: MoneyReportActivity['kind']): BadgeVariant {
 
 /** The closeout table lists a subtle day header row followed by that day's entries. */
 type CloseoutRow =
-  | { kind: 'day'; key: string; date: string; income: number; expenses: number; total: number; count: number }
+  | { kind: 'day'; key: string; date: string; income: number; gameClubExpenses: number; barExpenses: number; total: number; count: number }
   | { kind: 'activity'; key: string; date: string; activity: MoneyReportActivity };
 
 function SummaryCard({
@@ -177,7 +179,10 @@ export default function ReportsPage() {
   const { locale } = useAppLocale();
   const { selectedClubId, businessDayStartHour, role, featureAccess } = useClub();
   const hasReportsAccess = canAccessFeature(role, featureAccess, 'reports');
-  const businessToday = useMemo(() => todayIso(new Date(), businessDayStartHour), [businessDayStartHour]);
+  // Members with only the expenses feature land here to register expenses.
+  const canRegisterExpenses = canAccessFeature(role, featureAccess, 'expenses');
+  const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
+  const businessToday = useBusinessToday(businessDayStartHour);
   const [range, setRange] = useState(() => getDashboardRange('month', businessToday));
   const [reportRows, setReportRows] = useState(emptyReportRows);
   const [categoryFilter, setCategoryFilter] = useState<MoneyReportCategoryFilter>('all');
@@ -360,16 +365,25 @@ export default function ReportsPage() {
   useEffect(() => {
     currentClubId.current = selectedClubId;
     setSelectedEntry(null);
+    setExpenseDialogOpen(false);
     setActionError('');
   }, [selectedClubId]);
 
+  // A club switch opens the current month; a business-day rollover moves the
+  // range forward only while it is still the previous day's default range.
+  const previousBusinessToday = useRef(businessToday);
+  const previousRangeClubId = useRef(selectedClubId);
   useEffect(() => {
+    const previousDefault = getDashboardRange('month', previousBusinessToday.current);
+    const clubChanged = previousRangeClubId.current !== selectedClubId;
+    previousBusinessToday.current = businessToday;
+    previousRangeClubId.current = selectedClubId;
     const nextRange = getDashboardRange('month', businessToday);
-    setRange((currentRange) => (
-      currentRange.from === nextRange.from && currentRange.to === nextRange.to
-        ? currentRange
-        : nextRange
-    ));
+    setRange((currentRange) => {
+      const isDefault = currentRange.from === previousDefault.from && currentRange.to === previousDefault.to;
+      if (!clubChanged && !isDefault) return currentRange;
+      return currentRange.from === nextRange.from && currentRange.to === nextRange.to ? currentRange : nextRange;
+    });
   }, [businessToday, selectedClubId]);
 
   async function handleDeleteActivity(activity: MoneyReportActivity, date: string) {
@@ -411,14 +425,8 @@ export default function ReportsPage() {
               : t('deleteError');
         }
       } else {
-        const supabase = createClient();
-        const result = await supabase
-          .from('daily_cash_entries')
-          .delete()
-          .eq('club_id', clubId)
-          .eq('id', activity.id)
-          .select('id');
-        if (result.error || (result.data ?? []).length === 0) deleteError = t('deleteError');
+        const deleted = await deleteDailyCashEntry(createClient(), clubId, activity.id);
+        if (!deleted) deleteError = t('deleteError');
       }
 
       if (currentClubId.current !== clubId) return;
@@ -474,7 +482,8 @@ export default function ReportsPage() {
       key: `day:${day.date}`,
       date: day.date,
       income: day.income,
-      expenses: day.expenses,
+      gameClubExpenses: day.gameClubExpenses,
+      barExpenses: day.barExpenses,
       total: day.total,
       count: day.activities.length,
     },
@@ -542,9 +551,17 @@ export default function ReportsPage() {
       className: 'min-w-[240px]',
       render: (row) => (row.kind === 'day' ? (
         <span className="text-xs text-gray-500">
+          {/* Income minus these game-club expenses is the day total; bar-paid
+              expenses come out of bar cash, so they are listed separately. */}
           {t('income')}: <Money amount={row.income} currency={null} className="text-gray-700" />
           {' · '}
-          {t('expenses')}: <Money amount={row.expenses} currency={null} className="text-gray-700" />
+          {t('expenses')}: <Money amount={row.gameClubExpenses} currency={null} className="text-gray-700" />
+          {row.barExpenses > 0 && (
+            <>
+              {' · '}
+              {t('bar')} · {t('expenses')}: <Money amount={row.barExpenses} currency={null} className="text-gray-700" />
+            </>
+          )}
         </span>
       ) : (
         <span className="block max-w-[320px] break-words text-gray-600">{row.activity.comment || t('noDescription')}</span>
@@ -584,6 +601,11 @@ export default function ReportsPage() {
         title={t('title')}
         action={hasReportsAccess ? (
           <>
+            {canRegisterExpenses && (
+              <Button variant="outline" onClick={() => setExpenseDialogOpen(true)} icon={<ReceiptText size={18} aria-hidden="true" />}>
+                {t('registerExpense')}
+              </Button>
+            )}
             <DateRangePicker
               from={range.from}
               to={range.to}
@@ -616,7 +638,13 @@ export default function ReportsPage() {
         ) : undefined}
       />
 
-      {!hasReportsAccess && <InlineAlert variant="info">{tc('accessDeniedDescription')}</InlineAlert>}
+      {!hasReportsAccess && canRegisterExpenses && (
+        <Card as="section">
+          <SectionHeading title={t('registerExpense')} className="mb-4" />
+          <ExpenseRegistrationForm onSaved={() => showToast(t('expenseRegistered'))} />
+        </Card>
+      )}
+      {!hasReportsAccess && !canRegisterExpenses && <InlineAlert variant="info">{tc('accessDeniedDescription')}</InlineAlert>}
       {hasReportsAccess && loadFailed && (
         <InlineAlert
           variant="danger"
@@ -637,7 +665,8 @@ export default function ReportsPage() {
       )}
       {actionError && <InlineAlert variant="danger">{actionError}</InlineAlert>}
 
-      {hasReportsAccess && (
+      {/* After a failed load the figures are unknown, not zero: show only the error. */}
+      {hasReportsAccess && !loadFailed && (
         <>
           <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <SummaryCard loading={loading} label={t('totalCollected')} value={report.totalCollected} icon={WalletCards} tone="success" />
@@ -673,7 +702,7 @@ export default function ReportsPage() {
             </CardHeader>
             {loading ? (
               <TableSkeleton rows={6} columns={isOwner ? 6 : 5} className="rounded-none border-0 shadow-none" />
-            ) : loadFailed ? null : (
+            ) : (
               <DataTable
                 bare
                 label={t('dailyCloseout')}
@@ -690,6 +719,23 @@ export default function ReportsPage() {
             )}
           </Card>
         </>
+      )}
+
+      {hasReportsAccess && canRegisterExpenses && (
+        <Modal
+          open={expenseDialogOpen}
+          onClose={() => setExpenseDialogOpen(false)}
+          title={t('registerExpense')}
+          size="xl"
+        >
+          <ExpenseRegistrationForm
+            onSaved={async () => {
+              setExpenseDialogOpen(false);
+              showToast(t('expenseRegistered'));
+              await loadReport({ silent: true });
+            }}
+          />
+        </Modal>
       )}
 
       <Modal

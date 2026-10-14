@@ -26,7 +26,6 @@ import { normalizePaymentMethods } from '@/lib/paymentMethods';
 import { normalizeBusinessDayStartHour } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { PAYMENT_METHODS, type EntryPaymentMethod, type UserRole } from '@/types';
-import { useLatestRef } from '@/components/i18n/useLatestRef';
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 
@@ -62,15 +61,12 @@ function SettingRow({ id, title, help, children }: { id: string; title: string; 
 
 export function SettingsPageClient() {
   const t = useTranslations('settings');
-  const tRef = useLatestRef(t);
   const tc = useTranslations('common');
   const tRoles = useTranslations('team.roles');
   const tNav = useTranslations('nav');
   const { signOut, signingOut } = useSignOut();
-  const { memberships, role: clubRole, selectedClub, setSelectedClubId, refreshClubs } = useClub();
+  const { account, memberships, role: clubRole, selectedClub, setSelectedClubId, refreshClubs } = useClub();
   const { showToast, toastElement } = useToast();
-  const [account, setAccount] = useState<{ email?: string | null; fullName?: string | null; role?: string | null }>({});
-  const [accountLoading, setAccountLoading] = useState(true);
   const [clubForm, setClubForm] = useState({ name: '', address: '' });
   const [clubSaving, setClubSaving] = useState(false);
   const [clubError, setClubError] = useState('');
@@ -81,55 +77,12 @@ export function SettingsPageClient() {
   const [paymentMethods, setPaymentMethods] = useState<EntryPaymentMethod[]>([...PAYMENT_METHODS]);
   const [paymentMethodsSaving, setPaymentMethodsSaving] = useState(false);
   const [paymentMethodsError, setPaymentMethodsError] = useState('');
-  const [accountLoadError, setAccountLoadError] = useState('');
   const isOwner = clubRole === 'owner';
   const savedPaymentMethodsKey = normalizePaymentMethods(selectedClub?.enabled_payment_methods).join(',');
 
   function roleLabel(role: string | null | undefined): string {
     return role === 'owner' || role === 'admin' || role === 'viewer' ? tRoles(role as UserRole) : (role ?? '');
   }
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadAccount() {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session?.user) return;
-
-      const { data, error: profileError } = await supabase
-        .from('profiles')
-        .select('full_name, role')
-        .eq('id', session.user.id)
-        .maybeSingle();
-
-      if (profileError) throw profileError;
-
-      if (!cancelled) {
-        setAccount({
-          email: session.user.email,
-          fullName: data?.full_name,
-          role: data?.role,
-        });
-      }
-    }
-
-    loadAccount()
-      .catch((loadError) => {
-        if (!cancelled) {
-          console.error('Failed to load account', loadError);
-          setAccountLoadError(tRef.current('accountLoadError'));
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setAccountLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [tRef]);
 
   useEffect(() => {
     setBusinessDayStartHour(normalizeBusinessDayStartHour(selectedClub?.business_day_start_hour));
@@ -285,30 +238,19 @@ export function SettingsPageClient() {
     <div className="w-full max-w-4xl space-y-8">
       <PageHeader title={t('title')} />
 
-      {accountLoadError && <InlineAlert variant="danger">{accountLoadError}</InlineAlert>}
-
       {/* Who is signed in, and the way out. */}
       <Card as="section" aria-label={t('tabProfile')} className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        {accountLoading ? (
-          <div className="flex flex-1 items-center gap-4" role="status" aria-label={tc('loading')}>
-            <Skeleton className="h-14 w-14 rounded-full" />
-            <div className="space-y-2">
-              <Skeleton className="h-5 w-40" />
-              <Skeleton className="h-3 w-52" />
+        {/* The shell already loaded the account; no second profile read. */}
+        <div className="flex min-w-0 flex-1 items-center gap-4">
+          <Avatar name={account.fullName || account.email || '?'} size="lg" />
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="truncate text-lg font-semibold tracking-tight text-gray-950">{account.fullName || t('account')}</p>
+              <Badge size="sm" variant="outline">{roleLabel(account.profileRole)}</Badge>
             </div>
+            <p className="truncate text-sm text-gray-500">{account.email || '—'}</p>
           </div>
-        ) : (
-          <div className="flex min-w-0 flex-1 items-center gap-4">
-            <Avatar name={account.fullName || account.email || '?'} size="lg" />
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="truncate text-lg font-semibold tracking-tight text-gray-950">{account.fullName || t('account')}</p>
-                {account.role && <Badge size="sm" variant="outline">{roleLabel(account.role)}</Badge>}
-              </div>
-              <p className="truncate text-sm text-gray-500">{account.email ?? '—'}</p>
-            </div>
-          </div>
-        )}
+        </div>
         <Button
           variant="outline"
           icon={<LogOut size={16} aria-hidden="true" />}
@@ -344,22 +286,22 @@ export function SettingsPageClient() {
               {PAYMENT_METHODS.map((method) => {
                 const enabled = paymentMethods.includes(method);
                 return (
-                  <button
+                  <Button
                     key={method}
-                    type="button"
+                    variant="outline"
                     aria-pressed={enabled}
                     disabled={clubSettingsDisabled}
                     onClick={() => togglePaymentMethod(method)}
+                    icon={enabled ? <Check size={15} aria-hidden="true" /> : undefined}
                     className={cn(
-                      'inline-flex min-h-10 items-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-60',
+                      'min-h-10 gap-1.5 rounded-full px-3.5 font-medium shadow-none disabled:opacity-60',
                       enabled
-                        ? 'border-primary-600 bg-primary-50 text-primary-700'
-                        : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-900',
+                        ? 'border-primary-600 bg-primary-50 text-primary-700 hover:border-primary-600 hover:bg-primary-50 disabled:border-primary-600 disabled:bg-primary-50 disabled:text-primary-700'
+                        : 'text-gray-500 hover:text-gray-900 disabled:bg-surface disabled:text-gray-500',
                     )}
                   >
-                    {enabled && <Check size={15} aria-hidden="true" />}
                     {tc(`paymentMethods.${method}`)}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -381,13 +323,14 @@ export function SettingsPageClient() {
             const selected = selectedClub?.id === membership.club.id;
             return (
               <li key={membership.club.id}>
-                <button
-                  type="button"
+                <Card
+                  as="button"
+                  padding="none"
                   aria-current={selected ? 'true' : undefined}
                   onClick={() => setSelectedClubId(membership.club.id)}
                   className={cn(
-                    'flex h-full min-h-24 w-full items-start gap-3 rounded-2xl border bg-surface p-4 text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
-                    selected ? 'border-primary-600 ring-1 ring-primary-600' : 'border-gray-200 hover:border-gray-300',
+                    'flex h-full min-h-24 w-full items-start gap-3 p-4 text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+                    selected ? 'border-primary-600 ring-1 ring-primary-600' : 'hover:border-gray-300',
                   )}
                 >
                   <ClubLogo size={36} className="shrink-0 rounded-lg" />
@@ -406,20 +349,22 @@ export function SettingsPageClient() {
                       )}
                     </span>
                   </span>
-                </button>
+                </Card>
               </li>
             );
           })}
           {isOwner && (
             <li>
-              <button
-                type="button"
+              <Card
+                as="button"
+                padding="none"
+                dashed
                 onClick={() => setCreateClubOpen(true)}
-                className="flex h-full min-h-24 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-300 p-4 text-sm font-medium text-gray-500 transition hover:border-primary-500 hover:text-primary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                className="flex h-full min-h-24 w-full items-center justify-center gap-2 border-gray-300 bg-transparent p-4 text-sm font-medium text-gray-500 transition hover:border-primary-500 hover:text-primary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
               >
                 <Plus size={16} aria-hidden="true" />
                 {t('addClub')}
-              </button>
+              </Card>
             </li>
           )}
         </ul>

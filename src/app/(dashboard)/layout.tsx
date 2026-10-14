@@ -41,6 +41,7 @@ async function AuthenticatedDashboardLayout({
 
   return (
     <DashboardShell
+      initialUserId={bootstrap.userId}
       initialEmail={bootstrap.initialEmail}
       initialFullName={bootstrap.initialFullName}
       initialProfileRole={bootstrap.initialRole}

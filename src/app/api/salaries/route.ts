@@ -1,11 +1,16 @@
+import { after } from 'next/server';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import { isMissingDatabaseFunction } from '@/lib/supabase/errors';
 import { createClient } from '@/lib/supabase/server';
+import { actorName } from '@/lib/telegram/actorName';
 import { targetChatId } from '@/lib/telegram/clubChat';
 import { buildSalaryNotification, type SalaryNotificationInput } from '@/lib/telegram/salaryNotification';
 import { sendTelegramMessage } from '@/lib/telegram/sendDailyFinanceReport';
+import { salaryErrorCode, salaryErrorResponse } from './errors';
 
 type Body = Record<string, unknown>;
 type Notification = SalaryNotificationInput extends infer T ? T extends unknown ? Omit<T, 'addedBy' | 'employee'> : never : never;
+type DatabaseError = { message: string; code?: string };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -33,15 +38,7 @@ const withDefaults = (settings: ReturnType<typeof kpiSettings>) => ({
   bar: settings.bar ?? true,
 });
 
-async function actorName(supabase: SupabaseClient, user: User) {
-  const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
-  return profile?.full_name?.trim()
-    || (typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : '')
-    || user.email
-    || user.id;
-}
-
-/** Best-effort: a Telegram problem never fails an already committed payroll change. */
+/** Best-effort and run after the response: a Telegram problem never fails an already committed payroll change. */
 async function notify(supabase: SupabaseClient, user: User, clubId: string, employeeId: string, notification: Notification) {
   const chatId = targetChatId(clubId);
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -68,18 +65,20 @@ async function notify(supabase: SupabaseClient, user: User, clubId: string, empl
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!user) return salaryErrorResponse('UNAUTHORIZED');
 
   const body = await request.json().catch(() => null) as Body | null;
-  if (!body || !isId(body.clubId) || !isId(body.employeeId)) {
-    return Response.json({ error: 'Invalid salary request' }, { status: 400 });
-  }
+  if (!body || !isId(body.clubId) || !isId(body.employeeId)) return salaryErrorResponse('INVALID_REQUEST');
   const clubId = body.clubId;
   const employeeId = body.employeeId;
+  const fail = (step: string, error: DatabaseError) => {
+    console.error('[salaries] write failed', { action: body.action, step, clubId, code: error.code, error: error.message });
+    return salaryErrorResponse(salaryErrorCode(error));
+  };
 
   try {
     let notification: Notification | null = null;
-    let rpcResult: { error: { message: string; code?: string } | null };
+    let rpcResult: { error: DatabaseError | null };
 
     switch (body.action) {
       case 'save_employee': {
@@ -88,7 +87,9 @@ export async function POST(request: Request) {
         if (!name || jobTitle === null || !isDate(body.date) || !isSalaryType(body.salaryType)
           || !isNumber(body.amount) || !isNumber(body.kpi) || typeof body.active !== 'boolean') throw new BadRequest();
         const kpiOptions = kpiSettings(body);
-        const { data: existing } = await supabase.from('salary_employees').select('id').eq('club_id', clubId).eq('id', employeeId).maybeSingle();
+        // Only picks the notification title; the RPC itself decides insert vs update.
+        const { data: existing, error: lookupError } = await supabase.from('salary_employees').select('id').eq('club_id', clubId).eq('id', employeeId).maybeSingle();
+        if (lookupError) return fail('employee_lookup', lookupError);
         rpcResult = await supabase.rpc('save_salary_employee', {
           p_kpi_basis: kpiOptions.basis, p_kpi_game_club: kpiOptions.gameClub, p_kpi_bar: kpiOptions.bar,
           p_club_id: clubId, p_employee_id: employeeId, p_name: name, p_job_title: jobTitle,
@@ -130,29 +131,57 @@ export async function POST(request: Request) {
         if (comment === null) throw new BadRequest();
         const paymentMethod = body.kind === 'payment' && typeof body.paymentMethod === 'string' ? body.paymentMethod : null;
         const paymentSource = body.kind === 'payment' && typeof body.paymentSource === 'string' ? body.paymentSource : null;
-        // A retried request id is idempotent in the database, so it must not notify twice.
-        const { data: existing } = await supabase.from('salary_entries').select('id').eq('club_id', clubId).eq('id', body.requestId).maybeSingle();
-        rpcResult = await supabase.rpc('record_salary_entry', {
+        const params = {
           p_club_id: clubId, p_employee_id: employeeId, p_request_id: body.requestId, p_date: body.date,
           p_kind: body.kind, p_amount: body.amount, p_comment: comment, p_payment_method: paymentMethod, p_payment_source: paymentSource,
-        });
-        if (!existing) notification = { event: body.kind, amount: body.amount, date: body.date, comment: comment || null, paymentMethod, paymentSource };
+        };
+        // A retried request id is idempotent in the database, so it must not notify twice.
+        // Migration 077 reports that atomically; older databases need a read first.
+        const recorded = await supabase.rpc('record_salary_entry_with_status', params);
+        let created: boolean;
+        if (recorded.error && isMissingDatabaseFunction(recorded.error, 'record_salary_entry_with_status')) {
+          const { data: existing, error: lookupError } = await supabase.from('salary_entries').select('id').eq('club_id', clubId).eq('id', body.requestId).maybeSingle();
+          if (lookupError) return fail('entry_lookup', lookupError);
+          rpcResult = await supabase.rpc('record_salary_entry', params);
+          created = !existing;
+        } else {
+          rpcResult = recorded;
+          const row = (Array.isArray(recorded.data) ? recorded.data[0] : recorded.data) as { created?: boolean } | null;
+          created = row?.created === true;
+        }
+        if (created) notification = { event: body.kind, amount: body.amount, date: body.date, comment: comment || null, paymentMethod, paymentSource };
+        break;
+      }
+      case 'delete_record': {
+        if (!isId(body.recordId) || (body.kind !== 'entry' && body.kind !== 'rate')) throw new BadRequest();
+        // Read what is being deleted first, only to describe it in the group notification.
+        const lookup = body.kind === 'entry'
+          ? await supabase.from('salary_entries').select('kind, amount, date').eq('club_id', clubId).eq('id', body.recordId).maybeSingle()
+          : await supabase.from('salary_rates').select('effective_date').eq('club_id', clubId).eq('id', body.recordId).maybeSingle();
+        if (lookup.error) return fail('record_lookup', lookup.error);
+        // Same audited RPC as before; it checks the record belongs to the club and the caller's access.
+        rpcResult = await supabase.rpc('delete_salary_record', { p_club_id: clubId, p_id: body.recordId, p_kind: body.kind });
+        const record = lookup.data as { kind?: 'payment' | 'bonus' | 'fine'; amount?: number | string; date?: string; effective_date?: string } | null;
+        if (record?.kind && record.date) {
+          notification = { event: 'entry_deleted', kind: record.kind, amount: Number(record.amount), date: record.date };
+        } else if (record?.effective_date) {
+          notification = { event: 'rate_deleted', effectiveDate: record.effective_date };
+        }
         break;
       }
       default:
         throw new BadRequest();
     }
 
-    if (rpcResult.error) {
-      console.error('[salaries] write failed', { action: body.action, clubId, code: rpcResult.error.code, error: rpcResult.error.message });
-      const status = rpcResult.error.code === '42501' ? 403 : 400;
-      return Response.json({ error: rpcResult.error.message, code: rpcResult.error.code ?? null }, { status });
-    }
+    if (rpcResult.error) return fail('rpc', rpcResult.error);
 
-    const notificationSent = notification ? await notify(supabase, user, clubId, employeeId, notification) : false;
-    return Response.json({ ok: true, notificationSent });
+    if (notification) {
+      const pending = notification;
+      after(() => notify(supabase, user, clubId, employeeId, pending));
+    }
+    return Response.json({ ok: true, notificationQueued: notification !== null });
   } catch (error) {
-    if (error instanceof BadRequest) return Response.json({ error: 'Invalid salary request' }, { status: 400 });
+    if (error instanceof BadRequest) return salaryErrorResponse('INVALID_REQUEST');
     throw error;
   }
 }

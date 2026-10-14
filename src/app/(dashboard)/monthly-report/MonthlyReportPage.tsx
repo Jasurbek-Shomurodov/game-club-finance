@@ -22,12 +22,11 @@ import {
   MetricMoney,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { currentYearMonth, monthRange } from '@/lib/utils';
+import { monthRange } from '@/lib/utils';
+import { useBusinessToday } from '@/lib/useBusinessToday';
 import { formatCurrency, formatDate } from '@/lib/formatters';
-import { calculateFinancialReportTotals } from '@/lib/calculations/dailyReport';
-import { calculateGameClubIncome } from '@/lib/calculations/dailyCash';
-import { fetchFinanceReportSnapshot } from '@/lib/supabase/financeReportSnapshot';
-import { fetchAllRows } from '@/lib/supabase/pagination';
+import { calculateFinancialReportTotals, calculateManualIncome } from '@/lib/calculations/dailyReport';
+import { loadFinanceReportRows, type FinanceReportRows } from '@/lib/supabase/financeReportSnapshot';
 import { BarChart2, RefreshCcw } from 'lucide-react';
 
 interface DayRow {
@@ -59,35 +58,6 @@ const emptyTotals: DayTotals = {
   accountingNetProfit: 0,
 };
 
-interface MonthlyCashRow {
-  date: string;
-  cash_income: number;
-  terminal_income: number;
-  card_income: number;
-  playstation_income: number | null;
-}
-
-interface MonthlyAmountRow {
-  date: string;
-  amount: number;
-}
-
-interface MonthlyStockRow {
-  date: string;
-  bar_income: number;
-  bar_cost: number;
-}
-
-interface MonthlyPurchaseRow {
-  date: string;
-  quantity: number;
-  cost_price: number;
-}
-
-interface MonthlyExpenseRow extends MonthlyAmountRow {
-  payment_source: 'game_club' | 'bar' | null;
-}
-
 function groupRowsByDate<T extends { date: string }>(items: T[]): Map<string, T[]> {
   const grouped = new Map<string, T[]>();
   for (const item of items) {
@@ -98,12 +68,57 @@ function groupRowsByDate<T extends { date: string }>(items: T[]): Map<string, T[
   return grouped;
 }
 
+/** One report row per date that has any cash, stock, purchase, expense, or debt activity, newest first. */
+function buildDayRows(data: FinanceReportRows): DayRow[] {
+  const cashByDate = groupRowsByDate(data.cashRows);
+  const stockByDate = groupRowsByDate(data.stockTotalRows);
+  const purchasesByDate = groupRowsByDate(data.purchaseRows);
+  const expensesByDate = groupRowsByDate(data.expenseRows);
+  const debtsByDate = groupRowsByDate(data.debtRows);
+  const datesSet = new Set<string>([
+    ...cashByDate.keys(),
+    ...stockByDate.keys(),
+    ...purchasesByDate.keys(),
+    ...expensesByDate.keys(),
+    ...debtsByDate.keys(),
+  ]);
+  const dates = Array.from(datesSet).sort().reverse();
+
+  return dates.map((date) => {
+    const cashEntry = cashByDate.get(date)?.[0];
+    const manualIncome = cashEntry ? calculateManualIncome(cashEntry) : 0;
+    const debtIncome = (debtsByDate.get(date) ?? [])
+      .reduce((sum, debt) => sum + Number(debt.amount ?? 0), 0);
+    const totals = calculateFinancialReportTotals({
+      manualIncome,
+      debtIncome,
+      stockRows: stockByDate.get(date) ?? [],
+      purchaseRows: purchasesByDate.get(date) ?? [],
+      expenseRows: expensesByDate.get(date) ?? [],
+    });
+    return {
+      date,
+      manualIncome,
+      barSales: totals.barSales,
+      debtIncome,
+      totalIncome: totals.totalIncome,
+      barCost: totals.barCost,
+      stockPurchaseCost: totals.stockPurchaseCost,
+      barExpenses: totals.barExpenses,
+      expenses: totals.totalExpenses,
+      barCashLeft: totals.barCashLeft,
+      accountingNetProfit: totals.accountingNetProfit,
+    };
+  });
+}
+
 export default function MonthlyReportPage() {
   const t = useTranslations('monthlyReport');
   const tc = useTranslations('common');
   const { selectedClubId, businessDayStartHour } = useClub();
   const { locale } = useAppLocale();
-  const businessYearMonth = useMemo(() => currentYearMonth(new Date(), businessDayStartHour), [businessDayStartHour]);
+  // Business dates are ISO strings, so the business month is their YYYY-MM prefix.
+  const businessYearMonth = useBusinessToday(businessDayStartHour).slice(0, 7);
   const [month, setMonth] = useState(() => businessYearMonth);
   const [rows, setRows] = useState<DayRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,164 +137,39 @@ export default function MonthlyReportPage() {
 
     setLoading(true);
     setLoadError(false);
-    const supabase = createClient();
     const { from, to } = monthRange(selectedMonth);
+    try {
+      const result = await loadFinanceReportRows(createClient(), selectedClubId, from, to, 'range');
+      if (requestId !== requestSequence.current) return;
+      if (!result.data) throw new Error(result.error?.message);
 
-    const snapshotResult = await fetchFinanceReportSnapshot(
-      supabase,
-      selectedClubId,
-      from,
-      to,
-      ['cash', 'stock_totals', 'purchases', 'expenses', 'debts'],
-    );
-
-    if (requestId !== requestSequence.current) return;
-
-    if (snapshotResult.error) {
+      setRows(buildDayRows(result.data));
+      setLoadError(false);
+      setLoading(false);
+    } catch {
+      // A superseded load must not paint its failure over a newer request.
+      if (requestId !== requestSequence.current) return;
       setRows([]);
       setLoadError(true);
       setLoading(false);
-      return;
     }
-
-    let cashEntries: MonthlyCashRow[];
-    let stockCounts: MonthlyStockRow[];
-    let stockPurchases: MonthlyPurchaseRow[];
-    let expenses: MonthlyExpenseRow[];
-    let debts: MonthlyAmountRow[];
-
-    if (snapshotResult.data) {
-      cashEntries = snapshotResult.data.cashRows;
-      stockCounts = snapshotResult.data.stockTotalRows;
-      stockPurchases = snapshotResult.data.purchaseRows;
-      expenses = snapshotResult.data.expenseRows;
-      debts = snapshotResult.data.debtRows;
-    } else {
-      // Compatibility path while migration 049 is being deployed.
-      const [cashRes, stockRes, purchaseRes, expRes, debtRes] = await Promise.all([
-        fetchAllRows<MonthlyCashRow>(() => supabase
-          .from('daily_cash_entries')
-          .select('date,cash_income,terminal_income,card_income,playstation_income')
-          .eq('club_id', selectedClubId)
-          .gte('date', from)
-          .lte('date', to)
-          .order('date', { ascending: true })),
-        fetchAllRows<MonthlyStockRow>(() => supabase
-          .from('daily_stock_counts')
-          .select('date,bar_income,bar_cost')
-          .eq('club_id', selectedClubId)
-          .gte('date', from)
-          .lte('date', to)
-          .order('date', { ascending: true })
-          .order('product_id', { ascending: true })),
-        fetchAllRows<MonthlyPurchaseRow>(() => supabase
-          .from('stock_purchases')
-          .select('date,quantity,cost_price')
-          .eq('club_id', selectedClubId)
-          .gte('date', from)
-          .lte('date', to)
-          .order('date', { ascending: true })
-          .order('id', { ascending: true })),
-        fetchAllRows<MonthlyExpenseRow>(() => supabase
-          .from('expenses')
-          .select('date,amount,payment_source')
-          .eq('club_id', selectedClubId)
-          .gte('date', from)
-          .lte('date', to)
-          .order('date', { ascending: true })
-          .order('id', { ascending: true })),
-        fetchAllRows<MonthlyAmountRow>(() => supabase
-          .from('new_debts')
-          .select('date,amount')
-          .eq('club_id', selectedClubId)
-          .gte('date', from)
-          .lte('date', to)
-          .order('date', { ascending: true })
-          .order('id', { ascending: true })),
-      ]);
-
-      if (requestId !== requestSequence.current) return;
-
-      const firstError = [cashRes, stockRes, purchaseRes, expRes, debtRes]
-        .find((result) => result.error)?.error;
-      if (firstError) {
-        setRows([]);
-        setLoadError(true);
-        setLoading(false);
-        return;
-      }
-
-      cashEntries = (cashRes.data ?? []) as MonthlyCashRow[];
-      stockCounts = (stockRes.data ?? []) as MonthlyStockRow[];
-      stockPurchases = (purchaseRes.data ?? []) as MonthlyPurchaseRow[];
-      expenses = (expRes.data ?? []) as MonthlyExpenseRow[];
-      debts = (debtRes.data ?? []) as MonthlyAmountRow[];
-    }
-
-    const cashByDate = groupRowsByDate(cashEntries);
-    const stockByDate = groupRowsByDate(stockCounts);
-    const purchasesByDate = groupRowsByDate(stockPurchases);
-    const expensesByDate = groupRowsByDate(expenses);
-    const debtsByDate = groupRowsByDate(debts);
-    const datesSet = new Set<string>([
-      ...cashByDate.keys(),
-      ...stockByDate.keys(),
-      ...purchasesByDate.keys(),
-      ...expensesByDate.keys(),
-      ...debtsByDate.keys(),
-    ]);
-    const dates = Array.from(datesSet).sort().reverse();
-
-    const dayRows: DayRow[] = dates.map((date) => {
-      const cashEntry = cashByDate.get(date)?.[0];
-      const manualIncome = cashEntry
-        ? calculateGameClubIncome({
-            cashIncome: cashEntry.cash_income,
-            terminalIncome: cashEntry.terminal_income,
-            cardIncome: cashEntry.card_income,
-            playstationIncome: cashEntry.playstation_income ?? 0,
-          })
-        : 0;
-      const debtIncome = (debtsByDate.get(date) ?? [])
-        .reduce((sum, debt) => sum + Number(debt.amount ?? 0), 0);
-      const totals = calculateFinancialReportTotals({
-        manualIncome,
-        debtIncome,
-        stockRows: stockByDate.get(date) ?? [],
-        purchaseRows: purchasesByDate.get(date) ?? [],
-        expenseRows: expensesByDate.get(date) ?? [],
-      });
-      return {
-        date,
-        manualIncome,
-        barSales: totals.barSales,
-        debtIncome,
-        totalIncome: totals.totalIncome,
-        barCost: totals.barCost,
-        stockPurchaseCost: totals.stockPurchaseCost,
-        barExpenses: totals.barExpenses,
-        expenses: totals.totalExpenses,
-        barCashLeft: totals.barCashLeft,
-        accountingNetProfit: totals.accountingNetProfit,
-      };
-    });
-
-    setRows(dayRows);
-    setLoadError(false);
-    setLoading(false);
   }, [selectedClubId]);
 
   useEffect(() => {
-    fetchData(month).catch(() => {
-      setRows([]);
-      setLoadError(true);
-      setLoading(false);
-    });
+    void fetchData(month);
     return () => { requestSequence.current += 1; };
   }, [month, fetchData, reloadToken]);
 
+  // A club switch opens the current business month; a month rollover moves the
+  // report forward only if it was still showing the previous month.
+  const previousBusinessYearMonth = useRef(businessYearMonth);
+  const previousClubId = useRef(selectedClubId);
   useEffect(() => {
-    setMonth(businessYearMonth);
+    const previousMonth = previousBusinessYearMonth.current;
+    const clubChanged = previousClubId.current !== selectedClubId;
+    previousBusinessYearMonth.current = businessYearMonth;
+    previousClubId.current = selectedClubId;
+    setMonth((current) => (clubChanged || current === previousMonth ? businessYearMonth : current));
   }, [businessYearMonth, selectedClubId]);
 
   const totals = useMemo(

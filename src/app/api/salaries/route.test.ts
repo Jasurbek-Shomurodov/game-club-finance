@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ createClient: vi.fn(), sendTelegramMessage: vi.fn() }));
+const mocks = vi.hoisted(() => ({ createClient: vi.fn(), sendTelegramMessage: vi.fn(), afterTasks: [] as Promise<unknown>[] }));
 vi.mock('@/lib/supabase/server', () => ({ createClient: mocks.createClient }));
+// after() needs a live request scope; run the task immediately and let tests await it.
+vi.mock('next/server', () => ({ after: (task: () => unknown) => { mocks.afterTasks.push(Promise.resolve().then(task)); } }));
 vi.mock('@/lib/telegram/sendDailyFinanceReport', () => ({ sendTelegramMessage: mocks.sendTelegramMessage }));
 
 import { POST } from './route';
@@ -10,8 +12,12 @@ const CLUB = '290c5c33-9dfa-464a-a072-ef5a231f5308';
 const EMPLOYEE = '40c05af5-5a59-45ae-a891-19a18228a721';
 const REQUEST = '50c05af5-5a59-45ae-a891-19a18228a722';
 
-function mockSupabase({ user = { id: 'u1', email: 'o@example.test', user_metadata: {} } as unknown, rpcError = null as { message: string; code?: string } | null, existingEntry = false } = {}) {
-  const rpc = vi.fn().mockResolvedValue({ error: rpcError });
+function mockSupabase({ user = { id: 'u1', email: 'o@example.test', user_metadata: {} } as unknown, rpcError = null as { message: string; code?: string } | null, existingEntry = false, withStatus = true } = {}) {
+  const rpc = vi.fn((name: string) => {
+    if (name !== 'record_salary_entry_with_status') return Promise.resolve({ error: rpcError });
+    if (!withStatus) return Promise.resolve({ data: null, error: { code: 'PGRST202', message: 'Could not find the function public.record_salary_entry_with_status' } });
+    return Promise.resolve(rpcError ? { data: null, error: rpcError } : { data: [{ entry_id: REQUEST, created: !existingEntry }], error: null });
+  });
   const from = vi.fn((table: string) => {
     const result = table === 'profiles' ? { full_name: 'Owner Name' }
       : table === 'salary_employees' ? { id: EMPLOYEE, name: 'Izzat' }
@@ -26,9 +32,13 @@ function mockSupabase({ user = { id: 'u1', email: 'o@example.test', user_metadat
   return { rpc };
 }
 
-const post = (body: unknown) => POST(new Request('https://example.test/api/salaries', {
-  method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
-}));
+const post = async (body: unknown) => {
+  const response = await POST(new Request('https://example.test/api/salaries', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+  }));
+  await Promise.all(mocks.afterTasks.splice(0));
+  return response;
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -53,7 +63,7 @@ describe('POST /api/salaries', () => {
     expect(response.status).toBe(200);
     expect(rpc).toHaveBeenCalledWith('change_salary_term', expect.objectContaining({ p_kind: 'kpi', p_amount: 5, p_salary_type: null }));
     expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({ chatId: '-100123', text: expect.stringContaining('KPI: 5%') }));
-    expect((await response.json()).notificationSent).toBe(true);
+    expect((await response.json()).notificationQueued).toBe(true);
   });
 
   it('uses the activate and deactivate functions', async () => {
@@ -69,9 +79,43 @@ describe('POST /api/salaries', () => {
     mockSupabase();
     await post(entry);
     expect(mocks.sendTelegramMessage).toHaveBeenCalledTimes(1);
-    mockSupabase({ existingEntry: true });
+    const { rpc } = mockSupabase({ existingEntry: true });
     await post(entry);
     expect(mocks.sendTelegramMessage).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith('record_salary_entry_with_status', expect.objectContaining({ p_request_id: REQUEST }));
+  });
+
+  it('falls back to a lookup and the original RPC before migration 077', async () => {
+    const entry = { action: 'record_entry', clubId: CLUB, employeeId: EMPLOYEE, requestId: REQUEST, date: '2026-10-01', kind: 'bonus', amount: 100, comment: '' };
+    const { rpc } = mockSupabase({ withStatus: false });
+    expect((await post(entry)).status).toBe(200);
+    expect(rpc.mock.calls.map(([name]) => name)).toEqual(['record_salary_entry_with_status', 'record_salary_entry']);
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledTimes(1);
+    mockSupabase({ withStatus: false, existingEntry: true });
+    await post(entry);
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('deletes records through the audited RPC', async () => {
+    const { rpc } = mockSupabase();
+    const response = await post({ action: 'delete_record', clubId: CLUB, employeeId: EMPLOYEE, recordId: REQUEST, kind: 'entry' });
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('delete_salary_record', { p_club_id: CLUB, p_id: REQUEST, p_kind: 'entry' });
+    expect((await post({ action: 'delete_record', clubId: CLUB, employeeId: EMPLOYEE, recordId: REQUEST, kind: 'employee' })).status).toBe(400);
+  });
+
+  it.each([
+    [{ message: 'Payment method is not enabled for this club.', code: 'P0001' }, 400, 'PAYMENT_METHOD_DISABLED'],
+    [{ message: 'The last salary rate cannot be deleted. Change salary settings or deactivate the employee instead.', code: 'P0001' }, 409, 'LAST_RATE'],
+    [{ message: 'connection reset', code: '08006' }, 500, 'SERVER_ERROR'],
+  ])('returns a stable code instead of database text (%o)', async (rpcError, status, code) => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockSupabase({ rpcError });
+    const response = await post({ action: 'delete_record', clubId: CLUB, employeeId: EMPLOYEE, recordId: REQUEST, kind: 'rate' });
+    expect(response.status).toBe(status);
+    const payload = await response.json();
+    expect(payload.code).toBe(code);
+    expect(payload.error).not.toBe(rpcError.message);
   });
 
   it.each([
@@ -81,7 +125,7 @@ describe('POST /api/salaries', () => {
     const { rpc } = mockSupabase();
     const response = await post({ action: 'record_entry', clubId: CLUB, employeeId: EMPLOYEE, requestId: REQUEST, date: '2026-10-01', kind, amount: 50000, comment: 'Late shift', paymentMethod: 'cash', paymentSource: 'bar' });
     expect(response.status).toBe(200);
-    expect(rpc).toHaveBeenCalledWith('record_salary_entry', expect.objectContaining({ p_kind: kind, p_amount: 50000, p_payment_method: null, p_payment_source: null }));
+    expect(rpc).toHaveBeenCalledWith('record_salary_entry_with_status', expect.objectContaining({ p_kind: kind, p_amount: 50000, p_payment_method: null, p_payment_source: null }));
     expect(mocks.sendTelegramMessage).toHaveBeenCalledTimes(1);
     const { chatId, text } = mocks.sendTelegramMessage.mock.calls[0][0];
     expect(chatId).toBe('-100123');
@@ -91,14 +135,15 @@ describe('POST /api/salaries', () => {
     expect(text).toContain('Добавил(а): Owner Name');
     expect(text).not.toContain('Источник');
     expect(text).not.toContain('Способ оплаты');
-    expect((await response.json()).notificationSent).toBe(true);
+    expect((await response.json()).notificationQueued).toBe(true);
   });
 
-  it('returns the database error and skips Telegram when the write fails', async () => {
+  it('returns an owner-only code and skips Telegram when the write fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
     mockSupabase({ rpcError: { message: 'Only a club owner can change payroll terms.', code: '42501' } });
     const response = await post({ action: 'change_term', clubId: CLUB, employeeId: EMPLOYEE, kind: 'kpi', amount: 5 });
     expect(response.status).toBe(403);
-    expect((await response.json()).error).toContain('club owner');
+    expect((await response.json()).code).toBe('OWNER_ONLY');
     expect(mocks.sendTelegramMessage).not.toHaveBeenCalled();
   });
 
@@ -108,6 +153,6 @@ describe('POST /api/salaries', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const response = await post({ action: 'set_active', clubId: CLUB, employeeId: EMPLOYEE, active: false });
     expect(response.status).toBe(200);
-    expect((await response.json()).notificationSent).toBe(false);
+    expect(console.error).toHaveBeenCalledWith('[telegram/salary] notification failed', expect.anything());
   });
 });

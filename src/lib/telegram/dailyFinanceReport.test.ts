@@ -2,14 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDailyFinanceReportInput,
   buildDailyGameClubIncomeSeries,
+  calculateOutstandingDebtsAsOf,
   formatRussianDailyFinanceReportCaption,
   formatRussianDailyFinanceReport,
-} from './dailyFinanceReport';
-import {
   monthStartIso,
   previousComparableMonthRangeIso,
-  previousTashkentDateIso,
-} from './sendDailyFinanceReport';
+} from './dailyFinanceReport';
+import { isIsoDate, previousClubBusinessDateIso } from './sendDailyFinanceReport';
 
 describe('formatRussianDailyFinanceReport', () => {
   it('formats the two-line photo caption without duplicating the club name', () => {
@@ -37,7 +36,6 @@ describe('formatRussianDailyFinanceReport', () => {
       utilitiesCosts: 0,
       otherOperatingCosts: 0,
       monthToDateRevenue: 0,
-      averageDailyRevenue: 0,
       gameClubMoneyLeft: 0,
       averageDailyGameClubIncome: 0,
       barMoneyLeft: 0,
@@ -71,7 +69,6 @@ describe('formatRussianDailyFinanceReport', () => {
         utilitiesCosts: 0,
         otherOperatingCosts: 0,
         monthToDateRevenue: 4_000_000,
-        averageDailyRevenue: 1_000_000,
         gameClubMoneyLeft: 3_024_000,
         averageDailyGameClubIncome: 756_000,
         barMoneyLeft: 2_311_000,
@@ -84,7 +81,8 @@ describe('formatRussianDailyFinanceReport', () => {
     expect(message).toContain('📈 Валовая прибыль: 531 000 UZS');
     expect(message).toContain('✅ Чистая прибыль: 531 000 UZS');
     expect(message).toContain('🗓 Доход клуба с начала месяца: 4 000 000 UZS');
-    expect(message).toContain('📊 Средний доход клуба в день: 1 000 000 UZS');
+    expect(message).toContain('📈 Средний дневной доход клуба за месяц: 756 000 UZS');
+    expect(message).not.toContain('Средний доход клуба в день');
   });
 
   it('uses daily rows for the report day and month-to-date rows for balances', () => {
@@ -231,7 +229,6 @@ describe('formatRussianDailyFinanceReport', () => {
       utilitiesCosts: 40_000,
       otherOperatingCosts: 40_000,
       monthToDateRevenue: 1_940_000,
-      averageDailyRevenue: 485_000,
       gameClubMoneyLeft: 1_750_000,
       averageDailyGameClubIncome: 485_000,
       barMoneyLeft: 560_000,
@@ -269,7 +266,6 @@ describe('formatRussianDailyFinanceReport', () => {
         utilitiesCosts: 0,
         otherOperatingCosts: 284_000,
         monthToDateRevenue: 5_000_000,
-        averageDailyRevenue: 1_666_667,
         gameClubMoneyLeft: 2_941_000,
         averageDailyGameClubIncome: 980_333,
         barMoneyLeft: 1_084_000,
@@ -450,9 +446,29 @@ describe('formatRussianDailyFinanceReport', () => {
   });
 });
 
-describe('previousTashkentDateIso', () => {
-  it('uses the previous Tashkent calendar day for the 06:00 scheduled report', () => {
-    expect(previousTashkentDateIso(new Date('2026-07-05T01:00:00.000Z'))).toBe('2026-07-04');
+describe('previousClubBusinessDateIso', () => {
+  it('uses the day before the club\'s current Tashkent business date', () => {
+    // 01:00 UTC is 06:00 in Tashkent.
+    expect(previousClubBusinessDateIso(new Date('2026-07-05T01:00:00.000Z'), 0)).toBe('2026-07-04');
+    expect(previousClubBusinessDateIso(new Date('2026-07-01T01:00:00.000Z'), 0)).toBe('2026-06-30');
+  });
+
+  it('never reports a business day that is still open', () => {
+    // 06:00 in Tashkent: a club opening at 08:00 is still in its 4 July day.
+    expect(previousClubBusinessDateIso(new Date('2026-07-05T01:00:00.000Z'), 8)).toBe('2026-07-03');
+    // 08:00 in Tashkent: the 4 July day has just closed.
+    expect(previousClubBusinessDateIso(new Date('2026-07-05T03:00:00.000Z'), 8)).toBe('2026-07-04');
+  });
+});
+
+describe('isIsoDate', () => {
+  it('accepts only real calendar dates', () => {
+    expect(isIsoDate('2026-02-28')).toBe(true);
+    expect(isIsoDate('2028-02-29')).toBe(true);
+    expect(isIsoDate('2026-02-29')).toBe(false);
+    expect(isIsoDate('2026-02-31')).toBe(false);
+    expect(isIsoDate('2026-13-01')).toBe(false);
+    expect(isIsoDate('2026-1-01')).toBe(false);
   });
 });
 
@@ -490,4 +506,42 @@ it('keeps dated report inventory unchanged after product archival and ignores fu
   expect(before.inventoryValue).toBe(42);
   expect(after).toEqual(before);
   expect(buildDailyFinanceReportInput({ ...rows, inventoryRows: [], productRows: [{ current_stock: 7, cost_price: 6 }] }).inventoryValue).toBe(0);
+});
+
+it('values the warehouse from each product\'s latest count when the report day was not counted', () => {
+  const input = buildDailyFinanceReportInput({
+    clubName: 'Test', businessDate: '2026-09-03', businessDateLabel: '3 September',
+    cashRows: [], stockRows: [], stockPurchaseRows: [], expenseRows: [], debtRows: [],
+    inventoryRows: [
+      { product_id: 'cola', date: '2026-09-01', closing_stock: 10, cost_price: 8, products: { tracks_inventory: true } },
+      { product_id: 'cola', date: '2026-09-02', closing_stock: 7, cost_price: 6, products: { tracks_inventory: true } },
+      { product_id: 'water', date: '2026-08-20', closing_stock: 5, cost_price: 2, products: { tracks_inventory: true } },
+    ],
+    previousMonthInventoryRows: [
+      { product_id: 'cola', date: '2026-08-03', closing_stock: 26, cost_price: 2, products: { tracks_inventory: true } },
+    ],
+  });
+
+  expect(input.inventoryValue).toBe(52);
+  expect(input.inventoryValueChange).toBe(0);
+});
+
+describe('calculateOutstandingDebtsAsOf', () => {
+  const debts = [
+    { id: 'old', date: '2026-09-01', amount: 100, remaining_amount: 0, status: 'paid' },
+    { id: 'partial', date: '2026-09-02', amount: 50, remaining_amount: 20, status: 'partial' },
+    { id: 'future', date: '2026-09-05', amount: 70, remaining_amount: 70, status: 'unpaid' },
+  ];
+
+  it('matches the live balance when nothing was recorded after the report date', () => {
+    expect(calculateOutstandingDebtsAsOf(debts, [], '2026-09-10')).toBe(90);
+  });
+
+  it('rewinds later payments and ignores later debts for a past report date', () => {
+    expect(calculateOutstandingDebtsAsOf(debts, [
+      { debt_id: 'old', date: '2026-09-04', amount: 60 },
+      { debt_id: 'partial', date: '2026-09-04', amount: 30 },
+      { debt_id: 'future', date: '2026-09-06', amount: 0 },
+    ], '2026-09-03')).toBe(110);
+  });
 });

@@ -102,6 +102,8 @@ describe('money report', () => {
         total: 3_150_000,
         income: 3_550_000,
         expenses: 1_300_000,
+        gameClubExpenses: 400_000,
+        barExpenses: 900_000,
         activities: [
           {
             id: null,
@@ -321,4 +323,17 @@ it.each(['all','expense','expense:salary'] as const)('counts salary payments fro
   expect(report.paymentMethods.cash.expenses).toBe(50000);
   expect(report.barLeft).toBe(-100000);
   expect(report.totalLeft).toBe(-150000);
+});
+
+it('splits a day header expenses so income minus game-club expenses equals the day total', () => {
+  const report = buildMoneyReport(
+    [{ date: '2026-09-26', cash_income: 300_000, terminal_income: 0, card_income: 0, playstation_income: 0 }],
+    [
+      { id: 'bar', date: '2026-09-26', amount: 100_000, category: 'other', payment_method: 'cash', payment_source: 'bar', comment: null, created_at: '2026-09-26T10:00:00Z' },
+      { id: 'club', date: '2026-09-26', amount: 50_000, category: 'other', payment_method: 'cash', payment_source: 'game_club', comment: null, created_at: '2026-09-26T11:00:00Z' },
+    ],
+  );
+  const [day] = report.days;
+  expect(day).toMatchObject({ income: 300_000, expenses: 150_000, gameClubExpenses: 50_000, barExpenses: 100_000, total: 250_000 });
+  expect(day.income - day.gameClubExpenses).toBe(day.total);
 });

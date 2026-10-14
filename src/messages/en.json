@@ -305,6 +305,7 @@
     "deleteConfirm": "Delete this daily cash entry? Bar sales and expenses are not affected.",
     "deleteConfirmDetailed": "Delete the daily cash entry for {date} ({amount})? Bar sales and expenses are not affected.",
     "loadError": "Could not load the daily cash entry. Check your connection and try again.",
+    "summaryLoadError": "Couldn't load the day's bar and profit summary. Cash entry still works.",
     "saveError": "Could not save the entry. Check your connection and try again.",
     "duplicateEntryError": "An entry for this date already exists. Reload the page to edit it.",
     "deleteError": "Could not delete the entry. Try again."
@@ -572,6 +573,18 @@
       "discount": "Customer discounts & bonuses",
       "supplies": "Supplies & household goods",
       "other": "Other"
+    },
+    "errors": {
+      "unauthorized": "Your session has expired. Sign in again and retry.",
+      "invalidRequest": "Some expense details are missing or invalid. Check the form and try again.",
+      "forbidden": "You do not have access to change expenses in this club.",
+      "paymentMethodDisabled": "This payment method is not enabled for the club. Choose another method.",
+      "checkFailed": "The values were rejected. Check the amount, category and date, then try again.",
+      "requestConflict": "This expense form was already used for different values. Refresh the page and enter it again.",
+      "invalidValues": "Some values are invalid. Check the amount, category and date.",
+      "notFound": "This expense no longer exists. Refresh the page.",
+      "salaryPaymentImmutable": "Salary payments can only be removed from the Salaries page.",
+      "serverError": "Something went wrong on the server. Try again in a moment."
     }
   },
   "debts": {
@@ -711,7 +724,6 @@
     "paymentMethodsOwnerOnly": "Only owners can change this setting.",
     "paymentMethodsHint": "Changes apply only after saving.",
     "saveError": "Could not save. Check your connection and owner access, then try again.",
-    "accountLoadError": "Could not load your account details. Refresh the page to try again.",
     "tabClub": "Club",
     "tabProfile": "Profile",
     "selectedClub": "Selected"
@@ -1123,7 +1135,19 @@
     "noRates": "No salary rates yet.",
     "permissionError": "You do not have permission to change salaries in this club. Ask a club owner for salary editing access.",
     "checkError": "The values were rejected. Check the amount, percentage and date, then try again.",
-    "viewSwitcher": "Section"
+    "viewSwitcher": "Section",
+    "errors": {
+      "unauthorized": "Your session has expired. Sign in again and retry.",
+      "invalidRequest": "The form data was incomplete. Refresh the page and try again.",
+      "ownerOnly": "Only a club owner can change employees, salary, KPI or activation.",
+      "paymentMethodDisabled": "This payment method is not enabled for the club. Choose another method.",
+      "requestConflict": "This form was already used for a different entry. Refresh the page and enter it again.",
+      "invalidDate": "This date is not allowed. Salary changes start today or on the future joining date; entries cannot be in the future or before the employee joined.",
+      "invalidValues": "Some values are invalid. Check the amount, percentage, role and date.",
+      "notFound": "This employee or record no longer exists. Refresh the page.",
+      "settingsMissing": "This employee has no salary settings yet. Save their settings first.",
+      "lastRate": "The last salary rate cannot be deleted. Change the salary settings or deactivate the employee instead."
+    }
   },
   "testChecklist": {
     "title": "System sanity checks",
@@ -1144,8 +1168,8 @@
     "barProfit": "Bar profit = bar income − bar cost",
     "barProfitOk": "All bar profit values are consistent.",
     "barProfitFail": "{count} entries have a bar profit mismatch.",
-    "netProfit": "Net profit = total income − total expenses",
-    "netProfitDetail": "Game Club {gameClub} + Bar after stock purchases {bar} (purchases {purchases}) − Expenses {expenses} = {net} UZS.",
+    "netProfit": "Accounting net profit matches the daily report",
+    "netProfitDetail": "Income {income} − cost of goods sold {cost} − expenses {expenses} = {net} UZS. Daily report: {report} UZS.",
     "debts": "No negative remaining debt amounts",
     "debtsOk": "All {count} active debts have valid remaining amounts.",
     "debtsFail": "{count} debts have a negative remaining amount.",

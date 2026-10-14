@@ -6,6 +6,7 @@ const READ_ONLY_RPCS = new Set([
   'get_latest_stock_closings',
   'get_stock_opening_balances',
   'get_owner_profit_snapshot',
+  'get_owner_profit_snapshot_with_methods',
   'get_salary_profit_snapshot',
   'get_money_report_snapshot',
   'get_finance_report_snapshot',

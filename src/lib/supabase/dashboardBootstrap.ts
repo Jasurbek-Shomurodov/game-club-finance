@@ -3,10 +3,9 @@ import 'server-only';
 import { cache } from 'react';
 import { cookies } from 'next/headers';
 import type { ClubMembership, UserRole } from '@/types';
-import { isMissingDatabaseColumn, isMissingDatabaseFunction } from './errors';
+import { isMissingDatabaseFunction } from './errors';
+import { loadUserMemberships, SELECTED_CLUB_COOKIE } from './memberships';
 import { createClient } from './server';
-
-const SELECTED_CLUB_COOKIE = 'game-club-finance-selected-club-id';
 
 export interface DashboardBootstrap {
   initialEmail: string;
@@ -49,54 +48,17 @@ export const getDashboardBootstrap = cache(async (): Promise<DashboardBootstrap 
     memberships = snapshot.memberships ?? [];
   } else if (isMissingDatabaseFunction(snapshotRes.error, 'get_dashboard_bootstrap')) {
     // Compatibility path while migration 048 is being deployed.
-    const [profileRes, membershipRes] = await Promise.all([
+    const [profileRes, membershipRows] = await Promise.all([
       supabase
         .from('profiles')
         .select('full_name, role')
         .eq('id', user.id)
         .maybeSingle(),
-      supabase
-        .from('club_memberships')
-        .select('club_id,user_id,role,feature_access,created_at,updated_at,clubs(id,name,address,business_day_start_hour,enabled_payment_methods,is_active,created_at,updated_at)')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true }),
+      loadUserMemberships(supabase, user.id),
     ]);
 
     profile = profileRes.data as DashboardBootstrapSnapshot['profile'];
-    memberships = (membershipRes.data as ClubMembership[] | null) ?? [];
-    if (isMissingDatabaseColumn(membershipRes.error, 'enabled_payment_methods')) {
-      const withoutPaymentMethodsRes = await supabase
-        .from('club_memberships')
-        .select('club_id,user_id,role,feature_access,created_at,updated_at,clubs(id,name,address,business_day_start_hour,is_active,created_at,updated_at)')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true });
-      memberships = (withoutPaymentMethodsRes.data as ClubMembership[] | null) ?? [];
-
-      if (isMissingDatabaseColumn(withoutPaymentMethodsRes.error, 'feature_access')) {
-        const legacyMembershipRes = await supabase
-          .from('club_memberships')
-          .select('club_id,user_id,role,created_at,updated_at,clubs(id,name,address,business_day_start_hour,is_active,created_at,updated_at)')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: true });
-        memberships = (legacyMembershipRes.data as ClubMembership[] | null) ?? [];
-      }
-    } else if (isMissingDatabaseColumn(membershipRes.error, 'feature_access')) {
-      const withoutFeatureAccessRes = await supabase
-        .from('club_memberships')
-        .select('club_id,user_id,role,created_at,updated_at,clubs(id,name,address,business_day_start_hour,enabled_payment_methods,is_active,created_at,updated_at)')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true });
-      memberships = (withoutFeatureAccessRes.data as ClubMembership[] | null) ?? [];
-
-      if (isMissingDatabaseColumn(withoutFeatureAccessRes.error, 'enabled_payment_methods')) {
-        const legacyMembershipRes = await supabase
-          .from('club_memberships')
-          .select('club_id,user_id,role,created_at,updated_at,clubs(id,name,address,business_day_start_hour,is_active,created_at,updated_at)')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: true });
-        memberships = (legacyMembershipRes.data as ClubMembership[] | null) ?? [];
-      }
-    }
+    memberships = membershipRows;
   } else {
     // Null means unauthenticated to the layout. Returning it for a database
     // outage loops between /login (valid session) and the dashboard.

@@ -1,5 +1,6 @@
 import {
   calculateGameClubMoneyLeftByPaymentMethod,
+  gameClubExpensePaymentBucket,
   type DailyCashRow,
   type DebtPaymentValueRow,
   type ExpenseRow,
@@ -43,9 +44,15 @@ export interface MoneyReportDay {
   terminal: number;
   card: number;
   playstation: number;
+  /** Game-club money left for the day: income minus `gameClubExpenses`. */
   total: number;
   income: number;
+  /** Every expense recorded on the day, whichever money paid it. */
   expenses: number;
+  /** Expenses paid from game-club money; the only ones deducted from `total`. */
+  gameClubExpenses: number;
+  /** Expenses paid from bar money; they reduce bar cash, not `total`. */
+  barExpenses: number;
   activities: MoneyReportActivity[];
 }
 
@@ -80,12 +87,6 @@ export type MoneyReportCategoryFilter =
   | 'expense'
   | `expense:${string}`;
 
-function paymentBucket(method: string | null | undefined): 'cash' | 'terminal' | 'card' {
-  if (method === 'cash') return 'cash';
-  if (method === 'terminal') return 'terminal';
-  return 'card';
-}
-
 function buildPaymentMethods(
   cashRows: DailyCashRow[],
   expenseRows: ExpenseRow[],
@@ -103,13 +104,13 @@ function buildPaymentMethods(
   );
 
   debtPaymentRows.forEach((row) => {
-    collected[paymentBucket(row.payment_method)] += Number(row.amount ?? 0);
+    collected[gameClubExpensePaymentBucket(row.payment_method)] += Number(row.amount ?? 0);
   });
 
   const expenses = expenseRows.reduce(
     (totals, row) => {
       if (row.payment_source !== 'bar') {
-        totals[paymentBucket(row.payment_method)] += Number(row.amount ?? 0);
+        totals[gameClubExpensePaymentBucket(row.payment_method)] += Number(row.amount ?? 0);
       }
       return totals;
     },
@@ -262,6 +263,10 @@ export function buildMoneyReport(
       expenses: activities
         .filter((activity) => activity.kind === 'expense')
         .reduce((sum, activity) => sum + Math.abs(activity.amount), 0),
+      gameClubExpenses: dayExpenseRows
+        .reduce((sum, row) => row.payment_source === 'bar' ? sum : sum + Number(row.amount ?? 0), 0),
+      barExpenses: dayExpenseRows
+        .reduce((sum, row) => row.payment_source === 'bar' ? sum + Number(row.amount ?? 0) : sum, 0),
       activities,
     };
 

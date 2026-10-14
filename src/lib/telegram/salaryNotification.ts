@@ -13,6 +13,8 @@ export type SalaryNotificationInput = {
   | { event: 'deactivated' }
   | { event: 'activated' }
   | { event: 'payment' | 'bonus' | 'fine'; amount: number; date: string; comment: string | null; paymentMethod?: string | null; paymentSource?: string | null }
+  | { event: 'entry_deleted'; kind: 'payment' | 'bonus' | 'fine'; amount: number; date: string }
+  | { event: 'rate_deleted'; effectiveDate: string }
 );
 
 const METHODS: Record<string, string> = { cash: 'Наличные', terminal: 'Терминал', card: 'Карта' };
@@ -50,6 +52,14 @@ export function buildSalaryNotification(input: SalaryNotificationInput): string 
       break;
     case 'activated':
       lines = head('▶️ Сотрудник активирован');
+      break;
+    case 'entry_deleted': {
+      const title = input.kind === 'payment' ? '🗑 Удалена выплата зарплаты' : input.kind === 'bonus' ? '🗑 Удалена премия' : '🗑 Удалён штраф';
+      lines = [...head(title), `Сумма: ${money(input.amount)}`, `Дата: ${formatDateShort(input.date, 'ru')}`];
+      break;
+    }
+    case 'rate_deleted':
+      lines = [...head('🗑 Удалено изменение зарплаты'), `Действовало с: ${formatDateShort(input.effectiveDate, 'ru')}`];
       break;
     default: {
       const title = input.event === 'payment' ? '💵 Выплата зарплаты' : input.event === 'bonus' ? '🎁 Премия' : '⚠️ Штраф';

@@ -17,10 +17,11 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { calculateFinancialReportTotals } from '@/lib/calculations/dailyReport';
+import { calculateFinancialReportTotals, calculateManualIncome } from '@/lib/calculations/dailyReport';
 import { canAccessFeature, canReadFinancialTotals } from '@/lib/permissions';
-import ExpenseRegistrationForm from '../reports/ExpensesPanel';
+import ExpenseRegistrationForm from '../reports/ExpenseRegistrationForm';
 import { loadDailyCashSummary, emptyDailyCashSummary, type DailyCashSummary } from '@/lib/supabase/dailyCashSummary';
+import { deleteDailyCashEntry } from '@/lib/supabase/dailyCashEntries';
 import { calculateGameClubIncome } from '@/lib/calculations/dailyCash';
 import { canEditEntryForRole, getEditDeadline } from '@/lib/time/editWindow';
 import { useClub } from '@/components/layout/DashboardShell';
@@ -47,6 +48,7 @@ import {
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { todayIso } from '@/lib/utils';
+import { useBusinessToday } from '@/lib/useBusinessToday';
 import { formatCurrency, formatCurrencyInput, formatDateOnly, formatDateTime, parseCurrencyInput } from '@/lib/formatters';
 import type { DailyCashEntry } from '@/types';
 
@@ -91,6 +93,8 @@ function formatRemaining(ms: number): string {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
+const DAILY_CASH_COLUMNS = 'id,club_id,date,cash_income,terminal_income,card_income,playstation_income,comment,created_by,created_at,updated_at';
+
 function entryToForm(entry: DailyCashEntry): CashFormData {
   return {
     date: entry.date,
@@ -100,6 +104,12 @@ function entryToForm(entry: DailyCashEntry): CashFormData {
     playstation_income: amountToInput(entry.playstation_income),
     comment: entry.comment ?? '',
   };
+}
+
+/** True when the form differs from the saved entry, or holds input for an unsaved day. */
+function hasUnsavedChanges(form: CashFormData, entry: DailyCashEntry | null): boolean {
+  if (entry) return JSON.stringify(entryToForm(entry)) !== JSON.stringify(form);
+  return Boolean(form.cash_income || form.terminal_income || form.card_income || form.playstation_income || form.comment);
 }
 
 interface PaymentFieldProps {
@@ -136,7 +146,7 @@ export default function DailyCashPage() {
   const { locale } = useAppLocale();
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
-  const businessToday = useMemo(() => todayIso(new Date(), businessDayStartHour), [businessDayStartHour]);
+  const businessToday = useBusinessToday(businessDayStartHour);
   const [form, setForm] = useState<CashFormData>(() => emptyForm(businessToday));
   const [entry, setEntry] = useState<DailyCashEntry | null>(null);
   const [createdByName, setCreatedByName] = useState('');
@@ -147,8 +157,12 @@ export default function DailyCashPage() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [financeSummary, setFinanceSummary] = useState<DailyCashSummary | null>(null);
+  /** The day summary failed to load; the cash form itself stays usable. */
+  const [summaryFailed, setSummaryFailed] = useState(false);
   const canSeeNetProfit = canReadFinancialTotals(currentRole, featureAccess);
   const loadSequence = useRef(0);
+  /** Bumped by every load that writes the day summary; only the latest may land. */
+  const summarySequence = useRef(0);
   // An expense form filled in for one club must never be saved into another.
   useEffect(() => { setExpenseDialogOpen(false); }, [selectedClubId]);
   const cancelLoads = useCallback(() => { loadSequence.current++; }, []);
@@ -157,20 +171,35 @@ export default function DailyCashPage() {
   // an in-flight save notice that the user switched clubs meanwhile.
   const mutationPending = useRef(false);
   const currentClubId = useRef(selectedClubId);
+  const previousBusinessToday = useRef(businessToday);
 
   useEffect(() => {
+    const clubChanged = currentClubId.current !== selectedClubId;
+    const previousToday = previousBusinessToday.current;
     currentClubId.current = selectedClubId;
-    setForm(emptyForm(businessToday));
-    setError('');
-  }, [businessToday, selectedClubId]);
+    previousBusinessToday.current = businessToday;
+    if (clubChanged) {
+      setForm(emptyForm(businessToday));
+      setError('');
+      return;
+    }
+    if (previousToday === businessToday) return;
+    // The business day rolled over while the page stayed open: an untouched
+    // form on the old day moves to the new one; edits are never discarded.
+    setForm((current) => (
+      current.date === previousToday && !hasUnsavedChanges(current, entry) ? emptyForm(businessToday) : current
+    ));
+  }, [businessToday, selectedClubId, entry]);
 
   const fetchExisting = useCallback(
     async (date: string, { silent = false } = {}) => {
       const requestId = ++loadSequence.current;
+      summarySequence.current++;
       if (!selectedClubId) {
         setEntry(null);
         setForm(emptyForm(date));
         setFinanceSummary(null);
+        setSummaryFailed(false);
         setLoading(false);
         return;
       }
@@ -181,18 +210,18 @@ export default function DailyCashPage() {
       setLoadFailed(false);
 
       try {
-        const [cashRes, summary] = await Promise.all([
-          supabase
-            .from('daily_cash_entries')
-            .select('*')
-            .eq('club_id', selectedClubId)
-            .eq('date', date)
-            .maybeSingle(),
-          loadDailyCashSummary(supabase, selectedClubId, date, canSeeNetProfit),
-        ]);
+        // The summary only feeds the bar/profit tiles: its failure must not
+        // block entering the day's cash.
+        const summaryPromise = loadDailyCashSummary(supabase, selectedClubId, date, canSeeNetProfit)
+          .then((summary) => ({ summary, failed: false }), () => ({ summary: null, failed: true }));
+        const { data, error: fetchError } = await supabase
+          .from('daily_cash_entries')
+          .select(DAILY_CASH_COLUMNS)
+          .eq('club_id', selectedClubId)
+          .eq('date', date)
+          .maybeSingle();
 
         if (requestId !== loadSequence.current) return;
-        const { data, error: fetchError } = cashRes;
 
         if (fetchError) {
           setLoadFailed(true);
@@ -203,24 +232,21 @@ export default function DailyCashPage() {
           return;
         }
 
-        setFinanceSummary(summary);
-
         const cashEntry = data as DailyCashEntry | null;
+        const [summaryResult, profileResult] = await Promise.all([
+          summaryPromise,
+          cashEntry?.created_by
+            ? supabase.from('profiles').select('full_name').eq('id', cashEntry.created_by).maybeSingle()
+            : null,
+        ]);
+        if (requestId !== loadSequence.current) return;
+
+        setFinanceSummary(summaryResult.summary);
+        setSummaryFailed(summaryResult.failed);
         setEntry(cashEntry);
         setForm(cashEntry ? entryToForm(cashEntry) : emptyForm(date));
-
-        if (cashEntry?.created_by) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', cashEntry.created_by)
-            .maybeSingle();
-          if (requestId !== loadSequence.current) return;
-          setCreatedByName(profile?.full_name ?? '');
-        } else {
-          setCreatedByName('');
-        }
-
+        // The creator name is informational; an unreadable profile shows none.
+        setCreatedByName(profileResult && !profileResult.error ? profileResult.data?.full_name ?? '' : '');
         setLoading(false);
       } catch {
         if (requestId !== loadSequence.current) return;
@@ -237,6 +263,20 @@ export default function DailyCashPage() {
     void fetchExisting(form.date);
     return cancelLoads;
   }, [form.date, fetchExisting, cancelLoads]);
+
+  /** Reloads only the bar/profit summary, leaving any unsaved cash input alone. */
+  const refreshSummary = useCallback(async (date: string) => {
+    if (!selectedClubId) return;
+    const requestId = ++summarySequence.current;
+    try {
+      const summary = await loadDailyCashSummary(createClient(), selectedClubId, date, canSeeNetProfit);
+      if (requestId !== summarySequence.current) return;
+      setFinanceSummary(summary);
+      setSummaryFailed(false);
+    } catch {
+      if (requestId === summarySequence.current) setSummaryFailed(true);
+    }
+  }, [selectedClubId, canSeeNetProfit]);
 
   // The countdown is only shown to non-owners with a saved entry.
   const showCountdown = Boolean(entry) && !isOwner;
@@ -270,9 +310,7 @@ export default function DailyCashPage() {
   const deadline = entry ? getEditDeadline(entry.created_at) : null;
   const remainingMs = deadline ? deadline.getTime() - now.getTime() : 0;
   const disabled = loading || saving || locked || loadFailed;
-  const isDirty = entry ? JSON.stringify(entryToForm(entry)) !== JSON.stringify(form) : Boolean(
-    form.cash_income || form.terminal_income || form.card_income || form.playstation_income || form.comment,
-  );
+  const isDirty = hasUnsavedChanges(form, entry);
 
   async function handleSave(event: FormEvent) {
     event.preventDefault();
@@ -356,12 +394,7 @@ export default function DailyCashPage() {
       title: tc('delete'),
       description: t('deleteConfirmDetailed', {
         date: formatDateOnly(target.date, locale),
-        amount: `${formatCurrency(calculateGameClubIncome({
-          cashIncome: target.cash_income,
-          terminalIncome: target.terminal_income,
-          cardIncome: target.card_income,
-          playstationIncome: target.playstation_income ?? 0,
-        }))} ${tc('currency')}`,
+        amount: `${formatCurrency(calculateManualIncome(target))} ${tc('currency')}`,
       }),
       confirmLabel: tc('delete'),
     });
@@ -373,17 +406,11 @@ export default function DailyCashPage() {
     setError('');
 
     try {
-      const supabase = createClient();
-      const { data: deletedRows, error: deleteError } = await supabase
-        .from('daily_cash_entries')
-        .delete()
-        .eq('club_id', clubId)
-        .eq('id', target.id)
-        .select('id');
+      const deleted = await deleteDailyCashEntry(createClient(), clubId, target.id);
 
       if (currentClubId.current !== clubId) return;
 
-      if (deleteError || (deletedRows ?? []).length === 0) {
+      if (!deleted) {
         setError(t('deleteError'));
         return;
       }
@@ -518,15 +545,29 @@ export default function DailyCashPage() {
           </p>
         </div>
 
-        <Card tone="muted" padding="sm" className="mt-3">
-          <div className={`grid grid-cols-1 divide-y divide-gray-200 sm:divide-x sm:divide-y-0 ${canSeeNetProfit ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
-            <StatTile variant="flat" size="sm" className="py-2 sm:pr-4 sm:py-0" label={t('barSales')} value={formatCurrency(barSummary.sales)} unit={tc('currency')} />
-            <StatTile variant="flat" size="sm" className="py-2 sm:px-4 sm:py-0" label={t('barProfit')} value={formatCurrency(barSummary.profit)} unit={tc('currency')} tone={toneForAmount(barSummary.profit)} />
-            {canSeeNetProfit && financeSummary && (
-              <StatTile variant="flat" size="sm" className="py-2 sm:px-4 sm:py-0" label={t('netProfit')} value={formatCurrency(netProfit)} unit={tc('currency')} tone={toneForAmount(netProfit)} />
+        {summaryFailed ? (
+          <InlineAlert
+            variant="warning"
+            className="mt-3"
+            action={(
+              <Button size="sm" variant="outline" disabled={saving} onClick={() => void refreshSummary(form.date)} icon={<RotateCw size={15} aria-hidden="true" />}>
+                {tc('retry')}
+              </Button>
             )}
-          </div>
-        </Card>
+          >
+            {t('summaryLoadError')}
+          </InlineAlert>
+        ) : (
+          <Card tone="muted" padding="sm" className="mt-3">
+            <div className={`grid grid-cols-1 divide-y divide-gray-200 sm:divide-x sm:divide-y-0 ${canSeeNetProfit ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+              <StatTile variant="flat" size="sm" className="py-2 sm:pr-4 sm:py-0" label={t('barSales')} value={formatCurrency(barSummary.sales)} unit={tc('currency')} />
+              <StatTile variant="flat" size="sm" className="py-2 sm:px-4 sm:py-0" label={t('barProfit')} value={formatCurrency(barSummary.profit)} unit={tc('currency')} tone={toneForAmount(barSummary.profit)} />
+              {canSeeNetProfit && financeSummary && (
+                <StatTile variant="flat" size="sm" className="py-2 sm:px-4 sm:py-0" label={t('netProfit')} value={formatCurrency(netProfit)} unit={tc('currency')} tone={toneForAmount(netProfit)} />
+              )}
+            </div>
+          </Card>
+        )}
 
         <Field label={t('commentOptional')} htmlFor="daily-cash-comment" className="mt-6">
           <Textarea
@@ -575,12 +616,7 @@ export default function DailyCashPage() {
               variant="soft"
               size="sm"
               unit={tc('currency')}
-              value={formatCurrency(calculateGameClubIncome({
-                cashIncome: entry.cash_income,
-                terminalIncome: entry.terminal_income,
-                cardIncome: entry.card_income,
-                playstationIncome: entry.playstation_income ?? 0,
-              }))}
+              value={formatCurrency(calculateManualIncome(entry))}
             />
           </div>
 
@@ -606,9 +642,11 @@ export default function DailyCashPage() {
         size="xl"
       >
         <ExpenseRegistrationForm
-          onSaved={() => {
+          onSaved={async () => {
             setExpenseDialogOpen(false);
             showToast(tr('expenseRegistered'));
+            // A new expense changes the day's net profit tile.
+            await refreshSummary(form.date);
           }}
         />
       </Modal>

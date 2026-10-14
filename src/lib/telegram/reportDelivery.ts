@@ -290,25 +290,35 @@ export async function retryReportBuild<T>(
   {
     attempts = 3,
     delayMs = 250,
+    deadlineAt,
+    now = Date.now,
     sleep = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
   }: {
     attempts?: number;
     delayMs?: number;
+    /** Epoch milliseconds after which no further retry is started. */
+    deadlineAt?: number;
+    now?: () => number;
     sleep?: (milliseconds: number) => Promise<void>;
   } = {},
 ): Promise<T> {
   let lastError: unknown;
+  let attempted = 0;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    attempted = attempt;
     try {
       return await build();
     } catch (error) {
       lastError = error;
-      if (attempt < attempts) await sleep(delayMs * attempt);
+      if (attempt >= attempts) break;
+      const wait = delayMs * attempt;
+      if (deadlineAt !== undefined && now() + wait >= deadlineAt) break;
+      await sleep(wait);
     }
   }
 
   throw new Error(
-    `Report build failed after ${attempts} attempts: ${describeUnknownError(lastError)}`,
+    `Report build failed after ${attempted} attempt${attempted === 1 ? '' : 's'}: ${describeUnknownError(lastError)}`,
   );
 }

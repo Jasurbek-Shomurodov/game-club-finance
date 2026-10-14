@@ -3,24 +3,34 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   deleteTelegramMessage: vi.fn(),
+  sendTelegramMessage: vi.fn(),
+  afterTasks: [] as Promise<unknown>[],
 }));
 
 vi.mock('@/lib/supabase/server', () => ({ createClient: mocks.createClient }));
+// after() needs a live request scope; run the task immediately and let tests await it.
+vi.mock('next/server', () => ({ after: (task: () => unknown) => { mocks.afterTasks.push(Promise.resolve().then(task)); } }));
 vi.mock('@/lib/telegram/deleteTelegramMessage', () => ({
   deleteTelegramMessage: mocks.deleteTelegramMessage,
 }));
 vi.mock('@/lib/telegram/expenseNotification', () => ({
-  buildExpenseNotification: vi.fn(),
+  buildExpenseNotification: vi.fn(() => 'expense'),
 }));
 vi.mock('@/lib/telegram/sendDailyFinanceReport', () => ({
-  sendTelegramMessage: vi.fn(),
+  sendTelegramMessage: mocks.sendTelegramMessage,
 }));
 vi.mock('@/types', () => ({ PAYMENT_METHODS: ['cash', 'terminal', 'card'] }));
 
-import { DELETE } from './route';
+import { DELETE, POST } from './route';
 
 const CLUB_ID = '290c5c33-9dfa-464a-a072-ef5a231f5308';
 const EXPENSE_ID = '40c05af5-5a59-45ae-a891-19a18228a721';
+
+async function DELETE_AND_FLUSH(request: Request) {
+  const response = await DELETE(request);
+  await Promise.all(mocks.afterTasks.splice(0));
+  return response;
+}
 
 function deleteRequest() {
   return new Request('https://example.test/api/expenses', {
@@ -36,6 +46,10 @@ function queryResult<T>(data: T, error: { message: string } | null = null) {
     error,
     select: vi.fn(),
     delete: vi.fn(),
+    insert: vi.fn(),
+    upsert: vi.fn(),
+    update: vi.fn(),
+    single: vi.fn(),
     eq: vi.fn(),
     maybeSingle: vi.fn(),
     then: (resolve: (value: { data: T; error: { message: string } | null }) => unknown) => (
@@ -44,7 +58,11 @@ function queryResult<T>(data: T, error: { message: string } | null = null) {
   };
   builder.select.mockReturnValue(builder);
   builder.delete.mockReturnValue(builder);
+  builder.insert.mockReturnValue(builder);
+  builder.upsert.mockReturnValue(builder);
+  builder.update.mockReturnValue(builder);
   builder.eq.mockReturnValue(builder);
+  builder.single.mockResolvedValue({ data, error });
   builder.maybeSingle.mockResolvedValue({ data, error });
   return builder;
 }
@@ -54,10 +72,10 @@ function mockSupabase(expense: {
   salary_entry_id?: string;
   telegram_chat_id: string | null;
   telegram_message_id: number | null;
-}) {
+}, deletedRows: { id: string }[] = [{ id: EXPENSE_ID }]) {
   const membershipQuery = queryResult({ role: 'owner' });
   const expenseQuery = queryResult(expense);
-  const deleteQuery = queryResult(null);
+  const deleteQuery = queryResult(deletedRows);
   const rpc = vi.fn().mockResolvedValue({ error: null });
   let expenseCall = 0;
   const from = vi.fn((table: string) => {
@@ -80,14 +98,14 @@ describe('expense deletion route', () => {
     mocks.deleteTelegramMessage.mockResolvedValue(undefined);
   });
 
-  it('deletes the Telegram notification before deleting the expense', async () => {
+  it('deletes the expense before its Telegram notification', async () => {
     const { deleteQuery } = mockSupabase({
       id: EXPENSE_ID,
       telegram_chat_id: '-1001',
       telegram_message_id: 42,
     });
 
-    const response = await DELETE(deleteRequest());
+    const response = await DELETE_AND_FLUSH(deleteRequest());
 
     expect(response.status).toBe(200);
     expect(mocks.deleteTelegramMessage).toHaveBeenCalledWith({
@@ -96,9 +114,17 @@ describe('expense deletion route', () => {
       messageId: 42,
     });
     expect(deleteQuery.delete).toHaveBeenCalledOnce();
-    expect(mocks.deleteTelegramMessage.mock.invocationCallOrder[0]).toBeLessThan(
-      deleteQuery.delete.mock.invocationCallOrder[0],
+    expect(deleteQuery.delete.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.deleteTelegramMessage.mock.invocationCallOrder[0],
     );
+  });
+
+  it('returns 404 and keeps the Telegram message when no row was deleted', async () => {
+    mockSupabase({ id: EXPENSE_ID, telegram_chat_id: '-1001', telegram_message_id: 42 }, []);
+    const response = await DELETE_AND_FLUSH(deleteRequest());
+    expect(response.status).toBe(404);
+    expect((await response.json()).code).toBe('NOT_FOUND');
+    expect(mocks.deleteTelegramMessage).not.toHaveBeenCalled();
   });
 
   it('still deletes the expense when Telegram refuses deletion', async () => {
@@ -110,7 +136,7 @@ describe('expense deletion route', () => {
     mocks.deleteTelegramMessage.mockRejectedValue(new Error("message can't be deleted"));
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-    const response = await DELETE(deleteRequest());
+    const response = await DELETE_AND_FLUSH(deleteRequest());
 
     expect(response.status).toBe(200);
     expect(deleteQuery.delete).toHaveBeenCalledOnce();
@@ -118,7 +144,7 @@ describe('expense deletion route', () => {
 
   it('deletes payroll payments through the audited salary RPC', async () => {
     const { deleteQuery, rpc } = mockSupabase({ id: EXPENSE_ID, salary_entry_id: 'salary-entry', telegram_chat_id: '-1001', telegram_message_id: 42 });
-    const response = await DELETE(deleteRequest());
+    const response = await DELETE_AND_FLUSH(deleteRequest());
     expect(response.status).toBe(200);
     expect(rpc).toHaveBeenCalledWith('delete_salary_record', { p_club_id: CLUB_ID, p_id: 'salary-entry', p_kind: 'entry' });
     expect(deleteQuery.delete).not.toHaveBeenCalled();
@@ -131,10 +157,91 @@ describe('expense deletion route', () => {
       telegram_message_id: null,
     });
 
-    const response = await DELETE(deleteRequest());
+    const response = await DELETE_AND_FLUSH(deleteRequest());
 
     expect(response.status).toBe(200);
     expect(mocks.deleteTelegramMessage).not.toHaveBeenCalled();
     expect(deleteQuery.delete).toHaveBeenCalledOnce();
+  });
+});
+
+describe('expense creation route', () => {
+  const body = { clubId: CLUB_ID, date: '2026-10-01', amount: 50000, category: 'repair', paymentMethod: 'cash', paymentSource: 'game_club', comment: ' Door ' };
+  const saved = { id: EXPENSE_ID, club_id: CLUB_ID, date: '2026-10-01', amount: 50000, category: 'repair', payment_method: 'cash', payment_source: 'game_club', comment: 'Door' };
+
+  function mockCreate({ methods = ['cash', 'terminal'], upserted = saved as unknown, existing = null as unknown, insertError = null as { message: string; code?: string } | null } = {}) {
+    const clubQuery = queryResult({ enabled_payment_methods: methods });
+    const writeQuery = queryResult(upserted, insertError);
+    const existingQuery = queryResult(existing);
+    const updateQuery = queryResult(null);
+    const expenseQueries = [writeQuery, existingQuery];
+    const from = vi.fn((table: string) => {
+      if (table === 'clubs') return clubQuery;
+      if (table === 'profiles') return queryResult({ full_name: 'Owner' });
+      return expenseQueries.shift() ?? updateQuery;
+    });
+    mocks.createClient.mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1', user_metadata: {} } } }) },
+      from,
+    });
+    return { writeQuery };
+  }
+
+  async function create(payload: Record<string, unknown>) {
+    const response = await POST(new Request('https://example.test/api/expenses', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload),
+    }));
+    await Promise.all(mocks.afterTasks.splice(0));
+    return response;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'bot-token');
+    vi.stubEnv('TELEGRAM_MAIN_CLUB_ID', CLUB_ID);
+    vi.stubEnv('TELEGRAM_MAIN_CHAT_ID', '-1001');
+    mocks.sendTelegramMessage.mockResolvedValue({ result: { chat: { id: -1001 }, message_id: 7 } });
+  });
+
+  it('rejects a payment method the club has not enabled', async () => {
+    mockCreate({ methods: ['terminal'] });
+    const response = await create(body);
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe('PAYMENT_METHOD_DISABLED');
+  });
+
+  it('inserts once for a client id and notifies after the response', async () => {
+    const { writeQuery } = mockCreate();
+    const response = await create({ ...body, id: EXPENSE_ID });
+    expect(response.status).toBe(201);
+    expect(writeQuery.upsert).toHaveBeenCalledWith(expect.objectContaining({ id: EXPENSE_ID, comment: 'Door' }), { onConflict: 'id', ignoreDuplicates: true });
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledOnce();
+  });
+
+  it('returns the saved row for a retried id without notifying again', async () => {
+    mockCreate({ upserted: null, existing: saved });
+    const response = await create({ ...body, id: EXPENSE_ID });
+    expect(response.status).toBe(200);
+    expect((await response.json()).created).toBe(false);
+    expect(mocks.sendTelegramMessage).not.toHaveBeenCalled();
+  });
+
+  it('rejects a reused id with different values', async () => {
+    mockCreate({ upserted: null, existing: { ...saved, amount: 1 } });
+    expect((await create({ ...body, id: EXPENSE_ID })).status).toBe(409);
+  });
+
+  it('still inserts without a client id', async () => {
+    const { writeQuery } = mockCreate();
+    expect((await create(body)).status).toBe(201);
+    expect(writeQuery.insert).toHaveBeenCalledOnce();
+  });
+
+  it('hides database text behind a stable code', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockCreate({ upserted: null, insertError: { message: 'relation "x" is broken', code: 'XX000' } });
+    const response = await create(body);
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: 'Expense change failed', code: 'SERVER_ERROR' });
   });
 });

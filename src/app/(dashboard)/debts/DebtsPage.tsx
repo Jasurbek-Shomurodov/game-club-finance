@@ -2,7 +2,7 @@
 
 // Route: /debts
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 import { useClub } from '@/components/layout/DashboardShell';
@@ -31,14 +31,24 @@ import {
   MetricMoney,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { cn, todayIso } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { useBusinessToday } from '@/lib/useBusinessToday';
+import { fetchAllRows } from '@/lib/supabase/pagination';
 import { formatCurrency, formatDate, formatNumber, parseCurrencyInput } from '@/lib/formatters';
-import { calculateRemainingDebt, canManageDebts, getDebtStatus } from '@/lib/calculations/debt';
+import {
+  calculateRemainingDebt,
+  canManageDebts,
+  classifyDebtPaymentInsertError,
+  getDebtStatus,
+} from '@/lib/calculations/debt';
 import { getDebtDateIssue, validateDebtPayment } from '@/lib/validation';
 import { AlertTriangle, Plus, RefreshCw, Users, Wallet } from 'lucide-react';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
 import type { NewDebt, DebtPayment, EntryPaymentMethod } from '@/types';
 import { useLatestRef } from '@/components/i18n/useLatestRef';
+
+const DEBT_COLUMNS = 'id,club_id,person_name,date,amount,paid_amount,remaining_amount,category,comment,status,created_by,created_at,updated_at';
+const DEBT_PAYMENT_COLUMNS = 'id,club_id,debt_id,date,amount,payment_method,comment,created_at';
 
 type DebtStatusVariant = 'danger' | 'warning' | 'success';
 
@@ -60,7 +70,8 @@ export default function DebtsPage() {
   const { selectedClubId, businessDayStartHour, enabledPaymentMethods, role } = useClub();
   const { locale } = useAppLocale();
   const { showToast, toastElement } = useToast();
-  const businessToday = useMemo(() => todayIso(new Date(), businessDayStartHour), [businessDayStartHour]);
+  const businessToday = useBusinessToday(businessDayStartHour);
+  const previousBusinessToday = useRef(businessToday);
 
   const [debts, setDebts] = useState<NewDebt[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,16 +105,19 @@ export default function DebtsPage() {
     comment: '',
   });
 
+  // A new business day moves untouched form dates forward; a date the user picked is kept.
   useEffect(() => {
-    setAddForm((prev) => ({ ...prev, date: businessToday }));
+    const previousToday = previousBusinessToday.current;
+    previousBusinessToday.current = businessToday;
+    setAddForm((prev) => (prev.date === previousToday ? { ...prev, date: businessToday } : prev));
     setPayForm((prev) => ({
       ...prev,
-      date: businessToday,
+      date: prev.date === previousToday ? businessToday : prev.date,
       payment_method: enabledPaymentMethods.some((method) => method === prev.payment_method)
         ? prev.payment_method
         : defaultPaymentMethod(enabledPaymentMethods),
     }));
-  }, [businessToday, enabledPaymentMethods, selectedClubId]);
+  }, [businessToday, enabledPaymentMethods]);
 
   // Switching clubs closes any open form and drops cached payment history of the previous club.
   useEffect(() => {
@@ -128,11 +142,13 @@ export default function DebtsPage() {
 
     try {
       const supabase = createClient();
-      const { data, error: fetchError } = await supabase
+      // Every debt counts toward the totals, so read past the 1,000-row response cap.
+      const { data, error: fetchError } = await fetchAllRows<NewDebt>(() => supabase
         .from('new_debts')
-        .select('*')
+        .select(DEBT_COLUMNS)
         .eq('club_id', selectedClubId)
-        .order('date', { ascending: false });
+        .order('date', { ascending: false })
+        .order('id'));
       if (requestId !== requestSequence.current) return;
       if (fetchError) {
         console.error('Failed to load debts', fetchError);
@@ -141,7 +157,7 @@ export default function DebtsPage() {
         return;
       }
       setLoadError('');
-      setDebts((data as NewDebt[]) ?? []);
+      setDebts(data ?? []);
       setLoading(false);
     } catch (fetchError) {
       if (requestId !== requestSequence.current) return;
@@ -163,19 +179,21 @@ export default function DebtsPage() {
 
     try {
       const supabase = createClient();
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await fetchAllRows<DebtPayment>(() => supabase
         .from('debt_payments')
-        .select('*')
+        .select(DEBT_PAYMENT_COLUMNS)
         .eq('club_id', clubId)
         .eq('debt_id', debtId)
-        .order('date', { ascending: false });
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .order('id'));
       if (requestId !== paymentsRequestSequence.current) return;
       if (fetchError) {
         console.error('Failed to load debt payments', fetchError);
         setPaymentsError(t('paymentsLoadError'));
         return;
       }
-      setPaymentsMap((prev) => ({ ...prev, [debtId]: (data as DebtPayment[]) ?? [] }));
+      setPaymentsMap((prev) => ({ ...prev, [debtId]: data ?? [] }));
     } catch (fetchError) {
       if (requestId !== paymentsRequestSequence.current) return;
       console.error('Failed to load debt payments', fetchError);
@@ -227,7 +245,13 @@ export default function DebtsPage() {
 
     try {
       const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
+      // Verified with the auth server; migration 075 also defaults and checks this column.
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.error('Failed to verify the signed-in user', userError);
+        setError(t('saveError'));
+        return;
+      }
 
       const { error: err } = await supabase.from('new_debts').insert({
         club_id: selectedClubId,
@@ -238,7 +262,7 @@ export default function DebtsPage() {
         category: addForm.category,
         comment: addForm.comment.trim() || null,
         status: 'unpaid',
-        created_by: session?.user?.id ?? null,
+        created_by: user.id,
       });
 
       if (err) {
@@ -303,7 +327,21 @@ export default function DebtsPage() {
 
       if (err) {
         console.error('Failed to save debt payment', err);
-        setError(t('saveError'));
+        const issue = classifyDebtPaymentInsertError(err);
+        setError(
+          issue === 'exceeds_remaining'
+            ? t('paymentExceedsRemaining')
+            : issue === 'before_debt_date'
+              ? t('paymentBeforeDebtDate')
+              : issue === 'future_date'
+                ? t('futureDateError')
+                : t('saveError'),
+        );
+        // Another payment may have landed first: show the current balance and history.
+        if (issue === 'exceeds_remaining') {
+          void loadPayments(payDebtId, selectedClubId);
+          await fetchDebts({ silent: true });
+        }
         return;
       }
 

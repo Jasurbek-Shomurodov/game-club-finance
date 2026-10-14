@@ -26,6 +26,21 @@ describe('isMissingDatabaseFunction', () => {
     )).toBe(false);
   });
 
+  it('does not treat a missing helper inside an existing RPC as a missing migration', () => {
+    expect(isMissingDatabaseFunction(
+      { code: '42883', message: 'function public.get_dashboard_snapshot(uuid, date) does not exist' },
+      'get_dashboard_snapshot',
+    )).toBe(true);
+    expect(isMissingDatabaseFunction(
+      { code: '42883', message: 'function public.some_helper(text) does not exist' },
+      'get_dashboard_snapshot',
+    )).toBe(false);
+    expect(isMissingDatabaseFunction(
+      { code: '42883', message: 'operator does not exist: date = text' },
+      'get_dashboard_snapshot',
+    )).toBe(false);
+  });
+
   it('recognizes a missing database column without hiding other query failures', () => {
     expect(isMissingDatabaseColumn(
       { code: '42703', message: 'column club_memberships.feature_access does not exist' },
@@ -48,5 +63,13 @@ describe('isMissingDatabaseTable', () => {
     )).toBe(true);
     expect(isMissingDatabaseTable({ code: '42501', message: 'permission denied for table owner_profit_carryovers' }, 'owner_profit_carryovers')).toBe(false);
     expect(isMissingDatabaseTable(null, 'owner_profit_carryovers')).toBe(false);
+    expect(isMissingDatabaseTable(
+      { code: '42P01', message: 'relation "public.owner_profit_carryovers" does not exist' },
+      'owner_profit_carryovers',
+    )).toBe(true);
+    expect(isMissingDatabaseTable(
+      { code: '42P01', message: 'relation "public.some_other_table" does not exist' },
+      'owner_profit_carryovers',
+    )).toBe(false);
   });
 });

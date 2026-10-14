@@ -194,3 +194,76 @@ export function combineSalaryMonths(byEmployee: Record<string, SalaryMonth[]>): 
 export function canDeleteSalaryRate(rates: SalaryRate[], rate: SalaryRate): boolean {
   return !rate.deleted_at && rates.some((other) => other.employee_id === rate.employee_id && other.id !== rate.id && !other.deleted_at);
 }
+
+const liveRatesFor = (rates: SalaryRate[], employeeId: string) => rates.filter((r) => !r.deleted_at && r.employee_id === employeeId);
+
+/** The live rate in force on `date`: the latest one effective on or before it. */
+export function rateInForce(rates: SalaryRate[], employeeId: string, date: string): SalaryRate | undefined {
+  let current: SalaryRate | undefined;
+  for (const rate of liveRatesFor(rates, employeeId)) {
+    if (rate.effective_date <= date && (!current || rate.effective_date > current.effective_date)) current = rate;
+  }
+  return current;
+}
+
+/** Rate to show for an employee: the one in force, or the first future one for staff who have not started yet. */
+export function displayedRate(rates: SalaryRate[], employeeId: string, date: string): SalaryRate | undefined {
+  const current = rateInForce(rates, employeeId, date);
+  if (current) return current;
+  let first: SalaryRate | undefined;
+  for (const rate of liveRatesFor(rates, employeeId)) {
+    if (!first || rate.effective_date < first.effective_date) first = rate;
+  }
+  return first;
+}
+
+export type SalaryEmployeeStatus = 'upcoming' | 'active' | 'inactive';
+
+/** Upcoming staff join after `date` with active terms; otherwise the displayed rate decides. */
+export function employeeStatus(employee: SalaryEmployee, rate: SalaryRate | undefined, date: string): SalaryEmployeeStatus {
+  if (!rate?.active) return 'inactive';
+  return employee.joined_on > date ? 'upcoming' : 'active';
+}
+
+/**
+ * Every live salary payment also writes a salary expense, which lowers the
+ * earned cash of its source in its month. After a payment is recorded or
+ * deleted, apply that same change to already loaded monthly profit rows instead
+ * of reloading the whole profit snapshot. Other finance edits still need a reload.
+ */
+export function applySalaryPaymentChanges(
+  monthlyProfit: OwnerProfitMonthlyBalanceRow[],
+  previousEntries: SalaryEntry[],
+  nextEntries: SalaryEntry[],
+): OwnerProfitMonthlyBalanceRow[] {
+  const livePayments = (entries: SalaryEntry[]) => new Map(entries
+    .filter((e) => !e.deleted_at && e.kind === 'payment' && (e.payment_source === 'game_club' || e.payment_source === 'bar'))
+    .map((e) => [e.id, e]));
+  const before = livePayments(previousEntries);
+  const after = livePayments(nextEntries);
+  const deltas = new Map<string, { game_club: number; bar: number }>();
+  const add = (entry: SalaryEntry, sign: 1 | -1) => {
+    const month = entry.date.slice(0, 7);
+    const delta = deltas.get(month) ?? { game_club: 0, bar: 0 };
+    delta[entry.payment_source as 'game_club' | 'bar'] += sign * Number(entry.amount);
+    deltas.set(month, delta);
+  };
+  for (const [id, entry] of after) if (!before.has(id)) add(entry, -1);
+  for (const [id, entry] of before) if (!after.has(id)) add(entry, 1);
+  if (deltas.size === 0) return monthlyProfit;
+
+  const rows = monthlyProfit.map((row) => {
+    const delta = deltas.get(row.period_month.slice(0, 7));
+    if (!delta) return row;
+    deltas.delete(row.period_month.slice(0, 7));
+    return {
+      ...row,
+      game_club_earned: money(Number(row.game_club_earned) + delta.game_club),
+      bar_earned: money(Number(row.bar_earned) + delta.bar),
+    };
+  });
+  for (const [month, delta] of deltas) {
+    rows.push({ period_month: `${month}-01`, game_club_earned: money(delta.game_club), bar_earned: money(delta.bar), game_club_withdrawn: 0, bar_withdrawn: 0 });
+  }
+  return rows;
+}

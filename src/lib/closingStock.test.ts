@@ -12,6 +12,9 @@ import {
   clearClosingStockDraft,
   closingStockDraftKey,
   closingStockRowTotalsInput,
+  isReadOnlyClosingStockProduct,
+  normalizeStockAdjustment,
+  normalizeStockCount,
   parseClosingStockImportRecords,
   parseClosingStockImportSheetRows,
   readClosingStockDraft,
@@ -20,6 +23,7 @@ import {
   validateClosingStockRows,
   type ClosingStockImportSheet,
   type ClosingStockRowData,
+  usesSoldQuantityEntry,
   type StorageLike,
 } from './closingStock';
 
@@ -1034,5 +1038,62 @@ describe('opening receipts across skipped closing dates', () => {
       purchases: [], previousClosings: { fanta: 9 }, isCurrentDate: false,
     });
     expect(rows[0]).toMatchObject({ previousStock: '3', addedToday: '0', closingStock: '3', soldQuantity: '0' });
+  });
+});
+
+describe('stock number parsing', () => {
+  it.each([
+    ['1,000,000', 1_000_000],
+    ['1.000.000', 1_000_000],
+    ['1.000', 1_000],
+    ['1,000', 1_000],
+    ['1 000', 1_000],
+    ['1.000,5', 1_000],
+    ['1,000.5', 1_000],
+    ['1,5', 1],
+    ['12', 12],
+    ['1,00,0', 0],
+  ])('reads %s as %d', (input, expected) => {
+    expect(normalizeStockCount(input)).toBe(expected);
+  });
+
+  it('keeps signed thousands for adjustments', () => {
+    expect(normalizeStockAdjustment('-1,000')).toBe(-1_000);
+  });
+});
+
+describe('saved row prices and inactive products', () => {
+  it('uses the saved row prices for an existing count of an active product', () => {
+    const rows = buildEditableClosingStockRows({
+      products: [product({ id: 'cola', current_stock: 5, sale_price: 20_000, cost_price: 12_000 })],
+      counts: [{ product_id: 'cola', previous_stock: 5, added_today: 0, closing_stock: 4, sold_quantity: 1, sale_price: 15_000, cost_price: 9_000 }],
+      purchases: [], previousClosings: { cola: 5 }, isCurrentDate: true,
+    });
+    expect(rows[0].product).toMatchObject({ sale_price: 15_000, cost_price: 9_000 });
+    const { upserts } = buildClosingStockUpserts({ date: '2026-09-01', rows, createdBy: null });
+    expect(upserts[0]).toMatchObject({ sale_price: 15_000, cost_price: 9_000, bar_income: 15_000, bar_profit: 6_000 });
+  });
+
+  it('keeps an inactive product read-only and out of the save payload', () => {
+    const inactive = product({ id: 'old', is_active: false, current_stock: 3 });
+    const active = product({ id: 'cola', current_stock: 5 });
+    expect(isReadOnlyClosingStockProduct(inactive)).toBe(true);
+    expect(isReadOnlyClosingStockProduct(active)).toBe(false);
+    const rows = buildEditableClosingStockRows({
+      products: [active, inactive],
+      counts: [{ product_id: 'old', previous_stock: 3, added_today: 0, closing_stock: 3, sold_quantity: 0 }],
+      purchases: [], previousClosings: {}, isCurrentDate: false,
+    });
+    const { upserts } = buildClosingStockUpserts({ date: '2026-09-01', rows, createdBy: null });
+    expect(upserts.map((upsert) => upsert.product_id)).toEqual(['cola']);
+    expect(applyBulkStockOrder(rows, [{ productId: 'old', quantity: 1 }])[1]).toBe(rows[1]);
+  });
+});
+
+describe('usesSoldQuantityEntry', () => {
+  it('selects sold-quantity entry only for the Pixel club', () => {
+    expect(usesSoldQuantityEntry({ name: 'PIXEL Game Club' })).toBe(true);
+    expect(usesSoldQuantityEntry({ name: 'Arena' })).toBe(false);
+    expect(usesSoldQuantityEntry(null)).toBe(false);
   });
 });

@@ -36,6 +36,22 @@ const UZBEK_MONTHS = [
   'dekabr',
 ] as const;
 
+// Short Uzbek month names (CLDR abbreviations) for dense chart axes.
+const UZBEK_MONTHS_SHORT = [
+  'yan',
+  'fev',
+  'mar',
+  'apr',
+  'may',
+  'iyn',
+  'iyl',
+  'avg',
+  'sen',
+  'okt',
+  'noy',
+  'dek',
+] as const;
+
 let currentFormatterLocale: FormatterLocale = 'ru';
 
 function isFormatterLocale(locale: string): locale is FormatterLocale {
@@ -44,6 +60,15 @@ function isFormatterLocale(locale: string): locale is FormatterLocale {
 
 function resolveFormatterLocale(locale?: string): FormatterLocale {
   return locale && isFormatterLocale(locale) ? locale : currentFormatterLocale;
+}
+
+/**
+ * BCP 47 tag for an app locale ('en' -> 'en-GB'), for the few Intl formatters
+ * that live outside this file (compact chart axes, percentages). Unknown
+ * values fall back to the current app locale.
+ */
+export function intlLocaleFor(locale?: string): string {
+  return DATE_LOCALES[resolveFormatterLocale(locale)];
 }
 
 export function setFormatterLocale(locale: string) {
@@ -179,15 +204,39 @@ export function formatYearMonth(value: string | null | undefined, locale?: strin
   return formattedMonth && formattedYear ? `${formattedMonth} ${formattedYear}` : '-';
 }
 
+/**
+ * Format the month of an ISO year-month ("2026-06") or date ("2026-06-01").
+ * Output: "Jun"
+ * Use for: dense monthly chart axes where the tooltip shows formatYearMonth().
+ */
+export function formatMonthShort(value: string | null | undefined, locale?: string): string {
+  if (!value || !/^\d{4}-\d{2}(-\d{2})?$/.test(value)) return '-';
+
+  const [year, month] = value.split('-').map(Number);
+  if (!Number.isInteger(year) || month < 1 || month > 12) return '-';
+
+  const appLocale = resolveFormatterLocale(locale);
+  if (appLocale === 'uz') return UZBEK_MONTHS_SHORT[month - 1];
+
+  const formattedMonth = new Intl.DateTimeFormat(DATE_LOCALES[appLocale], { month: 'short' })
+    .formatToParts(new Date(year, month - 1, 1))
+    .find((part) => part.type === 'month')?.value;
+  return formattedMonth ?? '-';
+}
+
 export function formatDate(value: string | Date | null | undefined, locale?: string): string {
   return formatDateOnly(value, locale);
 }
 
 export function formatNumber(value: number, locale = 'ru-UZ'): string {
+  // NaN/Infinity would print as localized words ("не число"), and amounts that
+  // round to zero would keep their sign ("-0"); show a plain 0 for both.
+  // Round half away from zero, matching Intl's default, before the sign check.
+  const rounded = Number.isFinite(value) ? Math.sign(value) * Math.round(Math.abs(value)) : 0;
   return new Intl.NumberFormat(locale, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(value).replace(/[\u00a0\u202f]/g, ' ');
+  }).format(rounded === 0 ? 0 : rounded).replace(/[\u00a0\u202f]/g, ' ');
 }
 
 export function formatCurrency(amount: number, locale = 'ru-UZ'): string {

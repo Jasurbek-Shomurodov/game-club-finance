@@ -3,6 +3,7 @@
 import { useId, type ReactNode } from 'react';
 import { Card, EmptyState } from '@/components/PresentationFoundation';
 import { cn } from '@/lib/utils';
+import { intlLocaleFor } from '@/lib/formatters';
 
 /**
  * Chart palette: the Tailwind tokens as CSS colours, so Recharts (which cannot
@@ -63,18 +64,11 @@ export function ChartEmpty({ title, className }: { title: string; className?: st
   return <EmptyState compact bordered title={title} className={cn('min-h-56 border-gray-200', className)} />;
 }
 
-// App locale -> BCP 47 tag for number formatting (matches src/lib/formatters.ts).
-const NUMBER_LOCALES: Record<string, string> = {
-  en: 'en-GB',
-  ru: 'ru-RU',
-  uz: 'uz-Latn-UZ',
-};
-
 const compactFormatters = new Map<string, Intl.NumberFormat>();
 
 /** Compact axis tick label ("1.2M", "1,2 млн", ...) in the selected app language. */
 export function formatAxis(value: number, locale: string): string {
-  const tag = NUMBER_LOCALES[locale] ?? locale;
+  const tag = intlLocaleFor(locale);
   let formatter = compactFormatters.get(tag);
   if (!formatter) {
     try {

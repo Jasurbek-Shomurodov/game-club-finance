@@ -144,8 +144,8 @@ export function Sidebar({
   // Highlight the section, not just the exact path: /salaries/employees/…,
   // /daily-report and the money-details pages all belong to a nav item.
   const activeFeature = featureForPath(pathname);
-  // Re-count after any navigation (approving on /team changes it).
-  const pendingCount = usePendingTeamCount(role === 'owner', `${selectedClubId}:${currentPathname}`);
+  // Re-counted on club change and when the team page approves or rejects someone.
+  const pendingCount = usePendingTeamCount(role === 'owner', selectedClubId);
 
   function allowed(feature: FeatureKey) {
     if (feature === 'reports') return canAccessFeature(role, featureAccess, 'reports') || canAccessFeature(role, featureAccess, 'expenses');

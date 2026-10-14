@@ -47,6 +47,19 @@ describe('retryReportBuild', () => {
       'Report build failed after 2 attempts: message: statement timeout; code: 57014',
     );
   });
+
+  it('does not start another attempt past the deadline', async () => {
+    const build = vi.fn<() => Promise<string>>().mockRejectedValue(new Error('slow query'));
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await expect(retryReportBuild(build, {
+      sleep,
+      now: () => 9_900,
+      deadlineAt: 10_000,
+    })).rejects.toThrow('Report build failed after 1 attempt: slow query');
+    expect(build).toHaveBeenCalledOnce();
+    expect(sleep).not.toHaveBeenCalled();
+  });
 });
 
 describe('resolveDeliveryKey', () => {

@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   buildProductInsertPayload,
   buildProductUpdatePayload,
+  isPrefilledAmountEdited,
   parseLowStockThreshold,
+  planProductReorder,
+  prefillAmount,
+  resolvePrefilledAmount,
   validateProductForm,
   type ProductWriteForm,
 } from './productWrites';
@@ -84,5 +88,64 @@ describe('validateProductForm', () => {
 
   it('lets an inactive product keep a zero sale price', () => {
     expect(validateProductForm({ ...form, sale_price: '', is_active: false })).toBeNull();
+  });
+});
+
+describe('loaded cost price', () => {
+  it('omits an untouched fractional cost so the stored average is not rounded', () => {
+    const loadedCostPrice = prefillAmount(2108.42);
+    expect(loadedCostPrice).toEqual({ input: '2 108,42', value: 2108.42 });
+    const payload = buildProductUpdatePayload(
+      { ...form, cost_price: loadedCostPrice!.input },
+      { isOwner: true, loadedCostPrice },
+    );
+    expect(payload).not.toHaveProperty('cost_price');
+  });
+
+  it('writes the cost once the owner edits it', () => {
+    const loadedCostPrice = prefillAmount(2108.42);
+    expect(buildProductUpdatePayload(
+      { ...form, cost_price: '2 200' },
+      { isOwner: true, loadedCostPrice },
+    )).toMatchObject({ cost_price: 2200 });
+  });
+
+  it('resolves an untouched prefill to its exact value and an edit to the parsed input', () => {
+    const prefill = prefillAmount(5833.33);
+    expect(resolvePrefilledAmount(prefill!.input, prefill)).toBe(5833.33);
+    expect(resolvePrefilledAmount('6 000', prefill)).toBe(6000);
+    expect(resolvePrefilledAmount('6 000', null)).toBe(6000);
+    expect(isPrefilledAmountEdited(prefill!.input, prefill)).toBe(false);
+    expect(prefillAmount(null)).toBeNull();
+  });
+});
+
+describe('planProductReorder', () => {
+  it('swaps only the two neighbours when positions are distinct, even after a gap', () => {
+    const products = [
+      { id: 'a', sort_order: 1 },
+      { id: 'b', sort_order: 5 },
+      { id: 'c', sort_order: 9 },
+      { id: 'd', sort_order: 12 },
+    ];
+    expect(planProductReorder(products, 1, 2)).toEqual({
+      order: ['a', 'c', 'b', 'd'],
+      writes: [{ id: 'b', sort_order: 9 }, { id: 'c', sort_order: 5 }],
+    });
+  });
+
+  it('normalizes missing or duplicate positions once', () => {
+    expect(planProductReorder([
+      { id: 'a', sort_order: null },
+      { id: 'b', sort_order: 2 },
+      { id: 'c', sort_order: 2 },
+    ], 2, 1)).toEqual({
+      order: ['a', 'c', 'b'],
+      writes: [{ id: 'a', sort_order: 1 }, { id: 'b', sort_order: 3 }],
+    });
+  });
+
+  it('rejects out-of-range moves', () => {
+    expect(planProductReorder([{ id: 'a', sort_order: 1 }], 0, 1)).toBeNull();
   });
 });

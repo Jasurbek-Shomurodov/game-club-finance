@@ -105,17 +105,17 @@ export default function GameClubMoneyDetailsPage({ requestedFrom, requestedTo }:
     // Compatibility path while migration 049 is being deployed.
     const [cashRes, debtRes, expenseRes] = await Promise.all([
       fetchAllRows<CashRow>(() => inRangeQuery(
-        supabase.from('daily_cash_entries').select('date,cash_income,terminal_income,card_income,playstation_income').eq('club_id', clubId).order('date', { ascending: true }),
+        supabase.from('daily_cash_entries').select('date,cash_income,terminal_income,card_income,playstation_income').eq('club_id', clubId).order('date', { ascending: true }).order('id', { ascending: true }),
         from,
         to,
       )),
       fetchAllRows<DebtPaymentRow>(() => inRangeQuery(
-        supabase.from('debt_payments').select('date,amount').eq('club_id', clubId).order('date', { ascending: true }),
+        supabase.from('debt_payments').select('date,amount').eq('club_id', clubId).order('date', { ascending: true }).order('id', { ascending: true }),
         from,
         to,
       )),
       fetchAllRows<ExpenseRow>(() => inRangeQuery(
-        supabase.from('expenses').select('date,amount,category,payment_source,comment').eq('club_id', clubId).order('date', { ascending: true }),
+        supabase.from('expenses').select('date,amount,category,payment_source,comment').eq('club_id', clubId).order('date', { ascending: true }).order('id', { ascending: true }),
         from,
         to,
       )),

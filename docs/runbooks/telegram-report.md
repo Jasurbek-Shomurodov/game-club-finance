@@ -12,14 +12,19 @@ Supabase data -> calculations -> SVG -> PNG -> Telegram sendPhoto
 ```
 
 Supabase Cron owns the production schedule. It runs daily at `03:00 UTC`, which
-is `08:00 Asia/Tashkent`, and invokes the production endpoint for the previous
-Tashkent business date. Migration
+is `08:00 Asia/Tashkent`, and invokes the production endpoint without a date.
+Each target then reports its own club's most recently closed business day: the
+day before `serverTodayIso(now, clubs.business_day_start_hour)`. A club whose
+business day starts after 08:00 is still in yesterday's business day when the
+cron runs, so it receives the report for the day before yesterday; move the
+cron later if such a club needs yesterday's report. Migration
 `041_supabase_daily_report_cron_and_delivery_audit.sql` creates the named job and
 reads its bearer credential from Supabase Vault; migration
 `073_daily_report_cron_0800_tashkent.sql` idempotently reschedules it to 08:00.
 
 The retry route files are recovery entry points, not independent production
-schedules.
+schedules. They are separate Vercel functions, so `vercel.json` lists the same
+`includeFiles` for all three route files.
 
 ## Required configuration
 
@@ -59,6 +64,16 @@ If application code arrives before the required database migration, the route
 fails closed with HTTP 500 and sends nothing. A later recovery run can catch up
 the same business date after the migration is applied.
 
+## Historical values
+
+Warehouse value uses each product's latest saved closing count on or before the
+report date, looking back to the start of the previous month (the same window
+feeds the previous-month comparison). A product last counted before that window
+is not included. Active debts are the balance at the end of the report date:
+debts recorded later are excluded and payments recorded later are added back to
+the live remaining amount, so recovery runs for past dates are not distorted by
+later collections.
+
 ## Low-stock section
 
 The report lists active, inventory-tracked products that are out of stock or at
@@ -77,7 +92,8 @@ The font setup is evaluated before Sharp and creates a private fontconfig file,
 so Russian labels do not rely on host-installed fonts.
 
 If image generation fails before dispatch, the route logs the rendering error
-and sends the same finance report as Telegram text. Once dispatch begins, a
+and sends the same finance report as Telegram text, truncated at a line break to
+Telegram's 4096-character limit if necessary. Once dispatch begins, a
 transport problem follows delivery-ledger recovery rules; it does not switch
 format and risk a duplicate.
 
@@ -105,12 +121,30 @@ For `manual_review`:
 3. If the message exists, do not resend; reconcile the operational state.
 4. If it is confirmed missing, perform one intentional forced resend.
 
+If a claim request errors and its retry then reports the delivery as
+`in_progress`, the first claim may have committed with its response lost. The
+route returns a failure (HTTP 500, `stage: claim`) and logs
+`telegram_report_delivery_claim_ambiguous`; nothing is sent, and a later
+recovery run can reclaim the row once its lease expires.
+
+Each invocation keeps 15 seconds of its 60-second `maxDuration` for ledger
+finalization. Build, claim, and Telegram retries stop before that point; an
+in-process Telegram retry waits at most 3 seconds. A send that does not fit is
+recorded as a retryable failure (with `retry_after` when Telegram supplied one)
+for a later recovery run.
+
 Telegram message deletion is not treated as a delivery-state change.
 
 ## Dry runs and intentional resends
 
 Use the protected endpoint with `dryRun=1` to build results without Telegram
 delivery. Dry runs cannot be combined with forced delivery.
+
+`date` must be a real `YYYY-MM-DD` calendar date. A scheduled (non-forced,
+non-dry-run) request with an explicit `date` must name a day strictly before
+the target club's current business date; otherwise it returns HTTP 400 without
+claiming the once-per-day `scheduled` slot, which a partial report would
+otherwise burn. Use `dryRun=1` to preview an open day.
 
 An intentional resend must specify exactly one date, one target, `force=1`, and
 a caller-generated UUID:

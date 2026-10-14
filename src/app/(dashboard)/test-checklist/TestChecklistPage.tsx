@@ -1,15 +1,17 @@
 // Route: /test-checklist (owner diagnostic; not linked from navigation)
 
 import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
 import { getTranslations } from 'next-intl/server';
 import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { getDashboardBootstrap } from '@/lib/supabase/dashboardBootstrap';
+import { loadFinanceReportRows } from '@/lib/supabase/financeReportSnapshot';
+import { relatedClub } from '@/lib/supabase/memberships';
+import { fetchAllRows } from '@/lib/supabase/pagination';
 import { Badge, ButtonLink, Card, EmptyState, InlineAlert, PageHeader } from '@/components/PresentationFoundation';
-import { calculateGameClubIncome } from '@/lib/calculations/dailyCash';
-import { calculateBarMoney } from '@/lib/calculations/barMoney';
+import { calculateFinancialReportTotals, calculateManualIncome, type DailyCashEntry } from '@/lib/calculations/dailyReport';
 import { calculateRemainingDebt } from '@/lib/calculations/debt';
-import { todayIso } from '@/lib/utils';
+import { normalizeBusinessDayStartHour, serverTodayIso } from '@/lib/utils';
 import { formatNumber } from '@/lib/formatters';
 
 interface CheckResult {
@@ -19,46 +21,80 @@ interface CheckResult {
   link: string;
 }
 
-const SELECTED_CLUB_COOKIE = 'game-club-finance-selected-club-id';
+interface StockCheckRow {
+  id: string;
+  sold_quantity: number | null;
+  sale_price: number | null;
+  bar_income: number;
+  bar_cost: number;
+  bar_profit: number | null;
+}
+
+const sumAmounts = (rows: ReadonlyArray<{ amount: number }>) => rows.reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
 
 export default async function TestChecklistPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+  // Cached per request: the dashboard layout has already loaded it.
+  const bootstrap = await getDashboardBootstrap();
+  if (!bootstrap) redirect('/login');
   const t = await getTranslations('testChecklist');
 
-  const { data: memberships } = await supabase
-    .from('club_memberships')
-    .select('club_id, role')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: true });
+  const ownerMemberships = bootstrap.initialMemberships.filter((membership) => (
+    membership.role === 'owner' && relatedClub(membership.clubs)?.is_active !== false
+  ));
+  const membership = ownerMemberships.find((item) => item.club_id === bootstrap.initialSelectedClubId)
+    ?? ownerMemberships[0];
 
-  const ownerMemberships = (memberships ?? []).filter((membership) => membership.role === 'owner');
-  const preferredClubId = (await cookies()).get(SELECTED_CLUB_COOKIE)?.value;
-  const clubId = ownerMemberships.find((membership) => membership.club_id === preferredClubId)?.club_id
-    ?? ownerMemberships[0]?.club_id;
-
-  if (!clubId) {
+  if (!membership) {
     redirect('/');
   }
 
-  const { data: club } = await supabase
-    .from('clubs')
-    .select('business_day_start_hour')
-    .eq('id', clubId)
-    .maybeSingle();
+  const clubId = membership.club_id;
+  const businessDayStartHour = normalizeBusinessDayStartHour(relatedClub(membership.clubs)?.business_day_start_hour);
+  const today = serverTodayIso(new Date(), businessDayStartHour);
+  const supabase = await createClient();
 
-  const today = todayIso(new Date(), club?.business_day_start_hour ?? 0);
-
-  const [cashRes, stockRes, purchaseRes, expenseRes, debtRes] = await Promise.all([
-    supabase.from('daily_cash_entries').select('*').eq('club_id', clubId).eq('date', today).maybeSingle(),
-    supabase.from('daily_stock_counts').select('*').eq('club_id', clubId).eq('date', today),
-    supabase.from('stock_purchases').select('date,quantity,cost_price').eq('club_id', clubId).eq('date', today),
-    supabase.from('expenses').select('*').eq('club_id', clubId).eq('date', today),
-    supabase.from('new_debts').select('*').eq('club_id', clubId).neq('status', 'paid'),
+  const [cashRes, stockRes, purchaseRes, expenseRes, todayDebtRes, debtRes, reportRes] = await Promise.all([
+    supabase
+      .from('daily_cash_entries')
+      .select('cash_income,terminal_income,card_income,playstation_income')
+      .eq('club_id', clubId)
+      .eq('date', today)
+      .maybeSingle(),
+    fetchAllRows<StockCheckRow>(() => supabase
+      .from('daily_stock_counts')
+      .select('id,sold_quantity,sale_price,bar_income,bar_cost,bar_profit')
+      .eq('club_id', clubId)
+      .eq('date', today)
+      .order('id')),
+    fetchAllRows<{ id: string; date: string; quantity: number; cost_price: number }>(() => supabase
+      .from('stock_purchases')
+      .select('id,date,quantity,cost_price')
+      .eq('club_id', clubId)
+      .eq('date', today)
+      .order('id')),
+    fetchAllRows<{ id: string; amount: number; payment_source: 'game_club' | 'bar' | null }>(() => supabase
+      .from('expenses')
+      .select('id,amount,payment_source')
+      .eq('club_id', clubId)
+      .eq('date', today)
+      .order('id')),
+    fetchAllRows<{ id: string; amount: number }>(() => supabase
+      .from('new_debts')
+      .select('id,amount')
+      .eq('club_id', clubId)
+      .eq('date', today)
+      .order('id')),
+    fetchAllRows<{ id: string; amount: number; paid_amount: number | null }>(() => supabase
+      .from('new_debts')
+      .select('id,amount,paid_amount')
+      .eq('club_id', clubId)
+      .neq('status', 'paid')
+      .order('id')),
+    // The rows the daily report itself uses (snapshot RPC, or its fallback).
+    loadFinanceReportRows(supabase, clubId, today, today, 'day'),
   ]);
 
-  const queryError = cashRes.error ?? stockRes.error ?? purchaseRes.error ?? expenseRes.error ?? debtRes.error;
+  const queryError = cashRes.error ?? stockRes.error ?? purchaseRes.error ?? expenseRes.error ?? todayDebtRes.error ?? debtRes.error ?? reportRes.error;
   if (queryError) {
     // A failed query must not be reported as a failed check.
     console.error('Test checklist query failed', queryError);
@@ -77,7 +113,7 @@ export default async function TestChecklistPage() {
     );
   }
 
-  const cashEntry = cashRes.data;
+  const cashEntry = cashRes.data as DailyCashEntry | null;
   const stockRows = stockRes.data ?? [];
   const purchaseRows = purchaseRes.data ?? [];
   const expenseRows = expenseRes.data ?? [];
@@ -87,12 +123,7 @@ export default async function TestChecklistPage() {
   const checks: CheckResult[] = [];
 
   if (cashEntry) {
-    const total = calculateGameClubIncome({
-      cashIncome: cashEntry.cash_income,
-      terminalIncome: cashEntry.terminal_income,
-      cardIncome: cashEntry.card_income ?? 0,
-      playstationIncome: cashEntry.playstation_income ?? 0,
-    });
+    const total = calculateManualIncome(cashEntry);
     checks.push({
       name: t('cashFields'),
       pass:
@@ -137,23 +168,36 @@ export default async function TestChecklistPage() {
     link: '/closing-stock',
   });
 
-  if (cashEntry) {
-    const gameClub = calculateGameClubIncome({
-      cashIncome: cashEntry.cash_income,
-      terminalIncome: cashEntry.terminal_income,
-      cardIncome: cashEntry.card_income ?? 0,
-      playstationIncome: cashEntry.playstation_income ?? 0,
-    });
-    const { barMoney: barIncome, stockPurchaseCost } = calculateBarMoney(stockRows, purchaseRows);
-    const totalExpenses = expenseRows.reduce((s, r) => s + (r.amount ?? 0), 0);
-    const netProfit = gameClub + barIncome - totalExpenses;
-    checks.push({
-      name: t('netProfit'),
-      pass: Number.isFinite(netProfit),
-      explanation: t('netProfitDetail', { gameClub: n(gameClub), bar: n(barIncome), purchases: n(stockPurchaseCost), expenses: n(totalExpenses), net: n(netProfit) }),
-      link: '/daily-report',
-    });
-  }
+  // Accounting net profit from today's table rows must equal the figure the
+  // daily report computes from its own snapshot rows.
+  const directTotals = calculateFinancialReportTotals({
+    manualIncome: cashEntry ? calculateManualIncome(cashEntry) : 0,
+    debtIncome: sumAmounts(todayDebtRes.data ?? []),
+    stockRows,
+    purchaseRows,
+    expenseRows,
+  });
+  const report = reportRes.data;
+  const reportCash = report?.cashRows[0];
+  const reportTotals = calculateFinancialReportTotals({
+    manualIncome: reportCash ? calculateManualIncome(reportCash) : 0,
+    debtIncome: sumAmounts(report?.debtRows ?? []),
+    stockRows: report?.stockCountRows ?? [],
+    purchaseRows: report?.purchaseRows ?? [],
+    expenseRows: report?.expenseRows ?? [],
+  });
+  checks.push({
+    name: t('netProfit'),
+    pass: Math.abs(directTotals.accountingNetProfit - reportTotals.accountingNetProfit) <= 1,
+    explanation: t('netProfitDetail', {
+      income: n(directTotals.totalIncome),
+      cost: n(directTotals.barCost),
+      expenses: n(directTotals.totalExpenses),
+      net: n(directTotals.accountingNetProfit),
+      report: n(reportTotals.accountingNetProfit),
+    }),
+    link: '/daily-report',
+  });
 
   const negDebts = activeDebts.filter((d) => calculateRemainingDebt(d.amount, d.paid_amount ?? 0) < 0);
   checks.push({

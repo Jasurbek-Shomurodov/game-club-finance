@@ -7,6 +7,8 @@ import {
   calculateInventoryValueFromLatestStockCounts,
   emptyDashboardTotals,
   emptyMoneyLeftByPaymentMethod,
+  getDashboardComparisonRange,
+  getDashboardRange,
   getLatestRowDateInRange,
   type DailyCashRow,
   type DashboardPeriod,
@@ -22,7 +24,7 @@ import {
 
 export interface DashboardDebtRow {
   id: string;
-  person_name: string;
+  person_name?: string;
   date: string;
   amount: number;
   remaining_amount: number;
@@ -71,6 +73,31 @@ export const emptyDashboardData: DashboardData = {
   latestDailyCashEntryDate: null,
   latestBarEntryDate: null,
 };
+
+type DateRange = { from: string; to: string };
+
+export interface DashboardSnapshotRanges {
+  period: DashboardPeriod;
+  range: DateRange;
+  previousRange: DateRange;
+  inventoryComparisonRange: DateRange;
+}
+
+/**
+ * The ranges one dashboard snapshot covers: the club's current business
+ * month, the same elapsed days of the previous month, and last month's
+ * closing stock for the inventory comparison.
+ */
+export function getDashboardSnapshotRanges(businessToday: string): DashboardSnapshotRanges {
+  const period = 'month' as const;
+  const range = getDashboardRange(period, businessToday);
+  return {
+    period,
+    range,
+    previousRange: getDashboardComparisonRange(period, range, businessToday),
+    inventoryComparisonRange: getDashboardRange('lastMonth', businessToday),
+  };
+}
 
 function rowsInRange<T extends { date: string }>(rows: T[], range: { from: string; to: string }): T[] {
   return rows.filter((row) => row.date >= range.from && row.date <= range.to);
@@ -146,7 +173,7 @@ export function buildDashboardDataFromSnapshot({
     previousTotals,
     inventoryComparisonValue: calculateInventoryValueFromLatestStockCounts(inventoryComparisonRows),
     hasInventoryComparisonData: inventoryComparisonRows.length > 0,
-    trend: buildPeriodTrend(range, cashRows, stockRows, purchaseRows, expenseRows, rangeDebts),
+    trend: buildPeriodTrend(range, cashRows, stockRows, expenseRows, rangeDebts),
     lowStockCount: payload.products.filter(
       (product) => product.tracks_inventory !== false
         && product.current_stock <= (product.low_stock_threshold ?? 5),

@@ -14,9 +14,9 @@ import {
 import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
-import { fetchAllRows } from '@/lib/supabase/pagination';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { cn, todayIso } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { useBusinessToday } from '@/lib/useBusinessToday';
 import { formatDateShort } from '@/lib/formatters';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
@@ -35,37 +35,23 @@ import {
 } from '@/components/PresentationFoundation';
 import { formatCurrency } from '@/lib/formatters';
 import {
-  buildPeriodTrend,
   calculateAverageDailyIncome,
-  calculateDashboardInventoryValue,
-  calculateDashboardTotals,
-  calculateGameClubMoneyLeftByPaymentMethod,
-  calculateInventoryValueFromLatestStockCounts,
   countDashboardRangeDaysThroughDate,
-  getDashboardComparisonRange,
-  getDashboardRange,
-  getLatestRowDateInRange,
   percentChange,
-  type DailyCashRow,
-  type DebtPaymentValueRow,
-  type ExpenseRow,
-  type InventorySnapshotRow,
-  type StockCountRow,
-  type StockPurchaseCostRow,
 } from '@/lib/calculations/dashboardMetrics';
 import {
   buildDashboardDataFromSnapshot,
   emptyDashboardData,
+  getDashboardSnapshotRanges,
   type DashboardData,
   type DashboardSnapshotPayload,
 } from '@/lib/calculations/dashboardSnapshot';
-import { isMissingDatabaseFunction } from '@/lib/supabase/errors';
+import { fetchDashboardSnapshot, fetchDashboardSnapshotFromTables } from '@/lib/supabase/dashboardSnapshot';
 import {
   markPerformanceRpcAvailable,
   markPerformanceRpcMissing,
   shouldTryPerformanceRpc,
 } from '@/lib/supabase/performanceRpc';
-import type { Product } from '@/types';
 
 function ChartLoading() {
   return <ChartSkeleton />;
@@ -75,57 +61,6 @@ const IncomeTrendChart = dynamic(
   () => import('@/components/dashboard/IncomeTrendChart').then((module) => module.IncomeTrendChart),
   { ssr: false, loading: ChartLoading },
 );
-
-interface StockPurchaseRow extends StockPurchaseCostRow {
-  id: string;
-  comment: string | null;
-  created_at: string;
-}
-
-interface DebtRow {
-  id: string;
-  person_name: string;
-  date: string;
-  amount: number;
-  remaining_amount: number;
-  status: string;
-}
-
-function isMissingSortOrder(error: { message?: string } | null | undefined) {
-  return error?.message?.includes('sort_order') ?? false;
-}
-
-async function fetchActiveProductsOrdered(supabase: ReturnType<typeof createClient>, clubId: string) {
-  const ordered = await fetchAllRows<Product>(() =>
-    supabase
-      .from('products')
-      .select('*')
-      .eq('club_id', clubId)
-      .eq('is_active', true)
-      .order('sort_order', { ascending: true })
-      .order('name', { ascending: true })
-      .order('id', { ascending: true }),
-  );
-
-  if (!isMissingSortOrder(ordered.error)) return ordered;
-
-  return fetchAllRows<Product>(() =>
-    supabase
-      .from('products')
-      .select('*')
-      .eq('club_id', clubId)
-      .eq('is_active', true)
-      .order('name', { ascending: true })
-      .order('id', { ascending: true }),
-  );
-}
-
-function inRangeQuery<T extends { gte: (column: string, value: string) => T; lte: (column: string, value: string) => T }>(
-  query: T,
-  range: { from: string; to: string },
-): T {
-  return query.gte('date', range.from).lte('date', range.to);
-}
 
 interface MetricSectionProps {
   id: string;
@@ -187,8 +122,6 @@ export interface InitialDashboardSnapshot {
 // snapshot younger than this is trusted without a silent client refetch.
 const INITIAL_SNAPSHOT_MAX_AGE_MS = 15_000;
 
-const DASHBOARD_PERIOD = 'month' as const;
-
 function isInitialSnapshotFresh(snapshot: InitialDashboardSnapshot): boolean {
   if (typeof snapshot.generatedAt !== 'number') return false;
   return Date.now() - snapshot.generatedAt < INITIAL_SNAPSHOT_MAX_AGE_MS;
@@ -201,9 +134,10 @@ export default function DashboardPage({
 }) {
   const { selectedClubId, businessDayStartHour } = useClub();
   const { locale } = useAppLocale();
-  const businessToday = useMemo(() => todayIso(new Date(), businessDayStartHour), [businessDayStartHour]);
+  const businessToday = useBusinessToday(businessDayStartHour);
   // The dashboard always shows the club's current business month.
-  const range = useMemo(() => getDashboardRange(DASHBOARD_PERIOD, businessToday), [businessToday]);
+  const snapshotRanges = useMemo(() => getDashboardSnapshotRanges(businessToday), [businessToday]);
+  const { range } = snapshotRanges;
   const initialSnapshotMatches = initialSnapshot?.clubId === selectedClubId
     && initialSnapshot.range.from === range.from
     && initialSnapshot.range.to === range.to;
@@ -231,9 +165,11 @@ export default function DashboardPage({
   const fetchDashboard = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     const requestId = ++requestSequence.current;
     const requestKey = `${selectedClubId}:${range.from}:${range.to}`;
+    const isStale = () => requestId !== requestSequence.current;
 
     if (!selectedClubId) {
       setData(emptyDashboardData);
+      displayedRequestKey.current = '';
       setError(false);
       setLoading(false);
       return;
@@ -244,259 +180,44 @@ export default function DashboardPage({
 
     try {
       const supabase = createClient();
-      const previousRange = getDashboardComparisonRange(DASHBOARD_PERIOD, range);
-      const inventoryComparisonRange = getDashboardRange('lastMonth', businessToday);
-      const inventoryQueryRange = inventoryComparisonRange;
+      let payload: DashboardSnapshotPayload | null = null;
 
       if (shouldTryPerformanceRpc()) {
-        const snapshotResult = await supabase.rpc('get_dashboard_snapshot', {
-          p_club_id: selectedClubId,
-          p_range_from: range.from,
-          p_range_to: range.to,
-          p_previous_from: previousRange.from,
-          p_previous_to: previousRange.to,
-          p_inventory_from: inventoryComparisonRange.from,
-          p_inventory_to: inventoryComparisonRange.to,
-        });
-
-        if (requestId !== requestSequence.current) return;
-
-        if (!snapshotResult.error) {
-          const snapshot = snapshotResult.data as Omit<DashboardSnapshotPayload, 'inventoryRows'> & {
-            inventoryRows?: InventorySnapshotRow[];
-          };
-          setData(buildDashboardDataFromSnapshot({
-            period: DASHBOARD_PERIOD,
-            range,
-            previousRange,
-            inventoryComparisonRange,
-            payload: {
-              ...snapshot,
-              inventoryRows: snapshot.inventoryRows ?? snapshot.stockRows as unknown as InventorySnapshotRow[],
-            },
-          }));
+        const snapshot = await fetchDashboardSnapshot(supabase, selectedClubId, snapshotRanges);
+        if (isStale()) return;
+        if (snapshot.error) throw snapshot.error;
+        if (snapshot.data) {
           markPerformanceRpcAvailable();
-          displayedRequestKey.current = requestKey;
-          setLoading(false);
-          return;
+          payload = snapshot.data;
+        } else {
+          markPerformanceRpcMissing();
         }
-
-        if (!isMissingDatabaseFunction(snapshotResult.error, 'get_dashboard_snapshot')) {
-          setError(true);
-          setLoading(false);
-          return;
-        }
-
-        markPerformanceRpcMissing();
       }
 
       // Compatibility path for deployments where migration 030 has not reached
-      // the database yet. Each table is read once for the union of the current
-      // and comparison periods, keeping the fallback to one parallel phase.
-      const financeRange = {
-        from: range.from < previousRange.from ? range.from : previousRange.from,
-        to: range.to > previousRange.to ? range.to : previousRange.to,
-      };
-
-      const [
-        cashRes,
-        stockRes,
-        expenseRes,
-        productRes,
-        debtRes,
-        debtPaymentRes,
-        purchaseRes,
-        inventorySnapshotRes,
-      ] = await Promise.all([
-        fetchAllRows<DailyCashRow>(() =>
-          inRangeQuery(
-            supabase
-              .from('daily_cash_entries')
-              .select('date,cash_income,terminal_income,card_income,playstation_income,created_at')
-              .eq('club_id', selectedClubId)
-              .order('date', { ascending: true })
-              .order('created_at', { ascending: true }),
-            financeRange,
-          ),
-        ),
-        fetchAllRows<StockCountRow>(() =>
-          inRangeQuery(
-            supabase
-              .from('daily_stock_counts')
-              .select('product_id,date,bar_income,bar_profit,bar_cost,sold_quantity,updated_at')
-              .eq('club_id', selectedClubId)
-              .order('date', { ascending: true })
-              .order('product_id', { ascending: true }),
-            financeRange,
-          ),
-        ),
-        fetchAllRows<ExpenseRow>(() =>
-          inRangeQuery(
-            supabase
-              .from('expenses')
-              .select('id,date,amount,category,payment_method,payment_source,comment,created_at')
-              .eq('club_id', selectedClubId)
-              .order('date', { ascending: true })
-              .order('id', { ascending: true }),
-            financeRange,
-          ),
-        ),
-        fetchActiveProductsOrdered(supabase, selectedClubId),
-        fetchAllRows<DebtRow>(() =>
-          supabase
-            .from('new_debts')
-            .select('id,person_name,date,amount,remaining_amount,status')
-            .eq('club_id', selectedClubId)
-            .order('created_at', { ascending: false })
-            .order('id', { ascending: true }),
-        ),
-        fetchAllRows<DebtPaymentValueRow>(() =>
-          inRangeQuery(
-            supabase
-              .from('debt_payments')
-              .select('id,date,amount,payment_method')
-              .eq('club_id', selectedClubId)
-              .order('date', { ascending: true })
-              .order('id', { ascending: true }),
-            financeRange,
-          ),
-        ),
-        fetchAllRows<StockPurchaseRow>(() =>
-          inRangeQuery(
-            supabase
-              .from('stock_purchases')
-              .select('id,date,quantity,cost_price,comment,created_at')
-              .eq('club_id', selectedClubId)
-              .order('date', { ascending: true })
-              .order('id', { ascending: true }),
-            financeRange,
-          ),
-        ),
-        fetchAllRows<InventorySnapshotRow>(() =>
-          supabase
-            .from('daily_stock_counts')
-            .select('product_id,date,closing_stock,cost_price,products(tracks_inventory)')
-            .eq('club_id', selectedClubId)
-            .gte('date', inventoryQueryRange.from)
-            .lte('date', inventoryQueryRange.to)
-            .order('date', { ascending: true })
-            .order('product_id', { ascending: true }),
-        ),
-      ]);
-
-      if (requestId !== requestSequence.current) return;
-
-      const firstError = [
-        cashRes.error,
-        stockRes.error,
-        expenseRes.error,
-        productRes.error,
-        debtRes.error,
-        debtPaymentRes.error,
-        purchaseRes.error,
-        inventorySnapshotRes.error,
-      ].find(Boolean);
-
-      if (firstError) {
-        setError(true);
-        setLoading(false);
-        return;
+      // the database yet; it builds the same payload from table reads.
+      if (!payload) {
+        const fallback = await fetchDashboardSnapshotFromTables(supabase, selectedClubId, snapshotRanges);
+        if (isStale()) return;
+        if (fallback.error || !fallback.data) throw fallback.error;
+        payload = fallback.data;
       }
 
-      const allCashRows = (cashRes.data ?? []) as DailyCashRow[];
-      const allStockRows = (stockRes.data ?? []) as StockCountRow[];
-      const allExpenseRows = (expenseRes.data ?? []) as ExpenseRow[];
-      const products = (productRes.data ?? []) as Product[];
-      const debts = (debtRes.data ?? []) as DebtRow[];
-      const allPurchases = (purchaseRes.data ?? []) as unknown as StockPurchaseRow[];
-      const allDebtPayments = (debtPaymentRes.data ?? []) as DebtPaymentValueRow[];
-      const cashRows = allCashRows.filter((row) => row.date >= range.from && row.date <= range.to);
-      const stockRows = allStockRows.filter((row) => row.date >= range.from && row.date <= range.to);
-      const expenseRows = allExpenseRows.filter((row) => row.date >= range.from && row.date <= range.to);
-      const purchases = allPurchases.filter((row) => row.date >= range.from && row.date <= range.to);
-      const debtPayments = allDebtPayments.filter((row) => row.date >= range.from && row.date <= range.to);
-      const activeDebts = debts.filter((debt) => debt.status !== 'paid');
-      const rangeDebts = debts.filter((debt) => debt.date >= range.from && debt.date <= range.to);
-      const inventorySnapshotRows = (inventorySnapshotRes.data ?? []) as InventorySnapshotRow[];
-      const inventoryComparisonRows = inventorySnapshotRows.filter(
-        (row) => row.date >= inventoryComparisonRange.from && row.date <= inventoryComparisonRange.to,
-      );
-
-      const liveTotals = calculateDashboardTotals(
-        cashRows,
-        stockRows,
-        purchases,
-        expenseRows,
-        products,
-        rangeDebts,
-        debtPayments,
-        activeDebts,
-      );
-      const totals = {
-        ...liveTotals,
-        inventoryValue: calculateDashboardInventoryValue(
-          DASHBOARD_PERIOD,
-          liveTotals.inventoryValue,
-          inventorySnapshotRows,
-          range,
-        ),
-      };
-      const inventoryComparisonValue = calculateInventoryValueFromLatestStockCounts(
-        inventoryComparisonRows,
-      );
-      const moneyLeftByPaymentMethod = calculateGameClubMoneyLeftByPaymentMethod(
-        cashRows,
-        expenseRows,
-        debtPayments,
-      );
-      const latestDailyCashEntryDate = getLatestRowDateInRange([...cashRows, ...rangeDebts], range);
-      const latestBarEntryDate = getLatestRowDateInRange(stockRows, range);
-      const trend = buildPeriodTrend(range, cashRows, stockRows, purchases, expenseRows, rangeDebts);
-      const lowStockCount = products.filter(
-        (product) => product.tracks_inventory !== false
-          && product.current_stock <= (product.low_stock_threshold ?? 5),
-      ).length;
-      const expenseCategories = Array.from(
-        expenseRows.reduce((categoryMap, row) => {
-          categoryMap.set(row.category, (categoryMap.get(row.category) ?? 0) + Number(row.amount ?? 0));
-          return categoryMap;
-        }, new Map<string, number>()),
-        ([category, value]) => ({ category, value }),
-      ).sort((a, b) => b.value - a.value);
-      const previousDebts = debts.filter(
-        (debt) => debt.date >= previousRange.from && debt.date <= previousRange.to,
-      );
-      const previousTotals = calculateDashboardTotals(
-        allCashRows.filter((row) => row.date >= previousRange.from && row.date <= previousRange.to),
-        allStockRows.filter((row) => row.date >= previousRange.from && row.date <= previousRange.to),
-        allPurchases.filter((row) => row.date >= previousRange.from && row.date <= previousRange.to),
-        allExpenseRows.filter((row) => row.date >= previousRange.from && row.date <= previousRange.to),
-        products,
-        previousDebts,
-        allDebtPayments.filter((row) => row.date >= previousRange.from && row.date <= previousRange.to),
-        activeDebts,
-      );
-
-      setData({
-        totals,
-        previousTotals,
-        inventoryComparisonValue,
-        hasInventoryComparisonData: inventoryComparisonRows.length > 0,
-        trend,
-        lowStockCount,
-        expenseCategories,
-        moneyLeftByPaymentMethod,
-        latestDailyCashEntryDate,
-        latestBarEntryDate,
-      });
+      setData(buildDashboardDataFromSnapshot({ ...snapshotRanges, payload }));
       displayedRequestKey.current = requestKey;
       setLoading(false);
     } catch {
-      if (requestId !== requestSequence.current) return;
+      if (isStale()) return;
+      // Never leave another club's (or month's) figures on screen as if they
+      // were this request's; a failed silent refresh keeps its own data.
+      if (displayedRequestKey.current !== requestKey) {
+        setData(emptyDashboardData);
+        displayedRequestKey.current = '';
+      }
       setError(true);
       setLoading(false);
     }
-  }, [businessToday, range, selectedClubId]);
+  }, [range.from, range.to, selectedClubId, snapshotRanges]);
 
   useEffect(() => {
     const requestKey = `${selectedClubId}:${range.from}:${range.to}`;

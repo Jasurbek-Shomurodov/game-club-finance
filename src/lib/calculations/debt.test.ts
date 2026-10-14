@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateRemainingDebt, canManageDebts, getDebtStatus } from './debt';
+import { calculateRemainingDebt, canManageDebts, classifyDebtPaymentInsertError, getDebtStatus } from './debt';
 
 describe('calculateRemainingDebt', () => {
   it('returns difference between amount and paid', () => {
@@ -54,5 +54,29 @@ describe('canManageDebts', () => {
   it('keeps viewers and unknown roles read-only', () => {
     expect(canManageDebts('viewer')).toBe(false);
     expect(canManageDebts(null)).toBe(false);
+  });
+});
+
+describe('classifyDebtPaymentInsertError', () => {
+  it('recognizes an overpayment rejected by the database', () => {
+    expect(classifyDebtPaymentInsertError({ code: '23514', message: 'Payment (500) exceeds remaining debt (100)' }))
+      .toBe('exceeds_remaining');
+    expect(classifyDebtPaymentInsertError({
+      code: '23514',
+      message: 'new row for relation "new_debts" violates check constraint "new_debts_paid_amount_valid"',
+    })).toBe('exceeds_remaining');
+  });
+
+  it('separates date violations from overpayments', () => {
+    expect(classifyDebtPaymentInsertError({ code: '23514', message: 'Debt payment date cannot be earlier than the debt date' }))
+      .toBe('before_debt_date');
+    expect(classifyDebtPaymentInsertError({ code: '22007', message: 'Debt payments cannot use a future business date' }))
+      .toBe('future_date');
+  });
+
+  it('treats anything else as a generic failure', () => {
+    expect(classifyDebtPaymentInsertError({ code: '23514', message: 'some other check' })).toBe('other');
+    expect(classifyDebtPaymentInsertError({ code: '42501', message: 'permission denied' })).toBe('other');
+    expect(classifyDebtPaymentInsertError(null)).toBe('other');
   });
 });

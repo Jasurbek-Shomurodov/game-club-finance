@@ -42,6 +42,7 @@ beforeAll(async () => {
   await db.exec(readFileSync(resolve('migrations/065_payroll_read_and_rate_integrity.sql'), 'utf8'));
   await db.exec(readFileSync(resolve('migrations/067_owner_only_payroll_terms.sql'), 'utf8'));
   await db.exec(readFileSync(resolve('migrations/070_salary_kpi_basis.sql'), 'utf8'));
+  await db.exec(readFileSync(resolve('migrations/077_salary_entry_created_flag.sql'), 'utf8'));
   await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub','${owner}',false);`);
   await save();
 }, 60_000);
@@ -276,4 +277,14 @@ it('stores the KPI basis and pools, keeping them when other terms change', async
   expect(await read()).toEqual([{ kpi_basis: 'owner_profit', kpi_game_club: false, kpi_bar: true }]);
   await expect(db.query('select change_salary_term($1,$2,$3,$4,$5,$6,$7,$8)', [club,id,'kpi',8,null,'owner_profit',false,false])).rejects.toThrow('Invalid KPI settings');
   await expect(db.query('select change_salary_term($1,$2,$3,$4,$5,$6,$7,$8)', [club,id,'kpi',8,null,'weekly',true,true])).rejects.toThrow('Invalid KPI settings');
+});
+
+it('reports whether a salary entry was newly recorded, once per request id', async () => {
+  const id = '30000000-0000-0000-0000-000000000077';
+  const record = (amount = 250) => db.query<{ entry_id: string; created: boolean }>(
+    `select * from record_salary_entry_with_status($1,$2,$3,'2026-09-24','payment',$4,'note','cash','game_club')`, [club, employee, id, amount]);
+  expect((await record()).rows).toEqual([{ entry_id: id, created: true }]);
+  expect((await record()).rows).toEqual([{ entry_id: id, created: false }]);
+  expect((await db.query('select * from expenses where salary_entry_id=$1', [id])).rows).toHaveLength(1);
+  await expect(record(251)).rejects.toThrow('different entry');
 });

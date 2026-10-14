@@ -1,14 +1,25 @@
+import { after } from 'next/server';
+import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { isManualExpenseCategory } from '@/lib/expenseCategories';
+import { normalizePaymentMethods } from '@/lib/paymentMethods';
 import { createClient } from '@/lib/supabase/server';
+import { actorName } from '@/lib/telegram/actorName';
 import { buildExpenseNotification } from '@/lib/telegram/expenseNotification';
 import { targetChatId } from '@/lib/telegram/clubChat';
 import { deleteTelegramMessage } from '@/lib/telegram/deleteTelegramMessage';
 import { sendTelegramMessage } from '@/lib/telegram/sendDailyFinanceReport';
 import { PAYMENT_METHODS, type Expense } from '@/types';
+import { expenseErrorCode, expenseErrorResponse } from './errors';
 
 const PAYMENT_SOURCES = ['game_club', 'bar'] as const;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isId = (value: unknown): value is string => typeof value === 'string' && UUID.test(value);
+
+type DatabaseError = { message: string; code?: string };
 
 interface ExpenseRequestBody {
+  /** Optional client-generated UUID; a retried submit with the same id is recorded once. */
+  id?: unknown;
   clubId?: unknown;
   date?: unknown;
   amount?: unknown;
@@ -19,6 +30,7 @@ interface ExpenseRequestBody {
 }
 
 interface ValidExpenseRequestBody {
+  id?: string;
   clubId: string;
   date: string;
   amount: number;
@@ -34,7 +46,8 @@ interface DeleteExpenseRequestBody {
 }
 
 function isValidBody(body: ExpenseRequestBody): body is ValidExpenseRequestBody {
-  return typeof body.clubId === 'string'
+  return (body.id === undefined || isId(body.id))
+    && isId(body.clubId)
     && /^\d{4}-\d{2}-\d{2}$/.test(String(body.date))
     && typeof body.amount === 'number'
     && Number.isFinite(body.amount)
@@ -46,17 +59,83 @@ function isValidBody(body: ExpenseRequestBody): body is ValidExpenseRequestBody 
     && (body.comment === null || body.comment === undefined || (typeof body.comment === 'string' && body.comment.length <= 300));
 }
 
+function failure(scope: string, context: Record<string, unknown>, error: DatabaseError) {
+  console.error(`[expenses] ${scope} failed`, { ...context, code: error.code, error: error.message });
+  return expenseErrorResponse(expenseErrorCode(error));
+}
+
+/** Same request id must describe the same expense; anything else is a conflicting reuse. */
+function sameExpense(existing: Record<string, unknown>, row: Record<string, unknown>) {
+  return Number(existing.amount) === Number(row.amount)
+    && ['date', 'category', 'payment_method', 'payment_source', 'comment'].every((field) => (existing[field] ?? null) === (row[field] ?? null));
+}
+
+/** Best-effort, after the response: Telegram never fails or delays an already saved expense. */
+async function notifyExpense(supabase: SupabaseClient, user: User, expense: Expense) {
+  const chatId = targetChatId(expense.club_id);
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!chatId || !botToken) return;
+  try {
+    const telegram = await sendTelegramMessage({
+      botToken,
+      chatId,
+      text: buildExpenseNotification({
+        addedBy: await actorName(supabase, user),
+        amount: Number(expense.amount),
+        category: expense.category,
+        comment: expense.comment,
+        date: expense.date,
+        paymentMethod: expense.payment_method,
+        paymentSource: expense.payment_source,
+      }),
+    });
+    const { error: coordinateError } = await supabase
+      .from('expenses')
+      .update({
+        telegram_chat_id: String(telegram.result.chat.id),
+        telegram_message_id: telegram.result.message_id,
+      })
+      .eq('club_id', expense.club_id)
+      .eq('id', expense.id);
+
+    if (coordinateError) {
+      console.error('[telegram/expense] message coordinates were not saved', {
+        clubId: expense.club_id,
+        expenseId: expense.id,
+        error: coordinateError.message,
+      });
+    }
+  } catch (notificationError) {
+    console.error('[telegram/expense] notification failed', {
+      clubId: expense.club_id,
+      expenseId: expense.id,
+      error: notificationError instanceof Error ? notificationError.message : String(notificationError),
+    });
+  }
+}
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!user) return expenseErrorResponse('UNAUTHORIZED');
 
   const body = await request.json().catch(() => null) as ExpenseRequestBody | null;
-  if (!body || !isValidBody(body)) {
-    return Response.json({ error: 'Invalid expense data' }, { status: 400 });
+  if (!body || !isValidBody(body)) return expenseErrorResponse('INVALID_REQUEST');
+  const context = { clubId: body.clubId, expenseId: body.id ?? null };
+
+  // Only the club's configured methods are accepted; RLS scopes the read to the caller's clubs.
+  const { data: club, error: clubError } = await supabase
+    .from('clubs')
+    .select('enabled_payment_methods')
+    .eq('id', body.clubId)
+    .maybeSingle();
+  if (clubError) return failure('club lookup', context, clubError);
+  if (!club) return expenseErrorResponse('FORBIDDEN');
+  if (!normalizePaymentMethods(club.enabled_payment_methods).includes(body.paymentMethod)) {
+    return expenseErrorResponse('PAYMENT_METHOD_DISABLED');
   }
 
-  const { data, error } = await supabase.from('expenses').insert({
+  const row = {
     club_id: body.clubId,
     date: body.date,
     amount: body.amount,
@@ -65,120 +144,99 @@ export async function POST(request: Request) {
     payment_source: body.paymentSource,
     comment: typeof body.comment === 'string' && body.comment.trim() ? body.comment.trim() : null,
     created_by: user.id,
-  }).select('*').single();
+  };
 
-  if (error) return Response.json({ error: error.message }, { status: 400 });
-
-  const expense = data as Expense;
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name')
-    .eq('id', user.id)
-    .maybeSingle();
-  const addedBy = profile?.full_name?.trim()
-    || (typeof user.user_metadata.full_name === 'string' ? user.user_metadata.full_name.trim() : '')
-    || user.email
-    || user.id;
-  const chatId = targetChatId(expense.club_id);
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  let notificationSent = false;
-
-  if (chatId && botToken) {
-    try {
-      const telegram = await sendTelegramMessage({
-        botToken,
-        chatId,
-        text: buildExpenseNotification({
-          addedBy,
-          amount: Number(expense.amount),
-          category: expense.category,
-          comment: expense.comment,
-          date: expense.date,
-          paymentMethod: expense.payment_method,
-          paymentSource: expense.payment_source,
-        }),
-      });
-      const { error: coordinateError } = await supabase
+  let expense: Expense;
+  if (body.id) {
+    // Insert-or-nothing: a retry of the same submit returns the saved row without a second notification.
+    const { data, error } = await supabase
+      .from('expenses')
+      .upsert({ id: body.id, ...row }, { onConflict: 'id', ignoreDuplicates: true })
+      .select('*')
+      .maybeSingle();
+    if (error) return failure('insert', context, error);
+    if (!data) {
+      const { data: existing, error: existingError } = await supabase
         .from('expenses')
-        .update({
-          telegram_chat_id: String(telegram.result.chat.id),
-          telegram_message_id: telegram.result.message_id,
-        })
-        .eq('club_id', expense.club_id)
-        .eq('id', expense.id);
-
-      if (coordinateError) {
-        console.error('[telegram/expense] message coordinates were not saved', {
-          clubId: expense.club_id,
-          expenseId: expense.id,
-          error: coordinateError.message,
-        });
-      } else {
-        notificationSent = true;
-      }
-    } catch (notificationError) {
-      console.error('[telegram/expense] notification failed', {
-        clubId: expense.club_id,
-        expenseId: expense.id,
-        error: notificationError instanceof Error ? notificationError.message : String(notificationError),
-      });
+        .select('*')
+        .eq('club_id', body.clubId)
+        .eq('id', body.id)
+        .maybeSingle();
+      if (existingError) return failure('retry lookup', context, existingError);
+      if (!existing || !sameExpense(existing, row)) return expenseErrorResponse('REQUEST_CONFLICT');
+      return Response.json({ expense: existing, created: false, notificationQueued: false }, { status: 200 });
     }
+    expense = data as Expense;
+  } else {
+    const { data, error } = await supabase.from('expenses').insert(row).select('*').single();
+    if (error) return failure('insert', context, error);
+    expense = data as Expense;
   }
 
-  return Response.json({ expense, notificationSent }, { status: 201 });
+  after(() => notifyExpense(supabase, user, expense));
+  return Response.json({ expense, created: true, notificationQueued: true }, { status: 201 });
 }
 
 export async function DELETE(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!user) return expenseErrorResponse('UNAUTHORIZED');
 
   const body = await request.json().catch(() => null) as DeleteExpenseRequestBody | null;
-  if (!body || typeof body.clubId !== 'string' || typeof body.expenseId !== 'string') {
-    return Response.json({ error: 'Invalid expense deletion data' }, { status: 400 });
-  }
+  if (!body || !isId(body.clubId) || !isId(body.expenseId)) return expenseErrorResponse('INVALID_REQUEST');
+  const clubId = body.clubId;
+  const expenseId = body.expenseId;
+  const context = { clubId, expenseId };
 
   const { data: membership, error: membershipError } = await supabase
     .from('club_memberships')
     .select('role')
-    .eq('club_id', body.clubId)
+    .eq('club_id', clubId)
     .eq('user_id', user.id)
     .maybeSingle();
 
-  if (membershipError) return Response.json({ error: membershipError.message }, { status: 400 });
-  if (membership?.role !== 'owner') return Response.json({ error: 'Forbidden' }, { status: 403 });
+  if (membershipError) return failure('membership lookup', context, membershipError);
+  if (membership?.role !== 'owner') return expenseErrorResponse('FORBIDDEN');
 
   const { data: expense, error: expenseError } = await supabase
     .from('expenses')
     .select('*') // Includes the optional salary link; also works before migration 059.
-    .eq('club_id', body.clubId)
-    .eq('id', body.expenseId)
+    .eq('club_id', clubId)
+    .eq('id', expenseId)
     .maybeSingle();
 
-  if (expenseError) return Response.json({ error: expenseError.message }, { status: 400 });
-  if (!expense) return Response.json({ error: 'Expense not found' }, { status: 404 });
+  if (expenseError) return failure('lookup', context, expenseError);
+  if (!expense) return expenseErrorResponse('NOT_FOUND');
 
   if (expense.salary_entry_id) {
     // Payroll-linked expenses are only removable through the audited RPC, which
     // soft-deletes the salary entry and removes the linked expense atomically.
     const { error: salaryError } = await supabase.rpc('delete_salary_record', {
-      p_club_id: body.clubId,
+      p_club_id: clubId,
       p_id: expense.salary_entry_id,
       p_kind: 'entry',
     });
-    if (salaryError) {
-      console.error('[expenses] salary payment deletion failed', { clubId: body.clubId, expenseId: body.expenseId, error: salaryError.message });
-      return Response.json({ error: salaryError.message }, { status: 400 });
-    }
+    if (salaryError) return failure('salary payment deletion', context, salaryError);
     return Response.json({ deleted: true });
   }
 
+  // Remove the ledger row first: a failed or refused delete must leave its
+  // Telegram message in place.
+  const { data: deleted, error: deleteError } = await supabase
+    .from('expenses')
+    .delete()
+    .eq('club_id', clubId)
+    .eq('id', expenseId)
+    .select('id');
+
+  if (deleteError) return failure('deletion', context, deleteError);
+  if (!deleted?.length) return expenseErrorResponse('NOT_FOUND');
+
   // Telegram cleanup is best-effort: the bot cannot remove messages older than
-  // 48 hours (or ones it lost access to), and that must never stop the owner
-  // from deleting the ledger entry itself.
-  if (expense.telegram_chat_id && expense.telegram_message_id) {
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    if (botToken) {
+  // 48 hours (or ones it lost access to), and that never undoes the deletion.
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (botToken && expense.telegram_chat_id && expense.telegram_message_id) {
+    after(async () => {
       try {
         await deleteTelegramMessage({
           botToken,
@@ -187,23 +245,11 @@ export async function DELETE(request: Request) {
         });
       } catch (telegramError) {
         console.error('[telegram/expense] message deletion failed', {
-          clubId: body.clubId,
-          expenseId: body.expenseId,
+          ...context,
           error: telegramError instanceof Error ? telegramError.message : String(telegramError),
         });
       }
-    }
-  }
-
-  const { error: deleteError } = await supabase
-    .from('expenses')
-    .delete()
-    .eq('club_id', body.clubId)
-    .eq('id', body.expenseId);
-
-  if (deleteError) {
-    console.error('[expenses] deletion failed', { clubId: body.clubId, expenseId: body.expenseId, error: deleteError.message });
-    return Response.json({ error: deleteError.message }, { status: 400 });
+    });
   }
   return Response.json({ deleted: true });
 }

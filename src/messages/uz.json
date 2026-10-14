@@ -305,6 +305,7 @@
     "deleteConfirm": "Ushbu kunlik kassa yozuvi oʻchirilsinmi? Bar savdosi va xarajatlarga taʼsir qilmaydi.",
     "deleteConfirmDetailed": "{date} sanasidagi kunlik kassa yozuvi ({amount}) oʻchirilsinmi? Bar savdosi va xarajatlarga taʼsir qilmaydi.",
     "loadError": "Kunlik kassa yozuvini yuklab boʻlmadi. Internet aloqasini tekshirib, qayta urinib koʻring.",
+    "summaryLoadError": "Kunlik bar va foyda xulosasini yuklab bo'lmadi. Kassa kiritish ishlayveradi.",
     "saveError": "Yozuvni saqlab boʻlmadi. Internet aloqasini tekshirib, qayta urinib koʻring.",
     "duplicateEntryError": "Bu sana uchun yozuv allaqachon mavjud. Uni tahrirlash uchun sahifani yangilang.",
     "deleteError": "Yozuvni oʻchirib boʻlmadi. Qayta urinib koʻring."
@@ -572,6 +573,18 @@
       "discount": "Mijozlarga chegirma va bonus",
       "supplies": "Sarf materiallari va xo‘jalik mollari",
       "other": "Boshqa"
+    },
+    "errors": {
+      "unauthorized": "Sessiya muddati tugadi. Qayta kiring va yana urinib ko‘ring.",
+      "invalidRequest": "Xarajatning ayrim maʼlumotlari yo‘q yoki noto‘g‘ri. Formani tekshirib, qayta urinib ko‘ring.",
+      "forbidden": "Bu klubda xarajatlarni o‘zgartirish huquqingiz yo‘q.",
+      "paymentMethodDisabled": "Bu to‘lov usuli klub uchun yoqilmagan. Boshqa usulni tanlang.",
+      "checkFailed": "Qiymatlar qabul qilinmadi. Summa, toifa va sanani tekshirib, qayta urinib ko‘ring.",
+      "requestConflict": "Bu xarajat formasi boshqa qiymatlar bilan allaqachon ishlatilgan. Sahifani yangilab, qayta kiriting.",
+      "invalidValues": "Ayrim qiymatlar noto‘g‘ri. Summa, toifa va sanani tekshiring.",
+      "notFound": "Bu xarajat endi mavjud emas. Sahifani yangilang.",
+      "salaryPaymentImmutable": "Maosh to‘lovlarini faqat «Maoshlar» sahifasida o‘chirish mumkin.",
+      "serverError": "Serverda xatolik yuz berdi. Birozdan so‘ng qayta urinib ko‘ring."
     }
   },
   "debts": {
@@ -711,7 +724,6 @@
     "paymentMethodsOwnerOnly": "Bu sozlamani faqat ownerlar o'zgartira oladi.",
     "paymentMethodsHint": "O'zgarishlar saqlangandan keyin qo'llanadi.",
     "saveError": "Saqlab bo‘lmadi. Internet aloqasi va egasi huquqlarini tekshirib, qayta urinib ko‘ring.",
-    "accountLoadError": "Hisob ma’lumotlarini yuklab bo‘lmadi. Qayta urinish uchun sahifani yangilang.",
     "tabClub": "Klub",
     "tabProfile": "Profil",
     "selectedClub": "Tanlangan"
@@ -1123,7 +1135,19 @@
     "noRates": "Hozircha maosh stavkalari yo‘q.",
     "permissionError": "Bu klubda maoshlarni o‘zgartirishga huquqingiz yo‘q. Klub egasidan maoshlarni tahrirlash huquqini so‘rang.",
     "checkError": "Qiymatlar qabul qilinmadi. Summa, foiz va sanani tekshirib, qayta urinib ko‘ring.",
-    "viewSwitcher": "Bo'lim"
+    "viewSwitcher": "Bo'lim",
+    "errors": {
+      "unauthorized": "Sessiya muddati tugadi. Qayta kiring va yana urinib ko‘ring.",
+      "invalidRequest": "Forma maʼlumotlari to‘liq emas. Sahifani yangilab, qayta urinib ko‘ring.",
+      "ownerOnly": "Faqat klub egasi xodimlar, maosh, KPI yoki faollikni o‘zgartira oladi.",
+      "paymentMethodDisabled": "Bu to‘lov usuli klub uchun yoqilmagan. Boshqa usulni tanlang.",
+      "requestConflict": "Bu forma boshqa yozuv uchun allaqachon ishlatilgan. Sahifani yangilab, qayta kiriting.",
+      "invalidDate": "Bu sana ruxsat etilmaydi. Maosh o‘zgarishlari bugundan yoki kelajakdagi ishga kirish sanasidan boshlanadi; yozuvlar kelajakda yoki ishga kirishdan oldin bo‘lishi mumkin emas.",
+      "invalidValues": "Ayrim qiymatlar noto‘g‘ri. Summa, foiz, lavozim va sanani tekshiring.",
+      "notFound": "Bu xodim yoki yozuv endi mavjud emas. Sahifani yangilang.",
+      "settingsMissing": "Bu xodimda hali maosh sozlamalari yo‘q. Avval ularni saqlang.",
+      "lastRate": "Oxirgi maosh stavkasini o‘chirib bo‘lmaydi. Maosh sozlamalarini o‘zgartiring yoki xodimni nofaol qiling."
+    }
   },
   "testChecklist": {
     "title": "Tizim tekshiruvlari",
@@ -1144,8 +1168,8 @@
     "barProfit": "Bar foydasi = daromad − tannarx",
     "barProfitOk": "Barcha bar foydalari mos.",
     "barProfitFail": "{count} yozuvda bar foydasi mos emas.",
-    "netProfit": "Sof foyda = daromad − xarajatlar",
-    "netProfitDetail": "Game Club {gameClub} + Xaridlardan keyingi bar {bar} (xaridlar {purchases}) − Xarajatlar {expenses} = {net} UZS.",
+    "netProfit": "Buxgalteriya sof foydasi kunlik hisobot bilan mos",
+    "netProfitDetail": "Daromad {income} − sotilgan mahsulot tannarxi {cost} − xarajatlar {expenses} = {net} UZS. Kunlik hisobot: {report} UZS.",
     "debts": "Manfiy qarz qoldiqlari yoʻq",
     "debtsOk": "Barcha {count} faol qarz toʻgʻri.",
     "debtsFail": "{count} qarzda manfiy qoldiq bor.",

@@ -32,4 +32,10 @@ describe('buildSalaryNotification', () => {
     expect(text).toContain('Добавлен сотрудник');
     expect(text).toContain('Должность: Менеджер');
   });
+  it('describes deleted payroll records', () => {
+    const entry = buildSalaryNotification({ ...base, event: 'entry_deleted', kind: 'payment', amount: 500000, date: '2026-10-02' });
+    expect(entry).toContain('Удалена выплата зарплаты');
+    expect(entry).toContain('Сумма: 500 000 сум');
+    expect(buildSalaryNotification({ ...base, event: 'rate_deleted', effectiveDate: '2026-10-01' })).toContain('Удалено изменение зарплаты');
+  });
 });

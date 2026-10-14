@@ -25,6 +25,7 @@ import { Button, Card, Field, Input, InlineAlert, PageHeader } from '@/component
 | Save results, errors, notes | `InlineAlert` (inline) or `useToast` (transient) |
 | Destructive confirmation | `useConfirm` / `ConfirmDialog` (never `window.confirm`) |
 | Dialogs | `Modal`, `Drawer` (animated side panel) |
+| Collapsible help or secondary list | `Disclosure` (native `<details>` with a chevron summary) |
 | KPI numbers | `MetricCard` (formatted value), `AmountCard` (money with comparison), `StatTile` (compact) |
 | Tables | `DataTable` (supports totals row, sticky header, empty state; pass `label` so keyboard users can scroll wide tables) |
 | Nothing to show | `EmptyState` |

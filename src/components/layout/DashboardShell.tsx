@@ -10,7 +10,7 @@ import { useSignOut } from './useSignOut';
 import { Sidebar } from './Sidebar';
 import { Button, Card, EmptyState, IconButton, InlineAlert, PageSkeleton, ThemeToggle, TopBarSlotProvider, useTopBarSlot } from '@/components/PresentationFoundation';
 import { createClient } from '@/lib/supabase/client';
-import { isMissingDatabaseColumn } from '@/lib/supabase/errors';
+import { loadUserMemberships, relatedClub, SELECTED_CLUB_COOKIE } from '@/lib/supabase/memberships';
 import { normalizePaymentMethods } from '@/lib/paymentMethods';
 import { PAYMENT_METHODS, type Club, type ClubMembership, type EntryPaymentMethod, type UserRole } from '@/types';
 import {
@@ -23,6 +23,7 @@ import { cn, normalizeBusinessDayStartHour } from '@/lib/utils';
 import { useLatestRef } from '@/components/i18n/useLatestRef';
 
 interface DashboardShellProps {
+  initialUserId?: string;
   initialEmail?: string;
   initialFullName?: string;
   initialProfileRole?: UserRole;
@@ -37,7 +38,17 @@ interface ClubOption {
   featureAccess: FeatureKey[] | null;
 }
 
+/** The signed-in person, as loaded by the shell (no extra profile reads needed). */
+export interface ShellAccount {
+  userId: string;
+  email: string;
+  fullName: string;
+  /** Global profile role; club access comes from `role` on the club context. */
+  profileRole: UserRole;
+}
+
 interface ClubContextValue {
+  account: ShellAccount;
   selectedClubId: string;
   selectedClub: Club | null;
   memberships: ClubOption[];
@@ -57,6 +68,7 @@ interface ClubContextValue {
 }
 
 const ClubContext = createContext<ClubContextValue>({
+  account: { userId: '', email: '', fullName: '', profileRole: 'viewer' },
   selectedClubId: '',
   selectedClub: null,
   memberships: [],
@@ -77,13 +89,7 @@ function isUserRole(role: string | null | undefined): role is UserRole {
   return role === 'owner' || role === 'admin' || role === 'viewer';
 }
 
-function relatedClub(relation: ClubMembership['clubs']): Club | null {
-  if (!relation) return null;
-  return Array.isArray(relation) ? relation[0] ?? null : relation;
-}
-
 const SELECTED_CLUB_STORAGE_KEY = 'game-club-finance:selected-club-id';
-const SELECTED_CLUB_COOKIE = 'game-club-finance-selected-club-id';
 const DESKTOP_QUERY = '(min-width: 1024px)';
 
 function persistSelectedClubId(clubId: string) {
@@ -213,6 +219,7 @@ function useTopBarCrowded(barRef: RefObject<HTMLElement | null>, enabled: boolea
 }
 
 export function DashboardShell({
+  initialUserId = '',
   initialEmail = '',
   initialFullName = '',
   initialProfileRole = 'viewer',
@@ -233,6 +240,8 @@ export function DashboardShell({
   const topBarCrowded = useTopBarCrowded(topBarRef, isDesktop);
   const [profileRole, setProfileRole] = useState<UserRole>(initialProfileRole);
   const [fullName, setFullName] = useState(initialFullName || initialEmail);
+  const [userId, setUserId] = useState(initialUserId);
+  const [email, setEmail] = useState(initialEmail);
   const [memberships, setMemberships] = useState<ClubOption[]>(initialMemberships);
   const [selectedClubId, setSelectedClubIdState] = useState(() =>
     initialMemberships.some((membership) => membership.club.id === initialSelectedClubId)
@@ -261,10 +270,15 @@ export function DashboardShell({
     [selectedClub?.enabled_payment_methods],
   );
 
+  const selectedClubIdRef = useLatestRef(selectedClubId);
   const setSelectedClubId = useCallback((clubId: string) => {
+    const changed = clubId !== selectedClubIdRef.current;
     setSelectedClubIdState(clubId);
     persistSelectedClubId(clubId);
-  }, []);
+    // Server-rendered pages (dashboard snapshot, diagnostics) read the club
+    // from the cookie; re-render them for the newly selected club.
+    if (changed) router.refresh();
+  }, [router, selectedClubIdRef]);
 
   const loadClubs = useCallback(async (supabase: ReturnType<typeof createClient>, firstLoad: boolean) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -274,67 +288,23 @@ export function DashboardShell({
       return;
     }
 
-    const [profileRes, membershipRes] = await Promise.all([
+    setUserId(session.user.id);
+    setEmail(session.user.email ?? initialEmail);
+
+    // A failed membership read throws: it must not look like "no memberships"
+    // (which would show the pending-approval screen to an existing member).
+    const [profileRes, membershipRows] = await Promise.all([
       supabase
         .from('profiles')
         .select('full_name, role')
         .eq('id', session.user.id)
         .maybeSingle(),
-      supabase
-        .from('club_memberships')
-        .select('club_id, role, feature_access, created_at, updated_at, clubs(id, name, address, business_day_start_hour, enabled_payment_methods, is_active, created_at, updated_at)')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: true }),
+      loadUserMemberships(supabase, session.user.id),
     ]);
-
-    if (
-      membershipRes.error &&
-      !isMissingDatabaseColumn(membershipRes.error, 'enabled_payment_methods') &&
-      !isMissingDatabaseColumn(membershipRes.error, 'feature_access')
-    ) {
-      // A network or permission failure must not look like "no memberships"
-      // (which would show the pending-approval screen to an existing member).
-      throw membershipRes.error;
-    }
 
     if (!profileRes.error) {
       setFullName(profileRes.data?.full_name ?? session.user.email ?? initialEmail);
       setProfileRole(isUserRole(profileRes.data?.role) ? profileRes.data.role : 'viewer');
-    }
-
-    let membershipRows = (membershipRes.data as ClubMembership[] | null) ?? [];
-    if (isMissingDatabaseColumn(membershipRes.error, 'enabled_payment_methods')) {
-      const withoutPaymentMethodsRes = await supabase
-        .from('club_memberships')
-        .select('club_id, role, feature_access, created_at, updated_at, clubs(id, name, address, business_day_start_hour, is_active, created_at, updated_at)')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: true });
-      membershipRows = (withoutPaymentMethodsRes.data as ClubMembership[] | null) ?? [];
-
-      if (isMissingDatabaseColumn(withoutPaymentMethodsRes.error, 'feature_access')) {
-        const legacyMembershipRes = await supabase
-          .from('club_memberships')
-          .select('club_id, role, created_at, updated_at, clubs(id, name, address, business_day_start_hour, is_active, created_at, updated_at)')
-          .eq('user_id', session.user.id)
-          .order('created_at', { ascending: true });
-        membershipRows = (legacyMembershipRes.data as ClubMembership[] | null) ?? [];
-      }
-    } else if (isMissingDatabaseColumn(membershipRes.error, 'feature_access')) {
-      const withoutFeatureAccessRes = await supabase
-        .from('club_memberships')
-        .select('club_id, role, created_at, updated_at, clubs(id, name, address, business_day_start_hour, enabled_payment_methods, is_active, created_at, updated_at)')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: true });
-      membershipRows = (withoutFeatureAccessRes.data as ClubMembership[] | null) ?? [];
-
-      if (isMissingDatabaseColumn(withoutFeatureAccessRes.error, 'enabled_payment_methods')) {
-        const legacyMembershipRes = await supabase
-          .from('club_memberships')
-          .select('club_id, role, created_at, updated_at, clubs(id, name, address, business_day_start_hour, is_active, created_at, updated_at)')
-          .eq('user_id', session.user.id)
-          .order('created_at', { ascending: true });
-        membershipRows = (legacyMembershipRes.data as ClubMembership[] | null) ?? [];
-      }
     }
 
     const nextMemberships = membershipOptions(membershipRows);
@@ -374,6 +344,25 @@ export function DashboardShell({
     if (selectedClubId) persistSelectedClubId(selectedClubId);
     // Only on mount; later changes go through setSelectedClubId.
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    // The layout may not pass the user id; the local session has it.
+    if (userId) return;
+    let cancelled = false;
+    async function loadSessionUser() {
+      const { data: { session } } = await createClient().auth.getSession();
+      const user = session?.user;
+      if (cancelled || !user) return;
+      setUserId(user.id);
+      setEmail((current) => current || user.email || '');
+    }
+    loadSessionUser().catch(() => {
+      // Only used to recognise the signed-in person; a club refresh sets it again.
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   useEffect(() => {
     // The server bootstrap already returned memberships; nothing to re-read.
@@ -446,8 +435,14 @@ export function DashboardShell({
     router.replace(fallbackPath);
   }, [fallbackPath, memberships.length, pathAllowed, pathname, router]);
 
+  const account = useMemo<ShellAccount>(
+    () => ({ userId, email, fullName, profileRole }),
+    [email, fullName, profileRole, userId],
+  );
+
   const clubContextValue = useMemo(
     () => ({
+      account,
       selectedClubId,
       selectedClub,
       memberships,
@@ -459,7 +454,7 @@ export function DashboardShell({
       setSelectedClubId,
       refreshClubs,
     }),
-    [businessDayStartHour, clubLoading, enabledPaymentMethods, featureAccess, memberships, refreshClubs, role, selectedClub, selectedClubId, setSelectedClubId],
+    [account, businessDayStartHour, clubLoading, enabledPaymentMethods, featureAccess, memberships, refreshClubs, role, selectedClub, selectedClubId, setSelectedClubId],
   );
 
   return (

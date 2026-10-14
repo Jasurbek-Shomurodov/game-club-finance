@@ -2,7 +2,7 @@
 
 // Route: /stock-purchase
 
-import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 import { runWithJwtTimingRetry } from '@/lib/supabase/authRetry';
@@ -34,10 +34,16 @@ import {
   useToast,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { todayIso } from '@/lib/utils';
+import { useBusinessToday } from '@/lib/useBusinessToday';
+import { fetchActiveProductsOrdered, fetchProductIdsByName } from '@/lib/supabase/products';
+import {
+  isPrefilledAmountEdited,
+  prefillAmount,
+  resolvePrefilledAmount,
+  type PrefilledAmount,
+} from '@/lib/productWrites';
 import {
   formatCurrency,
-  formatCurrencyInput,
   formatDateOnly,
   formatNumber,
   formatUnitCurrency,
@@ -89,30 +95,28 @@ function paymentBadgeVariant(method: string): 'success' | 'primary' | 'purple' |
   return 'neutral';
 }
 
-function isMissingSortOrder(error: { message?: string } | null | undefined) {
-  return error?.message?.includes('sort_order') ?? false;
+interface PurchaseForm {
+  date: string;
+  product_id: string;
+  quantity: string;
+  cost_price: string;
+  sale_price: string;
+  payment_method: EntryPaymentMethod;
+  comment: string;
+  /** Catalog prices copied in on product selection; untouched means "keep". */
+  cost_prefill: PrefilledAmount | null;
+  sale_prefill: PrefilledAmount | null;
 }
 
-async function fetchActiveProductsOrdered(supabase: ReturnType<typeof createClient>, clubId: string) {
-  const ordered = await supabase
-    .from('products')
-    .select('*')
-    .eq('club_id', clubId)
-    .eq('is_active', true)
-    .eq('tracks_inventory', true)
-    .order('sort_order', { ascending: true })
-    .order('name', { ascending: true });
-
-  if (!isMissingSortOrder(ordered.error)) return ordered;
-
-  return supabase
-    .from('products')
-    .select('*')
-    .eq('club_id', clubId)
-    .eq('is_active', true)
-    .eq('tracks_inventory', true)
-    .order('name', { ascending: true });
-}
+const emptyItemFields = {
+  product_id: '',
+  quantity: '',
+  cost_price: '',
+  sale_price: '',
+  comment: '',
+  cost_prefill: null,
+  sale_prefill: null,
+} satisfies Partial<PurchaseForm>;
 
 export default function StockPurchasePage() {
   const t = useTranslations('stockPurchase');
@@ -123,7 +127,10 @@ export default function StockPurchasePage() {
   const { locale } = useAppLocale();
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
-  const businessToday = useMemo(() => todayIso(new Date(), businessDayStartHour), [businessDayStartHour]);
+  const businessToday = useBusinessToday(businessDayStartHour);
+  // An untouched form date follows the business day across midnight; a date
+  // the user picked is never replaced.
+  const dateTouched = useRef(false);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
@@ -141,15 +148,11 @@ export default function StockPurchasePage() {
   const purchaseRequest = useRef(0);
   const productRequest = useRef(0);
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<PurchaseForm>(() => ({
     date: businessToday,
-    product_id: '',
-    quantity: '',
-    cost_price: '',
-    sale_price: '',
+    ...emptyItemFields,
     payment_method: defaultPaymentMethod(enabledPaymentMethods),
-    comment: '',
-  });
+  }));
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -161,15 +164,6 @@ export default function StockPurchasePage() {
     }, SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
   }, [debouncedQuery, query]);
-
-  const matchingProductIds = useMemo(() => {
-    const needle = debouncedQuery.toLowerCase();
-    if (!needle) return null;
-    return products
-      .filter((product) => product.name.toLowerCase().includes(needle))
-      .map((product) => product.id);
-  }, [products, debouncedQuery]);
-  const matchingProductKey = matchingProductIds?.join(',') ?? '';
 
   const loadProducts = useCallback(async ({ silent = false } = {}) => {
     const requestId = ++productRequest.current;
@@ -188,7 +182,7 @@ export default function StockPurchasePage() {
     try {
       const productsRes = await runWithJwtTimingRetry(
         supabase,
-        async () => fetchActiveProductsOrdered(supabase, selectedClubId),
+        async () => fetchActiveProductsOrdered(supabase, selectedClubId, { tracksInventoryOnly: true }),
       );
       // A slower response for a previously selected club must never replace
       // (or be selected in) the current club's product list.
@@ -223,7 +217,22 @@ export default function StockPurchasePage() {
     const to = from + PURCHASES_PAGE_SIZE - 1;
     const supabase = createClient();
     const paymentSearch = sanitizePurchaseSearch(debouncedQuery);
-    const productIds = matchingProductKey ? matchingProductKey.split(',') : [];
+    // Match the purchase's product by name across the whole club catalog,
+    // including inactive and archived products that still have receipts.
+    let productIds: string[] = [];
+    if (debouncedQuery) {
+      const matches = await runWithJwtTimingRetry(
+        supabase,
+        async () => fetchProductIdsByName(supabase, selectedClubId, debouncedQuery),
+      );
+      if (requestId !== purchaseRequest.current) return;
+      if (matches.error) {
+        setPurchasesLoading(false);
+        setPurchasesError(tRef.current('purchasesLoadFailed'));
+        return;
+      }
+      productIds = matches.data;
+    }
     const filters: string[] = [];
     if (paymentSearch) filters.push(`payment_method.ilike.%${paymentSearch}%`);
     if (productIds.length) filters.push(`product_id.in.(${productIds.join(',')})`);
@@ -255,25 +264,20 @@ export default function StockPurchasePage() {
     setPurchasesError('');
     setPurchases((data as PurchaseWithProduct[]) ?? []);
     setPurchaseCount(count ?? 0);
-  }, [debouncedQuery, matchingProductKey, selectedClubId, tRef]);
+  }, [debouncedQuery, selectedClubId, tRef]);
 
   // A different club has different products: never carry a product, prices or
   // comment from the previous club into this form.
   useEffect(() => {
     setPurchasePage(1);
     setFormError('');
-    setForm((prev) => ({
-      ...prev,
-      product_id: '',
-      quantity: '',
-      cost_price: '',
-      sale_price: '',
-      comment: '',
-    }));
+    dateTouched.current = false;
+    setForm((prev) => ({ ...prev, ...emptyItemFields }));
   }, [selectedClubId]);
 
   useEffect(() => {
-    setForm((prev) => ({ ...prev, date: businessToday }));
+    if (dateTouched.current) return;
+    setForm((prev) => (prev.date === businessToday ? prev : { ...prev, date: businessToday }));
   }, [businessToday, selectedClubId]);
 
   useEffect(() => {
@@ -297,8 +301,16 @@ export default function StockPurchasePage() {
 
   const selectedProduct = products.find((product) => product.id === form.product_id) ?? null;
   const quantity = parseQuantity(form.quantity);
-  const costPrice = parseCurrencyInput(form.cost_price);
-  const salePrice = parseCurrencyInput(form.sale_price || selectedProduct?.sale_price || 0);
+  const costPrice = resolvePrefilledAmount(form.cost_price, form.cost_prefill);
+  const salePrice = form.sale_price
+    ? resolvePrefilledAmount(form.sale_price, form.sale_prefill)
+    : selectedProduct?.sale_price ?? 0;
+  // Send a sale price only when the user changed it: the purchase trigger
+  // copies a non-null price onto the catalog and would otherwise overwrite a
+  // newer catalog price with this page's stale copy.
+  const requestedSalePrice = form.sale_price && isPrefilledAmountEdited(form.sale_price, form.sale_prefill)
+    ? parseCurrencyInput(form.sale_price)
+    : null;
   const totalCost = quantity * costPrice;
   const totalSaleValue = quantity * salePrice;
   const estimatedProfit = quantity * (salePrice - costPrice);
@@ -323,7 +335,8 @@ export default function StockPurchasePage() {
   const purchaseRangeTo = Math.min(purchasePage * PURCHASES_PAGE_SIZE, purchaseCount);
   const currency = tc('currency');
 
-  function set<K extends keyof typeof form>(field: K, value: (typeof form)[K]) {
+  function set<K extends keyof PurchaseForm>(field: K, value: PurchaseForm[K]) {
+    if (field === 'date') dateTouched.current = true;
     setForm((prev) => ({ ...prev, [field]: value }));
     setFormError('');
   }
@@ -347,26 +360,16 @@ export default function StockPurchasePage() {
 
   /** Clears the item fields after a save but keeps the date and payment method. */
   function clearItemFields() {
-    setForm((prev) => ({
-      ...prev,
-      product_id: '',
-      quantity: '',
-      cost_price: '',
-      sale_price: '',
-      comment: '',
-    }));
+    setForm((prev) => ({ ...prev, ...emptyItemFields }));
     setFormError('');
   }
 
   function resetForm() {
+    dateTouched.current = false;
     setForm({
       date: businessToday,
-      product_id: '',
-      quantity: '',
-      cost_price: '',
-      sale_price: '',
+      ...emptyItemFields,
       payment_method: defaultPaymentMethod(enabledPaymentMethods),
-      comment: '',
     });
     setFormError('');
   }
@@ -374,12 +377,21 @@ export default function StockPurchasePage() {
   function selectProduct(productId: string) {
     const product = products.find((item) => item.id === productId);
     setFormError('');
-    setForm((prev) => ({
-      ...prev,
-      product_id: productId,
-      cost_price: product ? formatCurrencyInput(product.cost_price) : prev.cost_price,
-      sale_price: product ? formatCurrencyInput(product.sale_price) : prev.sale_price,
-    }));
+    setForm((prev) => {
+      if (!product) return { ...prev, product_id: productId };
+      // Fractional weighted-average costs are shown exactly and, while left
+      // untouched, submitted exactly instead of as rounded whole sums.
+      const costPrefill = prefillAmount(product.cost_price);
+      const salePrefill = prefillAmount(product.sale_price);
+      return {
+        ...prev,
+        product_id: productId,
+        cost_price: costPrefill?.input ?? '',
+        sale_price: salePrefill?.input ?? '',
+        cost_prefill: costPrefill,
+        sale_prefill: salePrefill,
+      };
+    });
   }
 
   async function reloadAfterMutation(nextPage: number) {
@@ -416,7 +428,7 @@ export default function StockPurchasePage() {
         p_product_id: form.product_id,
         p_quantity: quantity,
         p_cost_price: costPrice,
-        p_sale_price: form.sale_price ? salePrice : null,
+        p_sale_price: requestedSalePrice,
         p_payment_method: form.payment_method,
         p_comment: form.comment.trim() || null,
       });

@@ -4,8 +4,10 @@ import {
   applyOwnerProfitCarryovers,
   availableForPaymentMethod,
   buildOwnerProfitSnapshot,
+  gameClubMoneyLeftByPaymentMethodByMonth,
   gameClubWithdrawalsByMethod,
 } from './ownerProfitSnapshot';
+import { calculateGameClubMoneyLeftByPaymentMethod, type ExpenseRow } from './dashboardMetrics';
 
 describe('owner profit snapshot', () => {
   it('builds isolated monthly balances and positive aggregate availability', () => {
@@ -199,5 +201,44 @@ describe('owner profit carryovers', () => {
       { method: 'terminal', earned: 100, carried: -70, withdrawn: 0, available: 30 },
     ]);
     expect(october.methods[1]).toEqual({ method: 'terminal', earned: 0, carried: 70, withdrawn: 0, available: 70 });
+  });
+});
+
+describe('gameClubMoneyLeftByPaymentMethodByMonth', () => {
+  const expense = (date: string, amount: number, payment_method: string, payment_source: 'game_club' | 'bar' = 'game_club'): ExpenseRow => ({
+    id: `${date}-${amount}`, date, amount, category: 'rent', payment_method, payment_source, comment: null, created_at: date,
+  });
+
+  it('matches the per-month calculation on rows filtered to each month', () => {
+    const cashRows = [
+      { date: '2026-07-01', cash_income: 100, terminal_income: 50, card_income: 20, playstation_income: 10 },
+      { date: '2026-07-31', cash_income: 40, terminal_income: 0, card_income: 0, playstation_income: 0 },
+      { date: '2026-08-02', cash_income: 70, terminal_income: 30, card_income: 0, playstation_income: 5 },
+    ];
+    const expenseRows = [
+      expense('2026-07-15', 25, 'cash'),
+      expense('2026-07-16', 1_000, 'cash', 'bar'),
+      expense('2026-09-01', 15, 'terminal'),
+    ];
+    const debtPaymentRows = [
+      { date: '2026-08-10', amount: 60, payment_method: 'card' },
+    ];
+
+    const result = gameClubMoneyLeftByPaymentMethodByMonth(cashRows, expenseRows, debtPaymentRows);
+
+    expect(Object.keys(result).sort()).toEqual(['2026-07', '2026-08', '2026-09']);
+    for (const month of Object.keys(result)) {
+      expect(result[month]).toEqual(calculateGameClubMoneyLeftByPaymentMethod(
+        cashRows.filter((row) => row.date.startsWith(month)),
+        expenseRows.filter((row) => row.date.startsWith(month)),
+        debtPaymentRows.filter((row) => row.date.startsWith(month)),
+      ));
+    }
+    expect(result['2026-07']).toEqual({ cash: 115, terminal: 50, card: 20, playstation: 10 });
+    expect(result['2026-09']).toEqual({ cash: 0, terminal: -15, card: 0, playstation: 0 });
+  });
+
+  it('returns no months without activity', () => {
+    expect(gameClubMoneyLeftByPaymentMethodByMonth([], [], [])).toEqual({});
   });
 });

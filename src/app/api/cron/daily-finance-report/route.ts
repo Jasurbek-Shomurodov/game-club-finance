@@ -1,9 +1,17 @@
+import { timingSafeEqual } from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import { serverTodayIso } from '@/lib/utils';
+import {
+  isTelegramReportTargetKey,
+  TELEGRAM_REPORT_TARGET_ENV,
+  type TelegramReportTargetKey,
+} from '@/lib/telegram/clubChat';
 import {
   buildDailyFinanceTelegramReport,
+  getClubBusinessDayStartHour,
   isIsoDate,
-  previousTashkentDateIso,
+  previousClubBusinessDateIso,
   sendTelegramMessage,
   sendTelegramPhoto,
   TelegramSendError,
@@ -24,6 +32,9 @@ export const fetchCache = 'force-no-store';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
+// Stop starting new build/Telegram attempts once less than this much of
+// maxDuration remains, leaving time to record the outcome in the ledger.
+const FINALIZE_RESERVE_MS = 15_000;
 const MIN_CRON_SECRET_LENGTH = 16;
 const CRON_SECRET_PATTERN = /^[A-Za-z0-9._~-]+$/;
 
@@ -46,33 +57,22 @@ function requireEnv(name: string): string {
 }
 
 interface TelegramReportTarget {
-  key: 'pixel' | 'main' | 'bunker';
+  key: TelegramReportTargetKey;
   chatId: string;
   clubId: string;
 }
 
-function optionalTarget(
-  key: TelegramReportTarget['key'],
-  chatEnvName: string,
-  clubEnvName: string,
-): TelegramReportTarget | null {
-  const chatId = process.env[chatEnvName];
-  const clubId = process.env[clubEnvName];
-
-  if (!chatId && !clubId) return null;
-  if (!chatId || !clubId) {
-    throw new Error(`Missing ${chatEnvName} or ${clubEnvName}`);
-  }
-
-  return { key, chatId, clubId };
-}
-
 function getTelegramReportTargets(): TelegramReportTarget[] {
-  const targets = [
-    optionalTarget('pixel', 'TELEGRAM_PIXEL_CHAT_ID', 'TELEGRAM_PIXEL_CLUB_ID'),
-    optionalTarget('main', 'TELEGRAM_MAIN_CHAT_ID', 'TELEGRAM_MAIN_CLUB_ID'),
-    optionalTarget('bunker', 'TELEGRAM_BUNKER_CHAT_ID', 'TELEGRAM_BUNKER_CLUB_ID'),
-  ].filter((target): target is TelegramReportTarget => Boolean(target));
+  const targets = TELEGRAM_REPORT_TARGET_ENV.flatMap(({ key, chatEnvName, clubEnvName }) => {
+    const chatId = process.env[chatEnvName];
+    const clubId = process.env[clubEnvName];
+
+    if (!chatId && !clubId) return [];
+    if (!chatId || !clubId) {
+      throw new Error(`Missing ${chatEnvName} or ${clubEnvName}`);
+    }
+    return [{ key, chatId, clubId }];
+  });
 
   if (targets.length === 0) {
     throw new Error('No Telegram report targets configured');
@@ -87,7 +87,7 @@ function filterTargets(
 ): TelegramReportTarget[] {
   if (!targetKey) return targets;
 
-  if (targetKey !== 'pixel' && targetKey !== 'main' && targetKey !== 'bunker') {
+  if (!isTelegramReportTargetKey(targetKey)) {
     throw new Error('target must be pixel, main, or bunker');
   }
 
@@ -97,6 +97,18 @@ function filterTargets(
   }
 
   return [selectedTarget];
+}
+
+function bearerMatches(authorization: string | null, secret: string): boolean {
+  const expected = Buffer.from(`Bearer ${secret}`);
+  const actual = Buffer.from(authorization ?? '');
+  // timingSafeEqual requires equal lengths; compare against itself on a
+  // mismatch so the rejection costs the same as a full comparison.
+  if (actual.length !== expected.length) {
+    timingSafeEqual(expected, expected);
+    return false;
+  }
+  return timingSafeEqual(actual, expected);
 }
 
 function cronAuthorizationStatus(
@@ -112,7 +124,7 @@ function cronAuthorizationStatus(
     return 'invalid_configuration';
   }
 
-  return request.headers.get('authorization') === `Bearer ${cronSecret}`
+  return bearerMatches(request.headers.get('authorization'), cronSecret)
     ? 'authorized'
     : 'unauthorized';
 }
@@ -194,14 +206,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const requestStartedAt = Date.now();
+    const deadlineAt = requestStartedAt + maxDuration * 1_000 - FINALIZE_RESERVE_MS;
     const requestedDate = request.nextUrl.searchParams.get('date');
     const dryRun = request.nextUrl.searchParams.get('dryRun') === '1';
     const targetKey = request.nextUrl.searchParams.get('target');
     const force = request.nextUrl.searchParams.get('force');
     const requestId = request.nextUrl.searchParams.get('requestId');
-    const businessDate = requestedDate ?? previousTashkentDateIso();
 
-    if (!isIsoDate(businessDate)) {
+    if (requestedDate !== null && !isIsoDate(requestedDate)) {
       return jsonNoStore({ ok: false, error: 'date must be YYYY-MM-DD' }, { status: 400 });
     }
 
@@ -220,70 +233,132 @@ export async function GET(request: NextRequest) {
 
     const targets = filterTargets(getTelegramReportTargets(), targetKey);
     const supabase = createServiceClient();
-    const buildReport = (target: TelegramReportTarget) => retryReportBuild(
+
+    // Each club has its own business day. Without a date, report that club's
+    // last closed business day. A scheduled (non-forced) send for an explicit
+    // date must also be for a closed day: a still-open day would burn the
+    // one-per-day `scheduled` ledger slot on a partial report.
+    const now = new Date(requestStartedAt);
+    const scheduledDelivery = !dryRun && force !== '1';
+    const resolvedTargets = await Promise.all(targets.map(async (target) => {
+      if (requestedDate !== null && !scheduledDelivery) {
+        return { target, businessDate: requestedDate, currentBusinessDate: null };
+      }
+      try {
+        const startHour = await retryReportBuild(
+          () => getClubBusinessDayStartHour(supabase, target.clubId),
+          { attempts: 3, delayMs: 200, deadlineAt },
+        );
+        return {
+          target,
+          businessDate: requestedDate ?? previousClubBusinessDateIso(now, startHour),
+          currentBusinessDate: serverTodayIso(now, startHour),
+        };
+      } catch (error) {
+        return { target, businessDate: requestedDate, error };
+      }
+    }));
+
+    const openDay = requestedDate === null ? undefined : resolvedTargets.find((resolved) =>
+      typeof resolved.currentBusinessDate === 'string'
+      && requestedDate >= resolved.currentBusinessDate);
+    if (openDay) {
+      return jsonNoStore({
+        ok: false,
+        error: `date must be before ${openDay.target.key}'s current business date `
+          + `${openDay.currentBusinessDate}; use dryRun=1 to preview an open day`,
+      }, { status: 400 });
+    }
+
+    const resolvedDates = new Set(resolvedTargets.map((resolved) => resolved.businessDate));
+    const responseBusinessDate = requestedDate
+      ?? (resolvedDates.size === 1 ? [...resolvedDates][0] : null);
+
+    const businessDateFailure = (resolved: (typeof resolvedTargets)[number]) => {
+      const failure = failurePayload('business_date', 'error' in resolved ? resolved.error : null);
+      logDeliveryEvent('error', 'telegram_report_business_date_failed', {
+        target: resolved.target.key,
+        error: failure.message,
+      });
+      return {
+        ok: false,
+        target: resolved.target.key,
+        businessDate: resolved.businessDate,
+        ...failure,
+      };
+    };
+
+    const buildReport = (target: TelegramReportTarget, businessDate: string) => retryReportBuild(
       () => buildDailyFinanceTelegramReport(supabase, {
         businessDate,
         chatId: target.chatId,
         clubId: target.clubId,
       }),
+      { deadlineAt },
     );
 
     if (dryRun) {
-      const built = await Promise.allSettled(
-        targets.map(async (target) => ({
-          target: target.key,
-          ...(await buildReport(target)),
-        })),
-      );
-      const reports = built.map((result, index) => {
-        const target = targets[index];
+      const reports = await Promise.all(resolvedTargets.map(async (resolved) => {
+        if ('error' in resolved || resolved.businessDate === null) {
+          return businessDateFailure(resolved);
+        }
+        const { target, businessDate } = resolved;
 
-        if (result.status === 'fulfilled') {
+        try {
+          const report = await buildReport(target, businessDate);
           return {
             ok: true,
-            target: result.value.target,
-            businessDate: result.value.businessDate,
-            message: result.value.message,
-            caption: result.value.caption,
+            target: target.key,
+            businessDate: report.businessDate,
+            message: report.message,
+            caption: report.caption,
             image: {
-              format: result.value.imagePng ? 'png' : 'text-fallback',
-              fileName: result.value.imagePng ? result.value.imageFileName : null,
-              bytes: result.value.imagePng?.byteLength ?? 0,
+              format: report.imagePng ? 'png' : 'text-fallback',
+              fileName: report.imagePng ? report.imageFileName : null,
+              bytes: report.imagePng?.byteLength ?? 0,
             },
           };
+        } catch (error) {
+          return {
+            ok: false,
+            target: target.key,
+            businessDate,
+            error: describeUnknownError(error),
+          };
         }
-
-        return {
-          ok: false,
-          target: target.key,
-          businessDate,
-          error: describeUnknownError(result.reason),
-        };
-      });
+      }));
       const hasFailure = reports.some((report) => !report.ok);
 
       return jsonNoStore({
         ok: !hasFailure,
         dryRun: true,
-        businessDate,
+        businessDate: responseBusinessDate,
         reports,
       }, { status: hasFailure ? 500 : 200 });
     }
 
     const botToken = requireEnv('TELEGRAM_BOT_TOKEN');
-    const results = await Promise.all(targets.map(async (target) => {
+    const results = await Promise.all(resolvedTargets.map(async (resolved) => {
+      if ('error' in resolved || resolved.businessDate === null) {
+        return businessDateFailure(resolved);
+      }
+      const { target, businessDate } = resolved;
       let claim: ReportDeliveryClaim;
+      let claimAttempts = 0;
 
       try {
         claim = await retryReportBuild(
-          () => claimReportDelivery(supabase, {
-            businessDate,
-            targetKey: target.key,
-            clubId: target.clubId,
-            chatId: target.chatId,
-            deliveryKey,
-          }),
-          { attempts: 3, delayMs: 250 },
+          () => {
+            claimAttempts += 1;
+            return claimReportDelivery(supabase, {
+              businessDate,
+              targetKey: target.key,
+              clubId: target.clubId,
+              chatId: target.chatId,
+              deliveryKey,
+            });
+          },
+          { attempts: 3, delayMs: 250, deadlineAt },
         );
       } catch (error) {
         const failure = failurePayload('claim', error);
@@ -316,6 +391,30 @@ export async function GET(request: NextRequest) {
           skipped: true,
           sentAt: claim.sentAt,
           telegram: claim.telegramResult,
+        };
+      }
+
+      if (claim.outcome === 'in_progress' && claimAttempts > 1) {
+        // An earlier claim attempt errored, so it may have committed with its
+        // response lost: this invocation could own the lease it now sees as
+        // in progress. Nothing was sent; report a failure so the run is not
+        // mistaken for a success, and let the lease expire for recovery.
+        logDeliveryEvent('warn', 'telegram_report_delivery_claim_ambiguous', {
+          businessDate,
+          target: target.key,
+          deliveryId: claim.deliveryId,
+          claimAttempts,
+          claimExpiresAt: claim.claimExpiresAt,
+        });
+        return {
+          ok: false,
+          target: target.key,
+          businessDate,
+          deliveryId: claim.deliveryId,
+          status: 'in_progress',
+          stage: 'claim',
+          message: 'Delivery claim was retried and is now in progress; its owner is unknown',
+          claimExpiresAt: claim.claimExpiresAt,
         };
       }
 
@@ -386,7 +485,7 @@ export async function GET(request: NextRequest) {
 
       let report;
       try {
-        report = await buildReport(target);
+        report = await buildReport(target, businessDate);
       } catch (error) {
         const failure = failurePayload('build', error);
         const attemptHistory = [{
@@ -472,11 +571,13 @@ export async function GET(request: NextRequest) {
               imagePng: report.imagePng,
               imageFileName: report.imageFileName,
               caption: report.caption,
+              deadlineAt,
             })
           : await sendTelegramMessage({
               botToken,
               chatId: report.chatId,
               text: report.message,
+              deadlineAt,
             });
         const telegramResult = {
           deliveryType,
@@ -600,7 +701,7 @@ export async function GET(request: NextRequest) {
       : null;
 
     logDeliveryEvent(hasFailure ? 'error' : 'info', 'telegram_report_delivery_batch_completed', {
-      businessDate,
+      businessDate: responseBusinessDate,
       force: force === '1',
       targets: results.map((result) => ({
         target: result.target,
@@ -611,7 +712,7 @@ export async function GET(request: NextRequest) {
 
     return jsonNoStore({
       ok: !hasFailure,
-      businessDate,
+      businessDate: responseBusinessDate,
       forced: force === '1',
       status: singleStatus,
       format: singleFormat,

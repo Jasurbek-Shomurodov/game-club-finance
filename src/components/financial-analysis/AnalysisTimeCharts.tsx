@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 import { useTranslations } from 'next-intl';
 import { chartColors, chartTooltipStyle, formatAxis } from '@/components/dashboard/ChartCard';
-import { formatCurrency, formatDateShort } from '@/lib/formatters';
+import { formatCurrency, formatDateShort, formatMonthShort, formatYearMonth } from '@/lib/formatters';
 import {
   SPENDING_GROUPS,
   type DailyAnalysisRow,
@@ -84,16 +84,11 @@ export function DailyFlowChart({ data, locale, currency }: { data: DailyAnalysis
   );
 }
 
-function monthLabel(month: string, locale: string): string {
-  return new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' }).format(new Date(`${month}T00:00:00Z`));
-}
-
 /** Income and spending per month with accounting profit as a line. */
 export function MonthlyTrendChart({ data, locale, currency }: { data: MonthlyAnalysisRow[]; locale: string; currency: string }) {
   const t = useTranslations('financialAnalysis');
   const names: Record<string, string> = { income: t('income'), spent: t('spent'), profit: t('profit') };
-  const monthTitle = (month: string) => new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' })
-    .format(new Date(`${month}T00:00:00Z`));
+  const monthTitle = (month: string) => formatYearMonth(month.slice(0, 7), locale);
 
   return (
     <>
@@ -111,7 +106,7 @@ export function MonthlyTrendChart({ data, locale, currency }: { data: MonthlyAna
               {...axisProps}
               axisLine={{ stroke: chartColors.grid }}
               interval={0}
-              tickFormatter={(month: string) => monthLabel(month, locale)}
+              tickFormatter={(month: string) => formatMonthShort(month, locale)}
             />
             <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
             <ReferenceLine y={0} stroke={chartColors.axis} strokeOpacity={0.4} />

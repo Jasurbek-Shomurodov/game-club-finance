@@ -1,4 +1,5 @@
 import { chartColors, formatAxis } from '@/components/dashboard/ChartCard';
+import { intlLocaleFor } from '@/lib/formatters';
 import {
   BAR_COST_TARGET,
   OTHER_CATEGORY,
@@ -15,7 +16,7 @@ export function formatCompactMoney(amount: number, locale: string): string {
 
 export function formatShare(value: number | null, locale: string): string {
   if (value === null || !Number.isFinite(value)) return '—';
-  return `${new Intl.NumberFormat(locale === 'en' ? 'en-GB' : locale === 'uz' ? 'uz-Latn-UZ' : 'ru-RU', {
+  return `${new Intl.NumberFormat(intlLocaleFor(locale), {
     maximumFractionDigits: Math.abs(value) < 10 ? 1 : 0,
   }).format(value)}%`;
 }

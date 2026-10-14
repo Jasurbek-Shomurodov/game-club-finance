@@ -1,4 +1,5 @@
 import { formatCurrency, formatDateShort } from '../formatters';
+import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
 
 export interface ExpenseNotificationInput {
   addedBy: string;
@@ -16,27 +17,10 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   card: 'Карта',
 };
 
-const EXPENSE_CATEGORY_LABELS: Record<string, string> = {
-  rent: 'Аренда',
-  salary: 'Зарплата',
-  electricity: 'Электричество',
-  internet: 'Интернет',
-  repair: 'Ремонт',
-  cleaning: 'Уборка',
-  food_drinks: 'Еда / Напитки',
-  marketing: 'Маркетинг',
-  equipment: 'Оборудование',
-  tax: 'Налог',
-  correction: 'Исправление / ошибка',
-  discount: 'Скидки и бонусы клиентам',
-  supplies: 'Расходные материалы и хозтовары',
-  other: 'Другое',
-};
-
 export function buildExpenseNotification(input: ExpenseNotificationInput): string {
   const source = input.paymentSource === 'bar' ? 'Бар' : 'Игровой клуб';
   const method = PAYMENT_METHOD_LABELS[input.paymentMethod] ?? input.paymentMethod;
-  const category = EXPENSE_CATEGORY_LABELS[input.category] ?? input.category;
+  const category = RUSSIAN_EXPENSE_CATEGORY_LABELS[input.category] ?? input.category;
   const lines = [
     '💸 Добавлен расход',
     '',

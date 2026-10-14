@@ -20,8 +20,12 @@ describe('daily finance image deployment configuration', () => {
     expect(senderSource).not.toMatch(/await import\('\.\/dailyFinanceReportImage'\)/);
   });
 
-  it('bundles Linux libvips and application-owned Noto Sans files with the route', () => {
-    expect(vercelConfig.functions['src/app/api/cron/daily-finance-report/route.ts'].includeFiles)
+  it.each([
+    'daily-finance-report',
+    'daily-finance-report-retry-1',
+    'daily-finance-report-retry-2',
+  ])('bundles Linux libvips and application-owned Noto Sans files with the %s route', (route) => {
+    expect(vercelConfig.functions[`src/app/api/cron/${route}/route.ts`].includeFiles)
       .toBe('{node_modules/@img/sharp-libvips-linux-x64/**,src/assets/fonts/*.ttf}');
   });
 });

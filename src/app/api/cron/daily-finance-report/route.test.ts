@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   createServiceClient: vi.fn(),
   buildReport: vi.fn(),
+  getStartHour: vi.fn(),
   sendTelegramPhoto: vi.fn(),
   sendTelegramMessage: vi.fn(),
   claimDelivery: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock('@/lib/telegram/sendDailyFinanceReport', async () => {
   return {
     ...actual,
     buildDailyFinanceTelegramReport: mocks.buildReport,
+    getClubBusinessDayStartHour: mocks.getStartHour,
     sendTelegramPhoto: mocks.sendTelegramPhoto,
     sendTelegramMessage: mocks.sendTelegramMessage,
   };
@@ -85,6 +87,7 @@ describe('daily finance report cron route', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     mocks.createServiceClient.mockReturnValue({ rpc: vi.fn() });
+    mocks.getStartHour.mockResolvedValue(0);
     mocks.claimDelivery.mockResolvedValue({
       outcome: 'claimed',
       deliveryId: '40c05af5-5a59-45ae-a891-19a18228a721',
@@ -118,8 +121,110 @@ describe('daily finance report cron route', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
+  });
+
+  it('rejects a bearer token of a different length without throwing', async () => {
+    const response = await GET(cronRequest('', 'Bearer test-cron-secret-but-longer'));
+
+    expect(response.status).toBe(401);
+    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+  });
+
+  it('rejects an impossible calendar date', async () => {
+    const response = await GET(cronRequest('?date=2026-02-31&target=pixel'));
+
+    expect(response.status).toBe(400);
+    expect(mocks.claimDelivery).not.toHaveBeenCalled();
+  });
+
+  it('refuses a scheduled send for a business day that has not closed yet', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    // 08:00 in Tashkent on 27 August.
+    vi.setSystemTime(new Date('2026-08-27T03:00:00.000Z'));
+
+    for (const date of ['2026-08-27', '2026-08-28']) {
+      const response = await GET(cronRequest(`?date=${date}&target=pixel`));
+      const payload = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(payload.error).toContain('current business date 2026-08-27');
+    }
+    // A club whose day starts at 10:00 is still in its 26 August business day.
+    mocks.getStartHour.mockResolvedValue(10);
+    expect((await GET(cronRequest('?date=2026-08-26&target=pixel'))).status).toBe(400);
+    expect(mocks.claimDelivery).not.toHaveBeenCalled();
+    expect(mocks.sendTelegramPhoto).not.toHaveBeenCalled();
+
+    const preview = await GET(cronRequest('?date=2026-08-27&target=pixel&dryRun=1'));
+    expect(preview.status).toBe(200);
+    expect(mocks.buildReport).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ businessDate: '2026-08-27' }),
+    );
+  });
+
+  it('reports the previous business day of each club by default', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-27T03:00:00.000Z'));
+
+    await GET(cronRequest());
+    expect(mocks.claimDelivery).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ businessDate: '2026-08-26', deliveryKey: 'scheduled' }),
+    );
+
+    // At 08:00 a club opening at 10:00 has not closed 26 August yet.
+    mocks.getStartHour.mockResolvedValue(10);
+    await GET(cronRequest());
+    expect(mocks.claimDelivery).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ businessDate: '2026-08-25' }),
+    );
+  });
+
+  it('fails a target closed when its business day cannot be read', async () => {
+    mocks.getStartHour.mockRejectedValue(new Error('clubs unavailable'));
+
+    const response = await GET(cronRequest());
+    const payload = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(payload.sent[0]).toMatchObject({ ok: false, stage: 'business_date' });
+    expect(mocks.claimDelivery).not.toHaveBeenCalled();
+  });
+
+  it('treats an in-progress claim after a retried claim as a failure', async () => {
+    mocks.claimDelivery
+      .mockRejectedValueOnce(new Error('connection reset'))
+      .mockResolvedValueOnce({
+        outcome: 'in_progress',
+        deliveryId: '40c05af5-5a59-45ae-a891-19a18228a721',
+        status: 'claimed',
+        claimCount: 1,
+        claimExpiresAt: '2026-08-27T06:05:00.000Z',
+      });
+
+    const response = await GET(cronRequest('?date=2026-08-26&target=pixel'));
+    const payload = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(payload.sent[0]).toMatchObject({ ok: false, status: 'in_progress', stage: 'claim' });
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining(
+      'telegram_report_delivery_claim_ambiguous',
+    ));
+    expect(mocks.buildReport).not.toHaveBeenCalled();
+    expect(mocks.sendTelegramPhoto).not.toHaveBeenCalled();
+  });
+
+  it('passes the invocation deadline to Telegram dispatch', async () => {
+    await GET(cronRequest('?date=2026-08-26&target=pixel'));
+
+    expect(mocks.sendTelegramPhoto).toHaveBeenCalledWith(expect.objectContaining({
+      deadlineAt: expect.any(Number),
+    }));
   });
 
   it('fails loudly before report work when CRON_SECRET is too short', async () => {

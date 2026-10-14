@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Banknote, Building2, CreditCard, Save, WalletCards } from 'lucide-react';
 import { useClub } from '@/components/layout/DashboardShell';
@@ -17,7 +17,7 @@ import {
 import { parseCurrencyInput } from '@/lib/formatters';
 import { MANUAL_EXPENSE_CATEGORIES } from '@/lib/expenseCategories';
 import { mutateFinanceRequest } from '@/lib/supabase/client';
-import { todayIso } from '@/lib/utils';
+import { useBusinessToday } from '@/lib/useBusinessToday';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
 import type { EntryPaymentMethod } from '@/types';
 
@@ -28,18 +28,30 @@ interface ExpenseRegistrationFormProps {
   onSaved?: () => void | Promise<void>;
 }
 
+const EXPENSE_ERROR_KEYS: Record<string, string> = {
+  UNAUTHORIZED: 'unauthorized',
+  INVALID_REQUEST: 'invalidRequest',
+  FORBIDDEN: 'forbidden',
+  PAYMENT_METHOD_DISABLED: 'paymentMethodDisabled',
+  CHECK_FAILED: 'checkFailed',
+  REQUEST_CONFLICT: 'requestConflict',
+  INVALID_VALUES: 'invalidValues',
+  NOT_FOUND: 'notFound',
+  SERVER_ERROR: 'serverError',
+};
+
 export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistrationFormProps) {
   const t = useTranslations('expenses');
   const tc = useTranslations('common');
   const { selectedClubId, businessDayStartHour, enabledPaymentMethods } = useClub();
-  const businessToday = useMemo(
-    () => todayIso(new Date(), businessDayStartHour),
-    [businessDayStartHour],
-  );
+  const businessToday = useBusinessToday(businessDayStartHour);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   // Blocks a second submit before the `saving` state re-renders the button.
   const submitPending = useRef(false);
+  // One id per expense being entered: a retry after a lost response reuses it,
+  // so the server stores the expense once. A fresh id after each success.
+  const requestId = useRef<string | null>(null);
   const [form, setForm] = useState({
     date: businessToday,
     amount: '',
@@ -49,10 +61,15 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     comment: '',
   });
 
+  // When the business day rolls over, a date still on the old day moves to the
+  // new one; a date the user picked deliberately is kept.
+  const previousBusinessToday = useRef(businessToday);
   useEffect(() => {
+    const previousToday = previousBusinessToday.current;
+    previousBusinessToday.current = businessToday;
     setForm((current) => ({
       ...current,
-      date: businessToday,
+      date: current.date === previousToday ? businessToday : current.date,
       payment_method: enabledPaymentMethods.some((method) => method === current.payment_method)
         ? current.payment_method
         : defaultPaymentMethod(enabledPaymentMethods),
@@ -70,13 +87,21 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
       date: businessToday,
       amount: '',
       category: '',
-        payment_method: defaultPaymentMethod(enabledPaymentMethods),
+      payment_method: defaultPaymentMethod(enabledPaymentMethods),
       payment_source: 'game_club',
       comment: '',
     });
   }, [businessToday, enabledPaymentMethods, selectedClubId]);
 
+  // Stable API error codes → translated text; anything unknown is a generic save error.
+  function expenseErrorMessage(code: string | null): string {
+    const key = code ? EXPENSE_ERROR_KEYS[code] : undefined;
+    return key ? t(`errors.${key}`) : t('saveError');
+  }
+
   function set<K extends keyof typeof form>(field: K, value: (typeof form)[K]) {
+    // Edited values are a different expense, not a retry of the last attempt.
+    requestId.current = null;
     setForm((current) => ({ ...current, [field]: value }));
   }
 
@@ -121,6 +146,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
+          id: (requestId.current ??= crypto.randomUUID()),
           clubId: selectedClubId,
           date: form.date,
           amount,
@@ -132,19 +158,18 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
       });
 
       if (!response.ok) {
-        // The API returns raw database text; show a translated message instead.
-        setError(response.status === 401 || response.status === 403
-          ? tc('accessDeniedDescription')
-          : t('saveError'));
+        const body = await response.json().catch(() => null) as { code?: unknown } | null;
+        setError(expenseErrorMessage(typeof body?.code === 'string' ? body.code : null));
         return;
       }
 
       saved = true;
+      requestId.current = null;
       setForm({
         date: businessToday,
         amount: '',
         category: '',
-            payment_method: defaultPaymentMethod(enabledPaymentMethods),
+        payment_method: defaultPaymentMethod(enabledPaymentMethods),
         payment_source: 'game_club',
         comment: '',
       });

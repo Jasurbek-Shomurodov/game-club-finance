@@ -29,10 +29,14 @@ import {
   type SegmentedOption,
 } from '@/components/PresentationFoundation';
 import { formatCurrency, formatCurrencyInput, formatNumber, formatUnitCurrency } from '@/lib/formatters';
+import { fetchProductsOrdered, isMissingSortOrder, updateProductSortOrders } from '@/lib/supabase/products';
 import {
   buildProductInsertPayload,
   buildProductUpdatePayload,
+  planProductReorder,
+  prefillAmount,
   validateProductForm,
+  type PrefilledAmount,
   type ProductWriteForm,
 } from '@/lib/productWrites';
 import { LOW_STOCK_DEFAULT, resolveLowStockThreshold, stockLevel } from '@/lib/calculations/stock';
@@ -55,10 +59,6 @@ const emptyForm = (): ProductForm => ({
   is_active: true,
 });
 
-function isMissingSortOrder(error: { message?: string } | null | undefined) {
-  return error?.message?.includes('sort_order') ?? false;
-}
-
 function productCategory(value: string | null | undefined): string {
   return String(value ?? '').trim();
 }
@@ -75,6 +75,7 @@ export default function ProductsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm());
+  const [loadedCostPrice, setLoadedCostPrice] = useState<PrefilledAmount | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -107,44 +108,9 @@ export default function ProductsPage() {
       setLoading(false);
     };
 
-    const ordered = await supabase
-      .from('products')
-      .select('*')
-      .eq('club_id', selectedClubId)
-      .eq('is_deleted', false)
-      .order('sort_order', { ascending: true })
-      .order('name', { ascending: true });
-
-    if (!ordered.error) return finish((ordered.data ?? []) as Product[]);
-
-    if (isMissingSortOrder(ordered.error)) {
-      const named = await supabase
-        .from('products')
-        .select('*')
-        .eq('club_id', selectedClubId)
-        .eq('is_deleted', false)
-        .order('name', { ascending: true });
-
-      if (!named.error) return finish((named.data ?? []) as Product[]);
-    }
-
-    const orderedWithoutDeletedFilter = await supabase
-      .from('products')
-      .select('*')
-      .eq('club_id', selectedClubId)
-      .order('sort_order', { ascending: true })
-      .order('name', { ascending: true });
-
-    if (!orderedWithoutDeletedFilter.error) return finish((orderedWithoutDeletedFilter.data ?? []) as Product[]);
-
-    const fallback = await supabase
-      .from('products')
-      .select('*')
-      .eq('club_id', selectedClubId)
-      .order('name', { ascending: true });
-
-    if (fallback.error) return finish(silent ? null : [], tRef.current('loadFailed'));
-    finish((fallback.data ?? []) as Product[]);
+    const result = await fetchProductsOrdered(supabase, selectedClubId);
+    if (result.error) return finish(silent ? null : [], tRef.current('loadFailed'));
+    finish(result.data ?? []);
   }, [selectedClubId, tRef]);
 
   useEffect(() => {
@@ -192,6 +158,7 @@ export default function ProductsPage() {
     if (!canManageInventory) return;
     setEditingId(null);
     setForm(emptyForm());
+    setLoadedCostPrice(null);
     setFormError('');
     setSalePriceError('');
     setModalOpen(true);
@@ -199,12 +166,14 @@ export default function ProductsPage() {
 
   function openEdit(p: Product) {
     if (!canManageInventory || p.is_deleted) return;
+    const costPrefill = prefillAmount(p.cost_price);
     setEditingId(p.id);
+    setLoadedCostPrice(costPrefill);
     setForm({
       name: p.name,
       category: p.category ?? '',
       sale_price: formatCurrencyInput(p.sale_price),
-      cost_price: formatCurrencyInput(p.cost_price),
+      cost_price: costPrefill?.input ?? '',
       current_stock: String(p.current_stock),
       low_stock_threshold: String(resolveLowStockThreshold(p.low_stock_threshold)),
       tracks_inventory: p.tracks_inventory !== false,
@@ -246,7 +215,7 @@ export default function ProductsPage() {
     const supabase = createClient();
     let err: string | null = null;
     if (editingId) {
-      const payload = buildProductUpdatePayload(form, { isOwner });
+      const payload = buildProductUpdatePayload(form, { isOwner, loadedCostPrice });
       const { data: updated, error: e } = await supabase
         .from('products')
         .update(payload)
@@ -332,34 +301,23 @@ export default function ProductsPage() {
     const targetIndex = currentIndex + direction;
     if (currentIndex < 0 || targetIndex < 0 || targetIndex >= products.length) return;
 
-    const reordered = [...products];
-    const [moved] = reordered.splice(currentIndex, 1);
-    reordered.splice(targetIndex, 0, moved);
+    const plan = planProductReorder(products, currentIndex, targetIndex);
+    if (!plan) return;
+    const sortOrderById = new Map(plan.writes.map((write) => [write.id, write.sort_order]));
+    const byId = new Map(products.map((product) => [product.id, product]));
 
     setMovingId(productId);
-    setProducts(reordered.map((product, index) => (
-      product.sort_order === index + 1 ? product : { ...product, sort_order: index + 1 }
-    )));
+    setProducts(plan.order.flatMap((id) => {
+      const product = byId.get(id);
+      if (!product) return [];
+      const sortOrder = sortOrderById.get(id);
+      return sortOrder === undefined ? [product] : [{ ...product, sort_order: sortOrder }];
+    }));
 
     try {
-      const supabase = createClient();
-      // Only write rows whose position actually changed (normally the two
-      // swapped products; the first reorder also normalizes missing orders).
-      const updatedAt = new Date().toISOString();
-      const updates = reordered.flatMap((product, index) => (
-        product.sort_order === index + 1 ? [] : [
-          supabase
-            .from('products')
-            .update({ sort_order: index + 1, updated_at: updatedAt })
-            .eq('club_id', selectedClubId)
-            .eq('id', product.id),
-        ]
-      ));
-      const results = await Promise.all(updates);
-      const firstError = results.find((result) => result.error)?.error;
-
-      if (firstError) {
-        showToast(isMissingSortOrder(firstError) ? t('sortOrderMigrationRequired') : firstError.message, 'error');
+      const { error: moveError } = await updateProductSortOrders(createClient(), selectedClubId, plan.writes);
+      if (moveError) {
+        showToast(isMissingSortOrder(moveError) ? t('sortOrderMigrationRequired') : moveError.message ?? tc('error'), 'error');
         await loadProducts({ silent: true });
       }
     } catch (moveError) {

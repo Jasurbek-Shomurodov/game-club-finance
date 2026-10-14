@@ -1,10 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatDateOnly } from '../formatters';
+import { isMissingDatabaseColumn } from '../supabase/errors';
 import { fetchAllRows } from '../supabase/pagination';
+import { normalizeBusinessDayStartHour, serverTodayIso } from '../utils';
 import {
   buildDailyFinanceReportInput,
   formatRussianDailyFinanceReportCaption,
   formatRussianDailyFinanceReport,
+  monthStartIso,
+  previousComparableMonthRangeIso,
 } from './dailyFinanceReport';
 import { renderDailyFinanceReportPng } from './dailyFinanceReportImage';
 import type {
@@ -18,10 +22,14 @@ import type { LowStockProductInput } from '../calculations/stock';
 import type {
   DailyFinanceReportDebtPaymentRow,
   DailyFinanceReportDebtRow,
+  DailyFinanceReportLaterDebtPaymentRow,
 } from './dailyFinanceReport';
 
 const TELEGRAM_API_BASE = 'https://api.telegram.org';
-const TASHKENT_TIME_ZONE = 'Asia/Tashkent';
+/** Telegram rejects sendMessage text longer than 4096 characters. */
+export const TELEGRAM_MESSAGE_MAX_LENGTH = 4_096;
+/** Telegram rejects photo captions longer than 1024 characters. */
+export const TELEGRAM_CAPTION_MAX_LENGTH = 1_024;
 
 interface ClubRow {
   id: string;
@@ -38,56 +46,63 @@ export interface DailyFinanceReportBuildResult {
   imageFileName: string;
 }
 
-function datePartsInTashkent(date: Date): { year: number; month: number; day: number } {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: TASHKENT_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date);
-
-  const year = Number(parts.find((part) => part.type === 'year')?.value);
-  const month = Number(parts.find((part) => part.type === 'month')?.value);
-  const day = Number(parts.find((part) => part.type === 'day')?.value);
-
-  if (!year || !month || !day) {
-    throw new Error('Could not resolve Tashkent date');
-  }
-
-  return { year, month, day };
-}
-
-function isoDateFromUtcDate(date: Date): string {
-  return [
-    date.getUTCFullYear(),
-    String(date.getUTCMonth() + 1).padStart(2, '0'),
-    String(date.getUTCDate()).padStart(2, '0'),
-  ].join('-');
-}
-
-export function previousTashkentDateIso(now = new Date()): string {
-  const { year, month, day } = datePartsInTashkent(now);
-  const previousDate = new Date(Date.UTC(year, month - 1, day - 1));
-  return isoDateFromUtcDate(previousDate);
-}
-
+/** Strict YYYY-MM-DD that names a real calendar date (rejects 2026-02-31). */
 export function isIsoDate(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year
+    && date.getUTCMonth() === month - 1
+    && date.getUTCDate() === day;
 }
 
-export function monthStartIso(date: string): string {
-  return `${date.slice(0, 7)}-01`;
-}
-
-export function previousComparableMonthRangeIso(date: string): { from: string; to: string } {
+function addDaysIso(date: string, days: number): string {
   const [year, month, day] = date.split('-').map(Number);
-  const start = new Date(Date.UTC(year, month - 2, 1));
-  const lastDay = new Date(Date.UTC(year, month - 1, 0)).getUTCDate();
-  const prefix = `${start.getUTCFullYear()}-${String(start.getUTCMonth() + 1).padStart(2, '0')}`;
-  return {
-    from: `${prefix}-01`,
-    to: `${prefix}-${String(Math.min(day, lastDay)).padStart(2, '0')}`,
-  };
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+/**
+ * The club's most recent fully closed business day: the day before its current
+ * business date. The current business day began at the club's start hour, so
+ * the previous one has always ended by the time this runs.
+ */
+export function previousClubBusinessDateIso(now: Date, businessDayStartHour: number): string {
+  return addDaysIso(serverTodayIso(now, businessDayStartHour), -1);
+}
+
+/** The club's configured business-day start hour (0 on pre-019 databases). */
+export async function getClubBusinessDayStartHour(
+  supabase: SupabaseClient,
+  clubId: string,
+): Promise<number> {
+  const { data, error } = await supabase
+    .from('clubs')
+    .select('business_day_start_hour')
+    .eq('id', clubId)
+    .single();
+
+  if (error) {
+    if (isMissingDatabaseColumn(error, 'business_day_start_hour')) return 0;
+    throw error;
+  }
+  if (!data) throw new Error('Club not found');
+  return normalizeBusinessDayStartHour((data as { business_day_start_hour?: unknown }).business_day_start_hour);
+}
+
+/**
+ * Fits text into Telegram's length limit. Messages are sent without
+ * parse_mode, so there are no tags or entities to keep intact; this only avoids
+ * splitting a UTF-16 surrogate pair and prefers ending at a line break.
+ */
+export function truncateTelegramText(text: string, maxLength = TELEGRAM_MESSAGE_MAX_LENGTH): string {
+  if (text.length <= maxLength) return text;
+  const marker = '\n…';
+  let end = maxLength - marker.length;
+  const code = text.charCodeAt(end - 1);
+  if (code >= 0xd800 && code <= 0xdbff) end -= 1;
+  const lineBreak = text.lastIndexOf('\n', end);
+  if (lineBreak > end * 0.8) end = lineBreak;
+  return `${text.slice(0, end)}${marker}`;
 }
 
 /**
@@ -141,7 +156,7 @@ export async function buildDailyFinanceTelegramReport(
 ): Promise<DailyFinanceReportBuildResult> {
   const monthStart = monthStartIso(businessDate);
   const previousMonthRange = previousComparableMonthRangeIso(businessDate);
-  const [clubRes, cashRes, stockRes, purchaseRes, expenseRes, inventoryRes, debtRes, debtPaymentRes, monthCashRes, monthStockRes, monthPurchaseRes, monthExpenseRes, previousCashRes, previousStockRes, previousPurchaseRes, previousExpenseRes, previousDebtPaymentRes, previousInventoryRes, lowStockProductRows] = await Promise.all([
+  const [clubRes, cashRes, stockRes, purchaseRes, expenseRes, inventoryRes, debtRes, laterDebtPaymentRes, debtPaymentRes, monthCashRes, monthStockRes, monthPurchaseRes, monthExpenseRes, previousCashRes, previousStockRes, previousPurchaseRes, previousExpenseRes, previousDebtPaymentRes, lowStockProductRows] = await Promise.all([
     getClub(supabase, clubId),
     fetchAllRows<DailyCashRow>(() =>
       supabase
@@ -178,12 +193,17 @@ export async function buildDailyFinanceTelegramReport(
         .order('date', { ascending: true })
         .order('id', { ascending: true }),
     ),
+    // Closing counts from the start of the comparable previous month through
+    // the report date: the report-date value uses each product's latest count
+    // on or before that date, and the comparison uses the previous-month slice.
+    // (club_id, date, product_id) is unique, so the ordering pages stably.
     fetchAllRows<InventorySnapshotRow>(() =>
       supabase
         .from('daily_stock_counts')
         .select('product_id,date,closing_stock,cost_price,products(tracks_inventory)')
         .eq('club_id', clubId)
-        .eq('date', businessDate)
+        .gte('date', previousMonthRange.from)
+        .lte('date', businessDate)
         .order('date', { ascending: true })
         .order('product_id', { ascending: true }),
     ),
@@ -194,6 +214,15 @@ export async function buildDailyFinanceTelegramReport(
         .eq('club_id', clubId)
         .order('id', { ascending: true }),
     ),
+    fetchAllRows<DailyFinanceReportLaterDebtPaymentRow>(() =>
+      supabase
+        .from('debt_payments')
+        .select('id,debt_id,date,amount')
+        .eq('club_id', clubId)
+        .gt('date', businessDate)
+        .order('date', { ascending: true })
+        .order('id', { ascending: true }),
+    ),
     fetchAllRows<DailyFinanceReportDebtPaymentRow>(() =>
       supabase
         .from('debt_payments')
@@ -291,16 +320,6 @@ export async function buildDailyFinanceTelegramReport(
         .lte('date', previousMonthRange.to)
         .order('date', { ascending: true })
         .order('id', { ascending: true }),
-    ),
-    fetchAllRows<InventorySnapshotRow>(() =>
-      supabase
-        .from('daily_stock_counts')
-        .select('product_id,date,closing_stock,cost_price,products(tracks_inventory)')
-        .eq('club_id', clubId)
-        .gte('date', previousMonthRange.from)
-        .lte('date', previousMonthRange.to)
-        .order('date', { ascending: true })
-        .order('product_id', { ascending: true }),
     ),
     getLowStockProductRows(supabase, clubId),
   ]);
@@ -313,6 +332,7 @@ export async function buildDailyFinanceTelegramReport(
     inventoryRes.error,
     debtRes.error,
     debtPaymentRes.error,
+    laterDebtPaymentRes.error,
     monthCashRes.error,
     monthStockRes.error,
     monthPurchaseRes.error,
@@ -322,10 +342,11 @@ export async function buildDailyFinanceTelegramReport(
     previousPurchaseRes.error,
     previousExpenseRes.error,
     previousDebtPaymentRes.error,
-    previousInventoryRes.error,
   ].find(Boolean);
 
   if (firstError) throw firstError;
+
+  const inventoryRows = (inventoryRes.data ?? []) as InventorySnapshotRow[];
 
   const input = buildDailyFinanceReportInput({
     clubName: clubRes.name,
@@ -344,10 +365,13 @@ export async function buildDailyFinanceTelegramReport(
     previousMonthStockPurchaseRows: (previousPurchaseRes.data ?? []) as StockPurchaseCostRow[],
     previousMonthExpenseRows: (previousExpenseRes.data ?? []) as ExpenseRow[],
     previousMonthDebtPaymentRows: (previousDebtPaymentRes.data ?? []) as DailyFinanceReportDebtPaymentRow[],
-    previousMonthInventoryRows: (previousInventoryRes.data ?? []) as InventorySnapshotRow[],
-    inventoryRows: (inventoryRes.data ?? []) as InventorySnapshotRow[],
+    previousMonthInventoryRows: inventoryRows.filter(
+      (row) => row.date >= previousMonthRange.from && row.date <= previousMonthRange.to,
+    ),
+    inventoryRows,
     debtRows: (debtRes.data ?? []) as DailyFinanceReportDebtRow[],
     debtPaymentRows: (debtPaymentRes.data ?? []) as DailyFinanceReportDebtPaymentRow[],
+    laterDebtPaymentRows: (laterDebtPaymentRes.data ?? []) as DailyFinanceReportLaterDebtPaymentRow[],
     lowStockProductRows,
   });
   let imagePng: Buffer | null = null;
@@ -479,6 +503,13 @@ interface TelegramRequestOptions {
   timeoutMs?: number;
   baseDelayMs?: number;
   maxInProcessRetryDelayMs?: number;
+  /**
+   * Epoch milliseconds after which no further attempt may still be running.
+   * An attempt (plus any retry wait) that would not finish by then is not
+   * started; the failure is reported as retryable so a later run can resume.
+   */
+  deadlineAt?: number;
+  now?: () => number;
   fetchImpl?: typeof fetch;
   sleep?: (milliseconds: number) => Promise<void>;
 }
@@ -491,7 +522,9 @@ async function sendTelegramRequest({
   maxAttempts = 3,
   timeoutMs = 8_000,
   baseDelayMs = 500,
-  maxInProcessRetryDelayMs = 10_000,
+  maxInProcessRetryDelayMs = 3_000,
+  deadlineAt,
+  now = Date.now,
   fetchImpl = fetch,
   sleep = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
 }: TelegramRequestOptions): Promise<TelegramSendResult> {
@@ -510,6 +543,17 @@ async function sendTelegramRequest({
 
   const attempts: TelegramSendAttempt[] = [];
   let destinationChatId = chatId;
+
+  const fitsDeadline = (waitMs: number) =>
+    deadlineAt === undefined || now() + waitMs + timeoutMs <= deadlineAt;
+
+  if (!fitsDeadline(0)) {
+    throw new TelegramSendError(
+      'Telegram send skipped: not enough time left in this invocation',
+      attempts,
+      true,
+    );
+  }
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const startedAt = new Date().toISOString();
@@ -593,9 +637,12 @@ async function sendTelegramRequest({
         ? retryDelayMs(attempt, retryAfter, baseDelayMs)
         : null;
       // Never retry sooner than retry_after. When Telegram asks us to wait
-      // longer than this invocation can safely remain open, persist a
-      // retryable failure so a later invocation can reclaim it instead.
-      const delay = requestedDelay !== null && requestedDelay <= maxInProcessRetryDelayMs
+      // longer than this invocation can safely remain open (or the retry would
+      // overrun its deadline), persist a retryable failure so a later
+      // invocation can reclaim it instead.
+      const delay = requestedDelay !== null
+        && requestedDelay <= maxInProcessRetryDelayMs
+        && fitsDeadline(requestedDelay)
         ? requestedDelay
         : null;
 
@@ -628,7 +675,7 @@ async function sendTelegramRequest({
 
       if (!retryable || attempt === maxAttempts || requestedDelay !== delay) {
         const deferredRetry = requestedDelay !== null && requestedDelay !== delay
-          ? `; retry_after requires ${requestedDelay}ms, beyond the in-process limit`
+          ? `; a retry after ${requestedDelay}ms does not fit this invocation`
           : '';
         throw new TelegramSendError(
           `Telegram send failed after ${attempt} attempt${attempt === 1 ? '' : 's'}: ${description}${deferredRetry}`,
@@ -683,6 +730,8 @@ interface TelegramCommonSendOptions {
   timeoutMs?: number;
   baseDelayMs?: number;
   maxInProcessRetryDelayMs?: number;
+  deadlineAt?: number;
+  now?: () => number;
   fetchImpl?: typeof fetch;
   sleep?: (milliseconds: number) => Promise<void>;
 }
@@ -698,7 +747,7 @@ export function sendTelegramMessage({
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         chat_id: destinationChatId,
-        text,
+        text: truncateTelegramText(text),
         disable_notification: false,
       }),
     }),
@@ -722,7 +771,7 @@ export function sendTelegramPhoto({
       const form = new FormData();
       form.set('chat_id', destinationChatId);
       form.set('photo', new Blob([new Uint8Array(imagePng)], { type: 'image/png' }), imageFileName);
-      form.set('caption', caption);
+      form.set('caption', truncateTelegramText(caption, TELEGRAM_CAPTION_MAX_LENGTH));
       form.set('disable_notification', 'false');
       return { body: form };
     },

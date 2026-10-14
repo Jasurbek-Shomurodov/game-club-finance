@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildIncomeTrend,
-  buildMonthlyAverageGameClubIncome,
   buildPeriodTrend,
   calculateAverageDailyIncome,
   calculateDashboardInventoryValue,
@@ -182,12 +180,41 @@ describe('dashboard metrics', () => {
   });
 
   it('compares calendar months without leaking a day from the month before', () => {
+    // A finished month (today is later) compares in full.
     expect(
-      getDashboardComparisonRange('month', { from: '2026-07-01', to: '2026-07-31' }),
+      getDashboardComparisonRange('month', { from: '2026-07-01', to: '2026-07-31' }, '2026-08-10'),
     ).toEqual({ from: '2026-06-01', to: '2026-06-30' });
     expect(
-      getDashboardComparisonRange('lastMonth', { from: '2026-06-01', to: '2026-06-30' }),
+      getDashboardComparisonRange('lastMonth', { from: '2026-06-01', to: '2026-06-30' }, '2026-07-14'),
     ).toEqual({ from: '2026-05-01', to: '2026-05-31' });
+    // The month's last day is already the full month.
+    expect(
+      getDashboardComparisonRange('month', { from: '2026-07-01', to: '2026-07-31' }, '2026-07-31'),
+    ).toEqual({ from: '2026-06-01', to: '2026-06-30' });
+  });
+
+  it('compares month-to-date with the same days of the previous month', () => {
+    expect(
+      getDashboardComparisonRange('month', { from: '2026-10-01', to: '2026-10-31' }, '2026-10-14'),
+    ).toEqual({ from: '2026-09-01', to: '2026-09-14' });
+    // The previous month's last day clamps a later day-of-month.
+    expect(
+      getDashboardComparisonRange('month', { from: '2026-03-01', to: '2026-03-31' }, '2026-03-30'),
+    ).toEqual({ from: '2026-02-01', to: '2026-02-28' });
+    expect(
+      getDashboardComparisonRange('month', { from: '2026-05-01', to: '2026-05-31' }, '2026-05-01'),
+    ).toEqual({ from: '2026-04-01', to: '2026-04-01' });
+  });
+
+  it('compares other in-progress ranges with the same elapsed days', () => {
+    // Wednesday of the week 2026-06-01..07 compares with last Monday..Wednesday.
+    expect(
+      getDashboardComparisonRange('week', { from: '2026-06-01', to: '2026-06-07' }, '2026-06-03'),
+    ).toEqual({ from: '2026-05-25', to: '2026-05-27' });
+    // A range that ends today is already complete.
+    expect(
+      getDashboardComparisonRange('last7Days', { from: '2026-06-01', to: '2026-06-07' }, '2026-06-07'),
+    ).toEqual({ from: '2026-05-25', to: '2026-05-31' });
   });
 
   it('calculates inventory value from latest closing stock per product', () => {
@@ -364,11 +391,10 @@ describe('dashboard metrics', () => {
   });
 
   it('builds a revenue and expense trend using cost of goods sold instead of purchases', () => {
-    const trend = buildIncomeTrend(
-      '2026-07-02',
+    const trend = buildPeriodTrend(
+      { from: '2026-06-26', to: '2026-07-02' },
       [{ date: '2026-07-02', cash_income: 1_000, terminal_income: 2_000, card_income: 3_000, playstation_income: 5_000 }],
       [{ date: '2026-07-02', bar_income: 4_000, bar_profit: 1_000, bar_cost: 3_000, sold_quantity: 1 }],
-      [{ date: '2026-07-02', quantity: 2, cost_price: 500 }],
       [{ id: 'e1', date: '2026-07-02', amount: 500, category: 'other', comment: null, created_at: '2026-07-02T10:00:00Z' }],
     );
 
@@ -382,7 +408,6 @@ describe('dashboard metrics', () => {
       range,
       [{ date: '2026-06-03', cash_income: 5_000_000, terminal_income: 775_000, card_income: 1_840_000, playstation_income: 200_000 }],
       [{ date: '2026-06-03', bar_income: 126_000, bar_profit: 60_000, bar_cost: 66_000, sold_quantity: 3 }],
-      [],
       [
         { id: 'e1', date: '2026-06-03', amount: 1_000_000, category: 'equipment', comment: null, created_at: '2026-06-03T10:00:00Z' },
         { id: 'e2', date: '2026-06-03', amount: 120_000, category: 'cleaning', comment: null, created_at: '2026-06-03T11:00:00Z' },
@@ -401,7 +426,6 @@ describe('dashboard metrics', () => {
       range,
       [{ date: '2026-06-01', cash_income: 100, terminal_income: 200, card_income: 300 }],
       [],
-      [],
       [{ id: 'e1', date: '2026-06-07', amount: 50, category: 'other', comment: null, created_at: '2026-06-07T10:00:00Z' }],
     );
 
@@ -417,7 +441,6 @@ describe('dashboard metrics', () => {
       [{ date: '2026-06-03', cash_income: 1_000, terminal_income: 0, card_income: 0 }],
       [],
       [],
-      [],
     );
 
     expect(trend).toEqual([{ date: '2026-06-03', income: 1_000, expenses: 0 }]);
@@ -426,7 +449,6 @@ describe('dashboard metrics', () => {
   it('includes debt revenue on its issue date in the income trend', () => {
     const trend = buildPeriodTrend(
       { from: '2026-06-03', to: '2026-06-03' },
-      [],
       [],
       [],
       [],
@@ -517,26 +539,5 @@ describe('dashboard metrics', () => {
     expect(latestCashierEntryDate).toBe('2026-07-04');
     expect(countDashboardRangeDaysThroughDate(range, latestCashierEntryDate)).toBe(4);
     expect(calculateAverageDailyIncome(10_254_000, 4)).toBe(2_563_500);
-  });
-
-  it('builds monthly averages from computer income only', () => {
-    const points = buildMonthlyAverageGameClubIncome(
-      [
-        { date: '2026-07-01', cash_income: 31_000, terminal_income: 31_000, card_income: 31_000, playstation_income: 900_000 },
-        { date: '2026-08-01', cash_income: 29_000, terminal_income: 29_000, card_income: 29_000, playstation_income: 900_000 },
-      ],
-      '2026-08-29',
-    );
-
-    expect(points.at(-2)).toEqual({
-      month: '2026-07-01',
-      average_daily_income: 3_000,
-      is_current: false,
-    });
-    expect(points.at(-1)).toEqual({
-      month: '2026-08-01',
-      average_daily_income: 3_000,
-      is_current: true,
-    });
   });
 });

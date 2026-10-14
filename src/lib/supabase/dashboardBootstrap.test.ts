@@ -79,4 +79,16 @@ describe('getDashboardBootstrap', () => {
     });
     expect(mocks.from).toHaveBeenCalledTimes(2);
   });
+
+  it('does not treat a failed legacy membership read as "no memberships"', async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { code: 'PGRST202' } });
+    const profile = { data: { full_name: 'Legacy User', role: 'viewer' }, error: null };
+    const memberships = { data: null, error: { code: '57014', message: 'statement timeout' } };
+    mocks.from.mockImplementation((table) => ({ select: () => ({ eq: () => ({
+      maybeSingle: async () => profile,
+      order: async () => table === 'club_memberships' ? memberships : profile,
+    }) }) }));
+    await expect(getDashboardBootstrap()).rejects.toThrow('statement timeout');
+    expect(mocks.getCookie).not.toHaveBeenCalled();
+  });
 });

@@ -66,12 +66,14 @@ export function BulkStockUpdateModal({ open, rows, saving, onClose, onSave }: Bu
 
   const summary = useMemo(() => calculateBulkStockOrderSummary(rows, items), [items, rows]);
 
+  const rowsById = useMemo(() => new Map(rows.map((row) => [row.product.id, row])), [rows]);
+
   const invalidItem = useMemo(() => items.find((item) => {
-    const row = rows.find((candidate) => candidate.product.id === item.productId);
+    const row = rowsById.get(item.productId);
     if (!row) return false;
     const available = getBulkStockAvailableQuantity(row);
     return available !== null && item.quantity > available;
-  }), [items, rows]);
+  }), [items, rowsById]);
 
   const visibleRows = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -111,7 +113,7 @@ export function BulkStockUpdateModal({ open, rows, saving, onClose, onSave }: Bu
     }
 
     if (invalidItem) {
-      const row = rows.find((candidate) => candidate.product.id === invalidItem.productId);
+      const row = rowsById.get(invalidItem.productId);
       if (row) {
         setError(t('bulkInsufficientStock', {
           product: row.product.name,

@@ -1,6 +1,99 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getLowStockProductRows, sendTelegramMessage, sendTelegramPhoto } from './sendDailyFinanceReport';
+import {
+  buildDailyFinanceTelegramReport,
+  getClubBusinessDayStartHour,
+  getLowStockProductRows,
+  sendTelegramMessage,
+  sendTelegramPhoto,
+  TELEGRAM_MESSAGE_MAX_LENGTH,
+  truncateTelegramText,
+} from './sendDailyFinanceReport';
+
+vi.mock('./dailyFinanceReportImage', () => ({
+  renderDailyFinanceReportPng: vi.fn().mockResolvedValue(null),
+}));
+
+type RecordedQuery = { table: string; select?: string; filters: string[] };
+
+function recordingClient(clubRow: Record<string, unknown> | null, clubError: unknown = null) {
+  const queries: RecordedQuery[] = [];
+  const client = {
+    from: (table: string) => {
+      const recorded: RecordedQuery = { table, filters: [] };
+      queries.push(recorded);
+      const query = {
+        select: (columns: string) => { recorded.select = columns; return query; },
+        eq: (column: string, value: unknown) => { recorded.filters.push(`${column}=${value}`); return query; },
+        gte: (column: string, value: unknown) => { recorded.filters.push(`${column}>=${value}`); return query; },
+        lte: (column: string, value: unknown) => { recorded.filters.push(`${column}<=${value}`); return query; },
+        gt: (column: string, value: unknown) => { recorded.filters.push(`${column}>${value}`); return query; },
+        order: () => query,
+        range: async () => ({ data: [], error: null }),
+        single: async () => ({ data: clubRow, error: clubError }),
+      };
+      return query;
+    },
+  } as unknown as SupabaseClient;
+  return { client, queries };
+}
+
+describe('getClubBusinessDayStartHour', () => {
+  it('reads the club start hour and falls back to midnight before migration 019', async () => {
+    await expect(getClubBusinessDayStartHour(recordingClient({ business_day_start_hour: 6 }).client, 'club'))
+      .resolves.toBe(6);
+    await expect(getClubBusinessDayStartHour(recordingClient(null, {
+      code: '42703',
+      message: 'column clubs.business_day_start_hour does not exist',
+    }).client, 'club')).resolves.toBe(0);
+    await expect(getClubBusinessDayStartHour(recordingClient(null, {
+      code: '42501',
+      message: 'permission denied',
+    }).client, 'club')).rejects.toMatchObject({ code: '42501' });
+  });
+});
+
+describe('buildDailyFinanceTelegramReport', () => {
+  it('reads stock-count history and later debt payments for an as-of report', async () => {
+    const { client, queries } = recordingClient({ id: 'club', name: 'Pixel' });
+
+    await buildDailyFinanceTelegramReport(client, {
+      businessDate: '2026-09-03',
+      chatId: '-1001',
+      clubId: 'club',
+    });
+
+    const inventory = queries.filter((query) =>
+      query.table === 'daily_stock_counts' && query.select?.includes('closing_stock'));
+    expect(inventory).toEqual([expect.objectContaining({
+      filters: ['club_id=club', 'date>=2026-08-01', 'date<=2026-09-03'],
+    })]);
+    expect(queries).toContainEqual(expect.objectContaining({
+      table: 'debt_payments',
+      select: 'id,debt_id,date,amount',
+      filters: ['club_id=club', 'date>2026-09-03'],
+    }));
+    expect(queries.every((query) => query.filters.includes('club_id=club') || query.filters.includes('id=club')))
+      .toBe(true);
+  });
+});
+
+describe('truncateTelegramText', () => {
+  it('keeps short text and cuts long text at a line break within the limit', () => {
+    expect(truncateTelegramText('short')).toBe('short');
+    const long = Array.from({ length: 400 }, (_, index) => `line ${index} ${'x'.repeat(10)}`).join('\n');
+    const truncated = truncateTelegramText(long);
+    expect(truncated.length).toBeLessThanOrEqual(TELEGRAM_MESSAGE_MAX_LENGTH);
+    expect(truncated.endsWith('\n…')).toBe(true);
+    expect(long.startsWith(truncated.slice(0, -2))).toBe(true);
+  });
+
+  it('never splits a surrogate pair', () => {
+    const truncated = truncateTelegramText('a' + '😀'.repeat(10), 8);
+    expect(truncated.length).toBeLessThanOrEqual(8);
+    expect(truncated).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
+  });
+});
 
 function productsClient(result: { data: unknown[] | null; error: unknown }) {
   const query = {
@@ -223,6 +316,83 @@ describe('sendTelegramMessage', () => {
     });
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it('caps an in-process retry_after wait at three seconds by default', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue({
+      ok: false,
+      status: 429,
+      json: async () => ({
+        ok: false,
+        error_code: 429,
+        description: 'Too Many Requests',
+        parameters: { retry_after: 5 },
+      }),
+    } as Response);
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await expect(sendTelegramMessage({
+      botToken: 'test-token',
+      chatId: '-1002',
+      text: 'daily report',
+      fetchImpl: fetchMock,
+      sleep,
+    })).rejects.toMatchObject({ retryable: true, retryAfterSeconds: 5 });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it('stops retrying when the next attempt would overrun the invocation deadline', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({ ok: false, error_code: 503, description: 'Service Unavailable' }),
+    } as Response);
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await expect(sendTelegramMessage({
+      botToken: 'test-token',
+      chatId: '-1002',
+      text: 'daily report',
+      fetchImpl: fetchMock,
+      sleep,
+      now: () => 1_000,
+      timeoutMs: 8_000,
+      deadlineAt: 9_200,
+    })).rejects.toMatchObject({ retryable: true, requiresManualReview: false });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(sleep).not.toHaveBeenCalled();
+
+    await expect(sendTelegramMessage({
+      botToken: 'test-token',
+      chatId: '-1002',
+      text: 'daily report',
+      fetchImpl: fetchMock,
+      now: () => 5_000,
+      timeoutMs: 8_000,
+      deadlineAt: 10_000,
+    })).rejects.toMatchObject({ retryable: true, attempts: [] });
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('truncates text beyond Telegram\'s message limit', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        result: { message_id: 45, chat: { id: -1002, type: 'supergroup' }, date: 1_787_799_539 },
+      }),
+    } as Response);
+
+    await sendTelegramMessage({
+      botToken: 'test-token',
+      chatId: '-1002',
+      text: 'x'.repeat(5_000),
+      fetchImpl: fetchMock,
+    });
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.text.length).toBeLessThanOrEqual(TELEGRAM_MESSAGE_MAX_LENGTH);
   });
 
   it('quarantines a 2xx response with missing Telegram success JSON', async () => {

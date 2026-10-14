@@ -8,9 +8,11 @@ import {
   formatDatePickerValue,
   formatDateShort,
   formatDateTime,
+  formatMonthShort,
   formatNumber,
   formatUnitCurrency,
   formatYearMonth,
+  intlLocaleFor,
   parseCurrencyInput,
   setFormatterLocale,
 } from './formatters';
@@ -134,6 +136,45 @@ describe('setFormatterLocale', () => {
 describe('formatNumber', () => {
   it('formats a number with grouped thousands', () => {
     expect(formatNumber(1234567)).toBe('1 234 567');
+  });
+
+  it('shows 0 for non-finite values instead of localized words', () => {
+    expect(formatNumber(Number.NaN)).toBe('0');
+    expect(formatNumber(Number.POSITIVE_INFINITY)).toBe('0');
+  });
+
+  it('never prints a negative zero', () => {
+    expect(formatNumber(-0.4)).toBe('0');
+    expect(formatNumber(-0)).toBe('0');
+  });
+
+  it('rounds halves away from zero', () => {
+    expect(formatNumber(2.5)).toBe('3');
+    expect(formatNumber(-2.5)).toBe('-3');
+  });
+});
+
+describe('formatMonthShort', () => {
+  it('uses deterministic Uzbek abbreviations', () => {
+    expect(formatMonthShort('2026-10', 'uz')).toBe('okt');
+    expect(formatMonthShort('2026-06-01', 'uz')).toBe('iyn');
+  });
+
+  it('formats other locales with Intl', () => {
+    expect(formatMonthShort('2026-06-01', 'en')).toBe('Jun');
+  });
+
+  it('rejects invalid values', () => {
+    expect(formatMonthShort('2026-13', 'en')).toBe('-');
+    expect(formatMonthShort(null, 'en')).toBe('-');
+  });
+});
+
+describe('intlLocaleFor', () => {
+  it('maps app locales to BCP 47 tags', () => {
+    expect(intlLocaleFor('en')).toBe('en-GB');
+    expect(intlLocaleFor('ru')).toBe('ru-RU');
+    expect(intlLocaleFor('uz')).toBe('uz-Latn-UZ');
   });
 });
 

@@ -22,7 +22,8 @@ import {
   SectionHeading,
 } from '@/components/PresentationFoundation';
 import { formatDateShort, formatNumber } from '@/lib/formatters';
-import { cn, todayIso } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { useBusinessToday } from '@/lib/useBusinessToday';
 
 /** Collected-money buckets; translated at render time so language changes never refetch. */
 export type MoneyDetailCollectedKey = 'barSales' | 'cash' | 'terminal' | 'card' | 'playstation' | 'debtPayments';
@@ -89,13 +90,16 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
   const te = useTranslations('expenses');
   const { locale } = useAppLocale();
   const { selectedClubId, businessDayStartHour } = useClub();
-  const fallbackDate = useMemo(() => todayIso(new Date(), businessDayStartHour), [businessDayStartHour]);
+  const fallbackDate = useBusinessToday(businessDayStartHour);
   const requested = useMemo(() => {
     const from = validDate(requestedFrom) ? requestedFrom : fallbackDate;
     const to = validDate(requestedTo) ? requestedTo : fallbackDate;
     return from <= to ? { from, to } : { from: to, to: from };
   }, [fallbackDate, requestedFrom, requestedTo]);
-  const [range, setRange] = useState(requested);
+  // A range the user picked here wins until the URL props change; an untouched
+  // page follows the requested range (and the business day as it rolls over).
+  const [pickedRange, setPickedRange] = useState<{ from: string; to: string } | null>(null);
+  const range = pickedRange ?? requested;
   const [rows, setRows] = useState<MoneyDetailRow[]>([]);
   const [expandedDates, setExpandedDates] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
@@ -103,8 +107,8 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
   const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
-    setRange(requested);
-  }, [requested]);
+    setPickedRange(null);
+  }, [requestedFrom, requestedTo]);
 
   const fetchDetails = useCallback(async (isCurrent: () => boolean) => {
     if (!selectedClubId) {
@@ -136,13 +140,14 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
   }, [fetchDetails, reloadToken]);
 
   function updateRange(next: { from: string; to: string }) {
-    setRange(next);
+    setPickedRange(next);
     // Keep the URL shareable without a server round-trip (same as the dashboard).
     const params = new URLSearchParams({ from: next.from, to: next.to });
     window.history.replaceState(null, '', `${pathname}?${params.toString()}`);
   }
 
-  const backHref = `/?${new URLSearchParams({ from: range.from, to: range.to }).toString()}`;
+  // The dashboard always shows the current business month, so it takes no range.
+  const backHref = '/';
 
   const totals = rows.reduce(
     (sum, row) => ({

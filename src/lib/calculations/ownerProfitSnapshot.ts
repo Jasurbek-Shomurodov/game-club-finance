@@ -12,7 +12,11 @@ import {
   type AvailableMoneyResult,
 } from './availableMoney';
 import {
+  calculateGameClubMoneyLeftByPaymentMethod,
   emptyMoneyLeftByPaymentMethod,
+  type DailyCashRow,
+  type DebtPaymentValueRow,
+  type ExpenseRow,
   type MoneyLeftByPaymentMethod,
 } from './dashboardMetrics';
 
@@ -212,4 +216,34 @@ export function applyOwnerProfitCarryovers(
     };
   }
   return result;
+}
+
+/**
+ * Game Club money left per payment method for every month with activity,
+ * keyed `YYYY-MM`. Groups the ledgers by month once, then applies the canonical
+ * per-method calculation to each month.
+ */
+export function gameClubMoneyLeftByPaymentMethodByMonth(
+  cashRows: readonly DailyCashRow[],
+  expenseRows: readonly ExpenseRow[],
+  debtPaymentRows: readonly DebtPaymentValueRow[],
+): Record<string, MoneyLeftByPaymentMethod> {
+  const months = new Map<string, { cash: DailyCashRow[]; expenses: ExpenseRow[]; debtPayments: DebtPaymentValueRow[] }>();
+  const bucket = (date: string) => {
+    const month = date.slice(0, 7);
+    let rows = months.get(month);
+    if (!rows) {
+      rows = { cash: [], expenses: [], debtPayments: [] };
+      months.set(month, rows);
+    }
+    return rows;
+  };
+  for (const row of cashRows) bucket(row.date).cash.push(row);
+  for (const row of expenseRows) bucket(row.date).expenses.push(row);
+  for (const row of debtPaymentRows) bucket(row.date).debtPayments.push(row);
+
+  return Object.fromEntries([...months].map(([month, rows]) => [
+    month,
+    calculateGameClubMoneyLeftByPaymentMethod(rows.cash, rows.expenses, rows.debtPayments),
+  ]));
 }

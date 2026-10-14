@@ -284,6 +284,33 @@ function parseSheetDate(sheetName: string): string | null {
   return null;
 }
 
+const THOUSANDS_GROUP = /^\d{3}$/;
+
+/**
+ * Normalizes "," and "." to one decimal point. With both present, the last
+ * one is the decimal mark ("1.000,5", "1,000.5"). A single kind of separator
+ * whose every following group has exactly three digits is a thousands
+ * separator ("1,000", "1.000", "1,000,000"); otherwise one separator is a
+ * decimal mark ("1,5") and repeated irregular groups are invalid.
+ */
+function normalizeDecimalSeparators(value: string): string | null {
+  const lastComma = value.lastIndexOf(',');
+  const lastDot = value.lastIndexOf('.');
+  if (lastComma >= 0 && lastDot >= 0) {
+    const decimal = lastComma > lastDot ? ',' : '.';
+    const thousands = decimal === ',' ? '.' : ',';
+    const [whole, ...fraction] = value.split(decimal);
+    if (fraction.length !== 1) return null;
+    return `${whole.split(thousands).join('')}.${fraction[0]}`;
+  }
+
+  const separator = lastComma >= 0 ? ',' : lastDot >= 0 ? '.' : null;
+  if (!separator) return value;
+  const groups = value.split(separator);
+  if (groups.slice(1).every((group) => THOUSANDS_GROUP.test(group))) return groups.join('');
+  return groups.length === 2 ? groups.join('.') : null;
+}
+
 function parseClosingStockNumber(value: unknown): number | null {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value : null;
@@ -293,22 +320,10 @@ function parseClosingStockNumber(value: unknown): number | null {
   if (!raw) return null;
 
   const compact = raw.replace(/\s+/g, '').replace(/'/g, '');
-  const hasComma = compact.includes(',');
-  const hasDot = compact.includes('.');
-  let normalized = compact;
+  const normalized = normalizeDecimalSeparators(compact);
+  if (normalized === null) return null;
 
-  if (hasComma && hasDot) {
-    normalized = normalized.replace(/,/g, '');
-  } else if (hasComma) {
-    const commaParts = normalized.split(',');
-    const lastPart = commaParts[commaParts.length - 1];
-    normalized = commaParts.length === 2 && lastPart.length === 3
-      ? normalized.replace(/,/g, '')
-      : normalized.replace(/,/g, '.');
-  }
-
-  normalized = normalized.replace(/[^\d.-]/g, '');
-  const parsed = Number(normalized);
+  const parsed = Number(normalized.replace(/[^\d.-]/g, ''));
   return Number.isFinite(parsed) ? parsed : null;
 }
 
@@ -370,6 +385,17 @@ export function calculateBulkStockOrderSummary(
   }, { totalQuantity: 0, totalPrice: 0 });
 }
 
+/**
+ * Archived and inactive products keep their saved counts on screen but cannot
+ * be written: save_closing_stock_counts accepts only active, non-deleted
+ * products, and it leaves rows missing from the payload untouched.
+ */
+export function isReadOnlyClosingStockProduct(
+  product: Pick<Product, 'is_active' | 'is_deleted'>,
+): boolean {
+  return Boolean(product.is_deleted) || product.is_active === false;
+}
+
 export function applyBulkStockOrder(
   rows: ClosingStockRowData[],
   items: BulkStockOrderItem[],
@@ -377,7 +403,7 @@ export function applyBulkStockOrder(
   const quantities = normalizeBulkOrderItems(items);
 
   return rows.map((row) => {
-    if (row.product.is_deleted) return row;
+    if (isReadOnlyClosingStockProduct(row.product)) return row;
     const quantity = quantities.get(row.product.id) ?? 0;
     if (quantity === 0) return row;
 
@@ -531,7 +557,7 @@ export function applyClosingStockDraft(
 
   const draftByProduct = new Map(draft.rows.map((row) => [row.productId, row]));
   return rows.map((row) => {
-    if (row.product.is_deleted) return row;
+    if (isReadOnlyClosingStockProduct(row.product)) return row;
     const draftRow = draftByProduct.get(row.product.id);
     if (!draftRow) return row;
     const adjustmentQuantity = String(draftRow.adjustmentQuantity ?? row.adjustmentQuantity ?? '0');
@@ -776,7 +802,7 @@ export function applyClosingStockImport(
   let matchedCount = 0;
 
   const nextRows = rows.map((row, rowIndex) => {
-    if (row.product.is_deleted) return row;
+    if (isReadOnlyClosingStockProduct(row.product)) return row;
     const idMatch = findUnusedImportIndex(byProductId, normalizeText(row.product.id));
     const nameAndPricesMatch = findUnusedImportIndex(
       byProductNameAndPrices,
@@ -826,9 +852,13 @@ export function buildEditableClosingStockRows({
     {},
   );
 
+  const countsByProduct = new Map(counts.map((count) => [count.product_id, count]));
+
   return products.map((product) => {
-    const existing = counts.find((count) => count.product_id === product.id);
-    if (existing && product.is_deleted) {
+    const existing = countsByProduct.get(product.id);
+    // save_closing_stock_counts keeps an existing row's saved prices, so the
+    // row, KPIs and save toast must use them too, not later catalog prices.
+    if (existing) {
       product = {
         ...product,
         sale_price: Number(existing.sale_price ?? product.sale_price),
@@ -878,7 +908,7 @@ export function buildEditableClosingStockRows({
       // An already-saved historical row is an accounting snapshot. Purchases
       // may have been entered or corrected later, so display the mismatch but
       // never synthesize different added/closing values for that old count.
-      return isCurrentDate && !product.is_deleted
+      return isCurrentDate && !isReadOnlyClosingStockProduct(product)
         ? refreshRowPurchasedToday(savedRow, purchasedToday, previousClosing)
         : savedRow;
     }
@@ -929,6 +959,7 @@ export class ClosingStockValidationError extends Error {
 
 export function validateClosingStockRows(rows: ClosingStockRowData[]): ClosingStockValidationError | null {
   for (const row of rows) {
+    if (isReadOnlyClosingStockProduct(row.product)) continue;
     if (row.product.tracks_inventory === false) continue;
 
     // A blank count must never be read as zero: for a tracked product that
@@ -1026,7 +1057,7 @@ export function buildClosingStockUpserts({
   createdBy: string | null;
   updatedAt?: string;
 }): { upserts: ClosingStockUpsert[]; savedClosings: Record<string, number> } {
-  rows = rows.filter((row) => !row.product.is_deleted);
+  rows = rows.filter((row) => !isReadOnlyClosingStockProduct(row.product));
   const validationError = validateClosingStockRows(rows);
   if (validationError) throw validationError;
 
@@ -1109,4 +1140,14 @@ export function isWholeNumberInput(value: string): boolean {
 /** True for an empty string, a lone minus, or a signed whole number typed by the user. */
 export function isSignedWholeNumberInput(value: string): boolean {
   return value === '' || value === '-' || /^-?\d+$/.test(value);
+}
+
+/**
+ * Whether a club records closing stock by entering sold quantities (closing
+ * is calculated) instead of counting remaining stock. Clubs have no stored
+ * setting for this yet, so the Pixel club is recognised by name; this is the
+ * only place that rule lives, and a real per-club setting would replace it.
+ */
+export function usesSoldQuantityEntry(club: { name?: string | null } | null | undefined): boolean {
+  return club?.name?.toLowerCase().includes('pixel') ?? false;
 }

@@ -39,7 +39,6 @@ function reportInput(): DailyFinanceReportInput {
     utilitiesCosts: 45_000,
     otherOperatingCosts: 36_000,
     monthToDateRevenue: 58_240_000,
-    averageDailyRevenue: 2_240_000,
     gameClubMoneyLeft: 37_830_000,
     averageDailyGameClubIncome: 2_323_741,
     barMoneyLeft: 10_086_526,
