@@ -10,6 +10,7 @@ import { usePendingTeamCount } from './usePendingTeamCount';
 import {
   LayoutDashboard,
   Wallet,
+  Gift,
   Package,
   ShoppingCart,
   Users,
@@ -166,6 +167,7 @@ export function Sidebar({
       items: [
         { href: '/daily-cash', icon: Wallet, label: t('dailyCash'), feature: 'daily_cash' },
         { href: '/closing-stock', icon: Archive, label: t('closingStock'), feature: 'closing_stock' },
+        { href: '/promotions', icon: Gift, label: t('promotions'), feature: 'closing_stock' },
         { href: '/stock-purchase', icon: ShoppingCart, label: t('stockPurchase'), feature: 'stock_purchase' },
       ],
     },
@@ -196,6 +198,10 @@ export function Sidebar({
     const onAnalysis = pathname === '/financial-analysis' || pathname.startsWith('/financial-analysis/');
     if (item.href === '/financial-analysis') return onAnalysis;
     if (item.href === '/') return activeFeature === 'dashboard' && !onAnalysis;
+    // Promotions share the closing-stock feature; tell them apart by path.
+    const onPromotions = pathname === '/promotions' || pathname.startsWith('/promotions/');
+    if (item.href === '/promotions') return onPromotions;
+    if (item.href === '/closing-stock') return activeFeature === 'closing_stock' && !onPromotions;
     return activeFeature === item.feature;
   }
 

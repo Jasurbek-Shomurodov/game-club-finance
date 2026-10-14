@@ -3,7 +3,7 @@ import type { UserRole } from '@/types';
 export const FEATURE_DEFINITIONS = [
   { key: 'dashboard', paths: ['/'], labelKey: 'dashboard', descriptionKey: 'dashboardDescription' },
   { key: 'daily_cash', paths: ['/daily-cash', '/income'], labelKey: 'dailyCash', descriptionKey: 'dailyCashDescription' },
-  { key: 'closing_stock', paths: ['/closing-stock'], labelKey: 'closingStock', descriptionKey: 'closingStockDescription' },
+  { key: 'closing_stock', paths: ['/closing-stock', '/promotions'], labelKey: 'closingStock', descriptionKey: 'closingStockDescription' },
   { key: 'stock_purchase', paths: ['/stock-purchase'], labelKey: 'stockPurchase', descriptionKey: 'stockPurchaseDescription' },
   { key: 'expenses', paths: ['/expenses', '/expense', '/balance'], labelKey: 'expenses', descriptionKey: 'expensesDescription' },
   { key: 'reports', paths: ['/reports', '/daily-report', '/monthly-report'], labelKey: 'reports', descriptionKey: 'reportsDescription' },

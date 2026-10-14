@@ -167,6 +167,25 @@ export interface DailyStockCount {
   bar_income: number;
   bar_cost: number;
   bar_profit: number;
+  giveaway_quantity?: number;
+  giveaway_cost?: number;
+  promotion_id?: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A club bonus rule: `free_quantity` of `product_id` free for a bill of at least `min_spend`. */
+export interface Promotion {
+  id: string;
+  club_id: string;
+  product_id: string;
+  name: string;
+  free_quantity: number;
+  min_spend: number;
+  starts_on: string;
+  ends_on: string | null;
+  is_active: boolean;
   created_by: string | null;
   created_at: string;
   updated_at: string;

@@ -28,8 +28,8 @@ their intent but are not a second implementation.
 
 ```text
 gameClubIncome = cash + terminal + card + playstation
-barSales       = sum(daily_stock_counts.bar_income)
-barCost        = sum(daily_stock_counts.bar_cost)
+barSales       = sum(daily_stock_counts.bar_income)          -- sold units only
+barCost        = sum(daily_stock_counts.bar_cost)            -- sold + promo giveaways, at cost
 totalIncome    = gameClubIncome + barSales + debtIncome
 totalExpenses  = sum(expenses.amount)
 accountingNetProfit = totalIncome - barCost - totalExpenses
@@ -39,6 +39,9 @@ accountingNetProfit = totalIncome - barCost - totalExpenses
 Debt payments are collections used in retained/available game-club money; do not
 count the same cash as both new income and collection without checking the
 specific report definition.
+
+Promo giveaways (migration 078, see `inventory.md`) are units handed out free:
+no income, cost included in `barCost`, repeated in `giveaway_cost`.
 
 Accounting profit and available cash answer different questions:
 

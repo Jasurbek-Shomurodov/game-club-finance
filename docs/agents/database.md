@@ -19,6 +19,7 @@ migrations.
 | `debt_payments` | Debt collection ledger | Append-only; trigger updates parent. |
 | `owner_withdrawals` | Monthly/source withdrawals; Game Club rows may name a `payment_method` (066) | Insert through `withdraw_owner_money_for_month` or `withdraw_owner_game_club_money_by_method`. |
 | `owner_profit_carryovers` | Unwithdrawn profit moved from `from_month` to the next month (071) | Select only; write through `carry_owner_profit_to_next_month` and `delete_owner_profit_carryover`. |
+| `promotions` | Owner-managed bonus rules (078) | Owner writes; members with inventory/stock/report access read. |
 | `telegram_report_deliveries` | Service-only delivery state | Never expose to browser roles. |
 
 Retired read-only ledgers: `income_transactions`, `expense_transactions`, and
@@ -217,3 +218,10 @@ databases fall back to a lookup plus `record_salary_entry`. Entry and rate
 deletes also go through `POST /api/salaries` (`delete_record`) and notify.
 `POST /api/expenses` accepts a client `id` for idempotent retries and rejects
 payment methods the club has not enabled.
+
+Migration 078 adds `promotions` plus `daily_stock_counts.giveaway_quantity`,
+`giveaway_cost` and `promotion_id`, and replaces `save_closing_stock_counts`
+and `validate_daily_stock_count_integrity` with giveaway-aware versions
+(`promotionsMigration.test.ts` runs it in local PostgreSQL). The closing page
+reads the new columns with a fallback for older databases, but saves need the
+new RPC, so apply 078 before deploying.

@@ -2,13 +2,21 @@ export interface StockCountInput {
   previousStock: number;
   addedToday: number;
   adjustmentQuantity?: number;
+  /** Units given away free under a promotion; they leave stock unsold. */
+  giveawayQuantity?: number;
   closingStock: number;
   salePrice: number;
   costPrice: number;
 }
 
+/**
+ * Giveaways carry no income. Their cost is part of `barCost` (cost of goods
+ * that left stock) and repeated in `giveawayCost` for reporting.
+ */
 export interface StockCountResult {
   soldQuantity: number;
+  giveawayQuantity: number;
+  giveawayCost: number;
   barIncome: number;
   barCost: number;
   barProfit: number;
@@ -45,6 +53,7 @@ export interface FutureStockCountInput {
   date: string;
   added_today: number;
   adjustment_quantity?: number;
+  giveaway_quantity?: number;
   closing_stock: number;
   sale_price: number;
   cost_price: number;
@@ -76,14 +85,19 @@ export function calculateAvailableStock(
   return previousStock + addedToday + adjustmentQuantity;
 }
 
+export function normalizeGiveawayQuantity(value: number | undefined): number {
+  return Math.max(0, Math.trunc(value ?? 0)) || 0;
+}
+
 export function validateStockAvailability(
   previousStock: number,
   addedToday: number,
   closingStock: number,
   adjustmentQuantity = 0,
+  giveawayQuantity = 0,
 ): StockAvailability {
   const availableStock = calculateAvailableStock(previousStock, addedToday, adjustmentQuantity);
-  const excessClosingStock = Math.max(0, closingStock - availableStock);
+  const excessClosingStock = Math.max(0, closingStock + normalizeGiveawayQuantity(giveawayQuantity) - availableStock);
 
   return {
     availableStock,
@@ -97,8 +111,10 @@ export function calculateSoldQuantity(
   addedToday: number,
   closingStock: number,
   adjustmentQuantity = 0,
+  giveawayQuantity = 0,
 ): number {
-  return Math.max(0, calculateAvailableStock(previousStock, addedToday, adjustmentQuantity) - closingStock);
+  return Math.max(0, calculateAvailableStock(previousStock, addedToday, adjustmentQuantity)
+    - normalizeGiveawayQuantity(giveawayQuantity) - closingStock);
 }
 
 export function calculateClosingStockFromSold(
@@ -106,16 +122,23 @@ export function calculateClosingStockFromSold(
   addedToday: number,
   soldQuantity: number,
   adjustmentQuantity = 0,
+  giveawayQuantity = 0,
 ): number {
-  return Math.max(0, calculateAvailableStock(previousStock, addedToday, adjustmentQuantity) - soldQuantity);
+  return Math.max(0, calculateAvailableStock(previousStock, addedToday, adjustmentQuantity)
+    - normalizeGiveawayQuantity(giveawayQuantity) - soldQuantity);
 }
 
 export function calculateBarIncome(soldQuantity: number, salePrice: number): number {
   return soldQuantity * salePrice;
 }
 
-export function calculateBarCost(soldQuantity: number, costPrice: number): number {
-  return soldQuantity * costPrice;
+/** Cost of every unit that left stock: sold plus given away. */
+export function calculateBarCost(soldQuantity: number, costPrice: number, giveawayQuantity = 0): number {
+  return (soldQuantity + normalizeGiveawayQuantity(giveawayQuantity)) * costPrice;
+}
+
+export function calculateGiveawayCost(giveawayQuantity: number, costPrice: number): number {
+  return normalizeGiveawayQuantity(giveawayQuantity) * costPrice;
 }
 
 export function calculateBarProfit(barIncome: number, barCost: number): number {
@@ -126,13 +149,17 @@ export function calculateDirectSalesSummary(
   soldQuantity: number,
   salePrice: number,
   costPrice: number,
+  giveawayQuantity = 0,
 ): StockCountResult {
   const normalizedSoldQuantity = Math.max(0, soldQuantity);
+  const normalizedGiveawayQuantity = normalizeGiveawayQuantity(giveawayQuantity);
   const barIncome = calculateBarIncome(normalizedSoldQuantity, salePrice);
-  const barCost = calculateBarCost(normalizedSoldQuantity, costPrice);
+  const barCost = calculateBarCost(normalizedSoldQuantity, costPrice, normalizedGiveawayQuantity);
 
   return {
     soldQuantity: normalizedSoldQuantity,
+    giveawayQuantity: normalizedGiveawayQuantity,
+    giveawayCost: calculateGiveawayCost(normalizedGiveawayQuantity, costPrice),
     barIncome,
     barCost,
     barProfit: calculateBarProfit(barIncome, barCost),
@@ -145,8 +172,9 @@ export function calculateStockCountSummary(input: StockCountInput): StockCountRe
     input.addedToday,
     input.closingStock,
     input.adjustmentQuantity,
+    input.giveawayQuantity,
   );
-  return calculateDirectSalesSummary(soldQuantity, input.salePrice, input.costPrice);
+  return calculateDirectSalesSummary(soldQuantity, input.salePrice, input.costPrice, input.giveawayQuantity);
 }
 
 export function applyPurchaseDeltaToStockCount(input: StockCountPurchaseDeltaInput): StockCountPurchaseDeltaResult {
@@ -156,6 +184,7 @@ export function applyPurchaseDeltaToStockCount(input: StockCountPurchaseDeltaInp
     previousStock: input.previousStock,
     addedToday,
     adjustmentQuantity: input.adjustmentQuantity,
+    giveawayQuantity: input.giveawayQuantity,
     closingStock,
     salePrice: input.salePrice,
     costPrice: input.costPrice,
@@ -207,6 +236,7 @@ export function recalculateFutureStockCounts(
         previousStock,
         addedToday: row.added_today,
         adjustmentQuantity: row.adjustment_quantity,
+        giveawayQuantity: row.giveaway_quantity,
         closingStock: row.closing_stock,
         salePrice: row.sale_price,
         costPrice: row.cost_price,
@@ -324,6 +354,7 @@ export interface StockTotalsRowInput {
   previousStock: number;
   addedToday: number;
   adjustmentQuantity?: number;
+  giveawayQuantity?: number;
   closingStock: number;
   /** Direct sold quantity; used only for made-to-order products. */
   soldQuantity: number;
@@ -335,6 +366,8 @@ export interface StockTotalsRowInput {
 
 export interface StockTotals {
   sold: number;
+  giveaways: number;
+  giveawayCost: number;
   income: number;
   profit: number;
   stockValue: number;
@@ -346,13 +379,14 @@ export interface StockTotals {
 /** Per-row sold quantity, income, cost and profit using the canonical formulas. */
 export function summarizeStockRow(row: StockTotalsRowInput): StockCountResult {
   if (!row.tracksInventory) {
-    return calculateDirectSalesSummary(row.soldQuantity, row.salePrice, row.costPrice);
+    return calculateDirectSalesSummary(row.soldQuantity, row.salePrice, row.costPrice, row.giveawayQuantity);
   }
 
   return calculateStockCountSummary({
     previousStock: row.previousStock,
     addedToday: row.addedToday,
     adjustmentQuantity: row.adjustmentQuantity,
+    giveawayQuantity: row.giveawayQuantity,
     closingStock: row.closingStock,
     salePrice: row.salePrice,
     costPrice: row.costPrice,
@@ -368,6 +402,8 @@ export function summarizeStockRows(rows: StockTotalsRowInput[]): StockTotals {
     (acc, row) => {
       const summary = summarizeStockRow(row);
       acc.sold += summary.soldQuantity;
+      acc.giveaways += summary.giveawayQuantity;
+      acc.giveawayCost += summary.giveawayCost;
       acc.income += summary.barIncome;
       acc.profit += summary.barProfit;
       if (row.tracksInventory) {
@@ -378,6 +414,6 @@ export function summarizeStockRows(rows: StockTotalsRowInput[]): StockTotals {
       }
       return acc;
     },
-    { sold: 0, income: 0, profit: 0, stockValue: 0, previous: 0, added: 0, purchaseCost: 0 },
+    { sold: 0, giveaways: 0, giveawayCost: 0, income: 0, profit: 0, stockValue: 0, previous: 0, added: 0, purchaseCost: 0 },
   );
 }

@@ -175,6 +175,8 @@ function row(overrides: Partial<ClosingStockRowData>): ClosingStockRowData {
     soldQuantity: overrides.soldQuantity ?? '3',
     adjustmentQuantity: overrides.adjustmentQuantity ?? '0',
     adjustmentReason: overrides.adjustmentReason ?? '',
+    giveawayQuantity: overrides.giveawayQuantity ?? '0',
+    promotionId: overrides.promotionId ?? null,
   };
 }
 
@@ -631,6 +633,8 @@ describe('closing stock drafts', () => {
           addedToday: '5',
           adjustmentQuantity: '0',
           adjustmentReason: '',
+          giveawayQuantity: '0',
+          promotionId: null,
           closingStock: '8',
           soldQuantity: '7',
         },
@@ -833,6 +837,8 @@ describe('closing stock save payloads', () => {
         added_today: 5,
         adjustment_quantity: 0,
         adjustment_reason: null,
+        giveaway_quantity: 0,
+        promotion_id: null,
         closing_stock: 8,
         sold_quantity: 7,
         sale_price: 15000,
@@ -896,7 +902,54 @@ describe('closing stock save payloads', () => {
       row({ product: product({ id: 'b', tracks_inventory: false, sale_price: 50, cost_price: 10 }), previousStock: '0', addedToday: '0', closingStock: '0', soldQuantity: '4' }),
     ];
     const totals = summarizeStockRows(rows.map((item) => closingStockRowTotalsInput(item, item.product.id === 'a' ? 80 : 0)));
-    expect(totals).toEqual({ sold: 9, income: 700, profit: 460, stockValue: 280, previous: 10, added: 2, purchaseCost: 80 });
+    expect(totals).toEqual({ sold: 9, giveaways: 0, giveawayCost: 0, income: 700, profit: 460, stockValue: 280, previous: 10, added: 2, purchaseCost: 80 });
+  });
+
+  it('treats promo giveaways as units that left stock unsold', () => {
+    const cola = row({
+      product: product({ id: 'cola', name: 'Cola', sale_price: 15000, cost_price: 9000 }),
+      previousStock: '10',
+      addedToday: '2',
+      giveawayQuantity: '3',
+      promotionId: 'promo-1',
+      closingStock: '4',
+      soldQuantity: '5',
+    });
+    expect(validateClosingStockRows([cola])).toBeNull();
+    const { upserts } = buildClosingStockUpserts({ date: '2026-06-28', createdBy: null, updatedAt: 'now', rows: [cola] });
+    expect(upserts[0]).toMatchObject({
+      giveaway_quantity: 3,
+      promotion_id: 'promo-1',
+      sold_quantity: 5,
+      bar_income: 75000,
+      bar_cost: 72000,
+      bar_profit: 3000,
+    });
+    const totals = summarizeStockRows([closingStockRowTotalsInput(cola)]);
+    expect(totals).toMatchObject({ sold: 5, giveaways: 3, giveawayCost: 27000, income: 75000, profit: 3000 });
+
+    expect(validateClosingStockRows([{ ...cola, closingStock: '10', soldQuantity: '0' }])?.code).toBe('closing_exceeds_available');
+    expect(validateClosingStockRows([{ ...cola, soldQuantity: '8' }])?.code).toBe('sold_quantity_mismatch');
+    // A promotion link without any giveaway is meaningless and is dropped.
+    const none = buildClosingStockUpserts({ date: '2026-06-28', createdBy: null, updatedAt: 'now',
+      rows: [{ ...cola, giveawayQuantity: '0', closingStock: '7' }] }).upserts[0];
+    expect(none).toMatchObject({ giveaway_quantity: 0, promotion_id: null, sold_quantity: 5, bar_cost: 45000 });
+  });
+
+  it('keeps giveaways for made-to-order products and in bulk orders', () => {
+    const tea = row({
+      product: product({ id: 'tea', tracks_inventory: false, sale_price: 5000, cost_price: 1000 }),
+      previousStock: '0', addedToday: '0', closingStock: '0', soldQuantity: '4', giveawayQuantity: '2',
+    });
+    expect(buildClosingStockUpserts({ date: '2026-06-28', createdBy: null, updatedAt: 'now', rows: [tea] }).upserts[0])
+      .toMatchObject({ giveaway_quantity: 2, sold_quantity: 4, bar_income: 20000, bar_cost: 6000 });
+
+    const cola = row({
+      product: product({ id: 'cola', sale_price: 100, cost_price: 40 }),
+      previousStock: '10', addedToday: '0', giveawayQuantity: '2', closingStock: '8', soldQuantity: '0',
+    });
+    const [ordered] = applyBulkStockOrder([cola], [{ productId: 'cola', quantity: 3 }]);
+    expect(ordered).toMatchObject({ soldQuantity: '3', closingStock: '5', giveawayQuantity: '2' });
   });
 
   it('rejects a blank closing count instead of recording every unit as sold', () => {

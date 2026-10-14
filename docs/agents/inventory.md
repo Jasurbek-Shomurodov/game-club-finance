@@ -87,6 +87,29 @@ preserving the existing RLS results and stock write rules. Apply it to the
 database to obtain the speed improvement; a frontend rebuild alone cannot
 change query execution inside Supabase.
 
+## Promotions and giveaways (migration 078)
+
+`promotions` holds owner-managed bonus rules (`/promotions`, `inventory`
+feature): a product, free units per bill, minimum bill, period, active flag.
+A promotion only labels giveaways; the ledger fact is
+`daily_stock_counts.giveaway_quantity`, entered by owners/admins on the
+closing page ("Free (promo)") and validated by `save_closing_stock_counts`
+and the row-integrity trigger:
+
+```text
+soldQuantity = previous + added + adjustment - giveaway - closing
+barIncome    = sold * salePrice
+barCost      = (sold + giveaway) * costPrice   -- giveaway_cost = giveaway * costPrice
+```
+
+Giveaways carry no income. Their cost is inside `bar_cost`, so dashboard,
+reports, owner money and Telegram totals charge it without separate handling;
+`giveaway_cost` repeats it for a "promo cost" line. Forward recalculation of
+later rows keeps each row's saved giveaway. Rows saved before 078 have
+`giveaway_quantity = 0` and are unchanged. Apply 078 before deploying the
+frontend: the older RPC ignores the giveaway and rejects the mismatching sold
+quantity.
+
 ## Historical snapshot rule
 
 For an open business day, purchases are the live source of `added_today`. Once a

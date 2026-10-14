@@ -20,10 +20,14 @@ interface SavedStockCountRow {
   sold_quantity: number;
   sale_price: number;
   cost_price: number;
+  giveaway_quantity?: number | null;
+  promotion_id?: string | null;
   products?: SavedProductRelation | SavedProductRelation[] | null;
 }
 
 const SAVED_COUNT_COLUMNS = 'product_id,previous_stock,added_today,adjustment_quantity,adjustment_reason,closing_stock,sold_quantity,sale_price,cost_price';
+// Migration 078; older databases have no giveaway columns.
+const GIVEAWAY_COLUMNS = 'giveaway_quantity,promotion_id';
 const SAVED_PRODUCT_COLUMNS = 'id,club_id,name,category,current_stock,tracks_inventory,low_stock_threshold,is_active,is_deleted,created_at,updated_at';
 
 /** Everything the closing-stock page needs to build its editable rows for one date. */
@@ -75,16 +79,25 @@ function productFromSavedCount(count: SavedStockCountRow, clubId: string, unknow
 }
 
 async function fetchSavedCountsWithProducts(supabase: SupabaseClient, clubId: string, date: string) {
-  const query = (productColumns: string) => supabase
+  const query = (productColumns: string, countColumns = `${SAVED_COUNT_COLUMNS},${GIVEAWAY_COLUMNS}`) => supabase
     .from('daily_stock_counts')
-    .select(`${SAVED_COUNT_COLUMNS},products(${productColumns})`)
+    .select(`${countColumns},products(${productColumns})`)
     .eq('club_id', clubId)
     .eq('date', date)
     .order('updated_at', { ascending: false })
     .returns<SavedStockCountRow[]>();
 
-  const withOrder = await query(`${SAVED_PRODUCT_COLUMNS},sort_order`);
-  return isMissingSortOrder(withOrder.error) ? query(SAVED_PRODUCT_COLUMNS) : withOrder;
+  let result = await query(`${SAVED_PRODUCT_COLUMNS},sort_order`);
+  if (isMissingGiveawayColumns(result.error)) result = await query(`${SAVED_PRODUCT_COLUMNS},sort_order`, SAVED_COUNT_COLUMNS);
+  if (isMissingSortOrder(result.error)) {
+    result = await query(SAVED_PRODUCT_COLUMNS);
+    if (isMissingGiveawayColumns(result.error)) result = await query(SAVED_PRODUCT_COLUMNS, SAVED_COUNT_COLUMNS);
+  }
+  return result;
+}
+
+function isMissingGiveawayColumns(error: { message?: string } | null): boolean {
+  return error?.message?.includes('giveaway_quantity') ?? false;
 }
 
 /**

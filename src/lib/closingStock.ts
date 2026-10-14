@@ -17,6 +17,9 @@ export interface ClosingStockRowData {
   hasPurchaseMismatch?: boolean;
   adjustmentQuantity?: string;
   adjustmentReason?: string;
+  /** Units given away free under a promotion (whole number as typed). */
+  giveawayQuantity?: string;
+  promotionId?: string | null;
   closingStock: string;
   soldQuantity: string;
 }
@@ -32,6 +35,8 @@ export interface ClosingStockDraft {
     addedToday: string;
     adjustmentQuantity?: string;
     adjustmentReason?: string;
+    giveawayQuantity?: string;
+    promotionId?: string | null;
     closingStock: string;
     soldQuantity: string;
   }>;
@@ -80,6 +85,8 @@ export interface ClosingStockUpsert {
   added_today: number;
   adjustment_quantity: number;
   adjustment_reason: string | null;
+  giveaway_quantity: number;
+  promotion_id: string | null;
   closing_stock: number;
   sold_quantity: number;
   sale_price: number;
@@ -99,6 +106,8 @@ export interface ClosingStockExistingCount {
   added_today?: number | string | null;
   adjustment_quantity?: number | string | null;
   adjustment_reason?: string | null;
+  giveaway_quantity?: number | string | null;
+  promotion_id?: string | null;
   closing_stock?: number | string | null;
   sold_quantity?: number | string | null;
 }
@@ -347,6 +356,7 @@ export function closingStockRowTotalsInput(
     previousStock: normalizeStockCount(row.previousStock),
     addedToday: normalizeStockCount(row.addedToday),
     adjustmentQuantity: normalizeStockAdjustment(row.adjustmentQuantity),
+    giveawayQuantity: normalizeStockCount(row.giveawayQuantity),
     closingStock: normalizeStockCount(row.closingStock),
     soldQuantity: normalizeStockCount(row.soldQuantity),
     salePrice: Number(row.product.sale_price ?? 0),
@@ -433,6 +443,7 @@ export function applyBulkStockOrder(
       normalizeStockCount(row.addedToday),
       soldQuantity,
       normalizeStockAdjustment(row.adjustmentQuantity),
+      normalizeStockCount(row.giveawayQuantity),
     );
 
     return {
@@ -465,6 +476,7 @@ function refreshRowPurchasedToday(
     previousStock,
     addedToday,
     adjustmentQuantity: normalizeStockAdjustment(row.adjustmentQuantity),
+    giveawayQuantity: normalizeStockCount(row.giveawayQuantity),
     closingStock,
     salePrice: row.product.sale_price,
     costPrice: row.product.cost_price,
@@ -500,6 +512,8 @@ function createClosingStockDraft(
       addedToday: row.addedToday,
       adjustmentQuantity: row.adjustmentQuantity,
       adjustmentReason: row.adjustmentReason,
+      giveawayQuantity: row.giveawayQuantity,
+      promotionId: row.promotionId,
       closingStock: row.closingStock,
       soldQuantity: row.soldQuantity,
     })),
@@ -562,6 +576,8 @@ export function applyClosingStockDraft(
     if (!draftRow) return row;
     const adjustmentQuantity = String(draftRow.adjustmentQuantity ?? row.adjustmentQuantity ?? '0');
     const adjustmentReason = String(draftRow.adjustmentReason ?? row.adjustmentReason ?? '');
+    const giveawayQuantity = String(draftRow.giveawayQuantity ?? row.giveawayQuantity ?? '0');
+    const promotionId = draftRow.promotionId === undefined ? row.promotionId ?? null : draftRow.promotionId;
 
     if (row.product.tracks_inventory === false) {
       return {
@@ -570,6 +586,8 @@ export function applyClosingStockDraft(
         addedToday: '0',
         adjustmentQuantity: '0',
         adjustmentReason: '',
+        giveawayQuantity,
+        promotionId,
         closingStock: '0',
         soldQuantity: formatEditableStockValue(draftRow.soldQuantity),
       };
@@ -584,6 +602,8 @@ export function applyClosingStockDraft(
       addedToday: row.addedToday,
       adjustmentQuantity,
       adjustmentReason,
+      giveawayQuantity,
+      promotionId,
     };
 
     if (entryMode === 'soldQuantity') {
@@ -596,6 +616,7 @@ export function applyClosingStockDraft(
           normalizeStockCount(row.addedToday),
           normalizeStockCount(soldQuantity),
           normalizeStockAdjustment(adjustmentQuantity),
+          normalizeStockCount(giveawayQuantity),
         )),
       };
     }
@@ -608,6 +629,7 @@ export function applyClosingStockDraft(
         previousStock: normalizeStockCount(row.previousStock),
         addedToday: normalizeStockCount(row.addedToday),
         adjustmentQuantity: normalizeStockAdjustment(adjustmentQuantity),
+        giveawayQuantity: normalizeStockCount(giveawayQuantity),
         closingStock: normalizeStockCount(closingStock),
         salePrice: row.product.sale_price,
         costPrice: row.product.cost_price,
@@ -705,6 +727,7 @@ function applyImportToRow(
   const previousStock = normalizeStockCount(next.previousStock);
   const addedToday = normalizeStockCount(next.addedToday);
   const adjustmentQuantity = normalizeStockAdjustment(next.adjustmentQuantity);
+  const giveawayQuantity = normalizeStockCount(next.giveawayQuantity);
 
   if (mode === 'soldQuantity') {
     if (imported.soldQuantity !== undefined) {
@@ -715,6 +738,7 @@ function applyImportToRow(
         addedToday,
         soldQuantity,
         adjustmentQuantity,
+        giveawayQuantity,
       ));
       return next;
     }
@@ -726,6 +750,7 @@ function applyImportToRow(
         previousStock,
         addedToday,
         adjustmentQuantity,
+        giveawayQuantity,
         closingStock,
         salePrice: row.product.sale_price,
         costPrice: row.product.cost_price,
@@ -742,6 +767,7 @@ function applyImportToRow(
       previousStock,
       addedToday,
       adjustmentQuantity,
+      giveawayQuantity,
       closingStock,
       salePrice: row.product.sale_price,
       costPrice: row.product.cost_price,
@@ -873,6 +899,8 @@ export function buildEditableClosingStockRows({
         addedToday: '0',
         adjustmentQuantity: '0',
         adjustmentReason: '',
+        giveawayQuantity: formatStockValue(existing?.giveaway_quantity ?? 0),
+        promotionId: existing?.promotion_id ?? null,
         closingStock: '0',
         soldQuantity: formatStockValue(existing?.sold_quantity ?? 0),
       };
@@ -901,6 +929,8 @@ export function buildEditableClosingStockRows({
           && Number(existing.added_today ?? 0) !== purchaseQuantity,
         adjustmentQuantity: String(normalizeStockAdjustment(existing.adjustment_quantity)),
         adjustmentReason: String(existing.adjustment_reason ?? ''),
+        giveawayQuantity: formatStockValue(existing.giveaway_quantity ?? 0),
+        promotionId: existing.promotion_id ?? null,
         closingStock: formatStockValue(existing.closing_stock),
         soldQuantity: formatStockValue(existing.sold_quantity),
       };
@@ -919,6 +949,8 @@ export function buildEditableClosingStockRows({
       addedToday: formatStockValue(defaults.addedToday),
       adjustmentQuantity: '0',
       adjustmentReason: '',
+      giveawayQuantity: '0',
+      promotionId: null,
       closingStock: formatStockValue(closingStock),
       soldQuantity: '0',
     };
@@ -992,6 +1024,7 @@ export function validateClosingStockRows(rows: ClosingStockRowData[]): ClosingSt
     const previousStock = normalizeStockCount(row.previousStock);
     const addedToday = normalizeStockCount(row.addedToday);
     const adjustmentQuantity = normalizeStockAdjustment(row.adjustmentQuantity);
+    const giveawayQuantity = normalizeStockCount(row.giveawayQuantity);
     const closingStock = normalizeStockCount(row.closingStock);
     const requestedSoldQuantity = normalizeStockCount(row.soldQuantity);
     const availability = validateStockAvailability(
@@ -999,6 +1032,7 @@ export function validateClosingStockRows(rows: ClosingStockRowData[]): ClosingSt
       addedToday,
       closingStock,
       adjustmentQuantity,
+      giveawayQuantity,
     );
 
     if (adjustmentQuantity !== 0 && !String(row.adjustmentReason ?? '').trim()) {
@@ -1032,7 +1066,7 @@ export function validateClosingStockRows(rows: ClosingStockRowData[]): ClosingSt
       previousStock,
       addedToday,
       adjustmentQuantity,
-    ) - closingStock;
+    ) - giveawayQuantity - closingStock;
     if (requestedSoldQuantity !== expectedSoldQuantity) {
       return new ClosingStockValidationError(
         'sold_quantity_mismatch',
@@ -1062,11 +1096,15 @@ export function buildClosingStockUpserts({
   if (validationError) throw validationError;
 
   const upserts = rows.map((row) => {
+    const giveawayQuantity = normalizeStockCount(row.giveawayQuantity);
+    const promotionId = giveawayQuantity > 0 ? row.promotionId ?? null : null;
+
     if (row.product.tracks_inventory === false) {
       const summary = calculateDirectSalesSummary(
         normalizeStockCount(row.soldQuantity),
         row.product.sale_price,
         row.product.cost_price,
+        giveawayQuantity,
       );
 
       return {
@@ -1076,6 +1114,8 @@ export function buildClosingStockUpserts({
         added_today: 0,
         adjustment_quantity: 0,
         adjustment_reason: null,
+        giveaway_quantity: giveawayQuantity,
+        promotion_id: promotionId,
         closing_stock: 0,
         sold_quantity: summary.soldQuantity,
         sale_price: row.product.sale_price,
@@ -1097,6 +1137,7 @@ export function buildClosingStockUpserts({
       previousStock,
       addedToday,
       adjustmentQuantity,
+      giveawayQuantity,
       closingStock,
       salePrice: row.product.sale_price,
       costPrice: row.product.cost_price,
@@ -1109,6 +1150,8 @@ export function buildClosingStockUpserts({
       added_today: addedToday,
       adjustment_quantity: adjustmentQuantity,
       adjustment_reason: adjustmentReason,
+      giveaway_quantity: giveawayQuantity,
+      promotion_id: promotionId,
       closing_stock: closingStock,
       sold_quantity: soldQuantity,
       sale_price: row.product.sale_price,

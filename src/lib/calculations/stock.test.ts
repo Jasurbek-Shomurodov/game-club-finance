@@ -120,6 +120,8 @@ describe('calculateDirectSalesSummary', () => {
   it('calculates made-to-order revenue and cost without stock limits', () => {
     expect(calculateDirectSalesSummary(4, 25_000, 11_000)).toEqual({
       soldQuantity: 4,
+      giveawayQuantity: 0,
+      giveawayCost: 0,
       barIncome: 100_000,
       barCost: 44_000,
       barProfit: 56_000,
@@ -180,6 +182,8 @@ describe('calculateStockCountSummary', () => {
       costPrice: 6_000,
     })).toEqual({
       soldQuantity: 2,
+      giveawayQuantity: 0,
+      giveawayCost: 0,
       barIncome: 20_000,
       barCost: 12_000,
       barProfit: 8_000,
@@ -200,6 +204,8 @@ describe('applyPurchaseDeltaToStockCount', () => {
       addedToday: 8,
       closingStock: 15,
       soldQuantity: 3,
+      giveawayQuantity: 0,
+      giveawayCost: 0,
       barIncome: 45000,
       barCost: 27000,
       barProfit: 18000,
@@ -218,6 +224,8 @@ describe('applyPurchaseDeltaToStockCount', () => {
       addedToday: 0,
       closingStock: 0,
       soldQuantity: 10,
+      giveawayQuantity: 0,
+      giveawayCost: 0,
       barIncome: 100000,
       barCost: 60000,
       barProfit: 40000,
@@ -448,6 +456,8 @@ describe('summarizeStockRows', () => {
       },
     ])).toEqual({
       sold: 13,
+      giveaways: 0,
+      giveawayCost: 0,
       income: 1_150,
       profit: 490,
       stockValue: 240,
@@ -459,7 +469,39 @@ describe('summarizeStockRows', () => {
 
   it('returns zero totals for no rows', () => {
     expect(summarizeStockRows([])).toEqual({
-      sold: 0, income: 0, profit: 0, stockValue: 0, previous: 0, added: 0, purchaseCost: 0,
+      sold: 0, giveaways: 0, giveawayCost: 0, income: 0, profit: 0, stockValue: 0, previous: 0, added: 0, purchaseCost: 0,
     });
+  });
+});
+
+describe('promo giveaways', () => {
+  it('removes given-away units from sold quantity and charges their cost without income', () => {
+    expect(calculateSoldQuantity(10, 2, 4, 0, 3)).toBe(5);
+    expect(calculateClosingStockFromSold(10, 2, 5, 0, 3)).toBe(4);
+    expect(validateStockAvailability(10, 0, 8, 0, 3)).toEqual({ availableStock: 10, excessClosingStock: 1, isValid: false });
+    expect(calculateStockCountSummary({
+      previousStock: 10, addedToday: 2, giveawayQuantity: 3, closingStock: 4, salePrice: 15_000, costPrice: 9_000,
+    })).toEqual({
+      soldQuantity: 5,
+      giveawayQuantity: 3,
+      giveawayCost: 27_000,
+      barIncome: 75_000,
+      barCost: 72_000,
+      barProfit: 3_000,
+    });
+    expect(calculateDirectSalesSummary(4, 5_000, 1_000, 2)).toMatchObject({ barIncome: 20_000, barCost: 6_000, giveawayCost: 2_000 });
+    // Negative or fractional giveaways never add stock back.
+    expect(calculateSoldQuantity(10, 0, 4, 0, -2)).toBe(6);
+    expect(calculateSoldQuantity(10, 0, 4, 0, 1.9)).toBe(5);
+  });
+
+  it('carries giveaways through forward recalculation and totals', () => {
+    const [row] = recalculateFutureStockCounts(10, [
+      { date: '2026-06-29', added_today: 0, giveaway_quantity: 2, closing_stock: 6, sale_price: 100, cost_price: 40 },
+    ]);
+    expect(row).toMatchObject({ previous_stock: 10, sold_quantity: 2, bar_income: 200, bar_cost: 160, bar_profit: 40 });
+    expect(summarizeStockRows([
+      { tracksInventory: true, previousStock: 10, addedToday: 0, giveawayQuantity: 2, closingStock: 6, soldQuantity: 0, salePrice: 100, costPrice: 40 },
+    ])).toMatchObject({ sold: 2, giveaways: 2, giveawayCost: 80, income: 200, profit: 40 });
   });
 });

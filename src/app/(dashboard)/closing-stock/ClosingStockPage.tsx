@@ -6,6 +6,8 @@ import { useState, useEffect, useCallback, useMemo, useRef, type KeyboardEvent }
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 import { loadClosingStockDay } from '@/lib/supabase/closingStockQueries';
+import { fetchPromotions } from '@/lib/supabase/promotions';
+import { promotionsForProduct } from '@/lib/promotions';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
   Avatar,
@@ -23,6 +25,7 @@ import {
   SearchInput,
   SectionHeading,
   SegmentedControl,
+  Select,
   StatTile,
   Stepper,
   TableSkeleton,
@@ -68,6 +71,7 @@ import {
 import {
   AlertTriangle,
   CalendarX,
+  Gift,
   Info,
   Package,
   RefreshCcw,
@@ -75,12 +79,12 @@ import {
   Search,
   ShoppingCart,
 } from 'lucide-react';
-import type { Product } from '@/types';
+import type { Product, Promotion } from '@/types';
 import { useLatestRef } from '@/components/i18n/useLatestRef';
 
 type RowData = ClosingStockRowData;
 
-function parseNum(value: string): number {
+function parseNum(value: string | undefined): number {
   return normalizeStockCount(value);
 }
 
@@ -147,32 +151,27 @@ const stickyProductCellClass = 'sticky left-12 z-10 bg-surface px-4 py-4 shadow-
 const CLOCK_REFRESH_MS = 60_000;
 const addedTodayHeaderCellClass = stickyHeaderCellClass;
 
+/** Sold quantity derived from the row's stock movement, including promo giveaways. */
+function derivedSoldQuantity(row: RowData): string {
+  return String(calculateStockCountSummary({
+    previousStock: parseNum(row.previousStock),
+    addedToday: parseNum(row.addedToday),
+    adjustmentQuantity: parseAdjustment(row.adjustmentQuantity),
+    giveawayQuantity: parseNum(row.giveawayQuantity),
+    closingStock: parseNum(row.closingStock),
+    salePrice: row.product.sale_price,
+    costPrice: row.product.cost_price,
+  }).soldQuantity);
+}
+
 function withClosingStock(row: RowData, value: string): RowData {
-  return {
-    ...row,
-    closingStock: value,
-    soldQuantity: String(calculateStockCountSummary({
-      previousStock: parseNum(row.previousStock),
-      addedToday: parseNum(row.addedToday),
-      adjustmentQuantity: parseAdjustment(row.adjustmentQuantity),
-      closingStock: parseNum(value),
-      salePrice: row.product.sale_price,
-      costPrice: row.product.cost_price,
-    }).soldQuantity),
-  };
+  const nextRow = { ...row, closingStock: value };
+  return { ...nextRow, soldQuantity: derivedSoldQuantity(nextRow) };
 }
 
 function withAdjustment(row: RowData, value: string): RowData {
   const nextRow = { ...row, adjustmentQuantity: value };
-  nextRow.soldQuantity = String(calculateStockCountSummary({
-    previousStock: parseNum(nextRow.previousStock),
-    addedToday: parseNum(nextRow.addedToday),
-    adjustmentQuantity: parseAdjustment(value),
-    closingStock: parseNum(nextRow.closingStock),
-    salePrice: nextRow.product.sale_price,
-    costPrice: nextRow.product.cost_price,
-  }).soldQuantity);
-  return nextRow;
+  return { ...nextRow, soldQuantity: derivedSoldQuantity(nextRow) };
 }
 
 function withSoldQuantity(row: RowData, value: string): RowData {
@@ -193,8 +192,20 @@ function withSoldQuantity(row: RowData, value: string): RowData {
       parseNum(row.addedToday),
       parseNum(value),
       parseAdjustment(row.adjustmentQuantity),
+      parseNum(row.giveawayQuantity),
     )),
   };
+}
+
+/**
+ * Free units leave stock unsold. When staff count closing stock, the sold
+ * quantity shrinks; when they enter sold quantities, closing stock shrinks.
+ */
+function withGiveaway(row: RowData, value: string, soldEntry: boolean): RowData {
+  const nextRow = { ...row, giveawayQuantity: value };
+  if (row.product.tracks_inventory === false) return nextRow;
+  if (soldEntry) return withSoldQuantity(nextRow, nextRow.soldQuantity);
+  return { ...nextRow, soldQuantity: derivedSoldQuantity(nextRow) };
 }
 
 function rowSummary(row: RowData) {
@@ -222,6 +233,7 @@ export default function ClosingStockPage() {
     ? dateSelection.date
     : today;
   const [rows, setRows] = useState<RowData[]>([]);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [purchaseCostsByProduct, setPurchaseCostsByProduct] = useState<Record<string, number>>({});
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -309,18 +321,23 @@ export default function ClosingStockPage() {
     const canUseDraft = currentRole === 'owner' || (currentRole === 'admin' && !readOnlyDate);
     const draftMode = usesSoldEntry ? 'soldQuantity' : 'closingStock';
 
-    const { data: day } = await loadClosingStockDay(supabase, {
-      clubId: selectedClubId,
-      date: selectedDate,
-      today,
-      isOwner: currentRole === 'owner',
-      unknownProductName: tRef.current('unknownProduct'),
-    });
+    const [{ data: day }, promotionsRes] = await Promise.all([
+      loadClosingStockDay(supabase, {
+        clubId: selectedClubId,
+        date: selectedDate,
+        today,
+        isOwner: currentRole === 'owner',
+        unknownProductName: tRef.current('unknownProduct'),
+      }),
+      fetchPromotions(supabase, selectedClubId),
+    ]);
     if (!isCurrent()) return;
     if (!day) {
       fail();
       return;
     }
+    // Promotions only label giveaways; a failed read must not block counting.
+    setPromotions(promotionsRes.data ?? []);
 
     setPurchaseCostsByProduct(calculatePurchaseCostsByProduct(day.purchases));
     const editableRows = buildEditableRows(
@@ -443,6 +460,23 @@ export default function ClosingStockPage() {
     editRow(productId, (row) => withSoldQuantity(row, value));
   }
 
+  function updateGiveaway(productId: string, value: string) {
+    if (!isWholeNumberInput(value)) return;
+    editRow(productId, (row) => {
+      const next = withGiveaway(row, value, usesSoldEntry);
+      // One active promotion for this product: label the giveaway with it.
+      const candidates = promotionsForProduct(promotions, productId, date);
+      if (!next.promotionId && candidates.length === 1 && parseNum(value) > 0) {
+        return { ...next, promotionId: candidates[0].id };
+      }
+      return next;
+    });
+  }
+
+  function updatePromotion(productId: string, value: string) {
+    editRow(productId, (row) => ({ ...row, promotionId: value || null }));
+  }
+
   function stepSoldQuantity(productId: string, amount: number) {
     editRow(productId, (row) => withSoldQuantity(row, String(Math.max(0, parseNum(row.soldQuantity) + amount))));
   }
@@ -467,6 +501,13 @@ export default function ClosingStockPage() {
   );
 
   const bulkRows = useMemo(() => rows.filter((row) => !isReadOnlyClosingStockProduct(row.product)), [rows]);
+
+  // Promotions active on the selected date, so staff see what to give away.
+  const activePromotions = useMemo(
+    () => promotions.filter((promotion) => promotionsForProduct([promotion], promotion.product_id, date).length > 0),
+    [promotions, date],
+  );
+  const productNameById = useMemo(() => new Map(rows.map((row) => [row.product.id, row.product.name])), [rows]);
 
   // KPIs describe the whole day; filters only narrow the table and its footer.
   const totals = useMemo(() => summarizeStockRows(rows.map((row) => (
@@ -613,6 +654,7 @@ export default function ClosingStockPage() {
     { label: t('totalSold'), value: formatNumber(totals.sold), unit: t('pcs') },
     { label: t('barIncomeEst'), value: formatCurrency(totals.income), unit: tc('currency'), tone: 'success' },
     { label: t('barProfitEst'), value: formatCurrency(totals.profit), unit: tc('currency'), tone: totals.profit < 0 ? 'danger' : 'success' },
+    { label: t('promoCost'), value: formatCurrency(totals.giveawayCost), unit: tc('currency'), tone: totals.giveawayCost > 0 ? 'danger' : 'default' },
     { label: t('stockValue'), value: formatCurrency(totals.stockValue), unit: tc('currency') },
   ];
   const categoryChipOptions = [{ value: '', label: tc('all') }, ...categoryOptions.map((category) => ({ value: category, label: category }))];
@@ -703,6 +745,26 @@ export default function ClosingStockPage() {
         <p className="text-sm text-gray-500">{t('draftDisabledSaved')}</p>
       )}
 
+      {activePromotions.length > 0 && !loading && !loadError && (
+        <InlineAlert variant="info" title={t('activePromotionsTitle', { count: activePromotions.length })}>
+          <ul className="mt-1 space-y-0.5">
+            {activePromotions.map((promotion) => (
+              <li key={promotion.id}>
+                <span className="font-medium">{promotion.name}</span>
+                {' · '}
+                {t('activePromotionRule', {
+                  quantity: formatNumber(promotion.free_quantity),
+                  product: productNameById.get(promotion.product_id) ?? t('unknownProduct'),
+                  spend: formatCurrency(promotion.min_spend),
+                  currency: tc('currency'),
+                })}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2">{t('activePromotionsHint')}</p>
+        </InlineAlert>
+      )}
+
       {loadError && !loading ? (
         <Card>
           <EmptyState
@@ -718,10 +780,10 @@ export default function ClosingStockPage() {
       ) : (
         <>
           {loading ? (
-            <MetricGridSkeleton count={6} className="grid-cols-2 sm:grid-cols-3 lg:grid-cols-6" />
+            <MetricGridSkeleton count={7} className="grid-cols-2 lg:grid-cols-7" />
           ) : (
             <Card as="section" padding="none" aria-busy={refreshing || undefined}>
-              <div className="grid grid-cols-2 lg:grid-cols-6">
+              <div className="grid grid-cols-2 lg:grid-cols-7">
                 {kpis.map((kpi) => (
                   <StatTile
                     key={kpi.label}
@@ -771,7 +833,7 @@ export default function ClosingStockPage() {
             )}
 
             {loading ? (
-              <TableSkeleton rows={8} columns={9} className="rounded-none border-0 shadow-none" />
+              <TableSkeleton rows={8} columns={10} className="rounded-none border-0 shadow-none" />
             ) : rows.length === 0 ? (
               showsSavedSnapshotOnly ? (
                 <EmptyState
@@ -822,6 +884,11 @@ export default function ClosingStockPage() {
                         <br />
                         <span className="text-gray-400">({t('pcs')})</span>
                       </th>
+                      <th className={`${stickyHeaderCellClass} min-w-[150px] text-center`} title={t('giveawayHint')}>
+                        {t('giveaway')}
+                        <br />
+                        <span className="text-gray-400">({t('pcs')})</span>
+                      </th>
                       <th className={`${stickyHeaderCellClass} text-center`}>
                         {t('closingStock')}
                         <br />
@@ -852,6 +919,11 @@ export default function ClosingStockPage() {
                       const summary = rowSummary(row);
                       const tracksInventory = row.product.tracks_inventory !== false;
                       const rowFlagged = invalidProductId === productId;
+                      const rowPromotions = promotionsForProduct(promotions, productId, date);
+                      const giveawayQuantity = parseNum(row.giveawayQuantity);
+                      const selectedPromotion = row.promotionId
+                        ? promotions.find((promotion) => promotion.id === row.promotionId) ?? null
+                        : null;
                       return (
                         <tr key={productId} className="group hover:bg-gray-50">
                           <td className={`${stickyIndexCellClass} text-gray-500 tabular-nums`}>{rowNumberById.get(productId)}</td>
@@ -862,6 +934,11 @@ export default function ClosingStockPage() {
                                 <p className="font-semibold text-gray-900">{row.product.name}</p>
                                 {!tracksInventory && (
                                   <Badge variant="purple" size="sm" className="mt-1">{t('madeToOrder')}</Badge>
+                                )}
+                                {rowPromotions.length > 0 && (
+                                  <Badge variant="primary" size="sm" className="mt-1" icon={<Gift size={12} aria-hidden="true" />}>
+                                    {rowPromotions.map((promotion) => promotion.name).join(', ')}
+                                  </Badge>
                                 )}
                                 <p className="mt-1 text-xs text-gray-500">{t('costLabel')} {formatUnitCurrency(row.product.cost_price)} {tc('currency')}</p>
                               </div>
@@ -940,6 +1017,51 @@ export default function ClosingStockPage() {
                             )}
                           </td>
                           <td className="px-4 py-4">
+                            {rowPromotions.length === 0 && giveawayQuantity === 0 ? (
+                              <p className="text-center font-semibold text-gray-400">—</p>
+                            ) : !rowReadOnly ? (
+                              <div className="mx-auto w-32 space-y-2">
+                                <Input
+                                  type="text"
+                                  inputMode="numeric"
+                                  controlSize="sm"
+                                  className="text-center text-base font-semibold sm:text-sm"
+                                  value={row.giveawayQuantity ?? '0'}
+                                  aria-label={`${t('giveaway')} · ${row.product.name}`}
+                                  disabled={inputsDisabled}
+                                  invalid={rowFlagged && giveawayQuantity > 0}
+                                  onKeyDown={preventNonSignedIntegerNumberInput}
+                                  onWheel={(event) => event.currentTarget.blur()}
+                                  onChange={(event) => updateGiveaway(productId, event.target.value)}
+                                />
+                                {giveawayQuantity > 0 && rowPromotions.length > 0 && (
+                                  <Select
+                                    controlSize="sm"
+                                    className="text-base sm:text-xs"
+                                    value={row.promotionId ?? ''}
+                                    aria-label={`${t('promotion')} · ${row.product.name}`}
+                                    disabled={inputsDisabled}
+                                    onChange={(event) => updatePromotion(productId, event.target.value)}
+                                  >
+                                    <option value="">{t('promotionUnspecified')}</option>
+                                    {rowPromotions.map((promotion) => (
+                                      <option key={promotion.id} value={promotion.id}>{promotion.name}</option>
+                                    ))}
+                                  </Select>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="text-center">
+                                <p className={`font-semibold ${giveawayQuantity > 0 ? 'text-gray-900' : 'text-gray-400'}`}>
+                                  {giveawayQuantity > 0 ? formatNumber(giveawayQuantity) : '—'}
+                                </p>
+                                {selectedPromotion && giveawayQuantity > 0 && (
+                                  <p className="mt-1 text-xs text-gray-500">{selectedPromotion.name}</p>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-4">
                             {!tracksInventory ? (
                               <p className="text-center font-semibold text-gray-400">—</p>
                             ) : rowReadOnly || usesSoldEntry ? (
@@ -991,6 +1113,7 @@ export default function ClosingStockPage() {
                       <td className="px-4 py-4 text-center">{formatNumber(filteredTotals.previous)}</td>
                       <td className="px-4 py-4 text-center text-success-600">{formatNumber(filteredTotals.added)}</td>
                       <td className="px-4 py-4 text-center">—</td>
+                      <td className="px-4 py-4 text-center">{formatNumber(filteredTotals.giveaways)}</td>
                       <td className="px-4 py-4 text-center">—</td>
                       <td className="px-4 py-4 text-center">{formatNumber(filteredTotals.sold)}</td>
                       <td className="whitespace-nowrap px-4 py-4 text-right text-success-600">{formatCurrency(filteredTotals.income)}</td>
