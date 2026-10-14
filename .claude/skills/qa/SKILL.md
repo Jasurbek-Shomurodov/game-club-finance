@@ -56,9 +56,23 @@ requires sign-in:
   a new tab.
 - If only the built-in browser is available and it shows `/login`, ask the user
   to sign in there. Never type passwords or use Google sign-in yourself.
-- Do not create, edit or delete real club data unless the user says the club is
-  a test club. Read-only checks are always fine. Never trigger a live Telegram
-  send.
+- Read-only checks are always fine: opening pages, comparing totals, switching
+  dates, clubs, languages and themes, resizing, reading console and network.
+- **Data safety: ask before every write.** Any action that could save, change
+  or delete data needs the user's explicit "yes" in chat for that one action:
+  Save/Submit/Add/Confirm/Delete/Approve/Reject/Withdraw, toggling a setting or
+  permission, importing, or the double-click save test.
+  - On a real club, do not ask; skip it and list it under "Not tested". Writes
+    are only offered on a club the user has said is a test club.
+  - Before asking, name the club, page, action and exact values, e.g. "Test
+    club, Reports → Add expense 1 000 UZS, cash, today. Proceed?". Then stop and
+    wait. Approval covers that action only, never later ones.
+  - Never delete or edit records you did not create during this /qa run.
+  - List every write you made at the end of the report so the user can
+    clean up.
+- Never call the Telegram report endpoints or force a resend. Saving an expense
+  or salary entry also posts to the club's Telegram group if one is set up:
+  say so in the approval question.
 
 For each scenario, use `get_page_text` or `read_page` for values and take
 screenshots for anything visual.
@@ -93,7 +107,8 @@ screenshots for anything visual.
   Record the request count, failures (4xx/5xx), duplicate or per-row (N+1)
   requests, serial waterfalls, slow responses (over ~1 s) and oversized
   payloads. Switch club and date range quickly: the last selection must win,
-  with no stale data flashing in. Double-click save buttons: exactly one write.
+  with no stale data flashing in. Double-click save buttons: exactly one write
+  (a write: test club only, after the user approves it).
 - **Regression**: nearby features that share the changed component or formula.
 
 ## 4. Report
@@ -112,6 +127,8 @@ Verified
 
 Not tested
 - <scenario>: <why>, e.g. needs a viewer account
+
+Writes made (test club only, each approved): <club, page, record> or none
 
 Automated: vitest X/Y, typecheck, lint, build: <results>
 ```
