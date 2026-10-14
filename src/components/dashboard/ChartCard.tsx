@@ -23,6 +23,19 @@ export const chartColors = {
   cursor: token('gray-500', 0.12),
 } as const;
 
+/** Themed Recharts tooltip box; spread onto every `<Tooltip>` so it is not white in dark mode. */
+export const chartTooltipStyle = {
+  contentStyle: {
+    backgroundColor: token('surface'),
+    border: `1px solid ${token('gray-200')}`,
+    borderRadius: 8,
+    boxShadow: '0 8px 24px rgb(0 0 0 / 0.18)',
+    fontSize: 12,
+  },
+  labelStyle: { color: token('gray-950'), fontWeight: 600, marginBottom: 4 },
+  itemStyle: { padding: '1px 0' },
+} as const;
+
 /** Card wrapper shared by every dashboard chart; the section is named by its heading. */
 export function ChartCard({ title, description, action, className, children }: {
   title: string;

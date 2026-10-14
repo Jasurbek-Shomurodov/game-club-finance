@@ -12,7 +12,7 @@ import {
   YAxis,
 } from 'recharts';
 import { useTranslations } from 'next-intl';
-import { chartColors, formatAxis } from '@/components/dashboard/ChartCard';
+import { chartColors, chartTooltipStyle, formatAxis } from '@/components/dashboard/ChartCard';
 import { formatCurrency, formatDateShort } from '@/lib/formatters';
 import {
   SPENDING_GROUPS,
@@ -61,9 +61,9 @@ export function DailyFlowChart({ data, locale, currency }: { data: DailyAnalysis
             <XAxis dataKey="label" {...axisProps} axisLine={{ stroke: chartColors.grid }} minTickGap={16} />
             <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
             <Tooltip
+              {...chartTooltipStyle}
               cursor={{ fill: chartColors.cursor }}
               formatter={(value, name) => [`${formatCurrency(Number(value))} ${currency}`, names[String(name)] ?? String(name)]}
-              labelStyle={{ fontWeight: 600 }}
             />
             {SPENDING_GROUPS.map((group, index) => (
               <Bar
@@ -116,10 +116,10 @@ export function MonthlyTrendChart({ data, locale, currency }: { data: MonthlyAna
             <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
             <ReferenceLine y={0} stroke={chartColors.axis} strokeOpacity={0.4} />
             <Tooltip
+              {...chartTooltipStyle}
               cursor={{ fill: chartColors.cursor }}
               labelFormatter={(month) => monthTitle(String(month))}
               formatter={(value, name) => [`${formatCurrency(Number(value))} ${currency}`, names[String(name)] ?? String(name)]}
-              labelStyle={{ fontWeight: 600 }}
             />
             <Bar dataKey="income" fill={chartColors.primary} radius={[3, 3, 0, 0]} maxBarSize={24} />
             <Bar dataKey="spent" fill={chartColors.danger} fillOpacity={0.6} radius={[3, 3, 0, 0]} maxBarSize={24} />
