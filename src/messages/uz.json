@@ -1357,6 +1357,9 @@
       "usedUp": "Bugungi bepul limit tugadi",
       "resetsIn": "{hours} soat {minutes} daqiqadan so'ng yangilanadi",
       "note": "Limit barcha klublardagi hamma uchun umumiy. Bitta savol taxminan 3 ta so'rov sarflaydi."
-    }
+    },
+    "model": "Model: {model}",
+    "context": "Kontekstning {percent}% ishlatildi · yana ≈{count} ta xabar sig'adi",
+    "contextUnknown": "Kontekstdan {tokens} token ishlatildi"
   }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import { Download, FileSpreadsheet, MessageSquarePlus, SendHorizontal, Sparkles, Square } from 'lucide-react';
 import { DEFAULT_LIMITS } from 'hoggish-assistant';
@@ -8,6 +8,7 @@ import { useAssistantChat, type ChatEntry } from 'hoggish-assistant/react';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { useClub } from '@/components/layout/DashboardShell';
 import { AssistantMarkdown } from '@/components/assistant/AssistantMarkdown';
+import { formatNumber, intlLocaleFor } from '@/lib/formatters';
 import {
   Badge,
   Button,
@@ -22,6 +23,8 @@ import {
 
 const SUGGESTIONS = ['profit', 'compare', 'products', 'excel', 'stock', 'debts'] as const;
 const MAX_MESSAGE_CHARS = DEFAULT_LIMITS.maxMessageChars;
+/** The question box grows with its text up to this height, then scrolls. */
+const INPUT_MAX_HEIGHT_PX = 240;
 
 /** Time until the quota resets, read when the badge renders. */
 function msUntil(iso: string) {
@@ -41,7 +44,7 @@ export default function AssistantPage() {
     context: { clubId: selectedClubId, locale },
     maxMessageChars: MAX_MESSAGE_CHARS,
   });
-  const { messages: entries, busy, newChat, quota } = chat;
+  const { messages: entries, busy, newChat, quota, model, context } = chat;
 
   // A conversation belongs to one club; switching clubs starts a new one.
   useEffect(() => newChat(), [selectedClubId, newChat]);
@@ -49,6 +52,14 @@ export default function AssistantPage() {
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
   }, [entries]);
+
+  // Multi-line question box: fit the text, capped so long drafts scroll.
+  useLayoutEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    input.style.height = 'auto';
+    input.style.height = `${Math.min(input.scrollHeight, INPUT_MAX_HEIGHT_PX)}px`;
+  }, [draft]);
 
   async function ask(question: string) {
     const text = question.trim();
@@ -91,18 +102,37 @@ export default function AssistantPage() {
     resetLabel,
   ].join(' · ');
 
+  /** Context-window use of the latest answer; unknown windows show raw tokens. */
+  const contextDetail = context && (
+    context.usedShare !== null && context.messagesLeft !== null
+      ? t('context', {
+        percent: Math.max(1, Math.round(context.usedShare * 100)),
+        count: formatNumber(context.messagesLeft, intlLocaleFor(locale)),
+      })
+      : t('contextUnknown', { tokens: formatNumber(context.usedTokens, intlLocaleFor(locale)) })
+  );
+
   return (
     <div className="flex min-h-[calc(100dvh-8rem)] flex-col gap-4">
       <PageHeader
         title={t('title')}
-        meta={quota ? (
-          <Badge
-            variant={quota.questionsLeft === 0 ? 'danger' : quota.usingFallback ? 'warning' : 'success'}
-            size="sm"
-            title={`${quotaDetail}. ${t('quota.note')}`}
-          >
-            {t('quota.questionsLeft', { count: quota.questionsLeft })}
-          </Badge>
+        meta={model || quota ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {model && (
+              <Badge variant="neutral" size="sm" title={model.provider}>
+                {t('model', { model: model.model })}
+              </Badge>
+            )}
+            {quota && (
+              <Badge
+                variant={quota.questionsLeft === 0 ? 'danger' : quota.usingFallback ? 'warning' : 'success'}
+                size="sm"
+                title={`${quotaDetail}. ${t('quota.note')}`}
+              >
+                {t('quota.questionsLeft', { count: quota.questionsLeft })}
+              </Badge>
+            )}
+          </div>
         ) : undefined}
         action={entries.length > 0 ? (
           <Button variant="outline" size="sm" onClick={newChat} icon={<MessageSquarePlus size={16} aria-hidden="true" />}>
@@ -182,8 +212,8 @@ export default function AssistantPage() {
             placeholder={t('placeholder')}
             aria-label={t('placeholder')}
             maxLength={MAX_MESSAGE_CHARS}
-            rows={1}
-            className="min-h-11 flex-1 resize-none"
+            rows={3}
+            className="min-h-20 flex-1 resize-none overflow-y-auto"
             disabled={!selectedClubId}
           />
           {busy ? (
@@ -204,7 +234,9 @@ export default function AssistantPage() {
             />
           )}
         </div>
-        {quotaDetail && <p className="text-center text-xs text-gray-600">{quotaDetail}</p>}
+        {(quotaDetail || contextDetail) && (
+          <p className="text-center text-xs text-gray-600">{[quotaDetail, contextDetail].filter(Boolean).join(' · ')}</p>
+        )}
         <p className="text-center text-xs text-gray-500">{t('disclaimer')}</p>
       </form>
     </div>

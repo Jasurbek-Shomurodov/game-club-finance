@@ -162,8 +162,12 @@ describe('POST /api/assistant', () => {
 
     expect(response.headers.get('content-type')).toContain('application/x-ndjson');
     expect(events).toEqual([
+      { type: 'model', model: 'mock', provider: 'mock' },
+      expect.objectContaining({ type: 'usage', model: 'mock' }),
       expect.objectContaining({ type: 'tool', name: 'get_data' }),
+      { type: 'model', model: 'mock', provider: 'mock' },
       { type: 'text', text: 'Cola is low.' },
+      expect.objectContaining({ type: 'usage', model: 'mock' }),
       { type: 'done' },
     ]);
     expect(mocks.load).toHaveBeenCalledWith(expect.objectContaining({ dataset: 'stock' }));

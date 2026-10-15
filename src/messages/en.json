@@ -1357,6 +1357,9 @@
       "usedUp": "Free limit used up for today",
       "resetsIn": "Resets in {hours} h {minutes} min",
       "note": "Shared by everyone in all clubs. One question uses about 3 requests."
-    }
+    },
+    "model": "Model: {model}",
+    "context": "{percent}% of context used · ≈{count} more messages fit",
+    "contextUnknown": "{tokens} tokens of context used"
   }
 }
