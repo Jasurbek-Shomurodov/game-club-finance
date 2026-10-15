@@ -2,6 +2,8 @@
 // (the `prebuild` script). package.json declares it as `#semver:*`, but the
 // lockfile pins one commit, so a plain install would keep the old release.
 // A network failure only warns: the build continues with the installed copy.
+// `--include=dev` stops npm from pruning devDependencies (TypeScript among
+// them) when the build runs with NODE_ENV=production, as it does on Vercel.
 const { execFileSync } = require('node:child_process');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
@@ -23,7 +25,7 @@ const before = installedVersion();
 try {
   execFileSync(
     'npm',
-    ['install', `${name}@${spec}`, '--no-save', '--no-audit', '--no-fund', '--ignore-scripts'],
+    ['install', `${name}@${spec}`, '--no-save', '--include=dev', '--no-audit', '--no-fund', '--ignore-scripts'],
     { cwd: root, stdio: ['ignore', 'ignore', 'inherit'] },
   );
   const after = installedVersion();
