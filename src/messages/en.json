@@ -29,7 +29,8 @@
     "groupMoney": "Money",
     "groupManage": "Manage",
     "financialAnalysis": "Financial Analysis",
-    "promotions": "Promotions"
+    "promotions": "Promotions",
+    "assistant": "AI Assistant"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -838,7 +839,9 @@
       "settings": "Settings",
       "settingsDescription": "Manage club settings",
       "salaries": "Edit salaries",
-      "salariesDescription": "Allow recording salary payments, bonuses and fines. Only owners change employees, salary and KPI. All club members can view salaries."
+      "salariesDescription": "Allow recording salary payments, bonuses and fines. Only owners change employees, salary and KPI. All club members can view salaries.",
+      "assistant": "AI Assistant",
+      "assistantDescription": "Ask questions about club data and export Excel reports. Answers only use data this member can already see."
     },
     "roles": {
       "owner": "Owner",
@@ -1232,5 +1235,112 @@
     "retry": "Try again",
     "passed": "Passed",
     "failed": "Failed"
+  },
+  "assistant": {
+    "title": "AI Assistant",
+    "emptyTitle": "Ask about your club",
+    "emptyDescription": "Profit, expenses, bar sales, stock and debts. I can also prepare Excel files.",
+    "suggestions": {
+      "profit": "How much profit did we make this month?",
+      "compare": "Compare this month with last month",
+      "products": "Which bar products sold best this month?",
+      "excel": "Export this month's expenses to Excel",
+      "stock": "Which products are running low?",
+      "debts": "Who owes us the most?"
+    },
+    "placeholder": "Ask a question…",
+    "send": "Send",
+    "stop": "Stop",
+    "newChat": "New chat",
+    "you": "You",
+    "thinking": "Thinking…",
+    "readingData": "Reading club data…",
+    "preparingExcel": "Preparing Excel file…",
+    "download": "Download",
+    "disclaimer": "The assistant only reads data and can make mistakes. Check important numbers in Reports.",
+    "stopped": "Stopped.",
+    "defaultFileName": "Game club report",
+    "errors": {
+      "UNAUTHORIZED": "Your session has expired. Sign in again.",
+      "INVALID_REQUEST": "The question could not be sent. Start a new chat and try again.",
+      "FORBIDDEN": "You don't have access to the assistant in this club.",
+      "NOT_CONFIGURED": "The assistant is not set up yet. Add the AI provider API key on the server.",
+      "BUSY": "The assistant is busy right now. Try again in a minute.",
+      "REFUSED": "The assistant can't help with that request.",
+      "TOO_LONG": "That question needed too many steps. Try asking something more specific.",
+      "SERVER_ERROR": "Something went wrong. Try again.",
+      "NETWORK": "Connection lost. Check your internet and try again."
+    },
+    "datasets": {
+      "summary": "Summary",
+      "daily": "By day",
+      "monthly": "By month",
+      "categories": "Expense categories",
+      "expenses": "Expenses",
+      "product_sales": "Product sales",
+      "stock": "Stock",
+      "debts": "Debts"
+    },
+    "columns": {
+      "metric": "Metric",
+      "value": "Value",
+      "unit": "Unit",
+      "date": "Date",
+      "month": "Month",
+      "income": "Income",
+      "barCost": "Bar cost",
+      "gameClubExpenses": "Game club expenses",
+      "barExpenses": "Bar expenses",
+      "spent": "Spent",
+      "profit": "Profit",
+      "category": "Category",
+      "amount": "Amount",
+      "sharePct": "Share, %",
+      "count": "Count",
+      "paymentMethod": "Payment method",
+      "paymentSource": "Paid from",
+      "comment": "Comment",
+      "product": "Product",
+      "soldQuantity": "Sold",
+      "giveawayQuantity": "Promo giveaways",
+      "barSales": "Sales",
+      "barProfit": "Profit",
+      "currentStock": "In stock",
+      "lowStockThreshold": "Low stock at",
+      "stockLevel": "Stock level",
+      "salePrice": "Sale price",
+      "person": "Person",
+      "paidAmount": "Paid",
+      "remainingAmount": "Remaining",
+      "debtStatus": "Status"
+    },
+    "metrics": {
+      "income": "Income",
+      "computers": "Computers",
+      "playstation": "PlayStation",
+      "barSales": "Bar sales",
+      "newDebts": "New debts",
+      "barCost": "Bar cost of goods",
+      "debtPayments": "Debt payments received",
+      "gameClubExpenses": "Game club expenses",
+      "barExpenses": "Bar expenses",
+      "totalExpenses": "All expenses",
+      "spent": "Spent",
+      "profit": "Profit",
+      "profitMarginPct": "Profit margin",
+      "barMarginPct": "Bar margin",
+      "salarySharePct": "Salary share of expenses",
+      "averageDailyIncome": "Average daily income",
+      "averageDailySpend": "Average daily spend"
+    },
+    "paymentSources": {
+      "game_club": "Game club",
+      "bar": "Bar"
+    },
+    "stockLevels": {
+      "out": "Out of stock",
+      "low": "Low",
+      "ok": "OK"
+    }
   }
 }

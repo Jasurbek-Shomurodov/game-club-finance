@@ -29,7 +29,8 @@
     "groupMoney": "Pul",
     "groupManage": "Boshqaruv",
     "financialAnalysis": "Moliyaviy tahlil",
-    "promotions": "Aksiyalar"
+    "promotions": "Aksiyalar",
+    "assistant": "AI yordamchi"
   },
   "dashboard": {
     "title": "Boshqaruv paneli",
@@ -838,7 +839,9 @@
       "settings": "Sozlamalar",
       "settingsDescription": "Klub sozlamalarini boshqarish",
       "salaries": "Ish haqini tahrirlash",
-      "salariesDescription": "Ish haqi to‘lovlari, mukofot va jarimalarni kiritish. Xodimlar, ish haqi va KPI ni faqat egalar o‘zgartiradi. Barcha klub a’zolari ish haqini ko‘ra oladi."
+      "salariesDescription": "Ish haqi to‘lovlari, mukofot va jarimalarni kiritish. Xodimlar, ish haqi va KPI ni faqat egalar o‘zgartiradi. Barcha klub a’zolari ish haqini ko‘ra oladi.",
+      "assistant": "AI yordamchi",
+      "assistantDescription": "Klub ma'lumotlari bo'yicha savollar va Excel hisobotlari. Javoblar faqat shu xodim ko'ra oladigan ma'lumotlardan foydalanadi."
     },
     "roles": {
       "owner": "Klub egasi",
@@ -1232,5 +1235,112 @@
     "retry": "Qayta urinish",
     "passed": "O‘tdi",
     "failed": "O‘tmadi"
+  },
+  "assistant": {
+    "title": "AI yordamchi",
+    "emptyTitle": "Klubingiz haqida so'rang",
+    "emptyDescription": "Foyda, xarajatlar, bar savdosi, qoldiqlar va qarzlar. Excel fayl ham tayyorlab beraman.",
+    "suggestions": {
+      "profit": "Bu oy qancha foyda qildik?",
+      "compare": "Bu oyni o'tgan oy bilan solishtir",
+      "products": "Bu oy bardagi qaysi mahsulotlar eng ko'p sotildi?",
+      "excel": "Bu oydagi xarajatlarni Excelga chiqar",
+      "stock": "Qaysi mahsulotlar tugab bormoqda?",
+      "debts": "Kim bizga eng ko'p qarzdor?"
+    },
+    "placeholder": "Savol bering…",
+    "send": "Yuborish",
+    "stop": "To'xtatish",
+    "newChat": "Yangi chat",
+    "you": "Siz",
+    "thinking": "O'ylayapman…",
+    "readingData": "Klub ma'lumotlarini o'qiyapman…",
+    "preparingExcel": "Excel fayl tayyorlanmoqda…",
+    "download": "Yuklab olish",
+    "disclaimer": "Yordamchi faqat ma'lumotlarni o'qiydi va xato qilishi mumkin. Muhim raqamlarni hisobotlarda tekshiring.",
+    "stopped": "To'xtatildi.",
+    "defaultFileName": "O'yin klubi hisoboti",
+    "errors": {
+      "UNAUTHORIZED": "Sessiya tugadi. Qayta kiring.",
+      "INVALID_REQUEST": "Savolni yuborib bo'lmadi. Yangi chat boshlab, qayta urinib ko'ring.",
+      "FORBIDDEN": "Bu klubda yordamchiga ruxsatingiz yo'q.",
+      "NOT_CONFIGURED": "Yordamchi hali sozlanmagan. Serverga AI provayderining API kalitini qo'shing.",
+      "BUSY": "Yordamchi hozir band. Bir daqiqadan so'ng urinib ko'ring.",
+      "REFUSED": "Yordamchi bu so'rovga yordam bera olmaydi.",
+      "TOO_LONG": "Bu savol uchun juda ko'p qadam kerak bo'ldi. Aniqroq so'rab ko'ring.",
+      "SERVER_ERROR": "Nimadir xato ketdi. Qayta urinib ko'ring.",
+      "NETWORK": "Aloqa uzildi. Internetni tekshirib, qayta urinib ko'ring."
+    },
+    "datasets": {
+      "summary": "Yakun",
+      "daily": "Kunlar bo'yicha",
+      "monthly": "Oylar bo'yicha",
+      "categories": "Xarajat turlari",
+      "expenses": "Xarajatlar",
+      "product_sales": "Mahsulot savdosi",
+      "stock": "Qoldiqlar",
+      "debts": "Qarzlar"
+    },
+    "columns": {
+      "metric": "Ko'rsatkich",
+      "value": "Qiymat",
+      "unit": "Birlik",
+      "date": "Sana",
+      "month": "Oy",
+      "income": "Daromad",
+      "barCost": "Bar tannarxi",
+      "gameClubExpenses": "Klub xarajatlari",
+      "barExpenses": "Bar xarajatlari",
+      "spent": "Sarflangan",
+      "profit": "Foyda",
+      "category": "Turi",
+      "amount": "Summa",
+      "sharePct": "Ulushi, %",
+      "count": "Soni",
+      "paymentMethod": "To'lov usuli",
+      "paymentSource": "Qayerdan to'langan",
+      "comment": "Izoh",
+      "product": "Mahsulot",
+      "soldQuantity": "Sotilgan",
+      "giveawayQuantity": "Aksiya bonuslari",
+      "barSales": "Savdo",
+      "barProfit": "Foyda",
+      "currentStock": "Qoldiq",
+      "lowStockThreshold": "Kam deb hisoblanadi",
+      "stockLevel": "Holati",
+      "salePrice": "Sotuv narxi",
+      "person": "Qarzdor",
+      "paidAmount": "To'langan",
+      "remainingAmount": "Qolgan",
+      "debtStatus": "Holati"
+    },
+    "metrics": {
+      "income": "Daromad",
+      "computers": "Kompyuterlar",
+      "playstation": "PlayStation",
+      "barSales": "Bar savdosi",
+      "newDebts": "Yangi qarzlar",
+      "barCost": "Bar tannarxi",
+      "debtPayments": "Qarzlardan tushum",
+      "gameClubExpenses": "Klub xarajatlari",
+      "barExpenses": "Bar xarajatlari",
+      "totalExpenses": "Barcha xarajatlar",
+      "spent": "Sarflangan",
+      "profit": "Foyda",
+      "profitMarginPct": "Foyda marjasi",
+      "barMarginPct": "Bar marjasi",
+      "salarySharePct": "Xarajatlarda maosh ulushi",
+      "averageDailyIncome": "O'rtacha kunlik daromad",
+      "averageDailySpend": "O'rtacha kunlik sarf"
+    },
+    "paymentSources": {
+      "game_club": "O'yin klubi",
+      "bar": "Bar"
+    },
+    "stockLevels": {
+      "out": "Tugagan",
+      "low": "Kam",
+      "ok": "Yetarli"
+    }
   }
 }

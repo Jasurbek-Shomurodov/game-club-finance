@@ -76,5 +76,6 @@
   "075_debt_created_by_actor.sql",
   "076_owner_profit_snapshot_withdrawal_methods.sql",
   "077_salary_entry_created_flag.sql",
-  "078_promotions_and_giveaways.sql"
+  "078_promotions_and_giveaways.sql",
+  "079_assistant_feature_access.sql"
 ]

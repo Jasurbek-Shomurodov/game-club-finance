@@ -25,6 +25,7 @@ import {
   HandCoins,
   ChartPie,
   PanelLeft,
+  Sparkles,
 } from 'lucide-react';
 import type { Club, UserRole } from '@/types';
 import { canAccessFeature, featureForPath, type FeatureKey } from '@/lib/permissions';
@@ -160,6 +161,7 @@ export function Sidebar({
       items: [
         { href: '/', icon: LayoutDashboard, label: t('dashboard'), feature: 'dashboard' },
         { href: '/financial-analysis', icon: ChartPie, label: t('financialAnalysis'), feature: 'dashboard' },
+        { href: '/assistant', icon: Sparkles, label: t('assistant'), feature: 'assistant' },
       ],
     },
     {

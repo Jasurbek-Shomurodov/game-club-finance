@@ -11,6 +11,7 @@ export const FEATURE_DEFINITIONS = [
   { key: 'debts', paths: ['/debts'], labelKey: 'debts', descriptionKey: 'debtsDescription' },
   { key: 'inventory', paths: ['/products'], labelKey: 'inventory', descriptionKey: 'inventoryDescription' },
   { key: 'salaries', paths: ['/salaries'], labelKey: 'salaries', descriptionKey: 'salariesDescription' },
+  { key: 'assistant', paths: ['/assistant'], labelKey: 'assistant', descriptionKey: 'assistantDescription' },
   { key: 'team', paths: ['/team'], labelKey: 'team', descriptionKey: 'teamDescription', ownerOnly: true },
   { key: 'settings', paths: ['/settings'], labelKey: 'settings', descriptionKey: 'settingsDescription' },
 ] as const;
