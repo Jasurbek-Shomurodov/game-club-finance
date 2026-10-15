@@ -17,6 +17,7 @@ import {
   IconButton,
   InlineAlert,
   PageHeader,
+  RollingText,
   Spinner,
   Textarea,
 } from '@/components/PresentationFoundation';
@@ -120,7 +121,7 @@ export default function AssistantPage() {
           <div className="flex flex-wrap items-center gap-2">
             {model && (
               <Badge variant="neutral" size="sm" title={model.provider}>
-                {t('model', { model: model.model })}
+                <RollingText text={t('model', { model: model.model })} />
               </Badge>
             )}
             {quota && (
