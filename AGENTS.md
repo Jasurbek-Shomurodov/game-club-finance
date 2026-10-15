@@ -95,8 +95,9 @@ guide relevant to the task; do not load every document or migration by default.
 ## Git push destination
 
 When the user requests a commit and push, they authorize pushing the requested
-project changes to `git@github.com:exampleschool23/game-club-finance.git`
-(`origin`), including `main`. Do not ask again solely to confirm this destination.
+project changes to `git@github.com:Jasurbek-Shomurodov/game-club-finance.git`
+(`origin`, cloned locally through the `github-dangerhoggish` SSH host alias),
+including `main`. Do not ask again solely to confirm this destination.
 Verify the remote still matches before pushing. This authorization does not
 include force pushes, unrelated changes, or secrets.
 
