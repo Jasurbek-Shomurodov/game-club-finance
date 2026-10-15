@@ -11,6 +11,8 @@ export interface ClubQuery<T> {
   data: T;
   /** True while a non-silent load is in flight. */
   loading: boolean;
+  /** True while a silent reload is in flight (data stays on screen). */
+  refreshing: boolean;
   /** The latest load failed. */
   error: boolean;
   /** Re-runs the loader; resolves once this load has settled. */
@@ -36,6 +38,7 @@ export function useClubQuery<T>(
   const [initial] = useState(initialData);
   const [data, setData] = useState<T>(initialData);
   const [pending, setPending] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   /** The loader whose request last settled; a new loader is loading until its first request lands. */
   const [settledLoad, setSettledLoad] = useState<typeof load | undefined>(undefined);
   const [error, setError] = useState(false);
@@ -48,10 +51,12 @@ export function useClubQuery<T>(
     if (!load) {
       setData(initial);
       setPending(false);
+      setRefreshing(false);
       return;
     }
 
-    if (!silent) setPending(true);
+    if (silent) setRefreshing(true);
+    else setPending(true);
     try {
       const next = await load(isCurrent);
       if (!isCurrent()) return;
@@ -63,6 +68,7 @@ export function useClubQuery<T>(
       setError(true);
     }
     setPending(false);
+    setRefreshing(false);
     setSettledLoad(() => load);
   }, [initial, load]);
 
@@ -72,5 +78,5 @@ export function useClubQuery<T>(
   }, [reload]);
 
   const loading = load !== null && (pending || settledLoad !== load);
-  return { data, loading, error, reload, setData };
+  return { data, loading, refreshing, error, reload, setData };
 }

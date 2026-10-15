@@ -249,7 +249,6 @@ export default function ClosingStockPage() {
   const [rows, setRows] = useState<RowData[]>([]);
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [bulkUpdateOpen, setBulkUpdateOpen] = useState(false);
   const [error, setError] = useState('');
@@ -329,7 +328,7 @@ export default function ClosingStockPage() {
     };
   }, [buildEditableRows, businessDayStartHour, currentRole, date, selectedClubId, today, usesSoldEntry, tRef]);
   const dayQuery = useClubQuery(loadDay, EMPTY_DAY);
-  const { loading, error: loadError } = dayQuery;
+  const { loading, refreshing, error: loadError, reload } = dayQuery;
   const { hasSavedCounts, promotions, purchaseCostsByProduct } = dayQuery.data;
 
   // Each landed load replaces the editable rows. Inputs are hidden while a
@@ -391,14 +390,6 @@ export default function ClosingStockPage() {
     if (!categoryExists) setSelectedCategory('');
   }, [rows, selectedCategory]);
 
-  async function reload({ silent = false } = {}) {
-    if (silent) setRefreshing(true);
-    try {
-      await dayQuery.reload({ silent });
-    } finally {
-      if (silent) setRefreshing(false);
-    }
-  }
 
   async function handleDateChange(value: string) {
     if (value === date) return;

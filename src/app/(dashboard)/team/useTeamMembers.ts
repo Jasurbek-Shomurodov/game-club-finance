@@ -56,13 +56,14 @@ export function useTeamMembers({ enabled, managedClubs }: { enabled: boolean; ma
     ]);
 
     // Before 072 there is no rejection mark; every member-less profile is pending.
-    if (isMissingDatabaseColumn(profileRes.error, 'access_rejected_at')) {
-      profileRes = await profiles(PROFILE_COLUMNS);
-    }
+    // Before feature_access, members keep their role defaults. Both
+    // compatibility retries run together rather than one after the other.
+    const hasRejectionMark = !isMissingDatabaseColumn(profileRes.error, 'access_rejected_at');
     const hasFeatureAccess = !isMissingDatabaseColumn(membershipRes.error, 'feature_access');
-    if (!hasFeatureAccess) {
-      membershipRes = await memberships('club_id, user_id, role');
-    }
+    [profileRes, membershipRes] = await Promise.all([
+      hasRejectionMark ? profileRes : profiles(PROFILE_COLUMNS),
+      hasFeatureAccess ? membershipRes : memberships('club_id, user_id, role'),
+    ]);
 
     const error = profileRes.error ?? membershipRes.error;
     if (error) throw new Error(error.message);
