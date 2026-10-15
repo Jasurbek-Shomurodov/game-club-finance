@@ -2,17 +2,16 @@
 
 // Route: /monthly-report
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
-  Button,
   Card,
   DataTable,
   EmptyState,
   Field,
-  InlineAlert,
+  LoadErrorAlert,
   MetricCard,
   MetricGridSkeleton,
   MonthPicker,
@@ -24,10 +23,12 @@ import {
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { monthRange } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
+import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
+import { useClubQuery } from '@/lib/useClubQuery';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { calculateFinancialReportTotals, calculateManualIncome } from '@/lib/calculations/dailyReport';
 import { loadFinanceReportRows, type FinanceReportRows } from '@/lib/supabase/financeReportSnapshot';
-import { BarChart2, RefreshCcw } from 'lucide-react';
+import { BarChart2 } from 'lucide-react';
 
 interface DayRow {
   date: string;
@@ -119,58 +120,19 @@ export default function MonthlyReportPage() {
   const { locale } = useAppLocale();
   // Business dates are ISO strings, so the business month is their YYYY-MM prefix.
   const businessYearMonth = useBusinessToday(businessDayStartHour).slice(0, 7);
-  const [month, setMonth] = useState(() => businessYearMonth);
-  const [rows, setRows] = useState<DayRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
-  const [reloadToken, setReloadToken] = useState(0);
-  const requestSequence = useRef(0);
+  const [month, setMonth] = useBusinessPeriod(businessYearMonth, selectedClubId);
 
-  const fetchData = useCallback(async (selectedMonth: string) => {
-    const requestId = ++requestSequence.current;
-
-    if (!selectedClubId) {
-      setRows([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setLoadError(false);
-    const { from, to } = monthRange(selectedMonth);
-    try {
-      const result = await loadFinanceReportRows(createClient(), selectedClubId, from, to, 'range');
-      if (requestId !== requestSequence.current) return;
-      if (!result.data) throw new Error(result.error?.message);
-
-      setRows(buildDayRows(result.data));
-      setLoadError(false);
-      setLoading(false);
-    } catch {
-      // A superseded load must not paint its failure over a newer request.
-      if (requestId !== requestSequence.current) return;
-      setRows([]);
-      setLoadError(true);
-      setLoading(false);
-    }
-  }, [selectedClubId]);
-
-  useEffect(() => {
-    void fetchData(month);
-    return () => { requestSequence.current += 1; };
-  }, [month, fetchData, reloadToken]);
-
-  // A club switch opens the current business month; a month rollover moves the
-  // report forward only if it was still showing the previous month.
-  const previousBusinessYearMonth = useRef(businessYearMonth);
-  const previousClubId = useRef(selectedClubId);
-  useEffect(() => {
-    const previousMonth = previousBusinessYearMonth.current;
-    const clubChanged = previousClubId.current !== selectedClubId;
-    previousBusinessYearMonth.current = businessYearMonth;
-    previousClubId.current = selectedClubId;
-    setMonth((current) => (clubChanged || current === previousMonth ? businessYearMonth : current));
-  }, [businessYearMonth, selectedClubId]);
+  const loadRows = useCallback(async () => {
+    if (!selectedClubId) return [];
+    const { from, to } = monthRange(month);
+    const result = await loadFinanceReportRows(createClient(), selectedClubId, from, to, 'range');
+    if (!result.data) throw new Error(result.error?.message);
+    return buildDayRows(result.data);
+  }, [month, selectedClubId]);
+  const report = useClubQuery<DayRow[]>(loadRows, []);
+  const rows = report.data;
+  const loading = report.loading;
+  const loadError = report.error;
 
   const totals = useMemo(
     () => rows.reduce<DayTotals>((sum, row) => ({
@@ -215,23 +177,9 @@ export default function MonthlyReportPage() {
       />
 
       {loadError && (
-        <InlineAlert
-          variant="danger"
-          className="mb-4"
-          action={(
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={loading}
-              onClick={() => setReloadToken((token) => token + 1)}
-              icon={<RefreshCcw size={15} aria-hidden="true" />}
-            >
-              {tc('retry')}
-            </Button>
-          )}
-        >
+        <LoadErrorAlert className="mb-4" retrying={loading} onRetry={() => void report.reload()}>
           {t('loadError')}
-        </InlineAlert>
+        </LoadErrorAlert>
       )}
 
       {loading ? (

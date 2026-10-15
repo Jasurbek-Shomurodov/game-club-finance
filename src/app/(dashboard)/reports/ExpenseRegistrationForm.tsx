@@ -18,6 +18,7 @@ import { parseCurrencyInput } from '@/lib/formatters';
 import { MANUAL_EXPENSE_CATEGORIES } from '@/lib/expenseCategories';
 import { mutateFinanceRequest } from '@/lib/supabase/client';
 import { useBusinessToday } from '@/lib/useBusinessToday';
+import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
 import type { EntryPaymentMethod } from '@/types';
 
@@ -63,18 +64,16 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
 
   // When the business day rolls over, a date still on the old day moves to the
   // new one; a date the user picked deliberately is kept.
-  const previousBusinessToday = useRef(businessToday);
+  useBusinessRollover(businessToday, (previousToday, nextToday) => {
+    setForm((current) => (current.date === previousToday ? { ...current, date: nextToday } : current));
+  });
+
+  // A payment method the club no longer accepts falls back to its default.
   useEffect(() => {
-    const previousToday = previousBusinessToday.current;
-    previousBusinessToday.current = businessToday;
-    setForm((current) => ({
-      ...current,
-      date: current.date === previousToday ? businessToday : current.date,
-      payment_method: enabledPaymentMethods.some((method) => method === current.payment_method)
-        ? current.payment_method
-        : defaultPaymentMethod(enabledPaymentMethods),
-    }));
-  }, [businessToday, enabledPaymentMethods]);
+    setForm((current) => (enabledPaymentMethods.some((method) => method === current.payment_method)
+      ? current
+      : { ...current, payment_method: defaultPaymentMethod(enabledPaymentMethods) }));
+  }, [enabledPaymentMethods]);
 
   // A half-filled form belongs to the club it was started for: clear it when
   // the user switches clubs so it cannot be saved into the new club.

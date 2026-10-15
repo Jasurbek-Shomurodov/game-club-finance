@@ -23,6 +23,7 @@ import { Button, Card, Field, Input, InlineAlert, PageHeader } from '@/component
 | Whole-number quantity | `Stepper` |
 | Dates and months | `DatePicker`, `DateRangePicker`, `MonthPicker` |
 | Save results, errors, notes | `InlineAlert` (inline) or `useToast` (transient) |
+| A load failed | `LoadErrorAlert` (danger alert with the shared Retry button); pair it with `useClubQuery` from `src/lib` |
 | Destructive confirmation | `useConfirm` / `ConfirmDialog` (never `window.confirm`) |
 | Dialogs | `Modal`, `Drawer` (animated side panel) |
 | Collapsible help or secondary list | `Disclosure` (native `<details>` with a chevron summary) |

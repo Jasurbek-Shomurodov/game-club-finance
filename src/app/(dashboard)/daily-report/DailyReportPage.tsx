@@ -2,18 +2,17 @@
 
 // Route: /daily-report
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
-  Button,
   Card,
   DataTable,
   DatePicker,
   EmptyState,
   Field,
-  InlineAlert,
+  LoadErrorAlert,
   MetricCard,
   MetricGridSkeleton,
   Money,
@@ -25,11 +24,23 @@ import {
   MetricMoney,
 } from '@/components/PresentationFoundation';
 import { useBusinessToday } from '@/lib/useBusinessToday';
+import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
+import { useClubQuery } from '@/lib/useClubQuery';
 import { formatCurrency, formatNumber } from '@/lib/formatters';
 import { calculateFinancialReportTotals, calculateManualIncome } from '@/lib/calculations/dailyReport';
 import { loadFinanceReportRows, type FinanceStockCountRow } from '@/lib/supabase/financeReportSnapshot';
-import { FileText, RefreshCcw, TrendingUp, TrendingDown, DollarSign, Users } from 'lucide-react';
+import { FileText, TrendingUp, TrendingDown, DollarSign, Users } from 'lucide-react';
 import type { DailyCashEntry, Expense, StockPurchase } from '@/types';
+
+interface DailyReportData {
+  cashEntry: DailyCashEntry | null;
+  stockCounts: FinanceStockCountRow[];
+  stockPurchases: StockPurchase[];
+  expenses: Expense[];
+  debtIncome: number;
+}
+
+const EMPTY_REPORT: DailyReportData = { cashEntry: null, stockCounts: [], stockPurchases: [], expenses: [], debtIncome: 0 };
 
 export default function DailyReportPage() {
   const t = useTranslations('dailyReport');
@@ -38,72 +49,24 @@ export default function DailyReportPage() {
   const { selectedClubId, businessDayStartHour } = useClub();
 
   const businessToday = useBusinessToday(businessDayStartHour);
-  const [date, setDate] = useState(() => businessToday);
-  const [cashEntry, setCashEntry] = useState<DailyCashEntry | null>(null);
-  const [stockCounts, setStockCounts] = useState<FinanceStockCountRow[]>([]);
-  const [stockPurchases, setStockPurchases] = useState<StockPurchase[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [debtIncome, setDebtIncome] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
-  const [reloadToken, setReloadToken] = useState(0);
-  const requestSequence = useRef(0);
+  const [date, setDate] = useBusinessPeriod(businessToday, selectedClubId);
 
-  const clearReport = useCallback(() => {
-    setCashEntry(null);
-    setStockCounts([]);
-    setStockPurchases([]);
-    setExpenses([]);
-    setDebtIncome(0);
-  }, []);
-
-  const fetchData = useCallback(async (selectedDate: string) => {
-    const requestId = ++requestSequence.current;
-
-    if (!selectedClubId) {
-      clearReport();
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setLoadError(false);
-    try {
-      const result = await loadFinanceReportRows(createClient(), selectedClubId, selectedDate, selectedDate, 'day');
-      if (requestId !== requestSequence.current) return;
-      if (!result.data) throw new Error(result.error?.message);
-
-      setCashEntry(result.data.cashRows[0] ?? null);
-      setStockCounts(result.data.stockCountRows);
-      setStockPurchases(result.data.purchaseRows);
-      setExpenses(result.data.expenseRows);
-      setDebtIncome(result.data.debtRows.reduce((sum, debt) => sum + Number(debt.amount ?? 0), 0));
-      setLoading(false);
-    } catch {
-      // A superseded load must not paint its failure over a newer request.
-      if (requestId !== requestSequence.current) return;
-      clearReport();
-      setLoadError(true);
-      setLoading(false);
-    }
-  }, [clearReport, selectedClubId]);
-
-  useEffect(() => {
-    void fetchData(date);
-    return () => { requestSequence.current += 1; };
-  }, [date, fetchData, reloadToken]);
-
-  // A club switch opens the current business day; a day rollover moves the
-  // report forward only if it was still showing the previous day.
-  const previousBusinessToday = useRef(businessToday);
-  const previousClubId = useRef(selectedClubId);
-  useEffect(() => {
-    const previousToday = previousBusinessToday.current;
-    const clubChanged = previousClubId.current !== selectedClubId;
-    previousBusinessToday.current = businessToday;
-    previousClubId.current = selectedClubId;
-    setDate((current) => (clubChanged || current === previousToday ? businessToday : current));
-  }, [businessToday, selectedClubId]);
+  const loadReport = useCallback(async () => {
+    if (!selectedClubId) return EMPTY_REPORT;
+    const result = await loadFinanceReportRows(createClient(), selectedClubId, date, date, 'day');
+    if (!result.data) throw new Error(result.error?.message);
+    return {
+      cashEntry: result.data.cashRows[0] ?? null,
+      stockCounts: result.data.stockCountRows,
+      stockPurchases: result.data.purchaseRows,
+      expenses: result.data.expenseRows,
+      debtIncome: result.data.debtRows.reduce((sum, debt) => sum + Number(debt.amount ?? 0), 0),
+    };
+  }, [date, selectedClubId]);
+  const report = useClubQuery<DailyReportData>(loadReport, EMPTY_REPORT);
+  const { cashEntry, stockCounts, stockPurchases, expenses, debtIncome } = report.data;
+  const loading = report.loading;
+  const loadError = report.error;
 
   const manualIncome = cashEntry ? calculateManualIncome(cashEntry) : 0;
 
@@ -152,23 +115,9 @@ export default function DailyReportPage() {
       />
 
       {loadError && (
-        <InlineAlert
-          variant="danger"
-          className="mb-4"
-          action={(
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={loading}
-              onClick={() => setReloadToken((token) => token + 1)}
-              icon={<RefreshCcw size={15} aria-hidden="true" />}
-            >
-              {tc('retry')}
-            </Button>
-          )}
-        >
+        <LoadErrorAlert className="mb-4" retrying={loading} onRetry={() => void report.reload()}>
           {t('loadError')}
-        </InlineAlert>
+        </LoadErrorAlert>
       )}
 
       {loading ? (

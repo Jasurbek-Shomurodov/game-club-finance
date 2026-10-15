@@ -8,7 +8,6 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   MonitorSmartphone,
-  RefreshCcw,
   ShoppingBag,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -21,10 +20,9 @@ import { formatDateShort } from '@/lib/formatters';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
   AmountCard,
-  Button,
   ButtonLink,
   ChartSkeleton,
-  InlineAlert,
+  LoadErrorAlert,
   MetricCard,
   MetricMoney,
   PageHeader,
@@ -312,16 +310,9 @@ export default function DashboardPage({
       />
 
       {error && (
-        <InlineAlert
-          variant="danger"
-          action={(
-            <Button size="sm" variant="outline" onClick={retryDashboard} icon={<RefreshCcw size={15} aria-hidden="true" />}>
-              {tc('retry')}
-            </Button>
-          )}
-        >
+        <LoadErrorAlert retrying={loading} onRetry={retryDashboard}>
           {t('loadErrorDashboard')}
-        </InlineAlert>
+        </LoadErrorAlert>
       )}
 
       {/* Headline numbers: the four figures an owner checks first. */}

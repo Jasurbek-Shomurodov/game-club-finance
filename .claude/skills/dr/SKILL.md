@@ -8,7 +8,10 @@ disable-model-invocation: true
 # /dr: design review
 
 Target: `$ARGUMENTS`. If empty, review every screen the uncommitted diff (or
-else the last commit) touches. If the arguments contain `fix`, implement the
+else the last commit) touches. `all` means every page under `src/app` and
+every component under `src/components`: run the strict-rule scan once, split
+the pages into groups of related screens for parallel review, and compare
+siblings across groups for reuse. If the arguments contain `fix`, implement the
 agreed improvements afterwards. Otherwise review and propose only.
 
 Judge it like a senior product designer looking at a finance tool that an owner
@@ -75,6 +78,68 @@ three languages?
 - Charts: readable axes, tooltips themed, legend matches the series, and no
   misleading scales.
 
+**Reusability (pages and components)**
+- Every page body lives in a `*Page.tsx` next to its `page.tsx` and composes
+  `PageHeader` → sections (`Card` + `SectionHeading`) → `DataTable`/metrics.
+  Pages built the same way look the same; diff a new page against its closest
+  sibling (Debts vs Money taken, Stock purchase vs Closing stock, Bar vs Game
+  club money details) and flag any structural drift.
+- Duplication: the same markup pattern (three or more elements with the same
+  classes) in two or more files is a missing PresentationFoundation component;
+  the same query, derived total or form state logic in two or more pages is a
+  missing hook or `src/lib` helper. Name the component or helper to extract and
+  every call site.
+- Near-duplicates: two components that do the same job with different props or
+  looks (two list rows, two summary strips, two filter bars) are merged into
+  one with a `variant`.
+- Before proposing a new component, check `index.ts` and the README table; an
+  existing component with a missing variant is extended, not copied.
+- A foundation component is generic: no Supabase calls, no translations of
+  domain copy, no club or finance types. Domain components live in
+  `src/components/<feature>` and are built from foundation parts.
+- `className` on a foundation component only places it (margin, grid span,
+  width). Restyling colour, padding, radius or typography through `className`
+  means a `variant` or `size` is missing.
+- Files over about 400 lines, or one component rendering three or more
+  independent sections, are split into section components beside the page.
+
+**Strict rules (each hit is at least Medium; run the scan, quote the lines)**
+
+```bash
+g(){ grep -rnE --include='*.tsx' "$1" src/app src/components | grep -v PresentationFoundation; }
+g '<(button|input|select|textarea|table|dialog|details|h[1-4])([ >]|$)'          # raw element: use Button/Field/DataTable/Modal/SectionHeading
+g '#[0-9a-fA-F]{3,8}\b|\[(#|rgb)|\b(bg|text|border|fill|stroke|ring)-(white|black|slate|zinc|neutral|red|green|blue|emerald|rose|amber|yellow|orange)\b|-(red|green|blue|emerald|rose|amber|yellow|orange|slate|zinc)-[0-9]'  # non-token colour
+g '\b[a-z:-]+-\[[^]]+\]'                                             # arbitrary Tailwind value
+g 'style=\{\{'                                                       # inline style
+g '\bz-(\[[^]]+\]|[0-9]+)'                                           # ad hoc z-index
+g "window\.(confirm|alert)|type=\"(date|month)\"|toLocaleString|toFixed\(|UZS|сум"  # banned APIs and literals
+```
+
+1. No raw `button`, `input`, `select`, `textarea`, `table`, `dialog`, `details` or
+   headings outside PresentationFoundation (markdown renderers excepted).
+2. Colours only from tokens: `gray`, `primary`, `success`, `danger`,
+   `warning`, `surface`, `on-accent`. No hex, `white`/`black` or raw Tailwind
+   palettes, except third-party brand marks (the Google logo) and `<meta
+   themeColor>`.
+3. No arbitrary values (`text-[13px]`, `w-[28rem]`) when a scale step exists;
+   a value that is genuinely needed in two places becomes a token or a
+   component prop. Grid templates and `calc()` layouts are acceptable only
+   inside one component.
+4. Inline `style` only for runtime values (chart colours, measured heights,
+   percentages); never for static styling.
+5. z-index comes from one layered scale (content < sticky < nav < overlay <
+   toast); report any `z-[…]` and any two overlays that share a layer.
+6. One icon set (`lucide-react`), one size per context (16 inline, 18 in
+   buttons, 20 in nav), always `aria-hidden` next to text.
+7. Radius and shadow come from the component (`Card`, `Modal`, `Button`);
+   pages do not set `rounded-*`/`shadow-*` on containers.
+8. Type sizes stay on the scale (`text-xs` to `text-4xl`); money uses
+   `Money`/`MetricCard` and `tabular-nums`.
+9. No user-facing literal strings in JSX; everything goes through
+   `en`/`ru`/`uz` with matching shapes.
+10. Each page has exactly one `PageHeader`, a skeleton for loading, an
+    `EmptyState` for no data and an `InlineAlert` with retry for errors.
+
 **Perceived performance**
 - With `read_network_requests`: how long until the main numbers show, whether
   the layout jumps when data arrives, and whether slow requests leave blank
@@ -94,6 +159,9 @@ Issues (most impactful first)
 1. [High|Medium|Low] <screen / area>: <problem>
    Seen at: <width / theme / locale>   Evidence: <screenshot>
    Proposal: <specific change, e.g. "gap-4 → gap-3; move X into Y's header"> (file)
+
+Strict rule hits: <rule # → count, top files>
+Reuse opportunities: <component/helper to extract → call sites>
 
 Works well: <short list>
 Quick wins vs larger redesigns: <split>

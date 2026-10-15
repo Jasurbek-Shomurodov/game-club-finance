@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { createClient, mutateFinanceRequest } from '@/lib/supabase/client';
 import { isMissingDatabaseColumn } from '@/lib/supabase/errors';
 import { fetchAllRows } from '@/lib/supabase/pagination';
+import { useClubQuery } from '@/lib/useClubQuery';
 import {
   buildTeamMembers,
   notifyTeamChanged,
@@ -17,6 +18,14 @@ const PROFILE_COLUMNS = 'id, full_name, email, role, created_at, updated_at';
 
 export type RejectResult = 'rejected' | 'has_access' | 'gone' | 'error';
 
+interface TeamData {
+  profiles: TeamProfileRow[];
+  memberships: TeamMembershipRow[];
+  hasFeatureAccess: boolean;
+}
+
+const EMPTY_TEAM: TeamData = { profiles: [], memberships: [], hasFeatureAccess: true };
+
 /**
  * Team data for the owner's team page and its writes.
  *
@@ -28,19 +37,7 @@ export type RejectResult = 'rejected' | 'has_access' | 'gone' | 'error';
  * rows the caller may not touch, which must not look like success.
  */
 export function useTeamMembers({ enabled, managedClubs }: { enabled: boolean; managedClubs: ReadonlyArray<Pick<Club, 'id' | 'name'>> }) {
-  const requestSequence = useRef(0);
-  const [profileRows, setProfileRows] = useState<TeamProfileRow[]>([]);
-  const [membershipRows, setMembershipRows] = useState<TeamMembershipRow[]>([]);
-  const [featureAccessAvailable, setFeatureAccessAvailable] = useState(true);
-  const [loading, setLoading] = useState(true);
-  const [loadFailed, setLoadFailed] = useState(false);
-
-  const members = useMemo(
-    () => buildTeamMembers(profileRows, membershipRows, managedClubs),
-    [managedClubs, membershipRows, profileRows],
-  );
-
-  const fetchTeam = useCallback(async () => {
+  const fetchTeam = useCallback(async (): Promise<TeamData> => {
     const supabase = createClient();
     const profiles = (columns: string) => fetchAllRows<TeamProfileRow>(() => supabase
       .from('profiles')
@@ -76,32 +73,24 @@ export function useTeamMembers({ enabled, managedClubs }: { enabled: boolean; ma
     };
   }, []);
 
-  const load = useCallback(async ({ silent = false } = {}) => {
-    const requestId = ++requestSequence.current;
-    if (!silent) setLoading(true);
-    setLoadFailed(false);
+  const loadTeam = useCallback(async (isCurrent: () => boolean) => {
     try {
-      const team = await fetchTeam();
-      if (requestId !== requestSequence.current) return;
-      setProfileRows(team.profiles);
-      setMembershipRows(team.memberships);
-      setFeatureAccessAvailable(team.hasFeatureAccess);
+      return await fetchTeam();
     } catch (loadError) {
-      if (requestId !== requestSequence.current) return;
-      console.error('Failed to load team', loadError);
-      setLoadFailed(true);
-      setProfileRows([]);
-      setMembershipRows([]);
-    } finally {
-      if (requestId === requestSequence.current) setLoading(false);
+      if (isCurrent()) console.error('Failed to load team', loadError);
+      throw loadError;
     }
   }, [fetchTeam]);
+  const team = useClubQuery(enabled ? loadTeam : null, EMPTY_TEAM);
+  const { reload: load, setData: setTeam } = team;
+  const { profiles: profileRows, memberships: membershipRows, hasFeatureAccess: featureAccessAvailable } = team.data;
+  // While not enabled the team is still loading, not empty.
+  const loading = !enabled || team.loading;
 
-  useEffect(() => {
-    if (!enabled) return;
-    void load();
-    return () => { requestSequence.current += 1; };
-  }, [enabled, load]);
+  const members = useMemo(
+    () => buildTeamMembers(profileRows, membershipRows, managedClubs),
+    [managedClubs, membershipRows, profileRows],
+  );
 
   /** Grants club access; approving a request is the same write. */
   const addAccess = useCallback(async (userId: string, clubId: string, role: UserRole) => {
@@ -155,9 +144,12 @@ export function useTeamMembers({ enabled, managedClubs }: { enabled: boolean; ma
     nextAccess: FeatureKey[],
     previousAccess: FeatureKey[] | null,
   ) => {
-    const setAccess = (featureAccess: FeatureKey[] | null) => setMembershipRows((current) => current.map((row) => (
-      row.user_id === userId && row.club_id === clubId ? { ...row, feature_access: featureAccess } : row
-    )));
+    const setAccess = (featureAccess: FeatureKey[] | null) => setTeam((current) => ({
+      ...current,
+      memberships: current.memberships.map((row) => (
+        row.user_id === userId && row.club_id === clubId ? { ...row, feature_access: featureAccess } : row
+      )),
+    }));
 
     setAccess(nextAccess);
     try {
@@ -178,7 +170,7 @@ export function useTeamMembers({ enabled, managedClubs }: { enabled: boolean; ma
       setAccess(previousAccess);
       return false;
     }
-  }, []);
+  }, [setTeam]);
 
   /** Rejects an open request server-side (the route re-checks it atomically). */
   const reject = useCallback(async (userId: string): Promise<RejectResult> => {
@@ -211,7 +203,7 @@ export function useTeamMembers({ enabled, managedClubs }: { enabled: boolean; ma
   return {
     members,
     loading,
-    loadFailed,
+    loadFailed: team.error,
     featureAccessAvailable,
     load,
     addAccess,

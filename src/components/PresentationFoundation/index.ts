@@ -8,7 +8,7 @@
  * Actions:           Button, ButtonLink, IconButton, Stepper
  * Forms:             Field, Input, CurrencyInput, Textarea, Select, Checkbox, SearchInput,
  *                    SegmentedControl, DatePicker, DateRangePicker, MonthPicker
- * Feedback:          InlineAlert, Toast/useToast, Modal, Drawer, ConfirmDialog/useConfirm, EmptyState, Disclosure,
+ * Feedback:          InlineAlert, LoadErrorAlert, Toast/useToast, Modal, Drawer, ConfirmDialog/useConfirm, EmptyState, Disclosure,
  *                    Badge, Spinner, skeletons
  * Data display:      MetricCard, AmountCard, StatTile, DataTable
  * Misc:              LanguageSwitcher, ThemeToggle
@@ -37,6 +37,7 @@ export {
 export { IconButton } from './IconButton';
 export { InlineAlert, type InlineAlertVariant } from './InlineAlert';
 export { LanguageSwitcher } from './LanguageSwitcher';
+export { LoadErrorAlert, type LoadErrorAlertProps } from './LoadErrorAlert';
 export { ThemeToggle } from './ThemeToggle';
 export { AmountCard, MetricCard, MetricMoney, StatTile, metricToneClassName, toneForAmount, type MetricTone } from './MetricCard';
 export { Modal } from './Modal';

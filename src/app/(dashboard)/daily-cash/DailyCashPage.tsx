@@ -11,7 +11,6 @@ import {
   Gamepad2,
   ReceiptText,
   MonitorSmartphone,
-  RotateCw,
   Save,
   Trash2,
   TrendingUp,
@@ -35,6 +34,7 @@ import {
   Field,
   FormSkeleton,
   InlineAlert,
+  LoadErrorAlert,
   MetricGridSkeleton,
   Modal,
   Money,
@@ -49,6 +49,8 @@ import {
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { todayIso } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
+import { useBusinessRollover } from '@/lib/useBusinessPeriod';
+import { useClubQuery } from '@/lib/useClubQuery';
 import { formatCurrency, formatCurrencyInput, formatDateOnly, formatDateTime, parseCurrencyInput } from '@/lib/formatters';
 import type { DailyCashEntry } from '@/types';
 
@@ -112,6 +114,16 @@ function hasUnsavedChanges(form: CashFormData, entry: DailyCashEntry | null): bo
   return Boolean(form.cash_income || form.terminal_income || form.card_income || form.playstation_income || form.comment);
 }
 
+interface DailyCashData {
+  entry: DailyCashEntry | null;
+  createdByName: string;
+  financeSummary: DailyCashSummary | null;
+  /** The day summary failed to load; the cash form itself stays usable. */
+  summaryFailed: boolean;
+}
+
+const EMPTY_DAY: DailyCashData = { entry: null, createdByName: '', financeSummary: null, summaryFailed: false };
+
 interface PaymentFieldProps {
   id: string;
   label: string;
@@ -148,135 +160,98 @@ export default function DailyCashPage() {
   const { confirm, confirmDialog } = useConfirm();
   const businessToday = useBusinessToday(businessDayStartHour);
   const [form, setForm] = useState<CashFormData>(() => emptyForm(businessToday));
-  const [entry, setEntry] = useState<DailyCashEntry | null>(null);
-  const [createdByName, setCreatedByName] = useState('');
-  const [loading, setLoading] = useState(true);
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [loadFailed, setLoadFailed] = useState(false);
   const [now, setNow] = useState(() => new Date());
-  const [financeSummary, setFinanceSummary] = useState<DailyCashSummary | null>(null);
-  /** The day summary failed to load; the cash form itself stays usable. */
-  const [summaryFailed, setSummaryFailed] = useState(false);
   const canSeeNetProfit = canReadFinancialTotals(currentRole, featureAccess);
-  const loadSequence = useRef(0);
   /** Bumped by every load that writes the day summary; only the latest may land. */
   const summarySequence = useRef(0);
   // An expense form filled in for one club must never be saved into another.
   useEffect(() => { setExpenseDialogOpen(false); }, [selectedClubId]);
-  const cancelLoads = useCallback(() => { loadSequence.current++; }, []);
   const isOwner = currentRole === 'owner';
   // Guards against double submit (state updates land a render later) and lets
   // an in-flight save notice that the user switched clubs meanwhile.
   const mutationPending = useRef(false);
   const currentClubId = useRef(selectedClubId);
-  const previousBusinessToday = useRef(businessToday);
 
   useEffect(() => {
-    const clubChanged = currentClubId.current !== selectedClubId;
-    const previousToday = previousBusinessToday.current;
+    if (currentClubId.current === selectedClubId) return;
     currentClubId.current = selectedClubId;
-    previousBusinessToday.current = businessToday;
-    if (clubChanged) {
-      setForm(emptyForm(businessToday));
-      setError('');
-      return;
+    setForm(emptyForm(businessToday));
+    setError('');
+  }, [businessToday, selectedClubId]);
+
+  const date = form.date;
+  const loadDay = useCallback(async (isCurrent: () => boolean): Promise<DailyCashData> => {
+    summarySequence.current++;
+    if (!selectedClubId) {
+      setForm(emptyForm(date));
+      return EMPTY_DAY;
     }
-    if (previousToday === businessToday) return;
-    // The business day rolled over while the page stayed open: an untouched
-    // form on the old day moves to the new one; edits are never discarded.
+
+    const supabase = createClient();
+    setError('');
+    // The summary only feeds the bar/profit tiles: its failure must not
+    // block entering the day's cash.
+    const summaryPromise = loadDailyCashSummary(supabase, selectedClubId, date, canSeeNetProfit)
+      .then((summary) => ({ summary, failed: false }), () => ({ summary: null, failed: true }));
+    const { data, error: fetchError } = await supabase
+      .from('daily_cash_entries')
+      .select(DAILY_CASH_COLUMNS)
+      .eq('club_id', selectedClubId)
+      .eq('date', date)
+      .maybeSingle();
+
+    if (fetchError) {
+      if (isCurrent()) setForm(emptyForm(date));
+      throw fetchError;
+    }
+
+    const cashEntry = data as DailyCashEntry | null;
+    const [summaryResult, profileResult] = await Promise.all([
+      summaryPromise,
+      cashEntry?.created_by
+        ? supabase.from('profiles').select('full_name').eq('id', cashEntry.created_by).maybeSingle()
+        : null,
+    ]);
+    // The loaded entry replaces the form; a superseded load leaves it alone.
+    if (isCurrent()) setForm(cashEntry ? entryToForm(cashEntry) : emptyForm(date));
+    return {
+      entry: cashEntry,
+      // The creator name is informational; an unreadable profile shows none.
+      createdByName: profileResult && !profileResult.error ? profileResult.data?.full_name ?? '' : '',
+      financeSummary: summaryResult.summary,
+      summaryFailed: summaryResult.failed,
+    };
+  }, [canSeeNetProfit, date, selectedClubId]);
+  const day = useClubQuery<DailyCashData>(loadDay, EMPTY_DAY);
+  const { loading, error: loadFailed, reload, setData: setDay } = day;
+  // A failed load shows no saved entry or summary, even after a silent reload.
+  const entry = loadFailed ? null : day.data.entry;
+  const financeSummary = loadFailed ? null : day.data.financeSummary;
+  const { createdByName, summaryFailed } = day.data;
+
+  // The business day rolled over while the page stayed open: an untouched
+  // form on the old day moves to the new one; edits are never discarded.
+  useBusinessRollover(businessToday, (previousToday, nextToday) => {
     setForm((current) => (
-      current.date === previousToday && !hasUnsavedChanges(current, entry) ? emptyForm(businessToday) : current
+      current.date === previousToday && !hasUnsavedChanges(current, entry) ? emptyForm(nextToday) : current
     ));
-  }, [businessToday, selectedClubId, entry]);
-
-  const fetchExisting = useCallback(
-    async (date: string, { silent = false } = {}) => {
-      const requestId = ++loadSequence.current;
-      summarySequence.current++;
-      if (!selectedClubId) {
-        setEntry(null);
-        setForm(emptyForm(date));
-        setFinanceSummary(null);
-        setSummaryFailed(false);
-        setLoading(false);
-        return;
-      }
-
-      const supabase = createClient();
-      if (!silent) setLoading(true);
-      setError('');
-      setLoadFailed(false);
-
-      try {
-        // The summary only feeds the bar/profit tiles: its failure must not
-        // block entering the day's cash.
-        const summaryPromise = loadDailyCashSummary(supabase, selectedClubId, date, canSeeNetProfit)
-          .then((summary) => ({ summary, failed: false }), () => ({ summary: null, failed: true }));
-        const { data, error: fetchError } = await supabase
-          .from('daily_cash_entries')
-          .select(DAILY_CASH_COLUMNS)
-          .eq('club_id', selectedClubId)
-          .eq('date', date)
-          .maybeSingle();
-
-        if (requestId !== loadSequence.current) return;
-
-        if (fetchError) {
-          setLoadFailed(true);
-          setEntry(null);
-          setForm(emptyForm(date));
-          setFinanceSummary(null);
-          setLoading(false);
-          return;
-        }
-
-        const cashEntry = data as DailyCashEntry | null;
-        const [summaryResult, profileResult] = await Promise.all([
-          summaryPromise,
-          cashEntry?.created_by
-            ? supabase.from('profiles').select('full_name').eq('id', cashEntry.created_by).maybeSingle()
-            : null,
-        ]);
-        if (requestId !== loadSequence.current) return;
-
-        setFinanceSummary(summaryResult.summary);
-        setSummaryFailed(summaryResult.failed);
-        setEntry(cashEntry);
-        setForm(cashEntry ? entryToForm(cashEntry) : emptyForm(date));
-        // The creator name is informational; an unreadable profile shows none.
-        setCreatedByName(profileResult && !profileResult.error ? profileResult.data?.full_name ?? '' : '');
-        setLoading(false);
-      } catch {
-        if (requestId !== loadSequence.current) return;
-        setLoadFailed(true);
-        setEntry(null);
-        setFinanceSummary(null);
-        setLoading(false);
-      }
-    },
-    [selectedClubId, canSeeNetProfit],
-  );
-
-  useEffect(() => {
-    void fetchExisting(form.date);
-    return cancelLoads;
-  }, [form.date, fetchExisting, cancelLoads]);
+  });
 
   /** Reloads only the bar/profit summary, leaving any unsaved cash input alone. */
-  const refreshSummary = useCallback(async (date: string) => {
+  const refreshSummary = useCallback(async (summaryDate: string) => {
     if (!selectedClubId) return;
     const requestId = ++summarySequence.current;
     try {
-      const summary = await loadDailyCashSummary(createClient(), selectedClubId, date, canSeeNetProfit);
+      const summary = await loadDailyCashSummary(createClient(), selectedClubId, summaryDate, canSeeNetProfit);
       if (requestId !== summarySequence.current) return;
-      setFinanceSummary(summary);
-      setSummaryFailed(false);
+      setDay((current) => ({ ...current, financeSummary: summary, summaryFailed: false }));
     } catch {
-      if (requestId === summarySequence.current) setSummaryFailed(true);
+      if (requestId === summarySequence.current) setDay((current) => ({ ...current, summaryFailed: true }));
     }
-  }, [selectedClubId, canSeeNetProfit]);
+  }, [selectedClubId, canSeeNetProfit, setDay]);
 
   // The countdown is only shown to non-owners with a saved entry.
   const showCountdown = Boolean(entry) && !isOwner;
@@ -332,7 +307,6 @@ export default function DailyCashPage() {
     }
 
     const clubId = selectedClubId;
-    const date = form.date;
     mutationPending.current = true;
     setSaving(true);
     setError('');
@@ -372,12 +346,12 @@ export default function DailyCashPage() {
       if (entry && (result.data ?? []).length === 0) {
         // RLS filtered the update out (edit window closed or no permission).
         setError(t('entryLocked'));
-        await fetchExisting(date, { silent: true });
+        await reload({ silent: true });
         return;
       }
 
       showToast(entry ? t('entryUpdated') : t('entrySaved'));
-      await fetchExisting(date, { silent: true });
+      await reload({ silent: true });
     } catch {
       if (currentClubId.current === clubId) setError(t('saveError'));
     } finally {
@@ -416,9 +390,9 @@ export default function DailyCashPage() {
       }
 
       showToast(t('entryDeleted'));
-      setEntry(null);
+      setDay((current) => ({ ...current, entry: null }));
       setForm(emptyForm(target.date));
-      await fetchExisting(target.date, { silent: true });
+      await reload({ silent: true });
     } catch {
       if (currentClubId.current === clubId) setError(t('deleteError'));
     } finally {
@@ -481,16 +455,9 @@ export default function DailyCashPage() {
       {header}
 
       {loadFailed && (
-        <InlineAlert
-          variant="danger"
-          action={(
-            <Button size="sm" variant="outline" onClick={() => void fetchExisting(form.date)} icon={<RotateCw size={15} aria-hidden="true" />}>
-              {tc('retry')}
-            </Button>
-          )}
-        >
+        <LoadErrorAlert retrying={loading} onRetry={() => void reload()}>
           {t('loadError')}
-        </InlineAlert>
+        </LoadErrorAlert>
       )}
 
       <Card as="form" onSubmit={handleSave} aria-busy={saving || undefined}>
@@ -546,17 +513,9 @@ export default function DailyCashPage() {
         </div>
 
         {summaryFailed ? (
-          <InlineAlert
-            variant="warning"
-            className="mt-3"
-            action={(
-              <Button size="sm" variant="outline" disabled={saving} onClick={() => void refreshSummary(form.date)} icon={<RotateCw size={15} aria-hidden="true" />}>
-                {tc('retry')}
-              </Button>
-            )}
-          >
+          <LoadErrorAlert className="mt-3" retrying={saving} onRetry={() => void refreshSummary(form.date)}>
             {t('summaryLoadError')}
-          </InlineAlert>
+          </LoadErrorAlert>
         ) : (
           <Card tone="muted" padding="sm" className="mt-3">
             <div className={`grid grid-cols-1 divide-y divide-gray-200 sm:divide-x sm:divide-y-0 ${canSeeNetProfit ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>

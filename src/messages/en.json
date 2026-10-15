@@ -1134,7 +1134,6 @@
     "noTransactions": "No payments or adjustments yet.",
     "rateHistory": "Salary rate history",
     "saved": "Saved successfully.",
-    "retry": "Retry",
     "loadError": "Could not load salaries. Check your connection and apply salary migrations 059–062.",
     "saveError": "Could not save. Check the amount, date and club payment settings, then retry. The same entry will not be recorded twice.",
     "upcomingCount": "{count} upcoming",

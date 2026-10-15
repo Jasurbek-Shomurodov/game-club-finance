@@ -1134,7 +1134,6 @@
     "noTransactions": "Hozircha to‘lovlar yoki tuzatishlar yo‘q.",
     "rateHistory": "Stavkalar tarixi",
     "saved": "Muvaffaqiyatli saqlandi.",
-    "retry": "Qayta urinish",
     "loadError": "Ish haqini yuklab bo‘lmadi. Ulanishni tekshiring va 059–062 ish haqi migratsiyalarini qo‘llang.",
     "saveError": "Saqlanmadi. Summa, sana va klub to‘lov usullarini tekshirib qayta urinib ko‘ring. Bir yozuv ikki marta qo‘shilmaydi.",
     "upcomingCount": "{count} nafar ish boshlaydi",

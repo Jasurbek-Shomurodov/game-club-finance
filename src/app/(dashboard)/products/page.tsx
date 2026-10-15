@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 import { useClub } from '@/components/layout/DashboardShell';
@@ -18,6 +18,7 @@ import {
   IconButton,
   InlineAlert,
   Input,
+  LoadErrorAlert,
   Modal,
   PageHeader,
   SearchInput,
@@ -42,12 +43,14 @@ import {
 import { LOW_STOCK_DEFAULT, resolveLowStockThreshold, stockLevel } from '@/lib/calculations/stock';
 import { groupByCategory } from '@/lib/productSections';
 import { cn } from '@/lib/utils';
-import { AlertTriangle, ArrowDown, ArrowUp, Check, ListOrdered, Lock, Package, Pencil, Plus, RefreshCcw, Trash2 } from 'lucide-react';
+import { useClubQuery } from '@/lib/useClubQuery';
+import { ArrowDown, ArrowUp, Check, ListOrdered, Lock, Package, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { Product } from '@/types';
-import { useLatestRef } from '@/components/i18n/useLatestRef';
 
 type ProductForm = ProductWriteForm;
 type StockFilter = 'all' | 'low' | 'out' | 'inactive';
+
+const NO_PRODUCTS: Product[] = [];
 
 const emptyForm = (): ProductForm => ({
   name: '',
@@ -66,20 +69,16 @@ function productCategory(value: string | null | undefined): string {
 
 export default function ProductsPage() {
   const t = useTranslations('products');
-  const tRef = useLatestRef(t);
   const tc = useTranslations('common');
   const { selectedClubId, role: currentRole } = useClub();
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm());
   const [loadedCostPrice, setLoadedCostPrice] = useState<PrefilledAmount | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [loadError, setLoadError] = useState('');
   const [formError, setFormError] = useState('');
   const [salePriceError, setSalePriceError] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -87,41 +86,18 @@ export default function ProductsPage() {
   const [stockFilter, setStockFilter] = useState<StockFilter>('all');
   const [reordering, setReordering] = useState(false);
   const [movingId, setMovingId] = useState<string | null>(null);
-  const requestSequence = useRef(0);
 
   const isOwner = currentRole === 'owner';
   const canManageInventory = currentRole === 'owner' || currentRole === 'admin';
 
-  const loadProducts = useCallback(async ({ silent = false } = {}) => {
-    const requestId = ++requestSequence.current;
-    if (!silent) setLoading(true);
-    if (!selectedClubId) {
-      setProducts([]);
-      setLoading(false);
-      return;
-    }
-
-    const supabase = createClient();
-    const finish = (rows: Product[] | null, message = '') => {
-      if (requestId !== requestSequence.current) return;
-      if (rows) setProducts(rows);
-      setLoadError(message);
-      setLoading(false);
-    };
-
-    const result = await fetchProductsOrdered(supabase, selectedClubId);
-    if (result.error) return finish(silent ? null : [], tRef.current('loadFailed'));
-    finish(result.data ?? []);
-  }, [selectedClubId, tRef]);
-
-  useEffect(() => {
-    loadProducts().catch(() => {
-      setProducts([]);
-      setLoadError(tRef.current('loadFailed'));
-      setLoading(false);
-    });
-    return () => { requestSequence.current += 1; };
-  }, [loadProducts, tRef]);
+  const fetchProducts = useCallback(async (): Promise<Product[]> => {
+    if (!selectedClubId) return NO_PRODUCTS;
+    const result = await fetchProductsOrdered(createClient(), selectedClubId);
+    if (result.error) throw new Error(result.error.message);
+    return result.data ?? [];
+  }, [selectedClubId]);
+  const productsQuery = useClubQuery(fetchProducts, NO_PRODUCTS);
+  const { data: products, setData: setProducts, loading, error: loadError, reload: loadProducts } = productsQuery;
 
   // An open editor belongs to the previous club's product; never save it
   // against the newly selected club.
@@ -362,17 +338,9 @@ export default function ProductsPage() {
       {loading ? (
         <TableSkeleton rows={8} columns={canManageInventory ? 7 : 5} />
       ) : loadError && products.length === 0 ? (
-        <Card>
-          <EmptyState
-            icon={AlertTriangle}
-            title={loadError}
-            action={(
-              <Button variant="outline" onClick={() => { void loadProducts(); }} icon={<RefreshCcw size={16} aria-hidden="true" />}>
-                {tc('retry')}
-              </Button>
-            )}
-          />
-        </Card>
+        <LoadErrorAlert retrying={loading} onRetry={() => void loadProducts()}>
+          {t('loadFailed')}
+        </LoadErrorAlert>
       ) : products.length === 0 ? (
         <Card>
           <EmptyState
@@ -385,17 +353,11 @@ export default function ProductsPage() {
         </Card>
       ) : (
         <div className="space-y-3">
+          {/* A failed silent reload keeps the catalog on screen; retry quietly. */}
           {loadError && (
-            <InlineAlert
-              variant="danger"
-              action={(
-                <Button variant="outline" size="sm" onClick={() => { void loadProducts({ silent: true }); }} icon={<RefreshCcw size={14} aria-hidden="true" />}>
-                  {tc('retry')}
-                </Button>
-              )}
-            >
-              {loadError}
-            </InlineAlert>
+            <LoadErrorAlert onRetry={() => void loadProducts({ silent: true })}>
+              {t('loadFailed')}
+            </LoadErrorAlert>
           )}
           <Card padding="none" className="overflow-hidden">
             <CardHeader className="space-y-4">

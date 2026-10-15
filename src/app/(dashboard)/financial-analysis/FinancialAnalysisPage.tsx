@@ -9,7 +9,6 @@ import {
   CalendarDays,
   Flame,
   Percent,
-  RefreshCcw,
   ShoppingBag,
   Users,
   Wallet,
@@ -21,16 +20,16 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { fetchAnalysisLedgers } from '@/lib/supabase/analysisLedgers';
 import { useBusinessToday } from '@/lib/useBusinessToday';
+import { useClubQuery } from '@/lib/useClubQuery';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { useClub } from '@/components/layout/DashboardShell';
 import { cn } from '@/lib/utils';
 import { formatCurrency, formatDateShort } from '@/lib/formatters';
 import {
   AmountCard,
-  Button,
   ChartSkeleton,
   DateRangePicker,
-  InlineAlert,
+  LoadErrorAlert,
   MetricCard,
   MetricGridSkeleton,
   PageHeader,
@@ -179,16 +178,6 @@ export default function FinancialAnalysisPage() {
     [businessToday],
   );
 
-  // Ledgers remember their club, so another club's rows never render as current.
-  const [loadedLedgers, setLoadedLedgers] = useState<{ clubId: string; ledgers: AnalysisLedgers } | null>(null);
-  const ledgers = loadedLedgers && loadedLedgers.clubId === selectedClubId ? loadedLedgers.ledgers : emptyLedgers;
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [reloadToken, setReloadToken] = useState(0);
-  const [monthly, setMonthly] = useState<MonthlyAnalysisRow[] | null>(null);
-  const [monthlyError, setMonthlyError] = useState(false);
-  const [monthlyReloadToken, setMonthlyReloadToken] = useState(0);
-  const requestSequence = useRef(0);
   const windowRequest = useRef<{ key: string; promise: Promise<AnalysisLedgers> } | null>(null);
   // Bumped by either retry button so a retried read never reuses a failed window.
   const windowGeneration = useRef(0);
@@ -222,56 +211,37 @@ export default function FinancialAnalysisPage() {
 
   // One read covers the selected and comparison periods; they are split in
   // memory. When both fall inside the 12-month window, that read is reused.
-  useEffect(() => {
-    const requestId = ++requestSequence.current;
-    if (!selectedClubId) {
-      setLoadedLedgers(null);
-      setError(false);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(false);
+  const loadLedgers = useCallback(async () => {
+    if (!selectedClubId) return null;
     const fetchRange = {
       from: previousRange.from < range.from ? previousRange.from : range.from,
       to: previousRange.to > range.to ? previousRange.to : range.to,
     };
-    const request = containsRange(monthlyWindow, fetchRange)
+    const rows = await (containsRange(monthlyWindow, fetchRange)
       ? loadMonthlyWindow(selectedClubId)
-      : fetchAnalysisLedgers(createClient(), selectedClubId, fetchRange);
-    request
-      .then((rows) => {
-        if (requestId !== requestSequence.current) return;
-        setLoadedLedgers({ clubId: selectedClubId, ledgers: rows });
-        setLoading(false);
-      })
-      .catch(() => {
-        if (requestId !== requestSequence.current) return;
-        setLoadedLedgers(null);
-        setError(true);
-        setLoading(false);
-      });
-  }, [loadMonthlyWindow, monthlyWindow, previousRange.from, previousRange.to, range.from, range.to, reloadToken, selectedClubId]);
+      : fetchAnalysisLedgers(createClient(), selectedClubId, fetchRange));
+    return { clubId: selectedClubId, ledgers: rows };
+  }, [loadMonthlyWindow, monthlyWindow, previousRange.from, previousRange.to, range.from, range.to, selectedClubId]);
+  // Ledgers remember their club, so another club's rows never render as current.
+  const ledgerQuery = useClubQuery<{ clubId: string; ledgers: AnalysisLedgers } | null>(loadLedgers, null);
+  const loadedLedgers = ledgerQuery.data;
+  const ledgers = loadedLedgers && loadedLedgers.clubId === selectedClubId ? loadedLedgers.ledgers : emptyLedgers;
+  const loading = ledgerQuery.loading;
+  const error = ledgerQuery.error;
 
-  useEffect(() => {
-    setMonthly(null);
-    setMonthlyError(false);
-    if (!selectedClubId) {
-      setMonthly(buildMonthlyAnalysis(businessToday, emptyLedgers));
-      return;
-    }
-    let cancelled = false;
-    loadMonthlyWindow(selectedClubId)
-      .then((rows) => {
-        if (!cancelled) setMonthly(buildMonthlyAnalysis(businessToday, rows));
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setMonthlyError(true);
-        setMonthly(null);
-      });
-    return () => { cancelled = true; };
-  }, [businessToday, loadMonthlyWindow, monthlyReloadToken, selectedClubId]);
+  const loadMonthly = useCallback(async () => (
+    buildMonthlyAnalysis(businessToday, selectedClubId ? await loadMonthlyWindow(selectedClubId) : emptyLedgers)
+  ), [businessToday, loadMonthlyWindow, selectedClubId]);
+  const monthlyQuery = useClubQuery<MonthlyAnalysisRow[] | null>(loadMonthly, null);
+  // The trend chart shows its skeleton while any read of it is in flight.
+  const monthly = monthlyQuery.loading ? null : monthlyQuery.data;
+  const monthlyError = monthlyQuery.error;
+
+  /** Retries start a fresh 12-month window read instead of reusing a failed one. */
+  const retry = (query: { reload: () => Promise<void> }) => {
+    windowGeneration.current += 1;
+    void query.reload();
+  };
 
   const current = useMemo(() => sliceLedgers(ledgers, range), [ledgers, range]);
   const previous = useMemo(() => sliceLedgers(ledgers, previousRange), [ledgers, previousRange]);
@@ -337,19 +307,9 @@ export default function FinancialAnalysisPage() {
       />
 
       {error && (
-        <InlineAlert
-          variant="danger"
-          action={(
-            <Button size="sm" variant="outline" onClick={() => {
-              windowGeneration.current += 1;
-              setReloadToken((token) => token + 1);
-            }} icon={<RefreshCcw size={15} aria-hidden="true" />}>
-              {tc('retry')}
-            </Button>
-          )}
-        >
+        <LoadErrorAlert retrying={loading} onRetry={() => retry(ledgerQuery)}>
           {t('loadError')}
-        </InlineAlert>
+        </LoadErrorAlert>
       )}
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -492,20 +452,9 @@ export default function FinancialAnalysisPage() {
 
             <ChartCard title={t('monthlyTitle')} description={t('monthlyDesc')}>
               {monthlyError ? (
-                <InlineAlert
-                  variant="danger"
-                  className="mt-4"
-                  action={(
-                    <Button size="sm" variant="outline" onClick={() => {
-                      windowGeneration.current += 1;
-                      setMonthlyReloadToken((token) => token + 1);
-                    }} icon={<RefreshCcw size={15} aria-hidden="true" />}>
-                      {tc('retry')}
-                    </Button>
-                  )}
-                >
+                <LoadErrorAlert className="mt-4" retrying={monthlyQuery.loading} onRetry={() => retry(monthlyQuery)}>
                   {t('monthlyLoadError')}
-                </InlineAlert>
+                </LoadErrorAlert>
               ) : monthly ? (
                 <MonthlyTrendChart data={monthly} locale={locale} currency={currency} />
               ) : (

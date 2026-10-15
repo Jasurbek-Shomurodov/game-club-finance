@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownToLine, CalendarArrowUp, RefreshCcw, Trash2 } from 'lucide-react';
+import { ArrowDownToLine, CalendarArrowUp, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useClub } from '@/components/layout/DashboardShell';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
@@ -16,8 +16,8 @@ import {
   Field,
   FormSkeleton,
   IconButton,
-  InlineAlert,
   Input,
+  LoadErrorAlert,
   MonthPicker,
   PageHeader,
   SectionHeading,
@@ -65,6 +65,8 @@ import {
 } from '@/lib/formatters';
 import { nextYearMonth } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
+import { useBusinessRollover } from '@/lib/useBusinessPeriod';
+import { useClubQuery } from '@/lib/useClubQuery';
 import {
   OWNER_WITHDRAWAL_PAYMENT_METHODS,
   OWNER_WITHDRAWAL_SOURCES,
@@ -101,6 +103,34 @@ type HistoryRow =
   | { kind: 'withdrawal'; id: string; month: string; withdrawal: OwnerWithdrawal }
   | { kind: 'carryover'; id: string; month: string; carryover: OwnerProfitCarryover };
 
+interface OwnerMoneyData {
+  balancesByMonth: AvailableMoneyByMonth;
+  paymentMethodBalancesByMonth: Record<string, MoneyLeftByPaymentMethod>;
+  withdrawals: OwnerWithdrawal[];
+  carryovers: OwnerProfitCarryover[];
+  /** Migration 071 is applied: unwithdrawn profit can be moved to the next month. */
+  carryoversSupported: boolean;
+  /** Migration 066 is applied: Game Club withdrawals record a payment method. */
+  methodsSupported: boolean;
+}
+
+const EMPTY_OWNER_MONEY: OwnerMoneyData = {
+  balancesByMonth: {},
+  paymentMethodBalancesByMonth: {},
+  withdrawals: [],
+  carryovers: [],
+  carryoversSupported: false,
+  methodsSupported: false,
+};
+
+const emptyForm = (month: string) => ({
+  month,
+  source: 'game_club' as MoneySource,
+  paymentMethod: '' as OwnerWithdrawalPaymentMethod | '',
+  comment: '',
+  amount: '',
+});
+
 function historyCreatedAt(row: HistoryRow): string {
   return row.kind === 'withdrawal' ? row.withdrawal.created_at : row.carryover.created_at;
 }
@@ -114,31 +144,184 @@ export default function MoneyTakenPage() {
   const { confirm, confirmDialog } = useConfirm();
   const businessToday = useBusinessToday(businessDayStartHour);
   const currentMonth = businessToday.slice(0, 7);
-  const [balancesByMonth, setBalancesByMonth] = useState<AvailableMoneyByMonth>({});
-  const [paymentMethodBalancesByMonth, setPaymentMethodBalancesByMonth] = useState<Record<string, MoneyLeftByPaymentMethod>>({});
-  const [withdrawals, setWithdrawals] = useState<OwnerWithdrawal[]>([]);
-  const [carryovers, setCarryovers] = useState<OwnerProfitCarryover[]>([]);
-  /** Migration 071 is applied: unwithdrawn profit can be moved to the next month. */
-  const [carryoversSupported, setCarryoversSupported] = useState(false);
-  /** Migration 066 is applied: Game Club withdrawals record a payment method. */
-  const [methodsSupported, setMethodsSupported] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<'withdraw' | 'carry' | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  /** Balances failed to load; mutations stay disabled until a successful reload. */
-  const [error, setError] = useState(false);
-  const [form, setForm] = useState({
-    month: currentMonth,
-    source: 'game_club' as MoneySource,
-    paymentMethod: '' as OwnerWithdrawalPaymentMethod | '',
-    comment: '',
-    amount: '',
-  });
-  const requestId = useRef(0);
-  /** Business month the form last defaulted to; a month the user picked is kept on rollover. */
-  const defaultFormMonth = useRef(currentMonth);
+  const [form, setForm] = useState(() => emptyForm(currentMonth));
+  // A club switch starts a fresh form on the current business month.
+  const [formClubId, setFormClubId] = useState(selectedClubId);
+  if (formClubId !== selectedClubId) {
+    setFormClubId(selectedClubId);
+    setForm(emptyForm(currentMonth));
+  }
   const mutationPending = useRef(false);
   const isOwner = role === 'owner';
+
+  // A month the user picked is kept on rollover; the default month follows the business month.
+  useBusinessRollover(currentMonth, (previousMonth, nextMonth) => {
+    setForm((current) => (current.month === previousMonth ? { ...current, month: nextMonth } : current));
+  });
+
+  const loadOwnerMoney = useCallback(async (isCurrent: () => boolean): Promise<OwnerMoneyData> => {
+    if (!selectedClubId) return EMPTY_OWNER_MONEY;
+
+    const supabase = createClient();
+    const snapshotArgs = { p_club_id: selectedClubId, p_through_date: businessToday };
+    const [snapshotWithMethods, carryoverRes] = await Promise.all([
+      // Migration 076: the snapshot's withdrawal rows carry their payment method.
+      supabase.rpc('get_owner_profit_snapshot_with_methods', snapshotArgs),
+      fetchAllRows<OwnerProfitCarryover>(() => supabase
+        .from('owner_profit_carryovers')
+        .select('id,club_id,from_month,to_month,source,payment_method,amount,comment,created_by,created_at')
+        .eq('club_id', selectedClubId)
+        .lte('from_month', `${currentMonth}-01`)
+        .order('id')),
+    ]);
+
+    // A superseded load stops early; useClubQuery discards whatever it returns.
+    if (!isCurrent()) return EMPTY_OWNER_MONEY;
+
+    // Before migration 076, read the 050 snapshot and the withdrawal methods separately.
+    const snapshotHasMethods = !isMissingDatabaseFunction(snapshotWithMethods.error, 'get_owner_profit_snapshot_with_methods');
+    const [snapshotResult, methodRes] = snapshotHasMethods
+      ? [snapshotWithMethods, null]
+      : await Promise.all([
+        supabase.rpc('get_owner_profit_snapshot', snapshotArgs),
+        fetchAllRows<WithdrawalMethodRow>(() => supabase
+          .from('owner_withdrawals')
+          .select('id,payment_method')
+          .eq('club_id', selectedClubId)
+          .not('payment_method', 'is', null)
+          .order('id')),
+      ]);
+    if (!isCurrent()) return EMPTY_OWNER_MONEY;
+
+    // Before migration 071 there is nothing to carry: balances stay per month.
+    const carryoversMissing = isMissingDatabaseTable(carryoverRes.error as { code?: string; message?: string } | null, 'owner_profit_carryovers');
+    if (carryoverRes.error && !carryoversMissing) throw new Error(carryoverRes.error.message);
+    const carryovers = (carryoverRes.data ?? []).map((row) => ({ ...row, amount: Number(row.amount) }));
+    const withCarryovers = (byMonth: AvailableMoneyByMonth) => applyOwnerProfitCarryovers(byMonth, carryovers, currentMonth);
+
+    // Before migration 066 there is no payment_method column: keep every
+    // withdrawal unassigned and record new ones by source only.
+    const methodsMissing = isMissingDatabaseColumn(methodRes?.error as { code?: string; message?: string } | null, 'payment_method');
+    if (methodRes?.error && !methodsMissing) throw new Error(methodRes.error.message);
+    const methodById = methodRes
+      ? new Map((methodRes.data ?? []).map((row) => [row.id, row.payment_method]))
+      : null;
+    const withMethods = (rows: OwnerWithdrawal[]) => rows.map((row) => ({
+      ...row,
+      payment_method: (methodById ? methodById.get(row.id) : row.payment_method) ?? null,
+    }));
+    const supported = { carryoversSupported: !carryoversMissing, methodsSupported: !methodsMissing };
+
+    if (!snapshotResult.error && snapshotResult.data?.paymentMethodBalancesByMonth) {
+      const snapshot = buildOwnerProfitSnapshot(snapshotResult.data as OwnerProfitSnapshotPayload);
+      return {
+        balancesByMonth: withCarryovers(snapshot.byMonth),
+        paymentMethodBalancesByMonth: snapshot.paymentMethodBalancesByMonth,
+        withdrawals: withMethods(snapshot.withdrawals),
+        carryovers,
+        ...supported,
+      };
+    }
+
+    if (snapshotResult.error && (snapshotHasMethods || !isMissingDatabaseFunction(snapshotResult.error, 'get_owner_profit_snapshot'))) {
+      throw new Error(snapshotResult.error.message);
+    }
+
+    // Compatibility fallback while the application and migration are deployed separately.
+    const [cashRes, stockRes, purchaseRes, expenseRes, debtPaymentRes, withdrawalRes] = await Promise.all([
+      fetchAllRows<DailyCashRow>(() => supabase
+        .from('daily_cash_entries')
+        .select('date,cash_income,terminal_income,card_income,playstation_income')
+        .eq('club_id', selectedClubId)
+        .lte('date', businessToday)
+        .order('id')),
+      fetchAllRows<StockCountRow>(() => supabase
+        .from('daily_stock_counts')
+        .select('date,bar_income,bar_profit,bar_cost,sold_quantity')
+        .eq('club_id', selectedClubId)
+        .lte('date', businessToday)
+        .order('id')),
+      fetchAllRows<StockPurchaseCostRow>(() => supabase
+        .from('stock_purchases')
+        .select('date,quantity,cost_price')
+        .eq('club_id', selectedClubId)
+        .lte('date', businessToday)
+        .order('id')),
+      fetchAllRows<ExpenseRow>(() => supabase
+        .from('expenses')
+        .select('id,date,amount,category,payment_method,payment_source,comment,created_at')
+        .eq('club_id', selectedClubId)
+        .lte('date', businessToday)
+        .order('id')),
+      fetchAllRows<DebtPaymentValueRow>(() => supabase
+        .from('debt_payments')
+        .select('date,amount,payment_method')
+        .eq('club_id', selectedClubId)
+        .lte('date', businessToday)
+        .order('id')),
+      fetchAllRows<OwnerWithdrawal>(() => supabase
+        .from('owner_withdrawals')
+        .select('id,club_id,period_month,source,amount,comment,created_by,created_at,updated_at')
+        .eq('club_id', selectedClubId)
+        .lte('period_month', `${currentMonth}-01`)
+        .order('period_month', { ascending: false })
+        .order('created_at', { ascending: false })
+        .order('id')),
+    ]);
+    const firstError = [
+      cashRes.error,
+      stockRes.error,
+      purchaseRes.error,
+      expenseRes.error,
+      debtPaymentRes.error,
+      withdrawalRes.error,
+    ].find(Boolean);
+    if (firstError) throw new Error(firstError.message);
+
+    const withdrawalRows = withdrawalRes.data ?? [];
+    const nextLedgerRows = {
+      cashRows: cashRes.data ?? [],
+      stockRows: stockRes.data ?? [],
+      purchaseRows: purchaseRes.data ?? [],
+      expenseRows: expenseRes.data ?? [],
+      debtPaymentRows: debtPaymentRes.data ?? [],
+      withdrawalRows,
+    };
+    return {
+      balancesByMonth: withCarryovers(calculateAvailableMoneyByMonth({
+        ...nextLedgerRows,
+        throughDate: businessToday,
+      })),
+      paymentMethodBalancesByMonth: gameClubMoneyLeftByPaymentMethodByMonth(
+        nextLedgerRows.cashRows,
+        nextLedgerRows.expenseRows,
+        nextLedgerRows.debtPaymentRows,
+      ),
+      withdrawals: withMethods(withdrawalRows),
+      carryovers,
+      ...supported,
+    };
+  }, [businessToday, currentMonth, selectedClubId]);
+  const ownerMoney = useClubQuery(loadOwnerMoney, EMPTY_OWNER_MONEY);
+  const {
+    balancesByMonth,
+    paymentMethodBalancesByMonth,
+    withdrawals,
+    carryovers,
+    carryoversSupported,
+    methodsSupported,
+  } = ownerMoney.data;
+  /** Balances failed to load; mutations stay disabled until a successful reload. */
+  const { loading, error, reload: loadData } = ownerMoney;
+  // A club switch or business-day rollover replaces the loader; a mutation or
+  // confirm dialog that started under the previous one is stale.
+  const currentLoad = useRef(loadOwnerMoney);
+  useEffect(() => {
+    currentLoad.current = loadOwnerMoney;
+  }, [loadOwnerMoney]);
+
   const withdrawalMonths = useMemo(() => {
     const groups = new Map<string, OwnerWithdrawal[]>();
     for (const withdrawal of withdrawals) {
@@ -149,194 +332,6 @@ export default function MoneyTakenPage() {
     }
     return [...groups.entries()].sort(([a], [b]) => b.localeCompare(a));
   }, [withdrawals]);
-
-  useEffect(() => {
-    const previousMonth = defaultFormMonth.current;
-    defaultFormMonth.current = currentMonth;
-    setForm((current) => (current.month === previousMonth ? { ...current, month: currentMonth } : current));
-  }, [currentMonth]);
-
-  useEffect(() => {
-    setForm({ month: defaultFormMonth.current, source: 'game_club', paymentMethod: '', amount: '', comment: '' });
-  }, [selectedClubId]);
-
-  const loadData = useCallback(async ({ silent = false } = {}) => {
-    const id = ++requestId.current;
-    try {
-      if (!selectedClubId) {
-        setBalancesByMonth({});
-        setPaymentMethodBalancesByMonth({});
-        setWithdrawals([]);
-        setCarryovers([]);
-        setLoading(false);
-        return;
-      }
-
-      if (!silent) setLoading(true);
-      setError(false);
-      const supabase = createClient();
-      const snapshotArgs = { p_club_id: selectedClubId, p_through_date: businessToday };
-      const [snapshotWithMethods, carryoverRes] = await Promise.all([
-        // Migration 076: the snapshot's withdrawal rows carry their payment method.
-        supabase.rpc('get_owner_profit_snapshot_with_methods', snapshotArgs),
-        fetchAllRows<OwnerProfitCarryover>(() => supabase
-          .from('owner_profit_carryovers')
-          .select('id,club_id,from_month,to_month,source,payment_method,amount,comment,created_by,created_at')
-          .eq('club_id', selectedClubId)
-          .lte('from_month', `${currentMonth}-01`)
-          .order('id')),
-      ]);
-
-      if (id !== requestId.current) return;
-
-      // Before migration 076, read the 050 snapshot and the withdrawal methods separately.
-      const snapshotHasMethods = !isMissingDatabaseFunction(snapshotWithMethods.error, 'get_owner_profit_snapshot_with_methods');
-      const [snapshotResult, methodRes] = snapshotHasMethods
-        ? [snapshotWithMethods, null]
-        : await Promise.all([
-          supabase.rpc('get_owner_profit_snapshot', snapshotArgs),
-          fetchAllRows<WithdrawalMethodRow>(() => supabase
-            .from('owner_withdrawals')
-            .select('id,payment_method')
-            .eq('club_id', selectedClubId)
-            .not('payment_method', 'is', null)
-            .order('id')),
-        ]);
-      if (id !== requestId.current) return;
-
-      // Before migration 071 there is nothing to carry: balances stay per month.
-      const carryoversMissing = isMissingDatabaseTable(carryoverRes.error as { code?: string; message?: string } | null, 'owner_profit_carryovers');
-      if (carryoverRes.error && !carryoversMissing) {
-        setError(true);
-        setLoading(false);
-        return;
-      }
-      const carryoverRows = (carryoverRes.data ?? []).map((row) => ({ ...row, amount: Number(row.amount) }));
-      setCarryovers(carryoverRows);
-      setCarryoversSupported(!carryoversMissing);
-      const withCarryovers = (byMonth: AvailableMoneyByMonth) => applyOwnerProfitCarryovers(byMonth, carryoverRows, currentMonth);
-
-      // Before migration 066 there is no payment_method column: keep every
-      // withdrawal unassigned and record new ones by source only.
-      const methodsMissing = isMissingDatabaseColumn(methodRes?.error as { code?: string; message?: string } | null, 'payment_method');
-      if (methodRes?.error && !methodsMissing) {
-        setError(true);
-        setLoading(false);
-        return;
-      }
-      const methodById = methodRes
-        ? new Map((methodRes.data ?? []).map((row) => [row.id, row.payment_method]))
-        : null;
-      const withMethods = (rows: OwnerWithdrawal[]) => rows.map((row) => ({
-        ...row,
-        payment_method: (methodById ? methodById.get(row.id) : row.payment_method) ?? null,
-      }));
-      setMethodsSupported(!methodsMissing);
-
-      if (!snapshotResult.error && snapshotResult.data?.paymentMethodBalancesByMonth) {
-        const snapshot = buildOwnerProfitSnapshot(snapshotResult.data as OwnerProfitSnapshotPayload);
-        setBalancesByMonth(withCarryovers(snapshot.byMonth));
-        setWithdrawals(withMethods(snapshot.withdrawals));
-        setPaymentMethodBalancesByMonth(snapshot.paymentMethodBalancesByMonth);
-        setLoading(false);
-        return;
-      }
-
-      if (snapshotResult.error && (snapshotHasMethods || !isMissingDatabaseFunction(snapshotResult.error, 'get_owner_profit_snapshot'))) {
-        setError(true);
-        setLoading(false);
-        return;
-      }
-
-      // Compatibility fallback while the application and migration are deployed separately.
-      const [cashRes, stockRes, purchaseRes, expenseRes, debtPaymentRes, withdrawalRes] = await Promise.all([
-        fetchAllRows<DailyCashRow>(() => supabase
-          .from('daily_cash_entries')
-          .select('date,cash_income,terminal_income,card_income,playstation_income')
-          .eq('club_id', selectedClubId)
-          .lte('date', businessToday)
-          .order('id')),
-        fetchAllRows<StockCountRow>(() => supabase
-          .from('daily_stock_counts')
-          .select('date,bar_income,bar_profit,bar_cost,sold_quantity')
-          .eq('club_id', selectedClubId)
-          .lte('date', businessToday)
-          .order('id')),
-        fetchAllRows<StockPurchaseCostRow>(() => supabase
-          .from('stock_purchases')
-          .select('date,quantity,cost_price')
-          .eq('club_id', selectedClubId)
-          .lte('date', businessToday)
-          .order('id')),
-        fetchAllRows<ExpenseRow>(() => supabase
-          .from('expenses')
-          .select('id,date,amount,category,payment_method,payment_source,comment,created_at')
-          .eq('club_id', selectedClubId)
-          .lte('date', businessToday)
-          .order('id')),
-        fetchAllRows<DebtPaymentValueRow>(() => supabase
-          .from('debt_payments')
-          .select('date,amount,payment_method')
-          .eq('club_id', selectedClubId)
-          .lte('date', businessToday)
-          .order('id')),
-        fetchAllRows<OwnerWithdrawal>(() => supabase
-          .from('owner_withdrawals')
-          .select('id,club_id,period_month,source,amount,comment,created_by,created_at,updated_at')
-          .eq('club_id', selectedClubId)
-          .lte('period_month', `${currentMonth}-01`)
-          .order('period_month', { ascending: false })
-          .order('created_at', { ascending: false })
-          .order('id')),
-      ]);
-      if (id !== requestId.current) return;
-      const firstError = [
-        cashRes.error,
-        stockRes.error,
-        purchaseRes.error,
-        expenseRes.error,
-        debtPaymentRes.error,
-        withdrawalRes.error,
-      ].find(Boolean);
-
-      if (firstError) {
-        setError(true);
-        setLoading(false);
-        return;
-      }
-
-      const withdrawalRows = withdrawalRes.data ?? [];
-      const nextLedgerRows = {
-        cashRows: cashRes.data ?? [],
-        stockRows: stockRes.data ?? [],
-        purchaseRows: purchaseRes.data ?? [],
-        expenseRows: expenseRes.data ?? [],
-        debtPaymentRows: debtPaymentRes.data ?? [],
-        withdrawalRows,
-      };
-      setBalancesByMonth(withCarryovers(calculateAvailableMoneyByMonth({
-        ...nextLedgerRows,
-        throughDate: businessToday,
-      })));
-      setWithdrawals(withMethods(withdrawalRows));
-      setPaymentMethodBalancesByMonth(gameClubMoneyLeftByPaymentMethodByMonth(
-        nextLedgerRows.cashRows,
-        nextLedgerRows.expenseRows,
-        nextLedgerRows.debtPaymentRows,
-      ));
-      setLoading(false);
-    } catch {
-      if (id === requestId.current) {
-        setError(true);
-        setLoading(false);
-      }
-    }
-  }, [businessToday, currentMonth, selectedClubId]);
-
-  useEffect(() => {
-    void loadData();
-    return () => { requestId.current += 1; };
-  }, [loadData]);
 
   const sourceAvailable = useMemo(() => {
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(form.month)) return 0;
@@ -427,7 +422,7 @@ export default function MoneyTakenPage() {
       return;
     }
 
-    const operationRequestId = requestId.current;
+    const operationLoad = currentLoad.current;
     mutationPending.current = true;
     setSaving('withdraw');
     try {
@@ -449,7 +444,7 @@ export default function MoneyTakenPage() {
           p_comment: form.comment.trim() || null,
         });
 
-      if (operationRequestId !== requestId.current) return;
+      if (operationLoad !== currentLoad.current) return;
       if (insertError) {
         showToast(isMissingDatabaseFunction(insertError, rpcName)
           ? t(usesPaymentMethod ? 'methodMigrationRequired' : 'migrationRequired')
@@ -462,7 +457,7 @@ export default function MoneyTakenPage() {
       showToast(t('saved'), 'success');
       await loadData({ silent: true });
     } catch {
-      if (operationRequestId !== requestId.current) return;
+      if (operationLoad !== currentLoad.current) return;
       showToast(t('saveError'), 'error');
       await loadData({ silent: true });
     } finally {
@@ -484,7 +479,7 @@ export default function MoneyTakenPage() {
       return;
     }
 
-    const requestIdBeforeConfirm = requestId.current;
+    const loadBeforeConfirm = currentLoad.current;
     const confirmed = await confirm({
       title: t('carryTitle'),
       description: t('carryConfirm', {
@@ -496,9 +491,9 @@ export default function MoneyTakenPage() {
       confirmLabel: t('carryButton'),
       tone: 'primary',
     });
-    if (!confirmed || requestIdBeforeConfirm !== requestId.current || mutationPending.current) return;
+    if (!confirmed || loadBeforeConfirm !== currentLoad.current || mutationPending.current) return;
 
-    const operationRequestId = requestId.current;
+    const operationLoad = currentLoad.current;
     mutationPending.current = true;
     setSaving('carry');
     try {
@@ -512,7 +507,7 @@ export default function MoneyTakenPage() {
         p_comment: form.comment.trim() || null,
       });
 
-      if (operationRequestId !== requestId.current) return;
+      if (operationLoad !== currentLoad.current) return;
       if (carryError) {
         showToast(isMissingDatabaseFunction(carryError, 'carry_owner_profit_to_next_month')
           ? t('carryMigrationRequired')
@@ -525,7 +520,7 @@ export default function MoneyTakenPage() {
       showToast(t('carried'), 'success');
       await loadData({ silent: true });
     } catch {
-      if (operationRequestId !== requestId.current) return;
+      if (operationLoad !== currentLoad.current) return;
       showToast(t('carryError'), 'error');
       await loadData({ silent: true });
     } finally {
@@ -537,7 +532,7 @@ export default function MoneyTakenPage() {
   async function handleDeleteCarryover(row: OwnerProfitCarryover) {
     if (mutationPending.current || loading || error || row.club_id !== selectedClubId) return;
     if (!selectedClubId || !isOwner) return;
-    const requestIdBeforeConfirm = requestId.current;
+    const loadBeforeConfirm = currentLoad.current;
     const confirmed = await confirm({
       title: tc('delete'),
       description: t('carryDeleteConfirm', {
@@ -548,9 +543,9 @@ export default function MoneyTakenPage() {
       }),
       confirmLabel: tc('delete'),
     });
-    if (!confirmed || requestIdBeforeConfirm !== requestId.current || mutationPending.current) return;
+    if (!confirmed || loadBeforeConfirm !== currentLoad.current || mutationPending.current) return;
 
-    const operationRequestId = requestId.current;
+    const operationLoad = currentLoad.current;
     mutationPending.current = true;
     setDeletingId(row.id);
     try {
@@ -560,7 +555,7 @@ export default function MoneyTakenPage() {
         p_carryover_id: row.id,
       });
 
-      if (operationRequestId !== requestId.current) return;
+      if (operationLoad !== currentLoad.current) return;
       if (deleteError) {
         showToast(deleteError.code === '23514' ? t('carryDeleteUsed') : t('deleteError'), 'error');
         await loadData({ silent: true });
@@ -570,7 +565,7 @@ export default function MoneyTakenPage() {
       showToast(t('carryDeleted'), 'success');
       await loadData({ silent: true });
     } catch {
-      if (operationRequestId !== requestId.current) return;
+      if (operationLoad !== currentLoad.current) return;
       showToast(t('deleteError'), 'error');
       await loadData({ silent: true });
     } finally {
@@ -582,7 +577,7 @@ export default function MoneyTakenPage() {
   async function handleDelete(row: OwnerWithdrawal) {
     if (mutationPending.current || loading || error || row.club_id !== selectedClubId) return;
     if (!selectedClubId || !isOwner) return;
-    const requestIdBeforeConfirm = requestId.current;
+    const loadBeforeConfirm = currentLoad.current;
     const confirmed = await confirm({
       title: tc('delete'),
       description: t('deleteConfirmDetailed', {
@@ -593,9 +588,9 @@ export default function MoneyTakenPage() {
       confirmLabel: tc('delete'),
     });
     // A club switch or reload while the dialog was open makes `row` stale.
-    if (!confirmed || requestIdBeforeConfirm !== requestId.current || mutationPending.current) return;
+    if (!confirmed || loadBeforeConfirm !== currentLoad.current || mutationPending.current) return;
 
-    const operationRequestId = requestId.current;
+    const operationLoad = currentLoad.current;
     mutationPending.current = true;
     setDeletingId(row.id);
     try {
@@ -607,7 +602,7 @@ export default function MoneyTakenPage() {
         .eq('id', row.id)
         .select('id');
 
-      if (operationRequestId !== requestId.current) return;
+      if (operationLoad !== currentLoad.current) return;
       // RLS hides a refused delete as zero affected rows, not as an error.
       if (deleteError || !deletedRows?.length) {
         showToast(t('deleteError'), 'error');
@@ -618,7 +613,7 @@ export default function MoneyTakenPage() {
       showToast(t('deleted'), 'success');
       await loadData({ silent: true });
     } catch {
-      if (operationRequestId !== requestId.current) return;
+      if (operationLoad !== currentLoad.current) return;
       showToast(t('deleteError'), 'error');
       await loadData({ silent: true });
     } finally {
@@ -859,22 +854,9 @@ export default function MoneyTakenPage() {
       />
 
       {error ? (
-        <InlineAlert
-          variant="danger"
-          action={(
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={loading}
-              onClick={() => void loadData()}
-              icon={<RefreshCcw size={15} aria-hidden="true" />}
-            >
-              {tc('retry')}
-            </Button>
-          )}
-        >
+        <LoadErrorAlert retrying={loading} onRetry={() => void loadData()}>
           {t('loadError')}
-        </InlineAlert>
+        </LoadErrorAlert>
       ) : null}
 
       {/* The one number that matters: what the owner can still take out this month. */}

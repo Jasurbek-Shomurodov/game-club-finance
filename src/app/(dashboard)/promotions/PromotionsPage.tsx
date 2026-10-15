@@ -2,7 +2,7 @@
 
 // Route: /promotions
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 import { useClub } from '@/components/layout/DashboardShell';
@@ -20,6 +20,7 @@ import {
   IconButton,
   InlineAlert,
   Input,
+  LoadErrorAlert,
   Modal,
   PageHeader,
   SectionHeading,
@@ -29,7 +30,6 @@ import {
   useToast,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { useLatestRef } from '@/components/i18n/useLatestRef';
 import { formatCurrency, formatCurrencyInput, formatDateOnly, formatNumber, formatUnitCurrency } from '@/lib/formatters';
 import { fetchActiveProductsOrdered } from '@/lib/supabase/products';
 import { fetchPromotions } from '@/lib/supabase/promotions';
@@ -41,7 +41,8 @@ import {
   type PromotionStatus,
 } from '@/lib/promotions';
 import { todayIso } from '@/lib/utils';
-import { AlertTriangle, Gift, Pencil, Plus, RefreshCcw, Trash2 } from 'lucide-react';
+import { useClubQuery } from '@/lib/useClubQuery';
+import { Gift, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { Product, Promotion } from '@/types';
 
 const emptyForm = (today: string): PromotionForm => ({
@@ -61,61 +62,42 @@ const STATUS_BADGE: Record<PromotionStatus, 'success' | 'primary' | 'neutral' | 
   inactive: 'warning',
 };
 
+interface PromotionsData {
+  promotions: Promotion[];
+  products: Product[];
+}
+
+const EMPTY_PROMOTIONS: PromotionsData = { promotions: [], products: [] };
+
 export default function PromotionsPage() {
   const t = useTranslations('promotions');
-  const tRef = useLatestRef(t);
   const tc = useTranslations('common');
   const { locale } = useAppLocale();
   const { selectedClubId, role: currentRole, businessDayStartHour } = useClub();
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
   const today = useMemo(() => todayIso(new Date(), businessDayStartHour), [businessDayStartHour]);
-  const [promotions, setPromotions] = useState<Promotion[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<PromotionForm>(() => emptyForm(today));
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const requestSequence = useRef(0);
   const isOwner = currentRole === 'owner';
 
-  const load = useCallback(async ({ silent = false } = {}) => {
-    const requestId = ++requestSequence.current;
-    if (!silent) setLoading(true);
-    if (!selectedClubId) {
-      setPromotions([]);
-      setProducts([]);
-      setLoading(false);
-      return;
-    }
+  const loadPromotions = useCallback(async (): Promise<PromotionsData> => {
+    if (!selectedClubId) return EMPTY_PROMOTIONS;
     const supabase = createClient();
     const [promotionsRes, productsRes] = await Promise.all([
       fetchPromotions(supabase, selectedClubId),
       fetchActiveProductsOrdered(supabase, selectedClubId),
     ]);
-    if (requestId !== requestSequence.current) return;
-    if (promotionsRes.error || productsRes.error) {
-      setLoadError(tRef.current('loadFailed'));
-      setLoading(false);
-      return;
-    }
-    setPromotions(promotionsRes.data ?? []);
-    setProducts(productsRes.data ?? []);
-    setLoadError('');
-    setLoading(false);
-  }, [selectedClubId, tRef]);
-
-  useEffect(() => {
-    load().catch(() => {
-      setLoadError(tRef.current('loadFailed'));
-      setLoading(false);
-    });
-    return () => { requestSequence.current += 1; };
-  }, [load, tRef]);
+    if (promotionsRes.error || productsRes.error) throw new Error('Promotions load failed');
+    return { promotions: promotionsRes.data ?? [], products: productsRes.data ?? [] };
+  }, [selectedClubId]);
+  const query = useClubQuery(loadPromotions, EMPTY_PROMOTIONS);
+  const { promotions, products } = query.data;
+  const { loading, error: loadError, reload } = query;
 
   // An open editor belongs to the previous club; never save it against the new one.
   useEffect(() => {
@@ -186,7 +168,7 @@ export default function PromotionsPage() {
     }
     setModalOpen(false);
     showToast(t('saved'));
-    await load({ silent: true });
+    await reload({ silent: true });
   }
 
   async function handleDelete() {
@@ -212,7 +194,7 @@ export default function PromotionsPage() {
     }
     setModalOpen(false);
     showToast(t('deleted'));
-    await load({ silent: true });
+    await reload({ silent: true });
   }
 
   return (
@@ -227,17 +209,9 @@ export default function PromotionsPage() {
       {loading ? (
         <TableSkeleton rows={4} columns={6} />
       ) : loadError ? (
-        <Card>
-          <EmptyState
-            icon={AlertTriangle}
-            title={loadError}
-            action={(
-              <Button variant="outline" onClick={() => { void load(); }} icon={<RefreshCcw size={16} aria-hidden="true" />}>
-                {tc('retry')}
-              </Button>
-            )}
-          />
-        </Card>
+        <LoadErrorAlert retrying={loading} onRetry={() => void reload()}>
+          {t('loadFailed')}
+        </LoadErrorAlert>
       ) : promotions.length === 0 ? (
         <Card>
           <EmptyState

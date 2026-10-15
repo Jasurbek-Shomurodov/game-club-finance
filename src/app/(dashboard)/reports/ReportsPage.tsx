@@ -11,7 +11,6 @@ import {
   Gamepad2,
   Landmark,
   ReceiptText,
-  RefreshCcw,
   Trash2,
   WalletCards,
 } from 'lucide-react';
@@ -27,6 +26,7 @@ import {
   EmptyState,
   IconButton,
   InlineAlert,
+  LoadErrorAlert,
   MetricCard,
   MetricGridSkeleton,
   Modal,
@@ -64,6 +64,8 @@ import { isMissingDatabaseFunction } from '@/lib/supabase/errors';
 import { deleteDailyCashEntry } from '@/lib/supabase/dailyCashEntries';
 import { cn } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
+import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
+import { useClubQuery } from '@/lib/useClubQuery';
 import { canAccessFeature } from '@/lib/permissions';
 import ExpenseRegistrationForm from './ExpenseRegistrationForm';
 import { EXPENSE_CATEGORIES, isKnownExpenseCategory } from '@/lib/expenseCategories';
@@ -75,6 +77,12 @@ const emptyReportRows = {
   barSales: [] as MoneyReportBarSalesRow[],
   stockPurchases: [] as StockPurchaseCostRow[],
 };
+
+type ReportRange = { from: string; to: string };
+
+function sameRange(a: ReportRange, b: ReportRange): boolean {
+  return a.from === b.from && a.to === b.to;
+}
 
 interface ReportProfileRow {
   id: string;
@@ -183,22 +191,138 @@ export default function ReportsPage() {
   const canRegisterExpenses = canAccessFeature(role, featureAccess, 'expenses');
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
   const businessToday = useBusinessToday(businessDayStartHour);
-  const [range, setRange] = useState(() => getDashboardRange('month', businessToday));
-  const [reportRows, setReportRows] = useState(emptyReportRows);
+  // A club switch opens the current month; a business-day rollover moves the
+  // range forward only while it is still the previous day's default range.
+  const defaultRange = useMemo(() => getDashboardRange('month', businessToday), [businessToday]);
+  const [range, setRange] = useBusinessPeriod<ReportRange>(defaultRange, selectedClubId, sameRange);
   const [categoryFilter, setCategoryFilter] = useState<MoneyReportCategoryFilter>('all');
-  const [loading, setLoading] = useState(true);
-  /** The report failed to load; shown with a Retry action instead of the empty state. */
-  const [loadFailed, setLoadFailed] = useState(false);
   /** Translated result of a failed delete. */
   const [actionError, setActionError] = useState('');
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<{ activity: MoneyReportActivity; date: string } | null>(null);
-  const requestSequence = useRef(0);
   const currentClubId = useRef(selectedClubId);
   const deletePending = useRef(false);
   const isOwner = role === 'owner';
+  useEffect(() => {
+    if (!categoryFilter.startsWith('expense:')) return;
+    const category = categoryFilter.slice('expense:'.length);
+    if (!isKnownExpenseCategory(category)) setCategoryFilter('all');
+  }, [categoryFilter]);
+
+  const loadReport = useCallback(async (isCurrent: () => boolean): Promise<typeof emptyReportRows> => {
+    if (!selectedClubId || !hasReportsAccess) return emptyReportRows;
+
+    const supabase = createClient();
+    const snapshotResult = await supabase.rpc('get_money_report_snapshot', {
+      p_club_id: selectedClubId,
+      p_range_from: range.from,
+      p_range_to: range.to,
+    });
+
+    if (!snapshotResult.error) {
+      const snapshot = snapshotResult.data as MoneyReportSnapshotPayload;
+      return {
+        cash: snapshot.cash ?? [],
+        expenses: snapshot.expenses ?? [],
+        debtPayments: snapshot.debtPayments ?? [],
+        barSales: snapshot.barSales ?? [],
+        stockPurchases: snapshot.stockPurchases ?? [],
+      };
+    }
+
+    if (!isMissingDatabaseFunction(snapshotResult.error, 'get_money_report_snapshot')) {
+      throw snapshotResult.error;
+    }
+
+    // Compatibility path while migration 047 is being deployed.
+    const [cashResult, expenseResult, debtPaymentResult, barSalesResult, stockPurchaseResult] = await Promise.all([
+      fetchAllRows<MoneyReportCashRow>(() => supabase
+        .from('daily_cash_entries')
+        .select('id,date,cash_income,terminal_income,card_income,playstation_income,comment,created_by,created_at')
+        .eq('club_id', selectedClubId)
+        .gte('date', range.from)
+        .lte('date', range.to)
+        .order('date', { ascending: true })
+        .order('created_at', { ascending: true })),
+      fetchAllRows<ExpenseRow>(() => supabase
+        .from('expenses')
+        .select('id,date,amount,category,payment_method,payment_source,comment,created_by,created_at')
+        .eq('club_id', selectedClubId)
+        .gte('date', range.from)
+        .lte('date', range.to)
+        .order('date', { ascending: true })
+        .order('id', { ascending: true })),
+      fetchAllRows<MoneyReportDebtPaymentRow>(() => supabase
+        .from('debt_payments')
+        .select('id,date,amount,payment_method,comment,created_at')
+        .eq('club_id', selectedClubId)
+        .gte('date', range.from)
+        .lte('date', range.to)
+        .order('date', { ascending: true })
+        .order('id', { ascending: true })),
+      fetchAllRows<MoneyReportBarSalesRow>(() => supabase
+        .from('daily_stock_counts')
+        .select('date,bar_income')
+        .eq('club_id', selectedClubId)
+        .gte('date', range.from)
+        .lte('date', range.to)),
+      fetchAllRows<StockPurchaseCostRow>(() => supabase
+        .from('stock_purchases')
+        .select('date,quantity,cost_price')
+        .eq('club_id', selectedClubId)
+        .gte('date', range.from)
+        .lte('date', range.to)),
+    ]);
+
+    const firstError = [
+      cashResult.error,
+      expenseResult.error,
+      debtPaymentResult.error,
+      barSalesResult.error,
+      stockPurchaseResult.error,
+    ].find(Boolean);
+    if (firstError) throw firstError;
+
+    const cashRows = (cashResult.data ?? []) as MoneyReportCashRow[];
+    const expenseRows = (expenseResult.data ?? []) as ExpenseRow[];
+    const creatorIds = Array.from(new Set([
+      ...cashRows.map((row) => row.created_by),
+      ...expenseRows.map((row) => row.created_by),
+    ].filter((creatorId): creatorId is string => Boolean(creatorId))));
+    // A superseded load skips the creator lookup.
+    if (!isCurrent()) return emptyReportRows;
+    const profileResult = creatorIds.length > 0
+      ? await supabase.from('profiles').select('id,full_name').in('id', creatorIds)
+      : { data: [] as ReportProfileRow[], error: null };
+
+    if (profileResult.error) throw profileResult.error;
+
+    const creatorNames = new Map(
+      ((profileResult.data ?? []) as ReportProfileRow[]).map((profile) => [profile.id, profile.full_name]),
+    );
+
+    return {
+      cash: cashRows.map((row) => ({
+        ...row,
+        creator_name: row.created_by ? creatorNames.get(row.created_by) ?? null : null,
+      })),
+      expenses: expenseRows.map((row) => ({
+        ...row,
+        creator_name: row.created_by ? creatorNames.get(row.created_by) ?? null : null,
+      })),
+      debtPayments: (debtPaymentResult.data ?? []) as MoneyReportDebtPaymentRow[],
+      barSales: (barSalesResult.data ?? []) as MoneyReportBarSalesRow[],
+      stockPurchases: (stockPurchaseResult.data ?? []) as StockPurchaseCostRow[],
+    };
+  }, [hasReportsAccess, range.from, range.to, selectedClubId]);
+  const reportQuery = useClubQuery<typeof emptyReportRows>(loadReport, emptyReportRows);
+  const { loading, reload: reloadReport } = reportQuery;
+  /** The report failed to load; shown with a Retry action instead of the empty state. */
+  const loadFailed = reportQuery.error;
+  // A failed load shows no figures, even after a silent reload.
+  const reportRows = loadFailed ? emptyReportRows : reportQuery.data;
   const report = useMemo(() => buildFilteredMoneyReport(
     reportRows.cash,
     reportRows.expenses,
@@ -207,159 +331,6 @@ export default function ReportsPage() {
     reportRows.barSales,
     reportRows.stockPurchases,
   ), [categoryFilter, reportRows]);
-  useEffect(() => {
-    if (!categoryFilter.startsWith('expense:')) return;
-    const category = categoryFilter.slice('expense:'.length);
-    if (!isKnownExpenseCategory(category)) setCategoryFilter('all');
-  }, [categoryFilter]);
-
-  const loadReport = useCallback(async ({ silent = false } = {}) => {
-    const requestId = ++requestSequence.current;
-
-    if (!selectedClubId || !hasReportsAccess) {
-      setReportRows(emptyReportRows);
-      setLoadFailed(false);
-      setLoading(false);
-      return;
-    }
-
-    if (!silent) setLoading(true);
-    setLoadFailed(false);
-    try {
-      const supabase = createClient();
-      const snapshotResult = await supabase.rpc('get_money_report_snapshot', {
-        p_club_id: selectedClubId,
-        p_range_from: range.from,
-        p_range_to: range.to,
-      });
-
-      if (requestId !== requestSequence.current) return;
-
-      if (!snapshotResult.error) {
-        const snapshot = snapshotResult.data as MoneyReportSnapshotPayload;
-        setReportRows({
-          cash: snapshot.cash ?? [],
-          expenses: snapshot.expenses ?? [],
-          debtPayments: snapshot.debtPayments ?? [],
-          barSales: snapshot.barSales ?? [],
-          stockPurchases: snapshot.stockPurchases ?? [],
-        });
-        setLoading(false);
-        return;
-      }
-
-      if (!isMissingDatabaseFunction(snapshotResult.error, 'get_money_report_snapshot')) {
-        setReportRows(emptyReportRows);
-        setLoadFailed(true);
-        setLoading(false);
-        return;
-      }
-
-      // Compatibility path while migration 047 is being deployed.
-      const [cashResult, expenseResult, debtPaymentResult, barSalesResult, stockPurchaseResult] = await Promise.all([
-        fetchAllRows<MoneyReportCashRow>(() => supabase
-          .from('daily_cash_entries')
-          .select('id,date,cash_income,terminal_income,card_income,playstation_income,comment,created_by,created_at')
-          .eq('club_id', selectedClubId)
-          .gte('date', range.from)
-          .lte('date', range.to)
-          .order('date', { ascending: true })
-          .order('created_at', { ascending: true })),
-        fetchAllRows<ExpenseRow>(() => supabase
-          .from('expenses')
-          .select('id,date,amount,category,payment_method,payment_source,comment,created_by,created_at')
-          .eq('club_id', selectedClubId)
-          .gte('date', range.from)
-          .lte('date', range.to)
-          .order('date', { ascending: true })
-          .order('id', { ascending: true })),
-        fetchAllRows<MoneyReportDebtPaymentRow>(() => supabase
-          .from('debt_payments')
-          .select('id,date,amount,payment_method,comment,created_at')
-          .eq('club_id', selectedClubId)
-          .gte('date', range.from)
-          .lte('date', range.to)
-          .order('date', { ascending: true })
-          .order('id', { ascending: true })),
-        fetchAllRows<MoneyReportBarSalesRow>(() => supabase
-          .from('daily_stock_counts')
-          .select('date,bar_income')
-          .eq('club_id', selectedClubId)
-          .gte('date', range.from)
-          .lte('date', range.to)),
-        fetchAllRows<StockPurchaseCostRow>(() => supabase
-          .from('stock_purchases')
-          .select('date,quantity,cost_price')
-          .eq('club_id', selectedClubId)
-          .gte('date', range.from)
-          .lte('date', range.to)),
-      ]);
-
-      if (requestId !== requestSequence.current) return;
-
-      const firstError = [
-        cashResult.error,
-        expenseResult.error,
-        debtPaymentResult.error,
-        barSalesResult.error,
-        stockPurchaseResult.error,
-      ].find(Boolean);
-      if (firstError) {
-        setReportRows(emptyReportRows);
-        setLoadFailed(true);
-        setLoading(false);
-        return;
-      }
-
-      const cashRows = (cashResult.data ?? []) as MoneyReportCashRow[];
-      const expenseRows = (expenseResult.data ?? []) as ExpenseRow[];
-      const creatorIds = Array.from(new Set([
-        ...cashRows.map((row) => row.created_by),
-        ...expenseRows.map((row) => row.created_by),
-      ].filter((creatorId): creatorId is string => Boolean(creatorId))));
-      const profileResult = creatorIds.length > 0
-        ? await supabase.from('profiles').select('id,full_name').in('id', creatorIds)
-        : { data: [] as ReportProfileRow[], error: null };
-
-      if (requestId !== requestSequence.current) return;
-
-      if (profileResult.error) {
-        setReportRows(emptyReportRows);
-        setLoadFailed(true);
-        setLoading(false);
-        return;
-      }
-
-      const creatorNames = new Map(
-        ((profileResult.data ?? []) as ReportProfileRow[]).map((profile) => [profile.id, profile.full_name]),
-      );
-
-      setReportRows({
-        cash: cashRows.map((row) => ({
-          ...row,
-          creator_name: row.created_by ? creatorNames.get(row.created_by) ?? null : null,
-        })),
-        expenses: expenseRows.map((row) => ({
-          ...row,
-          creator_name: row.created_by ? creatorNames.get(row.created_by) ?? null : null,
-        })),
-        debtPayments: (debtPaymentResult.data ?? []) as MoneyReportDebtPaymentRow[],
-        barSales: (barSalesResult.data ?? []) as MoneyReportBarSalesRow[],
-        stockPurchases: (stockPurchaseResult.data ?? []) as StockPurchaseCostRow[],
-      });
-      setLoading(false);
-    } catch {
-      if (requestId !== requestSequence.current) return;
-      setReportRows(emptyReportRows);
-      setLoadFailed(true);
-      setLoading(false);
-    }
-  }, [hasReportsAccess, range.from, range.to, selectedClubId]);
-
-  useEffect(() => {
-    void loadReport();
-    return () => { requestSequence.current += 1; };
-  }, [loadReport]);
 
   // Dialogs belong to the club they were opened for: close them on a club switch.
   useEffect(() => {
@@ -368,23 +339,6 @@ export default function ReportsPage() {
     setExpenseDialogOpen(false);
     setActionError('');
   }, [selectedClubId]);
-
-  // A club switch opens the current month; a business-day rollover moves the
-  // range forward only while it is still the previous day's default range.
-  const previousBusinessToday = useRef(businessToday);
-  const previousRangeClubId = useRef(selectedClubId);
-  useEffect(() => {
-    const previousDefault = getDashboardRange('month', previousBusinessToday.current);
-    const clubChanged = previousRangeClubId.current !== selectedClubId;
-    previousBusinessToday.current = businessToday;
-    previousRangeClubId.current = selectedClubId;
-    const nextRange = getDashboardRange('month', businessToday);
-    setRange((currentRange) => {
-      const isDefault = currentRange.from === previousDefault.from && currentRange.to === previousDefault.to;
-      if (!clubChanged && !isDefault) return currentRange;
-      return currentRange.from === nextRange.from && currentRange.to === nextRange.to ? currentRange : nextRange;
-    });
-  }, [businessToday, selectedClubId]);
 
   async function handleDeleteActivity(activity: MoneyReportActivity, date: string) {
     if (!isOwner || !selectedClubId || !activity.id || activity.source === 'debt_payment') return;
@@ -437,7 +391,7 @@ export default function ReportsPage() {
 
       setSelectedEntry(null);
       showToast(t('entryDeleted'));
-      await loadReport({ silent: true });
+      await reloadReport({ silent: true });
     } catch {
       if (currentClubId.current === clubId) setActionError(t('deleteError'));
     } finally {
@@ -646,22 +600,9 @@ export default function ReportsPage() {
       )}
       {!hasReportsAccess && !canRegisterExpenses && <InlineAlert variant="info">{tc('accessDeniedDescription')}</InlineAlert>}
       {hasReportsAccess && loadFailed && (
-        <InlineAlert
-          variant="danger"
-          action={(
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={loading}
-              onClick={() => void loadReport()}
-              icon={<RefreshCcw size={15} aria-hidden="true" />}
-            >
-              {tc('retry')}
-            </Button>
-          )}
-        >
+        <LoadErrorAlert retrying={loading} onRetry={() => void reloadReport()}>
           {t('loadError')}
-        </InlineAlert>
+        </LoadErrorAlert>
       )}
       {actionError && <InlineAlert variant="danger">{actionError}</InlineAlert>}
 
@@ -732,7 +673,7 @@ export default function ReportsPage() {
             onSaved={async () => {
               setExpenseDialogOpen(false);
               showToast(t('expenseRegistered'));
-              await loadReport({ silent: true });
+              await reloadReport({ silent: true });
             }}
           />
         </Modal>

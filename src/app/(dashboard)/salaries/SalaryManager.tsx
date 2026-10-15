@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import { Banknote, Building2, Users, Wallet } from 'lucide-react';
 import { useClub } from '@/components/layout/DashboardShell';
@@ -10,6 +10,7 @@ import {
   Disclosure,
   EmptyState,
   InlineAlert,
+  LoadErrorAlert,
   MetricCard,
   MetricGridSkeleton,
   MetricMoney,
@@ -36,6 +37,7 @@ import { formatCurrencyInput, parseCurrencyInput } from '@/lib/formatters';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
 import { canAccessFeature } from '@/lib/permissions';
 import { useBusinessToday } from '@/lib/useBusinessToday';
+import { useClubQuery } from '@/lib/useClubQuery';
 import { EmployeesView } from './EmployeesView';
 import { HistoryView } from './HistoryView';
 import { OperationsForms, type EmployeeFormState, type EntryFormState, type FormDialog } from './OperationsForms';
@@ -79,14 +81,11 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   const canEdit = canAccessFeature(role, featureAccess, 'salaries');
   const isOwner = role === 'owner';
   const today = useBusinessToday(businessDayStartHour);
-  const [data, setData] = useState(emptyData);
-  const [loading, setLoading] = useState(true);
   const [deletion, setDeletion] = useState<DeletionTarget | null>(null);
   const [roleEdit, setRoleEdit] = useState<{ id: string; role: string } | null>(null);
   const [roleError, setRoleError] = useState('');
   const [savingTarget, setSavingTarget] = useState<SavingTarget | null>(null);
   const saving = savingTarget !== null;
-  const [loadError, setLoadError] = useState(false);
   const [entryError, setEntryError] = useState('');
   const [employeeError, setEmployeeError] = useState('');
   const [deleteError, setDeleteError] = useState('');
@@ -102,10 +101,20 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
     setEntryForm((form) => (form.date === formsDay ? { ...form, date: today } : form));
     setEmployeeForm((form) => (form.date === formsDay ? { ...form, date: today } : form));
   }
-  const generation = useRef(0);
   const mutating = useRef(false);
   // Unsaved "new employee" draft, kept while the user looks at another setup mode.
   const newEmployeeDraft = useRef<EmployeeFormState | null>(null);
+  // Shared by full loads and the entries-only reload so only the latest lands.
+  const generation = useRef(0);
+  const [entriesError, setEntriesError] = useState(false);
+  const loadAll = useCallback(() => {
+    generation.current += 1;
+    setEntriesError(false);
+    return loadSalaries(clubId, today);
+  }, [clubId, today]);
+  const salaries = useClubQuery(loadAll, emptyData);
+  const { data, setData, loading, reload } = salaries;
+  const loadError = salaries.error || entriesError;
   const balances = useMemo(() => calculateSalaries({ ...data, throughDate: today }), [data, today]);
   // One pass per employee instead of re-filtering every rate on each lookup.
   const summaries = useMemo(() => new Map<string, EmployeeRateSummary>(data.employees.map((employee) => {
@@ -120,39 +129,23 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   const historyMonths = useMemo(() => (employeeId ? balances[employeeId] ?? [] : combineSalaryMonths(balances)), [balances, employeeId]);
   const paid = data.entries.filter((e) => !e.deleted_at && e.kind === 'payment').reduce((sum, e) => sum + Number(e.amount), 0);
 
-  const reload = useCallback(async ({ silent = false } = {}) => {
-    const request = ++generation.current;
-    if (!silent) setLoading(true);
-    setLoadError(false);
-    try {
-      const next = await loadSalaries(clubId, today);
-      if (request === generation.current) setData(next);
-    } catch {
-      if (request === generation.current) setLoadError(true);
-    } finally {
-      if (request === generation.current) setLoading(false);
-    }
-  }, [clubId, today]);
-  useEffect(() => {
-    void reload();
-    return () => { generation.current += 1; };
-  }, [reload]);
-
   // An entry changes only entries and, for payments, the linked salary expense;
   // that expense's effect on earned profit is applied locally instead of
-  // reloading employees, rates and the whole profit snapshot.
+  // reloading employees, rates and the whole profit snapshot. It merges into
+  // the query's data, so it stays outside useClubQuery and shares `generation`
+  // with full loads: a newer full load discards it, and its failure keeps data.
   const reloadEntries = useCallback(async () => {
     const request = ++generation.current;
-    setLoadError(false);
+    setEntriesError(false);
     try {
       const entries = await loadSalaryEntries(clubId, today);
       if (request === generation.current) {
         setData((previous) => ({ ...previous, entries, monthlyProfit: applySalaryPaymentChanges(previous.monthlyProfit, previous.entries, entries) }));
       }
     } catch {
-      if (request === generation.current) setLoadError(true);
+      if (request === generation.current) setEntriesError(true);
     }
-  }, [clubId, today]);
+  }, [clubId, setData, today]);
 
   function employeeFormFor(employee: SalaryEmployee | null): EmployeeFormState {
     const rate = employee ? summaries.get(employee.id)?.display : undefined;
@@ -336,9 +329,9 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
       />
 
       {loadError && (
-        <InlineAlert variant="danger" action={<Button variant="outline" size="sm" onClick={() => void reload()}>{t('retry')}</Button>}>
+        <LoadErrorAlert retrying={loading} onRetry={() => void reload()}>
           {t('loadError')}
-        </InlineAlert>
+        </LoadErrorAlert>
       )}
 
       <div className="grid gap-4 sm:grid-cols-3">

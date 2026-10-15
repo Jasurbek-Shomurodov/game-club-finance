@@ -23,6 +23,7 @@ import {
   IconButton,
   InlineAlert,
   Input,
+  LoadErrorAlert,
   PageHeader,
   SearchInput,
   SectionHeading,
@@ -35,6 +36,7 @@ import {
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { useBusinessToday } from '@/lib/useBusinessToday';
+import { useClubQuery } from '@/lib/useClubQuery';
 import { fetchActiveProductsOrdered, fetchProductIdsByName } from '@/lib/supabase/products';
 import {
   isPrefilledAmountEdited,
@@ -64,13 +66,11 @@ import {
   CreditCard,
   HelpCircle,
   Package,
-  RefreshCcw,
   ShoppingCart,
   Trash2,
 } from 'lucide-react';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
 import type { EntryPaymentMethod, Product, StockPurchase } from '@/types';
-import { useLatestRef } from '@/components/i18n/useLatestRef';
 
 const PURCHASES_PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -94,6 +94,14 @@ function paymentBadgeVariant(method: string): 'success' | 'primary' | 'purple' |
   if (method === 'card') return 'purple';
   return 'neutral';
 }
+
+interface PurchasePage {
+  rows: PurchaseWithProduct[];
+  count: number;
+}
+
+const NO_PRODUCTS: Product[] = [];
+const EMPTY_PURCHASE_PAGE: PurchasePage = { rows: [], count: 0 };
 
 interface PurchaseForm {
   date: string;
@@ -120,7 +128,6 @@ const emptyItemFields = {
 
 export default function StockPurchasePage() {
   const t = useTranslations('stockPurchase');
-  const tRef = useLatestRef(t);
   const tc = useTranslations('common');
   const { selectedClubId, businessDayStartHour, enabledPaymentMethods, role } = useClub();
   const canWrite = role === 'owner' || role === 'admin';
@@ -132,21 +139,12 @@ export default function StockPurchasePage() {
   // the user picked is never replaced.
   const dateTouched = useRef(false);
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [productsLoading, setProductsLoading] = useState(true);
-  const [purchases, setPurchases] = useState<PurchaseWithProduct[]>([]);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [formError, setFormError] = useState('');
-  const [productsError, setProductsError] = useState('');
-  const [purchasesError, setPurchasesError] = useState('');
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [purchasePage, setPurchasePage] = useState(1);
-  const [purchaseCount, setPurchaseCount] = useState(0);
-  const [purchasesLoading, setPurchasesLoading] = useState(true);
-  const purchaseRequest = useRef(0);
-  const productRequest = useRef(0);
 
   const [form, setForm] = useState<PurchaseForm>(() => ({
     date: businessToday,
@@ -165,55 +163,26 @@ export default function StockPurchasePage() {
     return () => window.clearTimeout(timer);
   }, [debouncedQuery, query]);
 
-  const loadProducts = useCallback(async ({ silent = false } = {}) => {
-    const requestId = ++productRequest.current;
-    const isCurrent = () => requestId === productRequest.current;
-    if (!selectedClubId) {
-      setProducts([]);
-      setProductsLoading(false);
-      return;
-    }
-
-    if (!silent) {
-      setProductsLoading(true);
-      setProducts([]);
-    }
+  const fetchProducts = useCallback(async (): Promise<Product[]> => {
+    if (!selectedClubId) return NO_PRODUCTS;
     const supabase = createClient();
-    try {
-      const productsRes = await runWithJwtTimingRetry(
-        supabase,
-        async () => fetchActiveProductsOrdered(supabase, selectedClubId, { tracksInventoryOnly: true }),
-      );
-      // A slower response for a previously selected club must never replace
-      // (or be selected in) the current club's product list.
-      if (!isCurrent()) return;
-      setProductsLoading(false);
+    const productsRes = await runWithJwtTimingRetry(
+      supabase,
+      async () => fetchActiveProductsOrdered(supabase, selectedClubId, { tracksInventoryOnly: true }),
+    );
+    if (productsRes.error) throw new Error(productsRes.error.message);
+    return productsRes.data ?? [];
+  }, [selectedClubId]);
+  // A slower response for a previously selected club must never replace (or
+  // be selected in) the current club's product list.
+  const productsQuery = useClubQuery(fetchProducts, NO_PRODUCTS);
+  const { loading: productsLoading, error: productsError, reload: loadProducts } = productsQuery;
+  // A full load starts from an empty list; a silent reload keeps the current one.
+  const products = productsLoading ? NO_PRODUCTS : productsQuery.data;
 
-      if (productsRes.error) {
-        setProductsError(tRef.current('productsLoadFailed'));
-        return;
-      }
-
-      setProductsError('');
-      setProducts(productsRes.data ?? []);
-    } catch {
-      if (!isCurrent()) return;
-      setProductsLoading(false);
-      setProductsError(tRef.current('productsLoadFailed'));
-    }
-  }, [selectedClubId, tRef]);
-
-  const loadPurchases = useCallback(async (page: number) => {
-    const requestId = ++purchaseRequest.current;
-    if (!selectedClubId) {
-      setPurchases([]);
-      setPurchaseCount(0);
-      setPurchasesLoading(false);
-      return;
-    }
-
-    setPurchasesLoading(true);
-    const from = (page - 1) * PURCHASES_PAGE_SIZE;
+  const fetchPurchases = useCallback(async (isCurrent: () => boolean): Promise<PurchasePage> => {
+    if (!selectedClubId) return EMPTY_PURCHASE_PAGE;
+    const from = (purchasePage - 1) * PURCHASES_PAGE_SIZE;
     const to = from + PURCHASES_PAGE_SIZE - 1;
     const supabase = createClient();
     const paymentSearch = sanitizePurchaseSearch(debouncedQuery);
@@ -225,19 +194,15 @@ export default function StockPurchasePage() {
         supabase,
         async () => fetchProductIdsByName(supabase, selectedClubId, debouncedQuery),
       );
-      if (requestId !== purchaseRequest.current) return;
-      if (matches.error) {
-        setPurchasesLoading(false);
-        setPurchasesError(tRef.current('purchasesLoadFailed'));
-        return;
-      }
+      if (matches.error) throw new Error(matches.error.message);
+      if (!isCurrent()) return EMPTY_PURCHASE_PAGE;
       productIds = matches.data;
     }
     const filters: string[] = [];
     if (paymentSearch) filters.push(`payment_method.ilike.%${paymentSearch}%`);
     if (productIds.length) filters.push(`product_id.in.(${productIds.join(',')})`);
 
-    const { data, error: purchasesError, count } = await runWithJwtTimingRetry(
+    const { data, error, count } = await runWithJwtTimingRetry(
       supabase,
       async () => {
         let request = supabase
@@ -252,19 +217,12 @@ export default function StockPurchasePage() {
           .range(from, to);
       },
     );
-
-    if (requestId !== purchaseRequest.current) return;
-    setPurchasesLoading(false);
-
-    if (purchasesError) {
-      setPurchasesError(tRef.current('purchasesLoadFailed'));
-      return;
-    }
-
-    setPurchasesError('');
-    setPurchases((data as PurchaseWithProduct[]) ?? []);
-    setPurchaseCount(count ?? 0);
-  }, [debouncedQuery, selectedClubId, tRef]);
+    if (error) throw new Error(error.message);
+    return { rows: (data as PurchaseWithProduct[]) ?? [], count: count ?? 0 };
+  }, [debouncedQuery, purchasePage, selectedClubId]);
+  const purchasesQuery = useClubQuery(fetchPurchases, EMPTY_PURCHASE_PAGE);
+  const { rows: purchases, count: purchaseCount } = purchasesQuery.data;
+  const { loading: purchasesLoading, error: purchasesError, reload: loadPurchases } = purchasesQuery;
 
   // A different club has different products: never carry a product, prices or
   // comment from the previous club into this form.
@@ -285,19 +243,6 @@ export default function StockPurchasePage() {
       ? prev
       : { ...prev, payment_method: defaultPaymentMethod(enabledPaymentMethods) }));
   }, [enabledPaymentMethods]);
-
-  useEffect(() => {
-    void loadProducts();
-    return () => { productRequest.current += 1; };
-  }, [loadProducts]);
-
-  useEffect(() => {
-    loadPurchases(purchasePage).catch(() => {
-      setPurchasesLoading(false);
-      setPurchasesError(tRef.current('purchasesLoadFailed'));
-    });
-    return () => { purchaseRequest.current += 1; };
-  }, [loadPurchases, purchasePage, tRef]);
 
   const selectedProduct = products.find((product) => product.id === form.product_id) ?? null;
   const quantity = parseQuantity(form.quantity);
@@ -397,7 +342,7 @@ export default function StockPurchasePage() {
   async function reloadAfterMutation(nextPage: number) {
     await loadProducts({ silent: true });
     if (nextPage === purchasePage) {
-      await loadPurchases(nextPage);
+      await loadPurchases();
     } else {
       setPurchasePage(nextPage);
     }
@@ -502,16 +447,9 @@ export default function StockPurchasePage() {
       )}
 
       {productsError && (
-        <InlineAlert
-          variant="danger"
-          action={(
-            <Button variant="outline" size="sm" onClick={() => { void loadProducts(); }} icon={<RefreshCcw size={14} aria-hidden="true" />}>
-              {tc('retry')}
-            </Button>
-          )}
-        >
-          {productsError}
-        </InlineAlert>
+        <LoadErrorAlert retrying={productsLoading} onRetry={() => void loadProducts()}>
+          {t('productsLoadFailed')}
+        </LoadErrorAlert>
       )}
 
       {!productsLoading && !productsError && products.length === 0 && (
@@ -712,17 +650,9 @@ export default function StockPurchasePage() {
         </CardHeader>
 
         {purchasesError && (
-          <InlineAlert
-            variant="danger"
-            className="mx-4 mt-4 sm:mx-5"
-            action={(
-              <Button variant="outline" size="sm" onClick={() => { void loadPurchases(purchasePage); }} icon={<RefreshCcw size={14} aria-hidden="true" />}>
-                {tc('retry')}
-              </Button>
-            )}
-          >
-            {purchasesError}
-          </InlineAlert>
+          <LoadErrorAlert className="mx-4 mt-4 sm:mx-5" retrying={purchasesLoading} onRetry={() => void loadPurchases()}>
+            {t('purchasesLoadFailed')}
+          </LoadErrorAlert>
         )}
 
         {purchasesLoading && purchases.length === 0 ? (

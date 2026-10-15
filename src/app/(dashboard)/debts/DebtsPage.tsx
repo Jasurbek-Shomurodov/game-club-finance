@@ -20,6 +20,7 @@ import {
   IconButton,
   InlineAlert,
   Input,
+  LoadErrorAlert,
   MetricCard,
   Modal,
   Money,
@@ -33,6 +34,8 @@ import {
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { cn } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
+import { useBusinessRollover } from '@/lib/useBusinessPeriod';
+import { useClubQuery } from '@/lib/useClubQuery';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import { formatCurrency, formatDate, formatNumber, parseCurrencyInput } from '@/lib/formatters';
 import {
@@ -42,10 +45,9 @@ import {
   getDebtStatus,
 } from '@/lib/calculations/debt';
 import { getDebtDateIssue, validateDebtPayment } from '@/lib/validation';
-import { AlertTriangle, Plus, RefreshCw, Users, Wallet } from 'lucide-react';
+import { Plus, Users, Wallet } from 'lucide-react';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
 import type { NewDebt, DebtPayment, EntryPaymentMethod } from '@/types';
-import { useLatestRef } from '@/components/i18n/useLatestRef';
 
 const DEBT_COLUMNS = 'id,club_id,person_name,date,amount,paid_amount,remaining_amount,category,comment,status,created_by,created_at,updated_at';
 const DEBT_PAYMENT_COLUMNS = 'id,club_id,debt_id,date,amount,payment_method,comment,created_at';
@@ -65,28 +67,22 @@ function remainingFor(debt: Pick<NewDebt, 'amount' | 'paid_amount'>): number {
 
 export default function DebtsPage() {
   const t = useTranslations('debts');
-  const tRef = useLatestRef(t);
   const tc = useTranslations('common');
   const { selectedClubId, businessDayStartHour, enabledPaymentMethods, role } = useClub();
   const { locale } = useAppLocale();
   const { showToast, toastElement } = useToast();
   const businessToday = useBusinessToday(businessDayStartHour);
-  const previousBusinessToday = useRef(businessToday);
 
-  const [debts, setDebts] = useState<NewDebt[]>([]);
-  const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [payDebtId, setPayDebtId] = useState<string | null>(null);
   const [paymentsMap, setPaymentsMap] = useState<Record<string, DebtPayment[]>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [loadError, setLoadError] = useState('');
   const [showPaid, setShowPaid] = useState(false);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
   const [paymentsError, setPaymentsError] = useState('');
   // Club the open modal belongs to; a submit is refused if the selected club changed meanwhile.
   const [formClubId, setFormClubId] = useState<string | null>(null);
-  const requestSequence = useRef(0);
   const paymentsRequestSequence = useRef(0);
   const canManage = canManageDebts(role);
 
@@ -106,18 +102,17 @@ export default function DebtsPage() {
   });
 
   // A new business day moves untouched form dates forward; a date the user picked is kept.
+  useBusinessRollover(businessToday, (previousToday, nextToday) => {
+    setAddForm((prev) => (prev.date === previousToday ? { ...prev, date: nextToday } : prev));
+    setPayForm((prev) => (prev.date === previousToday ? { ...prev, date: nextToday } : prev));
+  });
+
+  // A payment method the club no longer accepts falls back to its default.
   useEffect(() => {
-    const previousToday = previousBusinessToday.current;
-    previousBusinessToday.current = businessToday;
-    setAddForm((prev) => (prev.date === previousToday ? { ...prev, date: businessToday } : prev));
-    setPayForm((prev) => ({
-      ...prev,
-      date: prev.date === previousToday ? businessToday : prev.date,
-      payment_method: enabledPaymentMethods.some((method) => method === prev.payment_method)
-        ? prev.payment_method
-        : defaultPaymentMethod(enabledPaymentMethods),
-    }));
-  }, [businessToday, enabledPaymentMethods]);
+    setPayForm((prev) => (enabledPaymentMethods.some((method) => method === prev.payment_method)
+      ? prev
+      : { ...prev, payment_method: defaultPaymentMethod(enabledPaymentMethods) }));
+  }, [enabledPaymentMethods]);
 
   // Switching clubs closes any open form and drops cached payment history of the previous club.
   useEffect(() => {
@@ -131,15 +126,8 @@ export default function DebtsPage() {
     setError('');
   }, [selectedClubId]);
 
-  const fetchDebts = useCallback(async ({ silent = false } = {}) => {
-    const requestId = ++requestSequence.current;
-    if (!silent) setLoading(true);
-    if (!selectedClubId) {
-      setDebts([]);
-      setLoading(false);
-      return;
-    }
-
+  const loadDebts = useCallback(async (isCurrent: () => boolean) => {
+    if (!selectedClubId) return [];
     try {
       const supabase = createClient();
       // Every debt counts toward the totals, so read past the 1,000-row response cap.
@@ -149,28 +137,14 @@ export default function DebtsPage() {
         .eq('club_id', selectedClubId)
         .order('date', { ascending: false })
         .order('id'));
-      if (requestId !== requestSequence.current) return;
-      if (fetchError) {
-        console.error('Failed to load debts', fetchError);
-        setLoadError(tRef.current('loadError'));
-        setLoading(false);
-        return;
-      }
-      setLoadError('');
-      setDebts(data ?? []);
-      setLoading(false);
+      if (fetchError) throw fetchError;
+      return data ?? [];
     } catch (fetchError) {
-      if (requestId !== requestSequence.current) return;
-      console.error('Failed to load debts', fetchError);
-      setLoadError(tRef.current('loadError'));
-      setLoading(false);
+      if (isCurrent()) console.error('Failed to load debts', fetchError);
+      throw fetchError;
     }
-  }, [selectedClubId, tRef]);
-
-  useEffect(() => {
-    void fetchDebts();
-    return () => { requestSequence.current += 1; };
-  }, [fetchDebts]);
+  }, [selectedClubId]);
+  const { data: debts, loading, error: loadError, reload: reloadDebts } = useClubQuery<NewDebt[]>(loadDebts, []);
 
   async function loadPayments(debtId: string, clubId: string) {
     const requestId = ++paymentsRequestSequence.current;
@@ -273,7 +247,7 @@ export default function DebtsPage() {
 
       setAddOpen(false);
       showToast(t('debtSaved'));
-      await fetchDebts({ silent: true });
+      await reloadDebts({ silent: true });
     } catch (saveError) {
       console.error('Failed to save debt', saveError);
       setError(t('saveError'));
@@ -340,7 +314,7 @@ export default function DebtsPage() {
         // Another payment may have landed first: show the current balance and history.
         if (issue === 'exceeds_remaining') {
           void loadPayments(payDebtId, selectedClubId);
-          await fetchDebts({ silent: true });
+          await reloadDebts({ silent: true });
         }
         return;
       }
@@ -354,7 +328,7 @@ export default function DebtsPage() {
         return next;
       });
       showToast(t('paymentSaved'));
-      await fetchDebts({ silent: true });
+      await reloadDebts({ silent: true });
     } catch (saveError) {
       console.error('Failed to save debt payment', saveError);
       setError(t('saveError'));
@@ -389,17 +363,9 @@ export default function DebtsPage() {
       {loading ? (
         <DetailListSkeleton rows={7} />
       ) : loadError ? (
-        <Card>
-          <EmptyState
-            icon={AlertTriangle}
-            title={loadError}
-            action={(
-              <Button variant="outline" onClick={() => void fetchDebts()} icon={<RefreshCw size={16} aria-hidden="true" />}>
-                {tc('retry')}
-              </Button>
-            )}
-          />
-        </Card>
+        <LoadErrorAlert retrying={loading} onRetry={() => void reloadDebts()}>
+          {t('loadError')}
+        </LoadErrorAlert>
       ) : debts.length === 0 ? (
         <Card>
           <EmptyState
@@ -597,14 +563,14 @@ export default function DebtsPage() {
                 <Skeleton className="h-9 w-full rounded-lg bg-gray-100" />
               </div>
             ) : paymentsError ? (
-              <InlineAlert
-                variant="warning"
-                action={formClubId ? (
-                  <Button variant="ghost" size="sm" onClick={() => void loadPayments(payDebtId, formClubId)}>{tc('retry')}</Button>
-                ) : undefined}
+              <LoadErrorAlert
+                retrying={paymentsLoading}
+                onRetry={() => {
+                  if (formClubId) void loadPayments(payDebtId, formClubId);
+                }}
               >
                 {paymentsError}
-              </InlineAlert>
+              </LoadErrorAlert>
             ) : activePayments.length > 0 && (
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase text-gray-500">{t('debtPayments')}</p>

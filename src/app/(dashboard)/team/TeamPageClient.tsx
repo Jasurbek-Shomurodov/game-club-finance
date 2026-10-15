@@ -13,8 +13,8 @@ import {
   CardHeader,
   EmptyState,
   Field,
-  InlineAlert,
   Input,
+  LoadErrorAlert,
   Modal,
   PageHeader,
   SearchInput,
@@ -388,13 +388,9 @@ export default function TeamPageClient() {
       />
 
       {team.loadFailed && (
-        <InlineAlert
-          variant="danger"
-          className="mb-4"
-          action={<Button variant="outline" size="sm" disabled={loading} onClick={() => void team.load()}>{tc('retry')}</Button>}
-        >
+        <LoadErrorAlert className="mb-4" retrying={loading} onRetry={() => void team.load()}>
           {t('loadError')}
-        </InlineAlert>
+        </LoadErrorAlert>
       )}
 
       {loading ? (

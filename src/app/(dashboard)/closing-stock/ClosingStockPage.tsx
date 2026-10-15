@@ -20,6 +20,7 @@ import {
   EmptyState,
   InlineAlert,
   Input,
+  LoadErrorAlert,
   MetricGridSkeleton,
   PageHeader,
   SearchInput,
@@ -38,6 +39,7 @@ import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { BulkStockUpdateModal } from './BulkStockUpdateModal';
 import { groupByCategory } from '@/lib/productSections';
 import { calendarTodayIso, todayIso } from '@/lib/utils';
+import { useClubQuery } from '@/lib/useClubQuery';
 import { formatCurrency, formatDateOnly, formatNumber, formatUnitCurrency } from '@/lib/formatters';
 import {
   calculateClosingStockFromSold,
@@ -72,12 +74,10 @@ import {
   type StorageLike,
 } from '@/lib/closingStock';
 import {
-  AlertTriangle,
   CalendarX,
   Gift,
   Info,
   Package,
-  RefreshCcw,
   Save,
   Search,
   ShoppingCart,
@@ -216,6 +216,16 @@ function rowSummary(row: RowData) {
   return summarizeStockRow(closingStockRowTotalsInput(row));
 }
 
+/** One loaded day: the editable rows plus what the page shows around them. */
+interface ClosingStockDayData {
+  rows: RowData[];
+  hasSavedCounts: boolean;
+  promotions: Promotion[];
+  purchaseCostsByProduct: Record<string, number>;
+}
+
+const EMPTY_DAY: ClosingStockDayData = { rows: [], hasSavedCounts: false, promotions: [], purchaseCostsByProduct: {} };
+
 /** `null` date means "follow the club's current business day". */
 interface DateSelection {
   clubId: string | null;
@@ -237,24 +247,16 @@ export default function ClosingStockPage() {
     ? dateSelection.date
     : today;
   const [rows, setRows] = useState<RowData[]>([]);
-  const [promotions, setPromotions] = useState<Promotion[]>([]);
-  const [purchaseCostsByProduct, setPurchaseCostsByProduct] = useState<Record<string, number>>({});
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [bulkUpdateOpen, setBulkUpdateOpen] = useState(false);
   const [error, setError] = useState('');
-  const [loadError, setLoadError] = useState('');
   const [invalidProductId, setInvalidProductId] = useState<string | null>(null);
-  const [hasSavedCounts, setHasSavedCounts] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [reloadKey, setReloadKey] = useState(0);
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
-  const requestSequence = useRef(0);
-  const silentReload = useRef(false);
   const dirtyRef = useRef(false);
   const isHistoricalDate = date < today;
   const isOwner = currentRole === 'owner';
@@ -285,65 +287,26 @@ export default function ClosingStockPage() {
     [],
   );
 
-  const loadData = useCallback(async (selectedDate: string, silent: boolean) => {
-    const requestId = ++requestSequence.current;
-    const isCurrent = () => requestId === requestSequence.current;
-    const fail = () => {
-      setLoadError(tRef.current('loadFailed'));
-      if (!silent) setRows([]);
-      setLoading(false);
-      setRefreshing(false);
-    };
-    const finish = (nextRows: RowData[], savedCountsExist: boolean) => {
-      setRows(nextRows);
-      setHasSavedCounts(savedCountsExist);
-      setDirty(false);
-      setInvalidProductId(null);
-      setLoading(false);
-      setRefreshing(false);
-    };
+  const loadDay = useCallback(async (): Promise<ClosingStockDayData> => {
+    if (!selectedClubId) return EMPTY_DAY;
 
-    if (!selectedClubId) {
-      setRows([]);
-      setPurchaseCostsByProduct({});
-      setHasSavedCounts(false);
-      setLoading(false);
-      setRefreshing(false);
-      return;
-    }
-
-    if (silent) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-      setDirty(false);
-      setError('');
-    }
-    setLoadError('');
     const supabase = createClient();
-    const readOnlyDate = selectedDate < today;
+    const readOnlyDate = date < today;
     const canUseDraft = currentRole === 'owner' || (currentRole === 'admin' && !readOnlyDate);
     const draftMode = usesSoldEntry ? 'soldQuantity' : 'closingStock';
 
     const [{ data: day }, promotionsRes] = await Promise.all([
       loadClosingStockDay(supabase, {
         clubId: selectedClubId,
-        date: selectedDate,
+        date,
         today,
         isOwner: currentRole === 'owner',
         unknownProductName: tRef.current('unknownProduct'),
       }),
       fetchPromotions(supabase, selectedClubId),
     ]);
-    if (!isCurrent()) return;
-    if (!day) {
-      fail();
-      return;
-    }
-    // Promotions only label giveaways; a failed read must not block counting.
-    setPromotions(promotionsRes.data ?? []);
+    if (!day) throw new Error('Closing stock day failed to load');
 
-    setPurchaseCostsByProduct(calculatePurchaseCostsByProduct(day.purchases));
     const editableRows = buildEditableRows(
       day.products,
       day.counts,
@@ -351,14 +314,39 @@ export default function ClosingStockPage() {
       day.previousClosings,
       day.isCurrentDate,
     );
-    finish(canUseDraft && day.draftEligible ? applyBrowserDraft(
-      selectedDate,
-      selectedClubId,
-      editableRows,
-      businessDayStartHour,
-      draftMode,
-    ) : editableRows, day.hasSavedCounts);
-  }, [buildEditableRows, businessDayStartHour, currentRole, selectedClubId, today, usesSoldEntry, tRef]);
+    return {
+      rows: canUseDraft && day.draftEligible ? applyBrowserDraft(
+        date,
+        selectedClubId,
+        editableRows,
+        businessDayStartHour,
+        draftMode,
+      ) : editableRows,
+      hasSavedCounts: day.hasSavedCounts,
+      // Promotions only label giveaways; a failed read must not block counting.
+      promotions: promotionsRes.data ?? [],
+      purchaseCostsByProduct: calculatePurchaseCostsByProduct(day.purchases),
+    };
+  }, [buildEditableRows, businessDayStartHour, currentRole, date, selectedClubId, today, usesSoldEntry, tRef]);
+  const dayQuery = useClubQuery(loadDay, EMPTY_DAY);
+  const { loading, error: loadError } = dayQuery;
+  const { hasSavedCounts, promotions, purchaseCostsByProduct } = dayQuery.data;
+
+  // Each landed load replaces the editable rows. Inputs are hidden while a
+  // full load runs and disabled while a silent one runs, so no unsaved edit
+  // can be overwritten; a failed silent reload keeps the rows as they are.
+  useEffect(() => {
+    setRows(dayQuery.data.rows);
+    setDirty(false);
+    setInvalidProductId(null);
+  }, [dayQuery.data]);
+
+  // A full load (new date, club or role) starts from a clean slate.
+  useEffect(() => {
+    if (!loading) return;
+    setDirty(false);
+    setError('');
+  }, [loading]);
 
   // Keep "today" current while the page stays open (overnight tabs, sleep).
   // Unsaved edits are never discarded by a day rollover; the clock catches up
@@ -398,25 +386,18 @@ export default function ClosingStockPage() {
   }, [date, selectedClubId]);
 
   useEffect(() => {
-    const silent = silentReload.current;
-    silentReload.current = false;
-    loadData(date, silent).catch(() => {
-      setLoadError(tRef.current('loadFailed'));
-      setLoading(false);
-      setRefreshing(false);
-    });
-    return () => { requestSequence.current += 1; };
-  }, [date, loadData, reloadKey, tRef]);
-
-  useEffect(() => {
     if (!selectedCategory) return;
     const categoryExists = rows.some((row) => productCategory(row.product.category) === selectedCategory);
     if (!categoryExists) setSelectedCategory('');
   }, [rows, selectedCategory]);
 
-  function reload({ silent = false } = {}) {
-    silentReload.current = silent;
-    setReloadKey((key) => key + 1);
+  async function reload({ silent = false } = {}) {
+    if (silent) setRefreshing(true);
+    try {
+      await dayQuery.reload({ silent });
+    } finally {
+      if (silent) setRefreshing(false);
+    }
   }
 
   async function handleDateChange(value: string) {
@@ -628,7 +609,7 @@ export default function ClosingStockPage() {
       clearClosingStockDraft(getBrowserStorage(), date, selectedClubId);
       setDirty(false);
       showToast(successMessage);
-      reload({ silent: true });
+      void reload({ silent: true });
       return { ok: true, message: null };
     } catch {
       return { ok: false, message: t('saveFailed') };
@@ -785,17 +766,9 @@ export default function ClosingStockPage() {
       )}
 
       {loadError && !loading ? (
-        <Card>
-          <EmptyState
-            icon={AlertTriangle}
-            title={loadError}
-            action={(
-              <Button variant="outline" onClick={() => reload()} icon={<RefreshCcw size={16} aria-hidden="true" />}>
-                {tc('retry')}
-              </Button>
-            )}
-          />
-        </Card>
+        <LoadErrorAlert onRetry={() => void reload()}>
+          {t('loadFailed')}
+        </LoadErrorAlert>
       ) : (
         <>
           {loading ? (

@@ -3,7 +3,7 @@
 // Shared breakdown page for /bar-money-details and /game-club-money-details.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarDays, ChevronDown, RefreshCcw } from 'lucide-react';
+import { CalendarDays, ChevronDown } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
@@ -15,7 +15,7 @@ import {
   DateRangePicker,
   DetailListSkeleton,
   EmptyState,
-  InlineAlert,
+  LoadErrorAlert,
   MetricCard,
   Money,
   PageHeader,
@@ -24,6 +24,7 @@ import {
 import { formatDateShort, formatNumber } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
+import { useClubQuery } from '@/lib/useClubQuery';
 
 /** Collected-money buckets; translated at render time so language changes never refetch. */
 export type MoneyDetailCollectedKey = 'barSales' | 'cash' | 'terminal' | 'card' | 'playstation' | 'debtPayments';
@@ -86,7 +87,6 @@ export function inRangeQuery<T extends { gte: (column: string, value: string) =>
 export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, loadRows, labels }: MoneyDetailsPageProps) {
   const pathname = usePathname();
   const t = useTranslations('dashboard');
-  const tc = useTranslations('common');
   const te = useTranslations('expenses');
   const { locale } = useAppLocale();
   const { selectedClubId, businessDayStartHour } = useClub();
@@ -100,44 +100,20 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
   // page follows the requested range (and the business day as it rolls over).
   const [pickedRange, setPickedRange] = useState<{ from: string; to: string } | null>(null);
   const range = pickedRange ?? requested;
-  const [rows, setRows] = useState<MoneyDetailRow[]>([]);
   const [expandedDates, setExpandedDates] = useState<Set<string>>(() => new Set());
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     setPickedRange(null);
   }, [requestedFrom, requestedTo]);
 
-  const fetchDetails = useCallback(async (isCurrent: () => boolean) => {
-    if (!selectedClubId) {
-      setRows([]);
-      setError(false);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError(false);
-    try {
-      const next = await loadRows(selectedClubId, range.from, range.to);
-      if (!isCurrent()) return;
-      setRows(next);
-    } catch {
-      if (!isCurrent()) return;
-      setError(true);
-      setRows([]);
-    } finally {
-      if (isCurrent()) setLoading(false);
-    }
+  const fetchDetails = useCallback(async () => {
+    if (!selectedClubId) return [];
+    return loadRows(selectedClubId, range.from, range.to);
   }, [loadRows, range.from, range.to, selectedClubId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetchDetails(() => !cancelled);
-    return () => { cancelled = true; };
-  }, [fetchDetails, reloadToken]);
+  const details = useClubQuery<MoneyDetailRow[]>(fetchDetails, []);
+  const rows = details.data;
+  const loading = details.loading;
+  const error = details.error;
 
   function updateRange(next: { from: string; to: string }) {
     setPickedRange(next);
@@ -215,22 +191,9 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
       />
 
       {error ? (
-        <InlineAlert
-          variant="danger"
-          action={(
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={loading}
-              onClick={() => setReloadToken((token) => token + 1)}
-              icon={<RefreshCcw size={15} aria-hidden="true" />}
-            >
-              {tc('retry')}
-            </Button>
-          )}
-        >
+        <LoadErrorAlert retrying={loading} onRetry={() => void details.reload()}>
           {t('loadError')}
-        </InlineAlert>
+        </LoadErrorAlert>
       ) : null}
 
       {loading ? (
