@@ -108,17 +108,21 @@ async function loadHistoricalDay(
   supabase: SupabaseClient,
   { clubId, date, today, isOwner, unknownProductName }: LoadClosingStockDayInput,
 ): Promise<ClosingStockDayResult> {
-  const saved = await fetchSavedCountsWithProducts(supabase, clubId, date);
+  // Purchases are needed whether or not counts were saved: read them alongside.
+  const [saved, purchasesRes] = await Promise.all([
+    fetchSavedCountsWithProducts(supabase, clubId, date),
+    fetchStockPurchasesForDate(supabase, date, clubId),
+  ]);
   if (saved.error) return { data: null, error: saved.error };
+  if (purchasesRes.error) return { data: null, error: purchasesRes.error };
   const savedCounts = saved.data ?? [];
 
   if (savedCounts.length === 0 && isOwner) {
-    const [productsRes, purchasesRes, openingsRes] = await Promise.all([
+    const [productsRes, openingsRes] = await Promise.all([
       fetchActiveProductsOrdered(supabase, clubId),
-      fetchStockPurchasesForDate(supabase, date, clubId),
       fetchStockOpeningBalances(supabase, date, clubId, date === today),
     ]);
-    const error = productsRes.error ?? purchasesRes.error ?? openingsRes.error;
+    const error = productsRes.error ?? openingsRes.error;
     if (error) return { data: null, error };
     return {
       data: {
@@ -134,8 +138,6 @@ async function loadHistoricalDay(
     };
   }
 
-  const purchasesRes = await fetchStockPurchasesForDate(supabase, date, clubId);
-  if (purchasesRes.error) return { data: null, error: purchasesRes.error };
   return {
     data: {
       products: savedCounts.map((count) => productFromSavedCount(count, clubId, unknownProductName)),

@@ -345,8 +345,9 @@ export default function DailyCashPage() {
       }
       if (entry && (result.data ?? []).length === 0) {
         // RLS filtered the update out (edit window closed or no permission).
-        setError(t('entryLocked'));
+        // The reload clears the error, so it is set once the reload lands.
         await reload({ silent: true });
+        if (currentClubId.current === clubId) setError(t('entryLocked'));
         return;
       }
 
@@ -455,7 +456,7 @@ export default function DailyCashPage() {
       {header}
 
       {loadFailed && (
-        <LoadErrorAlert retrying={loading} onRetry={() => void reload()}>
+        <LoadErrorAlert onRetry={() => void reload()}>
           {t('loadError')}
         </LoadErrorAlert>
       )}

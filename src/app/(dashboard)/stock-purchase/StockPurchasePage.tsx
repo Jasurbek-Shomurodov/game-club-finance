@@ -37,7 +37,7 @@ import {
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useClubQuery } from '@/lib/useClubQuery';
-import { fetchActiveProductsOrdered, fetchProductIdsByName } from '@/lib/supabase/products';
+import { fetchActiveProductsOrdered, fetchProductIdsByName, escapeLikePattern } from '@/lib/supabase/products';
 import {
   isPrefilledAmountEdited,
   prefillAmount,
@@ -199,8 +199,11 @@ export default function StockPurchasePage() {
       productIds = matches.data;
     }
     const filters: string[] = [];
-    if (paymentSearch) filters.push(`payment_method.ilike.%${paymentSearch}%`);
+    if (paymentSearch) filters.push(`payment_method.ilike.%${escapeLikePattern(paymentSearch)}%`);
     if (productIds.length) filters.push(`product_id.in.(${productIds.join(',')})`);
+    // A query that matches no product and sanitises to no payment text (for
+    // example "%") lists nothing rather than the whole club.
+    if (debouncedQuery && filters.length === 0) return EMPTY_PURCHASE_PAGE;
 
     const { data, error, count } = await runWithJwtTimingRetry(
       supabase,

@@ -75,7 +75,7 @@ export default function DebtsPage() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [payDebtId, setPayDebtId] = useState<string | null>(null);
-  const [paymentsMap, setPaymentsMap] = useState<Record<string, DebtPayment[]>>({});
+  const [payments, setPayments] = useState<DebtPayment[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [showPaid, setShowPaid] = useState(false);
@@ -119,7 +119,7 @@ export default function DebtsPage() {
     paymentsRequestSequence.current += 1;
     setAddOpen(false);
     setPayDebtId(null);
-    setPaymentsMap({});
+    setPayments([]);
     setPaymentsLoading(false);
     setPaymentsError('');
     setFormClubId(null);
@@ -167,7 +167,7 @@ export default function DebtsPage() {
         setPaymentsError(t('paymentsLoadError'));
         return;
       }
-      setPaymentsMap((prev) => ({ ...prev, [debtId]: data ?? [] }));
+      setPayments(data ?? []);
     } catch (fetchError) {
       if (requestId !== paymentsRequestSequence.current) return;
       console.error('Failed to load debt payments', fetchError);
@@ -183,6 +183,8 @@ export default function DebtsPage() {
     setFormClubId(selectedClubId);
     setPayForm({ amount: '', payment_method: defaultPaymentMethod(enabledPaymentMethods), date: businessToday, comment: '' });
     setError('');
+    // Never show the previously opened debt's history while this one loads.
+    setPayments([]);
     void loadPayments(debtId, selectedClubId);
   }
 
@@ -319,14 +321,7 @@ export default function DebtsPage() {
         return;
       }
 
-      const paidDebtId = payDebtId;
       closePayModal();
-      // The cached history for this debt is now stale.
-      setPaymentsMap((prev) => {
-        const next = { ...prev };
-        delete next[paidDebtId];
-        return next;
-      });
       showToast(t('paymentSaved'));
       await reloadDebts({ silent: true });
     } catch (saveError) {
@@ -343,7 +338,7 @@ export default function DebtsPage() {
   const outstandingTotal = unpaid.reduce((sum, debt) => sum + remainingFor(debt), 0);
   const debtorCount = new Set(unpaid.map((debt) => debt.person_name.trim().toLocaleLowerCase())).size;
   const paidTotal = debts.reduce((sum, debt) => sum + (Number(debt.paid_amount) || 0), 0);
-  const activePayments = payDebtId ? paymentsMap[payDebtId] ?? [] : [];
+  const activePayments = payDebtId ? payments : [];
   const paymentMethodOptions = enabledPaymentMethods.map((method) => ({
     value: method,
     label: tc(`paymentMethods.${method}`),

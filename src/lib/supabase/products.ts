@@ -82,7 +82,8 @@ export async function updateProductSortOrders(
 }
 
 /** Escapes LIKE wildcards so a typed "%" or "_" matches literally. */
-function escapeLikePattern(value: string): string {
+/** Escapes LIKE wildcards so a search term matches literally. */
+export function escapeLikePattern(value: string): string {
   return value.replace(/[\\%_]/g, (character) => `\\${character}`);
 }
 

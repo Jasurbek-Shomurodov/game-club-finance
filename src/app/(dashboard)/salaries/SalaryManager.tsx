@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import { Banknote, Building2, Users, Wallet } from 'lucide-react';
 import { useClub } from '@/components/layout/DashboardShell';
@@ -37,6 +37,7 @@ import { formatCurrencyInput, parseCurrencyInput } from '@/lib/formatters';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
 import { canAccessFeature } from '@/lib/permissions';
 import { useBusinessToday } from '@/lib/useBusinessToday';
+import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { EmployeesView } from './EmployeesView';
 import { HistoryView } from './HistoryView';
@@ -94,27 +95,29 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   const [selectedEmployee, setSelected] = useState<SalaryEmployee | null>(null);
   const [employeeForm, setEmployeeForm] = useState<EmployeeFormState>(() => ({ id: crypto.randomUUID(), name: '', job_title: '', date: today, salary_type: 'daily', amount: '0', kpi: '0', kpi_basis: 'overall_profit', kpi_game_club: true, kpi_bar: true, active: true }));
   const [entryForm, setEntryForm] = useState<EntryFormState>(() => ({ id: crypto.randomUUID(), kind: 'payment', amount: '', date: today, comment: '', payment_method: defaultPaymentMethod(enabledPaymentMethods), payment_source: 'game_club' }));
-  // When the business day rolls over, dates still on the old day follow it; edited dates are kept.
-  const [formsDay, setFormsDay] = useState(today);
-  if (formsDay !== today) {
-    setFormsDay(today);
-    setEntryForm((form) => (form.date === formsDay ? { ...form, date: today } : form));
-    setEmployeeForm((form) => (form.date === formsDay ? { ...form, date: today } : form));
-  }
   const mutating = useRef(false);
   // Unsaved "new employee" draft, kept while the user looks at another setup mode.
   const newEmployeeDraft = useRef<EmployeeFormState | null>(null);
   // Shared by full loads and the entries-only reload so only the latest lands.
   const generation = useRef(0);
-  const [entriesError, setEntriesError] = useState(false);
+  // The loader reads the day through a ref so a rollover does not make it a
+  // new loader (which would show the skeleton and disable the forms).
+  const todayRef = useRef(today);
+  useEffect(() => { todayRef.current = today; }, [today]);
   const loadAll = useCallback(() => {
     generation.current += 1;
-    setEntriesError(false);
-    return loadSalaries(clubId, today);
-  }, [clubId, today]);
+    return loadSalaries(clubId, todayRef.current);
+  }, [clubId]);
   const salaries = useClubQuery(loadAll, emptyData);
   const { data, setData, loading, reload } = salaries;
-  const loadError = salaries.error || entriesError;
+  const loadError = salaries.error;
+  // When the business day rolls over, dates still on the old day follow it;
+  // edited dates are kept. Balances are re-read for the new day in place.
+  useBusinessRollover(today, (previousDay, nextDay) => {
+    setEntryForm((form) => (form.date === previousDay ? { ...form, date: nextDay } : form));
+    setEmployeeForm((form) => (form.date === previousDay ? { ...form, date: nextDay } : form));
+    void reload({ silent: true });
+  });
   const balances = useMemo(() => calculateSalaries({ ...data, throughDate: today }), [data, today]);
   // One pass per employee instead of re-filtering every rate on each lookup.
   const summaries = useMemo(() => new Map<string, EmployeeRateSummary>(data.employees.map((employee) => {
@@ -133,19 +136,20 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   // that expense's effect on earned profit is applied locally instead of
   // reloading employees, rates and the whole profit snapshot. It merges into
   // the query's data, so it stays outside useClubQuery and shares `generation`
-  // with full loads: a newer full load discards it, and its failure keeps data.
+  // with full loads: a newer full load discards it. The write already
+  // succeeded, so a failed refresh falls back to a silent full reload rather
+  // than a page-level load error that would disable the forms.
   const reloadEntries = useCallback(async () => {
     const request = ++generation.current;
-    setEntriesError(false);
     try {
       const entries = await loadSalaryEntries(clubId, today);
       if (request === generation.current) {
         setData((previous) => ({ ...previous, entries, monthlyProfit: applySalaryPaymentChanges(previous.monthlyProfit, previous.entries, entries) }));
       }
     } catch {
-      if (request === generation.current) setEntriesError(true);
+      if (request === generation.current) await reload({ silent: true });
     }
-  }, [clubId, setData, today]);
+  }, [clubId, reload, setData, today]);
 
   function employeeFormFor(employee: SalaryEmployee | null): EmployeeFormState {
     const rate = employee ? summaries.get(employee.id)?.display : undefined;

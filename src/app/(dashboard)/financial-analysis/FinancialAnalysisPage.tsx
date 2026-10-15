@@ -180,7 +180,6 @@ export default function FinancialAnalysisPage() {
 
   const windowRequest = useRef<{ key: string; promise: Promise<AnalysisLedgers> } | null>(null);
   // Bumped by either retry button so a retried read never reuses a failed window.
-  const windowGeneration = useRef(0);
   // The category stays set while the drawer slides out, so its content does not vanish mid-animation.
   const [drawerCategory, setDrawerCategory] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -199,7 +198,7 @@ export default function FinancialAnalysisPage() {
 
   /** One shared read of the 12-month window per club, day and retry. */
   const loadMonthlyWindow = useCallback((clubId: string) => {
-    const key = `${clubId}:${monthlyWindow.from}:${monthlyWindow.to}:${windowGeneration.current}`;
+    const key = `${clubId}:${monthlyWindow.from}:${monthlyWindow.to}`;
     if (windowRequest.current?.key === key) return windowRequest.current.promise;
     const promise = fetchAnalysisLedgers(createClient(), clubId, monthlyWindow);
     windowRequest.current = { key, promise };
@@ -237,10 +236,10 @@ export default function FinancialAnalysisPage() {
   const monthly = monthlyQuery.loading ? null : monthlyQuery.data;
   const monthlyError = monthlyQuery.error;
 
-  /** Retries start a fresh 12-month window read instead of reusing a failed one. */
-  const retry = (query: { reload: () => Promise<void> }) => {
-    windowGeneration.current += 1;
-    void query.reload();
+  // A failed window read is evicted above, so a retry reads it afresh while a
+  // successful one is shared; the page-level retry covers both queries.
+  const retryAll = () => {
+    void Promise.all([ledgerQuery.reload(), monthlyQuery.reload()]);
   };
 
   const current = useMemo(() => sliceLedgers(ledgers, range), [ledgers, range]);
@@ -307,7 +306,7 @@ export default function FinancialAnalysisPage() {
       />
 
       {error && (
-        <LoadErrorAlert retrying={loading} onRetry={() => retry(ledgerQuery)}>
+        <LoadErrorAlert retrying={loading} onRetry={retryAll}>
           {t('loadError')}
         </LoadErrorAlert>
       )}
@@ -452,7 +451,7 @@ export default function FinancialAnalysisPage() {
 
             <ChartCard title={t('monthlyTitle')} description={t('monthlyDesc')}>
               {monthlyError ? (
-                <LoadErrorAlert className="mt-4" retrying={monthlyQuery.loading} onRetry={() => retry(monthlyQuery)}>
+                <LoadErrorAlert className="mt-4" retrying={monthlyQuery.loading} onRetry={() => void monthlyQuery.reload()}>
                   {t('monthlyLoadError')}
                 </LoadErrorAlert>
               ) : monthly ? (

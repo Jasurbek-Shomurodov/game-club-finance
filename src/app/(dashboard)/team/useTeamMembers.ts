@@ -37,7 +37,10 @@ const EMPTY_TEAM: TeamData = { profiles: [], memberships: [], hasFeatureAccess: 
  * rows the caller may not touch, which must not look like success.
  */
 export function useTeamMembers({ enabled, managedClubs }: { enabled: boolean; managedClubs: ReadonlyArray<Pick<Club, 'id' | 'name'>> }) {
+  // Joined so the loader identity only changes when the managed set does.
+  const managedClubKey = managedClubs.map((club) => club.id).join(',');
   const fetchTeam = useCallback(async (): Promise<TeamData> => {
+    const managedClubIds = managedClubKey ? managedClubKey.split(',') : [];
     const supabase = createClient();
     const profiles = (columns: string) => fetchAllRows<TeamProfileRow>(() => supabase
       .from('profiles')
@@ -47,6 +50,7 @@ export function useTeamMembers({ enabled, managedClubs }: { enabled: boolean; ma
     const memberships = (columns: string) => fetchAllRows<TeamMembershipRow>(() => supabase
       .from('club_memberships')
       .select(columns)
+      .in('club_id', managedClubIds)
       .order('club_id', { ascending: true })
       .order('user_id', { ascending: true }) as never);
 
@@ -72,7 +76,7 @@ export function useTeamMembers({ enabled, managedClubs }: { enabled: boolean; ma
       memberships: membershipRes.data ?? [],
       hasFeatureAccess,
     };
-  }, []);
+  }, [managedClubKey]);
 
   const loadTeam = useCallback(async (isCurrent: () => boolean) => {
     try {

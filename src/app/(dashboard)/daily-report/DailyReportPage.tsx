@@ -98,7 +98,7 @@ export default function DailyReportPage() {
     ? [
         { label: tc('paymentMethods.cash'), amount: cashEntry.cash_income },
         { label: tc('paymentMethods.terminal'), amount: cashEntry.terminal_income },
-        { label: t('card'), amount: cashEntry.card_income },
+        { label: tc('paymentMethods.card'), amount: cashEntry.card_income },
         { label: t('playstation'), amount: cashEntry.playstation_income ?? 0 },
       ].filter((item) => item.amount > 0)
     : [];

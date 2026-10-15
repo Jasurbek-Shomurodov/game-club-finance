@@ -40,7 +40,7 @@ import {
   type PromotionForm,
   type PromotionStatus,
 } from '@/lib/promotions';
-import { todayIso } from '@/lib/utils';
+import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { Gift, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { Product, Promotion } from '@/types';
@@ -76,7 +76,7 @@ export default function PromotionsPage() {
   const { selectedClubId, role: currentRole, businessDayStartHour } = useClub();
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
-  const today = useMemo(() => todayIso(new Date(), businessDayStartHour), [businessDayStartHour]);
+  const today = useBusinessToday(businessDayStartHour);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<PromotionForm>(() => emptyForm(today));
@@ -156,10 +156,10 @@ export default function PromotionsPage() {
         .eq('id', editingId)
         .select('id');
       // RLS silently filters rows the user may not update; zero rows is a failure.
-      err = error?.message ?? ((data?.length ?? 0) === 0 ? t('saveNoRows') : null);
+      err = error ? t('saveFailed') : (data?.length ?? 0) === 0 ? t('saveNoRows') : null;
     } else {
       const { error } = await supabase.from('promotions').insert({ ...payload, club_id: selectedClubId });
-      err = error?.message ?? null;
+      err = error ? t('saveFailed') : null;
     }
     setSaving(false);
     if (err) {
@@ -189,7 +189,7 @@ export default function PromotionsPage() {
       .select('id');
     setDeleting(false);
     if (error || (data?.length ?? 0) === 0) {
-      setFormError(error?.message ?? t('saveNoRows'));
+      setFormError(error ? t('saveFailed') : t('saveNoRows'));
       return;
     }
     setModalOpen(false);
@@ -315,6 +315,10 @@ export default function PromotionsPage() {
             <Field label={t('product')} htmlFor="promotion-product" required>
               <Select id="promotion-product" value={form.product_id} onChange={(e) => set('product_id', e.target.value)}>
                 <option value="">{t('selectProduct')}</option>
+                {/* A promotion may point at a product that was deactivated since. */}
+                {form.product_id && !productById.has(form.product_id) ? (
+                  <option value={form.product_id}>{t('unknownProduct')}</option>
+                ) : null}
                 {products.map((product) => (
                   <option key={product.id} value={product.id}>
                     {t('productOption', {

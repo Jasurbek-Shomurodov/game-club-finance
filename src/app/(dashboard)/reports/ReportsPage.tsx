@@ -205,12 +205,6 @@ export default function ReportsPage() {
   const currentClubId = useRef(selectedClubId);
   const deletePending = useRef(false);
   const isOwner = role === 'owner';
-  useEffect(() => {
-    if (!categoryFilter.startsWith('expense:')) return;
-    const category = categoryFilter.slice('expense:'.length);
-    if (!isKnownExpenseCategory(category)) setCategoryFilter('all');
-  }, [categoryFilter]);
-
   const loadReport = useCallback(async (isCurrent: () => boolean): Promise<typeof emptyReportRows> => {
     if (!selectedClubId || !hasReportsAccess) return emptyReportRows;
 

@@ -96,7 +96,7 @@ function EmployeeCard({
         <Badge variant={status === 'upcoming' ? 'info' : status === 'active' ? 'success' : 'neutral'}>{t(status)}</Badge>
       </div>
       {isOwner && roleEdit?.id === employee.id && (
-        <form className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3" onSubmit={(event) => { event.preventDefault(); onSaveRole(); }}>
+        <Card as="form" tone="muted" padding="sm" className="mb-4" onSubmit={(event) => { event.preventDefault(); onSaveRole(); }}>
           <Field label={t('role')} htmlFor={`employee-role-${employee.id}`} error={roleError || undefined}>
             <div className="flex flex-wrap gap-2">
               <Select id={`employee-role-${employee.id}`} className="min-w-0 flex-1" required disabled={saving} value={roleEdit.role} onChange={(event) => onRoleEditChange({ ...roleEdit, role: event.target.value })}>
@@ -107,7 +107,7 @@ function EmployeeCard({
               <IconButton label={tc('cancel')} icon={<X size={18} />} disabled={saving} onClick={() => onRoleEditChange(null)} />
             </div>
           </Field>
-        </form>
+        </Card>
       )}
       <dl className="divide-y divide-gray-100 text-sm">
         {[

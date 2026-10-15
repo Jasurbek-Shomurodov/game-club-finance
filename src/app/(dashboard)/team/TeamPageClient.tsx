@@ -79,7 +79,6 @@ export default function TeamPageClient() {
     role: currentClubRole,
     loading: clubLoading,
     memberships: currentMemberships,
-    refreshClubs,
   } = useClub();
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
@@ -159,10 +158,6 @@ export default function TeamPageClient() {
     return { members: profiles, member: profile, membership, currentUserId, ownedClubIds };
   }
 
-  async function refreshOwnClubsIfSelf(profile: TeamMember) {
-    if (profile.id === currentUserId) await refreshClubs();
-  }
-
   async function addClubAccess(profile: TeamMember) {
     const clubId = selectedClubId;
     const role = accessRoles[profile.id] ?? 'viewer';
@@ -189,7 +184,6 @@ export default function TeamPageClient() {
         return;
       }
       showToast(t('accessAdded'));
-      await refreshOwnClubsIfSelf(profile);
     } catch (saveError) {
       console.error('Failed to add club access', saveError);
       showError(t('saveError'));
@@ -227,7 +221,6 @@ export default function TeamPageClient() {
         return;
       }
       showToast(t('saved'));
-      await refreshOwnClubsIfSelf(profile);
     } catch (saveError) {
       console.error('Failed to update role', saveError);
       showError(t('saveError'));
@@ -305,7 +298,6 @@ export default function TeamPageClient() {
         return;
       }
       showToast(t('featureAccessSaved'));
-      await refreshOwnClubsIfSelf(profile);
     } finally {
       setSavingId(null);
     }

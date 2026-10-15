@@ -98,6 +98,7 @@ export default function ProductsPage() {
   }, [selectedClubId]);
   const productsQuery = useClubQuery(fetchProducts, NO_PRODUCTS);
   const { data: products, setData: setProducts, loading, error: loadError, reload: loadProducts } = productsQuery;
+  const productIndexById = useMemo(() => new Map(products.map((product, index) => [product.id, index])), [products]);
 
   // An open editor belongs to the previous club's product; never save it
   // against the newly selected club.
@@ -207,7 +208,7 @@ export default function ProductsPage() {
         .eq('id', editingId)
         .select('id');
       // RLS silently filters rows the user may not update; zero rows is a failure.
-      err = e?.message ?? ((updated?.length ?? 0) === 0 ? t('saveNoRows') : null);
+      err = e ? t('saveFailed') : (updated?.length ?? 0) === 0 ? t('saveNoRows') : null;
     } else {
       const payload = buildProductInsertPayload(form, { isOwner });
       const maxSortOrder = products.reduce(
@@ -221,9 +222,9 @@ export default function ProductsPage() {
       });
       if (isMissingSortOrder(insertWithOrder.error)) {
         const { error: e } = await supabase.from('products').insert({ ...payload, club_id: selectedClubId });
-        err = e?.message ?? null;
+        err = e ? t('saveFailed') : null;
       } else {
-        err = insertWithOrder.error?.message ?? null;
+        err = insertWithOrder.error ? t('saveFailed') : null;
       }
     }
 
@@ -301,11 +302,11 @@ export default function ProductsPage() {
     try {
       const { error: moveError } = await updateProductSortOrders(createClient(), selectedClubId, plan.writes);
       if (moveError) {
-        showToast(isMissingSortOrder(moveError) ? t('sortOrderMigrationRequired') : moveError.message ?? tc('error'), 'error');
+        showToast(isMissingSortOrder(moveError) ? t('sortOrderMigrationRequired') : tc('error'), 'error');
         await loadProducts({ silent: true });
       }
-    } catch (moveError) {
-      showToast(moveError instanceof Error ? moveError.message : tc('error'), 'error');
+    } catch {
+      showToast(tc('error'), 'error');
       await loadProducts({ silent: true });
     } finally {
       setMovingId(null);
@@ -338,7 +339,7 @@ export default function ProductsPage() {
       {loading ? (
         <TableSkeleton rows={8} columns={canManageInventory ? 7 : 5} />
       ) : loadError && products.length === 0 ? (
-        <LoadErrorAlert retrying={loading} onRetry={() => void loadProducts()}>
+        <LoadErrorAlert onRetry={() => void loadProducts()}>
           {t('loadFailed')}
         </LoadErrorAlert>
       ) : products.length === 0 ? (
@@ -446,7 +447,7 @@ export default function ProductsPage() {
                   key: 'sort_order',
                   header: t('order'),
                   render: (r: Product) => {
-                    const index = products.findIndex((product) => product.id === r.id);
+                    const index = productIndexById.get(r.id) ?? -1;
                     return (
                       <div className="flex items-center gap-1">
                         <IconButton

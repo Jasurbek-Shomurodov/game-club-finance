@@ -40,6 +40,7 @@ import { BulkStockUpdateModal } from './BulkStockUpdateModal';
 import { groupByCategory } from '@/lib/productSections';
 import { calendarTodayIso, todayIso } from '@/lib/utils';
 import { useClubQuery } from '@/lib/useClubQuery';
+import { useBusinessToday } from '@/lib/useBusinessToday';
 import { formatCurrency, formatDateOnly, formatNumber, formatUnitCurrency } from '@/lib/formatters';
 import {
   calculateClosingStockFromSold,
@@ -151,7 +152,6 @@ const stickyIndexCellClass = 'sticky left-0 z-10 w-12 bg-surface px-3 py-4 group
 // The product column stays visible while the wide table scrolls horizontally.
 const stickyProductHeaderCellClass = 'sticky left-12 top-0 z-30 border-b border-gray-100 bg-gray-50 px-4 py-3 align-bottom shadow-[1px_0_0_0_rgb(var(--c-gray-200))]';
 const stickyProductCellClass = 'sticky left-12 z-10 bg-surface px-4 py-4 shadow-[1px_0_0_0_rgb(var(--c-gray-200))] group-hover:bg-gray-50';
-const CLOCK_REFRESH_MS = 60_000;
 const TABLE_COLUMN_COUNT = 12;
 const addedTodayHeaderCellClass = stickyHeaderCellClass;
 
@@ -238,8 +238,10 @@ export default function ClosingStockPage() {
   const tc = useTranslations('common');
   const { locale } = useAppLocale();
   const { selectedClubId, selectedClub, role: currentRole, businessDayStartHour } = useClub();
-  const [clock, setClock] = useState(() => Date.now());
-  const today = useMemo(() => todayIso(new Date(clock), businessDayStartHour), [clock, businessDayStartHour]);
+  const [dirty, setDirty] = useState(false);
+  // Unsaved edits are never discarded by a day rollover; the clock catches up
+  // once they are saved or discarded.
+  const today = useBusinessToday(businessDayStartHour, { paused: dirty });
   const [dateSelection, setDateSelection] = useState<DateSelection>({ clubId: selectedClubId, date: null });
   // Switching clubs resets to that club's business day in the same render, so
   // the page loads once for the new club instead of once per stale date.
@@ -253,7 +255,6 @@ export default function ClosingStockPage() {
   const [bulkUpdateOpen, setBulkUpdateOpen] = useState(false);
   const [error, setError] = useState('');
   const [invalidProductId, setInvalidProductId] = useState<string | null>(null);
-  const [dirty, setDirty] = useState(false);
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
   const dirtyRef = useRef(false);
@@ -347,27 +348,8 @@ export default function ClosingStockPage() {
     setError('');
   }, [loading]);
 
-  // Keep "today" current while the page stays open (overnight tabs, sleep).
-  // Unsaved edits are never discarded by a day rollover; the clock catches up
-  // once they are saved or discarded.
-  useEffect(() => {
-    const refreshClock = () => {
-      if (document.visibilityState === 'hidden' || dirtyRef.current) return;
-      setClock(Date.now());
-    };
-    const timer = window.setInterval(refreshClock, CLOCK_REFRESH_MS);
-    document.addEventListener('visibilitychange', refreshClock);
-    window.addEventListener('focus', refreshClock);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener('visibilitychange', refreshClock);
-      window.removeEventListener('focus', refreshClock);
-    };
-  }, []);
-
   useEffect(() => {
     dirtyRef.current = dirty;
-    if (!dirty) setClock(Date.now());
   }, [dirty]);
 
   useEffect(() => {

@@ -10,11 +10,18 @@ const CLOCK_REFRESH_MS = 60_000;
  * The club's current business date, kept current while the page stays open
  * (overnight tabs, sleep, a backgrounded phone). Re-checks every minute and on
  * focus/visibility, so forms and pickers roll over to the new business day.
+ * `paused` holds the date still, e.g. while a form has unsaved edits.
  */
-export function useBusinessToday(businessDayStartHour: number | null | undefined): string {
+export function useBusinessToday(
+  businessDayStartHour: number | null | undefined,
+  { paused = false }: { paused?: boolean } = {},
+): string {
   const [today, setToday] = useState(() => todayIso(new Date(), businessDayStartHour ?? undefined));
 
   useEffect(() => {
+    // While paused (unsaved edits on screen) the date is frozen; it catches up
+    // as soon as the pause ends.
+    if (paused) return;
     const refresh = () => {
       if (document.visibilityState === 'hidden') return;
       const next = todayIso(new Date(), businessDayStartHour ?? undefined);
@@ -29,7 +36,7 @@ export function useBusinessToday(businessDayStartHour: number | null | undefined
       document.removeEventListener('visibilitychange', refresh);
       window.removeEventListener('focus', refresh);
     };
-  }, [businessDayStartHour]);
+  }, [businessDayStartHour, paused]);
 
   return today;
 }

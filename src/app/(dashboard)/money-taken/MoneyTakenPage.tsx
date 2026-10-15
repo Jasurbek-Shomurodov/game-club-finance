@@ -920,7 +920,7 @@ export default function MoneyTakenPage() {
         )}
       </Card>
 
-      {loading && withdrawals.length === 0 ? (
+      {loading ? (
         <div className={`grid gap-5 ${isOwner ? 'xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]' : ''}`}>
           {isOwner ? <FormSkeleton /> : null}
           <TableSkeleton rows={5} columns={4} />
