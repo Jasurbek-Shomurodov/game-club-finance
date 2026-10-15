@@ -1341,6 +1341,14 @@
       "out": "Tugagan",
       "low": "Kam",
       "ok": "Yetarli"
+    },
+    "quota": {
+      "questionsLeft": "Bugun ≈{count} ta savol qoldi",
+      "bestModel": "Eng yaxshi model: {limit} tadan {remaining} ta qoldi",
+      "lighterModels": "Eng yaxshi model limiti tugadi — yengilroq modellar javob bermoqda",
+      "usedUp": "Bugungi bepul limit tugadi",
+      "resetsIn": "{hours} soat {minutes} daqiqadan so'ng yangilanadi",
+      "note": "Limit barcha klublardagi hamma uchun umumiy. Bitta savol taxminan 3 ta so'rov sarflaydi."
     }
   }
 }

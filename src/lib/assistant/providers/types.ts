@@ -16,6 +16,10 @@ export interface AssistantRunInput {
   runTool: (name: string, input: unknown) => Promise<ToolOutcome>;
   send: (event: AssistantEvent) => void;
   signal: AbortSignal;
+  /** Models already known to be out of daily quota (quota-tracked providers). */
+  skipModels?: string[];
+  /** Called once per accepted model request, or when a model hits its daily limit. */
+  onModelRequest?: (model: string, result: 'ok' | 'daily_limit') => void;
 }
 
 export interface AssistantProvider {

@@ -1,19 +1,8 @@
 import { ApiError, GoogleGenAI, type Content, type FunctionCall, type Part } from '@google/genai';
+import { GEMINI_MODEL_CHAIN, isDailyQuotaError } from '../geminiQuota';
 import { MAX_ROUNDS, runToolCalls, type AssistantProvider, type AssistantRunInput } from './types';
 
-/**
- * Free-tier models, strongest first. Each has its own quota, so when one is
- * exhausted (429) or unavailable the next one answers instead.
- */
-export const GEMINI_MODEL_CHAIN = [
-  'gemini-3.8-flash',
-  'gemini-3.7-flash',
-  'gemini-3.6-flash',
-  'gemini-3.5-flash-lite',
-  'gemini-3.1-flash-lite',
-  'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
-] as const;
+export { GEMINI_MODEL_CHAIN };
 
 /** How long a model that hit its limit is skipped by this server instance. */
 const QUOTA_COOLDOWN_MS = 60_000;
@@ -36,8 +25,8 @@ function fallbackCooldown(error: unknown): number | null {
   return null;
 }
 
-export function availableModels(now = Date.now()): string[] {
-  return GEMINI_MODEL_CHAIN.filter((model) => (cooldownUntil.get(model) ?? 0) <= now);
+export function availableModels(skip: readonly string[] = [], now = Date.now()): string[] {
+  return GEMINI_MODEL_CHAIN.filter((model) => !skip.includes(model) && (cooldownUntil.get(model) ?? 0) <= now);
 }
 
 /** Exposed for tests. */
@@ -89,10 +78,14 @@ async function run(input: AssistantRunInput) {
 
   /** Streams one model turn, falling back down the chain before any text is shown. */
   async function streamTurn() {
-    for (const model of availableModels()) {
+    // If the recorded usage says every model is used up, still try the chain:
+    // the provider is the final authority on its own quota.
+    const preferred = availableModels(input.skipModels);
+    for (const model of preferred.length ? preferred : availableModels()) {
       let roundText = false;
       try {
         const stream = await ai.models.generateContentStream({ model, contents: contentsFor(turns, model), config });
+        input.onModelRequest?.(model, 'ok');
         const parts: Part[] = [];
         let finishReason: string | undefined;
         for await (const chunk of stream) {
@@ -113,6 +106,9 @@ async function run(input: AssistantRunInput) {
         const cooldown = fallbackCooldown(error);
         if (cooldown === null || roundText || input.signal.aborted) throw error;
         cooldownUntil.set(model, Date.now() + cooldown);
+        if (error instanceof ApiError && error.status === 429 && isDailyQuotaError(error.message)) {
+          input.onModelRequest?.(model, 'daily_limit');
+        }
       }
     }
     throw new GeminiQuotaExhaustedError('Every Gemini model in the chain is rate limited');

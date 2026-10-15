@@ -1341,6 +1341,14 @@
       "out": "Out of stock",
       "low": "Low",
       "ok": "OK"
+    },
+    "quota": {
+      "questionsLeft": "≈{count} questions left today",
+      "bestModel": "Best model: {remaining} of {limit} left",
+      "lighterModels": "Best model used up — lighter models are answering",
+      "usedUp": "Free limit used up for today",
+      "resetsIn": "Resets in {hours} h {minutes} min",
+      "note": "Shared by everyone in all clubs. One question uses about 3 requests."
     }
   }
 }

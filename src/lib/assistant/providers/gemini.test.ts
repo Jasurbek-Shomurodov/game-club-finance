@@ -72,6 +72,26 @@ describe('gemini provider', () => {
     expect(availableModels()[0]).toBe('gemini-3.6-flash');
   });
 
+  it('skips models recorded as used up and reports each request', async () => {
+    mocks.generateContentStream
+      .mockRejectedValueOnce(new ApiError({ message: 'quotaId: GenerateRequestsPerDayPerProjectPerModel-FreeTier', status: 429 }))
+      .mockResolvedValueOnce(streamOf({ parts: [{ text: 'Hi' }], finishReason: 'STOP' }));
+    const onModelRequest = vi.fn();
+
+    await geminiProvider().run({ ...runInput([]), skipModels: ['gemini-3.8-flash'], onModelRequest });
+
+    expect(mocks.generateContentStream.mock.calls.map(([request]) => request.model)).toEqual(['gemini-3.7-flash', 'gemini-3.6-flash']);
+    expect(onModelRequest.mock.calls).toEqual([['gemini-3.7-flash', 'daily_limit'], ['gemini-3.6-flash', 'ok']]);
+  });
+
+  it('still tries the chain when records say every model is used up', async () => {
+    mocks.generateContentStream.mockResolvedValueOnce(streamOf({ parts: [{ text: 'Hi' }], finishReason: 'STOP' }));
+
+    await geminiProvider().run({ ...runInput([]), skipModels: [...GEMINI_MODEL_CHAIN] });
+
+    expect(mocks.generateContentStream.mock.calls[0][0].model).toBe('gemini-3.8-flash');
+  });
+
   it('runs function calls and returns their results to the same model', async () => {
     const call = { id: 'call-1', name: 'get_data', args: { dataset: 'summary' } };
     mocks.generateContentStream
