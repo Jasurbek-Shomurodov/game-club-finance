@@ -1,42 +1,38 @@
+import { z } from 'zod';
+import { AssistantError } from 'hoggish-assistant/server';
 import { createClient } from '@/lib/supabase/server';
 import { relatedClub } from '@/lib/supabase/memberships';
 import { canAccessFeature } from '@/lib/permissions';
 import type { Club, ClubMembership } from '@/types';
-import type { AssistantErrorCode } from './events';
+import { ASSISTANT_LOCALES, type AssistantLocale } from './locales';
 
-const ERROR_STATUS: Record<AssistantErrorCode, number> = {
-  UNAUTHORIZED: 401,
-  INVALID_REQUEST: 400,
-  FORBIDDEN: 403,
-  NOT_CONFIGURED: 503,
-  BUSY: 429,
-  REFUSED: 200,
-  TOO_LONG: 200,
-  SERVER_ERROR: 500,
-};
+const contextSchema = z.object({
+  clubId: z.string().uuid(),
+  locale: z.enum(ASSISTANT_LOCALES),
+});
 
-export function assistantErrorResponse(code: AssistantErrorCode) {
-  return Response.json({ error: code }, { status: ERROR_STATUS[code] });
+export interface AssistantAccess {
+  /** The member's own server client: RLS authorizes every read. */
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  clubId: string;
+  locale: AssistantLocale;
+  membership: Pick<ClubMembership, 'role' | 'feature_access'>;
+  club: Club | null;
 }
-
-export type AssistantAccess =
-  | {
-      ok: true;
-      supabase: Awaited<ReturnType<typeof createClient>>;
-      membership: Pick<ClubMembership, 'role' | 'feature_access'>;
-      club: Club | null;
-    }
-  | { ok: false; response: Response };
 
 /**
  * Authenticates the caller (auth.getUser) and requires the assistant feature
- * in the requested club. `clubId` must already be validated as a UUID.
+ * in the requested club. `context` is the browser's unvalidated request
+ * context. Returns null for UNAUTHORIZED and throws AssistantError otherwise.
  */
-export async function authorizeAssistant(clubId: string | null): Promise<AssistantAccess> {
+export async function authorizeAssistant(context: unknown): Promise<AssistantAccess | null> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { ok: false, response: assistantErrorResponse('UNAUTHORIZED') };
-  if (!clubId) return { ok: false, response: assistantErrorResponse('INVALID_REQUEST') };
+  if (!user) return null;
+
+  const parsed = contextSchema.safeParse(context);
+  if (!parsed.success) throw new AssistantError('INVALID_REQUEST');
+  const { clubId, locale } = parsed.data;
 
   const { data: membership, error } = await supabase
     .from('club_memberships')
@@ -46,10 +42,16 @@ export async function authorizeAssistant(clubId: string | null): Promise<Assista
     .maybeSingle<Pick<ClubMembership, 'role' | 'feature_access' | 'clubs'>>();
   if (error) {
     console.error('[assistant] membership lookup failed', { clubId, message: error.message });
-    return { ok: false, response: assistantErrorResponse('SERVER_ERROR') };
+    throw new AssistantError('SERVER_ERROR');
   }
   if (!membership || !canAccessFeature(membership.role, membership.feature_access, 'assistant')) {
-    return { ok: false, response: assistantErrorResponse('FORBIDDEN') };
+    throw new AssistantError('FORBIDDEN');
   }
-  return { ok: true, supabase, membership, club: relatedClub(membership.clubs ?? null) };
+  return {
+    supabase,
+    clubId,
+    locale,
+    membership: { role: membership.role, feature_access: membership.feature_access },
+    club: relatedClub(membership.clubs ?? null),
+  };
 }

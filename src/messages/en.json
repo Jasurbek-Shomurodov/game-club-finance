@@ -1291,6 +1291,7 @@
     "columns": {
       "metric": "Metric",
       "value": "Value",
+      "percentValue": "Value, %",
       "unit": "Unit",
       "date": "Date",
       "month": "Month",

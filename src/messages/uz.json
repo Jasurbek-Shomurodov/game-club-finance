@@ -1291,6 +1291,7 @@
     "columns": {
       "metric": "Ko'rsatkich",
       "value": "Qiymat",
+      "percentValue": "Qiymat, %",
       "unit": "Birlik",
       "date": "Sana",
       "month": "Oy",

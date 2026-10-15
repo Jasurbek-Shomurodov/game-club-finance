@@ -1,8 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import { Download, FileSpreadsheet, MessageSquarePlus, SendHorizontal, Sparkles, Square } from 'lucide-react';
+import { DEFAULT_LIMITS } from 'hoggish-assistant';
+import { useAssistantChat, type ChatEntry } from 'hoggish-assistant/react';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { useClub } from '@/components/layout/DashboardShell';
 import { AssistantMarkdown } from '@/components/assistant/AssistantMarkdown';
@@ -17,170 +19,43 @@ import {
   Spinner,
   Textarea,
 } from '@/components/PresentationFoundation';
-import { isAssistantErrorCode, parseEventChunk, type AssistantEvent } from '@/lib/assistant/events';
-import type { GeminiQuotaSummary } from '@/lib/assistant/geminiQuota';
-import { MAX_MESSAGE_CHARS, trimHistory } from '@/lib/assistant/request';
-
-type ErrorKey = Parameters<ReturnType<typeof useTranslations<'assistant.errors'>>>[0];
-
-interface ChatFile {
-  fileName: string;
-  url: string;
-}
-
-interface ChatEntry {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  files: ChatFile[];
-  pending?: boolean;
-  activeTool?: string;
-  error?: ErrorKey;
-  stopped?: boolean;
-}
 
 const SUGGESTIONS = ['profit', 'compare', 'products', 'excel', 'stock', 'debts'] as const;
+const MAX_MESSAGE_CHARS = DEFAULT_LIMITS.maxMessageChars;
 
-function base64ToBlob(data: string, mimeType: string): Blob {
-  const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
-  return new Blob([bytes], { type: mimeType });
+/** Time until the quota resets, read when the badge renders. */
+function msUntil(iso: string) {
+  return Math.max(0, Date.parse(iso) - Date.now());
 }
 
 export default function AssistantPage() {
   const t = useTranslations('assistant');
   const { locale } = useAppLocale();
   const { selectedClubId } = useClub();
-  const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [draft, setDraft] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [quota, setQuota] = useState<GeminiQuotaSummary | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
-  const fileUrlsRef = useRef<string[]>([]);
   const endRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-
-  const resetChat = useCallback(() => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    fileUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-    fileUrlsRef.current = [];
-    setEntries([]);
-    setBusy(false);
-  }, []);
+  const chat = useAssistantChat({
+    api: '/api/assistant',
+    usageApi: '/api/assistant/usage',
+    context: { clubId: selectedClubId, locale },
+    maxMessageChars: MAX_MESSAGE_CHARS,
+  });
+  const { messages: entries, busy, newChat, quota } = chat;
 
   // A conversation belongs to one club; switching clubs starts a new one.
-  useEffect(() => resetChat, [selectedClubId, resetChat]);
-
-  /** Free-tier quota is shared across the deployment; null when not tracked. */
-  const loadQuota = useCallback(async (clubId: string) => {
-    try {
-      const response = await fetch(`/api/assistant/usage?clubId=${encodeURIComponent(clubId)}`, { cache: 'no-store' });
-      const payload = response.ok ? await response.json() as { quota: GeminiQuotaSummary | null } : null;
-      setQuota(payload?.quota ?? null);
-    } catch {
-      setQuota(null);
-    }
-  }, []);
-
-  useEffect(() => {
-    setQuota(null);
-    if (selectedClubId) void loadQuota(selectedClubId);
-  }, [selectedClubId, loadQuota]);
+  useEffect(() => newChat(), [selectedClubId, newChat]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
   }, [entries]);
 
-  const updateAssistant = useCallback((id: string, update: (entry: ChatEntry) => ChatEntry) => {
-    setEntries((current) => current.map((entry) => (entry.id === id ? update(entry) : entry)));
-  }, []);
-
-  const applyEvent = useCallback((id: string, event: AssistantEvent) => {
-    switch (event.type) {
-      case 'text':
-        updateAssistant(id, (entry) => ({ ...entry, content: entry.content + event.text, activeTool: undefined }));
-        break;
-      case 'tool':
-        updateAssistant(id, (entry) => ({ ...entry, activeTool: event.name }));
-        break;
-      case 'file': {
-        const url = URL.createObjectURL(base64ToBlob(event.data, event.mimeType));
-        fileUrlsRef.current.push(url);
-        updateAssistant(id, (entry) => ({ ...entry, files: [...entry.files, { fileName: event.fileName, url }] }));
-        break;
-      }
-      case 'error':
-        updateAssistant(id, (entry) => ({ ...entry, error: event.code }));
-        break;
-      case 'done':
-        break;
-    }
-  }, [updateAssistant]);
-
   async function ask(question: string) {
     const text = question.trim();
     if (!text || busy || !selectedClubId) return;
-
-    const history = trimHistory([
-      ...entries
-        .filter((entry) => entry.content.trim())
-        .map((entry) => ({ role: entry.role, content: entry.content.slice(0, MAX_MESSAGE_CHARS) })),
-      { role: 'user' as const, content: text },
-    ]);
-    const assistantId = crypto.randomUUID();
-    setEntries((current) => [
-      ...current,
-      { id: crypto.randomUUID(), role: 'user', content: text, files: [] },
-      { id: assistantId, role: 'assistant', content: '', files: [], pending: true },
-    ]);
     setDraft('');
-    setBusy(true);
-
-    const controller = new AbortController();
-    abortRef.current = controller;
-    try {
-      const response = await fetch('/api/assistant', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clubId: selectedClubId, locale, messages: history }),
-        signal: controller.signal,
-      });
-      if (!response.ok || !response.body) {
-        const payload = await response.json().catch(() => null) as { error?: unknown } | null;
-        updateAssistant(assistantId, (entry) => ({
-          ...entry,
-          error: isAssistantErrorCode(payload?.error) ? payload.error : 'SERVER_ERROR',
-        }));
-        return;
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      for (;;) {
-        const { value, done } = await reader.read();
-        buffer += decoder.decode(value, { stream: !done });
-        const { events, rest } = parseEventChunk(done ? `${buffer}\n` : buffer);
-        buffer = rest;
-        events.forEach((event) => applyEvent(assistantId, event));
-        if (done) break;
-      }
-    } catch (error) {
-      if (controller.signal.aborted) {
-        updateAssistant(assistantId, (entry) => ({ ...entry, stopped: true }));
-      } else {
-        console.error('[assistant] request failed', error);
-        updateAssistant(assistantId, (entry) => ({ ...entry, error: 'NETWORK' }));
-      }
-    } finally {
-      if (abortRef.current === controller) {
-        abortRef.current = null;
-        setBusy(false);
-      }
-      updateAssistant(assistantId, (entry) => ({ ...entry, pending: false, activeTool: undefined }));
-      inputRef.current?.focus();
-      void loadQuota(selectedClubId);
-    }
+    await chat.send(text);
+    inputRef.current?.focus();
   }
 
   function onSubmit(event: FormEvent) {
@@ -201,7 +76,8 @@ export default function AssistantPage() {
     return t('thinking');
   }
 
-  const resetIn = quota ? Math.max(0, Date.parse(quota.resetsAt) - Date.now()) : 0;
+  /** Free-tier quota is shared across the deployment; null when not tracked. */
+  const resetIn = quota ? msUntil(quota.resetsAt) : 0;
   const resetLabel = t('quota.resetsIn', {
     hours: Math.floor(resetIn / 3_600_000),
     minutes: Math.floor((resetIn % 3_600_000) / 60_000),
@@ -229,7 +105,7 @@ export default function AssistantPage() {
           </Badge>
         ) : undefined}
         action={entries.length > 0 ? (
-          <Button variant="outline" size="sm" onClick={resetChat} icon={<MessageSquarePlus size={16} aria-hidden="true" />}>
+          <Button variant="outline" size="sm" onClick={newChat} icon={<MessageSquarePlus size={16} aria-hidden="true" />}>
             {t('newChat')}
           </Button>
         ) : undefined}
@@ -314,7 +190,7 @@ export default function AssistantPage() {
             <IconButton
               label={t('stop')}
               icon={<Square size={16} aria-hidden="true" />}
-              onClick={() => abortRef.current?.abort()}
+              onClick={chat.stop}
               className="h-11 w-11"
             />
           ) : (

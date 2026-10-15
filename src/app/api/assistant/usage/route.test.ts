@@ -1,51 +1,71 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ authorizeAssistant: vi.fn(), load: vi.fn() }));
+const mocks = vi.hoisted(() => ({ createClient: vi.fn(), from: vi.fn() }));
 
-vi.mock('@/lib/assistant/access', () => ({ authorizeAssistant: mocks.authorizeAssistant }));
-vi.mock('@/lib/assistant/usageStore', () => ({ createUsageStore: () => ({ load: mocks.load }) }));
-
-import { GET } from './route';
+vi.mock('@/lib/supabase/server', () => ({ createClient: mocks.createClient }));
+// The quota table is read with the service client; members never read it directly.
+vi.mock('@/lib/supabase/service', () => ({ createServiceClient: () => ({ from: mocks.from, rpc: vi.fn() }) }));
 
 const CLUB_ID = '290c5c33-9dfa-464a-a072-ef5a231f5308';
-const url = (clubId = CLUB_ID) => new Request(`https://example.test/api/assistant/usage?clubId=${clubId}`);
+const url = (context: unknown = { clubId: CLUB_ID, locale: 'en' }) => new Request(
+  `https://example.test/api/assistant/usage?context=${encodeURIComponent(JSON.stringify(context))}`,
+);
+
+function mockMember(membership: unknown, user: unknown = { id: 'user-1' }) {
+  const query = { select: vi.fn(), eq: vi.fn(), maybeSingle: vi.fn().mockResolvedValue({ data: membership, error: null }) };
+  query.select.mockReturnValue(query);
+  query.eq.mockReturnValue(query);
+  mocks.createClient.mockResolvedValue({ auth: { getUser: vi.fn().mockResolvedValue({ data: { user } }) }, from: () => query });
+}
+
+function mockUsageRows(rows: unknown[]) {
+  const query = { select: vi.fn(), eq: vi.fn() };
+  query.select.mockReturnValue(query);
+  query.eq.mockResolvedValue({ data: rows, error: null });
+  mocks.from.mockReturnValue(query);
+}
+
+const owner = { role: 'owner', feature_access: null, clubs: null };
+
+async function loadRoute() {
+  vi.resetModules();
+  return (await import('./route')).GET;
+}
 
 describe('GET /api/assistant/usage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.authorizeAssistant.mockResolvedValue({ ok: true });
-    process.env.ASSISTANT_PROVIDER = 'gemini';
-    process.env.GEMINI_API_KEY = 'test-key';
+    vi.stubEnv('ASSISTANT_PROVIDER', 'gemini');
+    vi.stubEnv('GEMINI_API_KEY', 'test-key');
+    vi.stubEnv('ASSISTANT_ALLOW_FREE_GEMINI', 'true');
+    vi.stubEnv('ASSISTANT_MODEL', '');
   });
 
-  afterEach(() => {
-    delete process.env.ASSISTANT_PROVIDER;
-    delete process.env.GEMINI_API_KEY;
-  });
-
-  it('requires assistant access in a valid club', async () => {
-    mocks.authorizeAssistant.mockResolvedValue({ ok: false, response: new Response(null, { status: 403 }) });
+  it('requires a signed-in member with assistant access', async () => {
+    const GET = await loadRoute();
+    mockMember(owner, null);
+    expect((await GET(url())).status).toBe(401);
+    mockMember({ role: 'admin', feature_access: ['dashboard'], clubs: null });
     expect((await GET(url())).status).toBe(403);
-
-    await GET(url('not-a-uuid'));
-    expect(mocks.authorizeAssistant).toHaveBeenLastCalledWith(null);
+    mockMember(owner);
+    expect((await GET(url({ clubId: 'nope', locale: 'en' }))).status).toBe(400);
   });
 
-  it('summarises today\'s recorded Gemini requests', async () => {
-    mocks.load.mockResolvedValue([{ model: 'gemini-3.8-flash', requests: 5, exhausted: false }]);
+  it('summarises today\'s free Gemini requests', async () => {
+    const GET = await loadRoute();
+    mockMember(owner);
+    mockUsageRows([{ model: 'gemini-3.8-flash', requests: 5, exhausted: false }]);
 
     const { quota } = await (await GET(url())).json();
 
-    expect(mocks.authorizeAssistant).toHaveBeenCalledWith(CLUB_ID);
     expect(quota.currentModel).toMatchObject({ model: 'gemini-3.8-flash', remaining: 15 });
-    expect(quota.requestsLeft).toBe(1095);
   });
 
-  it('returns no quota for Claude or when usage cannot be read', async () => {
-    mocks.load.mockResolvedValue(null);
-    expect(await (await GET(url())).json()).toEqual({ quota: null });
-
-    delete process.env.ASSISTANT_PROVIDER;
-    expect(await (await GET(url())).json()).toEqual({ quota: null });
+  it('returns no quota for Claude', async () => {
+    vi.stubEnv('ASSISTANT_PROVIDER', 'anthropic');
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    const GET = await loadRoute();
+    mockMember(owner);
+    expect(await (await GET(url())).json()).toMatchObject({ quota: null });
   });
 });

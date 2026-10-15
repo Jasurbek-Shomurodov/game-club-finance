@@ -1,9 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MockLanguageModelV4 } from 'ai/test';
+import { readEventStream, type AssistantEvent } from 'hoggish-assistant';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
-  stream: vi.fn(),
   load: vi.fn(),
+  model: null as unknown,
 }));
 
 vi.mock('@/lib/supabase/server', () => ({ createClient: mocks.createClient }));
@@ -11,28 +13,51 @@ vi.mock('@/lib/assistant/loaders', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/assistant/loaders')>()),
   createDatasetLoader: () => ({ load: mocks.load }),
 }));
-vi.mock('@anthropic-ai/sdk', () => {
-  class APIError extends Error {
-    status?: number;
-  }
-  class RateLimitError extends APIError {}
-  class InternalServerError extends APIError {}
-  class Anthropic {
-    static APIError = APIError;
-    static RateLimitError = RateLimitError;
-    static InternalServerError = InternalServerError;
-    beta = { messages: { stream: mocks.stream } };
-  }
-  return { default: Anthropic };
+// Real providers call the network; tests swap in a scripted model when one is set.
+vi.mock('hoggish-assistant/server', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('hoggish-assistant/server')>();
+  return {
+    ...actual,
+    providerFromEnv: (...args: Parameters<typeof actual.providerFromEnv>) => (mocks.model
+      ? actual.customProvider({ name: 'mock', models: [{ model: 'mock', languageModel: mocks.model as never }] })
+      : actual.providerFromEnv(...args)),
+  };
 });
 
 import { POST } from './route';
+import { assistantProvider } from '@/lib/assistant/handler';
 
 const CLUB_ID = '290c5c33-9dfa-464a-a072-ef5a231f5308';
+const usage = {
+  inputTokens: { total: 10, noCache: 10, cacheRead: undefined, cacheWrite: undefined },
+  outputTokens: { total: 5, text: 5, reasoning: undefined },
+};
+
+type Step = { text?: string; call?: { id: string; name: string; input: unknown } };
+
+/** A model that plays back one scripted step per call and records its prompts. */
+function scriptedModel(steps: Step[]) {
+  let index = 0;
+  return new MockLanguageModelV4({
+    modelId: 'mock',
+    doStream: async () => {
+      const step = steps[Math.min(index++, steps.length - 1)];
+      const chunks: unknown[] = [{ type: 'stream-start', warnings: [] }];
+      if (step.text) {
+        chunks.push({ type: 'text-start', id: 't' }, { type: 'text-delta', id: 't', delta: step.text }, { type: 'text-end', id: 't' });
+      }
+      if (step.call) {
+        chunks.push({ type: 'tool-call', toolCallId: step.call.id, toolName: step.call.name, input: JSON.stringify(step.call.input) });
+      }
+      const unified = step.call ? 'tool-calls' : 'stop';
+      chunks.push({ type: 'finish', finishReason: { unified, raw: unified }, usage });
+      return { stream: new ReadableStream({ start(controller) { chunks.forEach((chunk) => controller.enqueue(chunk as never)); controller.close(); } }) };
+    },
+  });
+}
 
 function request(body: unknown = {
-  clubId: CLUB_ID,
-  locale: 'en',
+  context: { clubId: CLUB_ID, locale: 'en' },
   messages: [{ role: 'user', content: 'How many products are low?' }],
 }) {
   return new Request('https://example.test/api/assistant', {
@@ -55,20 +80,13 @@ function mockSupabase(membership: unknown, user: unknown = { id: 'user-1' }) {
     from: vi.fn(() => query),
   };
   mocks.createClient.mockResolvedValue(supabase);
-  return supabase;
-}
-
-function modelTurn(message: { stop_reason: string; content: unknown[] }, text = '') {
-  return {
-    on: vi.fn((event: string, handler: (delta: string) => void) => {
-      if (event === 'text' && text) handler(text);
-    }),
-    finalMessage: vi.fn().mockResolvedValue(message),
-  };
+  return { supabase, query };
 }
 
 async function readEvents(response: Response) {
-  return (await response.text()).trim().split('\n').map((line) => JSON.parse(line));
+  const events: AssistantEvent[] = [];
+  for await (const event of readEventStream(response.body!)) events.push(event);
+  return events;
 }
 
 const owner = { role: 'owner', feature_access: null, clubs: { name: 'Pixel', business_day_start_hour: 6 } };
@@ -76,12 +94,10 @@ const owner = { role: 'owner', feature_access: null, clubs: { name: 'Pixel', bus
 describe('POST /api/assistant', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.ANTHROPIC_API_KEY = 'test-key';
-    delete process.env.ASSISTANT_PROVIDER;
-  });
-
-  afterEach(() => {
-    delete process.env.ANTHROPIC_API_KEY;
+    mocks.model = scriptedModel([{ text: 'Hello.' }]);
+    vi.stubEnv('ASSISTANT_PROVIDER', 'anthropic');
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    vi.stubEnv('GEMINI_API_KEY', '');
   });
 
   it('rejects anonymous requests', async () => {
@@ -89,10 +105,23 @@ describe('POST /api/assistant', () => {
     expect((await POST(request())).status).toBe(401);
   });
 
+  it('rejects a missing or malformed club context', async () => {
+    mockSupabase(owner);
+    expect((await POST(request({ messages: [{ role: 'user', content: 'hi' }] }))).status).toBe(400);
+    expect((await POST(request({ context: { clubId: 'nope', locale: 'en' }, messages: [{ role: 'user', content: 'hi' }] }))).status).toBe(400);
+  });
+
   it('rejects malformed chat history', async () => {
     mockSupabase(owner);
-    const response = await POST(request({ clubId: CLUB_ID, locale: 'en', messages: [{ role: 'assistant', content: 'hi' }] }));
+    const response = await POST(request({ context: { clubId: CLUB_ID, locale: 'en' }, messages: [{ role: 'assistant', content: 'hi' }] }));
     expect(response.status).toBe(400);
+  });
+
+  it('checks membership of the requested club for the signed-in user', async () => {
+    const { query } = mockSupabase(owner);
+    await readEvents(await POST(request()));
+    expect(query.eq).toHaveBeenCalledWith('club_id', CLUB_ID);
+    expect(query.eq).toHaveBeenCalledWith('user_id', 'user-1');
   });
 
   it('forbids members without the assistant feature', async () => {
@@ -108,72 +137,78 @@ describe('POST /api/assistant', () => {
     expect((await POST(request())).status).toBe(403);
   });
 
-  it('reports a missing API key without calling the model', async () => {
-    delete process.env.ANTHROPIC_API_KEY;
+  it('reports a missing API key without calling a model', async () => {
+    mocks.model = null;
+    vi.stubEnv('ANTHROPIC_API_KEY', '');
     mockSupabase(owner);
     const response = await POST(request());
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: 'NOT_CONFIGURED' });
-    expect(mocks.stream).not.toHaveBeenCalled();
   });
 
-  it('runs read-only tools and streams the answer', async () => {
+  it('runs read-only tools with the member\'s datasets and streams the answer', async () => {
     mockSupabase({ role: 'viewer', feature_access: ['inventory', 'assistant'], clubs: { name: 'Pixel' } });
     mocks.load.mockResolvedValue({
       table: { dataset: 'stock', columns: [{ key: 'product', type: 'text' }], rows: [{ product: 'Cola' }] },
     });
-    mocks.stream
-      .mockReturnValueOnce(modelTurn({
-        stop_reason: 'tool_use',
-        content: [{ type: 'tool_use', id: 'tool-1', name: 'get_data', input: { dataset: 'stock' } }],
-      }))
-      .mockReturnValueOnce(modelTurn({ stop_reason: 'end_turn', content: [{ type: 'text', text: 'Cola is low.' }] }, 'Cola is low.'));
+    const model = scriptedModel([
+      { call: { id: 'tool-1', name: 'get_data', input: { dataset: 'stock' } } },
+      { text: 'Cola is low.' },
+    ]);
+    mocks.model = model;
 
     const response = await POST(request());
     const events = await readEvents(response);
 
     expect(response.headers.get('content-type')).toContain('application/x-ndjson');
     expect(events).toEqual([
-      { type: 'tool', name: 'get_data' },
+      expect.objectContaining({ type: 'tool', name: 'get_data' }),
       { type: 'text', text: 'Cola is low.' },
       { type: 'done' },
     ]);
     expect(mocks.load).toHaveBeenCalledWith(expect.objectContaining({ dataset: 'stock' }));
 
-    const firstCall = mocks.stream.mock.calls[0][0];
+    const firstCall = model.doStreamCalls[0];
+    const getData = firstCall.tools?.find((tool) => tool.name === 'get_data') as unknown as { inputSchema: { properties: { dataset: { enum: string[] } } } };
     // Only the datasets this member may read are offered to the model.
-    expect(firstCall.tools[0].input_schema.properties.dataset.enum).toEqual(['stock']);
-    expect(firstCall.system[1].text).toContain('Selected club: Pixel.');
-
-    const secondCall = mocks.stream.mock.calls[1][0];
-    expect(secondCall.messages.at(-1)).toEqual({
-      role: 'user',
-      content: [expect.objectContaining({ type: 'tool_result', tool_use_id: 'tool-1' })],
-    });
+    expect(getData.inputSchema.properties.dataset.enum).toEqual(['stock']);
+    expect(JSON.stringify(firstCall.prompt)).toContain('Selected club: Pixel.');
   });
 
   it('refuses datasets outside the member access even if the model asks', async () => {
     mockSupabase({ role: 'viewer', feature_access: ['inventory', 'assistant'], clubs: null });
-    mocks.stream
-      .mockReturnValueOnce(modelTurn({
-        stop_reason: 'tool_use',
-        content: [{ type: 'tool_use', id: 'tool-1', name: 'get_data', input: { dataset: 'debts' } }],
-      }))
-      .mockReturnValueOnce(modelTurn({ stop_reason: 'end_turn', content: [] }));
+    const model = scriptedModel([
+      { call: { id: 'tool-1', name: 'get_data', input: { dataset: 'debts' } } },
+      { text: 'I cannot read debts.' },
+    ]);
+    mocks.model = model;
 
     await readEvents(await POST(request()));
 
     expect(mocks.load).not.toHaveBeenCalled();
-    const toolResult = mocks.stream.mock.calls[1][0].messages.at(-1).content[0];
-    expect(toolResult.is_error).toBe(true);
+    const toolResult = JSON.stringify(model.doStreamCalls[1].prompt.at(-1));
+    expect(toolResult).toMatch(/error/i);
+  });
+});
+
+describe('assistantProvider', () => {
+  beforeEach(() => {
+    mocks.model = null;
   });
 
-  it('streams a refusal as an error event', async () => {
-    mockSupabase(owner);
-    mocks.stream.mockReturnValueOnce(modelTurn({ stop_reason: 'refusal', content: [] }));
+  it('defaults to Claude, even when a Gemini key is present', () => {
+    expect(assistantProvider({ ANTHROPIC_API_KEY: 'key' }).name).toBe('anthropic');
+    expect(assistantProvider({ ANTHROPIC_API_KEY: 'key', GEMINI_API_KEY: 'key' }).name).toBe('anthropic');
+  });
 
-    const events = await readEvents(await POST(request()));
+  it('refuses the free Gemini tier unless the deployment opts in', () => {
+    const free = { ASSISTANT_PROVIDER: 'gemini', GEMINI_API_KEY: 'key' };
+    expect(() => assistantProvider(free)).toThrow();
+    expect(() => assistantProvider({ ...free, ASSISTANT_ALLOW_FREE_GEMINI: 'false' })).toThrow();
+    expect(assistantProvider({ ...free, ASSISTANT_ALLOW_FREE_GEMINI: 'true' }).models.length).toBeGreaterThan(1);
+  });
 
-    expect(events).toEqual([{ type: 'error', code: 'REFUSED' }, { type: 'done' }]);
+  it('accepts a single paid Gemini model without the opt-in', () => {
+    expect(assistantProvider({ ASSISTANT_PROVIDER: 'gemini', GEMINI_API_KEY: 'key', ASSISTANT_MODEL: 'gemini-3.8-flash' }).name).toBe('gemini');
   });
 });

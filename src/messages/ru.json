@@ -1291,6 +1291,7 @@
     "columns": {
       "metric": "Показатель",
       "value": "Значение",
+      "percentValue": "Значение, %",
       "unit": "Ед.",
       "date": "Дата",
       "month": "Месяц",
