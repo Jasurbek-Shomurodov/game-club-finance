@@ -785,7 +785,7 @@
     "description": "Moliya, amallar va hisobotlarga kirish huquqlarini boshqaring.",
     "refresh": "Yangilash",
     "members": "Jamoa a'zolari",
-    "searchPlaceholder": "A'zo yoki klubni qidiring...",
+    "searchPlaceholder": "A'zoni qidiring...",
     "noSearchResults": "Qidiruv bo'yicha a'zolar topilmadi.",
     "hideAccess": "Tafsilotlarni yopish",
     "addAccessHelp": "A'zoni boshqa klubga biriktiring.",
@@ -873,7 +873,7 @@
     "demoteOwnerAction": "Rolni o‘zgartirish",
     "invite": "Taklif qilish",
     "inviteTitle": "Jamoaga taklif qilish",
-    "inviteHelp": "Ushbu havolani yuboring. Google orqali kirgandan so‘ng odam shu yerda «Tasdiq kutmoqda» ro‘yxatida paydo bo‘ladi va siz unga klub va rol tanlaysiz.",
+    "inviteHelp": "Ushbu havolani yuboring. Google orqali kirgandan so‘ng odam shu yerda «Tasdiq kutmoqda» ro‘yxatida paydo bo‘ladi va siz unga tanlangan klubdagi rolini belgilaysiz.",
     "loginLink": "Kirish havolasi",
     "copyLink": "Nusxalash",
     "linkCopied": "Havola nusxalandi",
@@ -885,7 +885,14 @@
     "rejectDescription": "{name} hech qaysi klubga ruxsat olmaydi va so‘rov o‘chiriladi.",
     "rejected": "So‘rov rad etildi",
     "rejectError": "So‘rovni rad etib bo‘lmadi. Qayta urinib ko‘ring.",
-    "rejectHasAccess": "Bu odamda allaqachon klubga ruxsat bor, shuning uchun so‘rovni rad etib bo‘lmaydi."
+    "rejectHasAccess": "Bu odamda allaqachon klubga ruxsat bor, shuning uchun so‘rovni rad etib bo‘lmaydi.",
+    "otherClubMembers": "Boshqa klublaringizdan",
+    "otherClubMembersHelp": "Bu odamlar boshqa klublaringizga kira oladi, lekin {club} klubiga emas.",
+    "addToClub": "Qo'shish",
+    "role": "Rol",
+    "allRoles": "Hammasi",
+    "pagesOfTotal": "{total} tadan {count} ta bo‘lim",
+    "morePages": "yana {count} ta"
   },
   "approval": {
     "title": "Owner tasdig'i kutilmoqda",

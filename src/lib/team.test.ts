@@ -1,14 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
-  availableClubsForMember,
   buildTeamMembers,
   countPendingRequests,
   isPendingRequest,
   isProtectedOwner,
+  membersOfClub,
   removalBlock,
-  resolveAccessDraft,
   roleChangeBlock,
-  selectedMembershipFor,
   sortActiveMembers,
   type TeamProfileRow,
 } from './team';
@@ -106,16 +104,25 @@ describe('team access rules', () => {
     expect(isProtectedOwner(members, admin, admin.memberships[0], 'me')).toBe(false);
   });
 
-  it('resolves add-access drafts and the selected membership', () => {
-    const [member] = buildTeamMembers([profile('m')], [{ club_id: 'a', user_id: 'm', role: 'viewer' }], clubs);
-    expect(availableClubsForMember(member, clubs, new Set(['a', 'b'])).map((club) => club.id)).toEqual(['b']);
-    expect(availableClubsForMember(member, clubs, new Set(['a']))).toEqual([]);
+  it('lists one club\'s members by their role in that club', () => {
+    const members = buildTeamMembers(
+      [profile('zed'), profile('amy'), profile('other'), profile('boss')],
+      [
+        { club_id: 'a', user_id: 'zed', role: 'admin' },
+        { club_id: 'b', user_id: 'zed', role: 'viewer' },
+        { club_id: 'a', user_id: 'amy', role: 'admin' },
+        { club_id: 'b', user_id: 'other', role: 'owner' },
+        { club_id: 'b', user_id: 'boss', role: 'owner' },
+        { club_id: 'a', user_id: 'boss', role: 'viewer', feature_access: ['dashboard'] },
+      ],
+      clubs,
+    );
 
-    expect(resolveAccessDraft(undefined, ['a', 'b'], 'b')).toEqual({ clubId: 'b', role: 'viewer' });
-    expect(resolveAccessDraft({ clubId: 'a', role: 'admin' }, ['a', 'b'], 'b')).toEqual({ clubId: 'a', role: 'admin' });
-    expect(resolveAccessDraft({ clubId: 'gone' }, ['a'], 'b')).toEqual({ clubId: 'a', role: 'viewer' });
-    expect(resolveAccessDraft(undefined, [], 'b')).toEqual({ clubId: '', role: 'viewer' });
-
-    expect(selectedMembershipFor(member, 'missing', 'a')?.clubId).toBe('a');
+    const inA = membersOfClub(members, 'a');
+    expect(inA.map(({ member }) => member.id)).toEqual(['amy', 'zed', 'boss']);
+    expect(inA.map(({ membership }) => membership.clubId)).toEqual(['a', 'a', 'a']);
+    expect(membersOfClub(members, 'b').map(({ member, membership }) => [member.id, membership.role]))
+      .toEqual([['boss', 'owner'], ['other', 'owner'], ['zed', 'viewer']]);
+    expect(membersOfClub(members, 'missing')).toEqual([]);
   });
 });

@@ -1,8 +1,7 @@
 'use client';
 
-import type { ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
-import { Building2, Lock, Trash2, UserPlus, X } from 'lucide-react';
+import { Building2, Lock, Trash2, X } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -26,12 +25,7 @@ interface MemberAccessPanelProps {
   saving: boolean;
   savingFeatures: boolean;
   featureAccessAvailable: boolean;
-  hasAvailableClubs: boolean;
-  addAccessExpanded: boolean;
-  addAccessControls: ReactNode;
-  onSelectClub: (clubId: string) => void;
   onRoleChange: (role: UserRole) => void;
-  onToggleAddAccess: () => void;
   onFeatureChange: (featureKey: FeatureKey, enabled: boolean) => void;
   onRemove: () => void;
   onClose: () => void;
@@ -47,12 +41,7 @@ export function MemberAccessPanel({
   saving,
   savingFeatures,
   featureAccessAvailable,
-  hasAvailableClubs,
-  addAccessExpanded,
-  addAccessControls,
-  onSelectClub,
   onRoleChange,
-  onToggleAddAccess,
   onFeatureChange,
   onRemove,
   onClose,
@@ -70,18 +59,7 @@ export function MemberAccessPanel({
         description={canManage ? t('autoSave') : t('notClubOwner')}
         action={<IconButton variant="ghost" size="sm" label={t('hideAccess')} icon={<X size={17} />} onClick={onClose} />}
       />
-      <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
-        <Field label={t('gameClubs')} htmlFor={`member-club-${member.id}`}>
-          <Select
-            id={`member-club-${member.id}`}
-            className="font-medium"
-            value={membership.clubId}
-            disabled={saving}
-            onChange={(event) => onSelectClub(event.target.value)}
-          >
-            {member.memberships.map((item) => <option key={item.clubId} value={item.clubId}>{item.clubName}</option>)}
-          </Select>
-        </Field>
+      <div className="mb-5 max-w-sm">
         <Field
           label={t('memberRole')}
           htmlFor={`member-role-${member.id}`}
@@ -97,25 +75,7 @@ export function MemberAccessPanel({
             {TEAM_ROLES.map((role) => <option key={role} value={role}>{t(`roles.${role}`)}</option>)}
           </Select>
         </Field>
-        {hasAvailableClubs && (
-          <Button
-            variant="outline"
-            disabled={saving}
-            onClick={onToggleAddAccess}
-            aria-expanded={addAccessExpanded}
-            aria-controls={`add-access-${member.id}`}
-            icon={<UserPlus size={16} aria-hidden="true" />}
-          >
-            {t('addAccess')}
-          </Button>
-        )}
       </div>
-      {addAccessExpanded && (
-        <div id={`add-access-${member.id}`} className="mb-5 rounded-xl border border-gray-200 bg-surface p-4">
-          <p className="mb-3 text-sm font-medium text-gray-800">{t('addAccessHelp')}</p>
-          {addAccessControls}
-        </div>
-      )}
       {featureAccessAvailable && (
         <div className="border-t border-gray-200/70 pt-5">
           <SectionHeading

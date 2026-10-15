@@ -29,9 +29,10 @@ export interface TeamMembershipRow {
   feature_access?: string[] | null;
 }
 
-export interface AccessDraft {
-  clubId: string;
-  role: UserRole;
+/** A member together with their membership in one club. */
+export interface ClubMember {
+  member: TeamMember;
+  membership: TeamMembership;
 }
 
 export function normalizeTeamRole(role: string | null | undefined): UserRole {
@@ -166,39 +167,21 @@ export function isProtectedOwner(members: ReadonlyArray<TeamMember>, member: Tea
     && (member.id === currentUserId || ownerCountForClub(members, membership.clubId) <= 1);
 }
 
-/** Managed clubs the member does not have access to yet. */
-export function availableClubsForMember<T extends Pick<Club, 'id'>>(
-  member: TeamMember,
-  managedClubs: ReadonlyArray<T>,
-  ownedClubIds: ReadonlySet<string>,
-): T[] {
-  const assignedClubIds = new Set(member.memberships.map((membership) => membership.clubId));
-  return managedClubs.filter((club) => ownedClubIds.has(club.id) && !assignedClubIds.has(club.id));
-}
+/** Members with access to one club, highest role in that club first, then most pages, then name. */
+export function membersOfClub(members: ReadonlyArray<TeamMember>, clubId: string): ClubMember[] {
+  const roleRank: Record<UserRole, number> = { owner: 2, admin: 1, viewer: 0 };
+  const clubMembers: ClubMember[] = [];
+  for (const member of members) {
+    const membership = member.memberships.find((item) => item.clubId === clubId);
+    if (membership) clubMembers.push({ member, membership });
+  }
+  const pageCount = ({ membership }: ClubMember) =>
+    featureAccessForMembership(membership.role, membership.featureAccess).length;
 
-/** The draft's club when still available, else the selected club, else the first available one. */
-export function resolveAccessDraft(
-  draft: Partial<AccessDraft> | undefined,
-  availableClubIds: ReadonlyArray<string>,
-  selectedClubId: string,
-): AccessDraft {
-  const clubId =
-    (draft?.clubId && availableClubIds.includes(draft.clubId) ? draft.clubId : '')
-    || availableClubIds.find((clubId) => clubId === selectedClubId)
-    || availableClubIds[0]
-    || '';
-  return { clubId, role: draft?.role ?? 'viewer' };
-}
-
-/** The member's membership shown in the access panel. */
-export function selectedMembershipFor(
-  member: TeamMember,
-  preferredClubId: string | undefined,
-  selectedClubId: string,
-): TeamMembership | undefined {
-  return member.memberships.find((membership) => membership.clubId === preferredClubId)
-    ?? member.memberships.find((membership) => membership.clubId === selectedClubId)
-    ?? member.memberships[0];
+  return clubMembers.sort((a, b) =>
+    roleRank[b.membership.role] - roleRank[a.membership.role]
+    || pageCount(b) - pageCount(a)
+    || a.member.full_name.localeCompare(b.member.full_name));
 }
 
 /**

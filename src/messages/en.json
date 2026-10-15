@@ -785,7 +785,7 @@
     "description": "Manage who can access finance, operations, and reports.",
     "refresh": "Refresh",
     "members": "Team members",
-    "searchPlaceholder": "Search members or clubs...",
+    "searchPlaceholder": "Search members...",
     "noSearchResults": "No members match your search.",
     "hideAccess": "Hide details",
     "addAccessHelp": "Assign this member to another club.",
@@ -873,7 +873,7 @@
     "demoteOwnerAction": "Change role",
     "invite": "Invite",
     "inviteTitle": "Invite a team member",
-    "inviteHelp": "Send this link. After the person signs in with Google, they will appear here under “Waiting for approval” and you can choose their club and role.",
+    "inviteHelp": "Send this link. After the person signs in with Google, they will appear here under “Waiting for approval” and you can choose their role in the selected club.",
     "loginLink": "Sign-in link",
     "copyLink": "Copy",
     "linkCopied": "Link copied",
@@ -885,7 +885,14 @@
     "rejectDescription": "{name} will not get access to any club and the request will be removed.",
     "rejected": "Request rejected",
     "rejectError": "Could not reject the request. Try again.",
-    "rejectHasAccess": "This person already has access to a club, so the request cannot be rejected."
+    "rejectHasAccess": "This person already has access to a club, so the request cannot be rejected.",
+    "otherClubMembers": "From your other clubs",
+    "otherClubMembersHelp": "These people have access to your other clubs but not to {club}.",
+    "addToClub": "Add",
+    "role": "Role",
+    "allRoles": "All",
+    "pagesOfTotal": "{count} of {total} pages",
+    "morePages": "+{count} more"
   },
   "approval": {
     "title": "Waiting for owner approval",

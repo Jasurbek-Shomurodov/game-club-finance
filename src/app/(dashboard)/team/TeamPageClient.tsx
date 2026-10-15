@@ -19,6 +19,7 @@ import {
   PageHeader,
   SearchInput,
   SectionHeading,
+  SegmentedControl,
   TableSkeleton,
   useConfirm,
   useToast,
@@ -42,15 +43,13 @@ import {
   type FeatureKey,
 } from '@/lib/permissions';
 import {
-  availableClubsForMember,
   isPendingRequest,
+  TEAM_ROLES,
   isProtectedOwner,
+  membersOfClub,
   removalBlock,
-  resolveAccessDraft,
   roleChangeBlock,
-  selectedMembershipFor,
   sortActiveMembers,
-  type AccessDraft,
   type TeamMember,
   type TeamMembership,
 } from '@/lib/team';
@@ -58,6 +57,9 @@ import { AddAccessControls } from './AddAccessControls';
 import { MemberAccessPanel } from './MemberAccessPanel';
 import { PendingRequestCard } from './PendingRequestCard';
 import { useTeamMembers } from './useTeamMembers';
+
+// Member, role, page access, manage: one column set shared by the header and rows.
+const MEMBER_GRID = 'grid items-center gap-x-4 px-5 lg:grid-cols-[minmax(0,1.3fr)_110px_minmax(0,1.5fr)_auto]';
 
 // One accent for the highest role; the rest stay quiet.
 const ROLE_BADGE_VARIANT: Record<UserRole, BadgeVariant> = {
@@ -73,6 +75,7 @@ export default function TeamPageClient() {
   const {
     account,
     selectedClubId,
+    selectedClub,
     role: currentClubRole,
     loading: clubLoading,
     memberships: currentMemberships,
@@ -81,12 +84,11 @@ export default function TeamPageClient() {
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
   const currentUserId = account.userId;
-  const [accessDrafts, setAccessDrafts] = useState<Record<string, AccessDraft>>({});
+  const [accessRoles, setAccessRoles] = useState<Record<string, UserRole>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
-  const [expandedAddAccessId, setExpandedAddAccessId] = useState<string | null>(null);
-  const [membershipSelection, setMembershipSelection] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
   const [inviteOpen, setInviteOpen] = useState(false);
   const [loginUrl, setLoginUrl] = useState('');
 
@@ -125,41 +127,29 @@ export default function TeamPageClient() {
   }
 
   const pendingProfiles = useMemo(() => profiles.filter(isPendingRequest), [profiles]);
-  const activeProfiles = useMemo(() => sortActiveMembers(profiles), [profiles]);
+  // The club is chosen in the sidebar switcher; this page only shows and
+  // manages access to that one club.
+  const clubMembers = useMemo(() => membersOfClub(profiles, selectedClubId), [profiles, selectedClubId]);
+  // Teammates from the owner's other clubs who can be added to this one.
+  const otherClubProfiles = useMemo(
+    () => sortActiveMembers(profiles).filter((profile) => !profile.memberships.some((membership) => membership.clubId === selectedClubId)),
+    [profiles, selectedClubId],
+  );
 
-  const filteredActiveProfiles = useMemo(() => {
+  const matchesSearch = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase(locale);
-    if (!query) return activeProfiles;
-
-    return activeProfiles.filter((profile) =>
-      profile.full_name.toLocaleLowerCase(locale).includes(query)
-      || profile.email?.toLocaleLowerCase(locale).includes(query)
-      || profile.memberships.some((membership) => membership.clubName.toLocaleLowerCase(locale).includes(query)),
-    );
-  }, [activeProfiles, locale, searchQuery]);
-
-  function availableClubsForProfile(profile: TeamMember) {
-    return availableClubsForMember(profile, managedClubs, ownedClubIds);
-  }
-
-  function draftForProfile(profile: TeamMember) {
-    return resolveAccessDraft(
-      accessDrafts[profile.id],
-      availableClubsForProfile(profile).map((club) => club.id),
-      selectedClubId,
-    );
-  }
-
-  function updateAccessDraft(profileId: string, patch: Partial<AccessDraft>) {
-    setAccessDrafts((current) => ({
-      ...current,
-      [profileId]: {
-        clubId: current[profileId]?.clubId ?? '',
-        role: current[profileId]?.role ?? 'viewer',
-        ...patch,
-      },
-    }));
-  }
+    return (profile: TeamMember) => !query
+      || profile.full_name.toLocaleLowerCase(locale).includes(query)
+      || Boolean(profile.email?.toLocaleLowerCase(locale).includes(query));
+  }, [locale, searchQuery]);
+  const roleCounts = useMemo(() => {
+    const counts: Record<UserRole, number> = { owner: 0, admin: 0, viewer: 0 };
+    for (const { membership } of clubMembers) counts[membership.role] += 1;
+    return counts;
+  }, [clubMembers]);
+  const filteredClubMembers = clubMembers.filter(({ member, membership }) =>
+    (roleFilter === 'all' || membership.role === roleFilter) && matchesSearch(member));
+  const filteredOtherClubProfiles = otherClubProfiles.filter(matchesSearch);
 
   function isSavingProfile(profileId: string) {
     return savingId?.startsWith(`${profileId}:`) ?? false;
@@ -174,27 +164,27 @@ export default function TeamPageClient() {
   }
 
   async function addClubAccess(profile: TeamMember) {
-    const draft = draftForProfile(profile);
+    const clubId = selectedClubId;
+    const role = accessRoles[profile.id] ?? 'viewer';
 
-    if (!draft.clubId || !ownedClubIds.has(draft.clubId)) {
+    if (!clubId || !ownedClubIds.has(clubId)) {
       showError(t('selectClubFirst'));
       return;
     }
 
-    if (draft.role === 'owner') {
-      const clubName = managedClubs.find((club) => club.id === draft.clubId)?.name ?? '';
+    if (role === 'owner') {
       const confirmed = await confirm({
         title: t('promoteOwnerTitle'),
-        description: t('promoteOwnerConfirm', { name: profile.full_name, club: clubName }),
+        description: t('promoteOwnerConfirm', { name: profile.full_name, club: selectedClub?.name ?? '' }),
         confirmLabel: t('promoteOwnerAction'),
         tone: 'primary',
       });
       if (!confirmed) return;
     }
 
-    setSavingId(`${profile.id}:${draft.clubId}:add`);
+    setSavingId(`${profile.id}:${clubId}:add`);
     try {
-      if (!await team.addAccess(profile.id, draft.clubId, draft.role)) {
+      if (!await team.addAccess(profile.id, clubId, role)) {
         showError(t('saveError'));
         return;
       }
@@ -324,26 +314,54 @@ export default function TeamPageClient() {
   function renderAccessControls(profile: TeamMember, buttonLabel: string, buttonVariant: ButtonVariant = 'primary') {
     return (
       <AddAccessControls
-        availableClubs={availableClubsForProfile(profile)}
-        draft={draftForProfile(profile)}
+        role={accessRoles[profile.id] ?? 'viewer'}
         saving={isSavingProfile(profile.id)}
-        ownsAnyClub={managedClubs.length > 0}
         buttonLabel={buttonLabel}
         buttonVariant={buttonVariant}
-        onDraftChange={(patch) => updateAccessDraft(profile.id, patch)}
+        onRoleChange={(role) => setAccessRoles((current) => ({ ...current, [profile.id]: role }))}
         onSubmit={() => void addClubAccess(profile)}
       />
     );
   }
 
-  /** "Касса, Склад, Долги" — or "Всё" for owners. */
-  function pageAccessSummary(membership: TeamMembership) {
-    if (membership.role === 'owner') return t('everything');
+  /** Pages a member can open in this club, out of the pages a non-owner can be given. */
+  function pageAccessFor(membership: TeamMembership) {
+    const grantable = FEATURE_DEFINITIONS.filter((feature) => !('ownerOnly' in feature && feature.ownerOnly));
+    if (membership.role === 'owner') return { all: true, count: grantable.length, total: grantable.length, labels: [] as string[] };
     const access = featureAccessForMembership(membership.role, membership.featureAccess);
-    return FEATURE_DEFINITIONS
-      .filter((feature) => !('ownerOnly' in feature && feature.ownerOnly) && access.includes(feature.key))
-      .map((feature) => t(`features.${feature.labelKey}`))
-      .join(', ');
+    const labels = grantable
+      .filter((feature) => access.includes(feature.key))
+      .map((feature) => t(`features.${feature.labelKey}`));
+    return { all: labels.length === grantable.length, count: labels.length, total: grantable.length, labels };
+  }
+
+  function renderPageAccess(membership: TeamMembership) {
+    const access = pageAccessFor(membership);
+    const percent = access.total ? Math.round((access.count / access.total) * 100) : 0;
+    const shown = access.labels.slice(0, 3);
+    const hidden = access.labels.length - shown.length;
+
+    return (
+      <div className="min-w-0" title={access.labels.join(', ') || undefined}>
+        <div className="flex items-center gap-2.5">
+          <div className="h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
+            <div
+              className={cn('h-full rounded-full', access.all ? 'bg-primary-500' : 'bg-gray-400')}
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+          <span className="text-xs font-medium tabular-nums text-gray-700">
+            {membership.role === 'owner' ? t('everything') : t('pagesOfTotal', { count: access.count, total: access.total })}
+          </span>
+        </div>
+        {shown.length > 0 && !access.all && (
+          <p className="mt-1 truncate text-xs text-gray-500">
+            {shown.join(' · ')}
+            {hidden > 0 && <span className="text-gray-400"> · {t('morePages', { count: hidden })}</span>}
+          </p>
+        )}
+      </div>
+    );
   }
 
   if (!clubLoading && currentClubRole !== 'owner') {
@@ -398,124 +416,165 @@ export default function TeamPageClient() {
             </section>
           )}
 
-          {activeProfiles.length === 0 ? (
+          {clubMembers.length === 0 ? (
             <Card><EmptyState icon={Users} title={tc('noData')} /></Card>
           ) : (
             <Card as="section" padding="none" className="overflow-hidden">
-              <CardHeader>
+              <CardHeader className="space-y-4">
                 <SectionHeading
                   title={t('members')}
-                  badge={<Badge variant="neutral">{activeProfiles.length}</Badge>}
-                  action={(
-                    <SearchInput
-                      className="w-full sm:w-72"
-                      value={searchQuery}
-                      onChange={setSearchQuery}
-                      placeholder={t('searchPlaceholder')}
-                      clearLabel={t('clearSearch')}
-                    />
-                  )}
+                  badge={<Badge variant="neutral">{clubMembers.length}</Badge>}
                 />
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <SegmentedControl
+                    variant="chips"
+                    size="sm"
+                    label={t('role')}
+                    value={roleFilter}
+                    onChange={setRoleFilter}
+                    options={[
+                      { value: 'all', label: `${t('allRoles')} · ${clubMembers.length}` },
+                      ...TEAM_ROLES
+                        .filter((role) => roleCounts[role] > 0)
+                        .map((role) => ({ value: role, label: `${t(`roles.${role}`)} · ${roleCounts[role]}` })),
+                    ]}
+                  />
+                  <SearchInput
+                    className="w-full sm:w-72"
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    placeholder={t('searchPlaceholder')}
+                    clearLabel={t('clearSearch')}
+                  />
+                </div>
               </CardHeader>
 
-              {filteredActiveProfiles.length === 0 ? (
+              {filteredClubMembers.length === 0 ? (
                 <EmptyState
                   compact
                   icon={Users}
                   title={t('noSearchResults')}
-                  action={<Button variant="ghost" size="sm" onClick={() => setSearchQuery('')}>{t('clearSearch')}</Button>}
+                  action={(
+                    <Button variant="ghost" size="sm" onClick={() => { setSearchQuery(''); setRoleFilter('all'); }}>
+                      {t('clearSearch')}
+                    </Button>
+                  )}
                 />
               ) : (
-                <div className="divide-y divide-gray-100">
-                  {filteredActiveProfiles.map((profile) => {
-                    const membership = selectedMembershipFor(profile, membershipSelection[profile.id], selectedClubId);
-                    if (!membership) return null;
-                    const expanded = expandedMemberId === profile.id;
-                    const addAccessExpanded = expandedAddAccessId === profile.id;
-                    const saving = isSavingProfile(profile.id);
+                <>
+                  <div className={cn(MEMBER_GRID, 'hidden border-b border-gray-100 bg-gray-50/60 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400 lg:grid')}>
+                    <span>{t('member')}</span>
+                    <span>{t('role')}</span>
+                    <span>{t('pageAccess')}</span>
+                    <span className="sr-only">{t('manageAccess')}</span>
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {filteredClubMembers.map(({ member: profile, membership }) => {
+                      const expanded = expandedMemberId === profile.id;
+                      const saving = isSavingProfile(profile.id);
 
-                    return (
-                      <article key={profile.id}>
-                        <div className={cn(
-                          'grid items-center gap-3 px-5 py-4 transition-colors sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_auto] lg:gap-5',
-                          !expanded && 'hover:bg-gray-50/60',
-                        )}>
-                          <div className="flex min-w-0 items-center gap-3">
-                            <Avatar name={profile.full_name} tone={membership.role === 'viewer' ? 'neutral' : 'primary'} />
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="break-words text-sm font-semibold text-gray-950">{profile.full_name}</h3>
-                                {profile.id === currentUserId && <Badge variant="outline" size="sm">{t('you')}</Badge>}
+                      return (
+                        <article key={profile.id} className={cn(expanded && 'bg-gray-50/40')}>
+                          <div className={cn(MEMBER_GRID, 'grid-cols-[minmax(0,1fr)_auto] gap-y-3 py-3.5 transition-colors', !expanded && 'hover:bg-gray-50/60')}>
+                            <div className="flex min-w-0 items-center gap-3">
+                              <Avatar name={profile.full_name} tone={membership.role === 'viewer' ? 'neutral' : 'primary'} />
+                              <div className="min-w-0">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <h3 className="truncate text-sm font-semibold text-gray-950" title={profile.full_name}>{profile.full_name}</h3>
+                                  {profile.id === currentUserId && <Badge variant="outline" size="sm">{t('you')}</Badge>}
+                                </div>
+                                {profile.email && profile.email !== profile.full_name && (
+                                  <p className="mt-0.5 truncate text-xs text-gray-500" title={profile.email}>{profile.email}</p>
+                                )}
                               </div>
-                              {profile.email && <p className="mt-0.5 truncate text-xs text-gray-500" title={profile.email}>{profile.email}</p>}
                             </div>
-                          </div>
 
-                          <div className="min-w-0 sm:order-3 sm:col-span-2 lg:order-none lg:col-span-1">
-                            <div className="flex flex-wrap items-center gap-1.5">
+                            <div className="order-3 col-span-2 flex items-center gap-3 pl-12 lg:order-none lg:col-span-1 lg:pl-0">
                               <Badge size="sm" variant={ROLE_BADGE_VARIANT[membership.role]}>
                                 {t(`roles.${membership.role}`)}
                               </Badge>
-                              {profile.memberships.map((item) => (
-                                <Badge key={item.clubId} size="sm" variant="outline" icon={<Building2 size={12} aria-hidden="true" />}>
-                                  {item.clubName}
-                                </Badge>
-                              ))}
+                              {team.featureAccessAvailable && <div className="min-w-0 flex-1 lg:hidden">{renderPageAccess(membership)}</div>}
                             </div>
-                            {team.featureAccessAvailable && (
-                              <p className="mt-1.5 line-clamp-2 text-xs text-gray-500" title={pageAccessSummary(membership)}>
-                                {pageAccessSummary(membership)}
-                              </p>
-                            )}
+
+                            <div className="hidden min-w-0 lg:block">
+                              {team.featureAccessAvailable && renderPageAccess(membership)}
+                            </div>
+
+                            <Button
+                              variant={expanded ? 'outline' : 'ghost'}
+                              size="sm"
+                              className="justify-self-end"
+                              onClick={() => setExpandedMemberId(expanded ? null : profile.id)}
+                              aria-label={t('manageMember', { name: profile.full_name })}
+                              aria-expanded={expanded}
+                              aria-controls={`member-access-${profile.id}`}
+                              icon={<Settings2 size={15} aria-hidden="true" />}
+                              iconRight={<ChevronDown size={14} className={cn('shrink-0 transition-transform', expanded && 'rotate-180')} aria-hidden="true" />}
+                            >
+                              <span className="hidden sm:inline">{t('manageAccess')}</span>
+                            </Button>
                           </div>
 
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="sm:order-2 lg:order-none"
-                            onClick={() => {
-                              setExpandedMemberId(expanded ? null : profile.id);
-                              setExpandedAddAccessId(null);
-                            }}
-                            aria-label={t('manageMember', { name: profile.full_name })}
-                            aria-expanded={expanded}
-                            aria-controls={`member-access-${profile.id}`}
-                            icon={<Settings2 size={15} aria-hidden="true" />}
-                            iconRight={<ChevronDown size={14} className={cn('shrink-0 transition-transform', expanded && 'rotate-180')} aria-hidden="true" />}
-                          >
-                            {t('manageAccess')}
-                          </Button>
-                        </div>
-
-                        {expanded && (
-                          <MemberAccessPanel
-                            member={profile}
-                            membership={membership}
-                            isCurrentUser={profile.id === currentUserId}
-                            canManage={ownedClubIds.has(membership.clubId)}
-                            protectedOwner={isProtectedOwner(profiles, profile, membership, currentUserId)}
-                            saving={saving}
-                            savingFeatures={savingId === `${profile.id}:${membership.clubId}:features`}
-                            featureAccessAvailable={team.featureAccessAvailable}
-                            hasAvailableClubs={availableClubsForProfile(profile).length > 0}
-                            addAccessExpanded={addAccessExpanded}
-                            addAccessControls={renderAccessControls(profile, t('addAccess'))}
-                            onSelectClub={(clubId) => {
-                              setMembershipSelection((current) => ({ ...current, [profile.id]: clubId }));
-                              setExpandedAddAccessId(null);
-                            }}
-                            onRoleChange={(role) => void updateMembershipRole(profile, membership, role)}
-                            onToggleAddAccess={() => setExpandedAddAccessId(addAccessExpanded ? null : profile.id)}
-                            onFeatureChange={(featureKey, enabled) => void updateMembershipFeatureAccess(profile, membership, featureKey, enabled)}
-                            onRemove={() => void removeClubAccess(profile, membership)}
-                            onClose={() => setExpandedMemberId(null)}
-                          />
-                        )}
-                      </article>
-                    );
-                  })}
-                </div>
+                          {expanded && (
+                            <MemberAccessPanel
+                              member={profile}
+                              membership={membership}
+                              isCurrentUser={profile.id === currentUserId}
+                              canManage={ownedClubIds.has(membership.clubId)}
+                              protectedOwner={isProtectedOwner(profiles, profile, membership, currentUserId)}
+                              saving={saving}
+                              savingFeatures={savingId === `${profile.id}:${membership.clubId}:features`}
+                              featureAccessAvailable={team.featureAccessAvailable}
+                              onRoleChange={(role) => void updateMembershipRole(profile, membership, role)}
+                              onFeatureChange={(featureKey, enabled) => void updateMembershipFeatureAccess(profile, membership, featureKey, enabled)}
+                              onRemove={() => void removeClubAccess(profile, membership)}
+                              onClose={() => setExpandedMemberId(null)}
+                            />
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                </>
               )}
+            </Card>
+          )}
+
+          {filteredOtherClubProfiles.length > 0 && (
+            <Card as="section" padding="none" className="overflow-hidden">
+              <CardHeader>
+                <SectionHeading
+                  title={t('otherClubMembers')}
+                  description={t('otherClubMembersHelp', { club: selectedClub?.name ?? '' })}
+                  badge={<Badge variant="neutral">{filteredOtherClubProfiles.length}</Badge>}
+                />
+              </CardHeader>
+              <div className="divide-y divide-gray-100">
+                {filteredOtherClubProfiles.map((profile) => (
+                  <article
+                    key={profile.id}
+                    className="grid items-center gap-3 px-5 py-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:gap-5"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Avatar name={profile.full_name} tone="neutral" />
+                      <div className="min-w-0">
+                        <h3 className="break-words text-sm font-semibold text-gray-950">{profile.full_name}</h3>
+                        {profile.email && <p className="mt-0.5 truncate text-xs text-gray-500" title={profile.email}>{profile.email}</p>}
+                      </div>
+                    </div>
+                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                      {profile.memberships.map((item) => (
+                        <Badge key={item.clubId} size="sm" variant="outline" icon={<Building2 size={12} aria-hidden="true" />}>
+                          {item.clubName}
+                        </Badge>
+                      ))}
+                    </div>
+                    <div className="min-w-0 lg:w-[280px]">
+                      {renderAccessControls(profile, t('addToClub'), 'outline')}
+                    </div>
+                  </article>
+                ))}
+              </div>
             </Card>
           )}
         </div>
