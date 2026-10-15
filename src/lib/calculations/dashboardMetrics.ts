@@ -349,6 +349,11 @@ export function sumGameClubRows(rows: DailyCashRow[]): Pick<
   };
 }
 
+/** An expense paid from bar money; anything else (including no source) is game-club money. */
+export function isBarPaidExpense(row: Pick<ExpenseRow, 'payment_source'>): boolean {
+  return row.payment_source === 'bar';
+}
+
 export function gameClubExpensePaymentBucket(method: string | null | undefined): 'cash' | 'terminal' | 'card' {
   if (method === 'cash') return 'cash';
   if (method === 'terminal') return 'terminal';
@@ -363,7 +368,7 @@ export function calculateGameClubMoneyLeftByPaymentMethod(
   const gameClub = sumGameClubRows(cashRows);
   const expensesByPayment = expenseRows.reduce(
     (acc, row) => {
-      if (row.payment_source === 'bar') return acc;
+      if (isBarPaidExpense(row)) return acc;
 
       const bucket = gameClubExpensePaymentBucket(row.payment_method);
       acc[bucket] += Number(row.amount ?? 0);
@@ -409,7 +414,7 @@ export function calculateDashboardTotals(
   const barCost = stockRows.reduce((sum, row) => sum + Number(row.bar_cost ?? 0), 0);
   const totalExpenses = expenseRows.reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
   const barExpenses = expenseRows.reduce(
-    (sum, row) => (row.payment_source === 'bar' ? sum + Number(row.amount ?? 0) : sum),
+    (sum, row) => (isBarPaidExpense(row) ? sum + Number(row.amount ?? 0) : sum),
     0,
   );
   const gameClubExpenses = totalExpenses - barExpenses;

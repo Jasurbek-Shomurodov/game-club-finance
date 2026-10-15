@@ -25,35 +25,9 @@ import { formatDateShort, formatNumber } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useClubQuery } from '@/lib/useClubQuery';
+import type { MoneyDetailCollectedKey, MoneyDetailLine, MoneyDetailRow } from '@/lib/calculations/moneyDetails';
 
-/** Collected-money buckets; translated at render time so language changes never refetch. */
-export type MoneyDetailCollectedKey = 'barSales' | 'cash' | 'terminal' | 'card' | 'playstation' | 'debtPayments';
-
-export type MoneyDetailLine =
-  | {
-      kind: 'purchase';
-      /** Product name, or the purchase comment when the product is gone. */
-      name: string | null;
-      quantity: number;
-      amount: number;
-    }
-  | {
-      kind: 'expense';
-      /** Stored expense category: a known category key or custom text. */
-      category: string;
-      comment: string | null;
-      amount: number;
-    };
-
-export interface MoneyDetailRow {
-  date: string;
-  /** Positive contributions, shown on the left. */
-  collected: Array<{ key: MoneyDetailCollectedKey; amount: number }>;
-  collectedTotal: number;
-  deductions: MoneyDetailLine[];
-  deductionsTotal: number;
-  moneyLeft: number;
-}
+export type { MoneyDetailCollectedKey, MoneyDetailLine, MoneyDetailRow } from '@/lib/calculations/moneyDetails';
 
 export interface MoneyDetailsPageProps {
   variant: 'bar' | 'gameClub';
