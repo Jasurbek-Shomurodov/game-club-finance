@@ -40,6 +40,7 @@ import {
   type ProductWriteForm,
 } from '@/lib/productWrites';
 import { LOW_STOCK_DEFAULT, resolveLowStockThreshold, stockLevel } from '@/lib/calculations/stock';
+import { groupByCategory } from '@/lib/productSections';
 import { cn } from '@/lib/utils';
 import { AlertTriangle, ArrowDown, ArrowUp, Check, ListOrdered, Lock, Package, Pencil, Plus, RefreshCcw, Trash2 } from 'lucide-react';
 import type { Product } from '@/types';
@@ -148,6 +149,13 @@ export default function ProductsPage() {
       return stockFilter === 'out' ? level === 'out' : level === 'low';
     });
   }, [products, selectedCategory, search, stockFilter, reordering]);
+  // With every category in view, the catalog reads as one section per category.
+  const showSections = !reordering && !selectedCategory && categoryOptions.length > 0;
+  const productSections = useMemo(
+    () => (showSections ? groupByCategory(filteredProducts, (product) => product.category) : undefined),
+    [showSections, filteredProducts],
+  );
+
   useEffect(() => {
     if (!selectedCategory) return;
     const categoryExists = products.some((product) => productCategory(product.category) === selectedCategory);
@@ -434,7 +442,19 @@ export default function ProductsPage() {
               label={t('catalog')}
               keyExtractor={(r) => r.id}
               data={filteredProducts}
+              groups={productSections?.map((section) => ({
+                key: section.category || '__uncategorized',
+                rows: section.items,
+                header: (
+                  <span className="flex items-center gap-2">
+                    {section.category || tc('uncategorized')}
+                    <span className="font-normal text-gray-500">{tc('productCount', { count: section.items.length })}</span>
+                  </span>
+                ),
+              }))}
               stickyHeader
+              onRowClick={canManageInventory && !reordering ? openEdit : undefined}
+              rowClassName={(r) => (r.is_deleted ? 'cursor-default' : undefined)}
               minWidth={reordering ? 760 : 640}
               emptyState={(
                 <EmptyState
@@ -486,7 +506,7 @@ export default function ProductsPage() {
                     );
                   },
                 }] : []),
-                ...(!selectedCategory || reordering ? [{
+                ...(reordering || (!selectedCategory && !showSections) ? [{
                   key: 'category',
                   header: t('category'),
                   className: 'hidden lg:table-cell',
@@ -543,7 +563,7 @@ export default function ProductsPage() {
                       icon={<Pencil size={15} aria-hidden="true" />}
                       disabled={Boolean(r.is_deleted)}
                       title={r.is_deleted ? t('inactiveEditBlocked') : `${tc('edit')}: ${r.name}`}
-                      onClick={() => openEdit(r)}
+                      onClick={(event) => { event.stopPropagation(); openEdit(r); }}
                     />
                   ),
                 }] : []),

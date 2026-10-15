@@ -1034,6 +1034,8 @@
     }
   },
   "common": {
+    "uncategorized": "Без категории",
+    "productCount": "{count, plural, one {# товар} few {# товара} many {# товаров} other {# товара}}",
     "pageErrorTitle": "Что-то пошло не так",
     "pageErrorDescription": "Не удалось показать страницу. Данные в безопасности, попробуйте ещё раз.",
     "notFoundTitle": "Страница не найдена",

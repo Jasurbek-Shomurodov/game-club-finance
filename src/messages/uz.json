@@ -1034,6 +1034,8 @@
     }
   },
   "common": {
+    "uncategorized": "Kategoriyasiz",
+    "productCount": "{count} ta mahsulot",
     "pageErrorTitle": "Nimadir noto'g'ri ketdi",
     "pageErrorDescription": "Sahifani ko'rsatib bo'lmadi. Ma'lumotlaringiz xavfsiz, qayta urinib ko'ring.",
     "notFoundTitle": "Sahifa topilmadi",

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { stickyOffsetBelow, useElementHeight } from './useElementHeight';
 
 export interface DataTableColumn<T> {
   key: string;
@@ -10,6 +11,13 @@ export interface DataTableColumn<T> {
   className?: string;
   /** Applied only to body cells. */
   cellClassName?: string;
+}
+
+export interface DataTableGroup<T> {
+  key: string;
+  /** Content of the full-width section header row. */
+  header: ReactNode;
+  rows: T[];
 }
 
 export interface DataTableProps<T> {
@@ -30,6 +38,9 @@ export interface DataTableProps<T> {
   /** Removes the outer border/shadow when the table sits inside a Card. */
   bare?: boolean;
   dense?: boolean;
+  /** Renders rows in titled sections; `data` still drives the empty state.
+   *  With `stickyHeader`, each section title sticks below the column headers. */
+  groups?: DataTableGroup<T>[];
 }
 
 const alignClass = { left: 'text-left', right: 'text-right tabular-nums', center: 'text-center' };
@@ -49,8 +60,37 @@ export function DataTable<T>({
   bare = false,
   dense = false,
   label,
+  groups,
 }: DataTableProps<T>) {
   const cellPadding = dense ? 'px-3 py-2.5' : 'px-4 py-3';
+  const [theadRef, theadHeight] = useElementHeight<HTMLTableSectionElement>();
+
+  const renderRow = (row: T, index: number) => (
+    <tr
+      key={keyExtractor(row)}
+      onClick={onRowClick ? () => onRowClick(row) : undefined}
+      onKeyDown={onRowClick ? (event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onRowClick(row);
+        }
+      } : undefined}
+      tabIndex={onRowClick ? 0 : undefined}
+      className={cn('transition-colors hover:bg-gray-50/80', onRowClick && 'cursor-pointer focus-visible:bg-primary-50 focus-visible:outline-none', rowClassName?.(row, index))}
+    >
+      {columns.map((column) => (
+        <td
+          key={column.key}
+          className={cn(cellPadding, 'text-gray-800', alignClass[column.align ?? 'left'], column.className, column.cellClassName)}
+        >
+          {column.render
+            ? column.render(row, index)
+            : String((row as Record<string, unknown>)[column.key] ?? '')}
+        </td>
+      ))}
+    </tr>
+  );
 
   return (
     <div
@@ -66,7 +106,7 @@ export function DataTable<T>({
       )}
     >
       <table className="w-full text-sm" style={{ minWidth: typeof minWidth === 'number' ? `${minWidth}px` : minWidth }}>
-        <thead>
+        <thead ref={theadRef}>
           <tr className="border-b border-gray-200 bg-surface">
             {columns.map((column) => (
               <th
@@ -85,40 +125,37 @@ export function DataTable<T>({
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100 bg-surface">
-          {data.length === 0 && emptyState ? (
-            <tr>
-              <td colSpan={columns.length} className="p-0">{emptyState}</td>
-            </tr>
-          ) : (
-            data.map((row, index) => (
-              <tr
-                key={keyExtractor(row)}
-                onClick={onRowClick ? () => onRowClick(row) : undefined}
-                onKeyDown={onRowClick ? (event) => {
-                  if (event.target !== event.currentTarget) return;
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    onRowClick(row);
-                  }
-                } : undefined}
-                tabIndex={onRowClick ? 0 : undefined}
-                className={cn('transition-colors hover:bg-gray-50/80', onRowClick && 'cursor-pointer focus-visible:bg-primary-50 focus-visible:outline-none', rowClassName?.(row, index))}
-              >
-                {columns.map((column) => (
-                  <td
-                    key={column.key}
-                    className={cn(cellPadding, 'text-gray-800', alignClass[column.align ?? 'left'], column.className, column.cellClassName)}
-                  >
-                    {column.render
-                      ? column.render(row, index)
-                      : String((row as Record<string, unknown>)[column.key] ?? '')}
-                  </td>
-                ))}
+        {groups && data.length > 0 ? (
+          groups.filter((group) => group.rows.length > 0).map((group) => (
+            <tbody key={group.key} className="divide-y divide-gray-100 bg-surface">
+              <tr className="bg-gray-50">
+                <th
+                  scope="colgroup"
+                  colSpan={columns.length}
+                  style={stickyHeader ? { top: stickyOffsetBelow(theadHeight) } : undefined}
+                  className={cn(
+                    dense ? 'px-3 py-2' : 'px-4 py-2.5',
+                    'bg-gray-50 text-left shadow-[inset_0_1px_0_rgb(var(--c-gray-200)),inset_0_-1px_0_rgb(var(--c-gray-200))] text-sm font-semibold text-gray-900',
+                    stickyHeader && 'sticky z-10',
+                  )}
+                >
+                  {group.header}
+                </th>
               </tr>
-            ))
-          )}
-        </tbody>
+              {group.rows.map(renderRow)}
+            </tbody>
+          ))
+        ) : (
+          <tbody className="divide-y divide-gray-100 bg-surface">
+            {data.length === 0 && emptyState ? (
+              <tr>
+                <td colSpan={columns.length} className="p-0">{emptyState}</td>
+              </tr>
+            ) : (
+              data.map(renderRow)
+            )}
+          </tbody>
+        )}
         {footer && data.length > 0 && (
           <tfoot>
             <tr className="border-t border-gray-200 bg-gray-50 font-semibold text-gray-900">

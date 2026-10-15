@@ -2,7 +2,7 @@
 
 // Route: /closing-stock
 
-import { useState, useEffect, useCallback, useMemo, useRef, type KeyboardEvent } from 'react';
+import { Fragment, useState, useEffect, useCallback, useMemo, useRef, type KeyboardEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 import { loadClosingStockDay } from '@/lib/supabase/closingStockQueries';
@@ -29,11 +29,14 @@ import {
   StatTile,
   Stepper,
   TableSkeleton,
+  stickyOffsetBelow,
+  useElementHeight,
   useConfirm,
   useToast,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { BulkStockUpdateModal } from './BulkStockUpdateModal';
+import { groupByCategory } from '@/lib/productSections';
 import { calendarTodayIso, todayIso } from '@/lib/utils';
 import { formatCurrency, formatDateOnly, formatNumber, formatUnitCurrency } from '@/lib/formatters';
 import {
@@ -149,6 +152,7 @@ const stickyIndexCellClass = 'sticky left-0 z-10 w-12 bg-surface px-3 py-4 group
 const stickyProductHeaderCellClass = 'sticky left-12 top-0 z-30 border-b border-gray-100 bg-gray-50 px-4 py-3 align-bottom shadow-[1px_0_0_0_rgb(var(--c-gray-200))]';
 const stickyProductCellClass = 'sticky left-12 z-10 bg-surface px-4 py-4 shadow-[1px_0_0_0_rgb(var(--c-gray-200))] group-hover:bg-gray-50';
 const CLOCK_REFRESH_MS = 60_000;
+const TABLE_COLUMN_COUNT = 12;
 const addedTodayHeaderCellClass = stickyHeaderCellClass;
 
 /** Sold quantity derived from the row's stock movement, including promo giveaways. */
@@ -495,9 +499,24 @@ export default function ClosingStockPage() {
     });
   }, [query, rows, selectedCategory]);
 
-  const rowNumberById = useMemo(
-    () => new Map(rows.map((row, index) => [row.product.id, index + 1])),
-    [rows],
+  const hasCategories = categoryOptions.length > 0;
+  const [tableHeadRef, tableHeadHeight] = useElementHeight<HTMLTableSectionElement>();
+  // Rows are numbered in the sectioned (category) order so numbers stay stable
+  // while filtering.
+  const rowNumberById = useMemo(() => {
+    const ordered = hasCategories
+      ? groupByCategory(rows, (row) => row.product.category).flatMap((section) => section.items)
+      : rows;
+    return new Map(ordered.map((row, index) => [row.product.id, index + 1]));
+  }, [rows, hasCategories]);
+
+  // With every category in view, the table reads as one section per category.
+  const showSections = hasCategories && !selectedCategory;
+  const rowSections = useMemo(
+    () => (showSections
+      ? groupByCategory(filteredRows, (row) => row.product.category)
+      : [{ category: '', items: filteredRows }]),
+    [showSections, filteredRows],
   );
 
   const bulkRows = useMemo(() => rows.filter((row) => !isReadOnlyClosingStockProduct(row.product)), [rows]);
@@ -871,7 +890,7 @@ export default function ClosingStockPage() {
                   tabIndex={0}
                 >
                 <table className="w-full min-w-[960px] text-sm">
-                  <thead>
+                  <thead ref={tableHeadRef}>
                     <tr className="border-b border-gray-100 text-xs font-medium text-gray-500">
                       <th className={`${stickyIndexHeaderCellClass} text-left`}>#</th>
                       <th className={`${stickyProductHeaderCellClass} min-w-[180px] text-left sm:min-w-[240px]`}>{t('product')}</th>
@@ -912,7 +931,24 @@ export default function ClosingStockPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {filteredRows.map((row) => {
+                    {rowSections.map((section) => (
+                      <Fragment key={section.category || '__uncategorized'}>
+                      {showSections && (
+                        <tr className="bg-gray-50">
+                          <th
+                            scope="colgroup"
+                            colSpan={TABLE_COLUMN_COUNT}
+                            style={{ top: stickyOffsetBelow(tableHeadHeight) }}
+                            className="sticky z-[15] bg-gray-50 p-0 text-left shadow-[inset_0_1px_0_rgb(var(--c-gray-200)),inset_0_-1px_0_rgb(var(--c-gray-200))]"
+                          >
+                            <span className="sticky left-0 flex w-fit items-center gap-2 px-4 py-2.5 text-sm font-semibold text-gray-900">
+                              {section.category || tc('uncategorized')}
+                              <span className="font-normal text-gray-500">{tc('productCount', { count: section.items.length })}</span>
+                            </span>
+                          </th>
+                        </tr>
+                      )}
+                      {section.items.map((row) => {
                       const productId = row.product.id;
                       const rowReadOnly = !canSave || isReadOnlyClosingStockProduct(row.product);
                       const inputsDisabled = saving || refreshing;
@@ -1102,6 +1138,8 @@ export default function ClosingStockPage() {
                         </tr>
                       );
                     })}
+                      </Fragment>
+                    ))}
                     <tr className="group border-t border-gray-200 bg-surface font-semibold tabular-nums text-gray-900">
                       <td className={stickyIndexCellClass} />
                       <td className={stickyProductCellClass}>{t('totalRow', { count: filteredRows.length })}</td>

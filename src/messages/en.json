@@ -1034,6 +1034,8 @@
     }
   },
   "common": {
+    "uncategorized": "Uncategorized",
+    "productCount": "{count, plural, one {# product} other {# products}}",
     "pageErrorTitle": "Something went wrong",
     "pageErrorDescription": "This page could not be displayed. Your data is safe; try again.",
     "notFoundTitle": "Page not found",

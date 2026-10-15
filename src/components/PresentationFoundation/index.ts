@@ -20,7 +20,7 @@ export { Button, ButtonLink, buttonClassName, type ButtonProps, type ButtonVaria
 export { DatePicker, DateRangePicker, MonthPicker } from './CalendarPicker';
 export { Card, CardBody, CardFooter, CardHeader, SectionHeading } from './Card';
 export { ConfirmDialog, useConfirm } from './ConfirmDialog';
-export { DataTable, type DataTableColumn } from './DataTable';
+export { DataTable, type DataTableColumn, type DataTableGroup } from './DataTable';
 export { Disclosure, type DisclosureProps } from './Disclosure';
 export { Drawer, type DrawerProps } from './Drawer';
 export { EmptyState } from './EmptyState';
@@ -57,5 +57,6 @@ export {
 export { Spinner } from './Spinner';
 export { Stepper } from './Stepper';
 export { Toast, useToast, type ToastType } from './Toast';
+export { stickyOffsetBelow, useElementHeight } from './useElementHeight';
 export { Money } from './Money';
 export { RollingText, rollingColumns } from './RollingText';
