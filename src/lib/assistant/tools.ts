@@ -11,6 +11,7 @@ const MAX_EXPORT_DATASETS = 6;
 
 const DATASET_HELP: Record<AssistantDataset, string> = {
   summary: 'headline totals for the period: income by source, bar cost, expenses, accounting profit, margins, daily averages',
+  money: 'the Reports page figures: money collected, expenses and money left per payment method (cash, terminal, card, playstation), then gameClub, bar and total rows; collected excludes bar sales; use it for cash/terminal/card questions and for how much money came in',
   daily: 'one row per day: income, bar cost, game-club and bar expenses, total spent, profit',
   monthly: 'one row per month for the last N months (use `months`, max 24): income, spent, profit; use it for month-over-month comparisons',
   categories: 'expenses grouped by category with share of all expenses',

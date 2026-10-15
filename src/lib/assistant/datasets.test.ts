@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { buildMoneyReport } from '@/lib/calculations/moneyReport';
 import {
   allowedDatasets,
   debtsTable,
   expensesTable,
   MODEL_ROW_LIMIT,
+  moneyTable,
   productSalesTable,
   stockTable,
   tableForModel,
@@ -12,7 +14,7 @@ import {
 describe('allowedDatasets', () => {
   it('gives owners every dataset', () => {
     expect(allowedDatasets('owner', null)).toEqual([
-      'summary', 'daily', 'monthly', 'categories', 'expenses', 'product_sales', 'stock', 'debts',
+      'summary', 'money', 'daily', 'monthly', 'categories', 'expenses', 'product_sales', 'stock', 'debts',
     ]);
   });
 
@@ -21,9 +23,35 @@ describe('allowedDatasets', () => {
     expect(allowedDatasets('admin', ['assistant', 'expenses'])).toEqual(['expenses']);
     expect(allowedDatasets('viewer', ['assistant', 'closing_stock'])).toEqual(['product_sales', 'stock']);
     expect(allowedDatasets('admin', ['assistant', 'reports'])).toEqual([
-      'summary', 'daily', 'monthly', 'categories', 'expenses', 'product_sales',
+      'summary', 'money', 'daily', 'monthly', 'categories', 'expenses', 'product_sales',
     ]);
     expect(allowedDatasets('admin', ['assistant'])).toEqual([]);
+  });
+});
+
+describe('moneyTable', () => {
+  it('matches the Reports page and keeps bar sales out of collected money', () => {
+    const report = buildMoneyReport(
+      [
+        { date: '2026-10-01', cash_income: 6_000_000, terminal_income: 8_000_000, card_income: 0, playstation_income: 0 },
+        { date: '2026-10-02', cash_income: 4_150_000, terminal_income: 5_282_000, card_income: 0, playstation_income: 0 },
+      ],
+      [
+        { id: 'e1', date: '2026-10-01', amount: 2_993_000, category: 'salary', payment_method: 'cash', payment_source: 'game_club', comment: null, created_at: '2026-10-01T00:00:00Z' },
+        { id: 'e2', date: '2026-10-02', amount: 9_487_000, category: 'rent', payment_method: 'terminal', payment_source: 'game_club', comment: null, created_at: '2026-10-01T00:00:00Z' },
+      ],
+      [],
+      [{ date: '2026-10-01', bar_income: 2_535_520 }],
+    );
+    expect(moneyTable(report).rows).toEqual([
+      { line: 'cash', collected: 10_150_000, expenses: 2_993_000, left: 7_157_000 },
+      { line: 'terminal', collected: 13_282_000, expenses: 9_487_000, left: 3_795_000 },
+      { line: 'card', collected: 0, expenses: 0, left: 0 },
+      { line: 'playstation', collected: 0, expenses: 0, left: 0 },
+      { line: 'gameClub', collected: 23_432_000, expenses: 12_480_000, left: 10_952_000 },
+      { line: 'bar', collected: null, expenses: 0, left: 2_535_520 },
+      { line: 'total', collected: 23_432_000, expenses: 12_480_000, left: 13_487_520 },
+    ]);
   });
 });
 

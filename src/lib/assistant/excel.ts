@@ -12,6 +12,7 @@ const VALUE_LABELS: Record<string, (value: string) => string> = {
   debtStatus: (value) => `debts.${value}`,
   stockLevel: (value) => `assistant.stockLevels.${value}`,
   metric: (value) => `assistant.metrics.${value}`,
+  line: (value) => `assistant.moneyLines.${value}`,
 };
 
 /**

@@ -1280,6 +1280,7 @@
     },
     "datasets": {
       "summary": "Итоги",
+      "money": "Деньги по способам оплаты",
       "daily": "По дням",
       "monthly": "По месяцам",
       "categories": "Категории расходов",
@@ -1320,7 +1321,11 @@
       "person": "Должник",
       "paidAmount": "Оплачено",
       "remainingAmount": "Осталось",
-      "debtStatus": "Статус"
+      "debtStatus": "Статус",
+      "line": "Строка",
+      "collected": "Получено",
+      "expenses": "Расходы",
+      "left": "Осталось"
     },
     "metrics": {
       "income": "Доход",
@@ -1340,6 +1345,15 @@
       "salarySharePct": "Доля зарплат в расходах",
       "averageDailyIncome": "Средний доход в день",
       "averageDailySpend": "Средние траты в день"
+    },
+    "moneyLines": {
+      "cash": "Наличные",
+      "terminal": "Терминал",
+      "card": "Карта",
+      "playstation": "PlayStation",
+      "gameClub": "Итого игровой клуб",
+      "bar": "Бар",
+      "total": "Всего"
     },
     "paymentSources": {
       "game_club": "Игровой клуб",

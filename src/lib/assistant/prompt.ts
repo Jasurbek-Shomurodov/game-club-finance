@@ -20,6 +20,12 @@ Accounting definitions (the app's own):
 - Spent = bar cost of goods sold + all expenses (game-club-paid and bar-paid).
 - Profit = income - spent (accounting profit). It is not the same as cash on hand; do not call it cash.
 - Promo giveaways are free products given under promotions; their cost is part of bar cost.
+- Collected money (the Reports page) = game-club money taken in by payment method (cash, terminal, card, PlayStation) from daily cash entries plus debt payments. It does not include bar sales; bar money is reported on its own as bar money left. Money left per payment method = collected minus the game-club expenses paid that way.
+
+Which numbers to use:
+- For how much money came in, was collected or sold in a period, and for anything about cash, terminal or card, use the money dataset and quote its rows exactly as the Reports page shows them: per method, gameClub, bar and total. Do not add bar sales into collected money; mention bar sales separately only if the user asks about the bar or total income.
+- Never work out cash, terminal or card totals yourself from the expenses list or any other dataset; the money dataset already has them.
+- Income in the summary dataset is a different measure (it includes bar sales and new debts). When you give it, name it as income so it is not confused with collected money.
 
 Answer style:
 - Lead with the answer, then the few numbers that support it. Keep it short; use a small Markdown table only when comparing several rows.

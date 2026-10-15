@@ -1280,6 +1280,7 @@
     },
     "datasets": {
       "summary": "Summary",
+      "money": "Money by payment method",
       "daily": "By day",
       "monthly": "By month",
       "categories": "Expense categories",
@@ -1320,7 +1321,11 @@
       "person": "Person",
       "paidAmount": "Paid",
       "remainingAmount": "Remaining",
-      "debtStatus": "Status"
+      "debtStatus": "Status",
+      "line": "Line",
+      "collected": "Collected",
+      "expenses": "Expenses",
+      "left": "Left"
     },
     "metrics": {
       "income": "Income",
@@ -1340,6 +1345,15 @@
       "salarySharePct": "Salary share of expenses",
       "averageDailyIncome": "Average daily income",
       "averageDailySpend": "Average daily spend"
+    },
+    "moneyLines": {
+      "cash": "Cash",
+      "terminal": "Terminal",
+      "card": "Card",
+      "playstation": "PlayStation",
+      "gameClub": "Game club total",
+      "bar": "Bar",
+      "total": "Total"
     },
     "paymentSources": {
       "game_club": "Game club",

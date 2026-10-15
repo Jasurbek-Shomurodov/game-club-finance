@@ -1280,6 +1280,7 @@
     },
     "datasets": {
       "summary": "Yakun",
+      "money": "To'lov usuli bo'yicha pul",
       "daily": "Kunlar bo'yicha",
       "monthly": "Oylar bo'yicha",
       "categories": "Xarajat turlari",
@@ -1320,7 +1321,11 @@
       "person": "Qarzdor",
       "paidAmount": "To'langan",
       "remainingAmount": "Qolgan",
-      "debtStatus": "Holati"
+      "debtStatus": "Holati",
+      "line": "Qator",
+      "collected": "Yig'ildi",
+      "expenses": "Xarajatlar",
+      "left": "Qoldi"
     },
     "metrics": {
       "income": "Daromad",
@@ -1340,6 +1345,15 @@
       "salarySharePct": "Xarajatlarda maosh ulushi",
       "averageDailyIncome": "O'rtacha kunlik daromad",
       "averageDailySpend": "O'rtacha kunlik sarf"
+    },
+    "moneyLines": {
+      "cash": "Naqd pul",
+      "terminal": "Terminal",
+      "card": "Karta",
+      "playstation": "PlayStation",
+      "gameClub": "O'yin klubi jami",
+      "bar": "Bar",
+      "total": "Jami"
     },
     "paymentSources": {
       "game_club": "O'yin klubi",

@@ -1,6 +1,7 @@
 import type { UserRole } from '@/types';
 import type { ExpenseRow } from '@/lib/calculations/dashboardMetrics';
 import type { DailyAnalysisRow, FinancialAnalysis, MonthlyAnalysisRow } from '@/lib/calculations/financialAnalysis';
+import type { MoneyReport } from '@/lib/calculations/moneyReport';
 import { listLowStockProducts, stockLevel, resolveLowStockThreshold } from '@/lib/calculations/stock';
 import { calculateRemainingDebt } from '@/lib/calculations/debt';
 import { canAccessFeature, canReadFinancialTotals } from '@/lib/permissions';
@@ -12,6 +13,7 @@ import { canAccessFeature, canReadFinancialTotals } from '@/lib/permissions';
  */
 export const ASSISTANT_DATASETS = [
   'summary',
+  'money',
   'daily',
   'monthly',
   'categories',
@@ -25,7 +27,7 @@ export type AssistantDataset = (typeof ASSISTANT_DATASETS)[number];
 
 /** Datasets whose rows depend on a from/to date range. */
 export const RANGED_DATASETS: ReadonlySet<AssistantDataset> = new Set([
-  'summary', 'daily', 'categories', 'expenses', 'product_sales',
+  'summary', 'money', 'daily', 'categories', 'expenses', 'product_sales',
 ]);
 
 export type ColumnType = 'text' | 'number' | 'money' | 'date' | 'month' | 'percent';
@@ -52,6 +54,7 @@ export function allowedDatasets(role: UserRole, featureAccess: unknown): Assista
   const can = (key: Parameters<typeof canAccessFeature>[2]) => canAccessFeature(role, featureAccess, key);
   const allowed: Record<AssistantDataset, boolean> = {
     summary: finance,
+    money: can('reports'),
     daily: finance,
     monthly: finance,
     categories: finance,
@@ -93,6 +96,36 @@ export function summaryTable(analysis: FinancialAnalysis): DataTable {
     dataset: 'summary',
     columns: [{ key: 'metric', type: 'text' }, { key: 'value', type: 'number' }, { key: 'unit', type: 'text' }],
     rows: metrics.map(([metric, value, type]) => ({ metric, value, unit: type === 'percent' ? '%' : 'UZS' })),
+  };
+}
+
+/** Game-club payment methods in the order the Reports page shows them. */
+const MONEY_METHODS = ['cash', 'terminal', 'card', 'playstation'] as const;
+
+/**
+ * The Reports page's money in, expenses and money left: one row per payment
+ * method, then game-club, bar and overall totals. Collected money is daily cash
+ * entries plus debt payments; bar sales are not part of it and only appear in
+ * the bar row's money left.
+ */
+export function moneyTable(report: MoneyReport): DataTable {
+  const methods = MONEY_METHODS.map((method) => ({ line: method, ...report.paymentMethods[method] }));
+  const gameClubExpenses = methods.reduce((sum, row) => sum + row.expenses, 0);
+  const gameClubLeft = methods.reduce((sum, row) => sum + row.left, 0);
+  return {
+    dataset: 'money',
+    columns: [
+      { key: 'line', type: 'text' },
+      { key: 'collected', type: 'money' },
+      { key: 'expenses', type: 'money' },
+      { key: 'left', type: 'money' },
+    ],
+    rows: [
+      ...methods,
+      { line: 'gameClub', collected: report.totalCollected, expenses: gameClubExpenses, left: gameClubLeft },
+      { line: 'bar', collected: null, expenses: report.totalExpenses - gameClubExpenses, left: report.barLeft },
+      { line: 'total', collected: report.totalCollected, expenses: report.totalExpenses, left: report.totalLeft },
+    ],
   };
 }
 
