@@ -27,6 +27,9 @@ Tokens: `src/app/globals.css` and `tailwind.config`; components:
 | LAY-005 | S1 | 4 px spacing scale | `getComputedStyle` gap and padding on cards and sections | Multiples of 4; the same component has the same spacing on every page |
 | LAY-006 | S1 | Exactly one `PageHeader` per page | `grep -c "<PageHeader" src/app/\(dashboard\)/*/*Page.tsx` | 1 per page |
 | LAY-007 | S2 | Section gaps even | Measure gaps between sections on a page | All equal |
+| LAY-008 | S1 | No grey sentence under a heading or number | Audit B (§3) on every screen | Empty except one subtitle per section; no paragraph under the page title or under each `MetricCard` [dr 2026-10-16] |
+| LAY-009 | S2 | Page frame identical across screens | Audit K (§3) on every screen at 1440 and 375 | One `h1`, same top and left (top bar on wide screens, page on phones); `document.title` names the page [dr 2026-10-16] |
+
 
 ## COL — colour and themes
 
@@ -39,6 +42,9 @@ Tokens: `src/app/globals.css` and `tailwind.config`; components:
 | COL-005 | S1 | Dark theme covers third-party parts | Open a chart tooltip in dark mode | Tooltip background and text themed |
 | COL-006 | S1 | Muted text readable | Measure `text-gray-*` secondary text in dark mode | At least 4.5:1 |
 | COL-007 | S2 | Theme toggle persists | Toggle dark, reload | Theme kept with no flash of light |
+| COL-008 | S0 | Measured text contrast | Audit I (§3) in light and dark (`data-theme`), with each dialog open | Empty below 4.5:1 for body text; large figures and icons may stop at 3:1 (COL-003) [dr 2026-10-16] |
+| COL-009 | S1 | Danger tone only for meaning | Audit G (§3) on every screen | Every `text-danger-*` is money out, a debt, a loss or an error [dr 2026-10-16] |
+
 
 ## TYPE — typography and numbers
 
@@ -50,6 +56,10 @@ Tokens: `src/app/globals.css` and `tailwind.config`; components:
 | TYPE-004 | S1 | Dates localized | Read a date in RU and UZ | Localized month names, no ISO strings |
 | TYPE-005 | S1 | RU and UZ strings fit | Nav, buttons, headers in RU at 375 px | No truncation that hides meaning |
 | TYPE-006 | S2 | Weights consistent | Compare headings across pages | Same weight per level |
+| TYPE-007 | S0 | Money audit passes in RU, UZ and EN | Audit C (§3): decimals, comma thousands, unspaced unit, hyphen-minus, literal `UZS` outside English, wrapped figures, chart labels | Empty except unit costs with up to two decimals [dr 2026-10-16] |
+| TYPE-008 | S1 | Type sizes and radii on the scale | Audit D (§3) per screen | Only 12, 13, 14, 16, 18, 20, 24, 30, 36 px; radii 6, 8, 12, 14, 18 px or pill [dr 2026-10-16] |
+| TYPE-009 | S1 | No language leftovers | Audit F (§3) in RU, UZ and EN | Only data (product, employee, club names) may be in another language [dr 2026-10-16] |
+
 
 ## COMP — components and interaction
 
@@ -63,6 +73,10 @@ Tokens: `src/app/globals.css` and `tailwind.config`; components:
 | COMP-006 | S1 | Radius and shadow from the component | `grep -rnE "rounded-\|shadow-" src/app --include=*.tsx` | None on page containers |
 | COMP-007 | S2 | Motion respects reduced motion | `grep -rn "prefers-reduced-motion" src/app/globals.css src/components/PresentationFoundation/motion.ts` | Animations disabled or shortened |
 | COMP-008 | S2 | Charts readable | Inspect axes, legend, tooltip | Legend matches series; no misleading scale |
+| COMP-009 | S1 | Disabled state honesty | Audit H (§3) with each dialog open | No control that looks enabled but is `aria-disabled`; disabled buttons are plainly grey and carry a reason (`title` or `aria-describedby`) [dr 2026-10-16] |
+| COMP-010 | S1 | Button sizes follow their size prop | Audit P (§3) on every screen and open dialog | `sm` 36, `md` 44, `lg` 48, icon buttons square, no two-line labels, one primary per `PageHeader` row or footer; `other` buttons are COMP-001 [dr 2026-10-16] |
+| COMP-011 | S2 | Motion inventory restrained | Audit Q (§3) across a page switch and a Modal open | Durations ≤ 300ms (250ms in `motion.ts`), only opacity/transform, nothing loops but skeletons and a pressed `Spinner`, layout shift ≤ 0.1 [dr 2026-10-16] |
+
 
 ## STATE — loading, empty, error
 
@@ -114,3 +128,11 @@ Tokens: `src/app/globals.css` and `tailwind.config`; components:
 | RESP-004 | S1 | Landmarks and headings | `read_page` on each page | One `h1`, nav and main landmarks |
 | RESP-005 | S1 | Labelled controls | `read_page` on each form | Every input has a label; icon buttons have `aria-label` |
 | RESP-006 | S2 | Keyboard order | Tab through a page | Logical order; no trap |
+| RESP-007 | S1 | No strip scrolls sideways | Audit A `scrollers` (§3) and the sweep's `stripScroll` at every size | Only a `DataTable` inside its card and a `chips` control scroll; tabs, `PageHeader` actions and filter bars never [dr 2026-10-16] |
+| RESP-008 | S1 | No stacking while a row has room | Audit L (§3) at 1180, 1024 and 768 with the sidebar open | Empty unless the second line is deliberate (wrapped chips, chart legend, header actions on a phone) [dr 2026-10-16] |
+| RESP-009 | S0 | Nothing sits on top of anything | Audit M (§3) and the sweep's `overlap` at every ladder size | Empty [dr 2026-10-16] |
+| RESP-010 | S1 | Fields at least 16px on phones | Sweep `input16` at the touch sizes; `parseFloat(getComputedStyle(input).fontSize)` | ≥ 16px (`Input` is `text-base sm:text-sm`) so iOS does not zoom on focus [dr 2026-10-16] |
+| RESP-011 | S0 | Words never break between letters | Audit N (§3) and the sweep's `brokenWords` at every size in RU, UZ and EN | Empty (a break at a hyphen or slash is fine) [dr 2026-10-16] |
+| RESP-012 | S0 | Modals, drawers and pickers fit the screen | Audit O (§3) and `DIALOGS=1` sweep at 320, 667×375 and 1024; focus the first field at 375×667 | Inside the viewport or the body scrolls; title and footer reachable; no two-line buttons; equal footer heights; no toast over the sheet's Save [dr 2026-10-16] |
+| RESP-013 | S1 | Clean at the ladder seams | Sweep at 414, 540, 600, 820, 912, 1180 and landscape 667×375 / 820×375 | No new `out`, `clipped`, `overlap` or `brokenWords` hit that the standard widths do not show [dr 2026-10-16] |
+| RESP-014 | S1 | Every control has a name | Audit E (§3) with each dialog open | Empty: text, `aria-label`, `aria-labelledby`, `title` or a `label` [dr 2026-10-16] |
