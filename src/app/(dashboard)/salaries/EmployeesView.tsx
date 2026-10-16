@@ -39,6 +39,7 @@ export interface EmployeesViewProps {
 /** Employee cards: active and upcoming staff first, deactivated staff collapsed below. */
 export function EmployeesView({ employees, summaries, loading, loadError, ...cardProps }: EmployeesViewProps) {
   const t = useTranslations('salaries');
+  const tc = useTranslations('common');
   if (loading) return <EmployeeCardGridSkeleton />;
   if (loadError) return null;
   if (employees.length === 0) return <Card><EmptyState icon={Users} title={t('emptyTitle')} description={t('emptyDescription')} /></Card>;
@@ -46,13 +47,25 @@ export function EmployeesView({ employees, summaries, loading, loadError, ...car
   const sorted = [...employees].sort((a, b) => a.name.localeCompare(b.name));
   const live = sorted.filter((employee) => summaries.get(employee.id)?.display?.active);
   const inactive = sorted.filter((employee) => !summaries.get(employee.id)?.display?.active);
+  const inactiveDue = inactive.reduce((sum, employee) => sum + Math.max(0, salaryBalance(cardProps.balances[employee.id] ?? [])), 0);
   const card = (employee: SalaryEmployee) => <EmployeeCard key={employee.id} employee={employee} summary={summaries.get(employee.id)} {...cardProps} />;
 
   return (
     <>
       {live.length > 0 && <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{live.map(card)}</div>}
       {inactive.length > 0 && (
-        <Disclosure summary={t('deactivatedSection', { count: inactive.length })}>
+        <Disclosure
+          summary={(
+            <>
+              {t('deactivatedSection', { count: inactive.length })}
+              {inactiveDue > 0 && (
+                <span className="font-semibold tabular-nums text-warning-600">
+                  {t('deactivatedDue', { amount: `${formatCurrency(inactiveDue)} ${tc('currency')}` })}
+                </span>
+              )}
+            </>
+          )}
+        >
           <div className="mt-3 grid gap-5 md:grid-cols-2 xl:grid-cols-3">{inactive.map(card)}</div>
         </Disclosure>
       )}

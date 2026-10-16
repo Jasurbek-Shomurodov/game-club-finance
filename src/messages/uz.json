@@ -1174,6 +1174,7 @@
     "activated": "Xodim faollashtirildi. Ish haqi va KPI bugundan yana hisoblanadi.",
     "activateConfirm": "Bugundan boshlab {name} uchun maosh va KPI yana hisoblanadi. Oldingi tarix va to‘lanmagan qoldiq saqlanadi.",
     "deactivatedSection": "Faolsizlantirilgan xodimlar ({count})",
+    "deactivatedDue": "· {amount} to‘lanishi kerak",
     "ownerOnlySetupHelp": "Xodim qo‘shish hamda ish haqi, KPI, lavozim va faollikni faqat klub egasi o‘zgartira oladi. Siz to‘lov, mukofot va jarima kiritishingiz mumkin.",
     "deactivated": "Xodim faolsizlantirildi. Tarix va to‘lanmagan qoldiq saqlandi.",
     "changeRole": "Lavozimni o‘zgartirish",

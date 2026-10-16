@@ -127,7 +127,10 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   const historyEmployee = data.employees.find((employee) => employee.id === employeeId);
   const upcomingCount = data.employees.filter((e) => summaries.get(e.id)?.status === 'upcoming').length;
   const activeCount = data.employees.filter((e) => summaries.get(e.id)?.current?.active).length;
-  const due = data.employees.reduce((sum, e) => sum + Math.max(0, salaryBalance(balances[e.id] ?? [])), 0);
+  // Deactivated staff keep their balance on their card but stay out of the club's total due.
+  const due = data.employees
+    .filter((e) => summaries.get(e.id)?.display?.active)
+    .reduce((sum, e) => sum + Math.max(0, salaryBalance(balances[e.id] ?? [])), 0);
   // Without an employee in the route, history covers the whole club.
   const historyMonths = useMemo(() => (employeeId ? balances[employeeId] ?? [] : combineSalaryMonths(balances)), [balances, employeeId]);
   const paid = data.entries.filter((e) => !e.deleted_at && e.kind === 'payment').reduce((sum, e) => sum + Number(e.amount), 0);

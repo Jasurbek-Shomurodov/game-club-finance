@@ -1174,6 +1174,7 @@
     "activated": "Employee activated. Salary and KPI accrue again from today.",
     "activateConfirm": "{name} will start accruing salary and KPI again from today. Previous history and any unpaid balance are kept.",
     "deactivatedSection": "Deactivated employees ({count})",
+    "deactivatedDue": "· {amount} due",
     "ownerOnlySetupHelp": "Only a club owner can add employees or change salary, KPI, role and activation. You can record payments, bonuses and fines.",
     "deactivated": "Employee deactivated. Previous history and unpaid balance are preserved.",
     "changeRole": "Change role",
