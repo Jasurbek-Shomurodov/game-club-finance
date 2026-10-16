@@ -236,7 +236,7 @@ the page title or under each `MetricCard` is the failure (LAY-008).
 // (сум / so'm / UZS) as a muted suffix; whole sums; a real minus. Flags decimals, comma thousands, an unspaced unit,
 // hyphen-minus, a hard-coded "UZS" outside English, and a figure that wraps between lines.
 const cur="(?:UZS|so'm|soʻm|сум)",t=R.innerText+'\n'+[...R.querySelectorAll('svg text')].map(x=>x.textContent).join('\n');
-const wrapped=[],w=document.createTreeWalker(R,NodeFilter.SHOW_TEXT);for(let n;(n=w.nextNode())&&wrapped.length<8;){for(const m of n.textContent.matchAll(/\d[\d   ]{3,}\d\s?(?:UZS|so'm|soʻm|сум)?/g)){const r=document.createRange();r.setStart(n,m.index);r.setEnd(n,m.index+m[0].length);if(new Set([...r.getClientRects()].filter(q=>q.width>0).map(q=>Math.round(q.top))).size>1){wrapped.push(m[0].trim());break}}}
+const wrapped=[],w=document.createTreeWalker(R,NodeFilter.SHOW_TEXT);for(let n;(n=w.nextNode())&&wrapped.length<8;){for(const m of n.textContent.matchAll(/(?<![+\d])\d[\d   ]{3,}\d\s?(?:UZS|so'm|soʻm|сум)?/g)){const r=document.createRange();r.setStart(n,m.index);r.setEnd(n,m.index+m[0].length);if(new Set([...r.getClientRects()].filter(q=>q.width>0).map(q=>Math.round(q.top))).size>1){wrapped.push(m[0].trim());break}}}
 ({decimals:t.match(new RegExp(`\\d[\\d\\s]*[.,]\\d{1,2}\\s?${cur}`,'g')),commaThousands:t.match(new RegExp(`\\d,\\d{3}(?:,\\d{3})*\\s?${cur}`,'g')),unspaced:t.match(new RegExp(`\\d{4,}\\s?${cur}|\\d${cur}`,'g')),hyphenMinus:t.match(new RegExp(`(^|[\\s(])-\\s?\\d[\\d\\s]*\\s?${cur}`,'gm')),literalUZS:document.documentElement.lang!=='en'?t.match(/\d\s?UZS\b/g):null,wrapped})
 ```
 Run it in RU, UZ and EN. Unit costs (`formatUnitCurrency`) may keep up to two
