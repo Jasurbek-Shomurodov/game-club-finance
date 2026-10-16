@@ -11,6 +11,7 @@ run; `Fixed YYYY-MM-DD` plus the guarding test closes it.
 
 | Date | Commit | Scope | Findings (S0/S1/S2) | Checks run | Not run |
 |---|---|---|---|---|---|
+| 2026-10-16 | 87213d5 | MIG + DB: migration replay and schema drift in PGlite (pass 9 commands, first run) | 0/5/0 (MIG-008 ×2: 077 and 081 fail a re-run; DB-006 ×3: `Profile`, `DailyStockCount`, `Expense` lack live columns) | 81/81 migrations apply on empty PGlite, re-run of 072–081, drift against `src/types/index.ts`, `reviewCatalogs.test.ts` | lint, typecheck, full `npm test`, `EXPLAIN` and `get_advisors` (Supabase MCP added in this commit, not yet connected) |
 
 ## SEC — secrets, auth, request safety
 
@@ -84,6 +85,8 @@ run; `Fixed YYYY-MM-DD` plus the guarding test closes it.
 | MIG-005 | S1 | Each new migration has a test | `ls src/lib/supabase/*Migration.test.ts` vs the newest `migrations/*.sql` | A test reads the SQL and asserts the objects it creates, like `costAndIndexCleanupMigration.test.ts` |
 | MIG-006 | S1 | Indexes cover the queries the app runs | For each `.eq('club_id').gte('date')...order(` query, find its index in the migrations | A `(club_id, date)` or matching composite index exists; no index that nothing queries |
 | MIG-007 | S2 | One TypeScript row type per table | Read `src/types/index.ts` against the migrations | No second type for the same table; fields match columns and nullability |
+| MIG-008 | S1 | The newest ten migrations re-run without error | Pass 9 replay command: apply every file in order on empty PGlite, then re-run the last ten | Every `RERUN` line is `ok`: `create or replace function`, `if not exists`, `drop policy if exists` before `create policy`. Found 2026-10-16: 077 `create function record_salary_entry_with_status` without `or replace`; 081 `create policy club_role_read_stock_purchases` without `drop policy if exists` [cr 2026-10-16] |
+| MIG-009 | S0 | The whole chain applies on an empty database | Pass 9 replay command with only the stub preamble (roles, `auth.uid()`, `auth.role()`, `cron.schedule`, `net.http_post`, `uuid-ossp`) | `applied N migrations` with N = every `.sql` file; a migration that needs a Supabase object the preamble lacks gets a stub there, never a skipped file |
 
 ## I18N — translations
 
@@ -172,6 +175,7 @@ run; `Fixed YYYY-MM-DD` plus the guarding test closes it.
 | COST-002 | S1 | No `count: 'exact'` on large tables | `grep -rn "count: 'exact'" src` | `estimated` or no count unless the exact number is shown |
 | COST-003 | S1 | Dashboard bootstrap stays one round trip | Read `src/lib/supabase/dashboardBootstrap.ts` | One RPC or snapshot feeds the dashboard; no per-card queries |
 | COST-004 | S2 | Payloads carry only used columns | Compare each `select` with the fields the reader touches | No unused columns; no JSON blobs that only feed a total |
+| COST-005 | S1 | Hot reads have a measured plan | `execute_sql` with `EXPLAIN (ANALYZE, BUFFERS)` through the read-only Supabase MCP on every new or changed ledger read and RPC (reads only) | Index scans on `(club_id, …)`; no seq scan on `daily_cash_entries`, `expenses`, `stock_purchases`, `salary_entries` or `owner_withdrawals`; the plan is quoted in the finding |
 
 ## DB — database shape and queries
 
@@ -182,6 +186,10 @@ run; `Fixed YYYY-MM-DD` plus the guarding test closes it.
 | DB-003 | S1 | Filters do not defeat the index | Read `.or(`, `.ilike(` and function-wrapped columns in queries | No `ilike '%x%'` or `or()` across columns on large tables without a matching index |
 | DB-004 | S1 | Latest-row reads carry a `limit` | `grep -rn "\.order(" src \| grep -v "limit\|range"` | Reads that need the newest row use `.limit(1)` |
 | DB-005 | S2 | Money is `numeric`, ids are `uuid`, dates are `date` | `grep -nE "float\|double precision\|text primary key" migrations/*.sql` | No money in `float`, no `text` ids on new tables |
+| DB-006 | S1 | Row types carry every column the app reads or writes | Pass 9 schema drift command (PGlite chain vs `src/types/index.ts`) | No `missingInType` column the app touches and no `missingInTable` field except join fields such as `ClubMembership.clubs`. Found 2026-10-16: `Profile` lacks `access_rejected_at`/`access_rejected_by` (read in `src/lib/team.ts`), `DailyStockCount` lacks the four `adjustment_*` columns (`src/lib/closingStock.ts`), `Expense` lacks `salary_entry_id` (`src/app/api/expenses/route.ts`) [cr 2026-10-16] |
+| DB-007 | S1 | Database findings rest on live evidence | Read each DB, MIG, COST and PERF finding in the report | It quotes `list_tables`, an `EXPLAIN` plan or `get_advisors` output from the Supabase MCP; a finding without one is filed as a Suggestion |
+| DB-008 | S0 | The Supabase MCP stays read-only and secret-free | `grep -c "read_only=true" .mcp.json`; `grep -niE "service_role\|sb_secret\|eyJ" .mcp.json` | One `read_only=true` server carrying only the project ref; no key, token or anon key; no write, DDL or `truncate` issued through it in the transcript |
+| DB-009 | S1 | Advisors are clean for the touched tables | `get_advisors` with `performance` and `security` through the Supabase MCP | No unindexed foreign key, unused or duplicate index, per-row `auth.uid()` policy or `security definer` function without `search_path` on a table the change touches; existing ones are listed under Checked, not a finding |
 
 ## TEST — verification
 

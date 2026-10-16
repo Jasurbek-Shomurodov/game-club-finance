@@ -73,7 +73,10 @@ Then audit coverage, not just the pass/fail:
 
 Read `docs/agents/database.md` and every file in `migrations` in order.
 Build the effective schema (tables, columns, indexes, RLS policies, RPCs,
-triggers) and compare it with how `src/lib/supabase` and the pages query it:
+triggers) and compare it with how `src/lib/supabase` and the pages query it.
+Run the migration replay and schema drift command from pass 9 first, and back
+every query claim with `EXPLAIN` and `get_advisors` output from the Supabase
+MCP (pass 9, "Database evidence"):
 
 - For every query in the app, name the index it uses. Report queries on
   club-owned tables with no `(club_id, ...)` index that covers their filter
@@ -315,6 +318,73 @@ removes it. Skip pure taste.
 Review every query, RPC, migration and schema change the diff touches for
 what it costs to run and to maintain. Read `docs/agents/database.md` and the
 migrations a change depends on before reporting.
+
+**Database evidence** (the project's Supabase MCP server in `.mcp.json` is
+read-only; use it, never a guess, for anything about the live database):
+- `list_tables` to confirm the table, column and index names a change relies
+  on exist in production with the shape the migration describes.
+- `execute_sql` with `EXPLAIN` on every new or changed hot query and RPC
+  (`EXPLAIN (ANALYZE, BUFFERS)` only on reads; never on an insert, update,
+  delete or RPC that writes). Report seq scans on club-owned ledgers, sorts
+  without an index and nested loops over big sets.
+- `get_advisors` for `performance` and `security`: unindexed foreign keys,
+  unused or duplicate indexes, RLS policies that re-evaluate `auth.uid()` per
+  row, `security definer` functions without a fixed `search_path`.
+- Never run writes, DDL, `truncate` or anything that changes production
+  through the MCP, even inside a transaction. Every database finding quotes
+  the plan or advisor output it rests on; a finding without one is a
+  Suggestion.
+
+**Schema drift** (row types vs the real schema): load the migration chain into
+PGlite with the stub preamble the migration tests use (roles, `auth.uid()`,
+`cron.schedule`, `net.http_post`; see
+`src/lib/supabase/costAndIndexCleanupMigration.test.ts`), then compare every
+`public` table's columns with the matching interface in `src/types/index.ts`
+(`DailyCashEntry` ↔ `daily_cash_entries`). A column the app reads or writes
+that its row type lacks, or a typed field no table has, is a `DB-006`
+finding; a join-only field such as `ClubMembership.clubs` is not.
+
+```bash
+node --input-type=module -e "
+import { PGlite } from '@electric-sql/pglite'; import { uuid_ossp } from '@electric-sql/pglite/contrib/uuid_ossp';
+import { readdirSync, readFileSync } from 'node:fs';
+const db = new PGlite({ extensions: { uuid_ossp } });
+await db.exec(\`create role authenticated nologin; create role anon nologin; create role service_role nologin;
+create schema auth; create schema extensions; create schema cron; create schema net;
+create table auth.users(id uuid primary key, email text);
+create function auth.uid() returns uuid language sql stable as \$\$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid \$\$;
+create function auth.role() returns text language sql stable as \$\$ select current_setting('request.jwt.claim.role', true) \$\$;
+create table cron.job(jobid bigserial primary key, jobname text, schedule text, command text);
+create function cron.schedule(job_name text, schedule text, command text) returns bigint language sql as \$\$ insert into cron.job(jobname, schedule, command) values (job_name, schedule, command) returning jobid \$\$;
+create function cron.unschedule(job_id bigint) returns boolean language sql as \$\$ delete from cron.job where jobid = job_id returning true \$\$;
+create function net.http_post(url text, body jsonb default '{}', params jsonb default '{}', headers jsonb default '{}', timeout_milliseconds int default 1000) returns bigint language sql as \$\$ select 1::bigint \$\$;
+grant usage on schema public, auth, extensions, cron, net to authenticated, anon, service_role;\`);
+const strip = (sql) => sql.replace(/create extension if not exists (pg_cron|pg_net)[^;]*;/gi, '');
+const files = readdirSync('migrations').filter((f) => f.endsWith('.sql')).sort();
+for (const f of files) await db.exec(strip(readFileSync('migrations/' + f, 'utf8')));
+console.log('applied', files.length, 'migrations');
+for (const f of files.slice(-10)) { try { await db.exec(strip(readFileSync('migrations/' + f, 'utf8'))); console.log('re-ran ok', f); } catch (e) { console.log('RERUN FAIL', f, e.message.split('\\n')[0]); } }
+const cols = await db.query(\`select table_name, column_name from information_schema.columns where table_schema = 'public' order by 1, ordinal_position\`);
+const tables = {}; for (const r of cols.rows) (tables[r.table_name] ??= new Set()).add(r.column_name);
+const types = readFileSync('src/types/index.ts', 'utf8');
+const table = (name) => { const s = name.replace(/([a-z0-9])([A-Z])/g, '\$1_\$2').toLowerCase(); return s.endsWith('y') ? s.slice(0, -1) + 'ies' : s + 's'; };
+for (const [, name, body] of types.matchAll(/export interface (\\w+) \\{([^}]*)\\}/g)) {
+  const t = table(name); if (!tables[t]) { console.log('no table for type', name, '->', t); continue; }
+  const fields = new Set([...body.matchAll(/^\\s*(\\w+)\\??:/gm)].map((m) => m[1]));
+  const missingInType = [...tables[t]].filter((c) => !fields.has(c)), missingInTable = [...fields].filter((c) => !tables[t].has(c));
+  if (missingInType.length || missingInTable.length) console.log(name, '<->', t, { missingInType, missingInTable });
+}"
+```
+
+**Migration replay** (the same command): it applies every file in
+`migrations/` in order on an empty PGlite database, so a migration that
+depends on something only production has fails loudly, then re-runs the last
+ten to prove each is idempotent (`create or replace`, `if not exists`,
+`drop policy if exists` before `create policy`). A `RERUN FAIL` line is a
+`MIG-008` finding, even when production has only run the file once:
+`scripts/db-migrate.sh` and a restore replay the chain. Keep the stub
+preamble in step with the migration tests; a migration that needs a new
+Supabase object gets a stub there, not a skipped replay.
 
 **Cost** (Supabase and Vercel bill by egress, compute and invocations):
 - Rows and bytes that leave the database only to be summed, counted or
