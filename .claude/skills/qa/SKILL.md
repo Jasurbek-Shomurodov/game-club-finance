@@ -1,7 +1,7 @@
 ---
 name: qa
-description: Thorough functional QA of a feature, page, request or recent change in Game Club Finance. Tests the real app end to end (logic, totals, forms, permissions, locales, themes, edge cases) and reports pass/fail with evidence. Use when the user types /qa.
-argument-hint: "[empty = full | diff | feature, page or request text | commit | PR | smoke | retest] [fix]"
+description: Thorough functional QA of a feature, page, request or recent change in Game Club Finance. Tests the real app end to end (logic, totals, forms, permissions, locales, themes, edge cases) and reports pass/fail with evidence. Arguments: empty or "full", "diff", a feature, page or request text, a commit, a PR, "smoke", "retest", or an area code (AUTH, DASH, INC, EXP, STOCK, DEBT, OWN, SAL, REP, CASH, SET, I18N, UI, NET, TG, XAPP). Use when the user types /qa.
+argument-hint: "[empty = full | diff | feature, page or request text | commit | PR | smoke | retest | area code (AUTH, DASH, INC, EXP, STOCK, DEBT, OWN, SAL, REP, CASH, SET, I18N, UI, NET, TG, XAPP)] [fix]"
 disable-model-invocation: true
 ---
 
@@ -16,6 +16,12 @@ means every page and the whole checklist below; `diff` means whatever the
 uncommitted diff (or else the last commit) changed; a feature, page or
 request text means that flow end to end; `smoke` runs only the S0 scenarios
 (money totals, club isolation, saving a record).
+
+Sources of truth: `AGENTS.md` (the invariants), the `docs/agents/*.md` guide
+for the area, and `references/cases.md`, the QA regression catalog. An area
+code as the target runs that area's cases; `smoke` runs every S0 case;
+`retest` starts from the top row of the catalog run log. Keep the catalog
+alive per `review-core` section 6.
 
 Your job is to prove the feature works for a real club owner, or to find
 exactly where it does not. Do not stop at "tests pass". Investigate until every

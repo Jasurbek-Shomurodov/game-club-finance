@@ -1,7 +1,7 @@
 ---
 name: cr
-description: Deep code review of Game Club Finance. With no arguments it audits the whole app (full test suite, database performance and models, reuse and use cases, SOLID, DRY, YAGNI). With a target it reviews that diff, commit range, branch or PR for correctness, financial logic, club scoping/RLS, migrations, i18n, formatting, design-system use, network and data fetching, performance, cleanup, DRY and SOLID, and cost, Supabase and database shape. Use when the user types /cr or cr.
-argument-hint: "[empty = full | diff | commit | A..B | branch | PR number | path | area] [fix]"
+description: Deep code review of Game Club Finance. With no arguments it audits the whole app (full test suite, database performance and models, reuse and use cases, SOLID, DRY, YAGNI). With a target it reviews that diff, commit range, branch or PR for correctness, financial logic, club scoping/RLS, migrations, i18n, formatting, design-system use, network and data fetching, performance, cleanup, DRY and SOLID, and cost, Supabase and database shape. Arguments: empty or "full", "diff", a commit, "A..B", a branch, a PR number, a path, or an area code (SEC, SCOPE, DATE, CALC, RPC, MIG, I18N, FMT, UI, NET, PERF, DRY, SOLID, YAGNI, COST, DB, TEST). Use when the user types /cr or cr.
+argument-hint: "[empty = full | diff | commit | A..B | branch | PR number | path | area code (SEC, SCOPE, DATE, CALC, RPC, MIG, I18N, FMT, UI, NET, PERF, DRY, SOLID, YAGNI, COST, DB, TEST)] [fix]"
 disable-model-invocation: false
 ---
 
@@ -12,6 +12,12 @@ disable-model-invocation: false
 > apply here. This file adds only what is specific to Game Club Finance.
 
 Target: `$ARGUMENTS` (grammar in `review-core` section 1).
+
+Sources of truth, read before every review: `AGENTS.md` (the invariants), the
+`docs/agents/*.md` guide for each area the target touches, and
+`references/cases.md`, the code regression catalog. Every case there has a
+Check and an Expect; an area code as the target runs that area's cases across
+the whole codebase. Keep the catalog alive per `review-core` section 6.
 
 - **Empty, `full`, or `cr` alone: full-app audit.** Follow the "Full-app
   audit" section below, then run review passes 1 to 9 over the whole

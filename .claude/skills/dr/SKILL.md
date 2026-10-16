@@ -1,7 +1,7 @@
 ---
 name: dr
-description: Thorough design and UX review of a page, component, screenshot or Figma frame in Game Club Finance. Checks layout and frames, spacing, empty space, colours and tokens, dark/light themes, typography, states, responsiveness, locales and consistency with the design system. Use when the user types /dr.
-argument-hint: "[empty = full | diff | page/route | component | screenshot | Figma URL] [fix]"
+description: Thorough design and UX review of a page, component, screenshot or Figma frame in Game Club Finance. Checks layout and frames, spacing, empty space, colours and tokens, dark/light themes, typography, states, responsiveness, locales and consistency with the design system. Arguments: empty or "full", "diff", a page or route, a component, a screenshot, a Figma URL, or an area code (LAY, COL, TYPE, COMP, STATE, RULE, REUSE, PERF, RESP). Use when the user types /dr.
+argument-hint: "[empty = full | diff | page/route | component | screenshot | Figma URL | area code (LAY, COL, TYPE, COMP, STATE, RULE, REUSE, PERF, RESP)] [fix]"
 disable-model-invocation: true
 ---
 
@@ -18,6 +18,11 @@ or `all` means every page under `src/app` and every component under
 the pages into groups of related screens for parallel review, and compare
 siblings across groups for reuse. If the arguments contain `fix`, implement the
 agreed improvements afterwards. Otherwise review and propose only.
+
+Sources of truth: `AGENTS.md`, `src/components/PresentationFoundation/README.md`
+and `references/cases.md`, the design regression catalog. An area code as the
+target runs that area's cases on every screen. Keep the catalog alive per
+`review-core` section 6.
 
 Judge it like a senior product designer looking at a finance tool that an owner
 opens every morning: is the important number obvious, is the screen calm and
