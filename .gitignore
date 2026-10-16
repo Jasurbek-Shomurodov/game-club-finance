@@ -37,3 +37,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Browser tests (e2e/): the saved sessions, results and report of the last run
+/e2e/.auth/
+/test-results/
+/playwright-report/

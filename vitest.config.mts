@@ -14,6 +14,8 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    // The Playwright suite under e2e/ has its own runner (npm run test:e2e).
+    exclude: ['e2e/**', 'node_modules/**'],
     // The PGlite tests boot an embedded PostgreSQL in beforeAll; on a loaded
     // machine or a small CI runner that takes longer than the 10s default.
     hookTimeout: 60_000,

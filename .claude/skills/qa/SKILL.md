@@ -31,6 +31,29 @@ marked as not testable, with the reason.
 Default to **report only**. Fix bugs only if the arguments contain `fix`
 (`review-core` section 4), or after asking at the end.
 
+## 0. Automated P0 first
+
+Before driving the app by hand, run the Playwright P0 suite. It runs the S0
+core flows in a real browser against a production build and a fake Supabase
+(`e2e/fake-supabase.mjs`: the full migration chain in PGlite, with RLS and the
+atomic RPCs applied as the signed-in member), on the fixed clubs and accounts in
+`e2e/fixture.mjs`. It writes nothing outside the test database and asks for no
+approval:
+
+```bash
+npm run test:e2e:full   # production build against the fake, then the suite
+npm run test:e2e        # the suite alone, when the build is current
+```
+
+- A red case is a finding at its catalog severity; attach the Playwright
+  report or trace (`test-results/`) as evidence.
+- Cases tagged `[e2e]` in `references/cases.md` are covered by `e2e/p0.spec.mjs`.
+  A live run spends its time on the rest: the untagged cases, the real data of a
+  test club, Telegram, themes and widths beyond the phone smoke.
+- A reproducible S0 finding gets a test in `e2e/p0.spec.mjs` together with its
+  fix (expected figures from `e2e/fixture.mjs`, never from the screen), and the
+  catalog case is tagged `[e2e]` in the same change.
+
 ## 1. Understand what "correct" means
 
 1. Restate the request in one or two sentences: what the user should be able
@@ -57,7 +80,8 @@ npm test
 ```
 
 Add `npm run build` for routing, config or shared-type changes. Note any
-missing test for new logic as a finding.
+missing test for new logic as a finding. The browser suite from step 0 counts
+as the automated check for every `[e2e]` case.
 
 ## 3. Drive the real app
 

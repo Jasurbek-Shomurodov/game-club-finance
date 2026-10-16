@@ -30,7 +30,8 @@ the hook only in an emergency.
 
 `.github/workflows/checks.yml` runs on every push and pull request: `npm ci`,
 `npm audit --omit=dev --audit-level=high`, typecheck, lint, `npm run
-test:coverage`, and the production build with placeholder Supabase values.
+test:coverage`, and the production build with placeholder Supabase values; a
+second job, `e2e`, runs the browser P0 suite described below.
 `test:coverage` runs the whole suite under v8 coverage (the PGlite tests need no
 system package) and then `scripts/check-coverage-floor.mjs` compares
 `coverage/lcov.info` with `scripts/coverage-floor.json`: the job fails when line,
@@ -40,6 +41,31 @@ when the script reports that coverage is above the floor or that a listed file
 is now tested, raise the numbers or shorten the list in the same change as the
 new tests. A high or critical audit finding in a shipped dependency also fails
 the job; fix it by updating the dependency, not by relaxing the audit.
+
+## Browser P0 suite (Playwright on a fake Supabase)
+
+```bash
+npm run test:e2e:full   # production build pointed at the fake, then the suite
+npm run test:e2e        # the suite alone, when e2e/build.mjs already ran
+```
+
+`e2e/` holds a Playwright suite of the S0 core flows (`e2e/p0.spec.mjs`:
+sign-in and redirect, dashboard totals, a cash entry edit, an expense, a stock
+purchase and a closing count through the atomic RPCs, a debt and its payment,
+club isolation, viewer refusals, a language switch, a phone-width smoke). It
+runs against `e2e/fake-supabase.mjs`, a small HTTP server that loads the whole
+`migrations/` chain into PGlite and answers the PostgREST and GoTrue calls the app
+makes, setting the request role and JWT claims the way Supabase does so RLS,
+triggers and RPCs run for real. `e2e/fixture.mjs` seeds two clubs, an owner, an
+admin and a viewer and one business day of ledgers with the expected totals
+worked out in the file; tests compare the screen with those numbers, never with
+each other. `playwright.config.mjs` starts the fake and `next start` on their own
+ports (5156 and 54330), with every key from the local env files blanked, so a run
+never reaches a real service. The `e2e` job in `.github/workflows/checks.yml`
+runs it on every push and uploads the Playwright report when it fails.
+
+A reproducible S0 finding from `/qa` gets a test here together with its fix, and
+its catalog case is tagged `[e2e]` in `.claude/skills/qa/references/cases.md`.
 
 ## Change-to-test matrix
 

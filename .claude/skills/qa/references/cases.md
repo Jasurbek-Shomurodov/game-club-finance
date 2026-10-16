@@ -5,7 +5,10 @@ leak across clubs, a crash, or a core flow that cannot be completed (the
 `smoke` set); **S1** a broken flow or a misleading UI; **S2** cosmetic.
 "Expect" is the pass condition; anything else is a FAIL. IDs are stable;
 append new cases at the end of their area, never renumber. `[qa YYYY-MM-DD]`
-marks a case added from a finding in that run.
+marks a case added from a finding in that run. `[e2e]` marks a case the
+Playwright P0 suite (`e2e/p0.spec.mjs`, run by `npm run test:e2e:full`) covers
+on the fixed fixture before every live run; a reproducible S0 finding gets a
+test there with its fix.
 
 Writes happen only on a club the user has named as a test club, each one
 approved in chat first. Saving an expense or salary also posts to the club's
@@ -20,9 +23,9 @@ Telegram group if one is set up.
 
 | ID | Sev | Case | Check | Expect |
 |---|---|---|---|---|
-| AUTH-001 | S0 | Signed-out visitor is redirected | Open `/` and `/expenses` in a fresh incognito tab | Lands on `/login`; no club data in the HTML or network responses |
-| AUTH-002 | S0 | Another club's data is never visible | Sign in as a member of club A, open every dashboard page, then switch to club B | Every figure and list changes; no row from the other club in `read_network_requests` |
-| AUTH-003 | S0 | Viewer cannot write | As a viewer, open Income, Expenses, Salaries | Save and delete controls hidden; a direct POST to `/api/expenses` returns 403 |
+| AUTH-001 | S0 | Signed-out visitor is redirected [e2e] | Open `/` and `/expenses` in a fresh incognito tab | Lands on `/login`; no club data in the HTML or network responses |
+| AUTH-002 | S0 | Another club's data is never visible [e2e] | Sign in as a member of club A, open every dashboard page, then switch to club B | Every figure and list changes; no row from the other club in `read_network_requests` |
+| AUTH-003 | S0 | Viewer cannot write [e2e] | As a viewer, open Income, Expenses, Salaries | Save and delete controls hidden; a direct POST to `/api/expenses` returns 403 |
 | AUTH-004 | S1 | Pending team member sees the waiting state | Sign in with an unapproved account | Pending screen, no club pages, no data requests |
 | AUTH-005 | S1 | Club switch keeps the page and resets the range | On Reports, switch club in the top bar | Same page, data reloads for the new club, no stale flash |
 | AUTH-006 | S1 | Team approval and rejection are club scoped | On Team, approve a `QA` request (test club, approved) | The member appears in this club only; `usePendingTeamCount` badge drops by one |
@@ -32,7 +35,7 @@ Telegram group if one is set up.
 
 | ID | Sev | Case | Check | Expect |
 |---|---|---|---|---|
-| DASH-001 | S0 | Headline totals match the ledgers | Hand-compute income, expenses and profit for today from the Income and Expenses pages | Dashboard cards equal the sums; profit = income − expenses − salaries per `dashboardMetrics.ts` |
+| DASH-001 | S0 | Headline totals match the ledgers [e2e] | Hand-compute income, expenses and profit for today from the Income and Expenses pages | Dashboard cards equal the sums; profit = income − expenses − salaries per `dashboardMetrics.ts` |
 | DASH-002 | S0 | Cash left and profit are different numbers | Compare the cash-left card with the profit card after an owner withdrawal exists | Cash left excludes withdrawn money; profit does not change |
 | DASH-003 | S1 | Range picker drives every card and chart | Switch today → this month → last month | All cards and the chart update together; no card keeps the old range |
 | DASH-004 | S1 | Fast range switching: last selection wins | Click three ranges quickly | Final cards match the last range; `read_network_requests` shows no out-of-order response applied |
@@ -45,9 +48,9 @@ Telegram group if one is set up.
 
 | ID | Sev | Case | Check | Expect |
 |---|---|---|---|---|
-| INC-001 | S0 | Save an income entry (test club, approved) | Income → add `QA income` 150 000, cash, today | Row appears once; dashboard income rises by 150 000 |
+| INC-001 | S0 | Save an income entry (test club, approved) [e2e] | Income → add `QA income` 150 000, cash, today | Row appears once; dashboard income rises by 150 000 |
 | INC-002 | S0 | Double submit writes once | Double-click Save on the approved entry | Exactly one POST in `read_network_requests`; one row |
-| INC-003 | S1 | Amount input formats while typing | Type `1500000` | Shows `1 500 000`; saved value is 1500000 |
+| INC-003 | S1 | Amount input formats while typing [e2e] | Type `1500000` | Shows `1 500 000`; saved value is 1500000 |
 | INC-004 | S1 | Invalid amounts are refused | Enter 0, −5, empty, letters | Field error, no request sent |
 | INC-005 | S1 | Payment methods match club settings | Disable `card` in Settings, open the form | Only the configured methods are offered; default is the first configured |
 | INC-006 | S1 | Past-date entry lands in the right month | Save (approved) with last month's date | Appears in last month's range only |
@@ -57,8 +60,8 @@ Telegram group if one is set up.
 
 | ID | Sev | Case | Check | Expect |
 |---|---|---|---|---|
-| EXP-001 | S0 | Save an expense (test club, approved) | Expenses → add `QA expense` 25 000, cash, today | Row once; dashboard expenses rise by 25 000; Telegram post noted under data left behind |
-| EXP-002 | S0 | Expense API rejects another club | POST `/api/expenses` with a foreign `club_id` | 403 or 404; no row created |
+| EXP-001 | S0 | Save an expense (test club, approved) [e2e] | Expenses → add `QA expense` 25 000, cash, today | Row once; dashboard expenses rise by 25 000; Telegram post noted under data left behind |
+| EXP-002 | S0 | Expense API rejects another club [e2e] | POST `/api/expenses` with a foreign `club_id` | 403 or 404; no row created |
 | EXP-003 | S1 | Categories are club scoped | Add a `QA` category (approved); switch club | Category absent in the other club |
 | EXP-004 | S1 | Category totals equal the row sums | Compare the per-category summary with the rows filtered to that category | Equal for every category |
 | EXP-005 | S1 | Decimal and large amounts | Enter 1 000 000 000 and 12.5 | Large value saved and formatted; decimals rejected where the field is whole UZS |
@@ -69,9 +72,9 @@ Telegram group if one is set up.
 
 | ID | Sev | Case | Check | Expect |
 |---|---|---|---|---|
-| STOCK-001 | S0 | A purchase updates stock and expenses once | Stock purchase → `QA item` 10 units at 5 000 (approved) | Product stock +10; purchase total 50 000 in expenses; one RPC call |
-| STOCK-002 | S0 | Closing stock saves a snapshot | Closing stock → save today's count (approved) | Snapshot stored; later editing the purchase price does not change the saved count value |
-| STOCK-003 | S0 | Stock value math | Hand-compute units × unit price for a product | Products page value equals `src/lib/calculations/stock.ts` output |
+| STOCK-001 | S0 | A purchase updates stock and expenses once [e2e] | Stock purchase → `QA item` 10 units at 5 000 (approved) | Product stock +10; purchase total 50 000 in expenses; one RPC call |
+| STOCK-002 | S0 | Closing stock saves a snapshot [e2e] | Closing stock → save today's count (approved) | Snapshot stored; later editing the purchase price does not change the saved count value |
+| STOCK-003 | S0 | Stock value math [e2e] | Hand-compute units × unit price for a product | Products page value equals `src/lib/calculations/stock.ts` output |
 | STOCK-004 | S1 | Fractional unit prices survive | Purchase at 1 250.5 per unit (approved) | Stored and shown with the fraction via `formatUnitCurrency` |
 | STOCK-005 | S1 | Zero stock product | View a product with 0 units | Shows 0, no NaN or negative value |
 | STOCK-006 | S1 | Cost prices hidden from non-privileged roles | Open Products as a viewer | No cost price column; the network payload carries no cost field |
@@ -81,8 +84,8 @@ Telegram group if one is set up.
 
 | ID | Sev | Case | Check | Expect |
 |---|---|---|---|---|
-| DEBT-001 | S0 | Payment reduces the balance through the ledger | Add a `QA debt` 100 000, then a payment 40 000 (both approved) | Balance 60 000; two ledger rows; parent updated by the database, not a second client write |
-| DEBT-002 | S0 | History cannot be edited or erased | Look for edit or delete on a payment row | None offered; no update or delete request possible from the UI |
+| DEBT-001 | S0 | Payment reduces the balance through the ledger [e2e] | Add a `QA debt` 100 000, then a payment 40 000 (both approved) | Balance 60 000; two ledger rows; parent updated by the database, not a second client write |
+| DEBT-002 | S0 | History cannot be edited or erased [e2e] | Look for edit or delete on a payment row | None offered; no update or delete request possible from the UI |
 | DEBT-003 | S1 | Overpayment is refused | Pay 70 000 on a 60 000 balance | Validation error, no request |
 | DEBT-004 | S1 | Settled debts move out of the open list | Pay the remaining 60 000 (approved) | Listed under settled; open total excludes it |
 | DEBT-005 | S1 | Debt totals agree with the dashboard | Compare open debt total with the dashboard debt card | Equal |
@@ -147,14 +150,14 @@ Telegram group if one is set up.
 |---|---|---|---|---|
 | I18N-001 | S1 | No missing keys in any language | Switch EN → RU → UZ on every page | No raw `page.key` ids, no English fallback in RU/UZ |
 | I18N-002 | S1 | Money and dates follow the language | Compare a date and a total in each language | `1 000 000` grouping; localized month names |
-| I18N-003 | S1 | Language switch keeps state | Switch language on Reports with a range selected | Range and page kept; no reload |
+| I18N-003 | S1 | Language switch keeps state [e2e] | Switch language on Reports with a range selected | Range and page kept; no reload |
 | I18N-004 | S2 | Long RU/UZ strings fit | Check nav, buttons and table headers in RU at 375 px | No clipped or overlapping text |
 
 ## UI — themes, widths, console
 
 | ID | Sev | Case | Check | Expect |
 |---|---|---|---|---|
-| UI-001 | S0 | Phone width usable | 375 px on every page | No horizontal scroll; tables scroll inside their card; controls reachable |
+| UI-001 | S0 | Phone width usable [e2e] | 375 px on every page | No horizontal scroll; tables scroll inside their card; controls reachable |
 | UI-002 | S1 | Dark theme readable | Toggle dark on every page | No white-on-white; charts and tooltips themed |
 | UI-003 | S1 | No console errors or hydration warnings | `read_console_messages` after each page load | Empty of errors and React warnings |
 | UI-004 | S1 | Tablet and desktop widths | 768, 1280, 1920 px | Grids reflow; no stretched empty cards |
@@ -184,7 +187,7 @@ Telegram group if one is set up.
 
 | ID | Sev | Case | Check | Expect |
 |---|---|---|---|---|
-| XAPP-001 | S0 | After a money action, every surface agrees | After INC-001, EXP-001, SAL-001 and OWN-001: Dashboard, Money details, Daily report, Monthly report, Financial analysis, Balance | Identical totals everywhere for the same range |
+| XAPP-001 | S0 | After a money action, every surface agrees [e2e] | After INC-001, EXP-001, SAL-001 and OWN-001: Dashboard, Money details, Daily report, Monthly report, Financial analysis, Balance | Identical totals everywhere for the same range |
 | XAPP-002 | S0 | Accounting profit never equals cash left when withdrawals exist | Any club with a withdrawal | The two figures differ by the withdrawals |
 | XAPP-003 | S1 | Range and club selection persist across pages | Set a range, navigate | Same range on the next page |
 | XAPP-004 | S2 | Number formatting identical across pages | Same amount on three pages | Same grouping and unit |
