@@ -1,6 +1,6 @@
 ---
 name: cr
-description: Deep code review of the uncommitted diff, a commit range, a branch or a PR in Game Club Finance. Checks correctness, financial logic, club scoping/RLS, migrations, i18n, formatting, design-system use, network and data fetching, performance, cleanup, DRY and SOLID. Use when the user types /cr.
+description: Deep code review of the uncommitted diff, a commit range, a branch or a PR in Game Club Finance. Checks correctness, financial logic, club scoping/RLS, migrations, i18n, formatting, design-system use, network and data fetching, performance, cleanup, DRY and SOLID, and cost, Supabase and database shape (egress, indexes, unified tables and models). Use when the user types /cr.
 argument-hint: "[empty = uncommitted diff | commit | A..B | branch | PR number] [fix]"
 disable-model-invocation: true
 ---
@@ -159,6 +159,53 @@ Every finding here needs a concrete cost (a bug risk, duplicated maintenance,
 a measurable slowdown, or blocked testing), plus the smallest refactor that
 removes it. Skip pure taste.
 
+### 9. Cost, Supabase and database
+
+Review every query, RPC, migration and schema change the diff touches for
+what it costs to run and to maintain. Read `docs/agents/database.md` and the
+migrations a change depends on before reporting.
+
+**Cost** (Supabase and Vercel bill by egress, compute and invocations):
+- Rows and bytes that leave the database only to be summed, counted or
+  filtered in the browser or in a route handler. Prefer an RPC, a view or an
+  aggregate (`count`, `sum`) so only the result travels.
+- Polling, refetch-on-focus or interval refreshes that re-run heavy reads when
+  nothing changed; cron jobs that run more often than the data moves.
+- `count: 'exact'` on large tables where `'estimated'` or no count would do;
+  `select('*')` on wide tables; JSON payloads that carry columns no reader
+  uses.
+- Server routes and Telegram/cron jobs that fetch the same ledgers twice in
+  one run instead of sharing a snapshot.
+
+**Database shape** (keep similar things the same):
+- A new table or column that duplicates a concept the schema already has
+  (another "payments"/"entries"/"movements" ledger, a second `payment_method`
+  or `comment` spelling, parallel `*_at` and `*_date` columns for one event).
+  Reuse the existing ledger or extend it; name the matching table.
+- Columns, enums and check constraints for the same concept must match across
+  tables: the same type (`numeric` for money, `date` for business dates,
+  `uuid` for ids), the same nullability, the same defaults
+  (`created_by default auth.uid()`), the same `club_id` + `created_at` shape.
+- Every club-owned table needs `club_id` with an index that covers the
+  queries the app runs (`(club_id, date)` for ledgers), a foreign key to
+  `clubs`, and RLS policies that mirror the sibling tables.
+- RPC inputs and outputs should share the shapes of existing RPCs
+  (`p_club_id`, `p_date`, snapshot payloads) so the TypeScript types in
+  `src/types` and the query helpers in `src/lib/supabase` stay unified.
+- One TypeScript model per table: do not add a second row type for the same
+  table with slightly different fields; extend the existing one or `Pick`
+  from it.
+
+**Query plan**: filters that defeat an index (functions on the indexed
+column, `or()` across columns without a matching index, `ilike '%x%'` on
+large tables), missing `limit` on reads that only need the latest row,
+`order` on an unindexed column, and migrations that add an index without
+`concurrently` on a large live table.
+
+Report each finding with the measured or estimated cost (rows, bytes,
+requests per page view or per cron run) and the smallest change: a new RPC,
+a reused table, an index, or a narrower `select`.
+
 ## Report
 
 ```
@@ -169,7 +216,7 @@ Findings (most severe first)
    Scenario: <inputs or state → wrong result>
    Fix: <concrete change>
 
-Checked and fine: <risky areas verified, incl. network, performance, DRY/SOLID>
+Checked and fine: <risky areas verified, incl. network, performance, DRY/SOLID, cost/DB>
 Checks run: <commands and results>
 ```
 
