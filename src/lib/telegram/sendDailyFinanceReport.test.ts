@@ -29,6 +29,8 @@ function recordingClient(clubRow: Record<string, unknown> | null, clubError: unk
         gte: (column: string, value: unknown) => { recorded.filters.push(`${column}>=${value}`); return query; },
         lte: (column: string, value: unknown) => { recorded.filters.push(`${column}<=${value}`); return query; },
         gt: (column: string, value: unknown) => { recorded.filters.push(`${column}>${value}`); return query; },
+        neq: (column: string, value: unknown) => { recorded.filters.push(`${column}!=${value}`); return query; },
+        in: (column: string, values: unknown[]) => { recorded.filters.push(`${column} in ${values.join('|')}`); return query; },
         order: () => query,
         range: async () => ({ data: [], error: null }),
         single: async () => ({ data: clubRow, error: clubError }),
@@ -74,6 +76,17 @@ describe('buildDailyFinanceTelegramReport', () => {
       select: 'id,debt_id,date,amount',
       filters: ['club_id=club', 'date>2026-09-03'],
     }));
+    // Each ledger is read once over the comparison window, never per period.
+    for (const table of ['daily_cash_entries', 'daily_stock_counts', 'stock_purchases', 'expenses']) {
+      const ledgerReads = queries.filter((query) => query.table === table && !query.select?.includes('giveaway_quantity'));
+      expect(ledgerReads, table).toHaveLength(1);
+    }
+    // The debt ledger is bounded: window debts plus open ones, never all history.
+    const debts = queries.filter((query) => query.table === 'new_debts');
+    expect(debts.map((query) => query.filters)).toEqual([
+      ['club_id=club', 'date<=2026-09-03', 'date>=2026-08-01'],
+      ['club_id=club', 'date<=2026-09-03', 'status!=paid'],
+    ]);
     expect(queries.every((query) => query.filters.includes('club_id=club') || query.filters.includes('id=club')))
       .toBe(true);
   });

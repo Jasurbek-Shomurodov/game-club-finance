@@ -23,7 +23,8 @@ migrations.
 | `telegram_report_deliveries` | Service-only delivery state | Never expose to browser roles. |
 
 Retired read-only ledgers: `income_transactions`, `expense_transactions`, and
-`cash_movements`.
+`cash_movements`. `balances` is legacy and no longer seeded; the monthly average
+income snapshot (042/043) was retired by migration 081.
 
 ## Authorization model
 

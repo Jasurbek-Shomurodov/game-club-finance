@@ -107,8 +107,8 @@ export function truncateTelegramText(text: string, maxLength = TELEGRAM_MESSAGE_
 }
 
 /**
- * Live catalog rows for the low-stock section. `*` tolerates databases that
- * predate optional product columns. A failure only drops the section; it must
+ * Live catalog rows for the low-stock section: only the columns the section
+ * reads, only active products. A failure only drops the section; it must
  * never block the finance report.
  */
 export async function getLowStockProductRows(
@@ -119,8 +119,9 @@ export async function getLowStockProductRows(
     const { data, error } = await fetchAllRows<LowStockProductInput>(() =>
       supabase
         .from('products')
-        .select('*')
+        .select('name,current_stock,low_stock_threshold,tracks_inventory,is_active,is_deleted')
         .eq('club_id', clubId)
+        .eq('is_active', true)
         .order('id', { ascending: true }),
     );
     if (error) throw error;
@@ -170,6 +171,47 @@ async function getClub(supabase: SupabaseClient, clubId: string): Promise<ClubRo
   return data as ClubRow;
 }
 
+/** One stock-count row carrying both the sales and the inventory columns. */
+type StockWindowRow = StockCountRow & InventorySnapshotRow;
+
+function inRange<T extends { date: string }>(rows: T[], from: string, to: string): T[] {
+  return rows.filter((row) => row.date >= from && row.date <= to);
+}
+
+/**
+ * Debts that can affect the report: those recorded in the comparison window
+ * (debt income), those still open on the report date, and paid ones whose
+ * payments landed after it (so an as-of rerun shows that day's balance).
+ * The whole ledger is never read; it only grows.
+ */
+async function getDebtRows(
+  supabase: SupabaseClient,
+  clubId: string,
+  businessDate: string,
+  windowFrom: string,
+  laterPaidDebtIds: string[],
+): Promise<{ data: DailyFinanceReportDebtRow[] | null; error: unknown }> {
+  const debts = () => supabase
+    .from('new_debts')
+    .select('id,date,amount,remaining_amount,status')
+    .eq('club_id', clubId)
+    .lte('date', businessDate);
+  const paged = (query: ReturnType<typeof debts>) =>
+    fetchAllRows<DailyFinanceReportDebtRow>(() => query.order('id', { ascending: true }) as never);
+  const results = await Promise.all([
+    paged(debts().gte('date', windowFrom)),
+    paged(debts().neq('status', 'paid')),
+    ...(laterPaidDebtIds.length > 0 ? [paged(debts().in('id', laterPaidDebtIds))] : []),
+  ]);
+  const error = results.find((result) => result.error)?.error ?? null;
+  if (error) return { data: null, error };
+  const byId = new Map<string, DailyFinanceReportDebtRow>();
+  for (const result of results) {
+    for (const row of result.data ?? []) if (row.id) byId.set(row.id, row);
+  }
+  return { data: Array.from(byId.values()), error: null };
+}
+
 export async function buildDailyFinanceTelegramReport(
   supabase: SupabaseClient,
   {
@@ -184,171 +226,53 @@ export async function buildDailyFinanceTelegramReport(
 ): Promise<DailyFinanceReportBuildResult> {
   const monthStart = monthStartIso(businessDate);
   const previousMonthRange = previousComparableMonthRangeIso(businessDate);
-  const [clubRes, cashRes, stockRes, purchaseRes, expenseRes, inventoryRes, debtRes, laterDebtPaymentRes, debtPaymentRes, monthCashRes, monthStockRes, monthPurchaseRes, monthExpenseRes, previousCashRes, previousStockRes, previousPurchaseRes, previousExpenseRes, previousDebtPaymentRes, lowStockProductRows, giveawayRows] = await Promise.all([
+  // Every ledger is read once over the widest window the report needs (the
+  // start of the comparable previous month through the report date) and
+  // sliced in memory for the day, the month to date and the previous month.
+  const windowFrom = previousMonthRange.from;
+  const windowed = <T extends { date: string }>(table: string, columns: string, orderBy: string[]) =>
+    fetchAllRows<T>(() => {
+      let query = supabase
+        .from(table)
+        .select(columns)
+        .eq('club_id', clubId)
+        .gte('date', windowFrom)
+        .lte('date', businessDate);
+      for (const column of orderBy) query = query.order(column, { ascending: true });
+      return query as never;
+    });
+
+  const laterDebtPaymentsPromise = fetchAllRows<DailyFinanceReportLaterDebtPaymentRow>(() =>
+    supabase
+      .from('debt_payments')
+      .select('id,debt_id,date,amount')
+      .eq('club_id', clubId)
+      .gt('date', businessDate)
+      .order('date', { ascending: true })
+      .order('id', { ascending: true }),
+  );
+  const [clubRes, cashRes, stockRes, purchaseRes, expenseRes, debtPaymentRes, laterDebtPaymentRes, debtRes, lowStockProductRows, giveawayRows] = await Promise.all([
     getClub(supabase, clubId),
-    fetchAllRows<DailyCashRow>(() =>
-      supabase
-        .from('daily_cash_entries')
-        .select('date,cash_income,terminal_income,card_income,playstation_income')
-        .eq('club_id', clubId)
-        .eq('date', businessDate)
-        .order('date', { ascending: true }),
-    ),
-    fetchAllRows<StockCountRow>(() =>
-      supabase
-        .from('daily_stock_counts')
-        .select('product_id,date,bar_income,bar_profit,bar_cost,sold_quantity')
-        .eq('club_id', clubId)
-        .eq('date', businessDate)
-        .order('date', { ascending: true })
-        .order('product_id', { ascending: true }),
-    ),
-    fetchAllRows<StockPurchaseCostRow>(() =>
-      supabase
-        .from('stock_purchases')
-        .select('id,date,quantity,cost_price')
-        .eq('club_id', clubId)
-        .eq('date', businessDate)
-        .order('date', { ascending: true })
-        .order('id', { ascending: true }),
-    ),
-    fetchAllRows<ExpenseRow>(() =>
-      supabase
-        .from('expenses')
-        .select('id,date,amount,category,payment_source,comment,created_at')
-        .eq('club_id', clubId)
-        .eq('date', businessDate)
-        .order('date', { ascending: true })
-        .order('id', { ascending: true }),
-    ),
-    // Closing counts from the start of the comparable previous month through
-    // the report date: the report-date value uses each product's latest count
-    // on or before that date, and the comparison uses the previous-month slice.
+    windowed<DailyCashRow>('daily_cash_entries', 'date,cash_income,terminal_income,card_income,playstation_income', ['date']),
     // (club_id, date, product_id) is unique, so the ordering pages stably.
-    fetchAllRows<InventorySnapshotRow>(() =>
-      supabase
-        .from('daily_stock_counts')
-        .select('product_id,date,closing_stock,cost_price,products(tracks_inventory)')
-        .eq('club_id', clubId)
-        .gte('date', previousMonthRange.from)
-        .lte('date', businessDate)
-        .order('date', { ascending: true })
-        .order('product_id', { ascending: true }),
+    windowed<StockWindowRow>(
+      'daily_stock_counts',
+      'product_id,date,bar_income,bar_profit,bar_cost,sold_quantity,closing_stock,cost_price,products(tracks_inventory)',
+      ['date', 'product_id'],
     ),
-    fetchAllRows<DailyFinanceReportDebtRow>(() =>
-      supabase
-        .from('new_debts')
-        .select('id,date,amount,remaining_amount,status')
-        .eq('club_id', clubId)
-        .order('id', { ascending: true }),
-    ),
-    fetchAllRows<DailyFinanceReportLaterDebtPaymentRow>(() =>
-      supabase
-        .from('debt_payments')
-        .select('id,debt_id,date,amount')
-        .eq('club_id', clubId)
-        .gt('date', businessDate)
-        .order('date', { ascending: true })
-        .order('id', { ascending: true }),
-    ),
-    fetchAllRows<DailyFinanceReportDebtPaymentRow>(() =>
-      supabase
-        .from('debt_payments')
-        .select('id,date,amount,payment_method')
-        .eq('club_id', clubId)
-        .gte('date', monthStart)
-        .lte('date', businessDate)
-        .order('date', { ascending: true })
-        .order('id', { ascending: true }),
-    ),
-    fetchAllRows<DailyCashRow>(() =>
-      supabase
-        .from('daily_cash_entries')
-        .select('date,cash_income,terminal_income,card_income,playstation_income')
-        .eq('club_id', clubId)
-        .gte('date', monthStart)
-        .lte('date', businessDate)
-        .order('date', { ascending: true }),
-    ),
-    fetchAllRows<StockCountRow>(() =>
-      supabase
-        .from('daily_stock_counts')
-        .select('product_id,date,bar_income,bar_profit,bar_cost,sold_quantity')
-        .eq('club_id', clubId)
-        .gte('date', monthStart)
-        .lte('date', businessDate)
-        .order('date', { ascending: true })
-        .order('product_id', { ascending: true }),
-    ),
-    fetchAllRows<StockPurchaseCostRow>(() =>
-      supabase
-        .from('stock_purchases')
-        .select('id,date,quantity,cost_price')
-        .eq('club_id', clubId)
-        .gte('date', monthStart)
-        .lte('date', businessDate)
-        .order('date', { ascending: true })
-        .order('id', { ascending: true }),
-    ),
-    fetchAllRows<ExpenseRow>(() =>
-      supabase
-        .from('expenses')
-        .select('id,date,amount,category,payment_source,comment,created_at')
-        .eq('club_id', clubId)
-        .gte('date', monthStart)
-        .lte('date', businessDate)
-        .order('date', { ascending: true })
-        .order('id', { ascending: true }),
-    ),
-    fetchAllRows<DailyCashRow>(() =>
-      supabase
-        .from('daily_cash_entries')
-        .select('date,cash_income,terminal_income,card_income,playstation_income')
-        .eq('club_id', clubId)
-        .gte('date', previousMonthRange.from)
-        .lte('date', previousMonthRange.to)
-        .order('date', { ascending: true }),
-    ),
-    fetchAllRows<StockCountRow>(() =>
-      supabase
-        .from('daily_stock_counts')
-        .select('product_id,date,bar_income,bar_profit,bar_cost,sold_quantity')
-        .eq('club_id', clubId)
-        .gte('date', previousMonthRange.from)
-        .lte('date', previousMonthRange.to)
-        .order('date', { ascending: true })
-        .order('product_id', { ascending: true }),
-    ),
-    fetchAllRows<StockPurchaseCostRow>(() =>
-      supabase
-        .from('stock_purchases')
-        .select('id,date,quantity,cost_price')
-        .eq('club_id', clubId)
-        .gte('date', previousMonthRange.from)
-        .lte('date', previousMonthRange.to)
-        .order('date', { ascending: true })
-        .order('id', { ascending: true }),
-    ),
-    fetchAllRows<ExpenseRow>(() =>
-      supabase
-        .from('expenses')
-        .select('id,date,amount,category,payment_source,comment,created_at')
-        .eq('club_id', clubId)
-        .gte('date', previousMonthRange.from)
-        .lte('date', previousMonthRange.to)
-        .order('date', { ascending: true })
-        .order('id', { ascending: true }),
-    ),
-    fetchAllRows<DailyFinanceReportDebtPaymentRow>(() =>
-      supabase
-        .from('debt_payments')
-        .select('id,date,amount,payment_method')
-        .eq('club_id', clubId)
-        .gte('date', previousMonthRange.from)
-        .lte('date', previousMonthRange.to)
-        .order('date', { ascending: true })
-        .order('id', { ascending: true }),
-    ),
+    windowed<StockPurchaseCostRow>('stock_purchases', 'id,date,quantity,cost_price', ['date', 'id']),
+    windowed<ExpenseRow>('expenses', 'id,date,amount,category,payment_source,comment,created_at', ['date', 'id']),
+    windowed<DailyFinanceReportDebtPaymentRow>('debt_payments', 'id,date,amount,payment_method', ['date', 'id']),
+    laterDebtPaymentsPromise,
+    laterDebtPaymentsPromise.then((later) => (later.error
+      ? { data: null, error: later.error }
+      : getDebtRows(
+        supabase,
+        clubId,
+        businessDate,
+        windowFrom,
+        Array.from(new Set((later.data ?? []).map((payment) => payment.debt_id))),
+      ))),
     getLowStockProductRows(supabase, clubId),
     getPromoGiveawayRows(supabase, clubId, businessDate),
   ]);
@@ -358,48 +282,43 @@ export async function buildDailyFinanceTelegramReport(
     stockRes.error,
     purchaseRes.error,
     expenseRes.error,
-    inventoryRes.error,
-    debtRes.error,
     debtPaymentRes.error,
     laterDebtPaymentRes.error,
-    monthCashRes.error,
-    monthStockRes.error,
-    monthPurchaseRes.error,
-    monthExpenseRes.error,
-    previousCashRes.error,
-    previousStockRes.error,
-    previousPurchaseRes.error,
-    previousExpenseRes.error,
-    previousDebtPaymentRes.error,
+    debtRes.error,
   ].find(Boolean);
 
   if (firstError) throw firstError;
 
-  const inventoryRows = (inventoryRes.data ?? []) as InventorySnapshotRow[];
+  const cashRows = (cashRes.data ?? []) as DailyCashRow[];
+  const stockRows = (stockRes.data ?? []) as StockWindowRow[];
+  const purchaseRows = (purchaseRes.data ?? []) as StockPurchaseCostRow[];
+  const expenseRows = (expenseRes.data ?? []) as ExpenseRow[];
+  const debtPaymentRows = (debtPaymentRes.data ?? []) as DailyFinanceReportDebtPaymentRow[];
+  const day = <T extends { date: string }>(rows: T[]) => inRange(rows, businessDate, businessDate);
+  const month = <T extends { date: string }>(rows: T[]) => inRange(rows, monthStart, businessDate);
+  const previous = <T extends { date: string }>(rows: T[]) => inRange(rows, previousMonthRange.from, previousMonthRange.to);
 
   const input = buildDailyFinanceReportInput({
     clubName: clubRes.name,
     businessDate,
     businessDateLabel: formatDateOnly(businessDate, 'ru'),
-    cashRows: (cashRes.data ?? []) as DailyCashRow[],
-    stockRows: (stockRes.data ?? []) as StockCountRow[],
-    stockPurchaseRows: (purchaseRes.data ?? []) as StockPurchaseCostRow[],
-    expenseRows: (expenseRes.data ?? []) as ExpenseRow[],
-    monthCashRows: (monthCashRes.data ?? []) as DailyCashRow[],
-    monthStockRows: (monthStockRes.data ?? []) as StockCountRow[],
-    monthStockPurchaseRows: (monthPurchaseRes.data ?? []) as StockPurchaseCostRow[],
-    monthExpenseRows: (monthExpenseRes.data ?? []) as ExpenseRow[],
-    previousMonthCashRows: (previousCashRes.data ?? []) as DailyCashRow[],
-    previousMonthStockRows: (previousStockRes.data ?? []) as StockCountRow[],
-    previousMonthStockPurchaseRows: (previousPurchaseRes.data ?? []) as StockPurchaseCostRow[],
-    previousMonthExpenseRows: (previousExpenseRes.data ?? []) as ExpenseRow[],
-    previousMonthDebtPaymentRows: (previousDebtPaymentRes.data ?? []) as DailyFinanceReportDebtPaymentRow[],
-    previousMonthInventoryRows: inventoryRows.filter(
-      (row) => row.date >= previousMonthRange.from && row.date <= previousMonthRange.to,
-    ),
-    inventoryRows,
+    cashRows: day(cashRows),
+    stockRows: day(stockRows),
+    stockPurchaseRows: day(purchaseRows),
+    expenseRows: day(expenseRows),
+    monthCashRows: month(cashRows),
+    monthStockRows: month(stockRows),
+    monthStockPurchaseRows: month(purchaseRows),
+    monthExpenseRows: month(expenseRows),
+    previousMonthCashRows: previous(cashRows),
+    previousMonthStockRows: previous(stockRows),
+    previousMonthStockPurchaseRows: previous(purchaseRows),
+    previousMonthExpenseRows: previous(expenseRows),
+    previousMonthDebtPaymentRows: previous(debtPaymentRows),
+    previousMonthInventoryRows: previous(stockRows),
+    inventoryRows: stockRows,
     debtRows: (debtRes.data ?? []) as DailyFinanceReportDebtRow[],
-    debtPaymentRows: (debtPaymentRes.data ?? []) as DailyFinanceReportDebtPaymentRow[],
+    debtPaymentRows: month(debtPaymentRows),
     laterDebtPaymentRows: (laterDebtPaymentRes.data ?? []) as DailyFinanceReportLaterDebtPaymentRow[],
     lowStockProductRows,
     giveawayRows,

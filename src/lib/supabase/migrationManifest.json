@@ -78,5 +78,6 @@
   "077_salary_entry_created_flag.sql",
   "078_promotions_and_giveaways.sql",
   "079_assistant_feature_access.sql",
-  "080_assistant_model_usage.sql"
+  "080_assistant_model_usage.sql",
+  "081_cost_and_index_cleanup.sql"
 ]

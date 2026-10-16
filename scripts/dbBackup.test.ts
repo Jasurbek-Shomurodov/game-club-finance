@@ -95,12 +95,20 @@ describe('database backup', () => {
     expect(script.match(/--single-transaction/g)).toHaveLength(2);
   });
 
-  it('recreates every cron job the migrations schedule', () => {
+  it('recreates every cron job the migrations schedule and none they retired', () => {
     const restoreSql = read('scripts/restore-cron-jobs.sql');
-    const jobs = readdirSync(path('migrations')).filter((name) => name.endsWith('.sql'))
-      .flatMap((name) => [...read(`migrations/${name}`).matchAll(/cron\.schedule\(\s*'([^']+)'/g)].map((match) => match[1]));
-    expect(jobs.length).toBeGreaterThan(0);
-    for (const job of jobs) expect(restoreSql).toContain(`'${job}'`);
+    const live = new Set<string>();
+    for (const name of readdirSync(path('migrations')).filter((file) => file.endsWith('.sql')).sort()) {
+      const sql = read(`migrations/${name}`);
+      const scheduled = [...sql.matchAll(/cron\.schedule\(\s*'([^']+)'/g)].map((match) => match[1]);
+      // A migration that unschedules a job without scheduling it again retires it.
+      const unscheduled = [...sql.matchAll(/jobname = '([^']+)'/g)].map((match) => match[1]);
+      for (const job of unscheduled) if (!scheduled.includes(job)) live.delete(job);
+      for (const job of scheduled) live.add(job);
+    }
+    expect(live.size).toBeGreaterThan(0);
+    for (const job of live) expect(restoreSql).toContain(`'${job}'`);
+    expect(restoreSql).not.toContain("'finalize-monthly-average-income'");
   });
 
   it('requires both database URLs to compare', () => {

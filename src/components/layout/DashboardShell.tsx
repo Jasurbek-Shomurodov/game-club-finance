@@ -275,10 +275,11 @@ export function DashboardShell({
     const changed = clubId !== selectedClubIdRef.current;
     setSelectedClubIdState(clubId);
     persistSelectedClubId(clubId);
-    // Server-rendered pages (dashboard snapshot, diagnostics) read the club
-    // from the cookie; re-render them for the newly selected club.
-    if (changed) router.refresh();
-  }, [router, selectedClubIdRef]);
+    // Server-rendered pages (diagnostics) read the club from the cookie;
+    // re-render them for the newly selected club. The dashboard refetches its
+    // snapshot on the client, so refreshing there would run the RPC twice.
+    if (changed && pathname !== '/') router.refresh();
+  }, [pathname, router, selectedClubIdRef]);
 
   const loadClubs = useCallback(async (supabase: ReturnType<typeof createClient>, firstLoad: boolean) => {
     const { data: { session } } = await supabase.auth.getSession();

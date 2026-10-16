@@ -8,6 +8,9 @@ import { countPendingRequests, TEAM_CHANGED_EVENT } from '@/lib/team';
 
 type PendingProfileRow = { id: string; access_rejected_at?: string | null };
 
+/** Focus and visibility re-counts are skipped while a recent count is this fresh. */
+const FOCUS_REFRESH_MIN_INTERVAL_MS = 60_000;
+
 async function loadPendingCount() {
   const supabase = createClient();
   const profiles = (columns: string) => fetchAllRows<PendingProfileRow>(() => supabase
@@ -37,7 +40,8 @@ async function loadPendingCount() {
  * requests, so the hook stays idle for them.
  *
  * Re-counted when the club changes, when the team page reports a change, and
- * when the window regains focus — not on every navigation.
+ * when the window regains focus (at most once a minute: the count reads two
+ * tables and changes a few times a month) — not on every navigation.
  */
 export function usePendingTeamCount(enabled: boolean, clubId: string) {
   const [count, setCount] = useState(0);
@@ -49,9 +53,11 @@ export function usePendingTeamCount(enabled: boolean, clubId: string) {
     }
     let cancelled = false;
     let latest = 0;
+    let lastRefreshAt = 0;
 
     const refresh = () => {
       const request = ++latest;
+      lastRefreshAt = Date.now();
       loadPendingCount()
         .then((next) => {
           if (!cancelled && request === latest && next !== null) setCount(next);
@@ -61,17 +67,19 @@ export function usePendingTeamCount(enabled: boolean, clubId: string) {
         });
     };
     const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') refresh();
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - lastRefreshAt < FOCUS_REFRESH_MIN_INTERVAL_MS) return;
+      refresh();
     };
 
     refresh();
     window.addEventListener(TEAM_CHANGED_EVENT, refresh);
-    window.addEventListener('focus', refresh);
+    window.addEventListener('focus', refreshWhenVisible);
     document.addEventListener('visibilitychange', refreshWhenVisible);
     return () => {
       cancelled = true;
       window.removeEventListener(TEAM_CHANGED_EVENT, refresh);
-      window.removeEventListener('focus', refresh);
+      window.removeEventListener('focus', refreshWhenVisible);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
   }, [enabled, clubId]);

@@ -37,7 +37,7 @@ import {
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useClubQuery } from '@/lib/useClubQuery';
-import { fetchActiveProductsOrdered, fetchProductIdsByName, escapeLikePattern } from '@/lib/supabase/products';
+import { fetchActiveProductsOrdered, fetchProductIdsByName } from '@/lib/supabase/products';
 import {
   isPrefilledAmountEdited,
   prefillAmount,
@@ -70,7 +70,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
-import type { EntryPaymentMethod, Product, StockPurchase } from '@/types';
+import { PAYMENT_METHODS, type EntryPaymentMethod, type Product, type StockPurchase } from '@/types';
 
 const PURCHASES_PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -199,7 +199,12 @@ export default function StockPurchasePage() {
       productIds = matches.data;
     }
     const filters: string[] = [];
-    if (paymentSearch) filters.push(`payment_method.ilike.%${escapeLikePattern(paymentSearch)}%`);
+    // payment_method holds one of three known values: match them in memory
+    // instead of an ilike the database cannot index.
+    const paymentMethods = paymentSearch
+      ? PAYMENT_METHODS.filter((method) => method.includes(paymentSearch.toLowerCase()))
+      : [];
+    if (paymentMethods.length) filters.push(`payment_method.in.(${paymentMethods.join(',')})`);
     if (productIds.length) filters.push(`product_id.in.(${productIds.join(',')})`);
     // A query that matches no product and sanitises to no payment text (for
     // example "%") lists nothing rather than the whole club.
@@ -217,6 +222,7 @@ export default function StockPurchasePage() {
 
         return request
           .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
           .range(from, to);
       },
     );
