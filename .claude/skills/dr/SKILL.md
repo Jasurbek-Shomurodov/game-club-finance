@@ -1,15 +1,20 @@
 ---
 name: dr
 description: Thorough design and UX review of a page, component, screenshot or Figma frame in Game Club Finance. Checks layout and frames, spacing, empty space, colours and tokens, dark/light themes, typography, states, responsiveness, locales and consistency with the design system. Use when the user types /dr.
-argument-hint: "[page/route, component, screenshot, Figma URL, or empty for UI touched by the diff] [fix]"
+argument-hint: "[empty = full | diff | page/route | component | screenshot | Figma URL] [fix]"
 disable-model-invocation: true
 ---
 
 # /dr: design review
 
-Target: `$ARGUMENTS`. If empty, review every screen the uncommitted diff (or
-else the last commit) touches. `all` means every page under `src/app` and
-every component under `src/components`: run the strict-rule scan once, split
+> **Shared contract.** Load the `review-core` skill first (`~/.claude/skills/review-core/SKILL.md`). Its ground rules, argument
+> grammar, S0/S1/S2 severity scale, report skeleton, fix mode and fan-out
+> apply here. This file adds only what is specific to Game Club Finance.
+
+Target: `$ARGUMENTS` (grammar in `review-core` section 1). `diff` means every
+screen the uncommitted diff (or else the last commit) touches. Empty, `full`
+or `all` means every page under `src/app` and every component under
+`src/components`: run the strict-rule scan once, split
 the pages into groups of related screens for parallel review, and compare
 siblings across groups for reuse. If the arguments contain `fix`, implement the
 agreed improvements afterwards. Otherwise review and propose only.
@@ -103,7 +108,7 @@ three languages?
 - Files over about 400 lines, or one component rendering three or more
   independent sections, are split into section components beside the page.
 
-**Strict rules (each hit is at least Medium; run the scan, quote the lines)**
+**Strict rules (each hit is at least S1; run the scan, quote the lines)**
 
 ```bash
 g(){ grep -rnE --include='*.tsx' "$1" src/app src/components | grep -v PresentationFoundation; }
@@ -152,20 +157,30 @@ g "window\.(confirm|alert)|type=\"(date|month)\"|toLocaleString|toFixed\(|UZS|с
 
 ## 3. Report
 
-```
-DR: <target>   Overall: <one-line verdict>
+Use the skeleton from `review-core` section 3:
 
-Issues (most impactful first)
-1. [High|Medium|Low] <screen / area>: <problem>
-   Seen at: <width / theme / locale>   Evidence: <screenshot>
-   Proposal: <specific change, e.g. "gap-4 → gap-3; move X into Y's header"> (file)
+```
+DR: <target>   Commit: <sha>   Verdict: <one line>
+Environment: <widths, themes, locales, data state>
+
+Findings (most impactful first)
+1. [S0|S1|S2] <screen / area>: <problem>
+   Scenario: seen at <width / theme / locale>   Evidence: <screenshot or measurement>
+   Fix: <specific change, e.g. "gap-4 → gap-3; move X into Y's header"> (file)
+   Verified: <measured how>
 
 Strict rule hits: <rule # → count, top files>
 Reuse opportunities: <component/helper to extract → call sites>
-
-Works well: <short list>
+Suggestions / Works well: <short lists>
+Checked, not a finding: ...
+Not run: ...
 Quick wins vs larger redesigns: <split>
 ```
+
+Severity here: **S0** = unreadable or unusable (content hidden by overflow,
+unusable at 375 px, contrast failure, money misformatted). **S1** = a strict
+rule or design-system rule broken, a missing loading, empty or error state.
+**S2** = polish and consistency.
 
 Attach the key screenshots. For larger proposals, describe or sketch the
 before/after layout. With `fix`: implement the changes using tokens and

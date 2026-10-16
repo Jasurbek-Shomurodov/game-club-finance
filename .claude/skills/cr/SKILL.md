@@ -1,23 +1,28 @@
 ---
 name: cr
 description: Deep code review of Game Club Finance. With no arguments it audits the whole app (full test suite, database performance and models, reuse and use cases, SOLID, DRY, YAGNI). With a target it reviews that diff, commit range, branch or PR for correctness, financial logic, club scoping/RLS, migrations, i18n, formatting, design-system use, network and data fetching, performance, cleanup, DRY and SOLID, and cost, Supabase and database shape. Use when the user types /cr or cr.
-argument-hint: "[empty = full-app audit | diff | commit | A..B | branch | PR number] [fix]"
+argument-hint: "[empty = full | diff | commit | A..B | branch | PR number | path | area] [fix]"
 disable-model-invocation: false
 ---
 
 # /cr: code review
 
-Target: `$ARGUMENTS`.
+> **Shared contract.** Load the `review-core` skill first (`~/.claude/skills/review-core/SKILL.md`). Its ground rules, argument
+> grammar, S0/S1/S2 severity scale, report skeleton, fix mode and fan-out
+> apply here. This file adds only what is specific to Game Club Finance.
 
-- **Empty (`/cr` or `cr` alone): full-app audit.** Follow the "Full-app
+Target: `$ARGUMENTS` (grammar in `review-core` section 1).
+
+- **Empty, `full`, or `cr` alone: full-app audit.** Follow the "Full-app
   audit" section below, then run review passes 1 to 9 over the whole
   codebase, not a diff.
 - `diff`: uncommitted changes (`git diff HEAD` plus untracked files).
   If the tree is clean, review the last commit.
 - A commit, `A..B` range, or branch: `git diff` against it.
 - A number: the GitHub PR (`gh pr view <n>`, `gh pr diff <n>`).
-- If the arguments contain `fix`, apply the confirmed fixes after the review.
-  Otherwise review only.
+- A path or glob: those files plus their direct imports and callers.
+- If the arguments contain `fix`, apply the confirmed fixes after the review
+  (`review-core` section 4). Otherwise review only.
 
 For a diff target, read every changed file in full, not just the hunks, plus
 the callers and callees of every changed function. Report only findings you
@@ -35,7 +40,7 @@ needs a file, a line and a scenario you checked yourself.
 
 ### A. Full testing
 
-Run the complete verification set and treat any failure as a Blocker:
+Run the complete verification set and treat any failure as S0:
 
 ```bash
 npm run typecheck
@@ -130,7 +135,7 @@ Apply pass 8 to the whole tree, plus **YAGNI**:
 - Code, props, options, columns, translation keys, feature flags, env vars,
   migrations fallbacks and scripts that nothing uses or that exist for a
   future that never came. Confirm with `grep` across `src`, `scripts`,
-  `migrations` and `docs` before reporting; each one is a Minor with the
+  `migrations` and `docs` before reporting; each one is S2 with the
   deletion as the fix.
 - Abstractions with one caller that add indirection without removing
   duplication (a generic helper used once, a provider wrapping one page).
@@ -157,8 +162,8 @@ Schema: <tables> tables, <indexes> indexes, <RPCs> RPCs, <policies> policies;
 
 Then the ranked findings, then a "Refactor plan" section that orders the
 reuse/SOLID/DRY/YAGNI work by payoff and risk, each item with the files it
-touches and the tests that must stay green. With `fix`, apply only Blockers
-and Majors that are mechanical and safe, re-run the four checks, and leave
+touches and the tests that must stay green. With `fix`, apply only S0 and
+S1 items that are mechanical and safe, re-run the four checks, and leave
 the refactor plan for the user to approve.
 
 ## Review passes
@@ -348,18 +353,15 @@ a reused table, an index, or a narrower `select`.
 
 ## Report
 
-```
-CR: <target | full app>   Verdict: APPROVE | APPROVE WITH NITS | CHANGES REQUESTED
+Use the skeleton from `review-core` section 3 (`CR: <target | full app>`,
+commit, checks, findings as `[S0|S1|S2]` with Scenario, Fix and Verified,
+then Suggestions, Checked not a finding, Not run). Under "Checked, not a
+finding" name the risky areas you verified: network, performance, DRY/SOLID,
+cost and database.
 
-Findings (most severe first)
-1. [Blocker|Major|Minor|Nit] file:line: <defect in one sentence>
-   Scenario: <inputs or state → wrong result>
-   Fix: <concrete change>
-
-Checked and fine: <risky areas verified, incl. network, performance, DRY/SOLID, cost/DB>
-Checks run: <commands and results>
-```
-
-**Blocker** = wrong money/data, a security or club-isolation hole, data loss,
-or a broken build. With `fix`: apply the fixes, re-run the checks, then report
-what changed. Do not commit unless asked.
+Severity here: **S0** = wrong money or data, a security or club-isolation
+hole, data loss, or a broken build or check. **S1** = an `AGENTS.md`
+invariant or a convention above broken, or a real risk (race, unbounded read,
+duplicated financial rule). **S2** = cleanup and maintainability. With
+`fix`: `review-core` section 4, re-run the checks, then report what changed.
+Do not commit unless asked.

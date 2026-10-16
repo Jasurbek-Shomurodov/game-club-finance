@@ -1,22 +1,29 @@
 ---
 name: qa
 description: Thorough functional QA of a feature, page, request or recent change in Game Club Finance. Tests the real app end to end (logic, totals, forms, permissions, locales, themes, edge cases) and reports pass/fail with evidence. Use when the user types /qa.
-argument-hint: "[feature, page, request text, commit/PR, or empty for the uncommitted diff]"
+argument-hint: "[empty = full | diff | feature, page or request text | commit | PR | smoke | retest] [fix]"
 disable-model-invocation: true
 ---
 
 # /qa: functional QA
 
-Target: `$ARGUMENTS`. If empty, QA whatever the uncommitted diff (or else the
-last commit) changed.
+> **Shared contract.** Load the `review-core` skill first (`~/.claude/skills/review-core/SKILL.md`). Its ground rules, argument
+> grammar, S0/S1/S2 severity scale, report skeleton, fix mode and fan-out
+> apply here. This file adds only what is specific to Game Club Finance.
+
+Target: `$ARGUMENTS` (grammar in `review-core` section 1). Empty or `full`
+means every page and the whole checklist below; `diff` means whatever the
+uncommitted diff (or else the last commit) changed; a feature, page or
+request text means that flow end to end; `smoke` runs only the S0 scenarios
+(money totals, club isolation, saving a record).
 
 Your job is to prove the feature works for a real club owner, or to find
 exactly where it does not. Do not stop at "tests pass". Investigate until every
 item in the checklist below is either verified with evidence or explicitly
 marked as not testable, with the reason.
 
-Default to **report only**. Fix bugs only if the user's request says "fix", or
-after asking at the end.
+Default to **report only**. Fix bugs only if the arguments contain `fix`
+(`review-core` section 4), or after asking at the end.
 
 ## 1. Understand what "correct" means
 
@@ -115,24 +122,25 @@ screenshots for anything visual.
 
 Reply in this shape:
 
+Use the skeleton from `review-core` section 3:
+
 ```
-QA: <target>        Verdict: PASS | PASS WITH ISSUES | FAIL
+QA: <target>   Commit: <sha>   Verdict: PASS | PASS WITH ISSUES | FAIL
+Environment: <URL, club, browser, widths, themes, locales>
+Checks: vitest X/Y, typecheck, lint, build: <results>
 
-Bugs (most severe first)
-1. [High] <what is wrong> (where: page / file:line)
-   Steps: ...  Expected: ...  Actual: ...  Evidence: screenshot / value / log
+Findings (most severe first)
+1. [S0|S1|S2] <page / file:line>: <what is wrong>
+   Scenario: Steps ... Expected ... Actual ...   Evidence: screenshot / value / log
+   Fix: <concrete change>
+   Verified: <reproduced twice; how>
 
-Verified
-- <scenario>: OK (how it was checked)
-
-Not tested
-- <scenario>: <why>, e.g. needs a viewer account
-
-Writes made (test club only, each approved): <club, page, record> or none
-
-Automated: vitest X/Y, typecheck, lint, build: <results>
+Verified: <scenario>: OK (how it was checked), one line each
+Checked, not a finding: ...
+Not run: <scenario>: <why>, e.g. needs a viewer account
+Data left behind (test club only, each approved): <club, page, record> or none
 ```
 
-Severity: **High** = wrong money/data, data leak, or a crash. **Medium** = a
-broken flow or a misleading UI. **Low** = cosmetic. Finish by offering to fix
-the bugs found.
+Severity here: **S0** = wrong money or data, a data leak across clubs, or a
+crash. **S1** = a broken flow or a misleading UI. **S2** = cosmetic. Finish
+by offering to fix the bugs found.
