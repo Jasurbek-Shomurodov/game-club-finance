@@ -82,6 +82,9 @@ export interface Profile {
   full_name: string;
   email: string | null;
   role: UserRole;
+  /** Set when an owner rejected the access request (072); cleared when access is granted. */
+  access_rejected_at: string | null;
+  access_rejected_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -167,6 +170,11 @@ export interface DailyStockCount {
   bar_income: number;
   bar_cost: number;
   bar_profit: number;
+  /** Manual stock correction recorded with the count (034). */
+  adjustment_quantity: number;
+  adjustment_reason: string | null;
+  adjustment_recorded_by: string | null;
+  adjustment_recorded_at: string | null;
   giveaway_quantity?: number;
   giveaway_cost?: number;
   promotion_id?: string | null;
@@ -202,6 +210,8 @@ export interface Expense {
   comment: string | null;
   telegram_chat_id: string | null;
   telegram_message_id: number | null;
+  /** The salary payment this expense mirrors (059); null for ordinary expenses. */
+  salary_entry_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

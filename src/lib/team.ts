@@ -10,16 +10,20 @@ export interface TeamMembership {
   featureAccess: FeatureKey[] | null;
 }
 
-export interface TeamMember extends Profile {
+/**
+ * The profile columns the team page selects. `access_rejected_at` is absent
+ * before migration 072 (the loader retries without it); `access_rejected_by`
+ * is never read there.
+ */
+export interface TeamProfileRow extends Omit<Profile, 'access_rejected_at' | 'access_rejected_by'> {
+  access_rejected_at?: string | null;
+}
+
+export interface TeamMember extends TeamProfileRow {
   /** Memberships in clubs the signed-in owner manages. */
   memberships: TeamMembership[];
   /** Has a membership in some club, including inactive clubs not listed here. */
   hasAnyMembership: boolean;
-  access_rejected_at?: string | null;
-}
-
-export interface TeamProfileRow extends Profile {
-  access_rejected_at?: string | null;
 }
 
 export interface TeamMembershipRow {

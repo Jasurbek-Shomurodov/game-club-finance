@@ -335,56 +335,37 @@ read-only; use it, never a guess, for anything about the live database):
   the plan or advisor output it rests on; a finding without one is a
   Suggestion.
 
-**Schema drift** (row types vs the real schema): load the migration chain into
-PGlite with the stub preamble the migration tests use (roles, `auth.uid()`,
-`cron.schedule`, `net.http_post`; see
-`src/lib/supabase/costAndIndexCleanupMigration.test.ts`), then compare every
-`public` table's columns with the matching interface in `src/types/index.ts`
-(`DailyCashEntry` ↔ `daily_cash_entries`). A column the app reads or writes
-that its row type lacks, or a typed field no table has, is a `DB-006`
-finding; a join-only field such as `ClubMembership.clubs` is not.
+**Migration replay and schema drift** (one test, `MIG-008`, `MIG-009`,
+`DB-006`):
 
 ```bash
-node --input-type=module -e "
-import { PGlite } from '@electric-sql/pglite'; import { uuid_ossp } from '@electric-sql/pglite/contrib/uuid_ossp';
-import { readdirSync, readFileSync } from 'node:fs';
-const db = new PGlite({ extensions: { uuid_ossp } });
-await db.exec(\`create role authenticated nologin; create role anon nologin; create role service_role nologin;
-create schema auth; create schema extensions; create schema cron; create schema net;
-create table auth.users(id uuid primary key, email text);
-create function auth.uid() returns uuid language sql stable as \$\$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid \$\$;
-create function auth.role() returns text language sql stable as \$\$ select current_setting('request.jwt.claim.role', true) \$\$;
-create table cron.job(jobid bigserial primary key, jobname text, schedule text, command text);
-create function cron.schedule(job_name text, schedule text, command text) returns bigint language sql as \$\$ insert into cron.job(jobname, schedule, command) values (job_name, schedule, command) returning jobid \$\$;
-create function cron.unschedule(job_id bigint) returns boolean language sql as \$\$ delete from cron.job where jobid = job_id returning true \$\$;
-create function net.http_post(url text, body jsonb default '{}', params jsonb default '{}', headers jsonb default '{}', timeout_milliseconds int default 1000) returns bigint language sql as \$\$ select 1::bigint \$\$;
-grant usage on schema public, auth, extensions, cron, net to authenticated, anon, service_role;\`);
-const strip = (sql) => sql.replace(/create extension if not exists (pg_cron|pg_net)[^;]*;/gi, '');
-const files = readdirSync('migrations').filter((f) => f.endsWith('.sql')).sort();
-for (const f of files) await db.exec(strip(readFileSync('migrations/' + f, 'utf8')));
-console.log('applied', files.length, 'migrations');
-for (const f of files.slice(-10)) { try { await db.exec(strip(readFileSync('migrations/' + f, 'utf8'))); console.log('re-ran ok', f); } catch (e) { console.log('RERUN FAIL', f, e.message.split('\\n')[0]); } }
-const cols = await db.query(\`select table_name, column_name from information_schema.columns where table_schema = 'public' order by 1, ordinal_position\`);
-const tables = {}; for (const r of cols.rows) (tables[r.table_name] ??= new Set()).add(r.column_name);
-const types = readFileSync('src/types/index.ts', 'utf8');
-const table = (name) => { const s = name.replace(/([a-z0-9])([A-Z])/g, '\$1_\$2').toLowerCase(); return s.endsWith('y') ? s.slice(0, -1) + 'ies' : s + 's'; };
-for (const [, name, body] of types.matchAll(/export interface (\\w+) \\{([^}]*)\\}/g)) {
-  const t = table(name); if (!tables[t]) { console.log('no table for type', name, '->', t); continue; }
-  const fields = new Set([...body.matchAll(/^\\s*(\\w+)\\??:/gm)].map((m) => m[1]));
-  const missingInType = [...tables[t]].filter((c) => !fields.has(c)), missingInTable = [...fields].filter((c) => !tables[t].has(c));
-  if (missingInType.length || missingInTable.length) console.log(name, '<->', t, { missingInType, missingInTable });
-}"
+npx vitest run src/lib/supabase/migrationReplay.test.ts
 ```
 
-**Migration replay** (the same command): it applies every file in
-`migrations/` in order on an empty PGlite database, so a migration that
-depends on something only production has fails loudly, then re-runs the last
-ten to prove each is idempotent (`create or replace`, `if not exists`,
-`drop policy if exists` before `create policy`). A `RERUN FAIL` line is a
-`MIG-008` finding, even when production has only run the file once:
-`scripts/db-migrate.sh` and a restore replay the chain. Keep the stub
-preamble in step with the migration tests; a migration that needs a new
-Supabase object gets a stub there, not a skipped replay.
+`src/lib/supabase/migrationReplay.test.ts` applies every file in `migrations/`
+in order on an empty PGlite database with only a stub preamble (roles,
+`auth.uid()`, `auth.role()`, `cron.schedule`, `net.http_post`, `uuid-ossp`),
+so a migration that depends on something only production has fails loudly
+(`MIG-009`). It then re-runs the newest ten files to prove each is idempotent
+(`create or replace`, `if not exists`, `drop policy if exists` before
+`create policy`); a failure is `MIG-008`, even when production has only run
+the file once, because `scripts/db-migrate.sh` and a restore replay the chain.
+Applied files are never edited (invariant 9): a file whose statements cannot
+run twice goes into the test's `SUPERSEDED_ONE_SHOT` map with its reason, and
+a later migration carries the same effect in guarded form (082 does this for
+077 and 081). Keep the preamble in step with the other migration tests; a
+migration that needs a new Supabase object gets a stub there, not a skipped
+replay.
+
+The same test compares every `public` table's columns with the matching
+interface in `src/types/index.ts` (`DailyCashEntry` ↔ `daily_cash_entries`;
+`TABLE_FOR_TYPE` holds the names the plural rule misses, such as
+`LegacyDebt` ↔ `debts`). A column the app reads or writes that its row type
+lacks, or a typed field no table has, is a `DB-006` finding and fails the
+test; a join-only field such as `ClubMembership.clubs` is listed in
+`NON_COLUMN_FIELDS`, not ignored silently. Fix drift in the one row type per
+table; query-specific projections extend or `Pick` from it (see
+`TeamProfileRow` in `src/lib/team.ts`).
 
 **Cost** (Supabase and Vercel bill by egress, compute and invocations):
 - Rows and bytes that leave the database only to be summed, counted or

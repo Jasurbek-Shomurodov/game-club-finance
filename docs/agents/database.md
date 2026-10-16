@@ -220,6 +220,14 @@ deletes also go through `POST /api/salaries` (`delete_record`) and notify.
 `POST /api/expenses` accepts a client `id` for idempotent retries and rejects
 payment methods the club has not enabled.
 
+Migration 082 restates `record_salary_entry_with_status` (077) with
+`create or replace` and the `club_role_read_stock_purchases` policy (081)
+behind `drop policy if exists`, so a replay of the chain re-runs cleanly;
+nothing changes in behaviour. `src/lib/supabase/migrationReplay.test.ts`
+replays every migration on PGlite, re-runs the newest ten (077 and 081 are
+listed there as superseded one-shots) and fails when a `src/types` row type
+drifts from its table.
+
 Migration 078 adds `promotions` plus `daily_stock_counts.giveaway_quantity`,
 `giveaway_cost` and `promotion_id`, and replaces `save_closing_stock_counts`
 and `validate_daily_stock_count_integrity` with giveaway-aware versions
