@@ -13,6 +13,9 @@ npm run lint
 npm run typecheck
 npm test
 npm run build
+
+# What CI runs: the tests under coverage, checked against scripts/coverage-floor.json
+npm run test:coverage
 ```
 
 `npm test` runs Vitest in the Node environment. Tests are colocated as
@@ -21,7 +24,22 @@ npm run build
 `npm install` sets `core.hooksPath` to `.githooks`, whose `pre-commit` hook runs
 typecheck, lint, and tests (about 40 seconds). It skips `npm run build`, so run
 the build yourself before pushing risky changes. `git commit --no-verify` bypasses
-the hook only in an emergency; the checks are the only gate before Vercel deploys.
+the hook only in an emergency.
+
+## CI and the coverage floor
+
+`.github/workflows/checks.yml` runs on every push and pull request: `npm ci`,
+`npm audit --omit=dev --audit-level=high`, typecheck, lint, `npm run
+test:coverage`, and the production build with placeholder Supabase values.
+`test:coverage` runs the whole suite under v8 coverage (the PGlite tests need no
+system package) and then `scripts/check-coverage-floor.mjs` compares
+`coverage/lcov.info` with `scripts/coverage-floor.json`: the job fails when line,
+branch or function coverage drops below the recorded floor, or when a `src` file
+that no test runs is missing from the `untested` list. The floor only rises:
+when the script reports that coverage is above the floor or that a listed file
+is now tested, raise the numbers or shorten the list in the same change as the
+new tests. A high or critical audit finding in a shipped dependency also fails
+the job; fix it by updating the dependency, not by relaxing the audit.
 
 ## Change-to-test matrix
 

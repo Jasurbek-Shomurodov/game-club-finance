@@ -12,5 +12,20 @@ export default defineConfig({
       ),
     },
   },
-  test: { environment: 'node' },
+  test: {
+    environment: 'node',
+    // The PGlite tests boot an embedded PostgreSQL in beforeAll; on a loaded
+    // machine or a small CI runner that takes longer than the 10s default.
+    hookTimeout: 60_000,
+    // `npm run test:coverage` measures every src file, including ones no test
+    // imports, and scripts/check-coverage-floor.mjs compares the result with
+    // scripts/coverage-floor.json.
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/**/*.test.{ts,tsx}', 'src/**/*.d.ts', 'src/**/__tests__/**'],
+      reporter: ['text-summary', 'lcovonly'],
+      reportsDirectory: 'coverage',
+    },
+  },
 });

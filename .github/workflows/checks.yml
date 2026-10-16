@@ -1,0 +1,31 @@
+name: Project checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Placeholders so `next build` can render its pages. No request reaches
+      # Supabase during the build, and no real key belongs in this file.
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Fails on a known high or critical vulnerability in a package the app ships.
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm run typecheck
+      - run: npm run lint
+      # Every test, including the PGlite (embedded PostgreSQL in WebAssembly)
+      # migration and RLS tests under src/lib/supabase, which need no system
+      # package; then the coverage floor in scripts/coverage-floor.json.
+      - run: npm run test:coverage
+      - run: npm run build
