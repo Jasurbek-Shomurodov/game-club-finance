@@ -1,25 +1,165 @@
 ---
 name: cr
-description: Deep code review of the uncommitted diff, a commit range, a branch or a PR in Game Club Finance. Checks correctness, financial logic, club scoping/RLS, migrations, i18n, formatting, design-system use, network and data fetching, performance, cleanup, DRY and SOLID, and cost, Supabase and database shape (egress, indexes, unified tables and models). Use when the user types /cr.
-argument-hint: "[empty = uncommitted diff | commit | A..B | branch | PR number] [fix]"
-disable-model-invocation: true
+description: Deep code review of Game Club Finance. With no arguments it audits the whole app (full test suite, database performance and models, reuse and use cases, SOLID, DRY, YAGNI). With a target it reviews that diff, commit range, branch or PR for correctness, financial logic, club scoping/RLS, migrations, i18n, formatting, design-system use, network and data fetching, performance, cleanup, DRY and SOLID, and cost, Supabase and database shape. Use when the user types /cr or cr.
+argument-hint: "[empty = full-app audit | diff | commit | A..B | branch | PR number] [fix]"
+disable-model-invocation: false
 ---
 
 # /cr: code review
 
 Target: `$ARGUMENTS`.
 
-- Empty: uncommitted changes (`git diff HEAD` plus untracked files).
+- **Empty (`/cr` or `cr` alone): full-app audit.** Follow the "Full-app
+  audit" section below, then run review passes 1 to 9 over the whole
+  codebase, not a diff.
+- `diff`: uncommitted changes (`git diff HEAD` plus untracked files).
   If the tree is clean, review the last commit.
 - A commit, `A..B` range, or branch: `git diff` against it.
 - A number: the GitHub PR (`gh pr view <n>`, `gh pr diff <n>`).
 - If the arguments contain `fix`, apply the confirmed fixes after the review.
   Otherwise review only.
 
-Read every changed file in full, not just the hunks, plus the callers and
-callees of every changed function. Report only findings you have verified in
-the code. Give each one a concrete failure scenario (inputs or state, then the
-wrong result). No style nitpicks that lint already enforces.
+For a diff target, read every changed file in full, not just the hunks, plus
+the callers and callees of every changed function. Report only findings you
+have verified in the code. Give each one a concrete failure scenario (inputs
+or state, then the wrong result). No style nitpicks that lint already enforces.
+
+## Full-app audit (no arguments)
+
+The whole repository is the target. Read `AGENTS.md`, `docs/agents/*.md` and
+`src/components/PresentationFoundation/README.md` first, then walk `src/app`,
+`src/components`, `src/lib`, `migrations` and `scripts`. Use subagents to
+split the sweep by area (pages and routes, lib and calculations, Supabase and
+migrations, Telegram) and merge their verified findings; every finding still
+needs a file, a line and a scenario you checked yourself.
+
+### A. Full testing
+
+Run the complete verification set and treat any failure as a Blocker:
+
+```bash
+npm run typecheck
+npm run lint
+npm test
+npm run build
+```
+
+Then audit coverage, not just the pass/fail:
+
+- Map every module under `src/lib` to its `*.test.ts`. Name the pure
+  functions, calculations, Supabase helpers and Telegram renderers with no
+  test or with tests that skip edge cases (empty ranges, month boundaries,
+  business-day boundary, zero stock, partial payments, deactivated staff,
+  missing migrations).
+- Check the change-to-test matrix in `docs/agents/testing.md` against the
+  repo: each row's named test file must exist and exercise what it claims.
+- Flag tests that only assert the code does what it does (snapshot of an
+  implementation detail) instead of the business rule.
+- Note slow or flaky suites (`ledgerReadPermissions.test.ts` on embedded
+  PostgreSQL) and whether they run in the pre-commit hook.
+
+### B. Database performance
+
+Read `docs/agents/database.md` and every file in `migrations` in order.
+Build the effective schema (tables, columns, indexes, RLS policies, RPCs,
+triggers) and compare it with how `src/lib/supabase` and the pages query it:
+
+- For every query in the app, name the index it uses. Report queries on
+  club-owned tables with no `(club_id, ...)` index that covers their filter
+  and order, and indexes that nothing queries.
+- RLS policies that run a subquery per row (`EXISTS (select ... from
+  club_members ...)`) without a supporting index, or that differ between
+  sibling ledgers.
+- RPCs and triggers that loop row by row where a set-based statement would
+  do, or that are missing `security definer` / `search_path` hardening where
+  the sibling RPCs have it.
+- Reads that download whole ledgers to aggregate in JavaScript; writes that
+  take several round trips where one RPC exists or should.
+- Tables with no `created_at`, no primary key, `text` ids, or money stored as
+  `float`.
+
+### C. Database models
+
+One concept, one table, one TypeScript type:
+
+- List every table and the `src/types` row type that maps to it. Report
+  tables with two or more row types, types with fields the table does not
+  have, and hand-written types that drift from the migrations.
+- Report parallel ledgers or columns for one concept (two "payments"
+  shapes, `*_at` next to `*_date` for the same event, `comment` vs `note`,
+  payment methods stored with different spellings).
+- Check the retired tables (`income_transactions`, `expense_transactions`,
+  `cash_movements`) have no live writers, and that every current ledger
+  follows the same `id`, `club_id`, business `date`, `created_at`,
+  `created_by` shape with matching types, defaults and nullability.
+- Check enums and check constraints for the same domain value (payment
+  method, role, product unit) agree across tables, migrations and
+  `src/lib/paymentMethods.ts` / `src/lib/permissions`.
+
+### D. Code reuse and unified logic (use cases)
+
+Find the same business operation implemented more than once and name the one
+home it should have:
+
+- Enumerate the app's use cases (record income, record expense, record a
+  purchase, count closing stock, pay a debt, withdraw owner money, pay
+  salary, build the daily report, switch club, change date range). For each
+  one list every place that implements part of it (page, modal, API route,
+  Telegram report, script). Two implementations of one use case is a
+  finding; the fix is a single function in `src/lib` (calculations,
+  supabase helper, or a `useCases`/service module) that every caller uses.
+- Formulas: any total, profit, cash-left, stock value or debt balance
+  computed outside `src/lib/calculations`.
+- Queries: the same table read with slightly different `select` lists or
+  filters in several components; `fetchAllRows` applied in some callers and
+  forgotten in others.
+- Formatting and dates: money or dates formatted outside `src/lib/formatters.ts`
+  and `src/lib/utils.ts`.
+- UI: bespoke markup or state machines that `@/components/PresentationFoundation`
+  already provides (forms, modals, confirms, tables, pickers, skeletons).
+- Hooks and state: copy-pasted loading/error/refetch boilerplate across
+  pages that one data hook should own.
+- Telegram and dashboard: the daily report and the dashboard must derive
+  the same numbers from the same calculation functions, never from two
+  code paths.
+
+### E. SOLID, DRY and YAGNI
+
+Apply pass 8 to the whole tree, plus **YAGNI**:
+
+- Code, props, options, columns, translation keys, feature flags, env vars,
+  migrations fallbacks and scripts that nothing uses or that exist for a
+  future that never came. Confirm with `grep` across `src`, `scripts`,
+  `migrations` and `docs` before reporting; each one is a Minor with the
+  deletion as the fix.
+- Abstractions with one caller that add indirection without removing
+  duplication (a generic helper used once, a provider wrapping one page).
+- Configurable behaviour (parameters, boolean props, generics) that every
+  caller sets the same way.
+- Migration compatibility fallbacks are an exception: keep them unless the
+  user has proved every deployed database is migrated (invariant 8).
+
+Group DRY and SOLID findings by the refactor that fixes them (for example
+"move X, Y and Z into `src/lib/calculations/owner.ts`") rather than listing
+every duplicate separately, so the report reads as a plan.
+
+### Audit report
+
+Use the report format below with `CR: full app`. Add, before the findings:
+
+```
+Checks: typecheck <pass|fail>, lint <pass|fail>, test <n passed, n failed>,
+        build <pass|fail>
+Coverage gaps: <modules with no or weak tests>
+Schema: <tables> tables, <indexes> indexes, <RPCs> RPCs, <policies> policies;
+        <n> queries without a covering index
+```
+
+Then the ranked findings, then a "Refactor plan" section that orders the
+reuse/SOLID/DRY/YAGNI work by payoff and risk, each item with the files it
+touches and the tests that must stay green. With `fix`, apply only Blockers
+and Majors that are mechanical and safe, re-run the four checks, and leave
+the refactor plan for the user to approve.
 
 ## Review passes
 
@@ -209,7 +349,7 @@ a reused table, an index, or a narrower `select`.
 ## Report
 
 ```
-CR: <target>   Verdict: APPROVE | APPROVE WITH NITS | CHANGES REQUESTED
+CR: <target | full app>   Verdict: APPROVE | APPROVE WITH NITS | CHANGES REQUESTED
 
 Findings (most severe first)
 1. [Blocker|Major|Minor|Nit] file:line: <defect in one sentence>
