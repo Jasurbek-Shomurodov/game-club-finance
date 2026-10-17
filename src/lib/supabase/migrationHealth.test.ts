@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
-import { readFileSync, readdirSync } from 'node:fs';
-import { loadMigrationHealth, unrecordedMigrations } from './migrationHealth';
-import manifest from './migrationManifest.json';
+import { readFileSync } from 'node:fs';
+import { loadMigrationHealth, loadProbeResults, migrationStatuses } from './migrationHealth';
 
 describe('migration health', () => {
   it('scopes a read-only diagnostic to the selected club and keeps unknown history distinct', async () => {
@@ -27,17 +26,36 @@ describe('migration health', () => {
     for (let i = 0; i < 3; i++) expect(await loadMigrationHealth({ rpc }, 'club-a')).toEqual({ status: 'error' });
   });
 
-  it('matches history records by the numeric filename prefix only', () => {
-    const files = ['001_initial_schema.sql', '052_migration_health.sql', '084_daily_cash_entry_author_integrity.sql'];
-    expect(unrecordedMigrations(files, ['001', '084'])).toEqual(['052_migration_health.sql']);
-    expect(unrecordedMigrations(files, ['001', '052', '084', '999'])).toEqual([]);
-    expect(unrecordedMigrations(files, ['1', '52', '084_daily_cash_entry_author_integrity'])).toEqual(files);
-    expect(unrecordedMigrations(files, ['20260101000000'])).toEqual(files);
-    expect(unrecordedMigrations(files, [])).toEqual(files);
+  it('derives each status from probes first and history only for migrations with nothing to probe', () => {
+    const manifest = [
+      { file: '001_a.sql', probes: [1, 2] },
+      { file: '002_b.sql', probes: [] },
+      { file: '003_c.sql', probes: [3, 4] },
+      { file: '004_d.sql', probes: [5] },
+      { file: '005_e.sql', probes: [] },
+    ];
+    const status = (recorded: string[], results: boolean[] | null) =>
+      migrationStatuses(manifest, recorded, results).map((s) => s.status);
+    expect(status([], [true, true, true, false, false])).toEqual(['applied', 'likely', 'partial', 'notApplied', 'unknown']);
+    expect(status(['005'], [true, true, true, true, true])).toEqual(['applied', 'likely', 'applied', 'applied', 'applied']);
+    // Probes outrank history: a recorded migration whose objects are gone is not applied.
+    expect(status(['004'], [true, true, true, true, false])).toEqual(['applied', 'likely', 'applied', 'notApplied', 'unknown']);
+    // Without the probe RPC only history speaks, and nothing is inferred.
+    expect(status(['1', '002', '20260101000000'], null)).toEqual(['unknown', 'applied', 'unknown', 'unknown', 'unknown']);
   });
 
-  it('lists every committed migration so new migrations require updating the manifest', () => {
-    expect(manifest).toEqual(readdirSync('migrations').filter((file) => file.endsWith('.sql')).sort());
+  it('sends every manifest probe once and requires one boolean per probe', async () => {
+    const manifest = [{ file: '001_a.sql', probes: [{ kind: 'relation', name: 'public.a' }] }, { file: '002_b.sql', probes: [] }];
+    const rpc = vi.fn()
+      .mockResolvedValueOnce({ data: [true], error: null })
+      .mockResolvedValueOnce({ data: [true, false], error: null })
+      .mockResolvedValueOnce({ data: null, error: { code: 'PGRST202' } })
+      .mockResolvedValueOnce({ data: null, error: { code: '42501' } });
+    expect(await loadProbeResults({ rpc }, 'club-a', manifest)).toEqual({ status: 'ready', results: [true] });
+    expect(rpc).toHaveBeenCalledWith('get_migration_probe_results', { p_club_id: 'club-a', p_probes: [{ kind: 'relation', name: 'public.a' }] });
+    expect(await loadProbeResults({ rpc }, 'club-a', manifest)).toEqual({ status: 'error' });
+    expect(await loadProbeResults({ rpc }, 'club-a', manifest)).toEqual({ status: 'unavailable' });
+    expect(await loadProbeResults({ rpc }, 'club-a', manifest)).toEqual({ status: 'error' });
   });
 
   it('requires a club owner and exposes only metadata with restricted execution', () => {

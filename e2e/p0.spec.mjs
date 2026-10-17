@@ -171,7 +171,7 @@ test('AUTH-002 switching club shows only that club\'s figures and no row of the 
   expect(leaked).toEqual([]);
 });
 
-test('SET-001 the Settings health check confirms the 050/051 functions on the fully migrated database', async ({ page }) => {
+test('SET-001 the Settings health check shows every migration applied and confirms the 050/051 functions', async ({ page }) => {
   await page.goto('/settings');
   const health = page.locator('[aria-busy]').filter({ has: page.getByRole('heading', { name: 'Database health' }) });
   const calls = [];
@@ -180,8 +180,9 @@ test('SET-001 the Settings health check confirms the 050/051 functions on the fu
   await expect(health.getByText(/Owner-profit checks passed/)).toBeVisible();
   await expect(health.getByText('Matches app version')).toHaveCount(3);
   for (const name of ['050 · get_owner_profit_snapshot', '051 · withdraw_owner_money_for_month', '051 · enforce_owner_withdrawal_month_balance']) await expect(health).toContainText(name);
-  // The test database is migrated without CLI history, like a SQL Editor install: unconfirmed, never "missing".
-  await expect(health.getByText(/Migration records could not be read/)).toBeVisible();
+  // The test database is migrated without CLI history, like a SQL Editor install: the schema probes still prove every migration.
+  await expect(health.getByText(/^All \d+ migrations are applied\.$/)).toBeVisible();
+  await expect(health.getByText('Not applied', { exact: true })).toHaveCount(1);
   await expect(health.getByText('Function missing')).toHaveCount(0);
   expect(calls).toEqual([{ p_club_id: clubs.arcade.id }]);
 });

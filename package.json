@@ -22,7 +22,8 @@
     "seed:test-data": "node scripts/seed-test-data.cjs --confirm",
     "reset:test-data": "node scripts/reset-test-data.cjs --confirm",
     "test:e2e": "playwright test",
-    "test:e2e:full": "node e2e/build.mjs && playwright test"
+    "test:e2e:full": "node e2e/build.mjs && playwright test",
+    "migrations:manifest": "tsx scripts/generate-migration-manifest.ts"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",

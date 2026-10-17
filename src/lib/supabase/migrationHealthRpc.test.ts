@@ -3,7 +3,7 @@ import { uuid_ossp } from '@electric-sql/pglite/contrib/uuid_ossp';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { loadMigrationHealth, unrecordedMigrations, type HealthResult } from './migrationHealth';
+import { loadMigrationHealth, loadProbeResults, migrationStatuses, type HealthResult } from './migrationHealth';
 import manifest from './migrationManifest.json';
 
 /**
@@ -21,8 +21,9 @@ const ADMIN = '00000000-0000-4000-8000-0000000000a2';
 
 let db: PGlite;
 
-beforeAll(async () => {
-  db = new PGlite({ extensions: { uuid_ossp } });
+/** A database with the Supabase roles and schemas the migrations expect, then `migrationFiles` applied. */
+async function migratedDatabase(migrationFiles: readonly string[]) {
+  const db = new PGlite({ extensions: { uuid_ossp } });
   await db.exec(`
     create role authenticated nologin; create role anon nologin; create role service_role nologin;
     create schema auth; create schema extensions; create schema cron; create schema net;
@@ -35,7 +36,7 @@ beforeAll(async () => {
     create function net.http_post(url text, body jsonb default '{}', params jsonb default '{}', headers jsonb default '{}', timeout_milliseconds int default 1000) returns bigint language sql as $$ select 1::bigint $$;
     grant usage on schema public, auth, extensions, cron, net to authenticated, anon, service_role;
   `);
-  for (const name of files) {
+  for (const name of migrationFiles) {
     await db.exec(readFileSync(resolve(migrationsDir, name), 'utf8')
       .replace(/create extension if not exists (pg_cron|pg_net)[^;]*;/gi, ''));
   }
@@ -45,19 +46,25 @@ beforeAll(async () => {
     insert into public.club_memberships(club_id, user_id, role)
       values ('${CLUB}', '${OWNER}', 'owner'), ('${CLUB}', '${ADMIN}', 'admin'), ('${OTHER_CLUB}', '${ADMIN}', 'owner');
   `);
-}, 120_000);
+  return db;
+}
+
+beforeAll(async () => { db = await migratedDatabase(files); }, 120_000);
 
 afterAll(async () => { await db?.close(); });
 
 /** A client shaped like supabase-js that runs the RPC as `userId` the way PostgREST does. */
-function clientAs(userId: string | null) {
+function clientAs(userId: string | null, database = () => db) {
   return {
-    async rpc(name: string, args: { p_club_id: string }) {
+    async rpc(name: string, args: { p_club_id: string; p_probes?: unknown }) {
+      const db = database();
       await db.exec('begin');
       try {
         await db.query("select set_config('request.jwt.claim.sub', $1, true)", [userId ?? '']);
         await db.exec(`set local role ${userId ? 'authenticated' : 'anon'}`);
-        const { rows } = await db.query<{ result: unknown }>(`select public.${name}($1::uuid) as result`, [args.p_club_id]);
+        const { rows } = args.p_probes === undefined
+          ? await db.query<{ result: unknown }>(`select public.${name}($1::uuid) as result`, [args.p_club_id])
+          : await db.query<{ result: unknown }>(`select public.${name}($1::uuid, $2::jsonb) as result`, [args.p_club_id, JSON.stringify(args.p_probes)]);
         return { data: rows[0].result, error: null };
       } catch (error) {
         const { code, message } = error as { code?: string; message?: string };
@@ -114,7 +121,8 @@ describe('Settings migration health check (full migration chain in PGlite)', () 
     `);
     expect(data.historyAvailable).toBe(true);
     expect(data.recordedVersions).toEqual(recorded);
-    expect(unrecordedMigrations(manifest, data.recordedVersions)).toEqual(['083_expense_update_column_grant.sql']);
+    const statuses = migrationStatuses(manifest, data.recordedVersions, null);
+    expect(statuses.filter((s) => s.status !== 'applied').map((s) => s.file)).toEqual(['083_expense_update_column_grant.sql']);
   });
 
   it('confirms every committed migration once all of them are recorded', async () => {
@@ -124,7 +132,7 @@ describe('Settings migration health check (full migration chain in PGlite)', () 
       create table supabase_migrations.schema_migrations(version text not null primary key, statements text[], name text);
       insert into supabase_migrations.schema_migrations(version) values ${values};
     `);
-    expect(unrecordedMigrations(manifest, data.recordedVersions)).toEqual([]);
+    expect(migrationStatuses(manifest, data.recordedVersions, null).every((s) => s.status === 'applied')).toBe(true);
   });
 
   it('treats an unreadable history table as unavailable rather than failing the check', async () => {
@@ -188,6 +196,55 @@ describe('Settings migration health check (full migration chain in PGlite)', () 
         },
       }, CLUB);
       expect(result).toEqual({ status: 'unavailable' });
+    } finally {
+      await db.exec('rollback');
+    }
+  });
+});
+
+describe('Settings migration probes (get_migration_probe_results)', () => {
+  const probesAs = (userId: string | null, clubId = CLUB, database = () => db) =>
+    loadProbeResults(clientAs(userId, database), clubId, manifest);
+  const statusesOn = async (database: () => PGlite) => {
+    const result = await probesAs(OWNER, CLUB, database);
+    if (result.status !== 'ready') throw new Error(`Expected probe results, got ${result.status}`);
+    return migrationStatuses(manifest, [], result.results);
+  };
+
+  it('shows every committed migration as applied on a fully migrated SQL Editor install', async () => {
+    const statuses = await statusesOn(() => db);
+    expect(statuses).toHaveLength(files.length);
+    expect(statuses.filter((s) => s.status !== 'applied' && s.status !== 'likely')).toEqual([]);
+  });
+
+  it('flags exactly the migration that was skipped', async () => {
+    const skipped = await migratedDatabase(files.filter((file) => !file.startsWith('084_')));
+    try {
+      const statuses = await statusesOn(() => skipped);
+      expect(statuses.filter((s) => s.status !== 'applied' && s.status !== 'likely'))
+        .toEqual([{ file: '084_daily_cash_entry_author_integrity.sql', status: 'notApplied' }]);
+    } finally {
+      await skipped.close();
+    }
+  }, 120_000);
+
+  it('refuses non-owners, owners of another club and signed-out callers', async () => {
+    expect(await probesAs(ADMIN)).toEqual({ status: 'error' });
+    expect(await probesAs(OWNER, OTHER_CLUB)).toEqual({ status: 'error' });
+    expect(await probesAs(null)).toEqual({ status: 'error' });
+  });
+
+  it('answers false for unknown or malformed probes instead of failing the check', async () => {
+    await db.exec('begin');
+    try {
+      await db.query("select set_config('request.jwt.claim.sub', $1, true)", [OWNER]);
+      await db.exec('set local role authenticated');
+      const probes = [
+        { kind: 'relation', name: 'public.clubs' }, { kind: 'relation', name: 'public.nope' },
+        { kind: 'function', signature: 'public.f((' }, { kind: 'surprise' }, { kind: 'column', table: 'public.clubs', column: 'name' },
+      ];
+      const { rows } = await db.query<{ result: unknown }>('select public.get_migration_probe_results($1::uuid, $2::jsonb) as result', [CLUB, JSON.stringify(probes)]);
+      expect(rows[0].result).toEqual([true, false, false, false, true]);
     } finally {
       await db.exec('rollback');
     }

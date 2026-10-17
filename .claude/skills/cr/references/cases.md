@@ -84,7 +84,7 @@ run; `Fixed YYYY-MM-DD` plus the guarding test closes it.
 
 | ID | Sev | Case | Check | Expect |
 |---|---|---|---|---|
-| MIG-001 | S0 | Applied migrations are never edited | `git diff --stat HEAD~20 -- migrations/ \| grep -v "^ migrations/0[89][0-9]"` on a review | Only new, uniquely numbered files change; `src/lib/supabase/migrationManifest.json` lists the new one |
+| MIG-001 | S0 | Applied migrations are never edited | `git diff --stat HEAD~20 -- migrations/ \| grep -v "^ migrations/0[89][0-9]"` on a review | Only new, uniquely numbered files change; `src/lib/supabase/migrationManifest.json` is regenerated (`npm run migrations:manifest`) |
 | MIG-002 | S0 | Migration numbers are unique and ordered | `ls migrations \| cut -d_ -f1 \| sort \| uniq -d` | No duplicate prefix; the manifest matches the directory |
 | MIG-003 | S1 | Compatibility fallbacks are kept | Read any removed `catch` or feature probe around a newer column or RPC | A fallback is removed only when the task proves every deployed database is migrated (invariant 8) |
 | MIG-004 | S1 | New club-owned tables follow the ledger shape | Read the new `create table` | `id uuid`, `club_id` FK to `clubs`, business `date`, `created_at`, `created_by default auth.uid()`, money as `numeric`, RLS, `(club_id, date)` index |

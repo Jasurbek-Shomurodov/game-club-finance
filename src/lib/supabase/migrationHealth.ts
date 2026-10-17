@@ -16,7 +16,7 @@ export type HealthResult =
   | { status: 'unavailable' | 'error' };
 
 interface HealthClient {
-  rpc(name: string, args: { p_club_id: string }): PromiseLike<{
+  rpc(name: string, args: { p_club_id: string; p_probes?: unknown }): PromiseLike<{
     data: unknown;
     error: { code?: string; message?: string } | null;
   }>;
@@ -35,8 +35,67 @@ export async function loadMigrationHealth(client: HealthClient, clubId: string):
   }
 }
 
-/** Committed migration files whose numeric version has no history record. Unrecorded is unconfirmed, not missing. */
-export function unrecordedMigrations(files: readonly string[], recordedVersions: readonly string[]): string[] {
+/** A generated entry of migrationManifest.json: a migration file and the schema objects that prove it ran. */
+export interface ManifestEntry {
+  file: string;
+  probes: readonly unknown[];
+}
+
+export type ProbeResult =
+  | { status: 'ready'; results: boolean[] }
+  | { status: 'unavailable' | 'error' };
+
+/** Asks the database (migration 085) which manifest probes exist, in manifest order. */
+export async function loadProbeResults(
+  client: HealthClient,
+  clubId: string,
+  manifest: readonly ManifestEntry[],
+): Promise<ProbeResult> {
+  const probes = manifest.flatMap((entry) => entry.probes);
+  try {
+    const { data, error } = await client.rpc('get_migration_probe_results', { p_club_id: clubId, p_probes: probes });
+    if (error) {
+      return { status: isMissingDatabaseFunction(error, 'get_migration_probe_results') ? 'unavailable' : 'error' };
+    }
+    const parsed = z.array(z.boolean()).length(probes.length).safeParse(data);
+    return parsed.success ? { status: 'ready', results: parsed.data } : { status: 'error' };
+  } catch {
+    return { status: 'error' };
+  }
+}
+
+/**
+ * applied: every probe exists, or (with nothing to probe) the history records it.
+ * likely: nothing to probe or record, but a later migration (fully or partly) is applied.
+ * partial / notApplied: some / none of its probes exist.
+ * unknown: nothing to probe, unrecorded, and no later migration is applied.
+ */
+export type MigrationStatus = 'applied' | 'likely' | 'partial' | 'notApplied' | 'unknown';
+
+/**
+ * Per-migration status from the probe results (null when migration 085 is not installed)
+ * and the recorded history versions, matched by the numeric filename prefix.
+ */
+export function migrationStatuses(
+  manifest: readonly ManifestEntry[],
+  recordedVersions: readonly string[],
+  results: readonly boolean[] | null,
+): { file: string; status: MigrationStatus }[] {
   const recorded = new Set(recordedVersions);
-  return files.filter((file) => !recorded.has(file.split('_')[0]));
+  let offset = 0;
+  const statuses: MigrationStatus[] = manifest.map(({ file, probes }) => {
+    const found = results?.slice(offset, offset + probes.length) ?? [];
+    offset += probes.length;
+    if (results && probes.length > 0) {
+      const present = found.filter(Boolean).length;
+      return present === probes.length ? 'applied' : present === 0 ? 'notApplied' : 'partial';
+    }
+    return recorded.has(file.split('_')[0]) ? 'applied' : 'unknown';
+  });
+  let laterApplied = false;
+  for (let i = statuses.length - 1; i >= 0; i--) {
+    if (statuses[i] === 'unknown' && laterApplied && results) statuses[i] = 'likely';
+    if (statuses[i] === 'applied' || statuses[i] === 'partial') laterApplied = true;
+  }
+  return manifest.map(({ file }, i) => ({ file, status: statuses[i] }));
 }

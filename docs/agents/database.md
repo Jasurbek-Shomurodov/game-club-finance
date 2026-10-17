@@ -132,19 +132,30 @@ is known, along with updates to fallback tests.
 
 ## Settings migration health
 
-Owners can run the read-only Settings health check after applying
-`052_migration_health.sql`. The RPC authorizes the selected club's owner before
-reading metadata. It returns recorded migration versions and direct function
-checks for 050/051; it never invokes a withdrawal RPC or returns function bodies.
-`scripts/db-migrate.sh` records versions there; SQL Editor execution does not,
-so an unrecorded version is **unconfirmed**, not proof of a missing migration.
-Exact function-body fingerprints identify a match to this app version; different
-bodies require review, including harmless manual formatting changes.
+Owners can run the read-only Settings health check. It shows, per migration,
+whether it is applied to the connected database, so SQL Editor installs (which
+leave no CLI history) are verified too:
 
-When adding a migration, update `src/lib/supabase/migrationManifest.json` with its
-filename. The manifest test checks that no committed migration is omitted. When
-replacing a checked function in a future migration, add a new migration updating
-the diagnostic fingerprints and their tests together.
+- `src/lib/supabase/migrationManifest.json` is generated from `migrations/` by
+  `src/lib/supabase/migrationProbes.ts`. For each migration it lists schema
+  objects (tables, columns, constraints, indexes, policies, triggers, enum
+  values, functions) that only that migration creates and no later one drops,
+  plus a body hash for a function the migration was the last to redefine.
+- `085_migration_probe_results.sql` answers, for the selected club's owner,
+  which of those objects exist. All present is **applied**, none is **not
+  applied**, some is **partially applied**. A migration with nothing to probe
+  (data, grants, or code a later migration replaced) is **applied** when the
+  CLI history records it, **likely applied** when a later migration is applied,
+  and otherwise **can't verify**.
+- `052_migration_health.sql` still supplies the CLI history read and the exact
+  050/051 function fingerprints; it never invokes a withdrawal RPC or returns
+  function bodies. `scripts/db-migrate.sh` writes that history.
+
+When adding a migration, run `npm run migrations:manifest` and commit the
+regenerated manifest; `migrationProbes.test.ts` fails while it is stale, and
+`migrationHealthRpc.test.ts` requires every probe to pass on the full chain.
+When replacing a checked 050/051 function in a future migration, add a new
+migration updating the diagnostic fingerprints and their tests together.
 
 For an existing withdrawal RPC that blocks manual execution of 051, use
 `scripts/repair-051-custom-owner-withdrawals.sql` to apply its two definitions in

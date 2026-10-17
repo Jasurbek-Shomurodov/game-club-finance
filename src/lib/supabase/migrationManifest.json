@@ -1,86 +1,2920 @@
 [
-  "001_initial_schema.sql",
-  "002_rework_schema.sql",
-  "003_team_roles.sql",
-  "004_repair_team_write_access.sql",
-  "005_weighted_average_stock_cost.sql",
-  "006_daily_cash_game_club_income.sql",
-  "007_owner_unlimited_daily_cash_edits.sql",
-  "008_fix_handle_new_user.sql",
-  "009_fix_trigger_search_path.sql",
-  "010_owner_historical_stock_counts.sql",
-  "011_product_sort_order.sql",
-  "012_owner_only_product_delete.sql",
-  "013_soft_delete_products.sql",
-  "014_multi_club_support.sql",
-  "015_pending_user_approval.sql",
-  "016_profile_email_and_removal_visibility.sql",
-  "017_restore_stock_purchase_cost_basis.sql",
-  "018_daily_cash_playstation_income.sql",
-  "019_club_business_day_start.sql",
-  "020_owner_only_expense_delete.sql",
-  "021_repair_business_day_debts.sql",
-  "022_expense_payment_source.sql",
-  "023_debt_integrity.sql",
-  "024_prevent_future_daily_cash_entries.sql",
-  "025_made_to_order_products.sql",
-  "026_standardize_payment_methods.sql",
-  "027_owner_withdrawals.sql",
-  "028_remove_withdrawal_payment_method.sql",
-  "029_monthly_owner_withdrawals.sql",
-  "030_dashboard_performance_rpcs.sql",
-  "031_inventory_and_access_hardening.sql",
-  "032_owner_only_daily_cash_delete.sql",
-  "033_club_membership_feature_access.sql",
-  "034_atomic_closing_stock_save.sql",
-  "035_dashboard_snapshot_payload.sql",
-  "036_financial_integrity_hardening.sql",
-  "037_telegram_report_delivery_ledger.sql",
-  "038_stock_snapshot_and_payment_method_integrity.sql",
-  "039_fix_telegram_delivery_uuid_generation.sql",
-  "040_club_payment_methods.sql",
-  "041_supabase_daily_report_cron_and_delivery_audit.sql",
-  "042_monthly_average_income_snapshots.sql",
-  "043_game_club_only_monthly_average_income.sql",
-  "044_owner_profit_snapshot.sql",
-  "045_owner_profit_payment_method_balances.sql",
-  "046_expense_telegram_message_coordinates.sql",
-  "047_money_report_snapshot.sql",
-  "048_dashboard_bootstrap_snapshot.sql",
-  "049_finance_report_snapshot.sql",
-  "050_owner_profit_monthly_payment_balances.sql",
-  "051_custom_owner_withdrawals.sql",
-  "052_migration_health.sql",
-  "053_remove_pre_multiclub_policies.sql",
-  "054_cache_ledger_read_permissions.sql",
-  "055_product_archive_integrity.sql",
-  "056_owner_only_cost_prices.sql",
-  "057_stock_opening_purchase_carry_forward.sql",
-  "058_admin_purchase_cost_entry.sql",
-  "059_employee_salaries.sql",
-  "060_future_salary_employees.sql",
-  "061_salary_edit_access.sql",
-  "062_salary_record_deletion.sql",
-  "063_deactivate_salary_employee.sql",
-  "064_salary_employee_role.sql",
-  "065_payroll_read_and_rate_integrity.sql",
-  "066_owner_withdrawal_payment_methods.sql",
-  "067_owner_only_payroll_terms.sql",
-  "068_unify_expense_categories.sql",
-  "069_remove_other_expense_category.sql",
-  "070_salary_kpi_basis.sql",
-  "071_owner_profit_carryovers.sql",
-  "072_reject_access_requests.sql",
-  "073_daily_report_cron_0800_tashkent.sql",
-  "074_club_scoped_team_access.sql",
-  "075_debt_created_by_actor.sql",
-  "076_owner_profit_snapshot_withdrawal_methods.sql",
-  "077_salary_entry_created_flag.sql",
-  "078_promotions_and_giveaways.sql",
-  "079_assistant_feature_access.sql",
-  "080_assistant_model_usage.sql",
-  "081_cost_and_index_cleanup.sql",
-  "082_rerunnable_salary_status_and_purchase_policy.sql",
-  "083_expense_update_column_grant.sql",
-  "084_daily_cash_entry_author_integrity.sql"
+  {
+    "file": "001_initial_schema.sql",
+    "probes": [
+      {
+        "kind": "type",
+        "name": "public.user_role"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.user_role",
+        "value": "owner"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.user_role",
+        "value": "admin"
+      },
+      {
+        "kind": "type",
+        "name": "public.payment_method"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.payment_method",
+        "value": "cash"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.payment_method",
+        "value": "terminal"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.payment_method",
+        "value": "qr"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.payment_method",
+        "value": "transfer"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.payment_method",
+        "value": "debt"
+      },
+      {
+        "kind": "type",
+        "name": "public.payment_source"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.payment_source",
+        "value": "cash"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.payment_source",
+        "value": "terminal"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.payment_source",
+        "value": "bank"
+      },
+      {
+        "kind": "type",
+        "name": "public.income_category"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.income_category",
+        "value": "game_time"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.income_category",
+        "value": "food"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.income_category",
+        "value": "drinks"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.income_category",
+        "value": "other"
+      },
+      {
+        "kind": "type",
+        "name": "public.expense_category"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.expense_category",
+        "value": "rent"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.expense_category",
+        "value": "salary"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.expense_category",
+        "value": "electricity"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.expense_category",
+        "value": "internet"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.expense_category",
+        "value": "repair"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.expense_category",
+        "value": "cleaning"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.expense_category",
+        "value": "food_drinks"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.expense_category",
+        "value": "marketing"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.expense_category",
+        "value": "equipment"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.expense_category",
+        "value": "tax"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.expense_category",
+        "value": "other"
+      },
+      {
+        "kind": "type",
+        "name": "public.movement_type"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.movement_type",
+        "value": "deposit"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.movement_type",
+        "value": "withdraw"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.movement_type",
+        "value": "correction"
+      },
+      {
+        "kind": "type",
+        "name": "public.debt_status"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.debt_status",
+        "value": "unpaid"
+      },
+      {
+        "kind": "enumValue",
+        "type": "public.debt_status",
+        "value": "paid"
+      },
+      {
+        "kind": "relation",
+        "name": "public.profiles"
+      },
+      {
+        "kind": "column",
+        "table": "public.profiles",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.profiles",
+        "column": "full_name"
+      },
+      {
+        "kind": "column",
+        "table": "public.profiles",
+        "column": "role"
+      },
+      {
+        "kind": "column",
+        "table": "public.profiles",
+        "column": "created_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.profiles",
+        "column": "updated_at"
+      },
+      {
+        "kind": "relation",
+        "name": "public.balances"
+      },
+      {
+        "kind": "column",
+        "table": "public.balances",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.balances",
+        "column": "account"
+      },
+      {
+        "kind": "column",
+        "table": "public.balances",
+        "column": "amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.balances",
+        "column": "updated_at"
+      },
+      {
+        "kind": "relation",
+        "name": "public.income_transactions"
+      },
+      {
+        "kind": "column",
+        "table": "public.income_transactions",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.income_transactions",
+        "column": "amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.income_transactions",
+        "column": "payment_method"
+      },
+      {
+        "kind": "column",
+        "table": "public.income_transactions",
+        "column": "category"
+      },
+      {
+        "kind": "column",
+        "table": "public.income_transactions",
+        "column": "comment"
+      },
+      {
+        "kind": "column",
+        "table": "public.income_transactions",
+        "column": "transaction_date"
+      },
+      {
+        "kind": "column",
+        "table": "public.income_transactions",
+        "column": "created_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.income_transactions",
+        "column": "created_at"
+      },
+      {
+        "kind": "relation",
+        "name": "public.expense_transactions"
+      },
+      {
+        "kind": "column",
+        "table": "public.expense_transactions",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.expense_transactions",
+        "column": "amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.expense_transactions",
+        "column": "category"
+      },
+      {
+        "kind": "column",
+        "table": "public.expense_transactions",
+        "column": "payment_source"
+      },
+      {
+        "kind": "column",
+        "table": "public.expense_transactions",
+        "column": "comment"
+      },
+      {
+        "kind": "column",
+        "table": "public.expense_transactions",
+        "column": "transaction_date"
+      },
+      {
+        "kind": "column",
+        "table": "public.expense_transactions",
+        "column": "created_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.expense_transactions",
+        "column": "created_at"
+      },
+      {
+        "kind": "relation",
+        "name": "public.cash_movements"
+      },
+      {
+        "kind": "column",
+        "table": "public.cash_movements",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.cash_movements",
+        "column": "movement_type"
+      },
+      {
+        "kind": "column",
+        "table": "public.cash_movements",
+        "column": "account"
+      },
+      {
+        "kind": "column",
+        "table": "public.cash_movements",
+        "column": "amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.cash_movements",
+        "column": "comment"
+      },
+      {
+        "kind": "column",
+        "table": "public.cash_movements",
+        "column": "created_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.cash_movements",
+        "column": "created_at"
+      },
+      {
+        "kind": "relation",
+        "name": "public.debts"
+      },
+      {
+        "kind": "column",
+        "table": "public.debts",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.debts",
+        "column": "customer_name"
+      },
+      {
+        "kind": "column",
+        "table": "public.debts",
+        "column": "amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.debts",
+        "column": "comment"
+      },
+      {
+        "kind": "column",
+        "table": "public.debts",
+        "column": "debt_date"
+      },
+      {
+        "kind": "column",
+        "table": "public.debts",
+        "column": "status"
+      },
+      {
+        "kind": "column",
+        "table": "public.debts",
+        "column": "paid_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.debts",
+        "column": "paid_method"
+      },
+      {
+        "kind": "column",
+        "table": "public.debts",
+        "column": "created_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.debts",
+        "column": "created_at"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.income_transactions",
+        "name": "trg_income_balance"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.income_transactions",
+        "name": "trg_income_balance_delete"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.expense_transactions",
+        "name": "trg_expense_balance"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.expense_transactions",
+        "name": "trg_expense_balance_delete"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.debts",
+        "name": "trg_debt_payment"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.cash_movements",
+        "name": "trg_cash_movement"
+      },
+      {
+        "kind": "trigger",
+        "table": "auth.users",
+        "name": "trg_new_user"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_income_date"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_income_method"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_expense_date"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_expense_cat"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_debts_status"
+      },
+      {
+        "kind": "function",
+        "signature": "public.handle_debt_payment()"
+      }
+    ]
+  },
+  {
+    "file": "002_rework_schema.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.products"
+      },
+      {
+        "kind": "column",
+        "table": "public.products",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.products",
+        "column": "name"
+      },
+      {
+        "kind": "column",
+        "table": "public.products",
+        "column": "category"
+      },
+      {
+        "kind": "column",
+        "table": "public.products",
+        "column": "sale_price"
+      },
+      {
+        "kind": "column",
+        "table": "public.products",
+        "column": "cost_price"
+      },
+      {
+        "kind": "column",
+        "table": "public.products",
+        "column": "current_stock"
+      },
+      {
+        "kind": "column",
+        "table": "public.products",
+        "column": "low_stock_threshold"
+      },
+      {
+        "kind": "column",
+        "table": "public.products",
+        "column": "is_active"
+      },
+      {
+        "kind": "column",
+        "table": "public.products",
+        "column": "created_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.products",
+        "column": "updated_at"
+      },
+      {
+        "kind": "relation",
+        "name": "public.daily_cash_entries"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_cash_entries",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_cash_entries",
+        "column": "date"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_cash_entries",
+        "column": "cash_income"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_cash_entries",
+        "column": "terminal_income"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_cash_entries",
+        "column": "comment"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_cash_entries",
+        "column": "created_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_cash_entries",
+        "column": "created_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_cash_entries",
+        "column": "updated_at"
+      },
+      {
+        "kind": "relation",
+        "name": "public.stock_purchases"
+      },
+      {
+        "kind": "column",
+        "table": "public.stock_purchases",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.stock_purchases",
+        "column": "date"
+      },
+      {
+        "kind": "column",
+        "table": "public.stock_purchases",
+        "column": "product_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.stock_purchases",
+        "column": "quantity"
+      },
+      {
+        "kind": "column",
+        "table": "public.stock_purchases",
+        "column": "cost_price"
+      },
+      {
+        "kind": "column",
+        "table": "public.stock_purchases",
+        "column": "sale_price"
+      },
+      {
+        "kind": "column",
+        "table": "public.stock_purchases",
+        "column": "payment_method"
+      },
+      {
+        "kind": "column",
+        "table": "public.stock_purchases",
+        "column": "comment"
+      },
+      {
+        "kind": "column",
+        "table": "public.stock_purchases",
+        "column": "created_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.stock_purchases",
+        "column": "created_at"
+      },
+      {
+        "kind": "relation",
+        "name": "public.daily_stock_counts"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "date"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "product_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "previous_stock"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "added_today"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "closing_stock"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "sold_quantity"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "sale_price"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "cost_price"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "bar_income"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "bar_cost"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "bar_profit"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "created_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "created_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "updated_at"
+      },
+      {
+        "kind": "relation",
+        "name": "public.expenses"
+      },
+      {
+        "kind": "column",
+        "table": "public.expenses",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.expenses",
+        "column": "date"
+      },
+      {
+        "kind": "column",
+        "table": "public.expenses",
+        "column": "amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.expenses",
+        "column": "payment_method"
+      },
+      {
+        "kind": "column",
+        "table": "public.expenses",
+        "column": "category"
+      },
+      {
+        "kind": "column",
+        "table": "public.expenses",
+        "column": "comment"
+      },
+      {
+        "kind": "column",
+        "table": "public.expenses",
+        "column": "created_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.expenses",
+        "column": "created_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.expenses",
+        "column": "updated_at"
+      },
+      {
+        "kind": "relation",
+        "name": "public.new_debts"
+      },
+      {
+        "kind": "column",
+        "table": "public.new_debts",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.new_debts",
+        "column": "person_name"
+      },
+      {
+        "kind": "column",
+        "table": "public.new_debts",
+        "column": "date"
+      },
+      {
+        "kind": "column",
+        "table": "public.new_debts",
+        "column": "amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.new_debts",
+        "column": "paid_amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.new_debts",
+        "column": "remaining_amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.new_debts",
+        "column": "category"
+      },
+      {
+        "kind": "column",
+        "table": "public.new_debts",
+        "column": "comment"
+      },
+      {
+        "kind": "column",
+        "table": "public.new_debts",
+        "column": "status"
+      },
+      {
+        "kind": "column",
+        "table": "public.new_debts",
+        "column": "created_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.new_debts",
+        "column": "created_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.new_debts",
+        "column": "updated_at"
+      },
+      {
+        "kind": "relation",
+        "name": "public.debt_payments"
+      },
+      {
+        "kind": "column",
+        "table": "public.debt_payments",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.debt_payments",
+        "column": "debt_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.debt_payments",
+        "column": "date"
+      },
+      {
+        "kind": "column",
+        "table": "public.debt_payments",
+        "column": "amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.debt_payments",
+        "column": "payment_method"
+      },
+      {
+        "kind": "column",
+        "table": "public.debt_payments",
+        "column": "comment"
+      },
+      {
+        "kind": "column",
+        "table": "public.debt_payments",
+        "column": "created_at"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.daily_stock_counts",
+        "name": "trg_closing_count"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.debt_payments",
+        "name": "trg_debt_payment"
+      }
+    ]
+  },
+  {
+    "file": "003_team_roles.sql",
+    "probes": []
+  },
+  {
+    "file": "004_repair_team_write_access.sql",
+    "probes": []
+  },
+  {
+    "file": "005_weighted_average_stock_cost.sql",
+    "probes": []
+  },
+  {
+    "file": "006_daily_cash_game_club_income.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.daily_cash_entries",
+        "column": "card_income"
+      }
+    ]
+  },
+  {
+    "file": "007_owner_unlimited_daily_cash_edits.sql",
+    "probes": []
+  },
+  {
+    "file": "008_fix_handle_new_user.sql",
+    "probes": []
+  },
+  {
+    "file": "009_fix_trigger_search_path.sql",
+    "probes": []
+  },
+  {
+    "file": "010_owner_historical_stock_counts.sql",
+    "probes": []
+  },
+  {
+    "file": "011_product_sort_order.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.products",
+        "column": "sort_order"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_products_sort_order"
+      }
+    ]
+  },
+  {
+    "file": "012_owner_only_product_delete.sql",
+    "probes": []
+  },
+  {
+    "file": "013_soft_delete_products.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.products",
+        "column": "is_deleted"
+      },
+      {
+        "kind": "column",
+        "table": "public.products",
+        "column": "deleted_at"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_products_not_deleted"
+      }
+    ]
+  },
+  {
+    "file": "014_multi_club_support.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.clubs"
+      },
+      {
+        "kind": "column",
+        "table": "public.clubs",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.clubs",
+        "column": "name"
+      },
+      {
+        "kind": "column",
+        "table": "public.clubs",
+        "column": "address"
+      },
+      {
+        "kind": "column",
+        "table": "public.clubs",
+        "column": "is_active"
+      },
+      {
+        "kind": "column",
+        "table": "public.clubs",
+        "column": "created_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.clubs",
+        "column": "updated_at"
+      },
+      {
+        "kind": "relation",
+        "name": "public.club_memberships"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_memberships",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_memberships",
+        "column": "user_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_memberships",
+        "column": "role"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_memberships",
+        "column": "created_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_memberships",
+        "column": "updated_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.products",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_cash_entries",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.stock_purchases",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.expenses",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.new_debts",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.debt_payments",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.balances",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.income_transactions",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.expense_transactions",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.cash_movements",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.debts",
+        "column": "club_id"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_club_memberships_user"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_products_club_active"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_stock_purchases_club_date"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_expenses_club_date"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_new_debts_club_date"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_debt_payments_club_date"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_balances_club"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.stock_purchases",
+        "name": "trg_stock_purchase_product_club"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.daily_stock_counts",
+        "name": "trg_stock_count_product_club"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.debt_payments",
+        "name": "trg_debt_payment_club"
+      },
+      {
+        "kind": "policy",
+        "table": "public.products",
+        "name": "club_owner_delete_products"
+      },
+      {
+        "kind": "policy",
+        "table": "public.balances",
+        "name": "club_read_balances"
+      },
+      {
+        "kind": "policy",
+        "table": "public.balances",
+        "name": "service_manage_balances"
+      },
+      {
+        "kind": "policy",
+        "table": "public.cash_movements",
+        "name": "club_read_cash_movements"
+      },
+      {
+        "kind": "policy",
+        "table": "public.income_transactions",
+        "name": "club_read_income_transactions"
+      },
+      {
+        "kind": "policy",
+        "table": "public.expense_transactions",
+        "name": "club_read_expense_transactions"
+      },
+      {
+        "kind": "policy",
+        "table": "public.debts",
+        "name": "club_read_legacy_debts"
+      },
+      {
+        "kind": "policy",
+        "table": "public.debts",
+        "name": "club_admin_write_legacy_debts"
+      },
+      {
+        "kind": "policy",
+        "table": "public.debts",
+        "name": "club_owner_delete_legacy_debts"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.update_balance_on_expense()",
+        "md5": "0bbb4c1f6fd3e99bb49bea49a46f9714"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.rollback_balance_on_expense_delete()",
+        "md5": "14ad12f0addfea14b6061b9d20e26ae8"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.apply_cash_movement()",
+        "md5": "c5e44d136b70d38effd01791f27c4b97"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.current_user_role()",
+        "md5": "2c6cd272057a3c5673c191b6d8c471bf"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.update_debt_on_payment()",
+        "md5": "f4151c22610274799963c8826cd3f271"
+      },
+      {
+        "kind": "function",
+        "signature": "public.user_has_club_access(uuid)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.current_user_club_role(uuid)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.current_user_is_global_owner()"
+      },
+      {
+        "kind": "function",
+        "signature": "public.shares_club_with_current_user(uuid)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.seed_balances_for_club()"
+      },
+      {
+        "kind": "function",
+        "signature": "public.create_club_with_owner(text,text)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.ensure_product_club_match()"
+      },
+      {
+        "kind": "function",
+        "signature": "public.ensure_debt_payment_club_match()"
+      }
+    ]
+  },
+  {
+    "file": "015_pending_user_approval.sql",
+    "probes": []
+  },
+  {
+    "file": "016_profile_email_and_removal_visibility.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.profiles",
+        "column": "email"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.handle_new_user()",
+        "md5": "e23a0146d920d88446484385aae5dd85"
+      }
+    ]
+  },
+  {
+    "file": "017_restore_stock_purchase_cost_basis.sql",
+    "probes": []
+  },
+  {
+    "file": "018_daily_cash_playstation_income.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.daily_cash_entries",
+        "column": "playstation_income"
+      }
+    ]
+  },
+  {
+    "file": "019_club_business_day_start.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.clubs",
+        "column": "business_day_start_hour"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.clubs",
+        "name": "clubs_business_day_start_hour_range"
+      },
+      {
+        "kind": "function",
+        "signature": "public.club_business_date(uuid,timestamp with time zone)"
+      }
+    ]
+  },
+  {
+    "file": "020_owner_only_expense_delete.sql",
+    "probes": [
+      {
+        "kind": "policy",
+        "table": "public.expenses",
+        "name": "club_owner_delete_expenses"
+      }
+    ]
+  },
+  {
+    "file": "021_repair_business_day_debts.sql",
+    "probes": []
+  },
+  {
+    "file": "022_expense_payment_source.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.expenses",
+        "column": "payment_source"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.expenses",
+        "name": "expenses_payment_source_check"
+      }
+    ]
+  },
+  {
+    "file": "023_debt_integrity.sql",
+    "probes": [
+      {
+        "kind": "constraint",
+        "table": "public.new_debts",
+        "name": "new_debts_paid_amount_valid"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.new_debts",
+        "name": "new_debts_remaining_amount_valid"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.new_debts",
+        "name": "new_debts_status_valid"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.debt_payments",
+        "name": "trg_debt_payment_limit"
+      },
+      {
+        "kind": "function",
+        "signature": "public.prevent_debt_overpayment()"
+      }
+    ]
+  },
+  {
+    "file": "024_prevent_future_daily_cash_entries.sql",
+    "probes": [
+      {
+        "kind": "trigger",
+        "table": "public.daily_cash_entries",
+        "name": "prevent_future_daily_cash_entry"
+      },
+      {
+        "kind": "function",
+        "signature": "public.prevent_future_daily_cash_entry()"
+      }
+    ]
+  },
+  {
+    "file": "025_made_to_order_products.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.products",
+        "column": "tracks_inventory"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.products",
+        "name": "products_non_inventory_zero_stock"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.update_stock_on_purchase()",
+        "md5": "92aeedc2b8e4298e627e2b459e7565c6"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.update_stock_on_closing_count()",
+        "md5": "200fdc67ea01b26b1b4dc86b84b49691"
+      }
+    ]
+  },
+  {
+    "file": "026_standardize_payment_methods.sql",
+    "probes": [
+      {
+        "kind": "enumValue",
+        "type": "public.payment_method",
+        "value": "card"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.update_balance_on_income()",
+        "md5": "92a955da30da9eb426746c7560598853"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.rollback_balance_on_income_delete()",
+        "md5": "8a7c66fc35039cc0f235037599d1f701"
+      }
+    ]
+  },
+  {
+    "file": "027_owner_withdrawals.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.owner_withdrawals"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_withdrawals",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_withdrawals",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_withdrawals",
+        "column": "source"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_withdrawals",
+        "column": "amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_withdrawals",
+        "column": "comment"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_withdrawals",
+        "column": "created_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_withdrawals",
+        "column": "created_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_withdrawals",
+        "column": "updated_at"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_withdrawals",
+        "name": "owner_withdrawals_source_check"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_withdrawals",
+        "name": "owner_withdrawals_amount_check"
+      },
+      {
+        "kind": "policy",
+        "table": "public.owner_withdrawals",
+        "name": "club_owners_insert_owner_withdrawals"
+      },
+      {
+        "kind": "policy",
+        "table": "public.owner_withdrawals",
+        "name": "club_owners_delete_owner_withdrawals"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.owner_withdrawals",
+        "name": "trg_owner_withdrawal_immutable"
+      },
+      {
+        "kind": "function",
+        "signature": "public.prevent_owner_withdrawal_update()"
+      }
+    ]
+  },
+  {
+    "file": "028_remove_withdrawal_payment_method.sql",
+    "probes": []
+  },
+  {
+    "file": "029_monthly_owner_withdrawals.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.owner_withdrawals",
+        "column": "period_month"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_withdrawals",
+        "name": "owner_withdrawals_period_month_check"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_owner_withdrawals_club_source_period_month"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.owner_withdrawals",
+        "name": "trg_owner_withdrawal_month_balance"
+      },
+      {
+        "kind": "function",
+        "signature": "public.take_all_owner_money_for_month(uuid,date,text,text)"
+      }
+    ]
+  },
+  {
+    "file": "030_dashboard_performance_rpcs.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.idx_stock_counts_club_product_date_desc"
+      },
+      {
+        "kind": "function",
+        "signature": "public.get_latest_stock_closings(uuid,date)"
+      }
+    ]
+  },
+  {
+    "file": "031_inventory_and_access_hardening.sql",
+    "probes": [
+      {
+        "kind": "constraint",
+        "table": "public.stock_purchases",
+        "name": "stock_purchases_quantity_positive"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.stock_purchases",
+        "name": "stock_purchases_cost_price_nonnegative"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.club_memberships",
+        "name": "trg_prevent_last_club_owner_removal"
+      },
+      {
+        "kind": "function",
+        "signature": "public.delete_stock_purchase(uuid,uuid)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.prevent_last_club_owner_removal()"
+      }
+    ]
+  },
+  {
+    "file": "032_owner_only_daily_cash_delete.sql",
+    "probes": []
+  },
+  {
+    "file": "033_club_membership_feature_access.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.club_memberships",
+        "column": "feature_access"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.stock_purchases",
+        "name": "trg_stock_purchase_feature_access"
+      },
+      {
+        "kind": "function",
+        "signature": "public.current_user_can_access_club_feature_any(uuid,text[])"
+      },
+      {
+        "kind": "function",
+        "signature": "public.enforce_stock_purchase_feature_access()"
+      }
+    ]
+  },
+  {
+    "file": "034_atomic_closing_stock_save.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "adjustment_quantity"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "adjustment_reason"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "adjustment_recorded_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "adjustment_recorded_at"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.daily_stock_counts",
+        "name": "daily_stock_counts_nonnegative_quantities"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.daily_stock_counts",
+        "name": "daily_stock_counts_integer_quantities"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.daily_stock_counts",
+        "name": "daily_stock_counts_adjustment_reason_required"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.daily_stock_counts",
+        "name": "daily_stock_counts_available_stock_nonnegative"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.daily_stock_counts",
+        "name": "daily_stock_counts_closing_within_available"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.daily_stock_counts",
+        "name": "daily_stock_counts_prices_nonnegative"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.stock_purchases",
+        "name": "stock_purchases_quantity_whole"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.daily_stock_counts",
+        "name": "trg_validate_daily_stock_count_integrity"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.record_stock_purchase(uuid,date,uuid,numeric,numeric,numeric,text,text)",
+        "md5": "c05377b4b69a1280a9a81a8de2048662"
+      }
+    ]
+  },
+  {
+    "file": "035_dashboard_snapshot_payload.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.idx_new_debts_club_status_date"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_dashboard_snapshot(uuid,date,date,date,date,date,date)",
+        "md5": "e8710aed48db3afa6b2453331733f877"
+      }
+    ]
+  },
+  {
+    "file": "036_financial_integrity_hardening.sql",
+    "probes": [
+      {
+        "kind": "trigger",
+        "table": "public.new_debts",
+        "name": "trg_new_debt_date_guard"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.debt_payments",
+        "name": "trg_debt_payment_date_guard"
+      },
+      {
+        "kind": "function",
+        "signature": "public.enforce_new_debt_business_date()"
+      },
+      {
+        "kind": "function",
+        "signature": "public.enforce_debt_payment_business_date()"
+      }
+    ]
+  },
+  {
+    "file": "037_telegram_report_delivery_ledger.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.telegram_report_deliveries"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "business_date"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "target_key"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "chat_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "delivery_key"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "status"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "claim_token"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "claim_expires_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "dispatch_started_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "claim_count"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "telegram_attempt_count"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "attempt_history"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "last_error"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "retry_not_before"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "telegram_result"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "sent_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "created_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "updated_at"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.telegram_report_deliveries",
+        "name": "telegram_report_deliveries_target_key_check"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.telegram_report_deliveries",
+        "name": "telegram_report_deliveries_delivery_key_check"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.telegram_report_deliveries",
+        "name": "telegram_report_deliveries_status_check"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.telegram_report_deliveries",
+        "name": "telegram_report_deliveries_claim_count_check"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.telegram_report_deliveries",
+        "name": "telegram_report_deliveries_attempt_count_check"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.telegram_report_deliveries",
+        "name": "telegram_report_deliveries_attempt_history_check"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.telegram_report_deliveries",
+        "name": "telegram_report_deliveries_retry_state_check"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.telegram_report_deliveries",
+        "name": "telegram_report_deliveries_claim_state_check"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.telegram_report_deliveries",
+        "name": "telegram_report_deliveries_dispatch_state_check"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.telegram_report_deliveries",
+        "name": "telegram_report_deliveries_sent_state_check"
+      },
+      {
+        "kind": "relation",
+        "name": "public.telegram_report_deliveries_status_date_idx"
+      },
+      {
+        "kind": "function",
+        "signature": "public.claim_telegram_report_delivery(date,text,uuid,text,text,integer)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.begin_telegram_report_dispatch(uuid,uuid,integer)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.complete_telegram_report_delivery(uuid,uuid,text,integer,jsonb,jsonb,jsonb,timestamp with time zone)"
+      }
+    ]
+  },
+  {
+    "file": "038_stock_snapshot_and_payment_method_integrity.sql",
+    "probes": [
+      {
+        "kind": "constraint",
+        "table": "public.expenses",
+        "name": "expenses_payment_method_check"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.debt_payments",
+        "name": "debt_payments_payment_method_check"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.stock_purchases",
+        "name": "stock_purchases_payment_method_check"
+      },
+      {
+        "kind": "function",
+        "signature": "public.zero_archived_product_stock()"
+      }
+    ]
+  },
+  {
+    "file": "039_fix_telegram_delivery_uuid_generation.sql",
+    "probes": []
+  },
+  {
+    "file": "040_club_payment_methods.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.clubs",
+        "column": "enabled_payment_methods"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.clubs",
+        "name": "clubs_enabled_payment_methods_check"
+      }
+    ]
+  },
+  {
+    "file": "041_supabase_daily_report_cron_and_delivery_audit.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "attempted_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "telegram_chat_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "telegram_message_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.telegram_report_deliveries",
+        "column": "delivery_format"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.telegram_report_deliveries",
+        "name": "telegram_report_deliveries_delivery_format_check"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.telegram_report_deliveries",
+        "name": "sync_telegram_report_delivery_audit"
+      },
+      {
+        "kind": "function",
+        "signature": "public.sync_telegram_report_delivery_audit()"
+      },
+      {
+        "kind": "function",
+        "signature": "public.invoke_game_club_daily_finance_report()"
+      }
+    ]
+  },
+  {
+    "file": "042_monthly_average_income_snapshots.sql",
+    "probes": []
+  },
+  {
+    "file": "043_game_club_only_monthly_average_income.sql",
+    "probes": []
+  },
+  {
+    "file": "044_owner_profit_snapshot.sql",
+    "probes": []
+  },
+  {
+    "file": "045_owner_profit_payment_method_balances.sql",
+    "probes": []
+  },
+  {
+    "file": "046_expense_telegram_message_coordinates.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.expenses",
+        "column": "telegram_chat_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.expenses",
+        "column": "telegram_message_id"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.expenses",
+        "name": "expenses_telegram_message_coordinates_check"
+      }
+    ]
+  },
+  {
+    "file": "047_money_report_snapshot.sql",
+    "probes": []
+  },
+  {
+    "file": "048_dashboard_bootstrap_snapshot.sql",
+    "probes": [
+      {
+        "kind": "function",
+        "signature": "public.get_dashboard_bootstrap()"
+      }
+    ]
+  },
+  {
+    "file": "049_finance_report_snapshot.sql",
+    "probes": [
+      {
+        "kind": "function",
+        "signature": "public.get_finance_report_snapshot(uuid,date,date,text[])"
+      }
+    ]
+  },
+  {
+    "file": "050_owner_profit_monthly_payment_balances.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.get_owner_profit_snapshot(uuid,date)",
+        "md5": "87f0285cffb3120db9052b91ecc423ab"
+      }
+    ]
+  },
+  {
+    "file": "051_custom_owner_withdrawals.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.enforce_owner_withdrawal_month_balance()",
+        "md5": "b40fa8129d33f06c4d69868b07f23f8c"
+      },
+      {
+        "kind": "function",
+        "signature": "public.withdraw_owner_money_for_month(uuid,date,text,numeric,text)"
+      }
+    ]
+  },
+  {
+    "file": "052_migration_health.sql",
+    "probes": [
+      {
+        "kind": "function",
+        "signature": "public.get_migration_health(uuid)"
+      }
+    ]
+  },
+  {
+    "file": "053_remove_pre_multiclub_policies.sql",
+    "probes": []
+  },
+  {
+    "file": "054_cache_ledger_read_permissions.sql",
+    "probes": [
+      {
+        "kind": "policy",
+        "table": "public.daily_stock_counts",
+        "name": "club_admin_insert_stock_counts"
+      },
+      {
+        "kind": "policy",
+        "table": "public.daily_stock_counts",
+        "name": "club_admin_update_stock_counts"
+      },
+      {
+        "kind": "policy",
+        "table": "public.daily_stock_counts",
+        "name": "club_admin_delete_stock_counts"
+      },
+      {
+        "kind": "function",
+        "signature": "public.current_user_readable_clubs(text[])"
+      }
+    ]
+  },
+  {
+    "file": "055_product_archive_integrity.sql",
+    "probes": [
+      {
+        "kind": "trigger",
+        "table": "public.products",
+        "name": "trg_protect_product_history"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.stock_purchases",
+        "name": "trg_reject_archived_purchase"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.daily_stock_counts",
+        "name": "trg_reject_archived_count"
+      },
+      {
+        "kind": "function",
+        "signature": "public.protect_product_history()"
+      },
+      {
+        "kind": "function",
+        "signature": "public.reject_archived_product_write()"
+      }
+    ]
+  },
+  {
+    "file": "056_owner_only_cost_prices.sql",
+    "probes": []
+  },
+  {
+    "file": "057_stock_opening_purchase_carry_forward.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.idx_stock_purchases_club_product_date"
+      },
+      {
+        "kind": "function",
+        "signature": "public.get_stock_opening_balances(uuid,date)"
+      }
+    ]
+  },
+  {
+    "file": "058_admin_purchase_cost_entry.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.enforce_product_cost_price_owner()",
+        "md5": "94a4a8c2f536277c83e05c72faa45c6d"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.enforce_purchase_cost_price_owner()",
+        "md5": "bece359890eb7ec1bff97699f1027108"
+      }
+    ]
+  },
+  {
+    "file": "059_employee_salaries.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.salary_employees"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_employees",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_employees",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_employees",
+        "column": "name"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_employees",
+        "column": "job_title"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_employees",
+        "column": "joined_on"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_employees",
+        "column": "created_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_employees",
+        "column": "created_at"
+      },
+      {
+        "kind": "relation",
+        "name": "public.salary_rates"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_rates",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_rates",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_rates",
+        "column": "employee_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_rates",
+        "column": "effective_date"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_rates",
+        "column": "salary_type"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_rates",
+        "column": "amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_rates",
+        "column": "kpi_percent"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_rates",
+        "column": "active"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_rates",
+        "column": "created_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_rates",
+        "column": "created_at"
+      },
+      {
+        "kind": "relation",
+        "name": "public.salary_entries"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_entries",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_entries",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_entries",
+        "column": "employee_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_entries",
+        "column": "date"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_entries",
+        "column": "kind"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_entries",
+        "column": "amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_entries",
+        "column": "comment"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_entries",
+        "column": "payment_method"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_entries",
+        "column": "payment_source"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_entries",
+        "column": "created_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_entries",
+        "column": "created_at"
+      },
+      {
+        "kind": "relation",
+        "name": "public.salary_employees_club"
+      },
+      {
+        "kind": "relation",
+        "name": "public.salary_rates_club"
+      },
+      {
+        "kind": "relation",
+        "name": "public.salary_entries_club"
+      },
+      {
+        "kind": "column",
+        "table": "public.expenses",
+        "column": "salary_entry_id"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.expenses",
+        "name": "expenses_salary_entry_club_fk"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.expenses",
+        "name": "protect_salary_expense"
+      }
+    ]
+  },
+  {
+    "file": "060_future_salary_employees.sql",
+    "probes": []
+  },
+  {
+    "file": "061_salary_edit_access.sql",
+    "probes": [
+      {
+        "kind": "policy",
+        "table": "public.salary_employees",
+        "name": "salary_employees_member_read"
+      },
+      {
+        "kind": "policy",
+        "table": "public.salary_rates",
+        "name": "salary_rates_member_read"
+      },
+      {
+        "kind": "policy",
+        "table": "public.salary_entries",
+        "name": "salary_entries_member_read"
+      }
+    ]
+  },
+  {
+    "file": "062_salary_record_deletion.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.salary_rates",
+        "column": "deleted_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_rates",
+        "column": "deleted_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_entries",
+        "column": "deleted_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_entries",
+        "column": "deleted_by"
+      },
+      {
+        "kind": "relation",
+        "name": "public.salary_rates_live_effective"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.protect_salary_expense()",
+        "md5": "532d198f869e1e7a19dd35cdf79bb5dc"
+      }
+    ]
+  },
+  {
+    "file": "063_deactivate_salary_employee.sql",
+    "probes": []
+  },
+  {
+    "file": "064_salary_employee_role.sql",
+    "probes": []
+  },
+  {
+    "file": "065_payroll_read_and_rate_integrity.sql",
+    "probes": []
+  },
+  {
+    "file": "066_owner_withdrawal_payment_methods.sql",
+    "probes": [
+      {
+        "kind": "trigger",
+        "table": "public.owner_withdrawals",
+        "name": "trg_owner_withdrawal_payment_method_balance"
+      },
+      {
+        "kind": "function",
+        "signature": "public.enforce_owner_withdrawal_payment_method_balance()"
+      },
+      {
+        "kind": "function",
+        "signature": "public.withdraw_owner_game_club_money_by_method(uuid,date,text,numeric,text)"
+      }
+    ]
+  },
+  {
+    "file": "067_owner_only_payroll_terms.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.delete_salary_record(uuid,uuid,text)",
+        "md5": "71b7e58207cb757ce0294fab99fd90c0"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.deactivate_salary_employee(uuid,uuid)",
+        "md5": "3102017fbb086edcdc6752d9b6e63a35"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.change_salary_employee_role(uuid,uuid,text)",
+        "md5": "6f01483dbd69d1ef43899f2be62c7567"
+      },
+      {
+        "kind": "function",
+        "signature": "public.activate_salary_employee(uuid,uuid)"
+      }
+    ]
+  },
+  {
+    "file": "068_unify_expense_categories.sql",
+    "probes": []
+  },
+  {
+    "file": "069_remove_other_expense_category.sql",
+    "probes": []
+  },
+  {
+    "file": "070_salary_kpi_basis.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.salary_rates",
+        "column": "kpi_basis"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_rates",
+        "column": "kpi_game_club"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_rates",
+        "column": "kpi_bar"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.salary_rates",
+        "name": "salary_rates_kpi_pool_check"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_salary_profit_snapshot(uuid,date)",
+        "md5": "96ecf1af11b64d576ab22ada7a930d47"
+      },
+      {
+        "kind": "function",
+        "signature": "public.save_salary_employee(uuid,uuid,text,text,date,text,numeric,numeric,boolean,text,boolean,boolean)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.change_salary_term(uuid,uuid,text,numeric,text,text,boolean,boolean)"
+      }
+    ]
+  },
+  {
+    "file": "071_owner_profit_carryovers.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.owner_profit_carryovers"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_profit_carryovers",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_profit_carryovers",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_profit_carryovers",
+        "column": "from_month"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_profit_carryovers",
+        "column": "to_month"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_profit_carryovers",
+        "column": "source"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_profit_carryovers",
+        "column": "payment_method"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_profit_carryovers",
+        "column": "amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_profit_carryovers",
+        "column": "comment"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_profit_carryovers",
+        "column": "created_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_profit_carryovers",
+        "column": "created_at"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_profit_carryovers",
+        "name": "owner_profit_carryovers_from_month_check"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_profit_carryovers",
+        "name": "owner_profit_carryovers_source_check"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_profit_carryovers",
+        "name": "owner_profit_carryovers_payment_method_check"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_profit_carryovers",
+        "name": "owner_profit_carryovers_amount_check"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_owner_profit_carryovers_club_from_month"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_owner_profit_carryovers_club_to_month"
+      },
+      {
+        "kind": "policy",
+        "table": "public.owner_profit_carryovers",
+        "name": "club_members_read_owner_profit_carryovers"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.owner_source_earned_for_month(uuid,text,date)",
+        "md5": "709664166cd57271e3b73e762111b1c2"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.owner_payment_method_earned_for_month(uuid,text,date)",
+        "md5": "3382159df9d672cacbf35f3996ede96e"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_profit_bucket_available(uuid,text,text,date)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.carry_owner_profit_to_next_month(uuid,date,text,text,numeric,text)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.delete_owner_profit_carryover(uuid,uuid)"
+      }
+    ]
+  },
+  {
+    "file": "072_reject_access_requests.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.profiles",
+        "column": "access_rejected_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.profiles",
+        "column": "access_rejected_by"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.club_memberships",
+        "name": "club_memberships_clear_access_rejection"
+      },
+      {
+        "kind": "function",
+        "signature": "public.clear_profile_access_rejection()"
+      }
+    ]
+  },
+  {
+    "file": "073_daily_report_cron_0800_tashkent.sql",
+    "probes": []
+  },
+  {
+    "file": "074_club_scoped_team_access.sql",
+    "probes": [
+      {
+        "kind": "policy",
+        "table": "public.club_memberships",
+        "name": "owners_insert_members"
+      },
+      {
+        "kind": "policy",
+        "table": "public.club_memberships",
+        "name": "owners_update_members"
+      },
+      {
+        "kind": "policy",
+        "table": "public.club_memberships",
+        "name": "owners_delete_members"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.club_memberships",
+        "name": "trg_prevent_membership_identity_change"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.club_memberships",
+        "name": "trg_lock_profile_for_membership_grant"
+      },
+      {
+        "kind": "function",
+        "signature": "public.current_user_owns_any_club()"
+      },
+      {
+        "kind": "function",
+        "signature": "public.is_pending_access_request(uuid)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.current_user_owns_club_of(uuid)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.prevent_membership_identity_change()"
+      },
+      {
+        "kind": "function",
+        "signature": "public.lock_profile_for_membership_grant()"
+      },
+      {
+        "kind": "function",
+        "signature": "public.reject_access_request(uuid)"
+      }
+    ]
+  },
+  {
+    "file": "075_debt_created_by_actor.sql",
+    "probes": []
+  },
+  {
+    "file": "076_owner_profit_snapshot_withdrawal_methods.sql",
+    "probes": [
+      {
+        "kind": "function",
+        "signature": "public.get_owner_profit_snapshot_with_methods(uuid,date)"
+      }
+    ]
+  },
+  {
+    "file": "077_salary_entry_created_flag.sql",
+    "probes": []
+  },
+  {
+    "file": "078_promotions_and_giveaways.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.promotions"
+      },
+      {
+        "kind": "column",
+        "table": "public.promotions",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.promotions",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.promotions",
+        "column": "product_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.promotions",
+        "column": "name"
+      },
+      {
+        "kind": "column",
+        "table": "public.promotions",
+        "column": "free_quantity"
+      },
+      {
+        "kind": "column",
+        "table": "public.promotions",
+        "column": "min_spend"
+      },
+      {
+        "kind": "column",
+        "table": "public.promotions",
+        "column": "starts_on"
+      },
+      {
+        "kind": "column",
+        "table": "public.promotions",
+        "column": "ends_on"
+      },
+      {
+        "kind": "column",
+        "table": "public.promotions",
+        "column": "is_active"
+      },
+      {
+        "kind": "column",
+        "table": "public.promotions",
+        "column": "created_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.promotions",
+        "column": "created_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.promotions",
+        "column": "updated_at"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.promotions",
+        "name": "promotions_name_not_blank"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.promotions",
+        "name": "promotions_free_quantity_positive"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.promotions",
+        "name": "promotions_min_spend_non_negative"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.promotions",
+        "name": "promotions_period_valid"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_promotions_club_product"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.promotions",
+        "name": "trg_enforce_promotion_product_club"
+      },
+      {
+        "kind": "policy",
+        "table": "public.promotions",
+        "name": "club_read_promotions"
+      },
+      {
+        "kind": "policy",
+        "table": "public.promotions",
+        "name": "club_owner_insert_promotions"
+      },
+      {
+        "kind": "policy",
+        "table": "public.promotions",
+        "name": "club_owner_update_promotions"
+      },
+      {
+        "kind": "policy",
+        "table": "public.promotions",
+        "name": "club_owner_delete_promotions"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "giveaway_quantity"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "giveaway_cost"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "promotion_id"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.daily_stock_counts",
+        "name": "daily_stock_counts_giveaway_whole_nonnegative"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.daily_stock_counts",
+        "name": "daily_stock_counts_giveaway_cost_matches"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.validate_daily_stock_count_integrity()",
+        "md5": "455f7672205fa057c44a247911282cb2"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.save_closing_stock_counts(uuid,date,jsonb)",
+        "md5": "fd038ed098df8f309bc4e061df74f927"
+      },
+      {
+        "kind": "function",
+        "signature": "public.enforce_promotion_product_club()"
+      }
+    ]
+  },
+  {
+    "file": "079_assistant_feature_access.sql",
+    "probes": []
+  },
+  {
+    "file": "080_assistant_model_usage.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.assistant_model_usage"
+      },
+      {
+        "kind": "column",
+        "table": "public.assistant_model_usage",
+        "column": "usage_date"
+      },
+      {
+        "kind": "column",
+        "table": "public.assistant_model_usage",
+        "column": "model"
+      },
+      {
+        "kind": "column",
+        "table": "public.assistant_model_usage",
+        "column": "requests"
+      },
+      {
+        "kind": "column",
+        "table": "public.assistant_model_usage",
+        "column": "exhausted"
+      },
+      {
+        "kind": "column",
+        "table": "public.assistant_model_usage",
+        "column": "updated_at"
+      },
+      {
+        "kind": "function",
+        "signature": "public.record_assistant_model_request(date,text,boolean)"
+      }
+    ]
+  },
+  {
+    "file": "081_cost_and_index_cleanup.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.idx_debt_payments_club_debt_date"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_stock_purchases_club_created_at"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_money_report_snapshot(uuid,date,date)",
+        "md5": "3817dcbee242a8a1a6561d3d684d4396"
+      },
+      {
+        "kind": "function",
+        "signature": "public.current_user_member_clubs(text[])"
+      }
+    ]
+  },
+  {
+    "file": "082_rerunnable_salary_status_and_purchase_policy.sql",
+    "probes": []
+  },
+  {
+    "file": "083_expense_update_column_grant.sql",
+    "probes": []
+  },
+  {
+    "file": "084_daily_cash_entry_author_integrity.sql",
+    "probes": [
+      {
+        "kind": "trigger",
+        "table": "public.daily_cash_entries",
+        "name": "keep_daily_cash_entry_origin"
+      },
+      {
+        "kind": "function",
+        "signature": "public.keep_daily_cash_entry_origin()"
+      }
+    ]
+  },
+  {
+    "file": "085_migration_probe_results.sql",
+    "probes": [
+      {
+        "kind": "function",
+        "signature": "public.get_migration_probe_results(uuid,jsonb)"
+      }
+    ]
+  }
 ]
