@@ -4,7 +4,7 @@ import { useRef, useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { Badge, Button, CardBody, CardHeader, InlineAlert, SectionHeading } from '@/components/PresentationFoundation';
 import { createClient } from '@/lib/supabase/client';
-import { loadMigrationHealth, type HealthResult } from '@/lib/supabase/migrationHealth';
+import { loadMigrationHealth, unrecordedMigrations, type HealthResult } from '@/lib/supabase/migrationHealth';
 import migrations from '@/lib/supabase/migrationManifest.json';
 
 /**
@@ -32,9 +32,7 @@ export function MigrationHealthPanel({ clubId }: { clubId: string }) {
   const data = result?.status === 'ready' ? result.data : null;
   const allChecksPass = Boolean(data && data.checks.every((check) => check.status === 'matching'));
   // Only migrations with no history record are worth the owner's attention.
-  const unrecordedMigrations = data
-    ? migrations.filter((file) => !data.recordedVersions.includes(file.split('_')[0]))
-    : [];
+  const unrecorded = data ? unrecordedMigrations(migrations, data.recordedVersions) : [];
 
   return (
     <div aria-busy={loading}>
@@ -66,17 +64,17 @@ export function MigrationHealthPanel({ clubId }: { clubId: string }) {
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-gray-950">
-                  {data.historyAvailable ? t('pendingMigrations', { count: unrecordedMigrations.length }) : t('migrationRecords')}
+                  {data.historyAvailable ? t('pendingMigrations', { count: unrecorded.length }) : t('migrationRecords')}
                 </h3>
                 {!data.historyAvailable ? (
                   <p className="mt-1 text-xs leading-5 text-gray-500">{t('noHistory')}</p>
-                ) : unrecordedMigrations.length === 0 ? (
+                ) : unrecorded.length === 0 ? (
                   <InlineAlert variant="success" className="mt-2">{t('allRecorded', { count: migrations.length })}</InlineAlert>
                 ) : (
                   <>
                     <p className="mt-1 text-xs leading-5 text-gray-500">{t('historyNote')}</p>
                     <ul className="mt-2 max-h-96 divide-y divide-gray-100 overflow-auto rounded-xl border border-gray-200">
-                      {unrecordedMigrations.map((file) => (
+                      {unrecorded.map((file) => (
                         <li key={file} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
                           <span className="min-w-0 break-all font-mono text-xs text-gray-700">{file}</span>
                           <Badge variant="warning" size="sm">{t('unconfirmed')}</Badge>

@@ -171,6 +171,21 @@ test('AUTH-002 switching club shows only that club\'s figures and no row of the 
   expect(leaked).toEqual([]);
 });
 
+test('SET-001 the Settings health check confirms the 050/051 functions on the fully migrated database', async ({ page }) => {
+  await page.goto('/settings');
+  const health = page.locator('[aria-busy]').filter({ has: page.getByRole('heading', { name: 'Database health' }) });
+  const calls = [];
+  page.on('request', request => { if (request.url().includes('/rest/v1/rpc/get_migration_health')) calls.push(request.postDataJSON()); });
+  await health.getByRole('button', { name: 'Run health check' }).click();
+  await expect(health.getByText(/Owner-profit checks passed/)).toBeVisible();
+  await expect(health.getByText('Matches app version')).toHaveCount(3);
+  for (const name of ['050 · get_owner_profit_snapshot', '051 · withdraw_owner_money_for_month', '051 · enforce_owner_withdrawal_month_balance']) await expect(health).toContainText(name);
+  // The test database is migrated without CLI history, like a SQL Editor install: unconfirmed, never "missing".
+  await expect(health.getByText(/Migration records could not be read/)).toBeVisible();
+  await expect(health.getByText('Function missing')).toHaveCount(0);
+  expect(calls).toEqual([{ p_club_id: clubs.arcade.id }]);
+});
+
 test.describe('as a viewer', () => {
   test.use({ storageState: storageStatePath('viewer') });
 
@@ -192,6 +207,8 @@ test.describe('as a viewer', () => {
     // A member of E2E Arcade only: the other club's ledgers are invisible, not just empty on screen.
     expect(await (await restAs(accounts.viewer, 'GET', `products?select=id&club_id=eq.${clubs.bunker.id}`)).json()).toEqual([]);
     const rows = await (await restAs(accounts.owner, 'GET', `expenses?select=id&club_id=eq.${clubs.arcade.id}`)).json();
+    // The owner-only health check is refused to a member, not reported as missing migrations.
+    expect((await restAs(accounts.viewer, 'POST', 'rpc/get_migration_health', { p_club_id: clubs.arcade.id })).status).toBe(403);
     expect(rows).toHaveLength(expenses.length);
   });
 });

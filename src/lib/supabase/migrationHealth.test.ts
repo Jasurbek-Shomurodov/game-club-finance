@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
-import { loadMigrationHealth } from './migrationHealth';
+import { loadMigrationHealth, unrecordedMigrations } from './migrationHealth';
 import manifest from './migrationManifest.json';
 
 describe('migration health', () => {
@@ -25,6 +25,15 @@ describe('migration health', () => {
       .mockResolvedValueOnce({ data: { recordedVersions: [] }, error: null })
       .mockRejectedValueOnce(new Error('offline'));
     for (let i = 0; i < 3; i++) expect(await loadMigrationHealth({ rpc }, 'club-a')).toEqual({ status: 'error' });
+  });
+
+  it('matches history records by the numeric filename prefix only', () => {
+    const files = ['001_initial_schema.sql', '052_migration_health.sql', '084_daily_cash_entry_author_integrity.sql'];
+    expect(unrecordedMigrations(files, ['001', '084'])).toEqual(['052_migration_health.sql']);
+    expect(unrecordedMigrations(files, ['001', '052', '084', '999'])).toEqual([]);
+    expect(unrecordedMigrations(files, ['1', '52', '084_daily_cash_entry_author_integrity'])).toEqual(files);
+    expect(unrecordedMigrations(files, ['20260101000000'])).toEqual(files);
+    expect(unrecordedMigrations(files, [])).toEqual(files);
   });
 
   it('lists every committed migration so new migrations require updating the manifest', () => {

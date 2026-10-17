@@ -34,3 +34,9 @@ export async function loadMigrationHealth(client: HealthClient, clubId: string):
     return { status: 'error' };
   }
 }
+
+/** Committed migration files whose numeric version has no history record. Unrecorded is unconfirmed, not missing. */
+export function unrecordedMigrations(files: readonly string[], recordedVersions: readonly string[]): string[] {
+  const recorded = new Set(recordedVersions);
+  return files.filter((file) => !recorded.has(file.split('_')[0]));
+}
