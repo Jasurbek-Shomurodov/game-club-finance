@@ -261,13 +261,17 @@ export default function ReportsPage() {
         .select('date,bar_income')
         .eq('club_id', selectedClubId)
         .gte('date', range.from)
-        .lte('date', range.to)),
+        .lte('date', range.to)
+        .order('date', { ascending: true })
+        .order('product_id', { ascending: true })),
       fetchAllRows<StockPurchaseCostRow>(() => supabase
         .from('stock_purchases')
         .select('date,quantity,cost_price')
         .eq('club_id', selectedClubId)
         .gte('date', range.from)
-        .lte('date', range.to)),
+        .lte('date', range.to)
+        .order('date', { ascending: true })
+        .order('id', { ascending: true })),
     ]);
 
     const firstError = [

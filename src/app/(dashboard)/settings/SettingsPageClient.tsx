@@ -152,15 +152,18 @@ export function SettingsPageClient() {
 
     try {
       const supabase = createClient();
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('clubs')
         .update({
           business_day_start_hour: hour,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', selectedClub.id);
+        .eq('id', selectedClub.id)
+        .select('id');
 
       if (error) throw error;
+      // RLS silently matches no row when the owner role was revoked meanwhile.
+      if (!data?.length) throw new Error('club update matched no row');
 
       showToast(t('businessDaySaved'));
       await refreshClubs();
@@ -184,15 +187,18 @@ export function SettingsPageClient() {
 
     try {
       const supabase = createClient();
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('clubs')
         .update({
           enabled_payment_methods: next,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', selectedClub.id);
+        .eq('id', selectedClub.id)
+        .select('id');
 
       if (error) throw error;
+      // RLS silently matches no row when the owner role was revoked meanwhile.
+      if (!data?.length) throw new Error('club update matched no row');
 
       showToast(t('paymentMethodsSaved'));
       await refreshClubs();

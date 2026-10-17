@@ -40,9 +40,9 @@ export function todayIso(date = new Date(), businessDayStartHour = DEFAULT_BUSIN
 export const APP_TIME_ZONE = 'Asia/Tashkent';
 
 /**
- * Business date for server code. Servers run in UTC, so `todayIso` (which uses
- * the process's local clock) would disagree with a browser in Tashkent for
- * several hours every day. This reads the wall clock in APP_TIME_ZONE instead,
+ * Business date in the app time zone, for server code and the browser's
+ * `useBusinessToday`. `todayIso` uses the process's or device's local clock,
+ * which disagrees with the database for several hours a day outside Tashkent. This reads the wall clock in APP_TIME_ZONE instead,
  * then applies the same business-day rollback.
  */
 export function serverTodayIso(

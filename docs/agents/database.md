@@ -219,6 +219,15 @@ databases fall back to a lookup plus `record_salary_entry`. Entry and rate
 deletes also go through `POST /api/salaries` (`delete_record`) and notify.
 `POST /api/expenses` accepts a client `id` for idempotent retries and rejects
 payment methods the club has not enabled.
+Migration 083 narrows the `authenticated` UPDATE privilege on `expenses` to
+`telegram_chat_id` and `telegram_message_id`, the only columns the route
+updates; recorded amounts, dates and categories cannot be rewritten through
+PostgREST. Expense deletes call the bot's `deleteMessage` only when the stored
+chat is the club's configured group.
+Migration 084 gives `daily_cash_entries.created_by` an `auth.uid()` default,
+requires it to be the signed-in user on insert (as 075 does for `new_debts`),
+and keeps `created_at`/`created_by` fixed on update so the admin 15-minute
+edit window, which is measured from `created_at`, cannot be reopened.
 
 Migration 082 restates `record_salary_entry_with_status` (077) with
 `create or replace` and the `club_role_read_stock_purchases` policy (081)

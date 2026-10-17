@@ -10,7 +10,6 @@ import { relatedClub } from '@/lib/supabase/memberships';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import { Badge, ButtonLink, Card, EmptyState, InlineAlert, PageHeader } from '@/components/PresentationFoundation';
 import { calculateFinancialReportTotals, calculateManualIncome, type DailyCashEntry } from '@/lib/calculations/dailyReport';
-import { calculateRemainingDebt } from '@/lib/calculations/debt';
 import { normalizeBusinessDayStartHour, serverTodayIso } from '@/lib/utils';
 import { formatNumber } from '@/lib/formatters';
 
@@ -199,7 +198,7 @@ export default async function TestChecklistPage() {
     link: '/daily-report',
   });
 
-  const negDebts = activeDebts.filter((d) => calculateRemainingDebt(d.amount, d.paid_amount ?? 0) < 0);
+  const negDebts = activeDebts.filter((d) => Number(d.paid_amount ?? 0) > Number(d.amount));
   checks.push({
     name: t('debts'),
     pass: negDebts.length === 0,

@@ -271,7 +271,8 @@ export default function ProductsPage() {
 
     setDeleting(false);
     if (deleteError || !data) {
-      setFormError(deleteError?.message ?? tc('error'));
+      // Raw database text is untranslated and may name internals.
+      setFormError(tc('error'));
       return;
     }
 

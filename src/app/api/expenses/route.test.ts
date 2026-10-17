@@ -95,7 +95,23 @@ describe('expense deletion route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'bot-token');
+    vi.stubEnv('TELEGRAM_MAIN_CLUB_ID', CLUB_ID);
+    vi.stubEnv('TELEGRAM_MAIN_CHAT_ID', '-1001');
     mocks.deleteTelegramMessage.mockResolvedValue(undefined);
+  });
+
+  it('never deletes a Telegram message outside the club\'s configured group', async () => {
+    const { deleteQuery } = mockSupabase({
+      id: EXPENSE_ID,
+      telegram_chat_id: '-1009',
+      telegram_message_id: 42,
+    });
+
+    const response = await DELETE_AND_FLUSH(deleteRequest());
+
+    expect(response.status).toBe(200);
+    expect(deleteQuery.delete).toHaveBeenCalledOnce();
+    expect(mocks.deleteTelegramMessage).not.toHaveBeenCalled();
   });
 
   it('deletes the expense before its Telegram notification', async () => {

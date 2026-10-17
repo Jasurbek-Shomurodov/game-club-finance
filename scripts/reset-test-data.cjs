@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Remove all test/demo data created by seed-test-data.cjs
- * Usage: node scripts/reset-test-data.cjs --confirm
+ * Usage: node scripts/reset-test-data.cjs --confirm --club-id=<uuid>
  */
 
 const fs = require('fs');
@@ -30,21 +30,25 @@ const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(url, key);
 
 async function getTargetClubId() {
-  if (clubIdArg) return clubIdArg;
+  // No default club: the service role bypasses RLS, so the target must be named
+  // explicitly and checked to exist before any row is written or deleted.
+  if (!clubIdArg) {
+    console.error('❌ Pass --club-id=<uuid> to choose the club explicitly.');
+    process.exit(1);
+  }
 
   const { data, error } = await supabase
     .from('clubs')
     .select('id, name')
-    .order('created_at', { ascending: true })
-    .limit(1)
+    .eq('id', clubIdArg)
     .maybeSingle();
 
   if (error || !data?.id) {
-    console.error('❌ Could not resolve target club. Pass --club-id=<uuid> after running the multi-club migration.');
+    console.error('❌ No club with that --club-id.');
     process.exit(1);
   }
 
-  console.log(`Target club: ${data.name} (${data.id})`);
+  console.log(`Target club: ${data.name} (${data.id}) at ${new URL(url).host}`);
   return data.id;
 }
 

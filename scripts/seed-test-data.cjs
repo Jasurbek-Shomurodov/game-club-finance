@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Seed test/demo data for the game-club-finance app.
- * Usage: node scripts/seed-test-data.cjs --confirm
+ * Usage: node scripts/seed-test-data.cjs --confirm --club-id=<uuid>
  *
  * Requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local
  * NEVER run on production without --confirm and explicit review.
@@ -24,7 +24,7 @@ const args = process.argv.slice(2);
 const clubIdArg = args.find((arg) => arg.startsWith('--club-id='))?.slice('--club-id='.length);
 if (!args.includes('--confirm')) {
   console.error('⚠️  Safety check: pass --confirm to run seed script.');
-  console.error('   Example: node scripts/seed-test-data.cjs --confirm');
+  console.error('   Example: node scripts/seed-test-data.cjs --confirm --club-id=<uuid>');
   process.exit(1);
 }
 
@@ -42,21 +42,25 @@ const supabase = createClient(url, key);
 const today = new Date().toISOString().split('T')[0];
 
 async function getTargetClubId() {
-  if (clubIdArg) return clubIdArg;
+  // No default club: the service role bypasses RLS, so the target must be named
+  // explicitly and checked to exist before any row is written or deleted.
+  if (!clubIdArg) {
+    console.error('❌ Pass --club-id=<uuid> to choose the club explicitly.');
+    process.exit(1);
+  }
 
   const { data, error } = await supabase
     .from('clubs')
     .select('id, name')
-    .order('created_at', { ascending: true })
-    .limit(1)
+    .eq('id', clubIdArg)
     .maybeSingle();
 
   if (error || !data?.id) {
-    console.error('❌ Could not resolve target club. Pass --club-id=<uuid> after running the multi-club migration.');
+    console.error('❌ No club with that --club-id.');
     process.exit(1);
   }
 
-  console.log(`Target club: ${data.name} (${data.id})`);
+  console.log(`Target club: ${data.name} (${data.id}) at ${new URL(url).host}`);
   return data.id;
 }
 

@@ -182,7 +182,8 @@ export async function loadFinanceReportRows(
       .eq('club_id', clubId)
       .gte('date', from)
       .lte('date', to)
-      .order('product_id', { ascending: true });
+      .order('product_id', { ascending: true })
+      .order('date', { ascending: true });
   });
 
   const [cashRes, initialStockCountRes, stockTotalRes, purchaseRes, expenseRes, debtRes] = await Promise.all([

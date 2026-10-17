@@ -23,7 +23,8 @@ async function loadPendingCount() {
     fetchAllRows<{ user_id: string }>(() => supabase
       .from('club_memberships')
       .select('user_id')
-      .order('user_id')),
+      .order('user_id')
+      .order('club_id')),
   ]);
   // Before 072 there is no rejection mark; every member-less profile is pending.
   const profileRes = isMissingDatabaseColumn(initialProfileRes.error, 'access_rejected_at')

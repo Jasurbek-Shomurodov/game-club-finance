@@ -234,13 +234,21 @@ export async function DELETE(request: Request) {
 
   // Telegram cleanup is best-effort: the bot cannot remove messages older than
   // 48 hours (or ones it lost access to), and that never undoes the deletion.
+  // The coordinates are user-writable under RLS, so only touch the club's own
+  // configured group: a forged chat id must never let the bot delete elsewhere.
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  if (botToken && expense.telegram_chat_id && expense.telegram_message_id) {
+  const clubChatId = targetChatId(clubId);
+  if (
+    botToken
+    && clubChatId
+    && expense.telegram_message_id
+    && String(expense.telegram_chat_id) === clubChatId
+  ) {
     after(async () => {
       try {
         await deleteTelegramMessage({
           botToken,
-          chatId: expense.telegram_chat_id,
+          chatId: clubChatId,
           messageId: Number(expense.telegram_message_id),
         });
       } catch (telegramError) {

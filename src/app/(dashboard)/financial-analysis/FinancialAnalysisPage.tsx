@@ -179,7 +179,6 @@ export default function FinancialAnalysisPage() {
   );
 
   const windowRequest = useRef<{ key: string; promise: Promise<AnalysisLedgers> } | null>(null);
-  // Bumped by either retry button so a retried read never reuses a failed window.
   // The category stays set while the drawer slides out, so its content does not vanish mid-animation.
   const [drawerCategory, setDrawerCategory] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);

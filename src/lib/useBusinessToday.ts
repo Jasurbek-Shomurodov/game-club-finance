@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { todayIso } from '@/lib/utils';
+import { serverTodayIso } from '@/lib/utils';
 
 /** How often an open tab re-checks the business date. */
 const CLOCK_REFRESH_MS = 60_000;
@@ -11,12 +11,15 @@ const CLOCK_REFRESH_MS = 60_000;
  * (overnight tabs, sleep, a backgrounded phone). Re-checks every minute and on
  * focus/visibility, so forms and pickers roll over to the new business day.
  * `paused` holds the date still, e.g. while a form has unsaved edits.
+ * Reads the APP_TIME_ZONE wall clock like the database's club_business_date(),
+ * so a device in another time zone never defaults forms to a day the database
+ * rejects as future (or to yesterday); it also matches the server render.
  */
 export function useBusinessToday(
   businessDayStartHour: number | null | undefined,
   { paused = false }: { paused?: boolean } = {},
 ): string {
-  const [today, setToday] = useState(() => todayIso(new Date(), businessDayStartHour ?? undefined));
+  const [today, setToday] = useState(() => serverTodayIso(new Date(), businessDayStartHour ?? undefined));
 
   useEffect(() => {
     // While paused (unsaved edits on screen) the date is frozen; it catches up
@@ -24,7 +27,7 @@ export function useBusinessToday(
     if (paused) return;
     const refresh = () => {
       if (document.visibilityState === 'hidden') return;
-      const next = todayIso(new Date(), businessDayStartHour ?? undefined);
+      const next = serverTodayIso(new Date(), businessDayStartHour ?? undefined);
       setToday((current) => (current === next ? current : next));
     };
     refresh();

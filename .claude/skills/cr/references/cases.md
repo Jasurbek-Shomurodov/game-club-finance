@@ -11,6 +11,7 @@ run; `Fixed YYYY-MM-DD` plus the guarding test closes it.
 
 | Date | Commit | Scope | Findings (S0/S1/S2) | Checks run | Not run |
 |---|---|---|---|---|---|
+| 2026-10-17 | bb3f56b | full app + fix | 0/5/9 verified (S1: SEC-009, SCOPE-008 ×2, DATE-007, NET-008; S2: SEC-010, debt sanity check, raw DB error, settings zero-row, stale comment, Telegram category heuristic, future-dated expense POST, analysis future days, DRY/YAGNI plan); S1s and the local S2s fixed, migrations 083/084 added | `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, `migrationReplay.test.ts` | `EXPLAIN` and `get_advisors` (Supabase MCP not authorised); Playwright `test:e2e` |
 | 2026-10-16 | 30d7b69 | MIG + DB: fix the first-run replay and drift findings (`retest`) | 0/0/0 (MIG-008 ×2 and DB-006 ×3 closed; 082 carries the 077 function and the 081 policy in guarded form; `Profile`, `DailyStockCount`, `Expense` carry every column) | `migrationReplay.test.ts` (82/82 apply, re-run of 073–082 minus the two listed one-shots, drift), `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` | `EXPLAIN` and `get_advisors` (Supabase MCP not authorised in this session) |
 | 2026-10-16 | 87213d5 | MIG + DB: migration replay and schema drift in PGlite (pass 9 commands, first run) | 0/5/0 (MIG-008 ×2: 077 and 081 fail a re-run; DB-006 ×3: `Profile`, `DailyStockCount`, `Expense` lack live columns) | 81/81 migrations apply on empty PGlite, re-run of 072–081, drift against `src/types/index.ts`, `reviewCatalogs.test.ts` | lint, typecheck, full `npm test`, `EXPLAIN` and `get_advisors` (Supabase MCP added in this commit, not yet connected) |
 
@@ -26,6 +27,8 @@ run; `Fixed YYYY-MM-DD` plus the guarding test closes it.
 | SEC-006 | S1 | API routes validate input and hide internals | Read each `src/app/api/**/route.ts` | Body parsed with explicit checks or a schema, 4xx on bad input, no stack trace or Supabase `details` in the response |
 | SEC-007 | S1 | Logs carry no personal or financial data | `grep -rnE "console\.(log\|error\|warn)" src/app src/lib` | No tokens, chat ids with names, amounts or request bodies logged; ids and stage names at most |
 | SEC-008 | S1 | Telegram delivery reads its token server-side only | `grep -rn "TELEGRAM" src/lib/telegram` | Token read from `process.env` inside transport code, never passed through a response or a client prop |
+| SEC-009 | S1 | The bot acts only on its club's configured chat | Read every `deleteTelegramMessage`/`sendTelegramMessage` caller whose chat id comes from a database row | The chat id is checked against `targetChatId(clubId)` first; user-writable coordinates never steer the bot. Found 2026-10-17: expense DELETE deleted the message at any stored `telegram_chat_id` [cr 2026-10-17]. Fixed 2026-10-17: `src/app/api/expenses/route.test.ts` ("never deletes a Telegram message outside the club's configured group") |
+| SEC-010 | S1 | Service-role scripts name their target explicitly | Read `scripts/*.cjs` that build a service client | No default club or project; `--club-id` is required and checked to exist before any write or delete. Found 2026-10-17: seed/reset scripts defaulted to the oldest club and `npm run` passes `--confirm` [cr 2026-10-17]. Fixed 2026-10-17 (manual check: `node --check`) |
 
 ## SCOPE — club scoping and RLS
 
@@ -38,6 +41,7 @@ run; `Fixed YYYY-MM-DD` plus the guarding test closes it.
 | SCOPE-005 | S1 | UI hiding is not the only permission check | Read `src/lib/permissions.ts` and the RPC or policy behind each gated action | Viewer and admin limits are enforced by RLS or the RPC, not only by hiding a button |
 | SCOPE-006 | S1 | Club switch invalidates in-flight data | Read the pages' effects that load on `clubId` change | A stale response from the previous club is ignored (abort or guard) so no cross-club flash |
 | SCOPE-007 | S1 | Team and membership changes stay club scoped | Read `src/app/api/team/**` and `src/lib/supabase/clubScopedTeamAccess*` | Approve or reject only touches memberships of the caller's club; `clubScopedTeamAccess.test.ts` covers it |
+| SCOPE-008 | S1 | Ledger facts users must not rewrite are locked in the database | For each ledger with an UPDATE policy, list the columns the app updates and the triggers or column grants that pin the rest | Recorded amount, date, author and `created_at` cannot change through PostgREST beyond what the app's own edit flow needs. Found 2026-10-17: any admin could PATCH `expenses.amount`/`date`; `daily_cash_entries.created_at` reopened the 15-minute window; `created_by` was browser-chosen [cr 2026-10-17]. Fixed 2026-10-17: migrations 083 and 084, `expenseUpdateGrantMigration.test.ts`, `dailyCashAuthorMigration.test.ts` |
 
 ## DATE — business dates
 
@@ -49,6 +53,7 @@ run; `Fixed YYYY-MM-DD` plus the guarding test closes it.
 | DATE-004 | S1 | Stored dates stay ISO | Read every date write to Supabase | Dates are written as `YYYY-MM-DD` strings from the pickers, never formatted display strings |
 | DATE-005 | S1 | Ranges are inclusive and never invent future days | Read range builders and chart series code | `to` is inclusive; no series point after the business today |
 | DATE-006 | S2 | No native date inputs | `grep -rn 'type="date"\|type="month"' src --include=*.tsx` | No hit; `DatePicker`/`MonthPicker` from PresentationFoundation are used |
+| DATE-007 | S1 | The browser's business date uses the app time zone | Read `src/lib/useBusinessToday.ts` and any client `todayIso(new Date())` | `serverTodayIso` (APP_TIME_ZONE wall clock), matching `club_business_date()`; a device outside Tashkent never defaults a form to a day the database rejects. Found 2026-10-17 [cr 2026-10-17]. Fixed 2026-10-17 (`serverTodayIso` tests in `utils.test.ts`) |
 
 ## CALC — formulas and money
 
@@ -129,6 +134,7 @@ run; `Fixed YYYY-MM-DD` plus the guarding test closes it.
 | NET-005 | S1 | Fast range or club switches cannot race | Read load effects for a cancelled flag or abort | The last selection wins; stale responses are dropped |
 | NET-006 | S1 | Narrow `select` lists | `grep -rn "select('\*')" src` | No `*` on wide tables; only the columns the reader uses |
 | NET-007 | S2 | No refetch on focus or interval without need | `grep -rn "setInterval\|visibilitychange\|refetchOnWindowFocus" src` | Each one is justified by data that actually changes at that rate |
+| NET-008 | S1 | Paginated reads order by a unique key | Read every `fetchAllRows` builder | The `.order()` chain ends in a unique column set (`id`, or the table's unique key); otherwise rows repeat or vanish between `.range()` pages. Found 2026-10-17: ReportsPage fallback reads had no order; `financeReportSnapshot` and `usePendingTeamCount` ordered by a repeating column [cr 2026-10-17]. Fixed 2026-10-17 |
 
 ## PERF — performance
 
