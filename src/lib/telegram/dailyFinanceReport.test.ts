@@ -385,6 +385,11 @@ describe('formatRussianDailyFinanceReport', () => {
     expect(input.monthBarSales).toBe(1_000_000);
     expect(input.monthTotalIncome).toBe(3_000_000);
     expect(input.monthGameClubProfit).toBe(2_000_000);
+    expect(input.monthSankey?.sources).toEqual([
+      { key: 'computers', amount: 2_000_000 },
+      { key: 'bar', amount: 1_000_000 },
+    ]);
+    expect(input.monthSankey?.income).toBe(3_000_000);
     expect(input.monthDailyGameClubIncome).toHaveLength(28);
     expect(input.monthDailyGameClubIncome?.[0]).toEqual({ date: '2026-08-01', amount: 0 });
     expect(input.monthDailyGameClubIncome?.[27]).toEqual({ date: '2026-08-28', amount: 2_000_000 });

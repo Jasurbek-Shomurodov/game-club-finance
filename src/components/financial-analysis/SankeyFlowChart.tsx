@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { formatCurrency } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import type { AnalysisSankey, SankeyNode } from '@/lib/calculations/financialAnalysis';
+import { layoutSankey, sankeyLinkPath as linkPath } from '@/lib/sankeyLayout';
 import { formatCompactMoney, formatShare } from './analysisFormat';
 
 const LAYOUT = { nodeWidth: 10, nodePadding: 14, perNode: 30, minHeight: 300, padY: 8, labelGap: 8, perColumn: 120, hubLabelSpace: 22 };
@@ -17,11 +18,6 @@ function measureLabel(text: string): number {
   return context.measureText(text).width;
 }
 
-function linkPath(x0: number, y0: number, x1: number, y1: number) {
-  const mid = (x0 + x1) / 2;
-  return `M${x0},${y0} C${mid},${y0} ${mid},${y1} ${x1},${y1}`;
-}
-
 function useElementWidth() {
   const [element, setElement] = useState<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(0);
@@ -32,13 +28,6 @@ function useElementWidth() {
     return () => observer.disconnect();
   }, [element]);
   return [setElement, width] as const;
-}
-
-interface PlacedNode extends SankeyNode {
-  y: number;
-  h: number;
-  band: number;
-  hubY: number;
 }
 
 export interface SankeyFlowChartProps {
@@ -86,31 +75,11 @@ export function SankeyFlowChart({
   const width = Math.max(marginLeft + marginRight + 2 * Math.max(perColumn, middle / 2 + 16), measuredWidth);
   const height = Math.max(minHeight, (Math.max(sankey.sources.length, sankey.targets.length) + 2) * perNode);
 
-  // One scale for every column, taken from the column with the least room once its gaps are removed.
-  const roomFor = (count: number) => height - padY * 2 - nodePadding * Math.max(0, count - 1) - 2 * count;
-  const scale = Math.max(0, Math.min(roomFor(sankey.sources.length), roomFor(sankey.targets.length), roomFor(1) - hubLabelSpace) / total);
-  const hubHeight = total * scale;
-  const hubTop = (height - hubHeight + hubLabelSpace) / 2;
+  const { hubTop, hubHeight, sources, targets } = layoutSankey(sankey, { height, nodePadding, padY, hubLabelSpace });
   const leftX = marginLeft;
   const rightX = width - marginRight - nodeWidth;
   const hubX = Math.round((leftX + rightX) / 2);
 
-  function layout(nodes: SankeyNode[]): PlacedNode[] {
-    const heights = nodes.map((node) => Math.max(2, node.amount * scale));
-    const used = heights.reduce((sum, h) => sum + h, 0) + nodePadding * Math.max(0, nodes.length - 1);
-    let y = (height - used) / 2;
-    let hubY = hubTop;
-    return nodes.map((node, index) => {
-      const band = node.amount * scale;
-      const placed = { ...node, y, h: heights[index], band, hubY };
-      y += heights[index] + nodePadding;
-      hubY += band;
-      return placed;
-    });
-  }
-
-  const sources = layout(sankey.sources);
-  const targets = layout(sankey.targets);
   const linkOpacity = (key: string) => (hovered === key ? 0.55 : hovered ? 0.12 : 0.3);
   const hover = (key: string) => ({ onMouseEnter: () => setHovered(key), onMouseLeave: () => setHovered(null) });
   const clickable = (key: string) => Boolean(onTargetClick) && isTargetClickable(key);

@@ -17,6 +17,12 @@ import type {
   ProductValueRow,
 } from '../calculations/dashboardMetrics';
 import { listLowStockProducts } from '../calculations/stock';
+import {
+  buildAnalysisSankey,
+  foldCategories,
+  groupExpensesByCategory,
+  type AnalysisSankey,
+} from '../calculations/financialAnalysis';
 import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
 import type { LowStockProduct, LowStockProductInput } from '../calculations/stock';
 
@@ -58,6 +64,8 @@ export interface DailyFinanceReportInput {
   monthGameClubProfit?: number;
   /** Month-to-date game club plus bar sales. */
   monthTotalIncome?: number;
+  /** Month-to-date flow from income sources to costs, categories and profit, as on the analysis page. */
+  monthSankey?: AnalysisSankey;
   /** Game club income per calendar day from the first of the month through the report date. */
   monthDailyGameClubIncome?: DailyFinanceIncomePoint[];
   /** Active tracked products that are out of stock or at/below their threshold. */
@@ -457,6 +465,10 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
     monthBarSales: monthTotals.barSales,
     monthGameClubProfit: monthTotals.gameClubIncome - monthTotals.gameClubExpenses,
     monthTotalIncome: monthTotals.gameClubIncome + monthTotals.barSales,
+    monthSankey: buildAnalysisSankey(
+      monthTotals,
+      foldCategories(groupExpensesByCategory(rows.monthExpenseRows ?? rows.expenseRows)),
+    ),
     monthDailyGameClubIncome: buildDailyGameClubIncomeSeries(
       rows.monthCashRows ?? rows.cashRows,
       monthDebtRows,
