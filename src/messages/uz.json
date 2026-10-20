@@ -157,7 +157,15 @@
     "flowSection": "Pul oqimi",
     "flowSectionDesc": "Har bir daromad summasi qayerga ketgani.",
     "flowTitle": "Pul qayerga ketadi",
-    "flowDesc": "Chapda daromad manbalari, o‘ngda sarflar va foyda. Batafsil uchun oqim ustiga olib boring.",
+    "flowDesc": "Chapda daromad manbalari, o‘ngda sarflar va foyda. Manba, toifa yoki oqimni bosing — uning pul harakati ochiladi.",
+    "openFlow": "Ochish: {name}",
+    "drill": {
+      "gameClubLeft": "Klub foydasi",
+      "barLeft": "Bar foydasi",
+      "gameClubLoss": "Klub zarari",
+      "barLoss": "Bar zarari",
+      "morePayments": "Boshqa to‘lovlar"
+    },
     "hub": "Daromad",
     "barCost": "Bar tannarxi",
     "profit": "Foyda",

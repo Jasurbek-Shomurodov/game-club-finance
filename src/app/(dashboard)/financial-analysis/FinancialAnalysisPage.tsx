@@ -63,7 +63,23 @@ import {
   PaymentMethodFlow,
 } from '@/components/financial-analysis/AnalysisPanels';
 import { CategoryDrawer } from '@/components/financial-analysis/CategoryDrawer';
-import { SOURCE_COLORS, categoryColors, formatShare } from '@/components/financial-analysis/analysisFormat';
+import { SankeyDrillModal } from '@/components/financial-analysis/SankeyDrillModal';
+import { SOURCE_COLORS, categoryColors, drillNodeColor, formatShare } from '@/components/financial-analysis/analysisFormat';
+import {
+  BAR_LEFT,
+  BAR_LOSS,
+  BAR_UNIT,
+  GAME_CLUB_LEFT,
+  GAME_CLUB_LOSS,
+  GAME_CLUB_UNIT,
+  MORE_PAYMENTS,
+  NOTE_PREFIX,
+  NO_COMMENT,
+  PAID_FROM_BAR,
+  PAID_FROM_GAME_CLUB,
+  analysisNodeTarget,
+  type DrillTarget,
+} from '@/lib/calculations/sankeyDrill';
 
 function ChartLoading() {
   return <ChartSkeleton />;
@@ -182,6 +198,9 @@ export default function FinancialAnalysisPage() {
   // The category stays set while the drawer slides out, so its content does not vanish mid-animation.
   const [drawerCategory, setDrawerCategory] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Like the drawer, the drill-down trail stays set while its dialog closes.
+  const [drillTrail, setDrillTrail] = useState<DrillTarget[]>([]);
+  const [drillOpen, setDrillOpen] = useState(false);
 
   // Keep the range shareable, like the dashboard.
   useEffect(() => {
@@ -273,6 +292,37 @@ export default function FinancialAnalysisPage() {
       : category.replace(/_/g, ' ');
   }, [t, tCategories]);
   const sourceName = (key: string) => t(`sources.${key as IncomeSourceKey}`);
+  const drillNames: Record<string, string> = {
+    [GAME_CLUB_UNIT]: td('gameClub'),
+    [BAR_UNIT]: td('bar'),
+    [GAME_CLUB_LEFT]: t('drill.gameClubLeft'),
+    [BAR_LEFT]: t('drill.barLeft'),
+    [GAME_CLUB_LOSS]: t('drill.gameClubLoss'),
+    [BAR_LOSS]: t('drill.barLoss'),
+    [PAID_FROM_GAME_CLUB]: t('paidFromGameClub'),
+    [PAID_FROM_BAR]: t('paidFromBar'),
+    [NO_COMMENT]: t('drawerNoComment'),
+    [MORE_PAYMENTS]: t('drill.morePayments'),
+  };
+  const drillNodeName = (key: string) => {
+    if (key in drillNames) return drillNames[key];
+    if (key.startsWith(NOTE_PREFIX)) return key.slice(NOTE_PREFIX.length);
+    if (t.has(`sources.${key}`)) return sourceName(key);
+    return categoryName(key);
+  };
+  const drillTitle = (target: DrillTarget) => {
+    if (target.kind === 'gameClub') return td('gameClub');
+    if (target.kind === 'bar') return td('bar');
+    if (target.kind === 'profit') return t('profit');
+    return categoryName(target.category);
+  };
+  const openDrill = (key: string) => {
+    const target = analysisNodeTarget(key, analysis.topCategories);
+    if (!target) return;
+    setDrillTrail([target]);
+    setDrillOpen(true);
+  };
+  const periodLabel = `${formatDateShort(range.from, locale)} – ${formatDateShort(range.to, locale)}`;
   const methodName = (method: PaymentMethodFlowRow['method']) => td(method);
 
   const { indicators } = analysis;
@@ -407,8 +457,10 @@ export default function FinancialAnalysisPage() {
                     targetColor={(key) => colors[key]}
                     locale={locale}
                     currency={currency}
-                    onTargetClick={openCategory}
-                    isTargetClickable={(key) => key !== BAR_COST_TARGET && key !== PROFIT_TARGET}
+                    onSourceClick={openDrill}
+                    onTargetClick={openDrill}
+                    isTargetClickable={(key) => analysisNodeTarget(key, analysis.topCategories) !== null}
+                    openLabel={(name) => t('openFlow', { name })}
                   />
                 ) : (
                   <ChartEmpty title={t('empty')} />
@@ -487,7 +539,21 @@ export default function FinancialAnalysisPage() {
         detail={categoryDetail}
         color={(drawerCategory && colors[drawerCategory]) || colors.other}
         labelFor={categoryName}
-        periodLabel={`${formatDateShort(range.from, locale)} – ${formatDateShort(range.to, locale)}`}
+        periodLabel={periodLabel}
+        locale={locale}
+        currency={currency}
+      />
+
+      <SankeyDrillModal
+        open={drillOpen}
+        onClose={() => setDrillOpen(false)}
+        trail={drillTrail}
+        onTrailChange={setDrillTrail}
+        ledgers={current}
+        titleFor={drillTitle}
+        labelFor={drillNodeName}
+        colorFor={(key, index) => drillNodeColor(key, index, colors)}
+        periodLabel={periodLabel}
         locale={locale}
         currency={currency}
       />

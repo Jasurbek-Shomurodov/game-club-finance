@@ -157,7 +157,15 @@
     "flowSection": "Money flow",
     "flowSectionDesc": "Every sum of income traced to where it ended up.",
     "flowTitle": "Where the money goes",
-    "flowDesc": "Income sources on the left, spending and profit on the right. Hover a stream for details.",
+    "flowDesc": "Income sources on the left, spending and profit on the right. Tap a source, category or stream to open its own flow.",
+    "openFlow": "Open {name}",
+    "drill": {
+      "gameClubLeft": "Game club profit",
+      "barLeft": "Bar profit",
+      "gameClubLoss": "Game club loss",
+      "barLoss": "Bar loss",
+      "morePayments": "Other payments"
+    },
     "hub": "Income",
     "barCost": "Bar goods cost",
     "profit": "Profit",

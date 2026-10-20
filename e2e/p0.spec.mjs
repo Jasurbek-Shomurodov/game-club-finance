@@ -187,6 +187,42 @@ test('SET-001 the Settings health check shows every migration applied and confir
   expect(calls).toEqual([{ p_club_id: clubs.arcade.id }]);
 });
 
+test('REP-008 a tap on the money flow opens its own Sankey, and one inside it opens the next', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/financial-analysis');
+  await expect(page.getByRole('heading', { name: 'Financial Analysis', level: 1 })).toBeVisible();
+  const dialog = page.getByRole('dialog');
+
+  // New debts open the game club: its income, including the debts, against what it paid for.
+  await page.getByRole('button', { name: 'Open New debts' }).click();
+  await expect(dialog.getByRole('heading', { name: 'Game Club', exact: true })).toBeVisible();
+  const debtIncome = debts.reduce((sum, debt) => sum + debt.amount, 0);
+  await expect(dialog.locator('title', { hasText: new RegExp(`^New debts: ${uzs(debtIncome)} `) })).toHaveCount(1);
+  const gameClubLeft = expected.gameClubIncome + expected.playstationIncome - expected.totalExpenses;
+  await expect(dialog.locator('title', { hasText: new RegExp(`^Game club profit: ${uzs(gameClubLeft)} `) })).toHaveCount(1);
+  await page.keyboard.press('Escape');
+
+  // A category: the money that paid it, and its payments listed below.
+  const [cleaning] = expenses;
+  await page.getByRole('button', { name: 'Open Cleaning' }).click();
+  await expect(dialog.getByRole('heading', { name: 'Cleaning' })).toBeVisible();
+  await expect(dialog.locator('title', { hasText: new RegExp(`^Paid from game club: ${uzs(cleaning.amount)} `) })).toHaveCount(1);
+  await expect(dialog.getByRole('listitem').filter({ hasText: cleaning.comment })).toContainText(uzs(cleaning.amount));
+  await page.keyboard.press('Escape');
+
+  // Bar sales → Bar → Bar profit → Profit, and Back again.
+  await page.getByRole('button', { name: 'Open Bar sales' }).click();
+  await expect(dialog.getByRole('heading', { name: 'Bar', exact: true })).toBeVisible();
+  await expect(dialog.locator('title', { hasText: new RegExp(`^Bar profit: ${uzs(expected.barSales - expected.barCost)} `) })).toHaveCount(1);
+  await dialog.getByRole('button', { name: 'Open Bar profit' }).click();
+  await expect(dialog.getByRole('heading', { name: 'Profit', exact: true })).toBeVisible();
+  await expect(dialog.locator('title', { hasText: new RegExp(`^Profit: ${uzs(expected.netProfit)} `) })).toHaveCount(1);
+  await dialog.getByRole('button', { name: 'Back' }).click();
+  await expect(dialog.getByRole('heading', { name: 'Bar', exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test.describe('as a viewer', () => {
   test.use({ storageState: storageStatePath('viewer') });
 

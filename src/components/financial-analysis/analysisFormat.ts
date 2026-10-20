@@ -8,6 +8,18 @@ import {
   type IncomeSourceKey,
   type SpendingGroupKey,
 } from '@/lib/calculations/financialAnalysis';
+import {
+  BAR_LEFT,
+  BAR_LOSS,
+  BAR_UNIT,
+  GAME_CLUB_LEFT,
+  GAME_CLUB_LOSS,
+  GAME_CLUB_UNIT,
+  MORE_PAYMENTS,
+  NO_COMMENT,
+  PAID_FROM_BAR,
+  PAID_FROM_GAME_CLUB,
+} from '@/lib/calculations/sankeyDrill';
 
 /** Compact money for dense chart labels ("1.2M"); full amounts stay in tooltips. */
 export function formatCompactMoney(amount: number, locale: string): string {
@@ -50,4 +62,28 @@ export function categoryColors(topCategories: CategoryAmount[]): Record<string, 
       colors[row.category] = CATEGORY_PALETTE[index % CATEGORY_PALETTE.length];
     });
   return colors;
+}
+
+const DRILL_COLORS: Record<string, string> = {
+  [GAME_CLUB_UNIT]: chartColors.primary,
+  [BAR_UNIT]: chartColors.orange,
+  [GAME_CLUB_LEFT]: chartColors.success,
+  [BAR_LEFT]: chartColors.success,
+  [GAME_CLUB_LOSS]: chartColors.danger,
+  [BAR_LOSS]: chartColors.danger,
+  [PAID_FROM_GAME_CLUB]: chartColors.primary,
+  [PAID_FROM_BAR]: chartColors.orange,
+  [NO_COMMENT]: chartColors.gray,
+  [MORE_PAYMENTS]: chartColors.gray,
+};
+
+/**
+ * Colour of a node in a drill-down Sankey: income sources and categories keep
+ * their colours from the main flow; anything else takes the palette by position.
+ */
+export function drillNodeColor(key: string, index: number, colors: Record<string, string>): string {
+  return DRILL_COLORS[key]
+    ?? SOURCE_COLORS[key as IncomeSourceKey]
+    ?? colors[key]
+    ?? CATEGORY_PALETTE[index % CATEGORY_PALETTE.length];
 }

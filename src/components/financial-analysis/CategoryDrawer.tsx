@@ -1,11 +1,12 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { Badge, Drawer, EmptyState, StatTile } from '@/components/PresentationFoundation';
+import { Badge, Drawer, StatTile } from '@/components/PresentationFoundation';
 import { chartColors } from '@/components/dashboard/ChartCard';
-import { formatCurrency, formatDateShort } from '@/lib/formatters';
+import { formatCurrency } from '@/lib/formatters';
 import { OTHER_CATEGORY, type CategoryDetail } from '@/lib/calculations/financialAnalysis';
 import { formatShare } from './analysisFormat';
+import { PaymentList } from './PaymentList';
 
 export interface CategoryDrawerProps {
   open: boolean;
@@ -23,9 +24,6 @@ export function CategoryDrawer({ open, onClose, detail, color, labelFor, periodL
   const t = useTranslations('financialAnalysis');
   const td = useTranslations('dashboard');
   const money = (amount: number) => `${formatCurrency(amount)} ${currency}`;
-  const methodLabel = (method: string | null | undefined) => (
-    method === 'cash' || method === 'terminal' || method === 'card' ? td(method) : null
-  );
   const up = (detail?.changePct ?? 0) > 0;
 
   return (
@@ -87,34 +85,7 @@ export function CategoryDrawer({ open, onClose, detail, color, labelFor, periodL
 
           <section>
             <h3 className="mb-1 text-sm font-semibold text-gray-950">{t('drawerPayments')}</h3>
-            {detail.rows.length === 0 ? (
-              <EmptyState compact title={t('noExpenses')} />
-            ) : (
-              <ul className="divide-y divide-gray-100">
-                {detail.rows.map((row) => {
-                  const method = methodLabel(row.payment_method);
-                  return (
-                    <li key={row.id} className="flex items-start justify-between gap-3 py-2.5">
-                      <div className="min-w-0">
-                        <p className="break-words text-sm text-gray-900">
-                          {detail.category === OTHER_CATEGORY && <span className="font-medium">{labelFor(row.category)} · </span>}
-                          {row.comment || <span className="text-gray-400">{t('drawerNoComment')}</span>}
-                        </p>
-                        <p className="mt-0.5 text-xs text-gray-500">
-                          {formatDateShort(row.date, locale)}
-                          {' · '}
-                          {row.payment_source === 'bar' ? t('paidFromBar') : t('paidFromGameClub')}
-                          {method && ` · ${method}`}
-                        </p>
-                      </div>
-                      <p className="shrink-0 text-right text-sm font-semibold tabular-nums text-gray-950">
-                        {formatCurrency(Number(row.amount ?? 0))} <span className="text-xs font-medium text-gray-500">{currency}</span>
-                      </p>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+            <PaymentList rows={detail.rows} showCategory={detail.category === OTHER_CATEGORY} labelFor={labelFor} locale={locale} currency={currency} />
           </section>
         </div>
       )}

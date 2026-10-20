@@ -120,6 +120,7 @@ Telegram group if one is set up.
 | REP-002 | S0 | Monthly report sums the daily reports | Sum a month's daily income manually | Monthly income equals the sum |
 | REP-003 | S0 | Money details separate profit from cash left | Open Game club and Bar money details | Both show profit and cash left as different numbers; bar and game club split per `barMoney.ts` |
 | REP-004 | S1 | Financial analysis respects the range | Switch range | Charts and tables reload; no future points |
+| REP-008 | S1 | Money flow opens its own flows [e2e] | Tap New debts, a category, Bar sales then Bar profit in the Financial analysis Sankey | Each opens its Sankey in a dialog with figures from the ledgers; a category lists its payments; Back returns to the one before |
 | REP-005 | S1 | Recent transactions page pages past 1,000 rows | Pick a range with many rows | Total matches the ledger sum; `fetchAllRows` evident in the request pattern |
 | REP-006 | S1 | Reports export, if present, matches the screen | Export the month | File totals equal the page |
 | REP-007 | S2 | Empty month | Pick a month with no data | Empty states, no NaN |

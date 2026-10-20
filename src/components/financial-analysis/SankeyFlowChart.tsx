@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type KeyboardEvent } from 'react';
 import { formatCurrency } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
-import type { AnalysisSankey, SankeyNode } from '@/lib/calculations/financialAnalysis';
+import type { SankeyNode } from '@/lib/calculations/financialAnalysis';
 import { layoutSankey, sankeyLinkPath as linkPath } from '@/lib/sankeyLayout';
 import { formatCompactMoney, formatShare } from './analysisFormat';
 
@@ -31,7 +31,8 @@ function useElementWidth() {
 }
 
 export interface SankeyFlowChartProps {
-  sankey: AnalysisSankey;
+  /** Left and right columns around a hub of `income`; `total` is the hub's drawn height. */
+  sankey: { sources: SankeyNode[]; targets: SankeyNode[]; total: number; income: number };
   hubLabel: string;
   sourceLabel: (key: string) => string;
   targetLabel: (key: string) => string;
@@ -39,9 +40,14 @@ export interface SankeyFlowChartProps {
   targetColor: (key: string) => string;
   locale: string;
   currency: string;
-  /** Opens the details of a right-hand node; nodes it returns false for stay static. */
+  /** Opens a right-hand node; nodes it returns false for stay static. */
   onTargetClick?: (key: string) => void;
   isTargetClickable?: (key: string) => boolean;
+  /** Opens a left-hand node; nodes it returns false for stay static. */
+  onSourceClick?: (key: string) => void;
+  isSourceClickable?: (key: string) => boolean;
+  /** Accessible name of a node that opens, e.g. "Open Bar sales". */
+  openLabel?: (name: string) => string;
 }
 
 /** Three-column flow: income sources → total income → where it went (costs, categories, profit). */
@@ -56,6 +62,9 @@ export function SankeyFlowChart({
   currency,
   onTargetClick,
   isTargetClickable = () => true,
+  onSourceClick,
+  isSourceClickable = () => true,
+  openLabel = (name) => name,
 }: SankeyFlowChartProps) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [wrapRef, measuredWidth] = useElementWidth();
@@ -82,17 +91,35 @@ export function SankeyFlowChart({
 
   const linkOpacity = (key: string) => (hovered === key ? 0.55 : hovered ? 0.12 : 0.3);
   const hover = (key: string) => ({ onMouseEnter: () => setHovered(key), onMouseLeave: () => setHovered(null) });
-  const clickable = (key: string) => Boolean(onTargetClick) && isTargetClickable(key);
-  const targetClick = (key: string) => (clickable(key) ? { onClick: () => onTargetClick?.(key) } : {});
+  const sourceOpens = (key: string) => Boolean(onSourceClick) && isSourceClickable(key);
+  const targetOpens = (key: string) => Boolean(onTargetClick) && isTargetClickable(key);
+  const flowClick = (opens: boolean, open: () => void) => ({
+    className: cn('transition-[stroke-opacity]', opens && 'cursor-pointer'),
+    onClick: opens ? open : undefined,
+  });
+  // A node that opens is a button: a click, Enter or Space opens it.
+  const nodeButton = (opens: boolean, open: () => void, name: string) => (opens ? {
+    role: 'button',
+    tabIndex: 0,
+    'aria-label': openLabel(name),
+    className: 'cursor-pointer outline-none [&:focus-visible>rect]:stroke-current [&:focus-visible>rect]:stroke-2 [&:focus-visible>rect]:text-gray-950',
+    onClick: open,
+    onKeyDown: (event: KeyboardEvent<SVGGElement>) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      open();
+    },
+  } : {});
   const money = (amount: number) => `${formatCurrency(amount)} ${currency}`;
   const share = (amount: number) => formatShare((amount / total) * 100, locale);
 
+  // Buttons inside an image would be hidden from screen readers, so a chart that opens is a group.
   return (
     // Labels are measured with a canvas, so the chart is drawn only on the client
     // once its width is known; the server renders a same-height placeholder.
     <div ref={wrapRef} className="-mx-1 overflow-x-auto px-1" style={measuredWidth ? undefined : { height }}>
       {measuredWidth > 0 && (
-        <svg width={width} height={height} className="block" role="img" aria-label={hubLabel}>
+        <svg width={width} height={height} className="block" role={onSourceClick || onTargetClick ? 'group' : 'img'} aria-label={hubLabel}>
           {sources.map((node) => (
             <path
               key={`ls-${node.key}`}
@@ -101,8 +128,8 @@ export function SankeyFlowChart({
               stroke={sourceColor(node.key)}
               strokeWidth={Math.max(1, node.band)}
               strokeOpacity={linkOpacity(`s-${node.key}`)}
-              className="transition-[stroke-opacity]"
               {...hover(`s-${node.key}`)}
+              {...flowClick(sourceOpens(node.key), () => onSourceClick?.(node.key))}
             >
               <title>{`${sourceLabel(node.key)} → ${hubLabel}: ${money(node.amount)} (${share(node.amount)})`}</title>
             </path>
@@ -115,16 +142,19 @@ export function SankeyFlowChart({
               stroke={targetColor(node.key)}
               strokeWidth={Math.max(1, node.band)}
               strokeOpacity={linkOpacity(`t-${node.key}`)}
-              className={cn('transition-[stroke-opacity]', clickable(node.key) && 'cursor-pointer')}
               {...hover(`t-${node.key}`)}
-              {...targetClick(node.key)}
+              {...flowClick(targetOpens(node.key), () => onTargetClick?.(node.key))}
             >
               <title>{`${hubLabel} → ${targetLabel(node.key)}: ${money(node.amount)} (${share(node.amount)})`}</title>
             </path>
           ))}
 
           {sources.map((node) => (
-            <g key={`s-${node.key}`} {...hover(`s-${node.key}`)}>
+            <g
+              key={`s-${node.key}`}
+              {...hover(`s-${node.key}`)}
+              {...nodeButton(sourceOpens(node.key), () => onSourceClick?.(node.key), sourceLabel(node.key))}
+            >
               <title>{`${sourceLabel(node.key)}: ${money(node.amount)} (${share(node.amount)})`}</title>
               <rect x={leftX} y={node.y} width={nodeWidth} height={node.h} rx={3} fill={sourceColor(node.key)} />
               <text
@@ -152,9 +182,8 @@ export function SankeyFlowChart({
           {targets.map((node) => (
             <g
               key={`t-${node.key}`}
-              className={clickable(node.key) ? 'cursor-pointer' : undefined}
               {...hover(`t-${node.key}`)}
-              {...targetClick(node.key)}
+              {...nodeButton(targetOpens(node.key), () => onTargetClick?.(node.key), targetLabel(node.key))}
             >
               <title>{`${targetLabel(node.key)}: ${money(node.amount)} (${share(node.amount)})`}</title>
               <rect x={rightX} y={node.y} width={nodeWidth} height={node.h} rx={3} fill={targetColor(node.key)} />
