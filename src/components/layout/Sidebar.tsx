@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useState, type MouseEvent } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
 import { cn } from '@/lib/utils';
 import { useSignOut } from './useSignOut';
 import { usePendingTeamCount } from './usePendingTeamCount';
@@ -193,6 +193,21 @@ export function Sidebar({
   const groups = allGroups
     .map((group) => ({ ...group, items: group.items.filter((item) => allowed(item.feature)) }))
     .filter((group) => group.items.length > 0);
+
+  // The phone drawer is unmounted while closed, so its links never scroll into
+  // view and Link's viewport prefetch never runs: a tap then waited for the
+  // server before the page skeleton appeared. Prefetch every allowed route's
+  // loading boundary up front instead. The dashboard ('/') follows its link's
+  // intent rule and is only prefetched once the drawer opens.
+  const router = useRouter();
+  const navHrefs = groups.flatMap((group) => group.items.map((item) => item.href));
+  if (allowed('settings')) navHrefs.push('/settings');
+  const navHrefKey = navHrefs.join('|');
+  useEffect(() => {
+    for (const href of navHrefKey.split('|')) {
+      if (href && (href !== '/' || mobileOpen)) router.prefetch(href);
+    }
+  }, [mobileOpen, navHrefKey, router]);
 
   function isActive(item: NavItem) {
     if (item.href === '/reports') return activeFeature === 'reports' || activeFeature === 'expenses';

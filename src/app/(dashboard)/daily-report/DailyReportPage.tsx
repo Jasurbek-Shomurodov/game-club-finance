@@ -81,17 +81,18 @@ export default function DailyReportPage() {
   const hasData = cashEntry !== null || stockCounts.length > 0 || stockPurchases.length > 0 || expenses.length > 0 || debtIncome > 0;
   const currency = tc('currency');
 
+  // The game club and the bar are separate businesses: one row each, never added together.
   const kpis = [
     { label: t('manualIncome'), amount: manualIncome, icon: TrendingUp, tone: 'success' as const },
-    { label: t('barSales'), amount: reportTotals.barSales, icon: TrendingUp, tone: 'success' as const },
     { label: t('debtIncome'), amount: debtIncome, icon: Users, tone: 'warning' as const },
-    { label: t('totalIncome'), amount: reportTotals.totalIncome, icon: TrendingUp, tone: 'success' as const },
+    { label: t('gameClubExpenses'), amount: reportTotals.gameClubExpenses, icon: TrendingDown, tone: 'danger' as const },
+    { label: t('gameClubProfit'), amount: reportTotals.gameClubProfit, icon: DollarSign, tone: toneForAmount(reportTotals.gameClubProfit) },
+    { label: t('barSales'), amount: reportTotals.barSales, icon: TrendingUp, tone: 'success' as const },
     { label: t('costOfGoodsSold'), amount: reportTotals.barCost, icon: TrendingDown, tone: 'danger' as const },
-    { label: t('totalExpenses'), amount: reportTotals.totalExpenses, icon: TrendingDown, tone: 'danger' as const },
-    { label: t('inventoryPurchases'), amount: reportTotals.stockPurchaseCost, icon: TrendingDown, tone: 'danger' as const },
     { label: t('barExpenses'), amount: reportTotals.barExpenses, icon: TrendingDown, tone: 'danger' as const },
+    { label: t('barProfit'), amount: reportTotals.barProfit, icon: DollarSign, tone: toneForAmount(reportTotals.barProfit) },
+    { label: t('inventoryPurchases'), amount: reportTotals.stockPurchaseCost, icon: TrendingDown, tone: 'danger' as const },
     { label: t('barCashLeft'), amount: reportTotals.barCashLeft, icon: DollarSign, tone: toneForAmount(reportTotals.barCashLeft) },
-    { label: t('accountingNetProfit'), amount: reportTotals.accountingNetProfit, icon: DollarSign, tone: toneForAmount(reportTotals.accountingNetProfit) },
   ];
 
   const cashBreakdown = cashEntry
@@ -129,7 +130,7 @@ export default function DailyReportPage() {
         <Card><EmptyState icon={FileText} title={t('noData')} /></Card>
       ) : (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {kpis.map((kpi) => (
               <MetricCard key={kpi.label} label={kpi.label} value={<MetricMoney amount={kpi.amount} currency={currency} />} icon={kpi.icon} tone={kpi.tone} />
             ))}
@@ -192,8 +193,12 @@ export default function DailyReportPage() {
                   </li>
                 ))}
                 <li className="flex flex-col gap-1 pt-3 text-sm font-semibold sm:flex-row sm:justify-between">
-                  <span>{tc('total')}</span>
-                  <span className="text-danger-600"><Money amount={reportTotals.totalExpenses} /></span>
+                  <span>{t('gameClubExpenses')}</span>
+                  <span className="text-danger-600"><Money amount={reportTotals.gameClubExpenses} /></span>
+                </li>
+                <li className="flex flex-col gap-1 pt-1 text-sm font-semibold sm:flex-row sm:justify-between">
+                  <span>{t('barExpenses')}</span>
+                  <span className="text-danger-600"><Money amount={reportTotals.barExpenses} /></span>
                 </li>
               </ul>
             </Card>

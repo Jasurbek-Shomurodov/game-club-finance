@@ -3,18 +3,13 @@ import { intlLocaleFor } from '@/lib/formatters';
 import {
   BAR_COST_TARGET,
   OTHER_CATEGORY,
-  PROFIT_TARGET,
   type CategoryAmount,
   type IncomeSourceKey,
   type SpendingGroupKey,
 } from '@/lib/calculations/financialAnalysis';
 import {
   BAR_LEFT,
-  BAR_LOSS,
-  BAR_UNIT,
   GAME_CLUB_LEFT,
-  GAME_CLUB_LOSS,
-  GAME_CLUB_UNIT,
   MORE_PAYMENTS,
   NO_COMMENT,
   PAID_FROM_BAR,
@@ -49,11 +44,10 @@ export const SPENDING_GROUP_COLORS: Record<SpendingGroupKey, string> = {
 
 const CATEGORY_PALETTE = [chartColors.danger, chartColors.primary, chartColors.purple, '#0e9fb3', chartColors.warning, '#d6408f', chartColors.axis];
 
-/** One colour per expense category, shared by the sankey, donut and comparison bars. */
+/** One colour per expense category, shared by the sankeys, donut and comparison bars. */
 export function categoryColors(topCategories: CategoryAmount[]): Record<string, string> {
   const colors: Record<string, string> = {
     [BAR_COST_TARGET]: chartColors.orange,
-    [PROFIT_TARGET]: chartColors.success,
     [OTHER_CATEGORY]: chartColors.gray,
   };
   topCategories
@@ -65,12 +59,8 @@ export function categoryColors(topCategories: CategoryAmount[]): Record<string, 
 }
 
 const DRILL_COLORS: Record<string, string> = {
-  [GAME_CLUB_UNIT]: chartColors.primary,
-  [BAR_UNIT]: chartColors.orange,
   [GAME_CLUB_LEFT]: chartColors.success,
   [BAR_LEFT]: chartColors.success,
-  [GAME_CLUB_LOSS]: chartColors.danger,
-  [BAR_LOSS]: chartColors.danger,
   [PAID_FROM_GAME_CLUB]: chartColors.primary,
   [PAID_FROM_BAR]: chartColors.orange,
   [NO_COMMENT]: chartColors.gray,
@@ -78,8 +68,8 @@ const DRILL_COLORS: Record<string, string> = {
 };
 
 /**
- * Colour of a node in a drill-down Sankey: income sources and categories keep
- * their colours from the main flow; anything else takes the palette by position.
+ * Colour of a node in a money-flow Sankey: income sources and categories keep
+ * their shared colours; anything else takes the palette by position.
  */
 export function drillNodeColor(key: string, index: number, colors: Record<string, string>): string {
   return DRILL_COLORS[key]

@@ -4,13 +4,8 @@ import { join } from 'node:path';
 import sharp from 'sharp';
 import { formatCurrency } from '../formatters';
 import type { LowStockProduct } from '../calculations/stock';
-import {
-  BAR_COST_TARGET,
-  OTHER_CATEGORY,
-  PROFIT_TARGET,
-  type AnalysisSankey,
-  type IncomeSourceKey,
-} from '../calculations/financialAnalysis';
+import { BAR_COST_TARGET, OTHER_CATEGORY } from '../calculations/financialAnalysis';
+import { BAR_LEFT, GAME_CLUB_LEFT, type DrillSankey } from '../calculations/sankeyDrill';
 import { layoutSankey } from '../sankeyLayout';
 import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
 import type { DailyFinanceIncomePoint, DailyFinancePromoGiveaway, DailyFinanceReportInput } from './dailyFinanceReport';
@@ -73,11 +68,6 @@ function moneyText(
   anchor: 'start' | 'end' = 'start',
 ): string {
   return `<text x="${x}" y="${y}" text-anchor="${anchor}" font-size="${size}" font-weight="800" fill="${color}">${escapeXml(amount(value))}<tspan font-size="${Math.round(size * 0.55)}" font-weight="700" dx="8">UZS</tspan></text>`;
-}
-
-function percentShare(value: number, total: number): string {
-  if (total <= 0) return '0%';
-  return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 }).format((value / total) * 100)}%`;
 }
 
 function changeColor(change: number | null | undefined): string {
@@ -230,19 +220,6 @@ function incomeChart(
     ${xLabels}`;
 }
 
-function donut(cx: number, cy: number, radius: number, clubIncome: number, barSales: number): string {
-  const total = clubIncome + barSales;
-  const circumference = 2 * Math.PI * radius;
-  const clubLength = total > 0 ? (clubIncome / total) * circumference : 0;
-  const barLength = total > 0 ? circumference - clubLength : 0;
-
-  return `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#EEF2F7" stroke-width="30"/>
-    ${clubLength > 0 ? `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="${BLUE}" stroke-width="30" stroke-dasharray="${clubLength.toFixed(2)} ${circumference.toFixed(2)}" transform="rotate(-90 ${cx} ${cy})"/>` : ''}
-    ${barLength > 0 ? `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="${ORANGE}" stroke-width="30" stroke-dasharray="${barLength.toFixed(2)} ${circumference.toFixed(2)}" stroke-dashoffset="${(-clubLength).toFixed(2)}" transform="rotate(-90 ${cx} ${cy})"/>` : ''}
-    <text x="${cx}" y="${cy + 2}" text-anchor="middle" font-size="22" font-weight="800" fill="${INK}">${escapeXml(amount(total))}</text>
-    <text x="${cx}" y="${cy + 30}" text-anchor="middle" font-size="16" font-weight="700" fill="${MUTED}">UZS · за день</text>`;
-}
-
 function kpiTile(
   x: number,
   y: number,
@@ -352,14 +329,14 @@ function promoGiveawaySection(items: DailyFinancePromoGiveaway[], y: number): { 
   };
 }
 
-const SANKEY_SOURCE_LABELS: Record<IncomeSourceKey, string> = {
+const SANKEY_SOURCE_LABELS: Record<string, string> = {
   computers: 'Компьютеры',
   playstation: 'PlayStation',
   bar: 'Продажи бара',
   debts: 'Новые долги',
   shortfall: 'Убыток (не покрыт)',
 };
-const SANKEY_SOURCE_COLORS: Record<IncomeSourceKey, string> = {
+const SANKEY_SOURCE_COLORS: Record<string, string> = {
   computers: BLUE,
   playstation: PURPLE,
   bar: ORANGE,
@@ -374,15 +351,15 @@ const compactMoneyFormatter = new Intl.NumberFormat('ru-RU', { notation: 'compac
 
 function sankeyTargetLabel(key: string): string {
   if (key === BAR_COST_TARGET) return 'Себестоимость бара';
-  if (key === PROFIT_TARGET) return 'Прибыль';
+  if (key === GAME_CLUB_LEFT || key === BAR_LEFT) return 'Остаток';
   return truncate(RUSSIAN_EXPENSE_CATEGORY_LABELS[key] ?? key.replace(/_/g, ' '), 26);
 }
 
-function sankeyTargetColors(targets: AnalysisSankey['targets']): string[] {
+function sankeyTargetColors(targets: DrillSankey['targets']): string[] {
   let categoryIndex = 0;
   return targets.map(({ key }) => {
     if (key === BAR_COST_TARGET) return ORANGE;
-    if (key === PROFIT_TARGET) return GREEN;
+    if (key === GAME_CLUB_LEFT || key === BAR_LEFT) return GREEN;
     if (key === OTHER_CATEGORY) return '#94A3B8';
     return SANKEY_CATEGORY_PALETTE[categoryIndex++ % SANKEY_CATEGORY_PALETTE.length];
   });
@@ -422,11 +399,19 @@ function sankeyRibbon(x0: number, y0: number, x1: number, y1: number, band: numb
   return `<path d="M${f(x0)},${f(y0)} C${f(mid)},${f(y0)} ${f(mid)},${f(y1)} ${f(x1)},${f(y1)} L${f(x1)},${f(y1 + thickness)} C${f(mid)},${f(y1 + thickness)} ${f(mid)},${f(y0 + thickness)} ${f(x0)},${f(y0 + thickness)} Z" fill="${color}" fill-opacity="0.3"/>`;
 }
 
-/** Month-to-date money flow: income sources → income → costs, expense categories and profit. */
-function sankeySection(sankey: AnalysisSankey | undefined, y: number): { svg: string; height: number } {
+/**
+ * Month-to-date flow of one business's money (club or bar, never pooled):
+ * its income sources → hub → its costs, expense categories and what is left.
+ */
+function sankeySection(
+  sankey: DrillSankey | undefined,
+  title: string,
+  hubLabel: string,
+  y: number,
+): { svg: string; height: number } {
   const chartTop = y + 76;
   const heading = (height: number) => `${card(PAGE_X, y, PAGE_WIDTH, height)}
-    <text x="${PAGE_X + 28}" y="${y + 50}" font-size="19" font-weight="800" fill="${INK}">КУДА УХОДЯТ ДЕНЬГИ</text>
+    <text x="${PAGE_X + 28}" y="${y + 50}" font-size="19" font-weight="800" fill="${INK}">${escapeXml(title)}</text>
     <text x="${WIDTH - PAGE_X - 28}" y="${y + 50}" text-anchor="end" font-size="16" fill="${MUTED}">с 1-го числа месяца</text>`;
 
   if (!sankey || sankey.total <= 0) {
@@ -441,7 +426,7 @@ function sankeySection(sankey: AnalysisSankey | undefined, y: number): { svg: st
   const { nodeWidth, nodePadding, perNode, minHeight, padY, labelGap, hubLabelSpace } = SANKEY;
   const chartHeight = Math.max(minHeight, (Math.max(sankey.sources.length, sankey.targets.length) + 2) * perNode);
   const height = 76 + chartHeight + 24;
-  const sourceName = (key: IncomeSourceKey) => SANKEY_SOURCE_LABELS[key];
+  const sourceName = (key: string) => SANKEY_SOURCE_LABELS[key] ?? key;
   const widest = (texts: string[]) => Math.max(0, ...texts.map(estimateLabelWidth));
   const labelText = (name: string, value: number) => `${name} · ${compactMoneyFormatter.format(Math.round(value))}`;
   const leftX = PAGE_X + 28 + widest(sankey.sources.map((node) => labelText(sourceName(node.key), node.amount))) + labelGap;
@@ -454,7 +439,7 @@ function sankeySection(sankey: AnalysisSankey | undefined, y: number): { svg: st
   const targetLabelY = spreadLabels(layout.targets.map((node) => node.y + node.h / 2), chartHeight);
 
   const sourceSvg = layout.sources.map((node, index) => {
-    const color = SANKEY_SOURCE_COLORS[node.key];
+    const color = SANKEY_SOURCE_COLORS[node.key] ?? MUTED;
     return `${sankeyRibbon(leftX + nodeWidth, top(node.y + (node.h - node.band) / 2), hubX, top(node.hubY), node.band, color)}
     <rect x="${leftX.toFixed(1)}" y="${top(node.y).toFixed(1)}" width="${nodeWidth}" height="${node.h.toFixed(1)}" rx="3" fill="${color}"/>
     ${sankeyLabel(leftX - labelGap, top(sourceLabelY[index]), sourceName(node.key), node.amount, 'end')}`;
@@ -472,7 +457,7 @@ function sankeySection(sankey: AnalysisSankey | undefined, y: number): { svg: st
     ${sourceSvg}
     ${targetSvg}
     <rect x="${hubX}" y="${top(layout.hubTop).toFixed(1)}" width="${nodeWidth}" height="${layout.hubHeight.toFixed(1)}" rx="3" fill="${INK}"/>
-    ${sankeyLabel(hubX + nodeWidth / 2, top(layout.hubTop) - 20, 'Доход', sankey.income, 'middle')}`,
+    ${sankeyLabel(hubX + nodeWidth / 2, top(layout.hubTop) - 20, hubLabel, sankey.income, 'middle')}`,
   };
 }
 
@@ -481,12 +466,14 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
   const clubNetProfit = input.gameClubIncome - input.gameClubExpenses;
   const barNetProfit = input.barSales - input.barCost - input.barExpenses;
 
-  // Header and the month's money flow.
+  // Header and the month's money flow, one card per business.
   const headerY = 40;
-  const flow = sankeySection(input.monthSankey, 176);
+  const clubFlow = sankeySection(input.monthGameClubSankey, 'КУДА УХОДЯТ ДЕНЬГИ КЛУБА', 'Клуб', 176);
+  const barFlowY = 176 + clubFlow.height + 24;
+  const barFlow = sankeySection(input.monthBarSankey, 'КУДА УХОДЯТ ДЕНЬГИ БАРА', 'Бар', barFlowY);
 
-  // Income mix and monthly trend.
-  const chartsY = 176 + flow.height + 24;
+  // Daily income per business and monthly trend.
+  const chartsY = barFlowY + barFlow.height + 24;
   const chartsHeight = 400;
 
   // Club and bar breakdown cards.
@@ -575,20 +562,22 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
     <text x="${PAGE_X + 124}" y="${headerY + 50}" font-size="46" font-weight="800" fill="${INK}">ФИНАНСЫ КЛУБА</text>
     <text x="${PAGE_X + 124}" y="${headerY + 88}" font-size="22" fill="${TEXT}">${escapeXml(input.clubName)} · Рабочий день: ${escapeXml(input.businessDateLabel)}</text>
 
-    ${flow.svg}
+    ${clubFlow.svg}
+
+    ${barFlow.svg}
 
     ${card(PAGE_X, chartsY, 440, chartsHeight)}
-    <text x="${PAGE_X + 28}" y="${chartsY + 50}" font-size="19" font-weight="800" fill="${INK}">ДОХОД ЗА ДЕНЬ ПО НАПРАВЛЕНИЯМ</text>
-    ${donut(PAGE_X + 128, chartsY + 226, 92, input.gameClubIncome, input.barSales)}
-    <circle cx="${PAGE_X + 262}" cy="${chartsY + 134}" r="7" fill="${BLUE}"/>
-    <text x="${PAGE_X + 278}" y="${chartsY + 141}" font-size="18" font-weight="800" fill="${INK}">КЛУБ</text>
-    <text x="${PAGE_X + 262}" y="${chartsY + 176}" font-size="22" font-weight="800" fill="${INK}">${escapeXml(money(input.gameClubIncome))}</text>
-    <text x="${PAGE_X + 262}" y="${chartsY + 202}" font-size="17" fill="${MUTED}">${escapeXml(percentShare(input.gameClubIncome, input.dailyRevenue))}</text>
-    <line x1="${PAGE_X + 262}" y1="${chartsY + 226}" x2="${PAGE_X + 412}" y2="${chartsY + 226}" stroke="${BORDER}" stroke-width="2"/>
-    <circle cx="${PAGE_X + 262}" cy="${chartsY + 260}" r="7" fill="${ORANGE}"/>
-    <text x="${PAGE_X + 278}" y="${chartsY + 267}" font-size="18" font-weight="800" fill="${INK}">БАР</text>
-    <text x="${PAGE_X + 262}" y="${chartsY + 302}" font-size="22" font-weight="800" fill="${INK}">${escapeXml(money(input.barSales))}</text>
-    <text x="${PAGE_X + 262}" y="${chartsY + 328}" font-size="17" fill="${MUTED}">${escapeXml(percentShare(input.barSales, input.dailyRevenue))}</text>
+    <text x="${PAGE_X + 28}" y="${chartsY + 50}" font-size="19" font-weight="800" fill="${INK}">ДОХОД ЗА ДЕНЬ</text>
+    ${card(PAGE_X + 20, chartsY + 80, 400, 140, '#EEF4FF', '#C7D7FB')}
+    ${iconTile(PAGE_X + 40, chartsY + 102, 56, BLUE, GLYPH_GAMEPAD)}
+    <text x="${PAGE_X + 116}" y="${chartsY + 126}" font-size="18" font-weight="800" fill="${BLUE}">КЛУБ</text>
+    ${moneyText(PAGE_X + 116, chartsY + 166, input.gameClubIncome, 28, BLUE)}
+    <text x="${PAGE_X + 116}" y="${chartsY + 196}" font-size="16" fill="${MUTED}">компьютеры, PlayStation, долги</text>
+    ${card(PAGE_X + 20, chartsY + 240, 400, 140, '#FFF3E8', '#FBD5B5')}
+    ${iconTile(PAGE_X + 40, chartsY + 262, 56, ORANGE, GLYPH_CUP)}
+    <text x="${PAGE_X + 116}" y="${chartsY + 286}" font-size="18" font-weight="800" fill="${ORANGE}">БАР</text>
+    ${moneyText(PAGE_X + 116, chartsY + 326, input.barSales, 28, ORANGE)}
+    <text x="${PAGE_X + 116}" y="${chartsY + 356}" font-size="16" fill="${MUTED}">продажи бара</text>
 
     ${card(PAGE_X + 464, chartsY, PAGE_WIDTH - 464, chartsHeight)}
     <text x="${PAGE_X + 492}" y="${chartsY + 50}" font-size="19" font-weight="800" fill="${INK}">ДИНАМИКА ДОХОДА КЛУБА ЗА МЕСЯЦ</text>

@@ -27,13 +27,18 @@ Use the implementations under `src/lib/calculations`; these definitions explain
 their intent but are not a second implementation.
 
 ```text
-gameClubIncome = cash + terminal + card + playstation
+gameClubIncome = cash + terminal + card + playstation + debtIncome
 barSales       = sum(daily_stock_counts.bar_income)          -- sold units only
 barCost        = sum(daily_stock_counts.bar_cost)            -- sold + promo giveaways, at cost
-totalIncome    = gameClubIncome + barSales + debtIncome
-totalExpenses  = sum(expenses.amount)
-accountingNetProfit = totalIncome - barCost - totalExpenses
+gameClubProfit = gameClubIncome - gameClubExpenses           -- expenses paid from game_club
+barProfit      = barSales - barCost - barExpenses            -- expenses paid from bar
 ```
+
+The game club and the bar are separate businesses. **Never add their money
+together**: there is no combined income, combined spending, combined profit, or
+share of a club + bar total, in the app, reports, assistant data, or Telegram.
+Show each side's figures side by side instead. `totalExpenses` (every expense,
+whichever money paid it) exists only for expense-category breakdowns.
 
 `debtIncome` in financial reports represents new debt principal for the period.
 Debt payments are collections used in retained/available game-club money; do not

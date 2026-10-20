@@ -15,26 +15,19 @@ describe('formatRussianDailyFinanceReport', () => {
     expect(formatRussianDailyFinanceReportCaption({
       clubName: 'Main Game Club',
       businessDateLabel: '27 августа 2026',
-      dailyRevenue: 0,
       gameClubIncome: 0,
       computerIncome: 0,
       debtIncome: 0,
       playstationIncome: 0,
       barSales: 0,
       barCost: 0,
-      grossProfit: 0,
-      netProfit: 0,
+      gameClubProfit: 0,
+      barProfit: 0,
       stockPurchases: 0,
-      totalExpenses: 0,
       gameClubExpenses: 0,
       barExpenses: 0,
       gameClubExpenseCategories: [],
       barExpenseCategories: [],
-      salaryCosts: 0,
-      kpiCosts: 0,
-      rentCosts: 0,
-      utilitiesCosts: 0,
-      otherOperatingCosts: 0,
       monthToDateRevenue: 0,
       gameClubMoneyLeft: 0,
       averageDailyGameClubIncome: 0,
@@ -48,26 +41,19 @@ describe('formatRussianDailyFinanceReport', () => {
     const message = formatRussianDailyFinanceReport({
         clubName: 'Pixel Game Zone',
         businessDateLabel: '4 июля 2026',
-        dailyRevenue: 931_000,
         gameClubIncome: 0,
         computerIncome: 0,
         debtIncome: 0,
         playstationIncome: 0,
         barSales: 931_000,
         barCost: 400_000,
-        grossProfit: 531_000,
-        netProfit: 531_000,
+        gameClubProfit: 0,
+        barProfit: 531_000,
         stockPurchases: 668_000,
-        totalExpenses: 0,
         gameClubExpenses: 0,
         barExpenses: 0,
         gameClubExpenseCategories: [],
         barExpenseCategories: [],
-        salaryCosts: 0,
-        kpiCosts: 0,
-        rentCosts: 0,
-        utilitiesCosts: 0,
-        otherOperatingCosts: 0,
         monthToDateRevenue: 4_000_000,
         gameClubMoneyLeft: 3_024_000,
         averageDailyGameClubIncome: 756_000,
@@ -76,10 +62,14 @@ describe('formatRussianDailyFinanceReport', () => {
         activeDebts: 0,
       });
 
-    expect(message).toContain('💳 Выручка за день: 931 000 UZS');
-    expect(message).toContain('🍫 Продажи бара: 931 000 UZS (100%)');
-    expect(message).toContain('📈 Валовая прибыль: 531 000 UZS');
-    expect(message).toContain('✅ Чистая прибыль: 531 000 UZS');
+    expect(message).toContain('🍫 Продажи бара: 931 000 UZS\n');
+    expect(message).toContain('🎮 Прибыль клуба: 0 UZS');
+    expect(message).toContain('🍫 Прибыль бара: 531 000 UZS');
+    // Club and bar money are separate businesses: nothing adds them together.
+    expect(message).not.toContain('Выручка за день');
+    expect(message).not.toContain('Валовая прибыль');
+    expect(message).not.toContain('Чистая прибыль');
+    expect(message).not.toContain('клуб + бар');
     expect(message).toContain('🗓 Доход клуба с начала месяца: 4 000 000 UZS');
     expect(message).toContain('📈 Средний дневной доход клуба за месяц: 756 000 UZS');
     expect(message).not.toContain('Средний доход клуба в день');
@@ -205,17 +195,15 @@ describe('formatRussianDailyFinanceReport', () => {
     });
 
     expect(input).toMatchObject({
-      dailyRevenue: 1_140_000,
       gameClubIncome: 840_000,
       computerIncome: 790_000,
       debtIncome: 90_000,
       playstationIncome: 50_000,
       barSales: 300_000,
       barCost: 200_000,
-      grossProfit: 940_000,
-      netProfit: 780_000,
+      gameClubProfit: 720_000,
+      barProfit: 60_000,
       stockPurchases: 100_000,
-      totalExpenses: 160_000,
       gameClubExpenses: 120_000,
       barExpenses: 40_000,
       gameClubExpenseCategories: [
@@ -223,11 +211,6 @@ describe('formatRussianDailyFinanceReport', () => {
         { name: 'Elektrenergiya', amount: 40_000 },
       ],
       barExpenseCategories: [{ name: 'Ремонт', amount: 40_000 }],
-      salaryCosts: 80_000,
-      kpiCosts: 0,
-      rentCosts: 0,
-      utilitiesCosts: 40_000,
-      otherOperatingCosts: 40_000,
       monthToDateRevenue: 1_940_000,
       gameClubMoneyLeft: 1_750_000,
       averageDailyGameClubIncome: 485_000,
@@ -237,22 +220,19 @@ describe('formatRussianDailyFinanceReport', () => {
     });
   });
 
-  it('formats expense category breakdowns under each money source', () => {
-    expect(
-      formatRussianDailyFinanceReport({
+  it('formats each business with its own expenses and profit, never a combined total', () => {
+    const message = formatRussianDailyFinanceReport({
         clubName: 'Main Game Club',
         businessDateLabel: '3 июля 2026',
-        dailyRevenue: 2_496_000,
         gameClubIncome: 1_904_000,
         computerIncome: 1_904_000,
         debtIncome: 0,
         playstationIncome: 0,
         barSales: 592_000,
         barCost: 250_000,
-        grossProfit: 2_246_000,
-        netProfit: 1_622_000,
+        gameClubProfit: 1_340_000,
+        barProfit: 282_000,
         stockPurchases: 0,
-        totalExpenses: 624_000,
         gameClubExpenses: 564_000,
         barExpenses: 60_000,
         gameClubExpenseCategories: [
@@ -260,24 +240,30 @@ describe('formatRussianDailyFinanceReport', () => {
           { name: 'Пополнение Номера', amount: 224_000 },
         ],
         barExpenseCategories: [{ name: 'Еда / Напитки', amount: 60_000 }],
-        salaryCosts: 340_000,
-        kpiCosts: 0,
-        rentCosts: 0,
-        utilitiesCosts: 0,
-        otherOperatingCosts: 284_000,
         monthToDateRevenue: 5_000_000,
         gameClubMoneyLeft: 2_941_000,
         averageDailyGameClubIncome: 980_333,
         barMoneyLeft: 1_084_000,
         inventoryValue: 8_473_309,
         activeDebts: 0,
-      }),
-    ).toContain(`💸 Расходы: 624 000 UZS
-  • Из денег клуба: 564 000 UZS
-    - Зарплата: 340 000 UZS
-    - Пополнение Номера: 224 000 UZS
-  • Из денег бара: 60 000 UZS
-    - Еда / Напитки: 60 000 UZS`);
+      });
+
+    expect(message).toContain(`🎮 Доход клуба: 1 904 000 UZS
+  • Компьютеры: 1 904 000 UZS (100%)
+  • Долги: 0 UZS (0%)
+  • PlayStation: 0 UZS (0%)
+💸 Расходы из денег клуба: 564 000 UZS
+  - Зарплата: 340 000 UZS
+  - Пополнение Номера: 224 000 UZS
+🎮 Прибыль клуба: 1 340 000 UZS`);
+    expect(message).toContain(`🍫 Продажи бара: 592 000 UZS
+📉 Себестоимость бара: 250 000 UZS
+💸 Расходы из денег бара: 60 000 UZS
+  - Еда / Напитки: 60 000 UZS
+🍫 Прибыль бара: 282 000 UZS`);
+    expect(message).not.toContain('624 000');
+    expect(message).not.toContain('Выручка за день');
+    expect(message).not.toContain('KPI и бонусы');
   });
 
   it('uses the saved description for other expenses and falls back when it is blank', () => {
@@ -315,8 +301,6 @@ describe('formatRussianDailyFinanceReport', () => {
       { name: 'Elektrenergiya', amount: 3_541_000 },
       { name: 'Другое', amount: 25_000 },
     ]);
-    expect(input.utilitiesCosts).toBe(3_541_000);
-    expect(input.otherOperatingCosts).toBe(25_000);
   });
 
   it('keeps club month revenue separate and compares monthly metrics with the prior month', () => {
@@ -383,13 +367,23 @@ describe('formatRussianDailyFinanceReport', () => {
     expect(input.barMoneyLeftChange).toBe(167);
     expect(input.inventoryValueChange).toBe(100);
     expect(input.monthBarSales).toBe(1_000_000);
-    expect(input.monthTotalIncome).toBe(3_000_000);
+    expect(input).not.toHaveProperty('monthTotalIncome');
+    expect(input).not.toHaveProperty('monthSankey');
     expect(input.monthGameClubProfit).toBe(2_000_000);
-    expect(input.monthSankey?.sources).toEqual([
-      { key: 'computers', amount: 2_000_000 },
-      { key: 'bar', amount: 1_000_000 },
+    expect(input.monthBarProfit).toBe(500_000);
+    const nodes = (list: { key: string; amount: number }[] | undefined) =>
+      list?.map(({ key, amount }) => ({ key, amount }));
+    // Club money and bar money flow in separate Sankeys; neither carries the other's income.
+    expect(nodes(input.monthGameClubSankey?.sources)).toEqual([{ key: 'computers', amount: 2_000_000 }]);
+    expect(nodes(input.monthGameClubSankey?.targets)).toEqual([{ key: '__game_club_left', amount: 2_000_000 }]);
+    expect(input.monthGameClubSankey?.income).toBe(2_000_000);
+    expect(nodes(input.monthBarSankey?.sources)).toEqual([{ key: 'bar', amount: 1_000_000 }]);
+    expect(nodes(input.monthBarSankey?.targets)).toEqual([
+      { key: '__bar_cost', amount: 400_000 },
+      { key: 'other', amount: 100_000 },
+      { key: '__bar_left', amount: 500_000 },
     ]);
-    expect(input.monthSankey?.income).toBe(3_000_000);
+    expect(input.monthBarSankey?.income).toBe(1_000_000);
     expect(input.monthDailyGameClubIncome).toHaveLength(28);
     expect(input.monthDailyGameClubIncome?.[0]).toEqual({ date: '2026-08-01', amount: 0 });
     expect(input.monthDailyGameClubIncome?.[27]).toEqual({ date: '2026-08-28', amount: 2_000_000 });

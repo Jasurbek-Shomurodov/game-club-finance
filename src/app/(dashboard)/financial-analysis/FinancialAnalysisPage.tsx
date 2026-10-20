@@ -5,12 +5,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowDownRight,
-  ArrowUpRight,
   CalendarDays,
-  Flame,
+  MonitorSmartphone,
   Percent,
   ShoppingBag,
-  Users,
   Wallet,
   type LucideIcon,
 } from 'lucide-react';
@@ -45,7 +43,6 @@ import {
 import { dashboardPeriodForRange, initialDashboardRange } from '@/lib/calculations/dashboardRangeState';
 import {
   BAR_COST_TARGET,
-  PROFIT_TARGET,
   buildCategoryComparison,
   buildCategoryDetail,
   buildFinancialAnalysis,
@@ -54,6 +51,7 @@ import {
   type IncomeSourceKey,
   type MonthlyAnalysisRow,
   type PaymentMethodFlowRow,
+  type SourceIndicators,
 } from '@/lib/calculations/financialAnalysis';
 import { SankeyFlowChart } from '@/components/financial-analysis/SankeyFlowChart';
 import {
@@ -64,20 +62,18 @@ import {
 } from '@/components/financial-analysis/AnalysisPanels';
 import { CategoryDrawer } from '@/components/financial-analysis/CategoryDrawer';
 import { SankeyDrillModal } from '@/components/financial-analysis/SankeyDrillModal';
-import { SOURCE_COLORS, categoryColors, drillNodeColor, formatShare } from '@/components/financial-analysis/analysisFormat';
+import { categoryColors, drillNodeColor, formatShare } from '@/components/financial-analysis/analysisFormat';
 import {
   BAR_LEFT,
-  BAR_LOSS,
-  BAR_UNIT,
   GAME_CLUB_LEFT,
-  GAME_CLUB_LOSS,
-  GAME_CLUB_UNIT,
   MORE_PAYMENTS,
   NOTE_PREFIX,
   NO_COMMENT,
   PAID_FROM_BAR,
   PAID_FROM_GAME_CLUB,
-  analysisNodeTarget,
+  buildDrillSankey,
+  type DrillNode,
+  type DrillSankey,
   type DrillTarget,
 } from '@/lib/calculations/sankeyDrill';
 
@@ -168,6 +164,54 @@ function Indicator({ icon, label, value, helper, meter, tone = 'default', loadin
         </>
       )}
     />
+  );
+}
+
+/** Money in, spent and left for one side of the club; the two sides are never added together. */
+function SourceCards({ title, icon, incomeLabel, now, before, loading, currency, compare }: {
+  title: string;
+  icon: LucideIcon;
+  incomeLabel: string;
+  now: SourceIndicators;
+  before: SourceIndicators;
+  loading: boolean;
+  currency: string;
+  compare: (now: number, before: number) => { value: number | null; label: string };
+}) {
+  const t = useTranslations('financialAnalysis');
+  return (
+    <Section title={title}>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <AmountCard
+          loading={loading}
+          currency={currency}
+          label={incomeLabel}
+          amount={now.income}
+          icon={icon}
+          tone="success"
+          comparison={compare(now.income, before.income)}
+        />
+        <AmountCard
+          loading={loading}
+          currency={currency}
+          label={t('spent')}
+          amount={now.spent}
+          icon={ArrowDownRight}
+          tone="danger"
+          comparison={compare(now.spent, before.spent)}
+          comparisonGoodWhen="down"
+        />
+        <AmountCard
+          loading={loading}
+          currency={currency}
+          label={t('left')}
+          amount={now.left}
+          icon={Wallet}
+          tone={toneForAmount(now.left)}
+          comparison={compare(now.left, before.left)}
+        />
+      </div>
+    </Section>
   );
 }
 
@@ -286,19 +330,14 @@ export default function FinancialAnalysisPage() {
 
   const categoryName = useCallback((category: string) => {
     if (category === BAR_COST_TARGET) return t('barCost');
-    if (category === PROFIT_TARGET) return t('profit');
     return tCategories.has(category)
       ? tCategories(category as Parameters<typeof tCategories>[0])
       : category.replace(/_/g, ' ');
   }, [t, tCategories]);
   const sourceName = (key: string) => t(`sources.${key as IncomeSourceKey}`);
   const drillNames: Record<string, string> = {
-    [GAME_CLUB_UNIT]: td('gameClub'),
-    [BAR_UNIT]: td('bar'),
     [GAME_CLUB_LEFT]: t('drill.gameClubLeft'),
     [BAR_LEFT]: t('drill.barLeft'),
-    [GAME_CLUB_LOSS]: t('drill.gameClubLoss'),
-    [BAR_LOSS]: t('drill.barLoss'),
     [PAID_FROM_GAME_CLUB]: t('paidFromGameClub'),
     [PAID_FROM_BAR]: t('paidFromBar'),
     [NO_COMMENT]: t('drawerNoComment'),
@@ -313,15 +352,15 @@ export default function FinancialAnalysisPage() {
   const drillTitle = (target: DrillTarget) => {
     if (target.kind === 'gameClub') return td('gameClub');
     if (target.kind === 'bar') return td('bar');
-    if (target.kind === 'profit') return t('profit');
     return categoryName(target.category);
   };
-  const openDrill = (key: string) => {
-    const target = analysisNodeTarget(key, analysis.topCategories);
-    if (!target) return;
-    setDrillTrail([target]);
+  const openDrill = (node: DrillNode | undefined) => {
+    if (!node?.open) return;
+    setDrillTrail([node.open]);
     setDrillOpen(true);
   };
+  const gameClubSankey = useMemo(() => buildDrillSankey({ kind: 'gameClub' }, current), [current]);
+  const barSankey = useMemo(() => buildDrillSankey({ kind: 'bar' }, current), [current]);
   const periodLabel = `${formatDateShort(range.from, locale)} – ${formatDateShort(range.to, locale)}`;
   const methodName = (method: PaymentMethodFlowRow['method']) => td(method);
 
@@ -334,7 +373,30 @@ export default function FinancialAnalysisPage() {
   };
 
   const visibleMethods = analysis.paymentMethods.filter((row) => enabledPaymentMethods.includes(row.method));
-  const hasActivity = indicators.income > 0 || indicators.spent > 0;
+  const hasActivity = [indicators.gameClub, indicators.bar].some((side) => side.income > 0 || side.spent > 0);
+  const flowChart = (sankey: DrillSankey, hubLabel: string) => {
+    const sources = new Map(sankey.sources.map((node, index) => [node.key, { node, index }]));
+    const targets = new Map(sankey.targets.map((node, index) => [node.key, { node, index }]));
+    return sankey.total > 0 ? (
+      <SankeyFlowChart
+        sankey={sankey}
+        hubLabel={hubLabel}
+        sourceLabel={drillNodeName}
+        targetLabel={drillNodeName}
+        sourceColor={(key) => drillNodeColor(key, sources.get(key)?.index ?? 0, colors)}
+        targetColor={(key) => drillNodeColor(key, targets.get(key)?.index ?? 0, colors)}
+        locale={locale}
+        currency={currency}
+        onSourceClick={(key) => openDrill(sources.get(key)?.node)}
+        isSourceClickable={(key) => Boolean(sources.get(key)?.node.open)}
+        onTargetClick={(key) => openDrill(targets.get(key)?.node)}
+        isTargetClickable={(key) => Boolean(targets.get(key)?.node.open)}
+        openLabel={(name) => t('openFlow', { name })}
+      />
+    ) : (
+      <ChartEmpty title={t('empty')} />
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -360,80 +422,59 @@ export default function FinancialAnalysisPage() {
         </LoadErrorAlert>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <AmountCard
-          loading={loading}
-          currency={currency}
-          label={t('moneyIn')}
-          amount={indicators.income}
-          icon={ArrowUpRight}
-          tone="success"
-          comparison={compare(indicators.income, previousIndicators.income)}
-        />
-        <AmountCard
-          loading={loading}
-          currency={currency}
-          label={t('spent')}
-          amount={indicators.spent}
-          icon={ArrowDownRight}
-          tone="danger"
-          comparison={compare(indicators.spent, previousIndicators.spent)}
-          comparisonGoodWhen="down"
-          helper={t('spentHelper')}
-        />
-        <AmountCard
-          loading={loading}
-          currency={currency}
-          label={t('left')}
-          amount={indicators.left}
-          icon={Wallet}
-          tone={toneForAmount(indicators.left)}
-          comparison={compare(indicators.left, previousIndicators.left)}
-          helper={t('leftHelper')}
-        />
-      </div>
+      <SourceCards
+        title={td('gameClub')}
+        icon={MonitorSmartphone}
+        incomeLabel={t('moneyIn')}
+        now={indicators.gameClub}
+        before={previousIndicators.gameClub}
+        loading={loading}
+        currency={currency}
+        compare={compare}
+      />
+      <SourceCards
+        title={td('bar')}
+        icon={ShoppingBag}
+        incomeLabel={t('barSalesIn')}
+        now={indicators.bar}
+        before={previousIndicators.bar}
+        loading={loading}
+        currency={currency}
+        compare={compare}
+      />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Indicator
           loading={loading}
           icon={Percent}
-          label={t('profitMargin')}
-          value={formatShare(indicators.profitMarginPct, locale)}
-          helper={t('profitMarginHelper')}
-          meter={indicators.profitMarginPct}
-          tone={indicators.profitMarginPct !== null && indicators.profitMarginPct < 0 ? 'danger' : 'success'}
+          label={t('gameClubMargin')}
+          value={formatShare(indicators.gameClub.marginPct, locale)}
+          helper={t('gameClubMarginHelper')}
+          meter={indicators.gameClub.marginPct}
+          tone={indicators.gameClub.marginPct !== null && indicators.gameClub.marginPct < 0 ? 'danger' : 'success'}
         />
         <Indicator
           loading={loading}
-          icon={Flame}
-          label={t('spendRatio')}
-          value={formatShare(indicators.spendRatioPct, locale)}
-          helper={t('spendRatioHelper')}
-          meter={indicators.spendRatioPct}
-          tone={indicators.spendRatioPct !== null && indicators.spendRatioPct > 100 ? 'danger' : 'warning'}
-        />
-        <Indicator
-          loading={loading}
-          icon={ShoppingBag}
+          icon={Percent}
           label={t('barMargin')}
-          value={formatShare(indicators.barMarginPct, locale)}
+          value={formatShare(indicators.bar.marginPct, locale)}
           helper={t('barMarginHelper')}
-          meter={indicators.barMarginPct}
-        />
-        <Indicator
-          loading={loading}
-          icon={Users}
-          label={t('salaryShare')}
-          value={formatShare(indicators.salarySharePct, locale)}
-          helper={t('salaryShareHelper')}
-          meter={indicators.salarySharePct}
+          meter={indicators.bar.marginPct}
+          tone={indicators.bar.marginPct !== null && indicators.bar.marginPct < 0 ? 'danger' : 'success'}
         />
         <Indicator
           loading={loading}
           icon={CalendarDays}
-          label={t('averageDailySpend')}
-          value={`${formatCurrency(indicators.averageDailySpend)} ${currency}`}
-          helper={t('averageDailyIncomeHelper', { amount: `${formatCurrency(indicators.averageDailyIncome)} ${currency}` })}
+          label={t('gameClubDaily')}
+          value={`${formatCurrency(indicators.gameClub.averageDailyIncome)} ${currency}`}
+          helper={t('gameClubDailyHelper')}
+        />
+        <Indicator
+          loading={loading}
+          icon={CalendarDays}
+          label={t('barDaily')}
+          value={`${formatCurrency(indicators.bar.averageDailyIncome)} ${currency}`}
+          helper={t('barDailyHelper')}
         />
       </div>
 
@@ -445,27 +486,11 @@ export default function FinancialAnalysisPage() {
       ) : (
         <div className={cn('space-y-6 transition-opacity', loading && 'pointer-events-none opacity-60')} aria-busy={loading || undefined}>
           <Section title={t('flowSection')} description={t('flowSectionDesc')}>
-            <ChartCard title={t('flowTitle')} description={t('flowDesc')}>
-              <div className="mt-4">
-                {analysis.sankey.total > 0 ? (
-                  <SankeyFlowChart
-                    sankey={analysis.sankey}
-                    hubLabel={t('hub')}
-                    sourceLabel={sourceName}
-                    targetLabel={categoryName}
-                    sourceColor={(key) => SOURCE_COLORS[key as IncomeSourceKey]}
-                    targetColor={(key) => colors[key]}
-                    locale={locale}
-                    currency={currency}
-                    onSourceClick={openDrill}
-                    onTargetClick={openDrill}
-                    isTargetClickable={(key) => analysisNodeTarget(key, analysis.topCategories) !== null}
-                    openLabel={(name) => t('openFlow', { name })}
-                  />
-                ) : (
-                  <ChartEmpty title={t('empty')} />
-                )}
-              </div>
+            <ChartCard title={t('gameClubFlowTitle')} description={t('flowDesc')}>
+              <div className="mt-4">{flowChart(gameClubSankey, td('gameClub'))}</div>
+            </ChartCard>
+            <ChartCard title={t('barFlowTitle')} description={t('flowDesc')}>
+              <div className="mt-4">{flowChart(barSankey, td('bar'))}</div>
             </ChartCard>
 
             <div className="grid gap-4 lg:grid-cols-2">

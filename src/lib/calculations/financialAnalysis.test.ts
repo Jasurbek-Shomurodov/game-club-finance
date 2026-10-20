@@ -2,16 +2,20 @@ import { describe, expect, it } from 'vitest';
 import {
   BAR_COST_TARGET,
   OTHER_CATEGORY,
-  PROFIT_TARGET,
   buildCategoryComparison,
   buildCategoryDetail,
   buildFinancialAnalysis,
   buildMonthlyAnalysis,
+  barFlow,
   foldCategories,
+  gameClubFlow,
   groupExpensesByCategory,
   type AnalysisLedgers,
 } from './financialAnalysis';
 import { calculateDashboardTotals, type ExpenseRow } from './dashboardMetrics';
+import { BAR_LEFT, GAME_CLUB_LEFT, buildDrillSankey } from './sankeyDrill';
+
+const total = (nodes: Array<{ amount: number }>) => nodes.reduce((sum, node) => sum + node.amount, 0);
 
 function expense(id: string, date: string, amount: number, category: string, extra: Partial<ExpenseRow> = {}): ExpenseRow {
   return { id, date, amount, category, comment: null, created_at: `${date}T10:00:00Z`, ...extra };
@@ -41,18 +45,32 @@ const ledgers: AnalysisLedgers = {
 describe('buildFinancialAnalysis', () => {
   const analysis = buildFinancialAnalysis(range, ledgers);
 
-  it('agrees with the dashboard accounting net profit', () => {
+  it('keeps game club and bar indicators separate and agrees with the dashboard', () => {
     const dashboard = calculateDashboardTotals(
       ledgers.cashRows, ledgers.stockRows, [], ledgers.expenseRows, [], ledgers.debtRows, ledgers.debtPaymentRows,
     );
-    expect(analysis.totals.accountingNetProfit).toBe(dashboard.accountingNetProfit);
-    // 280k game club + 15k debt + 50k bar = 345k in; 30k COGS + 100k expenses out.
-    expect(analysis.indicators.income).toBe(345_000);
-    expect(analysis.indicators.spent).toBe(130_000);
-    expect(analysis.indicators.left).toBe(215_000);
-    expect(analysis.indicators.barMarginPct).toBe(40);
-    expect(analysis.indicators.salarySharePct).toBe(30);
-    expect(analysis.indicators.averageDailySpend).toBe(Math.round(130_000 / 3));
+    expect(analysis.totals.gameClubProfit).toBe(dashboard.gameClubProfit);
+    expect(analysis.totals.barProfit).toBe(dashboard.barProfit);
+    // Game club: 280k collected + 15k new debt in; 90k game-club-paid expenses out.
+    expect(analysis.indicators.gameClub).toEqual({
+      income: 295_000,
+      spent: 90_000,
+      left: 205_000,
+      marginPct: 69.5,
+      averageDailyIncome: Math.round(295_000 / 3),
+    });
+    expect(analysis.indicators.gameClub.left).toBe(dashboard.gameClubProfit);
+    // Bar: 50k sales in; 30k cost of goods sold + 10k bar-paid expenses out.
+    expect(analysis.indicators.bar).toEqual({
+      income: 50_000,
+      spent: 40_000,
+      left: 10_000,
+      marginPct: 20,
+      averageDailyIncome: Math.round(50_000 / 3),
+    });
+    expect(analysis.indicators.bar.left).toBe(dashboard.barProfit);
+    expect(gameClubFlow(dashboard)).toEqual({ income: 295_000, spent: 90_000, left: 205_000 });
+    expect(barFlow(dashboard)).toEqual({ income: 50_000, spent: 40_000, left: 10_000 });
   });
 
   it('splits income by source without counting debts twice', () => {
@@ -64,32 +82,49 @@ describe('buildFinancialAnalysis', () => {
     ]);
   });
 
-  it('balances the sankey with profit on the outflow side', () => {
-    const { sankey } = analysis;
-    const inflow = sankey.sources.reduce((sum, node) => sum + node.amount, 0);
-    const outflow = sankey.targets.reduce((sum, node) => sum + node.amount, 0);
-    expect(inflow).toBe(outflow);
-    expect(sankey.total).toBe(345_000);
-    expect(sankey.targets.map((node) => node.key)).toEqual([BAR_COST_TARGET, 'rent', 'salary', 'supplies', PROFIT_TARGET]);
+  it('draws a balanced game club sankey from game club money only', () => {
+    const sankey = buildDrillSankey({ kind: 'gameClub' }, ledgers);
+    expect(sankey.sources.map((node) => node.key)).toEqual(['computers', 'playstation', 'debts']);
+    expect(total(sankey.sources)).toBe(295_000);
+    expect(sankey.targets.map((node) => [node.key, node.amount])).toEqual([
+      ['rent', 60_000], ['salary', 30_000], [GAME_CLUB_LEFT, 205_000],
+    ]);
+    expect(total(sankey.sources)).toBe(total(sankey.targets));
   });
 
-  it('covers a loss with a shortfall source', () => {
-    const loss = buildFinancialAnalysis(range, {
-      ...ledgers,
-      expenseRows: [...ledgers.expenseRows, expense('e4', '2026-09-03', 400_000, 'repair')],
-    });
-    const shortfall = loss.sankey.sources.find((node) => node.key === 'shortfall');
-    expect(shortfall?.amount).toBe(185_000);
-    expect(loss.sankey.targets.some((node) => node.key === PROFIT_TARGET)).toBe(false);
-    const inflow = loss.sankey.sources.reduce((sum, node) => sum + node.amount, 0);
-    expect(inflow).toBe(loss.sankey.total);
+  it('draws a balanced bar sankey from bar money only', () => {
+    const sankey = buildDrillSankey({ kind: 'bar' }, ledgers);
+    expect(sankey.sources.map((node) => [node.key, node.amount])).toEqual([['bar', 50_000]]);
+    expect(sankey.targets.map((node) => [node.key, node.amount])).toEqual([
+      [BAR_COST_TARGET, 30_000], ['supplies', 10_000], [BAR_LEFT, 10_000],
+    ]);
+    expect(total(sankey.sources)).toBe(total(sankey.targets));
+  });
+
+  it('covers a game club loss with a shortfall without touching bar money', () => {
+    const losing = { ...ledgers, expenseRows: [...ledgers.expenseRows, expense('e4', '2026-09-03', 400_000, 'repair')] };
+    const gameClub = buildDrillSankey({ kind: 'gameClub' }, losing);
+    expect(gameClub.sources.find((node) => node.key === 'shortfall')?.amount).toBe(195_000);
+    expect(gameClub.sources.some((node) => node.key === 'bar')).toBe(false);
+    expect(gameClub.targets.some((node) => node.key === GAME_CLUB_LEFT)).toBe(false);
+    expect(total(gameClub.sources)).toBe(total(gameClub.targets));
+
+    const bar = buildDrillSankey({ kind: 'bar' }, losing);
+    expect(bar.sources.map((node) => node.key)).toEqual(['bar']);
+    expect(bar.targets.find((node) => node.key === BAR_LEFT)?.amount).toBe(10_000);
+
+    const analysisWithLoss = buildFinancialAnalysis(range, losing);
+    expect(analysisWithLoss.indicators.gameClub.left).toBe(-195_000);
+    expect(analysisWithLoss.indicators.bar.left).toBe(10_000);
   });
 
   it('builds one daily row per date with spending groups by payment source', () => {
     expect(analysis.daily.map((day) => day.date)).toEqual(['2026-09-01', '2026-09-02', '2026-09-03']);
-    expect(analysis.daily[0]).toMatchObject({ income: 210_000, barCost: 25_000, gameClubExpenses: 60_000, barExpenses: 0, spent: 85_000 });
-    expect(analysis.daily[1]).toMatchObject({ income: 125_000, gameClubExpenses: 30_000 });
-    expect(analysis.daily[2]).toMatchObject({ income: 10_000, barCost: 5_000, barExpenses: 10_000 });
+    expect(analysis.daily).toEqual([
+      { date: '2026-09-01', gameClubIncome: 170_000, barSales: 40_000, barCost: 25_000, gameClubExpenses: 60_000, barExpenses: 0 },
+      { date: '2026-09-02', gameClubIncome: 125_000, barSales: 0, barCost: 0, gameClubExpenses: 30_000, barExpenses: 0 },
+      { date: '2026-09-03', gameClubIncome: 0, barSales: 10_000, barCost: 5_000, gameClubExpenses: 0, barExpenses: 10_000 },
+    ]);
   });
 
   it('nets game-club money per payment method and ignores bar-paid expenses', () => {
@@ -133,8 +168,8 @@ describe('buildMonthlyAnalysis', () => {
     const months = buildMonthlyAnalysis('2026-09-15', ledgers);
     expect(months).toHaveLength(12);
     expect(months[0].month).toBe('2025-10-01');
-    expect(months[11]).toEqual({ month: '2026-09-01', income: 345_000, spent: 130_000, profit: 215_000 });
-    expect(months[10]).toEqual({ month: '2026-08-01', income: 0, spent: 0, profit: 0 });
+    expect(months[11]).toEqual({ month: '2026-09-01', gameClubIncome: 295_000, gameClubLeft: 205_000, barSales: 50_000, barLeft: 10_000 });
+    expect(months[10]).toEqual({ month: '2026-08-01', gameClubIncome: 0, gameClubLeft: 0, barSales: 0, barLeft: 0 });
   });
 });
 

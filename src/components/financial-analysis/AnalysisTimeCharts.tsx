@@ -37,11 +37,15 @@ const axisProps = {
   tickLine: false,
 } as const;
 
-/** Stacked daily spending (by where it went) with the day's income as a line. */
+/**
+ * Daily money of each side: the game club's and the bar's spending as separate
+ * stacks, with each side's money in as its own line. The sides are never summed.
+ */
 export function DailyFlowChart({ data, locale, currency }: { data: DailyAnalysisRow[]; locale: string; currency: string }) {
   const t = useTranslations('financialAnalysis');
   const names: Record<string, string> = {
-    income: t('income'),
+    gameClubIncome: t('gameClubIncome'),
+    barSales: t('barSales'),
     barCost: t('barCost'),
     gameClubExpenses: t('gameClubExpenses'),
     barExpenses: t('barExpenses'),
@@ -52,11 +56,12 @@ export function DailyFlowChart({ data, locale, currency }: { data: DailyAnalysis
     <>
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium text-gray-500">
         {SPENDING_GROUPS.map((group) => <LegendItem key={group} color={SPENDING_GROUP_COLORS[group]} label={names[group]} />)}
-        <LegendItem color={chartColors.success} label={names.income} line />
+        <LegendItem color={chartColors.primary} label={names.gameClubIncome} line />
+        <LegendItem color={chartColors.orange} label={names.barSales} line />
       </div>
       <div className="mt-3 h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart accessibilityLayer data={chartData} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barCategoryGap="20%">
+          <ComposedChart accessibilityLayer data={chartData} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barGap={2} barCategoryGap="20%">
             <CartesianGrid stroke={chartColors.grid} vertical={false} />
             <XAxis dataKey="label" {...axisProps} axisLine={{ stroke: chartColors.grid }} minTickGap={16} />
             <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
@@ -65,18 +70,25 @@ export function DailyFlowChart({ data, locale, currency }: { data: DailyAnalysis
               cursor={{ fill: chartColors.cursor }}
               formatter={(value, name) => [`${formatCurrency(Number(value))} ${currency}`, names[String(name)] ?? String(name)]}
             />
-            {SPENDING_GROUPS.map((group, index) => (
-              <Bar
-                key={group}
-                dataKey={group}
-                stackId="spent"
-                fill={SPENDING_GROUP_COLORS[group]}
-                fillOpacity={0.85}
-                maxBarSize={28}
-                radius={index === SPENDING_GROUPS.length - 1 ? [3, 3, 0, 0] : undefined}
-              />
-            ))}
-            <Line dataKey="income" type="monotone" stroke={chartColors.success} strokeWidth={2} dot={data.length <= 14 ? { r: 2.5 } : false} />
+            <Bar
+              dataKey="gameClubExpenses"
+              stackId="gameClub"
+              fill={SPENDING_GROUP_COLORS.gameClubExpenses}
+              fillOpacity={0.85}
+              maxBarSize={18}
+              radius={[3, 3, 0, 0]}
+            />
+            <Bar dataKey="barCost" stackId="bar" fill={SPENDING_GROUP_COLORS.barCost} fillOpacity={0.85} maxBarSize={18} />
+            <Bar
+              dataKey="barExpenses"
+              stackId="bar"
+              fill={SPENDING_GROUP_COLORS.barExpenses}
+              fillOpacity={0.85}
+              maxBarSize={18}
+              radius={[3, 3, 0, 0]}
+            />
+            <Line dataKey="gameClubIncome" type="monotone" stroke={chartColors.primary} strokeWidth={2} dot={data.length <= 14 ? { r: 2.5 } : false} />
+            <Line dataKey="barSales" type="monotone" stroke={chartColors.orange} strokeWidth={2} dot={data.length <= 14 ? { r: 2.5 } : false} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -84,18 +96,24 @@ export function DailyFlowChart({ data, locale, currency }: { data: DailyAnalysis
   );
 }
 
-/** Income and spending per month with accounting profit as a line. */
+/** Each side's money in per month as bars, with what that side had left as a line. */
 export function MonthlyTrendChart({ data, locale, currency }: { data: MonthlyAnalysisRow[]; locale: string; currency: string }) {
   const t = useTranslations('financialAnalysis');
-  const names: Record<string, string> = { income: t('income'), spent: t('spent'), profit: t('profit') };
+  const names: Record<string, string> = {
+    gameClubIncome: t('gameClubIncome'),
+    gameClubLeft: t('drill.gameClubLeft'),
+    barSales: t('barSales'),
+    barLeft: t('drill.barLeft'),
+  };
   const monthTitle = (month: string) => formatYearMonth(month.slice(0, 7), locale);
 
   return (
     <>
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium text-gray-500">
-        <LegendItem color={chartColors.primary} label={names.income} />
-        <LegendItem color={chartColors.danger} label={names.spent} />
-        <LegendItem color={chartColors.success} label={names.profit} line />
+        <LegendItem color={chartColors.primary} label={names.gameClubIncome} />
+        <LegendItem color={chartColors.success} label={names.gameClubLeft} line />
+        <LegendItem color={chartColors.orange} label={names.barSales} />
+        <LegendItem color={chartColors.purple} label={names.barLeft} line />
       </div>
       <div className="mt-3 h-72">
         <ResponsiveContainer width="100%" height="100%">
@@ -116,9 +134,10 @@ export function MonthlyTrendChart({ data, locale, currency }: { data: MonthlyAna
               labelFormatter={(month) => monthTitle(String(month))}
               formatter={(value, name) => [`${formatCurrency(Number(value))} ${currency}`, names[String(name)] ?? String(name)]}
             />
-            <Bar dataKey="income" fill={chartColors.primary} radius={[3, 3, 0, 0]} maxBarSize={24} />
-            <Bar dataKey="spent" fill={chartColors.danger} fillOpacity={0.6} radius={[3, 3, 0, 0]} maxBarSize={24} />
-            <Line dataKey="profit" type="monotone" stroke={chartColors.success} strokeWidth={2.5} dot={{ r: 3 }} />
+            <Bar dataKey="gameClubIncome" fill={chartColors.primary} radius={[3, 3, 0, 0]} maxBarSize={20} />
+            <Bar dataKey="barSales" fill={chartColors.orange} radius={[3, 3, 0, 0]} maxBarSize={20} />
+            <Line dataKey="gameClubLeft" type="monotone" stroke={chartColors.success} strokeWidth={2.5} dot={{ r: 3 }} />
+            <Line dataKey="barLeft" type="monotone" stroke={chartColors.purple} strokeWidth={2.5} dot={{ r: 3 }} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>

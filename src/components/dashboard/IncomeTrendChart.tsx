@@ -16,7 +16,8 @@ import { formatCurrency } from '@/lib/formatters';
 import { ChartCard, chartColors, chartTooltipStyle, formatAxis } from './ChartCard';
 
 interface IncomeTrendChartProps {
-  data: Array<{ date: string; income: number; expenses: number }>;
+  /** Each side's money in per day; the game club and the bar are never summed. */
+  data: Array<{ date: string; gameClubIncome: number; barSales: number }>;
   /** Optional header link, e.g. to the full financial analysis. */
   link?: ReactNode;
 }
@@ -26,7 +27,7 @@ export function IncomeTrendChart({ data, link }: IncomeTrendChartProps) {
   const tc = useTranslations('common');
   const { locale } = useAppLocale();
   const currency = tc('currency');
-  const seriesNames: Record<string, string> = { income: t('income'), expenses: t('expenses') };
+  const seriesNames: Record<string, string> = { gameClubIncome: t('gameClubIncome'), barSales: t('barSales') };
 
   return (
     <ChartCard
@@ -35,11 +36,11 @@ export function IncomeTrendChart({ data, link }: IncomeTrendChartProps) {
         <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-gray-500">
           <span className="inline-flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-sm bg-primary-600" aria-hidden="true" />
-            {t('income')}
+            {seriesNames.gameClubIncome}
           </span>
           <span className="inline-flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-sm bg-danger-500/55" aria-hidden="true" />
-            {t('expenses')}
+            <span className="h-2.5 w-2.5 rounded-sm bg-orange-500" aria-hidden="true" />
+            {seriesNames.barSales}
           </span>
           {link}
         </div>
@@ -74,8 +75,8 @@ export function IncomeTrendChart({ data, link }: IncomeTrendChartProps) {
               cursor={{ fill: chartColors.cursor }}
               formatter={(value, name) => [`${formatCurrency(Number(value))} ${currency}`, seriesNames[String(name)] ?? String(name)]}
             />
-            <Bar dataKey="income" name="income" fill={chartColors.primary} radius={[3, 3, 0, 0]} maxBarSize={28} />
-            <Bar dataKey="expenses" name="expenses" fill={chartColors.danger} fillOpacity={0.55} radius={[3, 3, 0, 0]} maxBarSize={28} />
+            <Bar dataKey="gameClubIncome" name="gameClubIncome" fill={chartColors.primary} radius={[3, 3, 0, 0]} maxBarSize={28} />
+            <Bar dataKey="barSales" name="barSales" fill={chartColors.orange} radius={[3, 3, 0, 0]} maxBarSize={28} />
           </BarChart>
         </ResponsiveContainer>
       </div>

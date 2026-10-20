@@ -50,7 +50,6 @@ describe('moneyTable', () => {
       { line: 'playstation', collected: 0, expenses: 0, left: 0 },
       { line: 'gameClub', collected: 23_432_000, expenses: 12_480_000, left: 10_952_000 },
       { line: 'bar', collected: null, expenses: 0, left: 2_535_520 },
-      { line: 'total', collected: 23_432_000, expenses: 12_480_000, left: 13_487_520 },
     ]);
   });
 });

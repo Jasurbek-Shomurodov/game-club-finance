@@ -35,13 +35,13 @@ interface DayRow {
   manualIncome: number;
   barSales: number;
   debtIncome: number;
-  totalIncome: number;
+  gameClubExpenses: number;
+  gameClubProfit: number;
   barCost: number;
   stockPurchaseCost: number;
   barExpenses: number;
-  expenses: number;
   barCashLeft: number;
-  accountingNetProfit: number;
+  barProfit: number;
 }
 
 type DayTotals = Omit<DayRow, 'date'>;
@@ -50,13 +50,13 @@ const emptyTotals: DayTotals = {
   manualIncome: 0,
   barSales: 0,
   debtIncome: 0,
-  totalIncome: 0,
+  gameClubExpenses: 0,
+  gameClubProfit: 0,
   barCost: 0,
   stockPurchaseCost: 0,
   barExpenses: 0,
-  expenses: 0,
   barCashLeft: 0,
-  accountingNetProfit: 0,
+  barProfit: 0,
 };
 
 function groupRowsByDate<T extends { date: string }>(items: T[]): Map<string, T[]> {
@@ -102,13 +102,13 @@ function buildDayRows(data: FinanceReportRows): DayRow[] {
       manualIncome,
       barSales: totals.barSales,
       debtIncome,
-      totalIncome: totals.totalIncome,
+      gameClubExpenses: totals.gameClubExpenses,
+      gameClubProfit: totals.gameClubProfit,
       barCost: totals.barCost,
       stockPurchaseCost: totals.stockPurchaseCost,
       barExpenses: totals.barExpenses,
-      expenses: totals.totalExpenses,
       barCashLeft: totals.barCashLeft,
-      accountingNetProfit: totals.accountingNetProfit,
+      barProfit: totals.barProfit,
     };
   });
 }
@@ -139,13 +139,13 @@ export default function MonthlyReportPage() {
       manualIncome: sum.manualIncome + row.manualIncome,
       barSales: sum.barSales + row.barSales,
       debtIncome: sum.debtIncome + row.debtIncome,
-      totalIncome: sum.totalIncome + row.totalIncome,
+      gameClubExpenses: sum.gameClubExpenses + row.gameClubExpenses,
+      gameClubProfit: sum.gameClubProfit + row.gameClubProfit,
       barCost: sum.barCost + row.barCost,
       stockPurchaseCost: sum.stockPurchaseCost + row.stockPurchaseCost,
       barExpenses: sum.barExpenses + row.barExpenses,
-      expenses: sum.expenses + row.expenses,
       barCashLeft: sum.barCashLeft + row.barCashLeft,
-      accountingNetProfit: sum.accountingNetProfit + row.accountingNetProfit,
+      barProfit: sum.barProfit + row.barProfit,
     }), emptyTotals),
     [rows],
   );
@@ -155,14 +155,17 @@ export default function MonthlyReportPage() {
   );
   const danger = (amount: number) => <span className="text-danger-600">{formatCurrency(amount)}</span>;
 
+  // The game club and the bar are separate businesses: one row each, never added together.
   const summaryCards = [
-    { label: t('totalIncome'), amount: totals.totalIncome, tone: 'success' as const },
-    { label: t('costOfGoodsSold'), amount: totals.barCost, tone: 'danger' as const },
+    { label: t('gameClubIncome'), amount: totals.manualIncome + totals.debtIncome, tone: 'success' as const },
+    { label: t('gameClubExpenses'), amount: totals.gameClubExpenses, tone: 'danger' as const },
+    { label: t('gameClubProfit'), amount: totals.gameClubProfit, tone: toneForAmount(totals.gameClubProfit) },
     { label: t('inventoryPurchases'), amount: totals.stockPurchaseCost, tone: 'danger' as const },
+    { label: t('barSales'), amount: totals.barSales, tone: 'success' as const },
+    { label: t('costOfGoodsSold'), amount: totals.barCost, tone: 'danger' as const },
     { label: t('barExpenses'), amount: totals.barExpenses, tone: 'danger' as const },
-    { label: t('expenses'), amount: totals.expenses, tone: 'danger' as const },
+    { label: t('barProfit'), amount: totals.barProfit, tone: toneForAmount(totals.barProfit) },
     { label: t('barCashLeft'), amount: totals.barCashLeft, tone: toneForAmount(totals.barCashLeft) },
-    { label: t('accountingNetProfit'), amount: totals.accountingNetProfit, tone: toneForAmount(totals.accountingNetProfit) },
   ];
 
   return (
@@ -184,7 +187,7 @@ export default function MonthlyReportPage() {
 
       {loading ? (
         <div className="space-y-4">
-          <MetricGridSkeleton count={7} className="lg:grid-cols-4" />
+          <MetricGridSkeleton count={9} className="lg:grid-cols-4" />
           <TableSkeleton rows={8} columns={11} />
         </div>
       ) : loadError ? null : rows.length === 0 ? (
@@ -206,29 +209,29 @@ export default function MonthlyReportPage() {
             data={rows}
             columns={[
               { key: 'date', header: t('date'), className: 'sticky left-0 z-[25] bg-gray-50', cellClassName: 'z-10 bg-surface', render: (row) => <span className="font-medium text-gray-700">{formatDate(row.date, locale)}</span> },
-              { key: 'manualIncome', header: t('gameClubIncome'), align: 'right', render: (row) => formatCurrency(row.manualIncome) },
-              { key: 'barSales', header: t('barSales'), align: 'right', render: (row) => formatCurrency(row.barSales) },
+              { key: 'manualIncome', header: t('manualIncome'), align: 'right', render: (row) => formatCurrency(row.manualIncome) },
               { key: 'debtIncome', header: t('debtIncome'), align: 'right', render: (row) => <span className="text-warning-600">{formatCurrency(row.debtIncome)}</span> },
-              { key: 'totalIncome', header: t('totalIncome'), align: 'right', render: (row) => <span className="font-medium text-success-600">{formatCurrency(row.totalIncome)}</span> },
+              { key: 'gameClubExpenses', header: t('gameClubExpenses'), align: 'right', render: (row) => danger(row.gameClubExpenses) },
+              { key: 'gameClubProfit', header: t('gameClubProfit'), align: 'right', render: (row) => signed(row.gameClubProfit) },
+              { key: 'barSales', header: t('barSales'), align: 'right', render: (row) => formatCurrency(row.barSales) },
               { key: 'barCost', header: t('costOfGoodsSold'), align: 'right', render: (row) => danger(row.barCost) },
-              { key: 'stockPurchaseCost', header: t('inventoryPurchases'), align: 'right', render: (row) => danger(row.stockPurchaseCost) },
               { key: 'barExpenses', header: t('barExpenses'), align: 'right', render: (row) => danger(row.barExpenses) },
-              { key: 'expenses', header: t('expenses'), align: 'right', render: (row) => danger(row.expenses) },
+              { key: 'barProfit', header: t('barProfit'), align: 'right', render: (row) => signed(row.barProfit) },
+              { key: 'stockPurchaseCost', header: t('inventoryPurchases'), align: 'right', render: (row) => danger(row.stockPurchaseCost) },
               { key: 'barCashLeft', header: t('barCashLeft'), align: 'right', render: (row) => signed(row.barCashLeft) },
-              { key: 'accountingNetProfit', header: t('accountingNetProfit'), align: 'right', render: (row) => signed(row.accountingNetProfit) },
             ]}
             footer={{
               date: t('totals'),
               manualIncome: formatCurrency(totals.manualIncome),
-              barSales: formatCurrency(totals.barSales),
               debtIncome: <span className="text-warning-600">{formatCurrency(totals.debtIncome)}</span>,
-              totalIncome: <span className="text-success-600">{formatCurrency(totals.totalIncome)}</span>,
+              gameClubExpenses: danger(totals.gameClubExpenses),
+              gameClubProfit: signed(totals.gameClubProfit),
+              barSales: formatCurrency(totals.barSales),
               barCost: danger(totals.barCost),
-              stockPurchaseCost: danger(totals.stockPurchaseCost),
               barExpenses: danger(totals.barExpenses),
-              expenses: danger(totals.expenses),
+              barProfit: signed(totals.barProfit),
+              stockPurchaseCost: danger(totals.stockPurchaseCost),
               barCashLeft: signed(totals.barCashLeft),
-              accountingNetProfit: signed(totals.accountingNetProfit),
             }}
           />
         </div>

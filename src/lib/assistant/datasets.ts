@@ -73,24 +73,24 @@ export function summaryTable(analysis: FinancialAnalysis): DataTable {
   const source = (key: FinancialAnalysis['sources'][number]['key']) => (
     analysis.sources.find((row) => row.key === key)?.amount ?? 0
   );
+  // The game club and the bar are separate businesses: no metric adds them together.
   const metrics: Array<[string, number | null, ColumnType]> = [
-    ['income', indicators.income, 'money'],
+    ['gameClubIncome', indicators.gameClub.income, 'money'],
     ['computers', source('computers'), 'money'],
     ['playstation', source('playstation'), 'money'],
-    ['barSales', source('bar'), 'money'],
     ['newDebts', source('debts'), 'money'],
-    ['barCost', totals.barCost, 'money'],
     ['debtPayments', totals.debtPaymentsCollected, 'money'],
     ['gameClubExpenses', totals.gameClubExpenses, 'money'],
+    ['gameClubLeft', indicators.gameClub.left, 'money'],
+    ['gameClubMarginPct', indicators.gameClub.marginPct, 'percent'],
+    ['gameClubAverageDailyIncome', indicators.gameClub.averageDailyIncome, 'money'],
+    ['barSales', indicators.bar.income, 'money'],
+    ['barCost', totals.barCost, 'money'],
     ['barExpenses', totals.barExpenses, 'money'],
-    ['totalExpenses', totals.totalExpenses, 'money'],
-    ['spent', indicators.spent, 'money'],
-    ['profit', indicators.left, 'money'],
-    ['profitMarginPct', indicators.profitMarginPct, 'percent'],
-    ['barMarginPct', indicators.barMarginPct, 'percent'],
-    ['salarySharePct', indicators.salarySharePct, 'percent'],
-    ['averageDailyIncome', indicators.averageDailyIncome, 'money'],
-    ['averageDailySpend', indicators.averageDailySpend, 'money'],
+    ['barSpent', indicators.bar.spent, 'money'],
+    ['barLeft', indicators.bar.left, 'money'],
+    ['barMarginPct', indicators.bar.marginPct, 'percent'],
+    ['barAverageDailySales', indicators.bar.averageDailyIncome, 'money'],
   ];
   return {
     dataset: 'summary',
@@ -104,7 +104,7 @@ const MONEY_METHODS = ['cash', 'terminal', 'card', 'playstation'] as const;
 
 /**
  * The Reports page's money in, expenses and money left: one row per payment
- * method, then game-club, bar and overall totals. Collected money is daily cash
+ * method, then the game-club and bar totals, never added together. Collected money is daily cash
  * entries plus debt payments; bar sales are not part of it and only appear in
  * the bar row's money left.
  */
@@ -123,8 +123,7 @@ export function moneyTable(report: MoneyReport): DataTable {
     rows: [
       ...methods,
       { line: 'gameClub', collected: report.totalCollected, expenses: gameClubExpenses, left: gameClubLeft },
-      { line: 'bar', collected: null, expenses: report.totalExpenses - gameClubExpenses, left: report.barLeft },
-      { line: 'total', collected: report.totalCollected, expenses: report.totalExpenses, left: report.totalLeft },
+      { line: 'bar', collected: null, expenses: report.barExpenses, left: report.barLeft },
     ],
   };
 }
@@ -134,21 +133,23 @@ export function dailyTable(rows: DailyAnalysisRow[]): DataTable {
     dataset: 'daily',
     columns: [
       { key: 'date', type: 'date' },
-      { key: 'income', type: 'money' },
-      { key: 'barCost', type: 'money' },
+      { key: 'gameClubIncome', type: 'money' },
       { key: 'gameClubExpenses', type: 'money' },
+      { key: 'gameClubLeft', type: 'money' },
+      { key: 'barSales', type: 'money' },
+      { key: 'barCost', type: 'money' },
       { key: 'barExpenses', type: 'money' },
-      { key: 'spent', type: 'money' },
-      { key: 'profit', type: 'money' },
+      { key: 'barLeft', type: 'money' },
     ],
     rows: rows.map((row) => ({
       date: row.date,
-      income: row.income,
-      barCost: row.barCost,
+      gameClubIncome: row.gameClubIncome,
       gameClubExpenses: row.gameClubExpenses,
+      gameClubLeft: row.gameClubIncome - row.gameClubExpenses,
+      barSales: row.barSales,
+      barCost: row.barCost,
       barExpenses: row.barExpenses,
-      spent: row.spent,
-      profit: row.income - row.spent,
+      barLeft: row.barSales - row.barCost - row.barExpenses,
     })),
   };
 }
@@ -158,11 +159,18 @@ export function monthlyTable(rows: MonthlyAnalysisRow[]): DataTable {
     dataset: 'monthly',
     columns: [
       { key: 'month', type: 'month' },
-      { key: 'income', type: 'money' },
-      { key: 'spent', type: 'money' },
-      { key: 'profit', type: 'money' },
+      { key: 'gameClubIncome', type: 'money' },
+      { key: 'gameClubLeft', type: 'money' },
+      { key: 'barSales', type: 'money' },
+      { key: 'barLeft', type: 'money' },
     ],
-    rows: rows.map((row) => ({ month: row.month.slice(0, 7), income: row.income, spent: row.spent, profit: row.profit })),
+    rows: rows.map((row) => ({
+      month: row.month.slice(0, 7),
+      gameClubIncome: row.gameClubIncome,
+      gameClubLeft: row.gameClubLeft,
+      barSales: row.barSales,
+      barLeft: row.barLeft,
+    })),
   };
 }
 

@@ -173,7 +173,7 @@ export function buildDashboardDataFromSnapshot({
     previousTotals,
     inventoryComparisonValue: calculateInventoryValueFromLatestStockCounts(inventoryComparisonRows),
     hasInventoryComparisonData: inventoryComparisonRows.length > 0,
-    trend: buildPeriodTrend(range, cashRows, stockRows, expenseRows, rangeDebts),
+    trend: buildPeriodTrend(range, cashRows, stockRows, rangeDebts),
     lowStockCount: payload.products.filter(
       (product) => product.tracks_inventory !== false
         && product.current_stock <= (product.low_stock_threshold ?? 5),

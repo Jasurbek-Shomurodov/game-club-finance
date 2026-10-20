@@ -56,11 +56,16 @@ export interface MoneyReportDay {
   activities: MoneyReportActivity[];
 }
 
+/** Game-club and bar money are separate businesses and are never added together. */
 export interface MoneyReport {
   totalCollected: number;
-  totalExpenses: number;
+  /** Expenses paid from game-club money. */
+  gameClubExpenses: number;
+  /** Expenses paid from bar money. */
+  barExpenses: number;
+  /** Game-club money collected minus game-club expenses. */
+  gameClubLeft: number;
   barLeft: number;
-  totalLeft: number;
   paymentMethods: Record<keyof MoneyLeftByPaymentMethod, MoneyReportPaymentBreakdown>;
   days: MoneyReportDay[];
 }
@@ -202,15 +207,14 @@ export function buildMoneyReport(
   const paymentMethods = buildPaymentMethods(cashRows, expenseRows, debtPaymentRows);
   const totalCollected = Object.values(paymentMethods)
     .reduce((sum, method) => sum + method.collected, 0);
-  const totalExpenses = expenseRows.reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
   const gameClubLeft = Object.values(paymentMethods)
     .reduce((sum, method) => sum + method.left, 0);
   const barExpenses = expenseRows.reduce(
     (sum, row) => row.payment_source === 'bar' ? sum + Number(row.amount ?? 0) : sum,
     0,
   );
+  const gameClubExpenses = expenseRows.reduce((sum, row) => sum + Number(row.amount ?? 0), 0) - barExpenses;
   const barLeft = calculateBarMoney(barSalesRows, stockPurchaseRows).barMoney - barExpenses;
-  const totalLeft = gameClubLeft + barLeft;
   const dates = Array.from(new Set([
     ...cashRows.map((row) => row.date),
     ...expenseRows.map((row) => row.date),
@@ -273,7 +277,7 @@ export function buildMoneyReport(
     return day;
   });
 
-  return { totalCollected, totalExpenses, barLeft, totalLeft, paymentMethods, days };
+  return { totalCollected, gameClubExpenses, barExpenses, gameClubLeft, barLeft, paymentMethods, days };
 }
 
 export function buildFilteredMoneyReport(

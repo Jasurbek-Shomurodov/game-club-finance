@@ -100,7 +100,7 @@ describe('game club money detail rows', () => {
     const deductions = rows.reduce((sum, row) => sum + row.deductionsTotal, 0);
 
     expect(moneyLeft).toBe(dashboard.gameClubMoneyLeft);
-    expect(moneyLeft).toBe(report.totalLeft - report.barLeft);
+    expect(moneyLeft).toBe(report.gameClubLeft);
     expect(deductions).toBe(dashboard.gameClubExpenses);
     expect(rows.map((row) => row.moneyLeft)).toEqual(
       [...report.days].reverse().map((day) => day.total),

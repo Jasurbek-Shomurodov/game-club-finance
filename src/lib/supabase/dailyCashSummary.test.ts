@@ -26,11 +26,11 @@ function database(failTable?: string) {
   }} as unknown as SupabaseClient;
   return {db,requests};
 }
-it('includes all expenses, salary payments and new debt principal in daily net profit',async()=>{
+it('includes all expenses, salary payments and new debt principal in each side\'s daily profit',async()=>{
   const {db,requests}=database();
   const summary=await loadDailyCashSummary(db,'club-a','2026-09-26',true);
   const totals=calculateFinancialReportTotals({...summary,manualIncome:1000000});
-  expect(totals).toMatchObject({totalExpenses:150000,debtIncome:20000,accountingNetProfit:1070000});
+  expect(totals).toMatchObject({gameClubExpenses:100000,barExpenses:50000,debtIncome:20000,gameClubProfit:920000,barProfit:150000});
   expect(requests.some(r=>r.table==='expenses' && r.from===1000)).toBe(true);
   expect(requests.every(r=>r.filters.club_id==='club-a' && r.filters.date==='2026-09-26')).toBe(true);
   expect(requests.some(r=>r.table==='debt_payments')).toBe(false);

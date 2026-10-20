@@ -187,13 +187,13 @@ export default async function TestChecklistPage() {
   });
   checks.push({
     name: t('netProfit'),
-    pass: Math.abs(directTotals.accountingNetProfit - reportTotals.accountingNetProfit) <= 1,
+    pass: Math.abs(directTotals.gameClubProfit - reportTotals.gameClubProfit) <= 1
+      && Math.abs(directTotals.barProfit - reportTotals.barProfit) <= 1,
     explanation: t('netProfitDetail', {
-      income: n(directTotals.totalIncome),
-      cost: n(directTotals.barCost),
-      expenses: n(directTotals.totalExpenses),
-      net: n(directTotals.accountingNetProfit),
-      report: n(reportTotals.accountingNetProfit),
+      gameClub: n(directTotals.gameClubProfit),
+      gameClubReport: n(reportTotals.gameClubProfit),
+      bar: n(directTotals.barProfit),
+      barReport: n(reportTotals.barProfit),
     }),
     link: '/daily-report',
   });

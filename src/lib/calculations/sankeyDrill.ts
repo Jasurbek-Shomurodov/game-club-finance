@@ -2,8 +2,9 @@ import type { ExpenseRow } from './dashboardMetrics';
 import {
   BAR_COST_TARGET,
   OTHER_CATEGORY,
-  PROFIT_TARGET,
   analysisTotals,
+  barFlow,
+  gameClubFlow,
   foldCategories,
   groupExpensesByCategory,
   incomeSources,
@@ -13,17 +14,16 @@ import {
 } from './financialAnalysis';
 
 /**
- * The Sankeys behind a tapped node of the analysis money flow. Each node a
- * drill-down draws may carry `open`, the drill-down it leads to, so the dialog
- * can keep going: a category opens its own payments, the bar opens what its
- * sales paid for, profit opens which side of the club earned it.
+ * The analysis money flows. The game club and the bar each get their own
+ * Sankey; their money is never joined into one hub. Each node may carry
+ * `open`, the drill-down it leads to, so the dialog can keep going: a category
+ * opens its own payments from that side's money.
  */
 export type PaymentSource = 'game_club' | 'bar';
 
 export type DrillTarget =
   | { kind: 'gameClub' }
   | { kind: 'bar' }
-  | { kind: 'profit' }
   | {
       kind: 'category';
       category: string;
@@ -48,10 +48,6 @@ export interface DrillSankey {
 
 export const GAME_CLUB_LEFT = '__game_club_left';
 export const BAR_LEFT = '__bar_left';
-export const GAME_CLUB_UNIT = '__game_club';
-export const BAR_UNIT = '__bar';
-export const GAME_CLUB_LOSS = '__game_club_loss';
-export const BAR_LOSS = '__bar_loss';
 export const PAID_FROM_GAME_CLUB = '__paid_game_club';
 export const PAID_FROM_BAR = '__paid_bar';
 export const NO_COMMENT = '__no_comment';
@@ -85,18 +81,10 @@ function categoryTarget(category: string, top: CategoryAmount[], source?: Paymen
     : { kind: 'category', category, source };
 }
 
-/** Where an amount left over, or a loss covered from elsewhere, goes in a unit's Sankey. */
+/** Where an amount left over, or a loss not covered by this side's own money, goes in its Sankey. */
 function remainder(left: number, leftKey: string, sources: DrillNode[], targets: DrillNode[]) {
-  if (left > 0) targets.push({ key: leftKey, amount: left, open: { kind: 'profit' } });
-  if (left < 0) sources.push({ key: 'shortfall', amount: -left, open: { kind: 'profit' } });
-}
-
-/** What a node of the main money flow opens. */
-export function analysisNodeTarget(key: string, topCategories: CategoryAmount[]): DrillTarget | null {
-  if (key === 'computers' || key === 'playstation' || key === 'debts') return { kind: 'gameClub' };
-  if (key === 'bar' || key === BAR_COST_TARGET) return { kind: 'bar' };
-  if (key === 'shortfall' || key === PROFIT_TARGET) return { kind: 'profit' };
-  return topCategories.some((row) => row.category === key) ? categoryTarget(key, topCategories) : null;
+  if (left > 0) targets.push({ key: leftKey, amount: left });
+  if (left < 0) sources.push({ key: 'shortfall', amount: -left });
 }
 
 /** The payments behind a category drill-down, newest first. */
@@ -145,8 +133,8 @@ export function buildDrillSankey(target: DrillTarget, ledgers: AnalysisLedgers):
   const totals = analysisTotals(ledgers);
   const gameClubRows = ledgers.expenseRows.filter((row) => !isBar(row));
   const barRows = ledgers.expenseRows.filter(isBar);
-  const gameClubLeft = totals.gameClubIncome - totals.gameClubExpenses;
-  const barLeft = totals.barSales - totals.barCost - totals.barExpenses;
+  const gameClubLeft = gameClubFlow(totals).left;
+  const barLeft = barFlow(totals).left;
 
   switch (target.kind) {
     case 'gameClub': {
@@ -159,19 +147,6 @@ export function buildDrillSankey(target: DrillTarget, ledgers: AnalysisLedgers):
       const sources: DrillNode[] = [{ key: 'bar', amount: totals.barSales }];
       const targets: DrillNode[] = [{ key: BAR_COST_TARGET, amount: totals.barCost }, ...categoryTargets(barRows, 'bar')];
       remainder(barLeft, BAR_LEFT, sources, targets);
-      return drill(sources, targets);
-    }
-    case 'profit': {
-      // Each side's result: what it earned feeds the profit, a side that lost money takes from it.
-      const sources: DrillNode[] = [];
-      const targets: DrillNode[] = [];
-      if (gameClubLeft > 0) sources.push({ key: GAME_CLUB_UNIT, amount: gameClubLeft, open: { kind: 'gameClub' } });
-      if (gameClubLeft < 0) targets.push({ key: GAME_CLUB_LOSS, amount: -gameClubLeft, open: { kind: 'gameClub' } });
-      if (barLeft > 0) sources.push({ key: BAR_UNIT, amount: barLeft, open: { kind: 'bar' } });
-      if (barLeft < 0) targets.push({ key: BAR_LOSS, amount: -barLeft, open: { kind: 'bar' } });
-      const profit = gameClubLeft + barLeft;
-      if (profit > 0) targets.push({ key: PROFIT_TARGET, amount: profit });
-      if (profit < 0) sources.push({ key: 'shortfall', amount: -profit });
       return drill(sources, targets);
     }
     case 'category':

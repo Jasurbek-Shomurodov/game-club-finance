@@ -335,24 +335,26 @@ export default function DashboardPage({
           tone="success"
           comparison={comparisonFor(totals.barSales, previousTotals.barSales)}
         />
+        {/* The game club and the bar are separate businesses: each keeps its own profit. */}
         <AmountCard
           loading={loading}
           currency={currency}
-          label={t('totalExpenses')}
-          amount={totals.totalExpenses}
-          icon={ArrowDownRight}
-          tone="danger"
-          comparison={comparisonFor(totals.totalExpenses, previousTotals.totalExpenses)}
-          comparisonGoodWhen="down"
+          label={t('gameClubNetProfit')}
+          amount={totals.gameClubProfit}
+          icon={totals.gameClubProfit < 0 ? ArrowDownRight : ArrowUpRight}
+          tone={toneForAmount(totals.gameClubProfit)}
+          comparison={comparisonFor(totals.gameClubProfit, previousTotals.gameClubProfit)}
+          helper={`${t('gameClubPaidExpenses')}: ${formatCurrency(totals.gameClubExpenses)} ${currency}`}
         />
         <AmountCard
           loading={loading}
           currency={currency}
-          label={t('netProfit')}
-          amount={totals.accountingNetProfit}
-          icon={totals.accountingNetProfit < 0 ? ArrowDownRight : ArrowUpRight}
-          tone={toneForAmount(totals.accountingNetProfit)}
-          comparison={comparisonFor(totals.accountingNetProfit, previousTotals.accountingNetProfit)}
+          label={t('barNetProfit')}
+          amount={totals.barProfit}
+          icon={totals.barProfit < 0 ? ArrowDownRight : ArrowUpRight}
+          tone={toneForAmount(totals.barProfit)}
+          comparison={barProfitComparison}
+          helper={t('barNetProfitDesc')}
         />
       </div>
 
@@ -403,8 +405,8 @@ export default function DashboardPage({
         />
         <MetricCard
           loading={loading}
-          label={<span title={t('barNetProfitDesc')}>{t('barNetProfit')}</span>}
-          {...secondaryMetric(totals.barProfit, barProfitComparison, toneForAmount(totals.barProfit))}
+          label={t('barCostOfGoodsSold')}
+          {...secondaryMetric(totals.barCost, comparisonFor(totals.barCost, previousTotals.barCost), 'danger')}
         />
         <MetricCard
           loading={loading}

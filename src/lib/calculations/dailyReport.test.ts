@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   calculateManualIncome,
-  calculateTotalIncome,
-  calculateNetProfit,
   calculateFinancialReportTotals,
 } from './dailyReport';
 import { calculateDashboardTotals } from './dashboardMetrics';
@@ -29,28 +27,8 @@ describe('calculateManualIncome', () => {
   });
 });
 
-describe('calculateTotalIncome', () => {
-  it('adds manual income and bar income', () => {
-    expect(calculateTotalIncome(415000, 80000)).toBe(495000);
-  });
-
-  it('recognizes a new debt as income without requiring a repayment', () => {
-    expect(calculateTotalIncome(415000, 80000, 120000)).toBe(615000);
-  });
-});
-
-describe('calculateNetProfit', () => {
-  it('subtracts expenses from total income', () => {
-    expect(calculateNetProfit(495000, 100000)).toBe(395000);
-  });
-
-  it('can return negative profit', () => {
-    expect(calculateNetProfit(50000, 100000)).toBe(-50000);
-  });
-});
-
 describe('calculateFinancialReportTotals', () => {
-  it('keeps gross sales, bar cash left, and accounting profit separate', () => {
+  it('keeps game-club profit, bar profit, and bar cash left separate', () => {
     expect(calculateFinancialReportTotals({
       manualIncome: 415000,
       debtIncome: 120000,
@@ -72,14 +50,14 @@ describe('calculateFinancialReportTotals', () => {
       barCost: 37500,
       stockPurchaseCost: 40000,
       barExpenses: 10000,
-      totalIncome: 635000,
-      totalExpenses: 60000,
+      gameClubExpenses: 50000,
       barCashLeft: 50000,
-      accountingNetProfit: 537500,
+      gameClubProfit: 485000,
+      barProfit: 52500,
     });
   });
 
-  it('does not subtract inventory purchases from accounting profit', () => {
+  it('does not subtract inventory purchases from bar profit', () => {
     const totals = calculateFinancialReportTotals({
       manualIncome: 0,
       stockRows: [{ bar_income: 100000, bar_cost: 25000 }],
@@ -88,10 +66,11 @@ describe('calculateFinancialReportTotals', () => {
     });
 
     expect(totals.barCashLeft).toBe(40000);
-    expect(totals.accountingNetProfit).toBe(75000);
+    expect(totals.barProfit).toBe(75000);
+    expect(totals.gameClubProfit).toBe(0);
   });
 
-  it('subtracts only bar-paid expenses from bar cash left but all expenses from profit', () => {
+  it('subtracts each expense only from the side of the club that paid it', () => {
     const totals = calculateFinancialReportTotals({
       manualIncome: 200000,
       stockRows: [{ bar_income: 50000, bar_cost: 15000 }],
@@ -102,11 +81,14 @@ describe('calculateFinancialReportTotals', () => {
       ],
     });
 
+    expect(totals.barExpenses).toBe(5000);
+    expect(totals.gameClubExpenses).toBe(20000);
     expect(totals.barCashLeft).toBe(45000);
-    expect(totals.accountingNetProfit).toBe(210000);
+    expect(totals.gameClubProfit).toBe(180000);
+    expect(totals.barProfit).toBe(30000);
   });
 
-  it('matches the dashboard accounting and bar-cash definitions', () => {
+  it('matches the dashboard game-club, bar, and bar-cash definitions', () => {
     const cashRows = [{
       date: '2026-07-03',
       cash_income: 100000,
@@ -157,7 +139,10 @@ describe('calculateFinancialReportTotals', () => {
     expect(report.barSales).toBe(dashboard.barSales);
     expect(report.barCost).toBe(dashboard.barCost);
     expect(report.barCashLeft).toBe(dashboard.barIncome);
-    expect(report.accountingNetProfit).toBe(dashboard.accountingNetProfit);
-    expect(report.totalIncome).toBe(dashboard.gameClubIncome + dashboard.barSales);
+    expect(report.gameClubExpenses).toBe(dashboard.gameClubExpenses);
+    expect(report.gameClubProfit).toBe(dashboard.gameClubProfit);
+    expect(report.barProfit).toBe(dashboard.barProfit);
+    expect(report.gameClubProfit).toBe(305000);
+    expect(report.barProfit).toBe(40000);
   });
 });

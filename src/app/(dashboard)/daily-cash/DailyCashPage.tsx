@@ -279,7 +279,7 @@ export default function DailyCashPage() {
   const total = calculateGameClubIncome(values);
   const totals = calculateFinancialReportTotals({ ...(financeSummary ?? emptyDailyCashSummary), manualIncome: total });
   const barSummary = { sales: totals.barSales, profit: totals.barSales - totals.barCost };
-  const netProfit = totals.accountingNetProfit;
+  const gameClubProfit = totals.gameClubProfit;
   const editable = entry ? canEditEntryForRole(currentRole, entry.created_at, now) : true;
   const locked = Boolean(entry && !editable);
   const deadline = entry ? getEditDeadline(entry.created_at) : null;
@@ -523,7 +523,7 @@ export default function DailyCashPage() {
               <StatTile variant="flat" size="sm" className="py-2 sm:pr-4 sm:py-0" label={t('barSales')} value={formatCurrency(barSummary.sales)} unit={tc('currency')} />
               <StatTile variant="flat" size="sm" className="py-2 sm:px-4 sm:py-0" label={t('barProfit')} value={formatCurrency(barSummary.profit)} unit={tc('currency')} tone={toneForAmount(barSummary.profit)} />
               {canSeeNetProfit && financeSummary && (
-                <StatTile variant="flat" size="sm" className="py-2 sm:px-4 sm:py-0" label={t('netProfit')} value={formatCurrency(netProfit)} unit={tc('currency')} tone={toneForAmount(netProfit)} />
+                <StatTile variant="flat" size="sm" className="py-2 sm:px-4 sm:py-0" label={t('gameClubProfit')} value={formatCurrency(gameClubProfit)} unit={tc('currency')} tone={toneForAmount(gameClubProfit)} />
               )}
             </div>
           </Card>

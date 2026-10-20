@@ -36,13 +36,17 @@ export interface FinancialReportTotals {
   /** Inventory cash outflow included in bar money from the configured cutoff date. */
   stockPurchaseCost: number;
   barExpenses: number;
-  /** Gross game-club and bar revenue, including new debts. */
-  totalIncome: number;
-  totalExpenses: number;
+  /** Expenses paid from game-club money. */
+  gameClubExpenses: number;
   /** Bar cash left after inventory purchases and expenses paid by the bar. */
   barCashLeft: number;
-  /** Revenue minus cost of goods sold and all recorded operating expenses. */
-  accountingNetProfit: number;
+  /**
+   * The game club and the bar are separate businesses; their money is never
+   * added together. Game club: collections plus new debts minus its expenses.
+   */
+  gameClubProfit: number;
+  /** Bar: sales minus cost of goods sold and expenses paid by the bar. */
+  barProfit: number;
 }
 
 export function calculateManualIncome(entry: DailyCashEntry): number {
@@ -54,17 +58,9 @@ export function calculateManualIncome(entry: DailyCashEntry): number {
   });
 }
 
-export function calculateTotalIncome(manualIncome: number, barIncome: number, debtIncome = 0): number {
-  return manualIncome + barIncome + debtIncome;
-}
-
-export function calculateNetProfit(totalIncome: number, totalExpenses: number): number {
-  return totalIncome - totalExpenses;
-}
-
 /**
- * Uses the same accounting and bar-cash definitions as the dashboard while
- * keeping those two views separate. Inventory purchases affect bar cash left;
+ * Uses the same game-club, bar and bar-cash definitions as the dashboard while
+ * keeping those views separate. Inventory purchases affect bar cash left;
  * cost of goods sold affects accounting profit.
  */
 export function calculateFinancialReportTotals({
@@ -81,7 +77,7 @@ export function calculateFinancialReportTotals({
     (sum, row) => row.payment_source === 'bar' ? sum + Number(row.amount ?? 0) : sum,
     0,
   );
-  const totalIncome = calculateTotalIncome(manualIncome, barSales, debtIncome);
+  const gameClubExpenses = totalExpenses - barExpenses;
 
   return {
     manualIncome,
@@ -90,9 +86,9 @@ export function calculateFinancialReportTotals({
     barCost,
     stockPurchaseCost,
     barExpenses,
-    totalIncome,
-    totalExpenses,
+    gameClubExpenses,
     barCashLeft: barMoney - barExpenses,
-    accountingNetProfit: totalIncome - barCost - totalExpenses,
+    gameClubProfit: manualIncome + debtIncome - gameClubExpenses,
+    barProfit: barSales - barCost - barExpenses,
   };
 }

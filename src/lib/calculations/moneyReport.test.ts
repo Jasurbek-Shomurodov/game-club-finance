@@ -89,9 +89,10 @@ describe('money report', () => {
     });
     expect(report.paymentMethods.playstation.left).toBe(200_000);
     expect(report.totalCollected).toBe(3_550_000);
-    expect(report.totalExpenses).toBe(1_300_000);
+    expect(report.gameClubExpenses).toBe(400_000);
+    expect(report.barExpenses).toBe(900_000);
+    expect(report.gameClubLeft).toBe(3_150_000);
     expect(report.barLeft).toBe(-900_000);
-    expect(report.totalLeft).toBe(2_250_000);
     expect(report.days).toEqual([
       {
         date: '2026-08-25',
@@ -226,9 +227,10 @@ describe('money report', () => {
       created_at: '2026-08-26T09:00:00Z',
     }]);
 
-    expect(report.totalExpenses).toBe(75_000);
+    expect(report.gameClubExpenses).toBe(0);
+    expect(report.barExpenses).toBe(75_000);
+    expect(report.gameClubLeft).toBe(0);
     expect(report.barLeft).toBe(-75_000);
-    expect(report.totalLeft).toBe(-75_000);
     expect(report.days).toHaveLength(1);
     expect(report.days[0]).toMatchObject({
       date: '2026-08-26',
@@ -242,7 +244,7 @@ describe('money report', () => {
     });
   });
 
-  it('adds bar cash left to the report total using sales, purchases, and bar expenses', () => {
+  it('keeps bar cash left apart from game-club money left', () => {
     const report = buildMoneyReport(
       [{ date: '2026-08-26', cash_income: 1_000, terminal_income: 0, card_income: 0 }],
       [{
@@ -261,7 +263,9 @@ describe('money report', () => {
     );
 
     expect(report.barLeft).toBe(400);
-    expect(report.totalLeft).toBe(1_400);
+    expect(report.gameClubLeft).toBe(1_000);
+    expect(report.barExpenses).toBe(100);
+    expect(report.gameClubExpenses).toBe(0);
   });
 
   it('filters the complete report by activity and expense category', () => {
@@ -294,16 +298,18 @@ describe('money report', () => {
 
     const income = buildFilteredMoneyReport(cashRows, expenseRows, debtRows, 'income');
     expect(income.totalCollected).toBe(1_000);
-    expect(income.totalExpenses).toBe(0);
+    expect(income.gameClubExpenses).toBe(0);
+    expect(income.barExpenses).toBe(0);
     expect(income.days[0].activities.map((activity) => activity.kind)).toEqual(['income']);
 
     const expenses = buildFilteredMoneyReport(cashRows, expenseRows, debtRows, 'expense');
     expect(expenses.totalCollected).toBe(0);
-    expect(expenses.totalExpenses).toBe(500);
+    expect(expenses.gameClubExpenses).toBe(500);
+    expect(expenses.barExpenses).toBe(0);
     expect(expenses.days[0].activities).toHaveLength(2);
 
     const rent = buildFilteredMoneyReport(cashRows, expenseRows, debtRows, 'expense:rent');
-    expect(rent.totalExpenses).toBe(300);
+    expect(rent.gameClubExpenses).toBe(300);
     expect(rent.days[0].activities.map((activity) => activity.category)).toEqual(['rent']);
 
     const debtPayments = buildFilteredMoneyReport(cashRows, expenseRows, debtRows, 'debt_payment');
@@ -318,11 +324,12 @@ it.each(['all','expense','expense:salary'] as const)('counts salary payments fro
     {id:'club',date:'2026-09-26',amount:50000,category:'salary',payment_method:'cash',payment_source:'game_club' as const,comment:null,created_at:'2026-09-26T10:00:00Z'},
   ];
   const report=buildFilteredMoneyReport([],rows,[],filter);
-  expect(report.totalExpenses).toBe(150000);
-  expect(report.days[0].expenses).toBe(report.totalExpenses);
+  expect(report.gameClubExpenses).toBe(50000);
+  expect(report.barExpenses).toBe(100000);
+  expect(report.days[0].expenses).toBe(150000);
   expect(report.paymentMethods.cash.expenses).toBe(50000);
+  expect(report.gameClubLeft).toBe(-50000);
   expect(report.barLeft).toBe(-100000);
-  expect(report.totalLeft).toBe(-150000);
 });
 
 it('splits a day header expenses so income minus game-club expenses equals the day total', () => {

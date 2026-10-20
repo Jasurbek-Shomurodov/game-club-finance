@@ -12,17 +12,15 @@ function reportInput(): DailyFinanceReportInput {
   return {
     clubName: 'Main Game Club',
     businessDateLabel: '27 августа 2026',
-    dailyRevenue: 1_806_500,
     gameClubIncome: 1_431_000,
     computerIncome: 1_431_000,
     debtIncome: 0,
     playstationIncome: 0,
     barSales: 375_500,
     barCost: 210_000,
-    grossProfit: 1_596_500,
-    netProfit: 909_500,
+    gameClubProfit: 905_000,
+    barProfit: 4_500,
     stockPurchases: 489_948,
-    totalExpenses: 687_000,
     gameClubExpenses: 526_000,
     barExpenses: 161_000,
     gameClubExpenseCategories: [
@@ -33,11 +31,6 @@ function reportInput(): DailyFinanceReportInput {
       { name: 'Sasiska', amount: 145_000 },
       { name: 'NON', amount: 16_000 },
     ],
-    salaryCosts: 480_000,
-    kpiCosts: 46_000,
-    rentCosts: 80_000,
-    utilitiesCosts: 45_000,
-    otherOperatingCosts: 36_000,
     monthToDateRevenue: 58_240_000,
     gameClubMoneyLeft: 37_830_000,
     averageDailyGameClubIncome: 2_323_741,
@@ -47,16 +40,24 @@ function reportInput(): DailyFinanceReportInput {
     barMoneyLeftChange: -5,
     inventoryValueChange: 20,
     activeDebts: 474_000,
-    monthSankey: {
-      sources: [{ key: 'computers', amount: 58_240_000 }, { key: 'bar', amount: 10_086_526 }],
+    monthGameClubSankey: {
+      sources: [{ key: 'computers', amount: 58_240_000 }],
       targets: [
-        { key: '__bar_cost', amount: 4_200_000 },
         { key: 'salary', amount: 9_600_000 },
         { key: 'mystery_fee', amount: 520_000 },
-        { key: '__profit', amount: 54_006_526 },
+        { key: '__game_club_left', amount: 48_120_000 },
       ],
-      total: 68_326_526,
-      income: 68_326_526,
+      total: 58_240_000,
+      income: 58_240_000,
+    },
+    monthBarSankey: {
+      sources: [{ key: 'bar', amount: 10_086_526 }, { key: 'shortfall', amount: 113_474 }],
+      targets: [
+        { key: '__bar_cost', amount: 4_200_000 },
+        { key: 'food_drinks', amount: 6_000_000 },
+      ],
+      total: 10_200_000,
+      income: 10_200_000,
     },
   };
 }
@@ -98,17 +99,26 @@ describe('daily finance report image', () => {
     const svg = buildDailyFinanceReportSvg(reportInput());
 
     expect(svg).toContain('width="1200"');
-    expect(svg).toContain('height="1966"');
+    expect(svg).toContain('height="2390"');
     expect(svg).toContain('ФИНАНСЫ КЛУБА');
     expect(svg).toContain('Main Game Club · Рабочий день: 27 августа 2026');
-    expect(svg).toContain('КУДА УХОДЯТ ДЕНЬГИ');
-    expect(svg).toContain('Доход · <tspan font-weight="800" fill="#0F1E4A">68,3\u00a0млн</tspan>');
+    expect(svg).toContain('КУДА УХОДЯТ ДЕНЬГИ КЛУБА');
+    expect(svg).toContain('КУДА УХОДЯТ ДЕНЬГИ БАРА');
+    expect(svg).toContain('Клуб · <tspan font-weight="800" fill="#0F1E4A">58,2\u00a0млн</tspan>');
+    expect(svg).toContain('Бар · <tspan font-weight="800" fill="#0F1E4A">10,2\u00a0млн</tspan>');
+    expect(svg).toContain('Остаток · <tspan font-weight="800" fill="#0F1E4A">48,1\u00a0млн</tspan>');
+    expect(svg).toContain('Убыток (не покрыт) · ');
+    expect(svg).toContain('Еда / Напитки · ');
+    // Club and bar money are separate businesses: no pooled hub, profit or share of a combined total.
+    expect(svg).not.toContain('Доход · ');
+    expect(svg).not.toContain('Прибыль · ');
+    expect(svg).not.toContain('ПО НАПРАВЛЕНИЯМ');
+    expect(svg).not.toContain('UZS · за день');
     expect(svg).toContain('Компьютеры · <tspan font-weight="800" fill="#0F1E4A">58,2\u00a0млн</tspan>');
     expect(svg).toContain('Продажи бара · ');
     expect(svg).toContain('Себестоимость бара · ');
     expect(svg).toContain('Зарплата · <tspan font-weight="800" fill="#0F1E4A">9,6\u00a0млн</tspan>');
     expect(svg).toContain('mystery fee · <tspan font-weight="800" fill="#0F1E4A">520\u00a0тыс.</tspan>');
-    expect(svg).toContain('Прибыль · ');
     expect(svg).not.toContain('ДОХОД КЛУБА ЗА МЕСЯЦ');
     expect(svg).toContain('РАСХОДЫ КЛУБА');
     expect(svg).toContain('526 000 UZS');
@@ -148,16 +158,24 @@ describe('daily finance report image', () => {
   });
 
   it('shows an empty money flow when the month has no income or spending', () => {
-    const svg = buildDailyFinanceReportSvg({ ...reportInput(), monthSankey: undefined });
+    const svg = buildDailyFinanceReportSvg({
+      ...reportInput(),
+      monthGameClubSankey: undefined,
+      monthBarSankey: undefined,
+    });
+    const nothing = { sources: [], targets: [], total: 0, income: 0 };
     const empty = buildDailyFinanceReportSvg({
       ...reportInput(),
-      monthSankey: { sources: [], targets: [], total: 0, income: 0 },
+      monthGameClubSankey: nothing,
+      monthBarSankey: nothing,
     });
 
-    expect(svg).toContain('КУДА УХОДЯТ ДЕНЬГИ');
-    expect(svg).not.toContain('Доход · ');
-    // Once in the money flow and once in the empty daily income trend.
-    expect(svg.match(/Нет данных за месяц/g)).toHaveLength(2);
+    expect(svg).toContain('КУДА УХОДЯТ ДЕНЬГИ КЛУБА');
+    expect(svg).toContain('КУДА УХОДЯТ ДЕНЬГИ БАРА');
+    expect(svg).not.toContain('Клуб · ');
+    expect(svg).not.toContain('Бар · ');
+    // Once in each money flow and once in the empty daily income trend.
+    expect(svg.match(/Нет данных за месяц/g)).toHaveLength(3);
     expect(empty).toBe(svg);
   });
 
@@ -173,7 +191,7 @@ describe('daily finance report image', () => {
       width: 1200,
       channels: 4,
     });
-    expect(metadata.height).toBe(1966);
+    expect(metadata.height).toBe(2390);
   });
 
   it('grows the report when the club has more expense rows', () => {
@@ -189,8 +207,8 @@ describe('daily finance report image', () => {
       ],
     });
 
-    expect(compact).toContain('height="1966"');
-    expect(expanded).toContain('height="2080"');
+    expect(compact).toContain('height="2390"');
+    expect(expanded).toContain('height="2504"');
   });
 
   it('adds a low-stock card only when products are running out', () => {
@@ -203,7 +221,7 @@ describe('daily finance report image', () => {
     const empty = buildDailyFinanceReportSvg({ ...reportInput(), lowStockProducts: [] });
     const withAlerts = buildDailyFinanceReportSvg({ ...reportInput(), lowStockProducts });
 
-    expect(empty).toContain('height="1966"');
+    expect(empty).toContain('height="2390"');
     expect(empty).not.toContain('ЗАКАНЧИВАЕТСЯ НА СКЛАДЕ');
     expect(withAlerts).toContain('ЗАКАНЧИВАЕТСЯ НА СКЛАДЕ · 14');
     expect(withAlerts).toContain('нет в наличии');
@@ -212,7 +230,7 @@ describe('daily finance report image', () => {
     expect(withAlerts).toContain('Товар 11');
     expect(withAlerts).not.toContain('Товар 12');
     expect(withAlerts).toContain('и ещё 2');
-    expect(withAlerts).toContain('height="2378"');
+    expect(withAlerts).toContain('height="2802"');
   });
 
   it('configures application-owned Noto Sans before the static Sharp import', () => {
@@ -257,7 +275,7 @@ describe('daily finance report image', () => {
     const empty = buildDailyFinanceReportSvg({ ...reportInput(), promoGiveaways: [] });
     const withPromo = buildDailyFinanceReportSvg({ ...reportInput(), promoGiveaways });
 
-    expect(empty).toContain('height="1966"');
+    expect(empty).toContain('height="2390"');
     expect(empty).not.toContain('БОНУСЫ ПО АКЦИЯМ');
     expect(withPromo).toContain('БОНУСЫ ПО АКЦИЯМ · 55 шт.');
     expect(withPromo).toContain('Напиток 0 — Cola for 50k');

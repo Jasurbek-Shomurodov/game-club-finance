@@ -19,7 +19,7 @@ import {
 } from './dashboardMetrics';
 
 describe('dashboard metrics', () => {
-  it('includes daily cash entry in game club and total income', () => {
+  it('includes daily cash entry in game club income and profit', () => {
     const totals = calculateDashboardTotals(
       [
         {
@@ -41,7 +41,7 @@ describe('dashboard metrics', () => {
     expect(totals.computerIncome).toBe(3_372_222);
     expect(totals.playstationIncome).toBe(200_000);
     expect(totals.gameClubIncome).toBe(3_572_222);
-    expect(totals.totalIncome).toBe(3_572_222);
+    expect(totals.gameClubProfit).toBe(3_572_222);
     expect(totals.gameClubMoneyLeft).toBe(3_572_222);
   });
 
@@ -78,11 +78,10 @@ describe('dashboard metrics', () => {
     expect(totals.stockPurchaseCost).toBe(20_000);
     expect(totals.barIncome).toBe(58_000);
     expect(totals.barProfit).toBeCloseTo(26_914.285714285714);
-    expect(totals.totalIncome).toBe(58_000);
-    expect(totals.accountingNetProfit).toBeCloseTo(26_914.285714285714);
+    expect(totals.gameClubProfit).toBe(0);
   });
 
-  it('combines cash, closing stock, expenses, inventory, debts, and margin', () => {
+  it('combines cash, closing stock, expenses, inventory, and debts per side of the club', () => {
     const totals = calculateDashboardTotals(
       [
         {
@@ -125,15 +124,14 @@ describe('dashboard metrics', () => {
     expect(totals.stockPurchaseCost).toBe(20_000);
     expect(totals.barIncome).toBe(58_000);
     expect(totals.barProfit).toBeCloseTo(26_914.285714285714);
-    expect(totals.totalIncome).toBe(3_380_222);
     expect(totals.totalExpenses).toBe(120_000);
+    expect(totals.gameClubExpenses).toBe(120_000);
+    expect(totals.barExpenses).toBe(0);
     expect(totals.gameClubMoneyLeft).toBe(3_202_222);
-    expect(totals.netProfit).toBe(3_260_222);
-    expect(totals.accountingNetProfit).toBeCloseTo(3_229_136.285714286);
+    expect(totals.gameClubProfit).toBe(3_202_222);
     expect(totals.inventoryValue).toBeCloseTo(153_428.57142857145);
     expect(totals.activeDebts).toBe(100_000);
     expect(totals.activeDebtCount).toBe(1);
-    expect(totals.profitMargin).toBe(95);
   });
 
   it('recognizes issued debt as revenue but not as collected money', () => {
@@ -148,8 +146,7 @@ describe('dashboard metrics', () => {
     expect(totals.debtIncome).toBe(120_000);
     expect(totals.computerIncome).toBe(120_000);
     expect(totals.gameClubIncome).toBe(120_000);
-    expect(totals.totalIncome).toBe(120_000);
-    expect(totals.netProfit).toBe(120_000);
+    expect(totals.gameClubProfit).toBe(120_000);
     expect(totals.gameClubMoneyLeft).toBe(0);
     expect(totals.activeDebts).toBe(120_000);
   });
@@ -167,8 +164,7 @@ describe('dashboard metrics', () => {
 
     expect(totals.debtIncome).toBe(0);
     expect(totals.debtPaymentsCollected).toBe(50_000);
-    expect(totals.totalIncome).toBe(0);
-    expect(totals.netProfit).toBe(0);
+    expect(totals.gameClubProfit).toBe(0);
     expect(totals.gameClubMoneyLeft).toBe(50_000);
   });
 
@@ -307,9 +303,8 @@ describe('dashboard metrics', () => {
     expect(totals.gameClubMoneyLeft).toBe(380_000);
     expect(totals.barIncome).toBe(160_000);
     expect(totals.barProfit).toBe(60_000);
-    expect(totals.totalIncome).toBe(700_000);
-    expect(totals.netProfit).toBe(540_000);
-    expect(totals.accountingNetProfit).toBe(440_000);
+    expect(totals.totalExpenses).toBe(160_000);
+    expect(totals.gameClubProfit).toBe(380_000);
   });
 
   it('breaks game club money left down by payment method', () => {
@@ -390,16 +385,16 @@ describe('dashboard metrics', () => {
     expect(breakdown).toEqual({ cash: 30_000, terminal: 20_000, card: 10_000, playstation: 0 });
   });
 
-  it('builds a revenue and expense trend using cost of goods sold instead of purchases', () => {
+  it('builds a trend that keeps game club income and bar sales apart', () => {
     const trend = buildPeriodTrend(
       { from: '2026-06-26', to: '2026-07-02' },
       [{ date: '2026-07-02', cash_income: 1_000, terminal_income: 2_000, card_income: 3_000, playstation_income: 5_000 }],
       [{ date: '2026-07-02', bar_income: 4_000, bar_profit: 1_000, bar_cost: 3_000, sold_quantity: 1 }],
-      [{ id: 'e1', date: '2026-07-02', amount: 500, category: 'other', comment: null, created_at: '2026-07-02T10:00:00Z' }],
     );
 
     expect(trend).toHaveLength(7);
-    expect(trend[6]).toEqual({ date: '2026-07-02', income: 15_000, expenses: 3_500 });
+    expect(trend[0]).toEqual({ date: '2026-06-26', gameClubIncome: 0, barSales: 0 });
+    expect(trend[6]).toEqual({ date: '2026-07-02', gameClubIncome: 11_000, barSales: 4_000 });
   });
 
   it('builds a month trend from the selected month range, including early-month data', () => {
@@ -408,16 +403,12 @@ describe('dashboard metrics', () => {
       range,
       [{ date: '2026-06-03', cash_income: 5_000_000, terminal_income: 775_000, card_income: 1_840_000, playstation_income: 200_000 }],
       [{ date: '2026-06-03', bar_income: 126_000, bar_profit: 60_000, bar_cost: 66_000, sold_quantity: 3 }],
-      [
-        { id: 'e1', date: '2026-06-03', amount: 1_000_000, category: 'equipment', comment: null, created_at: '2026-06-03T10:00:00Z' },
-        { id: 'e2', date: '2026-06-03', amount: 120_000, category: 'cleaning', comment: null, created_at: '2026-06-03T11:00:00Z' },
-      ],
     );
 
     expect(trend).toHaveLength(30);
-    expect(trend[0]).toEqual({ date: '2026-06-01', income: 0, expenses: 0 });
-    expect(trend[2]).toEqual({ date: '2026-06-03', income: 7_941_000, expenses: 1_186_000 });
-    expect(trend[29]).toEqual({ date: '2026-06-30', income: 0, expenses: 0 });
+    expect(trend[0]).toEqual({ date: '2026-06-01', gameClubIncome: 0, barSales: 0 });
+    expect(trend[2]).toEqual({ date: '2026-06-03', gameClubIncome: 7_815_000, barSales: 126_000 });
+    expect(trend[29]).toEqual({ date: '2026-06-30', gameClubIncome: 0, barSales: 0 });
   });
 
   it('builds a week trend for the exact selected dashboard week', () => {
@@ -425,13 +416,12 @@ describe('dashboard metrics', () => {
     const trend = buildPeriodTrend(
       range,
       [{ date: '2026-06-01', cash_income: 100, terminal_income: 200, card_income: 300 }],
-      [],
-      [{ id: 'e1', date: '2026-06-07', amount: 50, category: 'other', comment: null, created_at: '2026-06-07T10:00:00Z' }],
+      [{ date: '2026-06-07', bar_income: 50, bar_profit: 20, bar_cost: 30, sold_quantity: 1 }],
     );
 
     expect(trend).toHaveLength(7);
-    expect(trend[0]).toEqual({ date: '2026-06-01', income: 600, expenses: 0 });
-    expect(trend[6]).toEqual({ date: '2026-06-07', income: 0, expenses: 50 });
+    expect(trend[0]).toEqual({ date: '2026-06-01', gameClubIncome: 600, barSales: 0 });
+    expect(trend[6]).toEqual({ date: '2026-06-07', gameClubIncome: 0, barSales: 50 });
   });
 
   it('builds a today trend for only the selected date', () => {
@@ -440,22 +430,20 @@ describe('dashboard metrics', () => {
       range,
       [{ date: '2026-06-03', cash_income: 1_000, terminal_income: 0, card_income: 0 }],
       [],
-      [],
     );
 
-    expect(trend).toEqual([{ date: '2026-06-03', income: 1_000, expenses: 0 }]);
+    expect(trend).toEqual([{ date: '2026-06-03', gameClubIncome: 1_000, barSales: 0 }]);
   });
 
-  it('includes debt revenue on its issue date in the income trend', () => {
+  it('includes debt revenue on its issue date in the game club trend', () => {
     const trend = buildPeriodTrend(
       { from: '2026-06-03', to: '2026-06-03' },
-      [],
       [],
       [],
       [{ date: '2026-06-03', amount: 75_000, remaining_amount: 75_000, status: 'unpaid' }],
     );
 
-    expect(trend).toEqual([{ date: '2026-06-03', income: 75_000, expenses: 0 }]);
+    expect(trend).toEqual([{ date: '2026-06-03', gameClubIncome: 75_000, barSales: 0 }]);
   });
 
   it('uses local dates instead of UTC conversion for ranges', () => {

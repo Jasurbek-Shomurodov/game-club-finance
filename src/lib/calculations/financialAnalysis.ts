@@ -13,12 +13,13 @@ import {
 
 /**
  * Financial analysis: where the selected period's money came from and where it
- * went. Every total is derived from calculateDashboardTotals so the analysis
- * page always agrees with the dashboard's accounting net profit:
+ * went. The game club and the bar are separate businesses, so their money is
+ * never added together; each side has its own totals, derived from
+ * calculateDashboardTotals:
  *
- *   income  = computers + PlayStation + bar sales + new debts
- *   outflow = bar cost of goods sold + every expense
- *   left    = accountingNetProfit
+ *   game club: in = computers + PlayStation + new debts, spent = expenses paid from game club money
+ *   bar:       in = bar sales, spent = bar cost of goods sold + expenses paid from bar money
+ *   left      = in - spent, per side
  */
 
 export interface AnalysisLedgers {
@@ -41,19 +42,10 @@ export const TOP_CATEGORY_COUNT = 7;
 export const OTHER_CATEGORY = 'other';
 /** Sankey target that is not an expense category. */
 export const BAR_COST_TARGET = '__bar_cost';
-export const PROFIT_TARGET = '__profit';
 
 export interface SankeyNode {
   key: string;
   amount: number;
-}
-
-export interface AnalysisSankey {
-  sources: Array<SankeyNode & { key: IncomeSourceKey }>;
-  targets: SankeyNode[];
-  /** Height of the middle column: the larger of income and outflow. */
-  total: number;
-  income: number;
 }
 
 export interface CategoryAmount {
@@ -74,11 +66,11 @@ export interface CategoryComparisonRow {
 
 export interface DailyAnalysisRow {
   date: string;
-  income: number;
+  gameClubIncome: number;
+  barSales: number;
   barCost: number;
   gameClubExpenses: number;
   barExpenses: number;
-  spent: number;
 }
 
 export interface PaymentMethodFlowRow {
@@ -88,20 +80,19 @@ export interface PaymentMethodFlowRow {
   left: number;
 }
 
-export interface AnalysisIndicators {
+/** One side of the club; never summed with the other side. */
+export interface SourceIndicators {
   income: number;
   spent: number;
   left: number;
   /** left / income, percent with one decimal, null without income. */
-  profitMarginPct: number | null;
-  /** spent / income. */
-  spendRatioPct: number | null;
-  /** (bar sales - cost of goods sold) / bar sales. */
-  barMarginPct: number | null;
-  /** salary expenses / all expenses. */
-  salarySharePct: number | null;
+  marginPct: number | null;
   averageDailyIncome: number;
-  averageDailySpend: number;
+}
+
+export interface AnalysisIndicators {
+  gameClub: SourceIndicators;
+  bar: SourceIndicators;
 }
 
 export interface FinancialAnalysis {
@@ -109,9 +100,8 @@ export interface FinancialAnalysis {
   indicators: AnalysisIndicators;
   sources: Array<{ key: Exclude<IncomeSourceKey, 'shortfall'>; amount: number }>;
   categories: CategoryAmount[];
-  /** Top categories plus a folded "other" row, for the donut and sankey. */
+  /** Top categories plus a folded "other" row, for the donut and comparison. */
   topCategories: CategoryAmount[];
-  sankey: AnalysisSankey;
   largest: ExpenseRow[];
   daily: DailyAnalysisRow[];
   paymentMethods: PaymentMethodFlowRow[];
@@ -213,49 +203,29 @@ export function incomeSources(totals: DashboardTotals): FinancialAnalysis['sourc
   ];
 }
 
-export function buildAnalysisSankey(totals: DashboardTotals, topCategories: CategoryAmount[]): AnalysisSankey {
-  const sources: AnalysisSankey['sources'] = incomeSources(totals).filter((node) => node.amount > 0);
-  const income = sum(sources, (node) => node.amount);
-  const targets: SankeyNode[] = [
-    { key: BAR_COST_TARGET, amount: totals.barCost },
-    ...topCategories.map((row) => ({ key: row.category, amount: row.amount })),
-  ].filter((node) => node.amount > 0);
-  const profit = totals.accountingNetProfit;
-  if (profit > 0) targets.push({ key: PROFIT_TARGET, amount: profit });
-  // A loss is paid from money that was not earned in this period.
-  if (profit < 0) sources.push({ key: 'shortfall', amount: -profit });
-
-  return {
-    sources,
-    targets,
-    total: Math.max(income, sum(targets, (node) => node.amount)),
-    income,
-  };
-}
-
 export function buildDailyAnalysis(range: { from: string; to: string }, ledgers: AnalysisLedgers): DailyAnalysisRow[] {
   const rows = new Map(datesInRange(range).map((date) => [date, {
     date,
-    income: 0,
+    gameClubIncome: 0,
+    barSales: 0,
     barCost: 0,
     gameClubExpenses: 0,
     barExpenses: 0,
-    spent: 0,
   } satisfies DailyAnalysisRow]));
   const at = (date: string) => rows.get(date);
 
   for (const row of ledgers.cashRows) {
     const day = at(row.date);
-    if (day) day.income += sumGameClubRows([row]).gameClubIncome;
+    if (day) day.gameClubIncome += sumGameClubRows([row]).gameClubIncome;
   }
   for (const row of ledgers.debtRows) {
     const day = row.date ? at(row.date) : undefined;
-    if (day) day.income += amountOf(row);
+    if (day) day.gameClubIncome += amountOf(row);
   }
   for (const row of ledgers.stockRows) {
     const day = at(row.date);
     if (!day) continue;
-    day.income += Number(row.bar_income ?? 0);
+    day.barSales += Number(row.bar_income ?? 0);
     day.barCost += Number(row.bar_cost ?? 0);
   }
   for (const row of ledgers.expenseRows) {
@@ -265,10 +235,7 @@ export function buildDailyAnalysis(range: { from: string; to: string }, ledgers:
     else day.gameClubExpenses += amountOf(row);
   }
 
-  return Array.from(rows.values(), (day) => ({
-    ...day,
-    spent: day.barCost + day.gameClubExpenses + day.barExpenses,
-  }));
+  return Array.from(rows.values());
 }
 
 /** Game Club money by payment method: collections and debt payments in, game-club-paid expenses out. */
@@ -297,25 +264,33 @@ export function buildPaymentMethodFlow(ledgers: AnalysisLedgers): PaymentMethodF
   }));
 }
 
-export function buildAnalysisIndicators(
-  totals: DashboardTotals,
-  expenseRows: ExpenseRow[],
-  dayCount: number,
-): AnalysisIndicators {
-  const income = totals.gameClubIncome + totals.barSales;
-  const spent = totals.barCost + totals.totalExpenses;
-  const salary = sum(expenseRows.filter((row) => row.category === 'salary'), amountOf);
+/** Game club money: collections and new debts in, expenses paid from game club money out. */
+export function gameClubFlow(totals: DashboardTotals): { income: number; spent: number; left: number } {
+  const income = totals.gameClubIncome;
+  const spent = totals.gameClubExpenses;
+  return { income, spent, left: income - spent };
+}
+
+/** Bar money: sales in, cost of goods sold and expenses paid from bar money out. */
+export function barFlow(totals: DashboardTotals): { income: number; spent: number; left: number } {
+  const income = totals.barSales;
+  const spent = totals.barCost + totals.barExpenses;
+  return { income, spent, left: income - spent };
+}
+
+function sourceIndicators(flow: { income: number; spent: number; left: number }, days: number): SourceIndicators {
+  return {
+    ...flow,
+    marginPct: pct(flow.left, flow.income),
+    averageDailyIncome: Math.round(flow.income / days),
+  };
+}
+
+export function buildAnalysisIndicators(totals: DashboardTotals, dayCount: number): AnalysisIndicators {
   const days = Math.max(1, dayCount);
   return {
-    income,
-    spent,
-    left: totals.accountingNetProfit,
-    profitMarginPct: pct(totals.accountingNetProfit, income),
-    spendRatioPct: pct(spent, income),
-    barMarginPct: pct(totals.barSales - totals.barCost, totals.barSales),
-    salarySharePct: pct(salary, totals.totalExpenses),
-    averageDailyIncome: Math.round(income / days),
-    averageDailySpend: Math.round(spent / days),
+    gameClub: sourceIndicators(gameClubFlow(totals), days),
+    bar: sourceIndicators(barFlow(totals), days),
   };
 }
 
@@ -329,15 +304,10 @@ export function buildFinancialAnalysis(
   const topCategories = foldCategories(categories);
   return {
     totals,
-    indicators: buildAnalysisIndicators(
-      totals,
-      ledgers.expenseRows,
-      options.averageDayCount ?? datesInRange(range).length,
-    ),
+    indicators: buildAnalysisIndicators(totals, options.averageDayCount ?? datesInRange(range).length),
     sources: incomeSources(totals),
     categories,
     topCategories,
-    sankey: buildAnalysisSankey(totals, topCategories),
     largest: [...ledgers.expenseRows]
       .sort((a, b) => amountOf(b) - amountOf(a) || b.date.localeCompare(a.date))
       .slice(0, options.largestCount ?? 8),
@@ -348,12 +318,13 @@ export function buildFinancialAnalysis(
 
 export interface MonthlyAnalysisRow {
   month: string;
-  income: number;
-  spent: number;
-  profit: number;
+  gameClubIncome: number;
+  gameClubLeft: number;
+  barSales: number;
+  barLeft: number;
 }
 
-/** Income, spending and accounting profit for each of the last `count` calendar months. */
+/** Each side's money in and money left for each of the last `count` calendar months. */
 export function buildMonthlyAnalysis(
   businessToday: string,
   ledgers: Omit<AnalysisLedgers, 'purchaseRows' | 'debtPaymentRows'>,
@@ -373,9 +344,15 @@ export function buildMonthlyAnalysis(
       debtRows: inMonth(ledgers.debtRows),
       debtPaymentRows: [],
     });
-    const income = totals.gameClubIncome + totals.barSales;
-    const spent = totals.barCost + totals.totalExpenses;
-    return { month: `${key}-01`, income, spent, profit: totals.accountingNetProfit };
+    const gameClub = gameClubFlow(totals);
+    const bar = barFlow(totals);
+    return {
+      month: `${key}-01`,
+      gameClubIncome: gameClub.income,
+      gameClubLeft: gameClub.left,
+      barSales: bar.income,
+      barLeft: bar.left,
+    };
   });
 }
 

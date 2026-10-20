@@ -609,9 +609,9 @@ export default function ReportsPage() {
         <>
           <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <SummaryCard loading={loading} label={t('totalCollected')} value={report.totalCollected} icon={WalletCards} tone="success" />
-            <SummaryCard loading={loading} label={t('expenses')} value={report.totalExpenses} icon={ReceiptText} tone="danger" />
+            <SummaryCard loading={loading} label={t('gameClubExpenses')} value={report.gameClubExpenses} icon={ReceiptText} tone="danger" />
+            <SummaryCard loading={loading} label={t('gameClubLeft')} value={report.gameClubLeft} icon={CircleDollarSign} tone={toneForAmount(report.gameClubLeft, 'default')} />
             <SummaryCard loading={loading} label={t('barCashLeft')} value={report.barLeft} icon={Banknote} tone={toneForAmount(report.barLeft, 'default')} />
-            <SummaryCard loading={loading} label={t('totalLeft')} value={report.totalLeft} icon={CircleDollarSign} tone={toneForAmount(report.totalLeft, 'default')} />
           </section>
 
           <section>
