@@ -51,6 +51,7 @@
     "averageDailyIncome": "Average Daily Income",
     "averageDailyClubIncomeDesc": "Game Club + PlayStation income per day for the selected period",
     "averageDailyBarIncomeDesc": "Bar sales per day for the selected period",
+    "averagePerDayBadge": "Avg/day: {amount} {currency}",
     "monthlyAverageIncomeTitle": "Average Daily Game Club Income by Month",
     "monthlyAverageIncomeDescription": "Computer income only (cash, terminal, and card). Bar, PlayStation, and other income are excluded.",
     "finalizedMonth": "Saved month",

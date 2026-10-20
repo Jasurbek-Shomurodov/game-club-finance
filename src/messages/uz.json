@@ -51,6 +51,7 @@
     "averageDailyIncome": "O'rtacha kunlik daromad",
     "averageDailyClubIncomeDesc": "Tanlangan davr uchun klub + PlayStation kunlik daromadi",
     "averageDailyBarIncomeDesc": "Tanlangan davr uchun barning kunlik savdosi",
+    "averagePerDayBadge": "Kuniga o'rtacha: {amount} {currency}",
     "monthlyAverageIncomeTitle": "Oylar bo'yicha o'rtacha kunlik klub daromadi",
     "monthlyAverageIncomeDescription": "Faqat kompyuter daromadi: naqd, terminal va karta. Bar, PlayStation va boshqa daromadlar hisobga olinmaydi.",
     "finalizedMonth": "Saqlangan oy",

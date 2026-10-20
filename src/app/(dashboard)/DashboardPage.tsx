@@ -30,6 +30,7 @@ import {
   toneForAmount,
   type MetricTone,
   RollingText,
+  Badge,
 } from '@/components/PresentationFoundation';
 import { formatCurrency } from '@/lib/formatters';
 import {
@@ -66,16 +67,18 @@ interface MetricSectionProps {
   children: ReactNode;
   actionLabel: string;
   actionHref: string;
+  badge?: ReactNode;
 }
 
 /** Plain section: small heading + "Details" link, then a grid of secondary metrics. */
-function MetricSection({ id, title, children, actionLabel, actionHref }: MetricSectionProps) {
+function MetricSection({ id, title, children, actionLabel, actionHref, badge }: MetricSectionProps) {
   const headingId = `${id}-heading`;
   return (
     <section className="space-y-2.5" aria-labelledby={headingId}>
       <SectionHeading
         size="sm"
         title={<span id={headingId}>{title}</span>}
+        badge={badge}
         className="sm:items-center"
         action={(
           <ButtonLink href={actionHref} variant="ghost" size="sm" iconRight={<ArrowRight size={15} aria-hidden="true" />}>
@@ -361,6 +364,11 @@ export default function DashboardPage({
       <MetricSection
         id="dashboard-game-club"
         title={t('gameClubPlaystationSection')}
+        badge={!loading && (
+          <Badge title={t('averageDailyClubIncomeDesc')}>
+            {t('averagePerDayBadge', { amount: formatCurrency(averageGameClubIncome), currency })}
+          </Badge>
+        )}
         actionLabel={t('details')}
         actionHref={`/game-club-money-details?${detailsQuery}`}
       >
@@ -390,6 +398,11 @@ export default function DashboardPage({
       <MetricSection
         id="dashboard-bar"
         title={t('barStatisticsSection')}
+        badge={!loading && (
+          <Badge title={t('averageDailyBarIncomeDesc')}>
+            {t('averagePerDayBadge', { amount: formatCurrency(averageBarIncome), currency })}
+          </Badge>
+        )}
         actionLabel={t('details')}
         actionHref={`/bar-money-details?${detailsQuery}`}
       >

@@ -51,6 +51,7 @@
     "averageDailyIncome": "Средний дневной доход",
     "averageDailyClubIncomeDesc": "Доход клуба + PlayStation в день за выбранный период",
     "averageDailyBarIncomeDesc": "Продажи бара в день за выбранный период",
+    "averagePerDayBadge": "В среднем в день: {amount} {currency}",
     "monthlyAverageIncomeTitle": "Средний дневной доход клуба по месяцам",
     "monthlyAverageIncomeDescription": "Только доход от компьютеров: наличные, терминал и карта. Бар, PlayStation и другие доходы не учитываются.",
     "finalizedMonth": "Сохранённый месяц",
