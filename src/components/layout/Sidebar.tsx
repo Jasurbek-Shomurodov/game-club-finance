@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { PrefetchKind } from 'next/dist/client/components/router-reducer/router-reducer-types';
 import { useTranslations } from 'next-intl';
 import { useEffect, useState, type MouseEvent } from 'react';
 import { cn } from '@/lib/utils';
@@ -95,11 +96,10 @@ function NavLink({
   return (
     <Link
       href={href}
-      // Default prefetch loads each route's loading boundary ahead of time, so
-      // a tap in the drawer swaps to the page skeleton instantly. The dashboard
-      // embeds live totals in its server response, so it is only prefetched on
-      // intent to avoid retaining totals from before a subsequent edit.
-      prefetch={href === '/' ? prefetchOnIntent : undefined}
+      // Other routes are fully prefetched by the Sidebar effect below. The
+      // dashboard embeds live totals in its server response, so it is only
+      // prefetched on intent to avoid retaining totals from before an edit.
+      prefetch={href === '/' ? prefetchOnIntent : true}
       onClick={handleClick}
       onMouseEnter={() => setPrefetchOnIntent(true)}
       onFocus={() => setPrefetchOnIntent(true)}
@@ -194,18 +194,25 @@ export function Sidebar({
     .map((group) => ({ ...group, items: group.items.filter((item) => allowed(item.feature)) }))
     .filter((group) => group.items.length > 0);
 
-  // The phone drawer is unmounted while closed, so its links never scroll into
-  // view and Link's viewport prefetch never runs: a tap then waited for the
-  // server before the page skeleton appeared. Prefetch every allowed route's
-  // loading boundary up front instead. The dashboard ('/') follows its link's
-  // intent rule and is only prefetched once the drawer opens.
+  // The phone drawer is unmounted while closed, so Link's viewport prefetch
+  // never runs for it, and a default prefetch only covers the loading skeleton:
+  // every tap still waited on a round trip to the Sydney functions before the
+  // page switched and its data could start loading. These pages are client
+  // components that load their own data, so their full server response holds
+  // nothing stale; prefetch it up front and a tap swaps pages with no request.
+  // The dashboard ('/') embeds live totals, so it keeps the skeleton-only
+  // prefetch, and only once the drawer opens.
   const router = useRouter();
   const navHrefs = groups.flatMap((group) => group.items.map((item) => item.href));
   if (allowed('settings')) navHrefs.push('/settings');
   const navHrefKey = navHrefs.join('|');
   useEffect(() => {
     for (const href of navHrefKey.split('|')) {
-      if (href && (href !== '/' || mobileOpen)) router.prefetch(href);
+      if (href === '/') {
+        if (mobileOpen) router.prefetch(href);
+      } else if (href) {
+        router.prefetch(href, { kind: PrefetchKind.FULL });
+      }
     }
   }, [mobileOpen, navHrefKey, router]);
 
