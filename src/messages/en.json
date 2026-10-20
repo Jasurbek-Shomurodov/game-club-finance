@@ -666,6 +666,8 @@
     "paymentSaved": "Payment recorded",
     "showPaid": "Show paid",
     "hidePaid": "Hide paid",
+    "writtenOn": "Written {date}",
+    "paidOn": "Paid {date}",
     "outstanding": "Unpaid and partial",
     "loadError": "Could not load debts. Check your connection and try again.",
     "saveError": "Could not save. Check your connection and access, then try again.",

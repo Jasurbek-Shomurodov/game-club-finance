@@ -34,3 +34,17 @@ export function classifyDebtPaymentInsertError(
   }
   return 'other';
 }
+
+/**
+ * The date each debt was settled: its latest payment's business date. Dates
+ * are ISO `YYYY-MM-DD`, so the string comparison is chronological.
+ */
+export function latestPaymentDateByDebt(
+  payments: ReadonlyArray<{ debt_id: string; date: string }>,
+): Record<string, string> {
+  const latest: Record<string, string> = {};
+  for (const { debt_id, date } of payments) {
+    if (!latest[debt_id] || date > latest[debt_id]) latest[debt_id] = date;
+  }
+  return latest;
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateRemainingDebt, canManageDebts, classifyDebtPaymentInsertError, getDebtStatus } from './debt';
+import { calculateRemainingDebt, canManageDebts, classifyDebtPaymentInsertError, getDebtStatus, latestPaymentDateByDebt } from './debt';
 
 describe('calculateRemainingDebt', () => {
   it('returns difference between amount and paid', () => {
@@ -78,5 +78,20 @@ describe('classifyDebtPaymentInsertError', () => {
     expect(classifyDebtPaymentInsertError({ code: '23514', message: 'some other check' })).toBe('other');
     expect(classifyDebtPaymentInsertError({ code: '42501', message: 'permission denied' })).toBe('other');
     expect(classifyDebtPaymentInsertError(null)).toBe('other');
+  });
+});
+
+describe('latestPaymentDateByDebt', () => {
+  it('keeps the latest payment date per debt regardless of order', () => {
+    expect(latestPaymentDateByDebt([
+      { debt_id: 'a', date: '2026-07-20' },
+      { debt_id: 'b', date: '2026-07-05' },
+      { debt_id: 'a', date: '2026-08-02' },
+      { debt_id: 'a', date: '2026-07-25' },
+    ])).toEqual({ a: '2026-08-02', b: '2026-07-05' });
+  });
+
+  it('returns an empty map without payments', () => {
+    expect(latestPaymentDateByDebt([])).toEqual({});
   });
 });

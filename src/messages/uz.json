@@ -666,6 +666,8 @@
     "paymentSaved": "Toʻlov qayd etildi",
     "showPaid": "Toʻlanganlarni koʻrsatish",
     "hidePaid": "Toʻlanganlarni yashirish",
+    "writtenOn": "Qarz sanasi {date}",
+    "paidOn": "Toʻlangan {date}",
     "outstanding": "To‘lanmagan va qisman to‘langan",
     "loadError": "Qarzlarni yuklab bo‘lmadi. Internet aloqasini tekshirib, qayta urinib ko‘ring.",
     "saveError": "Saqlab bo‘lmadi. Internet aloqasi va kirish huquqini tekshirib, qayta urinib ko‘ring.",

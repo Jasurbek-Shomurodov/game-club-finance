@@ -43,6 +43,7 @@ import {
   canManageDebts,
   classifyDebtPaymentInsertError,
   getDebtStatus,
+  latestPaymentDateByDebt,
 } from '@/lib/calculations/debt';
 import { getDebtDateIssue, validateDebtPayment } from '@/lib/validation';
 import { Plus, Users, Wallet } from 'lucide-react';
@@ -145,6 +146,30 @@ export default function DebtsPage() {
     }
   }, [selectedClubId]);
   const { data: debts, loading, error: loadError, reload: reloadDebts } = useClubQuery<NewDebt[]>(loadDebts, []);
+
+  // Paid dates are read only once the paid list is open, and again whenever a debt becomes paid.
+  const paidDebtsKey = debts.filter((d) => d.status === 'paid').map((d) => d.id).join(',');
+  const loadPaidDates = useCallback(async () => {
+    if (!selectedClubId) return {};
+    const supabase = createClient();
+    const { data, error: fetchError } = await fetchAllRows<Pick<DebtPayment, 'debt_id' | 'date'>>(() => supabase
+      .from('debt_payments')
+      .select('debt_id,date')
+      .eq('club_id', selectedClubId)
+      .order('date', { ascending: false })
+      .order('id'));
+    if (fetchError) {
+      console.error('Failed to load debt paid dates', fetchError);
+      throw fetchError;
+    }
+    return latestPaymentDateByDebt(data ?? []);
+    // paidDebtsKey is a dependency so a newly paid debt gets its date.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClubId, paidDebtsKey]);
+  const { data: paidDates } = useClubQuery<Record<string, string>>(
+    showPaid && paidDebtsKey ? loadPaidDates : null,
+    {},
+  );
 
   async function loadPayments(debtId: string, clubId: string) {
     const requestId = ++paymentsRequestSequence.current;
@@ -465,7 +490,10 @@ export default function DebtsPage() {
                       <Avatar name={debt.person_name} size="sm" tone="neutral" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium text-gray-700">{debt.person_name}</p>
-                        <p className="text-xs text-gray-500">{formatDate(debt.date, locale)}</p>
+                        <p className="text-xs text-gray-500">
+                          {t('writtenOn', { date: formatDate(debt.date, locale) })}
+                          {paidDates[debt.id] ? ` · ${t('paidOn', { date: formatDate(paidDates[debt.id], locale) })}` : ''}
+                        </p>
                       </div>
                       <span className="shrink-0 font-semibold tabular-nums text-gray-500"><Money amount={debt.amount} /></span>
                       <Badge variant="success" size="sm">{t('paid')}</Badge>
