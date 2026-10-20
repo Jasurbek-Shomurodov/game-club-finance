@@ -21,7 +21,7 @@ import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { useClub } from '@/components/layout/DashboardShell';
-import { cn } from '@/lib/utils';
+import { cn, monthRange } from '@/lib/utils';
 import { formatCurrency, formatDateShort } from '@/lib/formatters';
 import {
   AmountCard,
@@ -81,12 +81,15 @@ function ChartLoading() {
   return <ChartSkeleton />;
 }
 
+// Charts render only after the ledgers arrive; the page starts this download on
+// mount so the recharts chunk loads alongside the data instead of after it.
+const loadTimeCharts = () => import('@/components/financial-analysis/AnalysisTimeCharts');
 const DailyFlowChart = dynamic(
-  () => import('@/components/financial-analysis/AnalysisTimeCharts').then((module) => module.DailyFlowChart),
+  () => loadTimeCharts().then((module) => module.DailyFlowChart),
   { ssr: false, loading: ChartLoading },
 );
 const MonthlyTrendChart = dynamic(
-  () => import('@/components/financial-analysis/AnalysisTimeCharts').then((module) => module.MonthlyTrendChart),
+  () => loadTimeCharts().then((module) => module.MonthlyTrendChart),
   { ssr: false, loading: ChartLoading },
 );
 
@@ -232,11 +235,19 @@ export default function FinancialAnalysisPage() {
     () => getDashboardComparisonRange(period, range, businessToday),
     [businessToday, period, range],
   );
-  // The 12-month trend window; a selected period inside it reuses its read.
+  // The 12-month trend window; a selected period inside it reuses its read. It
+  // ends with the current month (not today) so the default month-to-month view,
+  // whose range runs to the month's last day, shares this one RPC.
   const monthlyWindow = useMemo(
-    () => ({ from: firstMonthOfWindow(businessToday), to: businessToday }),
+    () => ({ from: firstMonthOfWindow(businessToday), to: monthRange(businessToday.slice(0, 7)).to }),
     [businessToday],
   );
+
+  useEffect(() => {
+    void loadTimeCharts().catch(() => {
+      // dynamic() retries and shows its own fallback when the chart renders.
+    });
+  }, []);
 
   const windowRequest = useRef<{ key: string; promise: Promise<AnalysisLedgers> } | null>(null);
   // The category stays set while the drawer slides out, so its content does not vanish mid-animation.
