@@ -7,7 +7,7 @@ import type { SankeyNode } from '@/lib/calculations/financialAnalysis';
 import { layoutSankey, sankeyLinkPath as linkPath } from '@/lib/sankeyLayout';
 import { formatCompactMoney, formatShare } from './analysisFormat';
 
-const LAYOUT = { nodeWidth: 10, nodePadding: 14, perNode: 30, minHeight: 300, padY: 8, labelGap: 8, perColumn: 120, hubLabelSpace: 22 };
+const LAYOUT = { nodeWidth: 10, nodePadding: 14, perNode: 30, minHeight: 300, padY: 8, labelGap: 8, perColumn: 100, hubLabelSpace: 22 };
 
 let measureCanvas: HTMLCanvasElement | undefined;
 function measureLabel(text: string): number {
@@ -28,6 +28,18 @@ function useElementWidth() {
     return () => observer.disconnect();
   }, [element]);
   return [setElement, width] as const;
+}
+
+/** Labels are measured with the page font; draw again once web fonts finish loading. */
+function useFontsLoaded() {
+  const [, setLoaded] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void document.fonts?.ready.then(() => {
+      if (active) setLoaded(true);
+    });
+    return () => { active = false; };
+  }, []);
 }
 
 export interface SankeyFlowChartProps {
@@ -68,6 +80,7 @@ export function SankeyFlowChart({
 }: SankeyFlowChartProps) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [wrapRef, measuredWidth] = useElementWidth();
+  useFontsLoaded();
   const { nodeWidth, nodePadding, perNode, minHeight, padY, labelGap, perColumn, hubLabelSpace } = LAYOUT;
   const total = sankey.total;
 

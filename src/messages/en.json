@@ -93,6 +93,7 @@
     "expandAll": "Expand all",
     "collapseAll": "Collapse all",
     "loadErrorDashboard": "Could not load dashboard data. Check your connection and try again.",
+    "loadErrorFlows": "Could not load the money flows. Check your connection and try again.",
     "monthlyChartLoadError": "Could not load the monthly income history.",
     "noDeductionsForDay": "No deductions on this day",
     "chartLegendLabel": "{title}: legend",

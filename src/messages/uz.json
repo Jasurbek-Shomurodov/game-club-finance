@@ -93,6 +93,7 @@
     "expandAll": "Barchasini ochish",
     "collapseAll": "Barchasini yopish",
     "loadErrorDashboard": "Boshqaruv paneli ma'lumotlarini yuklab bo'lmadi. Internet aloqasini tekshirib, qayta urinib ko'ring.",
+    "loadErrorFlows": "Pul oqimlarini yuklab bo'lmadi. Internet aloqasini tekshirib, qayta urinib ko'ring.",
     "monthlyChartLoadError": "Oylik daromad tarixini yuklab bo'lmadi.",
     "noDeductionsForDay": "Bu kunda ayirmalar yo'q",
     "chartLegendLabel": "{title}: shartli belgilar",

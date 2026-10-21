@@ -2,7 +2,7 @@
 
 // Route: /
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   ArrowDownRight,
@@ -23,15 +23,16 @@ import {
   ButtonLink,
   ChartSkeleton,
   LoadErrorAlert,
-  MetricCard,
   MetricMoney,
   PageHeader,
-  SectionHeading,
+  StatTile,
   toneForAmount,
   type MetricTone,
-  RollingText,
-  Badge,
 } from '@/components/PresentationFoundation';
+import { MoneyFlowSankeys } from '@/components/financial-analysis/MoneyFlowSankeys';
+import { fetchAnalysisLedgers } from '@/lib/supabase/analysisLedgers';
+import type { AnalysisLedgers } from '@/lib/calculations/financialAnalysis';
+import { useClubQuery } from '@/lib/useClubQuery';
 import { formatCurrency } from '@/lib/formatters';
 import {
   calculateAverageDailyIncome,
@@ -61,54 +62,34 @@ const IncomeTrendChart = dynamic(
   { ssr: false, loading: ChartLoading },
 );
 
-interface MetricSectionProps {
-  id: string;
-  title: string;
-  children: ReactNode;
-  actionLabel: string;
-  actionHref: string;
-  badge?: ReactNode;
-}
+const emptyLedgers: AnalysisLedgers = {
+  cashRows: [],
+  stockRows: [],
+  purchaseRows: [],
+  expenseRows: [],
+  debtRows: [],
+  debtPaymentRows: [],
+};
 
-/** Plain section: small heading + "Details" link, then a grid of secondary metrics. */
-function MetricSection({ id, title, children, actionLabel, actionHref, badge }: MetricSectionProps) {
-  const headingId = `${id}-heading`;
+/** A few figures for one side, under its money-flow Sankey. */
+function FlowFigures({ items, loading }: {
+  items: Array<{ label: string; amount: number; currency: string; tone?: MetricTone; helper?: string }>;
+  loading: boolean;
+}) {
   return (
-    <section className="space-y-2.5" aria-labelledby={headingId}>
-      <SectionHeading
-        size="sm"
-        title={<span id={headingId}>{title}</span>}
-        badge={badge}
-        className="sm:items-center"
-        action={(
-          <ButtonLink href={actionHref} variant="ghost" size="sm" iconRight={<ArrowRight size={15} aria-hidden="true" />}>
-            {actionLabel}
-          </ButtonLink>
-        )}
-      />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{children}</div>
-    </section>
+    <div className="mt-4 grid gap-2 sm:grid-cols-3">
+      {items.map((item) => (
+        <StatTile
+          key={item.label}
+          variant="soft"
+          size="sm"
+          label={<span title={item.helper}>{item.label}</span>}
+          tone={loading ? 'muted' : item.tone}
+          value={loading ? '—' : <MetricMoney amount={item.amount} currency={item.currency} />}
+        />
+      ))}
+    </div>
   );
-}
-
-type Comparison = { value: number | null; label: string };
-
-/** Trend arrow + "12% vs last month" line for a MetricCard, or nothing when there is no comparison. */
-function comparisonTrend(comparison: Comparison | undefined): Pick<ComponentProps<typeof MetricCard>, 'trend' | 'trendLabel'> {
-  if (!comparison || comparison.value === null) return {};
-  return {
-    trend: comparison.value > 0 ? 'up' : comparison.value < 0 ? 'down' : 'neutral',
-    trendLabel: (
-      <>
-        <RollingText text={`${Math.abs(comparison.value)}%`} /> <span className="font-normal text-gray-500">{comparison.label}</span>
-      </>
-    ),
-  };
-}
-
-/** A zero with nothing to compare against is not worth colour or a caption. */
-function isIdleMetric(amount: number, comparison?: Comparison): boolean {
-  return amount === 0 && (!comparison || comparison.value === null);
 }
 
 export interface InitialDashboardSnapshot {
@@ -161,6 +142,7 @@ export default function DashboardPage({
   const loadedRequestKey = useRef(initialSnapshotFresh ? initialRequestKey : '');
   const t = useTranslations('dashboard');
   const tc = useTranslations('common');
+  const tf = useTranslations('financialAnalysis');
   const currency = tc('currency');
 
   const fetchDashboard = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
@@ -275,35 +257,26 @@ export default function DashboardPage({
 
 
   const detailsQuery = new URLSearchParams({ from: range.from, to: range.to }).toString();
-
-  // Secondary metrics: a MetricCard each; a zero with no comparison is muted.
-  const secondaryMetric = (
-    amount: number,
-    comparison: Comparison | undefined,
-    tone: MetricTone = 'default',
-  ) => {
-    const idle = isIdleMetric(amount, comparison);
-    return {
-      value: <MetricMoney amount={amount} currency={currency} />,
-      tone: idle ? ('muted' as const) : tone,
-      ...(idle ? {} : comparisonTrend(comparison)),
-    };
-  };
-
-  const playstationComparison = comparisonFor(totals.playstationIncome, previousTotals.playstationIncome);
-  const moneyLeftComparison = comparisonFor(totals.gameClubMoneyLeft, previousTotals.gameClubMoneyLeft);
-  const barMoneyLeftComparison = comparisonFor(totals.barIncome, previousTotals.barIncome);
+  const periodLabel = `${formatDateShort(range.from, locale)} – ${formatDateShort(range.to, locale)}`;
   const barProfitComparison = comparisonFor(totals.barProfit, previousTotals.barProfit);
-  const inventoryComparison = data.hasInventoryComparisonData
-    ? comparisonFor(
-        totals.inventoryValue,
-        data.inventoryComparisonValue,
-        t('vsLastMonth'),
-      )
-    : undefined;
   const inventoryHelper = data.hasInventoryComparisonData
     ? `${t('lastMonthInventoryValue')}: ${formatCurrency(data.inventoryComparisonValue)} ${currency}`
     : t('lowStockAlertsCount', { count: data.lowStockCount });
+
+  // The money flows need the period's payments, which the snapshot does not carry.
+  const loadLedgers = useCallback(async () => (
+    selectedClubId ? { clubId: selectedClubId, ledgers: await fetchAnalysisLedgers(createClient(), selectedClubId, range) } : null
+  ), [range, selectedClubId]);
+  const ledgerQuery = useClubQuery<{ clubId: string; ledgers: AnalysisLedgers } | null>(loadLedgers, null);
+  // Ledgers remember their club, so another club's rows never render as current.
+  const ledgers = ledgerQuery.data?.clubId === selectedClubId ? ledgerQuery.data.ledgers : emptyLedgers;
+  const flowsLoading = loading || ledgerQuery.loading;
+
+  const detailsLink = (href: string) => (
+    <ButtonLink href={href} variant="ghost" size="sm" iconRight={<ArrowRight size={15} aria-hidden="true" />}>
+      {t('details')}
+    </ButtonLink>
+  );
 
   return (
     <div className="space-y-4 sm:space-y-5">
@@ -361,73 +334,57 @@ export default function DashboardPage({
         />
       </div>
 
-      <MetricSection
-        id="dashboard-game-club"
-        title={t('gameClubPlaystationSection')}
-        badge={!loading && (
-          <Badge title={t('averageDailyClubIncomeDesc')}>
-            {t('averagePerDayBadge', { amount: formatCurrency(averageGameClubIncome), currency })}
-          </Badge>
-        )}
-        actionLabel={t('details')}
-        actionHref={`/game-club-money-details?${detailsQuery}`}
-      >
-        <MetricCard
-          loading={loading}
-          label={t('playstationIncome')}
-          {...secondaryMetric(totals.playstationIncome, playstationComparison)}
-        />
-        <MetricCard
-          loading={loading}
-          label={t('activeDebts')}
-          helper={t('activeDebtsDesc', { count: totals.activeDebtCount })}
-          {...secondaryMetric(totals.activeDebts, undefined, 'danger')}
-        />
-        <MetricCard
-          loading={loading}
-          label={<span title={t('averageDailyClubIncomeDesc')}>{t('averageDailyIncome')}</span>}
-          {...secondaryMetric(averageGameClubIncome, undefined)}
-        />
-        <MetricCard
-          loading={loading}
-          label={<span title={t('totalMoneyLeftDesc')}>{t('totalMoneyLeft')}</span>}
-          {...secondaryMetric(totals.gameClubMoneyLeft, moneyLeftComparison, toneForAmount(totals.gameClubMoneyLeft))}
-        />
-      </MetricSection>
+      {ledgerQuery.error && (
+        <LoadErrorAlert retrying={ledgerQuery.loading} onRetry={() => void ledgerQuery.reload()}>
+          {t('loadErrorFlows')}
+        </LoadErrorAlert>
+      )}
 
-      <MetricSection
-        id="dashboard-bar"
-        title={t('barStatisticsSection')}
-        badge={!loading && (
-          <Badge title={t('averageDailyBarIncomeDesc')}>
-            {t('averagePerDayBadge', { amount: formatCurrency(averageBarIncome), currency })}
-          </Badge>
-        )}
-        actionLabel={t('details')}
-        actionHref={`/bar-money-details?${detailsQuery}`}
-      >
-        <MetricCard
-          loading={loading}
-          label={<span title={t('barMoneyLeftDesc')}>{t('barMoneyLeft')}</span>}
-          {...secondaryMetric(totals.barIncome, barMoneyLeftComparison, toneForAmount(totals.barIncome))}
+      {/* Each business gets its own money flow; tapping a node opens the Sankey behind it. */}
+      {flowsLoading && !ledgerQuery.data ? (
+        <div className="grid gap-3 2xl:grid-cols-2" role="status" aria-label={t('loading')}>
+          <ChartLoading />
+          <ChartLoading />
+        </div>
+      ) : (
+        <MoneyFlowSankeys
+          className={cn('grid items-start gap-3 2xl:grid-cols-2 transition-opacity', flowsLoading && 'pointer-events-none opacity-60')}
+          ledgers={ledgers}
+          periodLabel={periodLabel}
+          locale={locale}
+          currency={currency}
+          gameClub={{
+            title: tf('gameClubFlowTitle'),
+            description: tf('flowDesc'),
+            action: detailsLink(`/game-club-money-details?${detailsQuery}`),
+            footer: (
+              <FlowFigures
+                loading={loading}
+                items={[
+                  { label: t('totalMoneyLeft'), helper: t('totalMoneyLeftDesc'), amount: totals.gameClubMoneyLeft, currency, tone: toneForAmount(totals.gameClubMoneyLeft) },
+                  { label: t('activeDebts'), helper: t('activeDebtsDesc', { count: totals.activeDebtCount }), amount: totals.activeDebts, currency, tone: totals.activeDebts > 0 ? 'danger' : 'default' },
+                  { label: t('averageDailyIncome'), helper: t('averageDailyClubIncomeDesc'), amount: averageGameClubIncome, currency },
+                ]}
+              />
+            ),
+          }}
+          bar={{
+            title: tf('barFlowTitle'),
+            description: tf('flowDesc'),
+            action: detailsLink(`/bar-money-details?${detailsQuery}`),
+            footer: (
+              <FlowFigures
+                loading={loading}
+                items={[
+                  { label: t('barMoneyLeft'), helper: t('barMoneyLeftDesc'), amount: totals.barIncome, currency, tone: toneForAmount(totals.barIncome) },
+                  { label: t('inventoryValue'), helper: `${t('inventoryValueDesc')} ${inventoryHelper}`, amount: totals.inventoryValue, currency },
+                  { label: t('averageDailyIncome'), helper: t('averageDailyBarIncomeDesc'), amount: averageBarIncome, currency },
+                ]}
+              />
+            ),
+          }}
         />
-        <MetricCard
-          loading={loading}
-          label={<span title={t('averageDailyBarIncomeDesc')}>{t('averageDailyIncome')}</span>}
-          {...secondaryMetric(averageBarIncome, undefined)}
-        />
-        <MetricCard
-          loading={loading}
-          label={t('barCostOfGoodsSold')}
-          {...secondaryMetric(totals.barCost, comparisonFor(totals.barCost, previousTotals.barCost), 'danger')}
-        />
-        <MetricCard
-          loading={loading}
-          label={<span title={t('inventoryValueDesc')}>{t('inventoryValue')}</span>}
-          helper={inventoryHelper}
-          {...secondaryMetric(totals.inventoryValue, inventoryComparison)}
-        />
-      </MetricSection>
+      )}
 
       {!renderCharts ? (
         <div ref={chartsAnchorRef} role="status" aria-label={t('loading')}>
