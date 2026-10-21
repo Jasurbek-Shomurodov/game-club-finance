@@ -180,7 +180,28 @@ function PaymentCard({
   );
 }
 
-export default function ReportsPage() {
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** A `?from&to` range from a link (e.g. a money flow), or null when it is missing or malformed. */
+function requestedReportRange(from: string | undefined, to: string | undefined): ReportRange | null {
+  if (!from || !to || !ISO_DATE.test(from) || !ISO_DATE.test(to)) return null;
+  return from <= to ? { from, to } : { from: to, to: from };
+}
+
+/** A `?category` filter from a link; unknown values fall back to every row. */
+function requestedCategoryFilter(category: string | undefined): MoneyReportCategoryFilter {
+  if (category === 'income' || category === 'debt_payment' || category === 'expense') return category;
+  if (category?.startsWith('expense:') && isKnownExpenseCategory(category.slice('expense:'.length))) {
+    return category as MoneyReportCategoryFilter;
+  }
+  return 'all';
+}
+
+export default function ReportsPage({ requestedFrom, requestedTo, requestedCategory }: {
+  requestedFrom?: string;
+  requestedTo?: string;
+  requestedCategory?: string;
+} = {}) {
   const t = useTranslations('reports');
   const tc = useTranslations('common');
   const te = useTranslations('expenses.categories');
@@ -193,9 +214,16 @@ export default function ReportsPage() {
   const businessToday = useBusinessToday(businessDayStartHour);
   // A club switch opens the current month; a business-day rollover moves the
   // range forward only while it is still the previous day's default range.
-  const defaultRange = useMemo(() => getDashboardRange('month', businessToday), [businessToday]);
+  // A link's period and category (from a money flow) win over the current month.
+  const defaultRange = useMemo(
+    () => requestedReportRange(requestedFrom, requestedTo) ?? getDashboardRange('month', businessToday),
+    [businessToday, requestedFrom, requestedTo],
+  );
   const [range, setRange] = useBusinessPeriod<ReportRange>(defaultRange, selectedClubId, sameRange);
-  const [categoryFilter, setCategoryFilter] = useState<MoneyReportCategoryFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<MoneyReportCategoryFilter>(() => requestedCategoryFilter(requestedCategory));
+  useEffect(() => {
+    setCategoryFilter(requestedCategoryFilter(requestedCategory));
+  }, [requestedCategory]);
   /** Translated result of a failed delete. */
   const [actionError, setActionError] = useState('');
   const { showToast, toastElement } = useToast();

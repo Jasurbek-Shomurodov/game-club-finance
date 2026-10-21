@@ -1,13 +1,14 @@
 'use client';
 
 import { useMemo } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { Button, Modal } from '@/components/PresentationFoundation';
+import { Button, ButtonLink, Modal } from '@/components/PresentationFoundation';
 import { ChartEmpty } from '@/components/dashboard/ChartCard';
 import type { AnalysisLedgers } from '@/lib/calculations/financialAnalysis';
 import {
   buildDrillSankey,
+  drillDetailsHref,
   drillExpenseRows,
   type DrillNode,
   type DrillTarget,
@@ -22,6 +23,8 @@ export interface SankeyDrillModalProps {
   trail: DrillTarget[];
   onTrailChange: (trail: DrillTarget[]) => void;
   ledgers: AnalysisLedgers;
+  /** The period shown; the details link opens its page filtered to it. */
+  range: { from: string; to: string };
   titleFor: (target: DrillTarget) => string;
   labelFor: (key: string) => string;
   colorFor: (key: string, index: number) => string;
@@ -41,6 +44,7 @@ export function SankeyDrillModal({
   trail,
   onTrailChange,
   ledgers,
+  range,
   titleFor,
   labelFor,
   colorFor,
@@ -50,6 +54,7 @@ export function SankeyDrillModal({
 }: SankeyDrillModalProps) {
   const t = useTranslations('financialAnalysis');
   const tc = useTranslations('common');
+  const td = useTranslations('dashboard');
   const current = trail.at(-1);
   const sankey = useMemo(() => (current ? buildDrillSankey(current, ledgers) : null), [current, ledgers]);
   const payments = useMemo(
@@ -75,18 +80,28 @@ export function SankeyDrillModal({
     >
       {current && sankey && (
         <div className="space-y-5">
-          {trail.length > 1 && (
-            <Button
-              type="button"
-              variant="ghost"
+          <div className="-mx-2 flex items-center justify-between gap-2">
+            {trail.length > 1 ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                icon={<ArrowLeft size={16} aria-hidden="true" />}
+                onClick={() => onTrailChange(trail.slice(0, -1))}
+              >
+                {tc('back')}
+              </Button>
+            ) : <span />}
+            {/* Opens the page behind this flow with its period and category filters applied. */}
+            <ButtonLink
+              href={drillDetailsHref(current, range)}
+              variant="secondary"
               size="sm"
-              className="-ml-2"
-              icon={<ArrowLeft size={16} aria-hidden="true" />}
-              onClick={() => onTrailChange(trail.slice(0, -1))}
+              iconRight={<ArrowRight size={15} aria-hidden="true" />}
             >
-              {tc('back')}
-            </Button>
-          )}
+              {td('details')}
+            </ButtonLink>
+          </div>
           {sankey.total > 0 ? (
             <SankeyFlowChart
               // A new drill-down draws afresh rather than keeping the last one's hover.

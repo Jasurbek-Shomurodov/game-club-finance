@@ -153,3 +153,20 @@ export function buildDrillSankey(target: DrillTarget, ledgers: AnalysisLedgers):
       return categoryDrill(target, ledgers.expenseRows);
   }
 }
+
+/**
+ * The page behind a drill-down, with its period (and category) as filters: a
+ * category opens Reports filtered to it; the folded "other" opens every expense.
+ */
+export function drillDetailsHref(target: DrillTarget, range: { from: string; to: string }): string {
+  const params = new URLSearchParams({ from: range.from, to: range.to });
+  switch (target.kind) {
+    case 'gameClub':
+      return `/game-club-money-details?${params}`;
+    case 'bar':
+      return `/bar-money-details?${params}`;
+    case 'category':
+      params.set('category', target.category === OTHER_CATEGORY ? 'expense' : `expense:${target.category}`);
+      return `/reports?${params}`;
+  }
+}

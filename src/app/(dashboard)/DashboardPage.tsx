@@ -350,6 +350,7 @@ export default function DashboardPage({
         <MoneyFlowSankeys
           className={cn('grid items-start gap-3 2xl:grid-cols-2 transition-opacity', flowsLoading && 'pointer-events-none opacity-60')}
           ledgers={ledgers}
+          range={range}
           periodLabel={periodLabel}
           locale={locale}
           currency={currency}

@@ -39,6 +39,7 @@ export interface MoneyFlowCard {
 export interface MoneyFlowSankeysProps {
   /** The period's ledgers; the game club and the bar each get their own Sankey. */
   ledgers: AnalysisLedgers;
+  range: { from: string; to: string };
   periodLabel: string;
   locale: string;
   currency: string;
@@ -55,6 +56,7 @@ export interface MoneyFlowSankeysProps {
  */
 export function MoneyFlowSankeys({
   ledgers,
+  range,
   periodLabel,
   locale,
   currency,
@@ -154,6 +156,7 @@ export function MoneyFlowSankeys({
         trail={drillTrail}
         onTrailChange={setDrillTrail}
         ledgers={ledgers}
+        range={range}
         titleFor={drillTitle}
         labelFor={nodeName}
         colorFor={(key, index) => drillNodeColor(key, index, colors)}

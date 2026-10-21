@@ -433,6 +433,7 @@ export default function FinancialAnalysisPage() {
             <MoneyFlowSankeys
               className="space-y-3"
               ledgers={current}
+              range={range}
               colors={colors}
               periodLabel={periodLabel}
               locale={locale}

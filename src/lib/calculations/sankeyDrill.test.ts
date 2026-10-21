@@ -10,6 +10,7 @@ import {
   PAID_FROM_BAR,
   PAID_FROM_GAME_CLUB,
   buildDrillSankey,
+  drillDetailsHref,
   drillExpenseRows,
 } from './sankeyDrill';
 
@@ -106,5 +107,24 @@ describe('sankey drill-downs', () => {
     expect(amounts(sankey.targets)).toEqual({ salary: 30_000, supplies: 10_000 });
     expect(sankey.targets[0].open).toEqual({ kind: 'category', category: 'salary', source: undefined });
     expect(drillExpenseRows(target, ledgers.expenseRows).map((row) => row.id)).toEqual(['e3', 'e2']);
+  });
+});
+
+describe('drillDetailsHref', () => {
+  const range = { from: '2026-10-01', to: '2026-10-31' };
+
+  it('opens each side on its money details page for the period', () => {
+    expect(drillDetailsHref({ kind: 'gameClub' }, range)).toBe('/game-club-money-details?from=2026-10-01&to=2026-10-31');
+    expect(drillDetailsHref({ kind: 'bar' }, range)).toBe('/bar-money-details?from=2026-10-01&to=2026-10-31');
+  });
+
+  it('opens a category in reports filtered to it', () => {
+    expect(drillDetailsHref({ kind: 'category', category: 'correction', source: 'game_club' }, range))
+      .toBe('/reports?from=2026-10-01&to=2026-10-31&category=expense%3Acorrection');
+  });
+
+  it('opens every expense for the folded other category', () => {
+    expect(drillDetailsHref({ kind: 'category', category: OTHER_CATEGORY, named: ['rent'] }, range))
+      .toBe('/reports?from=2026-10-01&to=2026-10-31&category=expense');
   });
 });
