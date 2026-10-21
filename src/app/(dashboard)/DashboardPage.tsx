@@ -30,6 +30,7 @@ import {
   type MetricTone,
 } from '@/components/PresentationFoundation';
 import { MoneyFlowSankeys } from '@/components/financial-analysis/MoneyFlowSankeys';
+import { SIDE_ICON_CLASS } from '@/components/financial-analysis/analysisFormat';
 import { fetchAnalysisLedgers } from '@/lib/supabase/analysisLedgers';
 import type { AnalysisLedgers } from '@/lib/calculations/financialAnalysis';
 import { useClubQuery } from '@/lib/useClubQuery';
@@ -299,6 +300,7 @@ export default function DashboardPage({
           label={t('gameClubIncome')}
           amount={totals.computerIncome}
           icon={MonitorSmartphone}
+          iconClassName={SIDE_ICON_CLASS.gameClub}
           tone="success"
           comparison={comparisonFor(totals.computerIncome, previousTotals.computerIncome)}
         />
@@ -308,6 +310,7 @@ export default function DashboardPage({
           label={t('barSales')}
           amount={totals.barSales}
           icon={ShoppingBag}
+          iconClassName={SIDE_ICON_CLASS.bar}
           tone="success"
           comparison={comparisonFor(totals.barSales, previousTotals.barSales)}
         />
@@ -318,6 +321,7 @@ export default function DashboardPage({
           label={t('gameClubNetProfit')}
           amount={totals.gameClubProfit}
           icon={totals.gameClubProfit < 0 ? ArrowDownRight : ArrowUpRight}
+          iconClassName={SIDE_ICON_CLASS.gameClub}
           tone={toneForAmount(totals.gameClubProfit)}
           comparison={comparisonFor(totals.gameClubProfit, previousTotals.gameClubProfit)}
           helper={`${t('gameClubPaidExpenses')}: ${formatCurrency(totals.gameClubExpenses)} ${currency}`}
@@ -328,6 +332,7 @@ export default function DashboardPage({
           label={t('barNetProfit')}
           amount={totals.barProfit}
           icon={totals.barProfit < 0 ? ArrowDownRight : ArrowUpRight}
+          iconClassName={SIDE_ICON_CLASS.bar}
           tone={toneForAmount(totals.barProfit)}
           comparison={barProfitComparison}
           helper={t('barNetProfitDesc')}

@@ -59,7 +59,7 @@ import {
   PaymentMethodFlow,
 } from '@/components/financial-analysis/AnalysisPanels';
 import { CategoryDrawer } from '@/components/financial-analysis/CategoryDrawer';
-import { categoryColors, formatShare } from '@/components/financial-analysis/analysisFormat';
+import { categoryColors, formatShare, SIDE_ICON_CLASS } from '@/components/financial-analysis/analysisFormat';
 
 function ChartLoading() {
   return <ChartSkeleton />;
@@ -110,11 +110,20 @@ function firstMonthOfWindow(businessToday: string, months = 12): string {
   return `${Math.floor(absolute / 12)}-${String((absolute % 12) + 1).padStart(2, '0')}-01`;
 }
 
-function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+function Section({ title, description, icon: Icon, iconClassName, children }: {
+  title: string;
+  description?: string;
+  icon?: LucideIcon;
+  iconClassName?: string;
+  children: ReactNode;
+}) {
   return (
     <section className="space-y-3">
       <div>
-        <h2 className="text-base font-semibold text-gray-950">{title}</h2>
+        <h2 className="flex items-center gap-2 text-base font-semibold text-gray-950">
+          {Icon && <Icon size={18} className={cn('shrink-0', iconClassName)} aria-hidden="true" />}
+          {title}
+        </h2>
         {description && <p className="mt-0.5 text-sm text-gray-500">{description}</p>}
       </div>
       {children}
@@ -123,8 +132,9 @@ function Section({ title, description, children }: { title: string; description?
 }
 
 /** Small ratio tile: icon, label, value, optional 0–100 meter and a caption. */
-function Indicator({ icon, label, value, helper, meter, tone = 'default', loading }: {
+function Indicator({ icon, iconClassName, label, value, helper, meter, tone = 'default', loading }: {
   icon: LucideIcon;
+  iconClassName?: string;
   label: string;
   value: string;
   helper: string;
@@ -137,6 +147,7 @@ function Indicator({ icon, label, value, helper, meter, tone = 'default', loadin
     <MetricCard
       loading={loading}
       icon={icon}
+      iconClassName={iconClassName}
       label={label}
       value={value}
       tone={tone}
@@ -155,9 +166,11 @@ function Indicator({ icon, label, value, helper, meter, tone = 'default', loadin
 }
 
 /** Money in, spent and accounting profit for one side of the club; the two sides are never added together. */
-function SourceCards({ title, icon, incomeLabel, now, before, loading, currency, compare }: {
+function SourceCards({ title, icon, iconClassName, incomeLabel, now, before, loading, currency, compare }: {
   title: string;
   icon: LucideIcon;
+  /** The side's colour, so club and bar cards are told apart at a glance. */
+  iconClassName: string;
   incomeLabel: string;
   now: SourceIndicators;
   before: SourceIndicators;
@@ -167,7 +180,7 @@ function SourceCards({ title, icon, incomeLabel, now, before, loading, currency,
 }) {
   const t = useTranslations('financialAnalysis');
   return (
-    <Section title={title}>
+    <Section title={title} icon={icon} iconClassName={iconClassName}>
       <div className="grid gap-4 sm:grid-cols-3">
         <AmountCard
           loading={loading}
@@ -175,6 +188,7 @@ function SourceCards({ title, icon, incomeLabel, now, before, loading, currency,
           label={incomeLabel}
           amount={now.income}
           icon={icon}
+          iconClassName={iconClassName}
           tone="success"
           comparison={compare(now.income, before.income)}
         />
@@ -184,6 +198,7 @@ function SourceCards({ title, icon, incomeLabel, now, before, loading, currency,
           label={t('spent')}
           amount={now.spent}
           icon={ArrowDownRight}
+          iconClassName={iconClassName}
           tone="danger"
           comparison={compare(now.spent, before.spent)}
           comparisonGoodWhen="down"
@@ -194,6 +209,7 @@ function SourceCards({ title, icon, incomeLabel, now, before, loading, currency,
           label={t('profit')}
           amount={now.left}
           icon={Wallet}
+          iconClassName={iconClassName}
           tone={toneForAmount(now.left)}
           comparison={compare(now.left, before.left)}
         />
@@ -369,6 +385,7 @@ export default function FinancialAnalysisPage() {
       <SourceCards
         title={td('gameClub')}
         icon={MonitorSmartphone}
+        iconClassName={SIDE_ICON_CLASS.gameClub}
         incomeLabel={t('moneyIn')}
         now={indicators.gameClub}
         before={previousIndicators.gameClub}
@@ -379,6 +396,7 @@ export default function FinancialAnalysisPage() {
       <SourceCards
         title={td('bar')}
         icon={ShoppingBag}
+        iconClassName={SIDE_ICON_CLASS.bar}
         incomeLabel={t('barSalesIn')}
         now={indicators.bar}
         before={previousIndicators.bar}
@@ -391,6 +409,7 @@ export default function FinancialAnalysisPage() {
         <Indicator
           loading={loading}
           icon={Percent}
+          iconClassName={SIDE_ICON_CLASS.gameClub}
           label={t('gameClubMargin')}
           value={formatShare(indicators.gameClub.marginPct, locale)}
           helper={t('gameClubMarginHelper')}
@@ -400,6 +419,7 @@ export default function FinancialAnalysisPage() {
         <Indicator
           loading={loading}
           icon={Percent}
+          iconClassName={SIDE_ICON_CLASS.bar}
           label={t('barMargin')}
           value={formatShare(indicators.bar.marginPct, locale)}
           helper={t('barMarginHelper')}
@@ -409,6 +429,7 @@ export default function FinancialAnalysisPage() {
         <Indicator
           loading={loading}
           icon={CalendarDays}
+          iconClassName={SIDE_ICON_CLASS.gameClub}
           label={t('gameClubDaily')}
           value={`${formatCurrency(indicators.gameClub.averageDailyIncome)} ${currency}`}
           helper={t('gameClubDailyHelper')}
@@ -416,6 +437,7 @@ export default function FinancialAnalysisPage() {
         <Indicator
           loading={loading}
           icon={CalendarDays}
+          iconClassName={SIDE_ICON_CLASS.bar}
           label={t('barDaily')}
           value={`${formatCurrency(indicators.bar.averageDailyIncome)} ${currency}`}
           helper={t('barDailyHelper')}

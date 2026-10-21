@@ -28,6 +28,12 @@ export function formatShare(value: number | null, locale: string): string {
   }).format(value)}%`;
 }
 
+/** Icon colour for each side of the club, matching its colour in the charts. */
+export const SIDE_ICON_CLASS = {
+  gameClub: 'text-primary-600',
+  bar: 'text-orange-500',
+} as const;
+
 export const SOURCE_COLORS: Record<IncomeSourceKey, string> = {
   computers: chartColors.primary,
   playstation: chartColors.purple,
