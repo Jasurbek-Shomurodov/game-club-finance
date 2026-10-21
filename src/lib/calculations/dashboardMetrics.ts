@@ -285,22 +285,6 @@ export function countDashboardRangeDays(range: { from: string; to: string }): nu
   return Math.max(1, Math.round((to.getTime() - from.getTime()) / 86_400_000) + 1);
 }
 
-export function getDashboardAverageDayCount(
-  period: DashboardPeriod,
-  range: { from: string; to: string },
-  selectedDate: string,
-): number {
-  if (period !== 'week' && period !== 'month') return countDashboardRangeDays(range);
-
-  const from = parseLocalIsoDate(range.from);
-  const to = parseLocalIsoDate(range.to);
-  const selected = parseLocalIsoDate(selectedDate);
-
-  if (selected < from || selected > to) return countDashboardRangeDays(range);
-
-  return countDashboardRangeDays({ from: range.from, to: localIsoDate(selected) });
-}
-
 export function getLatestRowDateInRange<T extends { date: string }>(
   rows: T[],
   range: { from: string; to: string },
@@ -318,6 +302,31 @@ export function countDashboardRangeDaysThroughDate(
   if (!throughDate || throughDate < range.from) return countDashboardRangeDays(range);
   const cappedTo = throughDate > range.to ? range.to : throughDate;
   return countDashboardRangeDays({ from: range.from, to: cappedTo });
+}
+
+/**
+ * Day counts behind "average daily income", one per business. Each side divides
+ * by the days from the range start through its own latest entry in the range:
+ * game club through the latest daily cash entry or new debt, bar through the
+ * latest stock count. A range without entries uses its full length. The
+ * dashboard and financial analysis share this definition.
+ */
+export function getAverageIncomeDayCounts(
+  range: { from: string; to: string },
+  rows: {
+    cashRows: readonly { date: string }[];
+    debtRows?: readonly { date?: string }[];
+    stockRows: readonly { date: string }[];
+  },
+): { gameClub: number; bar: number } {
+  const debtDates = (rows.debtRows ?? []).flatMap((row) => (row.date ? [{ date: row.date }] : []));
+  return {
+    gameClub: countDashboardRangeDaysThroughDate(
+      range,
+      getLatestRowDateInRange([...rows.cashRows, ...debtDates], range),
+    ),
+    bar: countDashboardRangeDaysThroughDate(range, getLatestRowDateInRange([...rows.stockRows], range)),
+  };
 }
 
 export function calculateAverageDailyIncome(total: number, days: number): number {

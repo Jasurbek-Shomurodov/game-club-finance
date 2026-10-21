@@ -92,6 +92,10 @@ export function DataTable<T>({
     </tr>
   );
 
+  // No rows: show the empty state on its own, not inside a min-width table
+  // where it would be off-centre and scroll sideways on phones.
+  const showEmptyOnly = data.length === 0 && emptyState != null;
+
   return (
     <div
       role={label ? 'region' : undefined}
@@ -105,69 +109,65 @@ export function DataTable<T>({
         className,
       )}
     >
-      <table className="w-full text-sm" style={{ minWidth: typeof minWidth === 'number' ? `${minWidth}px` : minWidth }}>
-        <thead ref={theadRef}>
-          <tr className="border-b border-gray-200 bg-surface">
-            {columns.map((column) => (
-              <th
-                key={column.key}
-                scope="col"
-                className={cn(
-                  cellPadding,
-                  'text-xs font-medium text-gray-500',
-                  alignClass[column.align ?? 'left'],
-                  stickyHeader && 'sticky top-0 z-20 border-b border-gray-200 bg-surface',
-                  column.className,
-                )}
-              >
-                {column.header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        {groups && data.length > 0 ? (
-          groups.filter((group) => group.rows.length > 0).map((group) => (
-            <tbody key={group.key} className="divide-y divide-gray-100 bg-surface">
-              <tr className="bg-gray-50">
+      {showEmptyOnly ? emptyState : (
+        <table className="w-full text-sm" style={{ minWidth: typeof minWidth === 'number' ? `${minWidth}px` : minWidth }}>
+          <thead ref={theadRef}>
+            <tr className="border-b border-gray-200 bg-surface">
+              {columns.map((column) => (
                 <th
-                  scope="colgroup"
-                  colSpan={columns.length}
-                  style={stickyHeader ? { top: stickyOffsetBelow(theadHeight) } : undefined}
+                  key={column.key}
+                  scope="col"
                   className={cn(
-                    dense ? 'px-3 py-2' : 'px-4 py-2.5',
-                    'bg-gray-50 text-left shadow-[inset_0_1px_0_rgb(var(--c-gray-200)),inset_0_-1px_0_rgb(var(--c-gray-200))] text-sm font-semibold text-gray-900',
-                    stickyHeader && 'sticky z-10',
+                    cellPadding,
+                    'text-xs font-medium text-gray-500',
+                    alignClass[column.align ?? 'left'],
+                    stickyHeader && 'sticky top-0 z-20 border-b border-gray-200 bg-surface',
+                    column.className,
                   )}
                 >
-                  {group.header}
+                  {column.header}
                 </th>
-              </tr>
-              {group.rows.map(renderRow)}
-            </tbody>
-          ))
-        ) : (
-          <tbody className="divide-y divide-gray-100 bg-surface">
-            {data.length === 0 && emptyState ? (
-              <tr>
-                <td colSpan={columns.length} className="p-0">{emptyState}</td>
-              </tr>
-            ) : (
-              data.map(renderRow)
-            )}
-          </tbody>
-        )}
-        {footer && data.length > 0 && (
-          <tfoot>
-            <tr className="border-t border-gray-200 bg-gray-50 font-semibold text-gray-900">
-              {columns.map((column) => (
-                <td key={column.key} className={cn(cellPadding, alignClass[column.align ?? 'left'], column.className)}>
-                  {footer[column.key] ?? null}
-                </td>
               ))}
             </tr>
-          </tfoot>
-        )}
-      </table>
+          </thead>
+          {groups && data.length > 0 ? (
+            groups.filter((group) => group.rows.length > 0).map((group) => (
+              <tbody key={group.key} className="divide-y divide-gray-100 bg-surface">
+                <tr className="bg-gray-50">
+                  <th
+                    scope="colgroup"
+                    colSpan={columns.length}
+                    style={stickyHeader ? { top: stickyOffsetBelow(theadHeight) } : undefined}
+                    className={cn(
+                      dense ? 'px-3 py-2' : 'px-4 py-2.5',
+                      'bg-gray-50 text-left shadow-[inset_0_1px_0_rgb(var(--c-gray-200)),inset_0_-1px_0_rgb(var(--c-gray-200))] text-sm font-semibold text-gray-900',
+                      stickyHeader && 'sticky z-10',
+                    )}
+                  >
+                    {group.header}
+                  </th>
+                </tr>
+                {group.rows.map(renderRow)}
+              </tbody>
+            ))
+          ) : (
+            <tbody className="divide-y divide-gray-100 bg-surface">
+              {data.map(renderRow)}
+            </tbody>
+          )}
+          {footer && data.length > 0 && (
+            <tfoot>
+              <tr className="border-t border-gray-200 bg-gray-50 font-semibold text-gray-900">
+                {columns.map((column) => (
+                  <td key={column.key} className={cn(cellPadding, alignClass[column.align ?? 'left'], column.className)}>
+                    {footer[column.key] ?? null}
+                  </td>
+                ))}
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      )}
     </div>
   );
 }

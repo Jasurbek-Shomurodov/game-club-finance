@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
@@ -16,7 +16,8 @@ vi.mock('@/lib/telegram/deleteTelegramMessage', () => ({
 vi.mock('@/lib/telegram/expenseNotification', () => ({
   buildExpenseNotification: vi.fn(() => 'expense'),
 }));
-vi.mock('@/lib/telegram/sendDailyFinanceReport', () => ({
+vi.mock('@/lib/telegram/sendDailyFinanceReport', async (importOriginal) => ({
+  isIsoDate: (await importOriginal<typeof import('@/lib/telegram/sendDailyFinanceReport')>()).isIsoDate,
   sendTelegramMessage: mocks.sendTelegramMessage,
 }));
 vi.mock('@/types', () => ({ PAYMENT_METHODS: ['cash', 'terminal', 'card'] }));
@@ -186,7 +187,7 @@ describe('expense creation route', () => {
   const saved = { id: EXPENSE_ID, club_id: CLUB_ID, date: '2026-10-01', amount: 50000, category: 'repair', payment_method: 'cash', payment_source: 'game_club', comment: 'Door' };
 
   function mockCreate({ methods = ['cash', 'terminal'], upserted = saved as unknown, existing = null as unknown, insertError = null as { message: string; code?: string } | null } = {}) {
-    const clubQuery = queryResult({ enabled_payment_methods: methods });
+    const clubQuery = queryResult({ enabled_payment_methods: methods, business_day_start_hour: 6 });
     const writeQuery = queryResult(upserted, insertError);
     const existingQuery = queryResult(existing);
     const updateQuery = queryResult(null);
@@ -217,6 +218,45 @@ describe('expense creation route', () => {
     vi.stubEnv('TELEGRAM_MAIN_CLUB_ID', CLUB_ID);
     vi.stubEnv('TELEGRAM_MAIN_CHAT_ID', '-1001');
     mocks.sendTelegramMessage.mockResolvedValue({ result: { chat: { id: -1001 }, message_id: 7 } });
+    // 2026-10-15 10:00 in Tashkent (UTC+5); business today is 2026-10-15.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-15T05:00:00Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('rejects a date after the club business today', async () => {
+    const { writeQuery } = mockCreate();
+    const response = await create({ ...body, date: '2026-10-16' });
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe('INVALID_REQUEST');
+    expect(writeQuery.insert).not.toHaveBeenCalled();
+  });
+
+  it('accepts the business today before the day-start hour rolls over', async () => {
+    // 2026-10-16 05:00 in Tashkent is still the 2026-10-15 business day (start hour 6).
+    vi.setSystemTime(new Date('2026-10-16T00:00:00Z'));
+    mockCreate();
+    expect((await create({ ...body, date: '2026-10-15' })).status).toBe(201);
+    expect((await create({ ...body, date: '2026-10-16' })).status).toBe(400);
+  });
+
+  it('rejects an impossible calendar date', async () => {
+    const { writeQuery } = mockCreate();
+    const response = await create({ ...body, date: '2026-02-30' });
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe('INVALID_REQUEST');
+    expect(writeQuery.insert).not.toHaveBeenCalled();
+  });
+
+  it.each(['22007', '22008'])('maps database date error %s to 400', async (code) => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockCreate({ upserted: null, insertError: { message: 'Expenses cannot use a future business date', code } });
+    const response = await create(body);
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe('INVALID_REQUEST');
   });
 
   it('rejects a payment method the club has not enabled', async () => {

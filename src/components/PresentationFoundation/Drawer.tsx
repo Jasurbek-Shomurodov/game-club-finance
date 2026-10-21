@@ -6,7 +6,7 @@ import { X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import { isTopModal, trapFocus, useFocusOrigin, useModalLayer } from './Modal';
-import { backdropMotion, slideMotion, usePresence } from './motion';
+import { SCRIM_CLASS, backdropMotion, slideMotion, usePresence } from './motion';
 
 export interface DrawerProps {
   open: boolean;
@@ -89,7 +89,7 @@ export function Drawer({
   return createPortal(
     <div className={cn('fixed inset-0 z-[60]', !open && 'pointer-events-none', className)}>
       <div
-        className={cn('absolute inset-0 bg-black/40 backdrop-blur-[2px]', backdropMotion(visible))}
+        className={cn('absolute inset-0', SCRIM_CLASS, backdropMotion(visible))}
         onClick={() => onCloseRef.current()}
         aria-hidden="true"
       />
@@ -104,7 +104,9 @@ export function Drawer({
         tabIndex={-1}
         className={cn(
           'absolute inset-y-0 flex w-full max-w-md flex-col bg-surface shadow-pop outline-none',
-          side === 'left' ? 'left-0' : 'right-0',
+          side === 'left' ? 'left-0 pl-[env(safe-area-inset-left)]' : 'right-0 pr-[env(safe-area-inset-right)]',
+          !footer && 'pb-[env(safe-area-inset-bottom)]',
+          !(title || description) && 'pt-[env(safe-area-inset-top)]',
           slideMotion(visible, side),
           panelClassName,
         )}
@@ -119,7 +121,7 @@ export function Drawer({
               type="button"
               onClick={() => onCloseRef.current()}
               aria-label={tc('close')}
-              className="-mr-2 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              className="-mr-2 -mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
             >
               <X size={18} />
             </button>

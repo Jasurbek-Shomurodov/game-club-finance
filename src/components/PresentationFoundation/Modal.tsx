@@ -5,7 +5,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
-import { backdropMotion, sheetMotion, useHeldWhileClosing, usePresence } from './motion';
+import { SCRIM_CLASS, backdropMotion, sheetMotion, useHeldWhileClosing, usePresence } from './motion';
 
 type ModalSize = 'sm' | 'md' | 'lg' | 'xl';
 
@@ -184,7 +184,7 @@ export function Modal({
       aria-hidden={!open || undefined}
     >
       <div
-        className={cn('absolute inset-0 bg-black/40 backdrop-blur-[2px]', backdropMotion(visible))}
+        className={cn('absolute inset-0', SCRIM_CLASS, backdropMotion(visible))}
         onMouseDown={requestClose}
         aria-hidden="true"
       />
@@ -206,7 +206,7 @@ export function Modal({
         {(content.title || content.description) && (
           <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 sm:px-6">
             <div className="min-w-0">
-              {content.title && <h2 id={titleId} className="text-lg font-bold tracking-tight text-gray-950">{content.title}</h2>}
+              {content.title && <h2 id={titleId} className="break-words text-lg font-bold tracking-tight text-gray-950">{content.title}</h2>}
               {content.description && <p id={descriptionId} className="mt-1 text-sm text-gray-500">{content.description}</p>}
             </div>
             <button
@@ -215,13 +215,13 @@ export function Modal({
               onClick={requestClose}
               disabled={locked}
               aria-label={tc('close')}
-              className="-mr-2 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:opacity-50"
+              className="-mr-2 -mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:opacity-50"
             >
               <X size={18} />
             </button>
           </div>
         )}
-        <div className={cn('min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6', bodyClassName)}>{content.children}</div>
+        <div className={cn('min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6', !content.footer && 'pb-[max(1.25rem,env(safe-area-inset-bottom))]', bodyClassName)}>{content.children}</div>
         {content.footer && (
           <div className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-gray-50/80 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:px-6">
             {content.footer}

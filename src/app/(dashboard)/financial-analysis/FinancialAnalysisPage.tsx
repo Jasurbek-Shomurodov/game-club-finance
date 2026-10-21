@@ -36,7 +36,6 @@ import {
 } from '@/components/PresentationFoundation';
 import { ChartCard, ChartEmpty } from '@/components/dashboard/ChartCard';
 import {
-  getDashboardAverageDayCount,
   getDashboardComparisonRange,
   percentChange,
 } from '@/lib/calculations/dashboardMetrics';
@@ -170,7 +169,7 @@ function Indicator({ icon, label, value, helper, meter, tone = 'default', loadin
   );
 }
 
-/** Money in, spent and left for one side of the club; the two sides are never added together. */
+/** Money in, spent and accounting profit for one side of the club; the two sides are never added together. */
 function SourceCards({ title, icon, incomeLabel, now, before, loading, currency, compare }: {
   title: string;
   icon: LucideIcon;
@@ -207,7 +206,7 @@ function SourceCards({ title, icon, incomeLabel, now, before, loading, currency,
         <AmountCard
           loading={loading}
           currency={currency}
-          label={t('left')}
+          label={t('profit')}
           amount={now.left}
           icon={Wallet}
           tone={toneForAmount(now.left)}
@@ -317,10 +316,12 @@ export default function FinancialAnalysisPage() {
 
   const current = useMemo(() => sliceLedgers(ledgers, range), [ledgers, range]);
   const previous = useMemo(() => sliceLedgers(ledgers, previousRange), [ledgers, previousRange]);
-  const averageDayCount = getDashboardAverageDayCount(period, range, businessToday);
-  const analysis = useMemo(
-    () => buildFinancialAnalysis(range, current, { averageDayCount }),
-    [averageDayCount, current, range],
+  // Average daily income follows the dashboard: each side through its latest entry in the range.
+  const analysis = useMemo(() => buildFinancialAnalysis(range, current), [current, range]);
+  // Days after today have no data yet; drawing them only adds an empty tail (as on the dashboard).
+  const dailyRows = useMemo(
+    () => analysis.daily.filter((row, index) => index === 0 || row.date <= businessToday),
+    [analysis.daily, businessToday],
   );
   const previousAnalysis = useMemo(() => buildFinancialAnalysis(previousRange, previous), [previous, previousRange]);
   const comparison = useMemo(
@@ -532,7 +533,7 @@ export default function FinancialAnalysisPage() {
           <Section title={t('trendsSection')} description={t('trendsSectionDesc')}>
             <ChartCard title={t('dailyTitle')} description={t('dailyDesc')}>
               {hasActivity
-                ? <DailyFlowChart data={analysis.daily} locale={locale} currency={currency} />
+                ? <DailyFlowChart data={dailyRows} locale={locale} currency={currency} />
                 : <ChartEmpty title={t('empty')} className="mt-4" />}
             </ChartCard>
 

@@ -67,9 +67,6 @@ export function buildOwnerProfitSnapshot(payload: OwnerProfitSnapshotPayload): {
     result[month] = {
       gameClub,
       bar,
-      totalEarned: gameClub.earned + bar.earned,
-      totalWithdrawn: gameClub.withdrawn + bar.withdrawn,
-      totalAvailable: gameClub.available + bar.available,
       hasOverWithdrawal: gameClub.overdrawnBy > 0 || bar.overdrawnBy > 0,
       invalidWithdrawals: [],
     };
@@ -211,7 +208,6 @@ export function applyOwnerProfitCarryovers(
       ...base,
       gameClub,
       bar,
-      totalAvailable: gameClub.available + bar.available,
       hasOverWithdrawal: gameClub.overdrawnBy > 0 || bar.overdrawnBy > 0 || base.invalidWithdrawals.length > 0,
     };
   }

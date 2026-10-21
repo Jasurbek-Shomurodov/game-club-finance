@@ -173,9 +173,11 @@ export function BulkStockUpdateModal({ open, rows, saving, onClose, onSave }: Bu
       <form id="bulk-stock-form" onSubmit={handleSubmit} className="space-y-4">
         <p className="text-sm text-gray-500">{t('bulkDescription')}</p>
 
-        <SearchInput value={query} onChange={setQuery} placeholder={t('bulkSearchPlaceholder')} />
+        <div className="sticky top-0 z-10 -mx-1 bg-surface px-1 py-2">
+          <SearchInput value={query} onChange={setQuery} placeholder={t('bulkSearchPlaceholder')} />
+        </div>
 
-        <div className="max-h-[42dvh] space-y-2 overflow-y-auto pr-1 sm:max-h-[46vh]">
+        <div className="space-y-2">
           {visibleRows.length === 0 ? (
             <EmptyState
               compact

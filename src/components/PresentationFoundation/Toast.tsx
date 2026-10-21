@@ -44,7 +44,7 @@ export function Toast({ message, type, onClose, durationMs }: ToastProps) {
     >
       {type === 'success' ? <CheckCircle size={18} className="text-success-500" aria-hidden="true" /> : <XCircle size={18} aria-hidden="true" />}
       <span className="flex-1">{message}</span>
-      <button type="button" onClick={onClose} aria-label={tc('close')} className="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md opacity-80 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
+      <button type="button" onClick={onClose} aria-label={tc('close')} className="relative -mr-1 flex h-8 w-8 shrink-0 max-sm:before:absolute max-sm:before:-inset-1 max-sm:before:content-[''] items-center justify-center rounded-md opacity-80 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
         <X size={16} />
       </button>
     </div>

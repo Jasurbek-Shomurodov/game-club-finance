@@ -389,12 +389,12 @@ export function SettingsPageClient() {
         title={t('addClub')}
         size="sm"
         footer={(
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button type="button" variant="ghost" disabled={clubSaving} onClick={closeCreateClub}>
+          <>
+            <Button type="button" variant="outline" disabled={clubSaving} onClick={closeCreateClub}>
               {tc('cancel')}
             </Button>
             <Button type="submit" form="create-club-form" loading={clubSaving} loadingLabel={t('savingClub')}>{t('createClub')}</Button>
-          </div>
+          </>
         )}
       >
         <form id="create-club-form" onSubmit={handleCreateClub} className="space-y-4">

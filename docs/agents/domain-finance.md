@@ -40,6 +40,16 @@ share of a club + bar total, in the app, reports, assistant data, or Telegram.
 Show each side's figures side by side instead. `totalExpenses` (every expense,
 whichever money paid it) exists only for expense-category breakdowns.
 
+Average daily income has one definition (`getAverageIncomeDayCounts` in
+`dashboardMetrics.ts`), used by the dashboard and financial analysis: each side
+divides its period income by the days from the range start through its own
+latest entry in the range (game club: latest daily cash entry or new debt; bar:
+latest stock count), or the full range when it has none.
+
+Financial analysis labels `income - spent` per side as **Profit** (accounting
+profit, after bar cost of goods sold). The dashboard's "Money left" is cash left;
+do not label one as the other.
+
 `debtIncome` in financial reports represents new debt principal for the period.
 Debt payments are collections used in retained/available game-club money; do not
 count the same cash as both new income and collection without checking the
@@ -76,7 +86,10 @@ available      = earned - prior withdrawals for the same month and source
 Positive money in another month or source cannot validate an over-withdrawal.
 The database RPC `withdraw_owner_money_for_month` atomically validates and records
 a custom positive amount for one month. For `all`, it allocates Game Club first,
-then Bar, without overdrawing either bucket. The legacy
+then Bar, without overdrawing either bucket; the form caps `all` at the sum of
+the two positive balances, a withdrawal limit only and never a figure shown as a
+club + bar total. Money Taken shows each side's remaining, earned and withdrawn
+separately (`AvailableMoneyResult` has no combined totals). The legacy
 `take_all_owner_money_for_month` remains available for older clients. Never
 replace these RPCs with direct browser inserts.
 

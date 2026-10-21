@@ -85,6 +85,10 @@ export default function DebtsPage() {
   // Club the open modal belongs to; a submit is refused if the selected club changed meanwhile.
   const [formClubId, setFormClubId] = useState<string | null>(null);
   const paymentsRequestSequence = useRef(0);
+  // Client ids reused across retries of one submit, so a save whose response was
+  // lost is recorded once (as /api/expenses does). Cleared on open, edit and success.
+  const addRequestId = useRef<string | null>(null);
+  const payRequestId = useRef<string | null>(null);
   const canManage = canManageDebts(role);
 
   const [addForm, setAddForm] = useState({
@@ -107,6 +111,10 @@ export default function DebtsPage() {
     setAddForm((prev) => (prev.date === previousToday ? { ...prev, date: nextToday } : prev));
     setPayForm((prev) => (prev.date === previousToday ? { ...prev, date: nextToday } : prev));
   });
+
+  // Edited values are a different record, not a retry of the last attempt.
+  useEffect(() => { addRequestId.current = null; }, [addForm]);
+  useEffect(() => { payRequestId.current = null; }, [payForm, payDebtId]);
 
   // A payment method the club no longer accepts falls back to its default.
   useEffect(() => {
@@ -255,6 +263,7 @@ export default function DebtsPage() {
       }
 
       const { error: err } = await supabase.from('new_debts').insert({
+        id: (addRequestId.current ??= crypto.randomUUID()),
         club_id: selectedClubId,
         person_name: addForm.person_name.trim(),
         amount,
@@ -266,12 +275,14 @@ export default function DebtsPage() {
         created_by: user.id,
       });
 
-      if (err) {
+      // 23505 on our own id: an earlier attempt of this submit was already saved.
+      if (err && err.code !== '23505') {
         console.error('Failed to save debt', err);
         setError(t('saveError'));
         return;
       }
 
+      addRequestId.current = null;
       setAddOpen(false);
       showToast(t('debtSaved'));
       await reloadDebts({ silent: true });
@@ -318,6 +329,7 @@ export default function DebtsPage() {
     try {
       const supabase = createClient();
       const { error: err } = await supabase.from('debt_payments').insert({
+        id: (payRequestId.current ??= crypto.randomUUID()),
         club_id: selectedClubId,
         debt_id: payDebtId,
         amount,
@@ -326,7 +338,8 @@ export default function DebtsPage() {
         comment: payForm.comment.trim() || null,
       });
 
-      if (err) {
+      // 23505 on our own id: an earlier attempt of this submit was already saved.
+      if (err && err.code !== '23505') {
         console.error('Failed to save debt payment', err);
         const issue = classifyDebtPaymentInsertError(err);
         setError(
@@ -346,6 +359,7 @@ export default function DebtsPage() {
         return;
       }
 
+      payRequestId.current = null;
       closePayModal();
       showToast(t('paymentSaved'));
       await reloadDebts({ silent: true });

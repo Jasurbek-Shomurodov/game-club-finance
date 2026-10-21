@@ -5,8 +5,8 @@ import { useTranslations } from 'next-intl';
 import { Banknote, Building2, Users, Wallet } from 'lucide-react';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
-  Button,
   Card,
+  ConfirmDialog,
   Disclosure,
   EmptyState,
   InlineAlert,
@@ -14,7 +14,6 @@ import {
   MetricCard,
   MetricGridSkeleton,
   MetricMoney,
-  Modal,
   PageHeader,
   SegmentedControl,
   useConfirm,
@@ -279,6 +278,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
       title: `${t(active ? 'activate' : 'deactivate')} · ${employee.name}`,
       description: t(active ? 'activateConfirm' : 'deactivateConfirm', { name: employee.name }),
       confirmLabel: t(active ? 'activate' : 'deactivate'),
+      tone: active ? 'primary' : 'danger',
     });
     if (!confirmed) return;
     mutating.current = true;
@@ -430,23 +430,22 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
         />
       )}
 
-      <Modal
+      <ConfirmDialog
         open={Boolean(deletion) && canEdit}
-        onClose={() => setDeletion(null)}
-        locked={saving}
+        tone="danger"
         title={t('deleteTitle')}
-        size="sm"
-        footer={(
+        description={(
           <>
-            <Button variant="outline" disabled={saving} onClick={() => setDeletion(null)}>{tc('cancel')}</Button>
-            <Button variant="danger" loading={savingTarget === 'delete'} loadingLabel={tc('saving')} onClick={() => void deleteRecord()}>{t('delete')}</Button>
+            <p className="mb-2 font-semibold text-gray-900">{deletion?.label}</p>
+            <p>{t(deletion?.kind === 'rate' ? 'deleteRateHelp' : 'deleteEntryHelp')}</p>
           </>
         )}
-      >
-        <p className="mb-3 font-semibold">{deletion?.label}</p>
-        <p className="text-sm leading-6 text-gray-600">{t(deletion?.kind === 'rate' ? 'deleteRateHelp' : 'deleteEntryHelp')}</p>
-        {deleteError && <InlineAlert variant="danger" className="mt-4">{deleteError}</InlineAlert>}
-      </Modal>
+        confirmLabel={t('delete')}
+        loading={saving}
+        error={deleteError || undefined}
+        onConfirm={() => void deleteRecord()}
+        onCancel={() => setDeletion(null)}
+      />
 
       {toastElement}
       {confirmDialog}

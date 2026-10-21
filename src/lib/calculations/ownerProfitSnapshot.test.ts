@@ -46,7 +46,6 @@ describe('owner profit snapshot', () => {
     expect(result.byMonth['2026-08'].gameClub.overdrawnBy).toBe(100);
     expect(result.total.gameClub.available).toBe(800);
     expect(result.total.bar.available).toBe(200);
-    expect(result.total.totalAvailable).toBe(1_000);
     expect(result.paymentMethodBalances).toEqual({
       cash: 700,
       terminal: 250,
@@ -70,11 +69,11 @@ it('shows zero remaining for July after full Club and Bar withdrawals', () => {
     withdrawalRows: [],
     paymentMethodBalancesByMonth: { '2026-07': { cash: 415_600, terminal: 1_221_400, card: 15_363_000 } },
   });
-  expect(byMonth['2026-07'].totalEarned).toBe(22_109_304);
-  expect(byMonth['2026-07'].totalWithdrawn).toBe(22_109_304);
+  expect(byMonth['2026-07'].gameClub.earned).toBe(17_000_000);
+  expect(byMonth['2026-07'].bar.withdrawn).toBe(5_109_304);
   expect(byMonth['2026-07'].gameClub.available).toBe(0);
   expect(byMonth['2026-07'].bar.available).toBe(0);
-  expect(byMonth['2026-07'].totalAvailable).toBe(0);
+  expect(byMonth['2026-07']).not.toHaveProperty('totalAvailable');
 });
 
 it('preserves monthly deficits and aggregate overdrawn flags', () => {
@@ -83,9 +82,10 @@ it('preserves monthly deficits and aggregate overdrawn flags', () => {
       bar_earned: 300, game_club_withdrawn: 200, bar_withdrawn: 0 }],
     withdrawalRows: [],
   });
-  expect(byMonth['2026-07'].totalAvailable).toBe(200);
+  expect(byMonth['2026-07'].bar.available).toBe(300);
   expect(byMonth['2026-07'].gameClub.available).toBe(-100);
-  expect(total.totalAvailable).toBe(300);
+  expect(total.gameClub.available).toBe(0);
+  expect(total.bar.available).toBe(300);
   expect(total.hasOverWithdrawal).toBe(true);
 });
 
@@ -163,12 +163,9 @@ describe('owner profit carryovers', () => {
 
     expect(result['2026-09'].bar).toEqual({ earned: 500, withdrawn: 0, available: 200, overdrawnBy: 0 });
     expect(result['2026-09'].gameClub.available).toBe(500);
-    expect(result['2026-09'].totalEarned).toBe(1_500);
-    expect(result['2026-09'].totalAvailable).toBe(700);
+    expect(result['2026-09'].gameClub.earned).toBe(1_000);
     expect(result['2026-10'].bar.available).toBe(300);
     expect(result['2026-10'].gameClub.available).toBe(600);
-    expect(result['2026-10'].totalEarned).toBe(200);
-    expect(result['2026-10'].totalAvailable).toBe(900);
     // The original balances are not mutated.
     expect(byMonth['2026-09'].bar.available).toBe(500);
   });

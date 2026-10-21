@@ -57,6 +57,13 @@ function shallowEqual<T extends object>(a: T, b: T): boolean {
 
 const MOTION = 'duration-[250ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none';
 
+/**
+ * The one scrim behind every dialog, sheet, drawer and picker. Plain black on
+ * purpose: the gray scale flips to near-white in dark mode, so `gray-950`
+ * would lighten the page instead of dimming it.
+ */
+export const SCRIM_CLASS = 'bg-black/40 backdrop-blur-[2px]';
+
 /** Dimmed, blurred backdrop that fades with the dialog. */
 export function backdropMotion(visible: boolean) {
   return cn('transition-opacity', MOTION, visible ? 'opacity-100' : 'opacity-0');

@@ -57,7 +57,8 @@ describe('buildFinancialAnalysis', () => {
       spent: 90_000,
       left: 205_000,
       marginPct: 69.5,
-      averageDailyIncome: Math.round(295_000 / 3),
+      // Like the dashboard: through the latest cash entry or new debt (Sep 2), not the range end.
+      averageDailyIncome: Math.round(295_000 / 2),
     });
     expect(analysis.indicators.gameClub.left).toBe(dashboard.gameClubProfit);
     // Bar: 50k sales in; 30k cost of goods sold + 10k bar-paid expenses out.
@@ -66,6 +67,7 @@ describe('buildFinancialAnalysis', () => {
       spent: 40_000,
       left: 10_000,
       marginPct: 20,
+      // Through the latest stock count (Sep 3).
       averageDailyIncome: Math.round(50_000 / 3),
     });
     expect(analysis.indicators.bar.left).toBe(dashboard.barProfit);

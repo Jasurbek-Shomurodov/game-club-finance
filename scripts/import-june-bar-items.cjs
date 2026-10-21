@@ -15,8 +15,6 @@ function parseArgs(argv) {
     workbook: DEFAULT_WORKBOOK,
     sourceSheet: DEFAULT_SOURCE_SHEET,
     date: DEFAULT_TARGET_DATE,
-    email: '',
-    password: '',
     clubId: '',
   };
 
@@ -25,8 +23,6 @@ function parseArgs(argv) {
     else if (arg.startsWith('--workbook=')) args.workbook = arg.slice('--workbook='.length);
     else if (arg.startsWith('--source-sheet=')) args.sourceSheet = arg.slice('--source-sheet='.length);
     else if (arg.startsWith('--date=')) args.date = arg.slice('--date='.length);
-    else if (arg.startsWith('--email=')) args.email = arg.slice('--email='.length);
-    else if (arg.startsWith('--password=')) args.password = arg.slice('--password='.length);
     else if (arg.startsWith('--club-id=')) args.clubId = arg.slice('--club-id='.length);
   });
 
@@ -91,40 +87,24 @@ function productKey(product) {
   ].join('|');
 }
 
-async function signInIfNeeded(supabase, args, env) {
-  const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (serviceKey) return null;
-
-  const email = args.email || env.SUPABASE_USER_EMAIL || process.env.SUPABASE_USER_EMAIL;
-  const password = args.password || env.SUPABASE_USER_PASSWORD || process.env.SUPABASE_USER_PASSWORD;
-
-  if (!email || !password) {
-    throw new Error(
-      'Apply mode needs either SUPABASE_SERVICE_ROLE_KEY or login credentials. ' +
-        'Pass --email=... --password=... or set SUPABASE_USER_EMAIL and SUPABASE_USER_PASSWORD.'
-    );
+async function getTargetClubId(supabase, args, supabaseUrl) {
+  // No default club: the service role bypasses RLS, so the target must be named
+  // explicitly and checked to exist before any row is written.
+  if (!args.clubId) {
+    throw new Error('Pass --club-id=<uuid> to choose the club explicitly.');
   }
-
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) throw error;
-  return data.session?.user?.id ?? null;
-}
-
-async function getTargetClubId(supabase, args) {
-  if (args.clubId) return args.clubId;
 
   const { data, error } = await supabase
     .from('clubs')
     .select('id, name')
-    .order('created_at', { ascending: true })
-    .limit(1)
+    .eq('id', args.clubId)
     .maybeSingle();
 
   if (error || !data?.id) {
-    throw new Error('Could not resolve target club. Pass --club-id=<uuid> after running the multi-club migration.');
+    throw new Error('No club with that --club-id.');
   }
 
-  console.log(`Target club: ${data.name} (${data.id})`);
+  console.log(`Target club: ${data.name} (${data.id}) at ${new URL(supabaseUrl).host}`);
   return data.id;
 }
 
@@ -163,21 +143,23 @@ async function main() {
     return;
   }
 
+  if (!args.clubId) {
+    throw new Error('Pass --club-id=<uuid> to choose the club explicitly.');
+  }
+
+  // Closing stock counts are written only by save_closing_stock_counts for
+  // signed-in users (migration 086), so this direct import needs the service role.
   const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL || env.SUPABASE_URL;
-  const supabaseKey =
-    env.SUPABASE_SERVICE_ROLE_KEY ||
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    env.SUPABASE_ANON_KEY;
+  const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Missing Supabase URL/key. Expected NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.');
+    throw new Error('Missing Supabase URL/key. Expected NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const userId = await signInIfNeeded(supabase, args, env);
-  const clubId = await getTargetClubId(supabase, args);
+  const clubId = await getTargetClubId(supabase, args, supabaseUrl);
 
   const { data: existingProducts, error: existingError } = await supabase
     .from('products')
@@ -225,7 +207,7 @@ async function main() {
       bar_income: 0,
       bar_cost: 0,
       bar_profit: 0,
-      created_by: userId,
+      created_by: null,
       updated_at: new Date().toISOString(),
     };
   });

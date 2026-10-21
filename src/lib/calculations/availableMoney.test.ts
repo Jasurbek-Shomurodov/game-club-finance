@@ -79,9 +79,8 @@ describe('available owner money', () => {
       available: 800_000,
       overdrawnBy: 0,
     });
-    expect(total.totalEarned).toBe(3_700_000);
-    expect(total.totalWithdrawn).toBe(1_400_000);
-    expect(total.totalAvailable).toBe(2_300_000);
+    // The game club and bar are separate businesses: no combined totals exist.
+    expect(total).not.toHaveProperty('totalAvailable');
     expect(total.hasOverWithdrawal).toBe(false);
   });
 
@@ -108,7 +107,7 @@ describe('available owner money', () => {
       available: 0,
       overdrawnBy: 0,
     });
-    expect(result.totalAvailable).toBe(0);
+    expect(result.bar.available).toBe(0);
   });
 
   it('does not let retained money from another month cover a withdrawal', () => {
@@ -127,7 +126,7 @@ describe('available owner money', () => {
 
     expect(result.gameClub.available).toBe(1_000);
     expect(result.gameClub.overdrawnBy).toBe(100);
-    expect(result.totalAvailable).toBe(1_000);
+    expect(result.bar.available).toBe(0);
     expect(result.invalidWithdrawals).toEqual([
       {
         id: 'august-overdraw',
@@ -153,7 +152,7 @@ describe('available owner money', () => {
     expect(result.gameClub.earned).toBe(700);
     expect(result.gameClub.available).toBe(1_000);
     expect(result.gameClub.overdrawnBy).toBe(300);
-    expect(result.totalAvailable).toBe(1_000);
+    expect(result.bar.available).toBe(0);
   });
 
   it('does not allow one source balance to cover a withdrawal from the other', () => {

@@ -2030,21 +2030,6 @@
     "file": "054_cache_ledger_read_permissions.sql",
     "probes": [
       {
-        "kind": "policy",
-        "table": "public.daily_stock_counts",
-        "name": "club_admin_insert_stock_counts"
-      },
-      {
-        "kind": "policy",
-        "table": "public.daily_stock_counts",
-        "name": "club_admin_update_stock_counts"
-      },
-      {
-        "kind": "policy",
-        "table": "public.daily_stock_counts",
-        "name": "club_admin_delete_stock_counts"
-      },
-      {
         "kind": "function",
         "signature": "public.current_user_readable_clubs(text[])"
       }
@@ -2914,6 +2899,25 @@
       {
         "kind": "function",
         "signature": "public.get_migration_probe_results(uuid,jsonb)"
+      }
+    ]
+  },
+  {
+    "file": "086_ledger_write_hardening.sql",
+    "probes": [
+      {
+        "kind": "trigger",
+        "table": "public.expenses",
+        "name": "trg_expense_date_guard"
+      },
+      {
+        "kind": "column",
+        "table": "public.debt_payments",
+        "column": "created_by"
+      },
+      {
+        "kind": "function",
+        "signature": "public.enforce_expense_business_date()"
       }
     ]
   }

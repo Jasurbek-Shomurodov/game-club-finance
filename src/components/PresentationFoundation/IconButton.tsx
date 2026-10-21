@@ -15,7 +15,8 @@ const variantClasses: Record<IconButtonVariant, string> = {
 };
 
 const sizeClasses: Record<IconButtonSize, string> = {
-  sm: 'h-8 w-8',
+  // 32px visually; on phones an invisible ring widens the hit area to 40px.
+  sm: "relative h-8 w-8 max-sm:before:absolute max-sm:before:-inset-1 max-sm:before:content-['']",
   md: 'h-10 w-10',
 };
 

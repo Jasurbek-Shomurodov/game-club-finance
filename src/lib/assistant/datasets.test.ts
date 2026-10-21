@@ -114,3 +114,33 @@ describe('tableForModel', () => {
     expect(result.rows).toHaveLength(MODEL_ROW_LIMIT);
   });
 });
+
+describe('dataset labels', () => {
+  it('has a translation in every language for each emitted metric and column', async () => {
+    const { buildFinancialAnalysis } = await import('@/lib/calculations/financialAnalysis');
+    const datasets = await import('./datasets');
+    const analysis = buildFinancialAnalysis({ from: '2026-10-01', to: '2026-10-31' }, {
+      cashRows: [], stockRows: [], purchaseRows: [], expenseRows: [], debtRows: [], debtPaymentRows: [],
+    });
+    const tables = [
+      datasets.summaryTable(analysis),
+      datasets.moneyTable(buildMoneyReport([], [])),
+      datasets.dailyTable([]),
+      datasets.monthlyTable([]),
+      datasets.categoriesTable(analysis),
+      expensesTable([]),
+      productSalesTable([]),
+      stockTable([]),
+      debtsTable([]),
+    ];
+    const columns = new Set(tables.flatMap((table) => table.columns.map((column) => column.key)));
+    const metrics = new Set(datasets.summaryTable(analysis).rows.map((row) => String(row.metric)));
+    for (const locale of ['en', 'ru', 'uz']) {
+      const { assistant } = (await import(`@/messages/${locale}.json`)).default as {
+        assistant: { columns: Record<string, string>; metrics: Record<string, string> };
+      };
+      expect([...columns].filter((key) => !assistant.columns[key]), locale).toEqual([]);
+      expect([...metrics].filter((key) => !assistant.metrics[key]), locale).toEqual([]);
+    }
+  });
+});

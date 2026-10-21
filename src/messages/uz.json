@@ -140,13 +140,13 @@
     "loadError": "Tahlilni yuklab bo‘lmadi. Internetni tekshirib, qayta urinib ko‘ring.",
     "moneyIn": "Kirim",
     "spent": "Sarflangan",
-    "left": "Qoldi",
+    "profit": "Foyda",
     "vsPrevious": "oldingi davrga nisbatan",
     "barMargin": "Bar marjasi",
     "barMarginHelper": "Bar savdosidan tannarx va bar xarajatlaridan keyin qolgan ulush",
     "flowSection": "Pul oqimi",
     "flowSectionDesc": "Klub va bar alohida ko‘rsatiladi; ularning pullari hech qachon qo‘shilmaydi.",
-    "flowDesc": "Chapda daromad, o‘ngda xarajatlar va qoldiq. To‘lovlarini ochish uchun toifa yoki oqimni bosing.",
+    "flowDesc": "Chapda daromad, o‘ngda xarajatlar va foyda. To‘lovlarini ochish uchun toifa yoki oqimni bosing.",
     "openFlow": "Ochish: {name}",
     "drill": {
       "gameClubLeft": "Klub foydasi",
@@ -177,7 +177,7 @@
     "gameClubExpenses": "Klub xarajatlari",
     "barExpenses": "Bar xarajatlari",
     "monthlyTitle": "Oxirgi 12 oy",
-    "monthlyDesc": "Oylik daromad va qoldiq, klub va bar uchun alohida.",
+    "monthlyDesc": "Oylik daromad va foyda, klub va bar uchun alohida.",
     "monthlyLoadError": "Oylik tarixni yuklab bo‘lmadi.",
     "detailsSection": "Tafsilotlar",
     "largestTitle": "Eng katta to‘lovlar",
@@ -1332,7 +1332,10 @@
       "line": "Qator",
       "collected": "Yig'ildi",
       "expenses": "Xarajatlar",
-      "left": "Qoldi"
+      "left": "Qoldi",
+      "gameClubIncome": "O'yin klubi daromadi",
+      "gameClubLeft": "O'yin klubi foydasi",
+      "barLeft": "Bar foydasi"
     },
     "metrics": {
       "income": "Daromad",
@@ -1351,7 +1354,14 @@
       "barMarginPct": "Bar marjasi",
       "salarySharePct": "Xarajatlarda maosh ulushi",
       "averageDailyIncome": "O'rtacha kunlik daromad",
-      "averageDailySpend": "O'rtacha kunlik sarf"
+      "averageDailySpend": "O'rtacha kunlik sarf",
+      "gameClubIncome": "O'yin klubi daromadi",
+      "gameClubLeft": "O'yin klubi foydasi",
+      "gameClubMarginPct": "O'yin klubi marjasi, %",
+      "gameClubAverageDailyIncome": "O'yin klubining o'rtacha kunlik daromadi",
+      "barSpent": "Bar sarfi (tannarx + xarajatlar)",
+      "barLeft": "Bar foydasi",
+      "barAverageDailySales": "Barning o'rtacha kunlik savdosi"
     },
     "moneyLines": {
       "cash": "Naqd pul",

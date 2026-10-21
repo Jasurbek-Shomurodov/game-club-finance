@@ -140,13 +140,13 @@
     "loadError": "Could not load the analysis. Check your connection and try again.",
     "moneyIn": "Money in",
     "spent": "Spent",
-    "left": "Left",
+    "profit": "Profit",
     "vsPrevious": "vs previous period",
     "barMargin": "Bar margin",
     "barMarginHelper": "Share of bar sales left after cost of goods and bar expenses",
     "flowSection": "Money flow",
     "flowSectionDesc": "The game club and the bar are traced separately; their money is never added together.",
-    "flowDesc": "Income on the left, spending and what is left on the right. Tap a category or stream to open its payments.",
+    "flowDesc": "Income on the left, spending and profit on the right. Tap a category or stream to open its payments.",
     "openFlow": "Open {name}",
     "drill": {
       "gameClubLeft": "Game club profit",
@@ -177,7 +177,7 @@
     "gameClubExpenses": "Game club expenses",
     "barExpenses": "Bar expenses",
     "monthlyTitle": "Last 12 months",
-    "monthlyDesc": "Monthly money in and money left, for the game club and the bar separately.",
+    "monthlyDesc": "Monthly money in and profit, for the game club and the bar separately.",
     "monthlyLoadError": "Could not load the monthly history.",
     "detailsSection": "Details",
     "largestTitle": "Largest payments",
@@ -1332,7 +1332,10 @@
       "line": "Line",
       "collected": "Collected",
       "expenses": "Expenses",
-      "left": "Left"
+      "left": "Left",
+      "gameClubIncome": "Game club income",
+      "gameClubLeft": "Game club profit",
+      "barLeft": "Bar profit"
     },
     "metrics": {
       "income": "Income",
@@ -1351,7 +1354,14 @@
       "barMarginPct": "Bar margin",
       "salarySharePct": "Salary share of expenses",
       "averageDailyIncome": "Average daily income",
-      "averageDailySpend": "Average daily spend"
+      "averageDailySpend": "Average daily spend",
+      "gameClubIncome": "Game club income",
+      "gameClubLeft": "Game club profit",
+      "gameClubMarginPct": "Game club margin, %",
+      "gameClubAverageDailyIncome": "Game club average daily income",
+      "barSpent": "Bar spent (cost of goods + expenses)",
+      "barLeft": "Bar profit",
+      "barAverageDailySales": "Bar average daily sales"
     },
     "moneyLines": {
       "cash": "Cash",

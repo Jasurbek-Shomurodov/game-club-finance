@@ -321,14 +321,25 @@ export default function ReportsPage() {
   const loadFailed = reportQuery.error;
   // A failed load shows no figures, even after a silent reload.
   const reportRows = loadFailed ? emptyReportRows : reportQuery.data;
+  // Summary and payment-method cards always describe the whole period: a category
+  // filter narrows only the closeout table, so it cannot zero out bar sales or
+  // stock purchases in the "left" figures.
   const report = useMemo(() => buildFilteredMoneyReport(
+    reportRows.cash,
+    reportRows.expenses,
+    reportRows.debtPayments,
+    'all',
+    reportRows.barSales,
+    reportRows.stockPurchases,
+  ), [reportRows]);
+  const filteredReport = useMemo(() => (categoryFilter === 'all' ? report : buildFilteredMoneyReport(
     reportRows.cash,
     reportRows.expenses,
     reportRows.debtPayments,
     categoryFilter,
     reportRows.barSales,
     reportRows.stockPurchases,
-  ), [categoryFilter, reportRows]);
+  )), [categoryFilter, report, reportRows]);
 
   // Dialogs belong to the club they were opened for: close them on a club switch.
   useEffect(() => {
@@ -428,7 +439,7 @@ export default function ReportsPage() {
     { method: 'playstation' as const, label: t('playstation'), icon: Gamepad2 },
   ];
 
-  const closeoutRows = useMemo<CloseoutRow[]>(() => report.days.flatMap((day) => [
+  const closeoutRows = useMemo<CloseoutRow[]>(() => filteredReport.days.flatMap((day) => [
     {
       kind: 'day' as const,
       key: `day:${day.date}`,
@@ -445,7 +456,7 @@ export default function ReportsPage() {
       date: day.date,
       activity,
     })),
-  ]), [report.days]);
+  ]), [filteredReport.days]);
 
   const closeoutColumns: DataTableColumn<CloseoutRow>[] = [
     {

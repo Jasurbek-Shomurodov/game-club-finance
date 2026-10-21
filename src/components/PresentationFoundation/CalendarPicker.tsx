@@ -19,7 +19,7 @@ import { formatDatePickerValue, formatYearMonth } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { Button } from './Button';
 import { isTopModal, trapFocus, useFocusOrigin, useModalLayer } from './Modal';
-import { backdropMotion, sheetMotion, usePresence } from './motion';
+import { SCRIM_CLASS, backdropMotion, sheetMotion, usePresence } from './motion';
 
 /**
  * Dialog plumbing shared by the date and month pickers: joins the modal stack
@@ -292,7 +292,7 @@ function CalendarDialog({ open, mode, from, to = '', min, max, onClose, onApply 
       aria-hidden={!open || undefined}
       onMouseDown={() => open && onClose()}
     >
-      <div className={cn('absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]', backdropMotion(visible))} aria-hidden="true" />
+      <div className={cn('absolute inset-0', SCRIM_CLASS, backdropMotion(visible))} aria-hidden="true" />
       <section
         ref={panelRef}
         tabIndex={-1}
@@ -392,7 +392,7 @@ function CalendarDialog({ open, mode, from, to = '', min, max, onClose, onApply 
           )}
         </div>
 
-        <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-gray-100 bg-surface px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-gray-100 bg-surface px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <p className="text-xs font-semibold text-gray-500">
             {formatDatePickerValue(draftFrom, locale)}
             {mode === 'range' && draftTo && ` → ${formatDatePickerValue(draftTo, locale)}`}
@@ -568,7 +568,7 @@ export function MonthPicker({ value, onChange, min, max, disabled = false, class
           aria-hidden={!open || undefined}
           onMouseDown={() => setOpen(false)}
         >
-          <div className={cn('absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]', backdropMotion(visible))} aria-hidden="true" />
+          <div className={cn('absolute inset-0', SCRIM_CLASS, backdropMotion(visible))} aria-hidden="true" />
           <section
             ref={panelRef}
             tabIndex={-1}
@@ -576,19 +576,19 @@ export function MonthPicker({ value, onChange, min, max, disabled = false, class
             aria-modal="true"
             aria-label={t('selectMonth')}
             className={cn(
-              'relative w-full max-w-xl rounded-t-2xl border border-gray-200 bg-surface pb-[env(safe-area-inset-bottom)] shadow-2xl outline-none sm:rounded-2xl',
+              'relative flex max-h-[94dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-2xl border border-gray-200 bg-surface shadow-2xl outline-none sm:rounded-2xl',
               sheetMotion(visible),
             )}
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <header className="flex items-center gap-3 border-b border-gray-100 px-4 py-4 sm:px-5">
+            <header className="flex shrink-0 items-center gap-3 border-b border-gray-100 px-4 py-4 sm:px-5">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 text-primary-600"><CalendarDays size={20} /></span>
               <div>
                 <h2 className="text-lg font-extrabold text-gray-950">{t('selectMonth')}</h2>
                 <p className="text-sm font-medium text-gray-500">{t('monthDescription')}</p>
               </div>
             </header>
-            <div className="p-4 sm:p-5">
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
               <div className="flex items-center justify-between">
                 <button type="button" onClick={() => setYear((current) => current - 1)} disabled={Boolean(min && `${year - 1}-12` < min)} className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-30" aria-label={t('previousYear')}><ChevronLeft size={19} /></button>
                 <p className="font-extrabold text-gray-950">{year}</p>
@@ -620,7 +620,7 @@ export function MonthPicker({ value, onChange, min, max, disabled = false, class
                 })}
               </div>
             </div>
-            <footer className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3 sm:px-5">
+            <footer className="flex shrink-0 justify-end gap-2 border-t border-gray-100 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5">
               <Button variant="outline" size="sm" onClick={() => setOpen(false)}>{t('cancel')}</Button>
             </footer>
           </section>

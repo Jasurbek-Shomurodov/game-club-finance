@@ -340,6 +340,9 @@ export default function MoneyTakenPage() {
     if (!availableForMonth) return 0;
     const gameClubAvailable = Math.max(0, availableForMonth.gameClub.available);
     const barAvailable = Math.max(0, availableForMonth.bar.available);
+    // "All" is one RPC call that takes Game Club first, then Bar, never overdrawing
+    // either: its cap is the sum of the two independent positive balances. This is
+    // a withdrawal limit only, not a combined club + bar figure shown to anyone.
     const sourceBalance = form.source === 'all'
       ? gameClubAvailable + barAvailable
       : form.source === 'bar'
@@ -356,7 +359,6 @@ export default function MoneyTakenPage() {
     [paymentMethodBalances, withdrawals, form.month, carryovers],
   );
   const monthCarried = useMemo(() => carryoversForMonth(carryovers, form.month), [carryovers, form.month]);
-  const monthlyCarried = monthCarried.bySource.game_club + monthCarried.bySource.bar;
   const monthHasCarryovers = carryovers.some((row) => (
     row.from_month.slice(0, 7) === form.month || row.to_month.slice(0, 7) === form.month
   ));
@@ -395,9 +397,17 @@ export default function MoneyTakenPage() {
     });
   }, [withdrawable]);
 
-  const monthlyOverallProfit = monthlyBalance?.totalEarned ?? 0;
-  const monthlyWithdrawn = monthlyBalance?.totalWithdrawn ?? 0;
-  const monthlyAvailable = monthlyBalance?.totalAvailable ?? 0;
+  // The game club and the bar are separate businesses: each shows its own figures.
+  const headlineSources = (['game_club', 'bar'] as const).map((source) => {
+    const balance = source === 'game_club' ? monthlyBalance?.gameClub : monthlyBalance?.bar;
+    return {
+      source,
+      earned: balance?.earned ?? 0,
+      withdrawn: balance?.withdrawn ?? 0,
+      available: balance?.available ?? 0,
+      carried: monthCarried.bySource[source],
+    };
+  });
   const amountValue = parseCurrencyInput(form.amount);
   const amountValid = Number.isFinite(amountValue) && amountValue > 0 && amountValue <= withdrawable;
   // Carryovers move money between months of one source (and one Game Club method).
@@ -749,14 +759,6 @@ export default function MoneyTakenPage() {
     },
   ];
 
-  const breakdownFooter = {
-    label: tc('total'),
-    earned: amountCell(monthlyOverallProfit, metricToneClassName[toneForAmount(monthlyOverallProfit, 'default')]),
-    carried: carriedCell(monthlyCarried),
-    withdrawn: amountCell(monthlyWithdrawn, monthlyWithdrawn > 0 ? 'text-danger-600' : 'text-gray-400'),
-    available: amountCell(monthlyAvailable, metricToneClassName[toneForAmount(monthlyAvailable)]),
-  };
-
   const historyRows: HistoryRow[] = [
     ...withdrawalMonths.flatMap(([month, rows]) => rows.map((withdrawal) => ({
       kind: 'withdrawal' as const, id: withdrawal.id, month, withdrawal,
@@ -859,43 +861,46 @@ export default function MoneyTakenPage() {
         </LoadErrorAlert>
       ) : null}
 
-      {/* The one number that matters: what the owner can still take out this month. */}
+      {/* What the owner can still take out this month, per business: never added together. */}
       <Card as="section" padding="lg" aria-labelledby="owner-profit-headline">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 flex-1">
-            <p id="owner-profit-headline" className="text-[13px] font-medium text-gray-500">
-              {t('monthlyRemaining')} · {formatYearMonth(form.month, locale)}
-            </p>
-            {loading ? (
-              <div className="mt-3 space-y-2" role="status" aria-label={tc('loading')}>
-                <Skeleton className="h-10 w-64 max-w-full" />
-                <Skeleton className="h-3 w-40 bg-gray-100" />
-              </div>
-            ) : (
-              <p className={cn('mt-2 break-words text-3xl font-bold leading-none tracking-tight tabular-nums sm:text-4xl', metricToneClassName[toneForAmount(monthlyAvailable)])}>
-                {formatCurrency(monthlyAvailable)}
-                <span className="ml-2 text-base font-medium tracking-normal text-gray-500">{tc('currency')}</span>
-              </p>
-            )}
-            {!loading && (
-              <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-                <div className="flex items-baseline gap-2">
-                  <dt className="text-gray-500">{t('earnedBeforeWithdrawals')}</dt>
-                  <dd className="font-semibold tabular-nums text-gray-900">{formatCurrency(monthlyOverallProfit)}</dd>
+        <p id="owner-profit-headline" className="text-[13px] font-medium text-gray-500">
+          {t('monthlyRemaining')} · {formatYearMonth(form.month, locale)}
+        </p>
+        <div className="mt-3 grid gap-5 sm:grid-cols-2">
+          {headlineSources.map((side) => (
+            <div key={side.source} className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900">{t(`sources.${side.source}`)}</p>
+              {loading ? (
+                <div className="mt-3 space-y-2" role="status" aria-label={tc('loading')}>
+                  <Skeleton className="h-10 w-48 max-w-full" />
+                  <Skeleton className="h-3 w-40 bg-gray-100" />
                 </div>
-                <div className="flex items-baseline gap-2">
-                  <dt className="text-gray-500">{t('monthlyWithdrawn')}</dt>
-                  <dd className={cn('font-semibold tabular-nums', monthlyWithdrawn > 0 ? 'text-danger-600' : 'text-gray-900')}>{formatCurrency(monthlyWithdrawn)}</dd>
-                </div>
-                {monthHasCarryovers ? (
-                  <div className="flex items-baseline gap-2">
-                    <dt className="text-gray-500">{t('carriedColumn')}</dt>
-                    <dd className="font-semibold">{carriedCell(monthlyCarried)}</dd>
-                  </div>
-                ) : null}
-              </dl>
-            )}
-          </div>
+              ) : (
+                <>
+                  <p className={cn('mt-2 break-words text-3xl font-bold leading-none tracking-tight tabular-nums sm:text-4xl', metricToneClassName[toneForAmount(side.available)])}>
+                    {formatCurrency(side.available)}
+                    <span className="ml-2 text-base font-medium tracking-normal text-gray-500">{tc('currency')}</span>
+                  </p>
+                  <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                    <div className="flex items-baseline gap-2">
+                      <dt className="text-gray-500">{t('earnedBeforeWithdrawals')}</dt>
+                      <dd className="font-semibold tabular-nums text-gray-900">{formatCurrency(side.earned)}</dd>
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <dt className="text-gray-500">{t('monthlyWithdrawn')}</dt>
+                      <dd className={cn('font-semibold tabular-nums', side.withdrawn > 0 ? 'text-danger-600' : 'text-gray-900')}>{formatCurrency(side.withdrawn)}</dd>
+                    </div>
+                    {monthHasCarryovers ? (
+                      <div className="flex items-baseline gap-2">
+                        <dt className="text-gray-500">{t('carriedColumn')}</dt>
+                        <dd className="font-semibold">{carriedCell(side.carried)}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                </>
+              )}
+            </div>
+          ))}
         </div>
       </Card>
 
@@ -913,7 +918,6 @@ export default function MoneyTakenPage() {
             minWidth={640}
             columns={breakdownColumns}
             data={breakdownRows}
-            footer={breakdownFooter}
             keyExtractor={(row) => row.key}
             rowClassName={(row) => (row.nested ? 'bg-gray-50/40' : undefined)}
           />

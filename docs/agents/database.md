@@ -43,8 +43,9 @@ through `current_user_readable_clubs(text[])` once per statement. It delegates
 to the existing membership feature helper and never accepts a caller-supplied
 user ID. Keep the policy subquery uncorrelated: passing each ledger row's club
 into a permission function repeats membership work across history scans.
-Stock insert/update/delete policies retain 033's predicates, but are separate
-operations so the old `FOR ALL` write checks no longer run during SELECT.
+Stock insert/update/delete policies retained 033's predicates as separate
+operations; migration 086 dropped them, so closing stock is written only by
+`save_closing_stock_counts`.
 `ledgerReadPermissions.test.ts` executes the original and new policies in local
 PostgreSQL and compares read/write results, cross-club denial, and the query plan.
 
@@ -56,8 +57,9 @@ database. Owning one club grants nothing in another: membership inserts,
 updates and deletes require `current_user_club_role(club_id) = 'owner'`, and an
 insert may only add an open access request (no memberships, not rejected) or
 someone who already shares a club with the caller. Profiles are readable as
-self, by club-mates, or (for owners) as open requests; updates are limited to
-people in a club the caller owns. A membership's `club_id`/`user_id` cannot be
+self, by club-mates, or (for owners) as open requests. Browser roles have no
+`UPDATE` on `profiles` since 086; rejections use `reject_access_request` or
+the service-role `/api/team/reject`. A membership's `club_id`/`user_id` cannot be
 changed. `current_user_is_global_owner()` remains only for
 `create_club_with_owner`. `reject_access_request` locks the profile, re-checks
 that it is still an open request and marks it rejected; `/api/team/reject`
@@ -239,6 +241,18 @@ Migration 084 gives `daily_cash_entries.created_by` an `auth.uid()` default,
 requires it to be the signed-in user on insert (as 075 does for `new_debts`),
 and keeps `created_at`/`created_by` fixed on update so the admin 15-minute
 edit window, which is measured from `created_at`, cannot be reopened.
+
+Migration 086 hardens ledger writes: it drops the direct
+`daily_stock_counts` write policies (admins could PATCH `previous_stock` or
+`sale_price` and inflate bar income); gives `expenses.created_by` and the new
+nullable `debt_payments.created_by` an `auth.uid()` default and requires the
+signed-in user on insert (older rows stay unattributed); rejects expenses
+dated after `club_business_date` (errcode 22007, which `POST /api/expenses`
+maps to 400); revokes `UPDATE` on `profiles` from `anon`/`authenticated`; and
+pins `handle_debt_payment`'s `search_path`. Direct stock imports must use the
+service role. Debt and payment inserts send a client `id` reused across retries;
+a 23505 on it means the earlier attempt was saved.
+`ledgerWriteHardeningMigration.test.ts` runs it twice in PGlite.
 
 Migration 082 restates `record_salary_entry_with_status` (077) with
 `create or replace` and the `club_role_read_stock_purchases` policy (081)

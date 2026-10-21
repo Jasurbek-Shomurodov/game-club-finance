@@ -9,7 +9,7 @@ import {
   calculateInventoryValueFromLatestStockCounts,
   countDashboardRangeDays,
   countDashboardRangeDaysThroughDate,
-  getDashboardAverageDayCount,
+  getAverageIncomeDayCounts,
   getDashboardComparisonRange,
   getDashboardRange,
   getLatestRowDateInRange,
@@ -488,29 +488,8 @@ describe('dashboard metrics', () => {
     });
   });
 
-  it('counts average days for current periods through the selected date', () => {
+  it('counts range days and averages daily income', () => {
     expect(countDashboardRangeDays({ from: '2026-07-01', to: '2026-07-31' })).toBe(31);
-    expect(
-      getDashboardAverageDayCount(
-        'month',
-        { from: '2026-07-01', to: '2026-07-31' },
-        '2026-07-06',
-      ),
-    ).toBe(6);
-    expect(
-      getDashboardAverageDayCount(
-        'week',
-        { from: '2026-07-06', to: '2026-07-12' },
-        '2026-07-08',
-      ),
-    ).toBe(3);
-    expect(
-      getDashboardAverageDayCount(
-        'lastMonth',
-        { from: '2026-06-01', to: '2026-06-30' },
-        '2026-07-06',
-      ),
-    ).toBe(30);
     expect(calculateAverageDailyIncome(10_000, 3)).toBe(3_333);
   });
 
@@ -527,5 +506,17 @@ describe('dashboard metrics', () => {
     expect(latestCashierEntryDate).toBe('2026-07-04');
     expect(countDashboardRangeDaysThroughDate(range, latestCashierEntryDate)).toBe(4);
     expect(calculateAverageDailyIncome(10_254_000, 4)).toBe(2_563_500);
+  });
+
+  it('counts average days per business through each side\'s latest entry', () => {
+    const range = { from: '2026-07-01', to: '2026-07-31' };
+
+    expect(getAverageIncomeDayCounts(range, {
+      cashRows: [{ date: '2026-07-03' }, { date: '2026-08-02' }],
+      debtRows: [{ date: '2026-07-05' }, {}],
+      stockRows: [{ date: '2026-07-02' }, { date: '2026-06-30' }],
+    })).toEqual({ gameClub: 5, bar: 2 });
+    // Without entries in the range, the whole range counts.
+    expect(getAverageIncomeDayCounts(range, { cashRows: [], stockRows: [] })).toEqual({ gameClub: 31, bar: 31 });
   });
 });

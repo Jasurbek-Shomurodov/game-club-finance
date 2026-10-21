@@ -1,5 +1,6 @@
 import {
   calculateDashboardTotals,
+  getAverageIncomeDayCounts,
   percentChange,
   sumGameClubRows,
   type DailyCashRow,
@@ -286,25 +287,29 @@ function sourceIndicators(flow: { income: number; spent: number; left: number },
   };
 }
 
-export function buildAnalysisIndicators(totals: DashboardTotals, dayCount: number): AnalysisIndicators {
-  const days = Math.max(1, dayCount);
+/** Day counts are per business; see getAverageIncomeDayCounts for the shared definition. */
+export function buildAnalysisIndicators(
+  totals: DashboardTotals,
+  dayCounts: { gameClub: number; bar: number },
+): AnalysisIndicators {
   return {
-    gameClub: sourceIndicators(gameClubFlow(totals), days),
-    bar: sourceIndicators(barFlow(totals), days),
+    gameClub: sourceIndicators(gameClubFlow(totals), Math.max(1, dayCounts.gameClub)),
+    bar: sourceIndicators(barFlow(totals), Math.max(1, dayCounts.bar)),
   };
 }
 
 export function buildFinancialAnalysis(
   range: { from: string; to: string },
   ledgers: AnalysisLedgers,
-  options: { averageDayCount?: number; largestCount?: number } = {},
+  options: { largestCount?: number } = {},
 ): FinancialAnalysis {
   const totals = analysisTotals(ledgers);
   const categories = groupExpensesByCategory(ledgers.expenseRows);
   const topCategories = foldCategories(categories);
   return {
     totals,
-    indicators: buildAnalysisIndicators(totals, options.averageDayCount ?? datesInRange(range).length),
+    // Same "average daily income" as the dashboard: each side through its latest entry.
+    indicators: buildAnalysisIndicators(totals, getAverageIncomeDayCounts(range, ledgers)),
     sources: incomeSources(totals),
     categories,
     topCategories,

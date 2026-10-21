@@ -7,7 +7,8 @@ import { actorName } from '@/lib/telegram/actorName';
 import { buildExpenseNotification } from '@/lib/telegram/expenseNotification';
 import { targetChatId } from '@/lib/telegram/clubChat';
 import { deleteTelegramMessage } from '@/lib/telegram/deleteTelegramMessage';
-import { sendTelegramMessage } from '@/lib/telegram/sendDailyFinanceReport';
+import { isIsoDate, sendTelegramMessage } from '@/lib/telegram/sendDailyFinanceReport';
+import { serverTodayIso } from '@/lib/utils';
 import { PAYMENT_METHODS, type Expense } from '@/types';
 import { expenseErrorCode, expenseErrorResponse } from './errors';
 
@@ -48,7 +49,8 @@ interface DeleteExpenseRequestBody {
 function isValidBody(body: ExpenseRequestBody): body is ValidExpenseRequestBody {
   return (body.id === undefined || isId(body.id))
     && isId(body.clubId)
-    && /^\d{4}-\d{2}-\d{2}$/.test(String(body.date))
+    && typeof body.date === 'string'
+    && isIsoDate(body.date)
     && typeof body.amount === 'number'
     && Number.isFinite(body.amount)
     && body.amount > 0
@@ -59,8 +61,12 @@ function isValidBody(body: ExpenseRequestBody): body is ValidExpenseRequestBody 
     && (body.comment === null || body.comment === undefined || (typeof body.comment === 'string' && body.comment.length <= 300));
 }
 
+/** Postgres invalid/out-of-range datetime (e.g. the future-date guard of migration 086). */
+const INVALID_DATE_CODES = new Set(['22007', '22008']);
+
 function failure(scope: string, context: Record<string, unknown>, error: DatabaseError) {
   console.error(`[expenses] ${scope} failed`, { ...context, code: error.code, error: error.message });
+  if (error.code && INVALID_DATE_CODES.has(error.code)) return expenseErrorResponse('INVALID_REQUEST');
   return expenseErrorResponse(expenseErrorCode(error));
 }
 
@@ -126,11 +132,15 @@ export async function POST(request: Request) {
   // Only the club's configured methods are accepted; RLS scopes the read to the caller's clubs.
   const { data: club, error: clubError } = await supabase
     .from('clubs')
-    .select('enabled_payment_methods')
+    .select('enabled_payment_methods, business_day_start_hour')
     .eq('id', body.clubId)
     .maybeSingle();
   if (clubError) return failure('club lookup', context, clubError);
   if (!club) return expenseErrorResponse('FORBIDDEN');
+  // An expense cannot be dated after the club's business today (also enforced by 086).
+  if (body.date > serverTodayIso(new Date(), club.business_day_start_hour)) {
+    return expenseErrorResponse('INVALID_REQUEST');
+  }
   if (!normalizePaymentMethods(club.enabled_payment_methods).includes(body.paymentMethod)) {
     return expenseErrorResponse('PAYMENT_METHOD_DISABLED');
   }

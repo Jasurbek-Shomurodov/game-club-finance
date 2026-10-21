@@ -15,6 +15,7 @@ Tokens: `src/app/globals.css` and `tailwind.config`; components:
 
 | Date | Commit | Scope | Findings (S0/S1/S2) | Checks run | Not run |
 |---|---|---|---|---|---|
+| 2026-10-21 | bf05b6e | full (code-based, components and dialogs) + fix | 1/10/7 (S0: MonthPicker sheet unscrollable at short heights; S1: picker/modal/drawer safe-area insets, nested scroll in Bulk stock, 36px close buttons, 32px touch targets, DataTable empty state in 720px table, scrim colours, activate confirm in danger tone, missing Stepper focus ring, sub-12px text) | `npx vitest run src/components`, typecheck, lint | Live screenshots and size sweep (no local signed-in session); sub-12px text and badge wrap at 280px left for a browser pass |
 
 ## LAY — layout and frames
 

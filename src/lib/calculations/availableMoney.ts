@@ -55,9 +55,6 @@ export interface InvalidOwnerWithdrawal {
 export interface AvailableMoneyResult {
   gameClub: AvailableSourceBalance;
   bar: AvailableSourceBalance;
-  totalEarned: number;
-  totalWithdrawn: number;
-  totalAvailable: number;
   hasOverWithdrawal: boolean;
   /** Withdrawals that exceeded their source balance within their month. */
   invalidWithdrawals: InvalidOwnerWithdrawal[];
@@ -113,9 +110,6 @@ function emptyResult(): AvailableMoneyResult {
   return {
     gameClub: { earned: 0, withdrawn: 0, available: 0, overdrawnBy: 0 },
     bar: { earned: 0, withdrawn: 0, available: 0, overdrawnBy: 0 },
-    totalEarned: 0,
-    totalWithdrawn: 0,
-    totalAvailable: 0,
     hasOverWithdrawal: false,
     invalidWithdrawals: [],
   };
@@ -231,9 +225,6 @@ function calculateMonthResult({
       available: barAvailable,
       overdrawnBy: Math.max(0, -barAvailable),
     },
-    totalEarned: earnedBySource.game_club + earnedBySource.bar,
-    totalWithdrawn: withdrawalsBySource.game_club + withdrawalsBySource.bar,
-    totalAvailable: gameClubAvailable + barAvailable,
     hasOverWithdrawal: invalidWithdrawals.length > 0,
     invalidWithdrawals,
   };
@@ -327,9 +318,6 @@ export function sumAvailableMoneyResults(results: AvailableMoneyResult[]): Avail
     total.bar.withdrawn += result.bar.withdrawn;
     total.bar.available += Math.max(0, result.bar.available);
     total.bar.overdrawnBy += result.bar.overdrawnBy;
-    total.totalEarned += result.totalEarned;
-    total.totalWithdrawn += result.totalWithdrawn;
-    total.totalAvailable = total.gameClub.available + total.bar.available;
     total.invalidWithdrawals.push(...result.invalidWithdrawals);
     total.hasOverWithdrawal ||= result.hasOverWithdrawal;
     return total;

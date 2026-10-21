@@ -3,8 +3,7 @@ import {
   calculateAverageDailyIncome,
   calculateDashboardTotals,
   calculateInventoryValueFromLatestStockCounts,
-  countDashboardRangeDaysThroughDate,
-  getLatestRowDateInRange,
+  getAverageIncomeDayCounts,
   percentChange,
   sumGameClubRows,
 } from '../calculations/dashboardMetrics';
@@ -356,19 +355,17 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
     rows.previousMonthDebtPaymentRows ?? [],
     rows.debtRows,
   );
-  const latestDailyCashEntryDate = getLatestRowDateInRange(rows.monthCashRows ?? rows.cashRows, monthRange);
-  const averageRevenueDayCount = countDashboardRangeDaysThroughDate(
-    monthRange,
-    latestDailyCashEntryDate,
-  );
-  const previousLatestDailyCashEntryDate = getLatestRowDateInRange(
-    rows.previousMonthCashRows ?? [],
-    previousMonthRange,
-  );
-  const previousAverageDayCount = countDashboardRangeDaysThroughDate(
-    previousMonthRange,
-    previousLatestDailyCashEntryDate,
-  );
+  // Same day counts as the dashboard and financial analysis (latest cash entry or new debt).
+  const averageRevenueDayCount = getAverageIncomeDayCounts(monthRange, {
+    cashRows: rows.monthCashRows ?? rows.cashRows,
+    debtRows: monthDebtRows,
+    stockRows: [],
+  }).gameClub;
+  const previousAverageDayCount = getAverageIncomeDayCounts(previousMonthRange, {
+    cashRows: rows.previousMonthCashRows ?? [],
+    debtRows: previousMonthDebtRows,
+    stockRows: [],
+  }).gameClub;
   const previousAverageDailyGameClubIncome = calculateAverageDailyIncome(
     previousMonthTotals.gameClubIncome,
     previousAverageDayCount,

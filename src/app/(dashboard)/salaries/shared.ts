@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import type { SalaryEmployeeStatus, SalaryEntry, SalaryRate } from '@/lib/calculations/salaries';
 import { formatCurrency } from '@/lib/formatters';
 import { isSalaryErrorCode, type SalaryErrorCode } from '@/app/api/salaries/errors';
+import { mutateFinanceRequest } from '@/lib/supabase/client';
 
 export const employeeRoles = ['Manager', 'Admin', 'Cleaner'] as const;
 
@@ -31,7 +32,9 @@ export class SalaryRequestError extends Error {
 }
 
 export async function postSalary(clubId: string, body: Record<string, unknown>) {
-  const response = await fetch('/api/salaries', {
+  // A salary write also inserts an expense; clear the browser read cache so the
+  // page's reload and other screens see it instead of a cached response.
+  const response = await mutateFinanceRequest('/api/salaries', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ clubId, ...body }),

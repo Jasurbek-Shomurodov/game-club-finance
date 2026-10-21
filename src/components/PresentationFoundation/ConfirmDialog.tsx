@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useId, useRef, useState, type ReactNode } from 'react';
-import { TriangleAlert } from 'lucide-react';
+import { Info, TriangleAlert } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button } from './Button';
 import { Modal } from './Modal';
@@ -55,9 +55,15 @@ export function ConfirmDialog({
       )}
     >
       <div className="flex gap-3">
-        <span className={tone === 'danger' ? 'mt-0.5 shrink-0 text-danger-500' : 'mt-0.5 shrink-0 text-primary-600'}>
-          <TriangleAlert size={22} aria-hidden="true" />
-        </span>
+        {tone === 'danger' ? (
+          <span className="mt-0.5 shrink-0 text-danger-500">
+            <TriangleAlert size={22} aria-hidden="true" />
+          </span>
+        ) : (
+          <span className="mt-0.5 shrink-0 text-primary-600">
+            <Info size={22} aria-hidden="true" />
+          </span>
+        )}
         <div className="min-w-0">
           <h2 id={titleId} className="text-base font-bold text-gray-950">{title}</h2>
           {description && <div className="mt-1 text-sm leading-6 text-gray-600">{description}</div>}

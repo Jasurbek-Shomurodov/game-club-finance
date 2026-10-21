@@ -241,6 +241,8 @@ export interface DebtPayment {
   amount: number;
   payment_method: string;
   comment: string | null;
+  /** Author; null for payments recorded before migration 086. */
+  created_by: string | null;
   created_at: string;
 }
 

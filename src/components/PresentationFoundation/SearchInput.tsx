@@ -46,7 +46,7 @@ export function SearchInput({
           type="button"
           aria-label={clearLabel ?? tc('clearSearch')}
           onClick={() => onChange('')}
-          className="absolute right-1.5 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+          className="absolute right-1.5 top-1/2 flex h-8 w-8 max-sm:before:absolute max-sm:before:-inset-1 max-sm:before:content-[''] -translate-y-1/2 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
         >
           <X size={15} />
         </button>
