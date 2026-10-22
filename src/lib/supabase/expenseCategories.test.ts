@@ -16,6 +16,7 @@ beforeAll(async () => {
   `);
   await db.exec(readFileSync(resolve('migrations/068_unify_expense_categories.sql'), 'utf8'));
   await db.exec(readFileSync(resolve('migrations/069_remove_other_expense_category.sql'), 'utf8'));
+  await db.exec(readFileSync(resolve('migrations/088_investments_expense_category.sql'), 'utf8'));
 });
 afterAll(async () => { await db?.close(); });
 

@@ -2,12 +2,12 @@
 export const MANUAL_EXPENSE_CATEGORIES = [
   'rent', 'electricity', 'internet', 'repair', 'cleaning',
   'food_drinks', 'marketing', 'equipment', 'tax',
-  'correction', 'discount', 'supplies',
+  'correction', 'discount', 'supplies', 'investments',
 ] as const;
 
 /**
  * Every category an expense row may have. `salary` is written only by the
- * payroll flow (record_salary_entry), never chosen by hand. Migrations 068-070
+ * payroll flow (record_salary_entry), never chosen by hand. Migrations 068, 069 and 088
  * enforce this list in the database.
  */
 export const EXPENSE_CATEGORIES = [

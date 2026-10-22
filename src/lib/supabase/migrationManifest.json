@@ -2935,5 +2935,15 @@
         "name": "clubs_internet_payment_day_range"
       }
     ]
+  },
+  {
+    "file": "088_investments_expense_category.sql",
+    "probes": [
+      {
+        "kind": "constraint",
+        "table": "public.expenses",
+        "name": "expenses_category_allowed"
+      }
+    ]
   }
 ]

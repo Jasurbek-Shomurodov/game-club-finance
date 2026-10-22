@@ -215,6 +215,8 @@ table as no carryovers.
 
 Migration 068 fixes expense categories to `rent, salary, electricity, internet, repair, cleaning, food_drinks, marketing, equipment, tax, correction, discount, other` (`src/lib/expenseCategories.ts`, with a `expenses_category_known` check and validation in `POST /api/expenses`). Earlier free-text categories were remapped; the original text was moved into the start of the expense comment. Do not reintroduce user-defined categories; add a new key to the list, all three message files and the Telegram labels instead.
 
+Migration 088 adds the `investments` category and renames the check to `expenses_category_allowed`.
+
 Migration 069 removes the vague `other` expense category: existing `other` rows became `supplies` and the check constraint no longer allows `other`. The form requires an explicit category choice, and `salary` is no longer selectable: salary expenses come only from `record_salary_entry` (the constraint still allows them; `POST /api/expenses` rejects them). `other` remains only as a label for legacy rows and the dashboard chart's "small slices" bucket.
 
 Migration 070 adds `kpi_basis` (`overall_profit` default, `owner_profit`), `kpi_game_club` and `kpi_bar` to `salary_rates`, replaces `save_salary_employee` and `change_salary_term` with versions that accept them (null keeps the rate in force today), and makes `get_salary_profit_snapshot` return monthly withdrawn totals per pool.

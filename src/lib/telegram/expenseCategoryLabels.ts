@@ -13,5 +13,6 @@ export const RUSSIAN_EXPENSE_CATEGORY_LABELS: Readonly<Record<string, string>> =
   correction: 'Исправление / ошибка',
   discount: 'Скидки и бонусы клиентам',
   supplies: 'Расходные материалы и хозтовары',
+  investments: 'Инвестиции',
   other: 'Другое',
 };
