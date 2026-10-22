@@ -29,6 +29,7 @@ import {
   useConfirm,
   useToast,
   type DataTableColumn,
+  type DataTableGroup,
 } from '@/components/PresentationFoundation';
 import { cn } from '@/lib/utils';
 import { fetchAllRows } from '@/lib/supabase/pagination';
@@ -768,13 +769,15 @@ export default function MoneyTakenPage() {
     })),
   ].sort((a, b) => b.month.localeCompare(a.month) || historyCreatedAt(b).localeCompare(historyCreatedAt(a)));
 
+  // Rows are already newest month first, so each month becomes one titled section.
+  const historyGroups = historyRows.reduce<DataTableGroup<HistoryRow>[]>((groups, row) => {
+    const last = groups.at(-1);
+    if (last?.key === row.month) last.rows.push(row);
+    else groups.push({ key: row.month, header: formatYearMonth(row.month, locale), rows: [row] });
+    return groups;
+  }, []);
+
   const historyColumns: DataTableColumn<HistoryRow>[] = [
-    {
-      key: 'month',
-      header: t('month'),
-      className: 'whitespace-nowrap',
-      render: (row) => <span className="font-medium text-gray-900">{formatYearMonth(row.month, locale)}</span>,
-    },
     {
       key: 'source',
       header: t('source'),
@@ -1055,9 +1058,10 @@ export default function MoneyTakenPage() {
                 bare
                 dense
                 label={t('historyTitle')}
-                minWidth={isOwner ? 720 : 640}
+                minWidth={isOwner ? 600 : 520}
                 columns={historyColumns}
                 data={historyRows}
+                groups={historyGroups}
                 keyExtractor={(row) => `${row.kind}:${row.id}`}
                 emptyState={<EmptyState compact title={t('noHistory')} />}
               />
