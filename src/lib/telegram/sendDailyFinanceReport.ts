@@ -133,6 +133,29 @@ export async function getLowStockProductRows(
 }
 
 /**
+ * The club's internet payment day (migration 087). Older databases have no
+ * column; a failure only drops the reminder.
+ */
+export async function getInternetPaymentDay(
+  supabase: SupabaseClient,
+  clubId: string,
+): Promise<number | null> {
+  try {
+    const { data, error } = await supabase
+      .from('clubs')
+      .select('internet_payment_day')
+      .eq('id', clubId)
+      .single();
+    if (error) throw error;
+    const day = Number((data as { internet_payment_day?: unknown } | null)?.internet_payment_day);
+    return Number.isInteger(day) && day >= 1 && day <= 31 ? day : null;
+  } catch (error) {
+    console.error('[telegram/daily-finance] internet payment day unavailable; omitting reminder:', error);
+    return null;
+  }
+}
+
+/**
  * Report-date counts with promo giveaways (migration 078). Older databases
  * have no giveaway columns; a failure only drops the section.
  */
@@ -218,10 +241,13 @@ export async function buildDailyFinanceTelegramReport(
     businessDate,
     chatId,
     clubId,
+    now = new Date(),
   }: {
     businessDate: string;
     chatId: string;
     clubId: string;
+    /** When the report is sent; its calendar date drives the internet reminder. */
+    now?: Date;
   },
 ): Promise<DailyFinanceReportBuildResult> {
   const monthStart = monthStartIso(businessDate);
@@ -251,7 +277,7 @@ export async function buildDailyFinanceTelegramReport(
       .order('date', { ascending: true })
       .order('id', { ascending: true }),
   );
-  const [clubRes, cashRes, stockRes, purchaseRes, expenseRes, debtPaymentRes, laterDebtPaymentRes, debtRes, lowStockProductRows, giveawayRows] = await Promise.all([
+  const [clubRes, cashRes, stockRes, purchaseRes, expenseRes, debtPaymentRes, laterDebtPaymentRes, debtRes, lowStockProductRows, giveawayRows, internetPaymentDay] = await Promise.all([
     getClub(supabase, clubId),
     windowed<DailyCashRow>('daily_cash_entries', 'date,cash_income,terminal_income,card_income,playstation_income', ['date']),
     // (club_id, date, product_id) is unique, so the ordering pages stably.
@@ -275,6 +301,7 @@ export async function buildDailyFinanceTelegramReport(
       ))),
     getLowStockProductRows(supabase, clubId),
     getPromoGiveawayRows(supabase, clubId, businessDate),
+    getInternetPaymentDay(supabase, clubId),
   ]);
 
   const firstError = [
@@ -322,6 +349,9 @@ export async function buildDailyFinanceTelegramReport(
     laterDebtPaymentRows: (laterDebtPaymentRes.data ?? []) as DailyFinanceReportLaterDebtPaymentRow[],
     lowStockProductRows,
     giveawayRows,
+    internetPaymentDay,
+    // Calendar date in the club's time zone, independent of its business-day start.
+    sendDate: serverTodayIso(now, 0),
   });
   let imagePng: Buffer | null = null;
   try {

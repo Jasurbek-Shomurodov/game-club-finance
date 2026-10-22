@@ -5,6 +5,7 @@ import {
   calculateOutstandingDebtsAsOf,
   formatRussianDailyFinanceReportCaption,
   formatRussianDailyFinanceReport,
+  internetPaymentDueDate,
   monthStartIso,
   previousComparableMonthRangeIso,
 } from './dailyFinanceReport';
@@ -580,5 +581,54 @@ describe('promo giveaways in the daily report', () => {
     expect(none.promoGiveaways).toEqual([]);
     expect(formatRussianDailyFinanceReport(none)).not.toContain('Бонусы');
     expect(buildDailyFinanceReportInput(baseRows).promoGiveaways).toBeUndefined();
+  });
+});
+
+describe('internet payment reminder', () => {
+  it('fires on the day before the payment day', () => {
+    expect(internetPaymentDueDate('2026-10-19', 20)).toBe('2026-10-20');
+    expect(internetPaymentDueDate('2026-10-18', 20)).toBeNull();
+    expect(internetPaymentDueDate('2026-10-20', 20)).toBeNull();
+    expect(internetPaymentDueDate('2026-10-31', 1)).toBe('2026-11-01');
+    expect(internetPaymentDueDate('2026-12-31', 1)).toBe('2027-01-01');
+  });
+
+  it('moves a day past the end of a short month to its last day', () => {
+    expect(internetPaymentDueDate('2026-02-27', 31)).toBe('2026-02-28');
+    expect(internetPaymentDueDate('2028-02-28', 30)).toBe('2028-02-29');
+    expect(internetPaymentDueDate('2026-09-29', 31)).toBe('2026-09-30');
+    expect(internetPaymentDueDate('2026-10-30', 31)).toBe('2026-10-31');
+    expect(internetPaymentDueDate('2026-10-29', 30)).toBe('2026-10-30');
+  });
+
+  it('is off without a valid payment day', () => {
+    expect(internetPaymentDueDate('2026-10-19', null)).toBeNull();
+    expect(internetPaymentDueDate('2026-10-19', undefined)).toBeNull();
+    expect(internetPaymentDueDate('2026-10-19', 0)).toBeNull();
+    expect(internetPaymentDueDate('2026-10-19', 32)).toBeNull();
+  });
+
+  it('adds the reminder to the text report and caption on the send date before the payment day', () => {
+    const baseRows = {
+      clubName: 'Main Game Club',
+      businessDate: '2026-10-18',
+      businessDateLabel: '18 октября 2026',
+      cashRows: [],
+      stockRows: [],
+      stockPurchaseRows: [],
+      expenseRows: [],
+      debtRows: [],
+      internetPaymentDay: 20,
+    };
+    const input = buildDailyFinanceReportInput({ ...baseRows, sendDate: '2026-10-19' });
+
+    expect(input.internetPaymentDueDate).toBe('2026-10-20');
+    expect(formatRussianDailyFinanceReport(input).split('\n').at(-1)).toMatch(/^🌐 Завтра оплата интернета \(20 .+ 2026\)$/);
+    expect(formatRussianDailyFinanceReportCaption(input).split('\n')[2]).toMatch(/^🌐 Завтра оплата интернета/);
+
+    const otherDay = buildDailyFinanceReportInput({ ...baseRows, sendDate: '2026-10-18' });
+    expect(otherDay.internetPaymentDueDate).toBeNull();
+    expect(formatRussianDailyFinanceReport(otherDay)).not.toContain('интернет');
+    expect(formatRussianDailyFinanceReportCaption(otherDay)).not.toContain('интернет');
   });
 });

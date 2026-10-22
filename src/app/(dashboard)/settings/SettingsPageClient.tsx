@@ -20,6 +20,7 @@ import {
   useToast,
 } from '@/components/PresentationFoundation';
 import { createClient } from '@/lib/supabase/client';
+import { isMissingDatabaseColumn } from '@/lib/supabase/errors';
 import { useClub } from '@/components/layout/DashboardShell';
 import { useSignOut } from '@/components/layout/useSignOut';
 import { normalizePaymentMethods } from '@/lib/paymentMethods';
@@ -28,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { PAYMENT_METHODS, type EntryPaymentMethod, type UserRole } from '@/types';
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
+const MONTH_DAYS = Array.from({ length: 31 }, (_, index) => index + 1);
 
 function hourLabel(hour: number): string {
   return `${String(hour).padStart(2, '0')}:00`;
@@ -77,6 +79,12 @@ export function SettingsPageClient() {
   const [paymentMethods, setPaymentMethods] = useState<EntryPaymentMethod[]>([...PAYMENT_METHODS]);
   const [paymentMethodsSaving, setPaymentMethodsSaving] = useState(false);
   const [paymentMethodsError, setPaymentMethodsError] = useState('');
+  // Read here rather than in the dashboard bootstrap: only Settings and the Telegram report use it.
+  const [internetPaymentDay, setInternetPaymentDay] = useState<number | null>(null);
+  const [savedInternetPaymentDay, setSavedInternetPaymentDay] = useState<number | null>(null);
+  const [internetPaymentDayState, setInternetPaymentDayState] = useState<'loading' | 'ready' | 'unavailable'>('loading');
+  const [internetPaymentDaySaving, setInternetPaymentDaySaving] = useState(false);
+  const [internetPaymentDayError, setInternetPaymentDayError] = useState('');
   const isOwner = clubRole === 'owner';
   const savedPaymentMethodsKey = normalizePaymentMethods(selectedClub?.enabled_payment_methods).join(',');
 
@@ -95,6 +103,39 @@ export function SettingsPageClient() {
     setPaymentMethods(normalizePaymentMethods(savedPaymentMethodsKey ? savedPaymentMethodsKey.split(',') : []));
     setPaymentMethodsError('');
   }, [savedPaymentMethodsKey, selectedClub?.id]);
+
+  useEffect(() => {
+    const clubId = selectedClub?.id;
+    setInternetPaymentDayError('');
+    setInternetPaymentDayState('loading');
+    if (!clubId) return;
+    let cancelled = false;
+
+    void (async () => {
+      const { data, error } = await createClient()
+        .from('clubs')
+        .select('internet_payment_day')
+        .eq('id', clubId)
+        .single();
+      if (cancelled) return;
+      if (error) {
+        if (!isMissingDatabaseColumn(error, 'internet_payment_day')) {
+          console.error('Failed to load internet payment day', error);
+          setInternetPaymentDayError(t('saveError'));
+        }
+        setInternetPaymentDayState('unavailable');
+        return;
+      }
+      const day = (data as { internet_payment_day?: number | null }).internet_payment_day ?? null;
+      setInternetPaymentDay(day);
+      setSavedInternetPaymentDay(day);
+      setInternetPaymentDayState('ready');
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClub?.id, t]);
 
   async function handleCreateClub(event: React.FormEvent) {
     event.preventDefault();
@@ -211,10 +252,48 @@ export function SettingsPageClient() {
     }
   }
 
+  async function saveInternetPaymentDay(day: number | null) {
+    if (!selectedClub || !isOwner) return;
+
+    setInternetPaymentDaySaving(true);
+    setInternetPaymentDayError('');
+
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('clubs')
+        .update({
+          internet_payment_day: day,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', selectedClub.id)
+        .select('id');
+
+      if (error) throw error;
+      // RLS silently matches no row when the owner role was revoked meanwhile.
+      if (!data?.length) throw new Error('club update matched no row');
+
+      setSavedInternetPaymentDay(day);
+      showToast(t('internetPaymentDaySaved'));
+    } catch (saveError) {
+      console.error('Failed to save internet payment day', saveError);
+      setInternetPaymentDayError(t('saveError'));
+      setInternetPaymentDay(savedInternetPaymentDay);
+    } finally {
+      setInternetPaymentDaySaving(false);
+    }
+  }
+
   // Club settings apply as soon as they change; a failed save puts the saved value back.
   function changeBusinessDay(hour: number) {
     setBusinessDayStartHour(hour);
     void saveBusinessDay(hour);
+  }
+
+  function changeInternetPaymentDay(value: string) {
+    const day = value ? Number(value) : null;
+    setInternetPaymentDay(day);
+    void saveInternetPaymentDay(day);
   }
 
   function togglePaymentMethod(method: EntryPaymentMethod) {
@@ -237,7 +316,7 @@ export function SettingsPageClient() {
     setClubError('');
   }
 
-  const clubSettingsSaving = businessDaySaving || paymentMethodsSaving;
+  const clubSettingsSaving = businessDaySaving || paymentMethodsSaving || internetPaymentDaySaving;
   const clubSettingsDisabled = !selectedClub || !isOwner || clubSettingsSaving;
 
   return (
@@ -313,10 +392,35 @@ export function SettingsPageClient() {
             </div>
           </SettingRow>
 
-          {(businessDayError || paymentMethodsError || !isOwner) && (
+          <SettingRow
+            id="setting-internet-payment-day"
+            title={t('internetPaymentDay')}
+            help={internetPaymentDayState === 'unavailable' && !internetPaymentDayError
+              ? t('internetPaymentDayUnavailable')
+              : t('internetPaymentDayHelp')}
+          >
+            {internetPaymentDayState === 'loading' ? (
+              <Skeleton className="h-11 w-36" />
+            ) : (
+              <Select
+                id="internet-payment-day"
+                aria-labelledby="setting-internet-payment-day"
+                value={internetPaymentDay ?? ''}
+                disabled={clubSettingsDisabled || internetPaymentDayState !== 'ready'}
+                onChange={(event) => changeInternetPaymentDay(event.target.value)}
+                className="sm:w-36"
+              >
+                <option value="">{t('internetPaymentDayNone')}</option>
+                {MONTH_DAYS.map((day) => <option key={day} value={day}>{day}</option>)}
+              </Select>
+            )}
+          </SettingRow>
+
+          {(businessDayError || paymentMethodsError || internetPaymentDayError || !isOwner) && (
             <div className="space-y-2 bg-gray-50/60 px-5 py-3">
               {businessDayError && <InlineAlert variant="danger" hideIcon className="py-2">{businessDayError}</InlineAlert>}
               {paymentMethodsError && <InlineAlert variant="danger" hideIcon className="py-2">{paymentMethodsError}</InlineAlert>}
+              {internetPaymentDayError && <InlineAlert variant="danger" hideIcon className="py-2">{internetPaymentDayError}</InlineAlert>}
               {!isOwner && <p className="text-xs text-gray-500">{t('businessDayOwnerOnly')} {t('paymentMethodsOwnerOnly')}</p>}
             </div>
           )}

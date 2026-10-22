@@ -1,4 +1,4 @@
-import { formatCurrency } from '../formatters';
+import { formatCurrency, formatDateOnly } from '../formatters';
 import {
   calculateAverageDailyIncome,
   calculateDashboardTotals,
@@ -67,6 +67,8 @@ export interface DailyFinanceReportInput {
   lowStockProducts?: LowStockProduct[];
   /** Units handed out free under promotions on the report date, by product. */
   promoGiveaways?: DailyFinancePromoGiveaway[];
+  /** Internet due date when this report is sent the day before it; otherwise absent. */
+  internetPaymentDueDate?: string | null;
 }
 
 export interface DailyFinancePromoGiveaway {
@@ -153,6 +155,35 @@ export interface DailyFinanceReportRows {
   lowStockProductRows?: LowStockProductInput[];
   /** Report-date stock counts with giveaways; omitted when they could not be read. */
   giveawayRows?: DailyFinanceGiveawayRow[];
+  /** The club's internet payment day of the month (1-31); null or absent means no reminder. */
+  internetPaymentDay?: number | null;
+  /** Calendar date the report is sent on; the reminder fires when the next day is the payment date. */
+  sendDate?: string;
+}
+
+function addDaysIso(date: string, days: number): string {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+/**
+ * The internet due date when a report sent on `sendDate` goes out the day
+ * before it, otherwise null. A payment day past the end of a short month falls
+ * on that month's last day.
+ */
+export function internetPaymentDueDate(
+  sendDate: string,
+  paymentDay: number | null | undefined,
+): string | null {
+  if (!Number.isInteger(paymentDay) || paymentDay! < 1 || paymentDay! > 31) return null;
+  const dueDate = addDaysIso(sendDate, 1);
+  const [year, month, day] = dueDate.split('-').map(Number);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return day === Math.min(paymentDay!, daysInMonth) ? dueDate : null;
+}
+
+function internetPaymentLine(dueDate: string): string {
+  return `🌐 Завтра оплата интернета (${formatDateOnly(dueDate, 'ru')})`;
 }
 
 function relationName(value: DailyFinanceGiveawayRow['products']): string | null {
@@ -440,6 +471,9 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
     promoGiveaways: rows.giveawayRows === undefined
       ? undefined
       : summarizePromoGiveaways(rows.giveawayRows),
+    internetPaymentDueDate: rows.sendDate
+      ? internetPaymentDueDate(rows.sendDate, rows.internetPaymentDay)
+      : null,
   };
 }
 
@@ -479,6 +513,7 @@ export function formatRussianDailyFinanceReport(input: DailyFinanceReportInput):
     `🤝 Активные долги: ${money(input.activeDebts)}`,
     ...promoGiveawayLines(input.promoGiveaways),
     ...lowStockLines(input.lowStockProducts),
+    ...(input.internetPaymentDueDate ? ['', internetPaymentLine(input.internetPaymentDueDate)] : []),
   ].join('\n');
 }
 
@@ -486,6 +521,7 @@ export function formatRussianDailyFinanceReportCaption(input: DailyFinanceReport
   return [
     '📊 Ежедневный финансовый отчёт',
     `Рабочий день: ${input.businessDateLabel}`,
+    ...(input.internetPaymentDueDate ? [internetPaymentLine(input.internetPaymentDueDate)] : []),
     ...(input.promoGiveaways?.length
       ? [`🎁 Бонусы по акциям: ${quantityLabel(input.promoGiveaways.reduce((sum, item) => sum + item.quantity, 0))}`]
       : []),

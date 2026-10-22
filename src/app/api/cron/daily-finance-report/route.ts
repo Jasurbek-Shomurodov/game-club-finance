@@ -293,6 +293,7 @@ export async function GET(request: NextRequest) {
         businessDate,
         chatId: target.chatId,
         clubId: target.clubId,
+        now,
       }),
       { deadlineAt },
     );

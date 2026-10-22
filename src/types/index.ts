@@ -95,6 +95,8 @@ export interface Club {
   address: string | null;
   business_day_start_hour?: number | null;
   enabled_payment_methods?: EntryPaymentMethod[] | null;
+  /** Day of the month (1-31) the internet bill is due; read by Settings and the Telegram report (087). */
+  internet_payment_day?: number | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

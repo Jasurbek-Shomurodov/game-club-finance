@@ -93,6 +93,17 @@ date shows today's stock. The section and the caption count appear only when at
 least one product qualifies. If the products read fails, the section is omitted
 and the finance report is still sent.
 
+## Internet payment reminder
+
+Owners set each club's internet payment day (1-31, or none) in Settings; it is
+stored in `clubs.internet_payment_day` (migration 087). The report sent on the
+calendar day before that date (Tashkent time, regardless of business-day start)
+adds `🌐 Завтра оплата интернета` to the caption and the text report. A day past
+the end of a short month falls on its last day, so day 31 reminds on the 29th
+of a 30-day month. The reminder keys off the send time, so a recovery or
+forced resend on another day does not carry it. If the column is missing or
+unreadable, the reminder is omitted and the report is still sent.
+
 ## Rendering behavior
 
 The route statically imports the Sharp renderer so Vercel traces the native

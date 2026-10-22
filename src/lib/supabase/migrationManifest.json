@@ -2920,5 +2920,20 @@
         "signature": "public.enforce_expense_business_date()"
       }
     ]
+  },
+  {
+    "file": "087_club_internet_payment_day.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.clubs",
+        "column": "internet_payment_day"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.clubs",
+        "name": "clubs_internet_payment_day_range"
+      }
+    ]
   }
 ]
