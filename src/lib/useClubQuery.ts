@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import { createClubQuerySequence } from './clubQuerySequence';
 
 export interface ClubQueryLoadOptions {
   /** Keep the current data on screen (no skeleton) and keep it if the load fails. */
@@ -42,11 +43,17 @@ export function useClubQuery<T>(
   /** The loader whose request last settled; a new loader is loading until its first request lands. */
   const [settledLoad, setSettledLoad] = useState<typeof load | undefined>(undefined);
   const [error, setError] = useState(false);
-  const sequence = useRef(0);
+  const [sequence] = useState(() => createClubQuerySequence(load));
+
+  // Recorded before the reload effect below, so the new loader's first request starts.
+  useEffect(() => {
+    sequence.setCurrentLoader(load);
+  }, [load, sequence]);
 
   const reload = useCallback(async ({ silent = false }: ClubQueryLoadOptions = {}) => {
-    const requestId = ++sequence.current;
-    const isCurrent = () => requestId === sequence.current;
+    // A reload captured before a club or date switch would discard the new loader's request.
+    const isCurrent = sequence.begin(load);
+    if (!isCurrent) return;
     setError(false);
     if (!load) {
       setData(initial);
@@ -70,12 +77,12 @@ export function useClubQuery<T>(
     setPending(false);
     setRefreshing(false);
     setSettledLoad(() => load);
-  }, [initial, load]);
+  }, [initial, load, sequence]);
 
   useEffect(() => {
     void reload();
-    return () => { sequence.current += 1; };
-  }, [reload]);
+    return () => sequence.cancel();
+  }, [reload, sequence]);
 
   const loading = load !== null && (pending || settledLoad !== load);
   return { data, loading, refreshing, error, reload, setData };

@@ -21,6 +21,7 @@ import {
   type StockPurchaseCostRow,
   type TrendRow,
 } from './dashboardMetrics';
+import type { AnalysisLedgers } from './financialAnalysis';
 
 export interface DashboardDebtRow {
   id: string;
@@ -59,7 +60,18 @@ export interface DashboardData {
   moneyLeftByPaymentMethod: MoneyLeftByPaymentMethod;
   latestDailyCashEntryDate: string | null;
   latestBarEntryDate: string | null;
+  /** The period's ledgers behind the money-flow Sankeys, from the same snapshot as the cards. */
+  ledgers: AnalysisLedgers;
 }
+
+export const emptyDashboardLedgers: AnalysisLedgers = {
+  cashRows: [],
+  stockRows: [],
+  purchaseRows: [],
+  expenseRows: [],
+  debtRows: [],
+  debtPaymentRows: [],
+};
 
 export const emptyDashboardData: DashboardData = {
   totals: emptyDashboardTotals,
@@ -72,6 +84,7 @@ export const emptyDashboardData: DashboardData = {
   moneyLeftByPaymentMethod: emptyMoneyLeftByPaymentMethod,
   latestDailyCashEntryDate: null,
   latestBarEntryDate: null,
+  ledgers: emptyDashboardLedgers,
 };
 
 type DateRange = { from: string; to: string };
@@ -101,6 +114,20 @@ export function getDashboardSnapshotRanges(businessToday: string): DashboardSnap
 
 function rowsInRange<T extends { date: string }>(rows: T[], range: { from: string; to: string }): T[] {
   return rows.filter((row) => row.date >= range.from && row.date <= range.to);
+}
+
+/** Per-day bar totals: the RPC already sends these; the table fallback sends one row per product. */
+function dailyStockTotals(rows: StockCountRow[]): StockCountRow[] {
+  const byDate = new Map<string, StockCountRow>();
+  for (const row of rows) {
+    const total = byDate.get(row.date) ?? { date: row.date, bar_income: 0, bar_cost: 0, bar_profit: 0, sold_quantity: 0 };
+    total.bar_income += Number(row.bar_income ?? 0);
+    total.bar_cost += Number(row.bar_cost ?? 0);
+    total.bar_profit += Number(row.bar_profit ?? 0);
+    total.sold_quantity += Number(row.sold_quantity ?? 0);
+    byDate.set(row.date, total);
+  }
+  return [...byDate.values()];
 }
 
 export function buildDashboardDataFromSnapshot({
@@ -186,5 +213,14 @@ export function buildDashboardDataFromSnapshot({
     ),
     latestDailyCashEntryDate: getLatestRowDateInRange([...cashRows, ...rangeDebts], range),
     latestBarEntryDate: getLatestRowDateInRange(stockRows, range),
+    // Sankeys use only sales and cost of goods sold; purchases are not part of the flows.
+    ledgers: {
+      cashRows,
+      stockRows: dailyStockTotals(stockRows),
+      purchaseRows: [],
+      expenseRows,
+      debtRows: rangeDebts,
+      debtPaymentRows,
+    },
   };
 }

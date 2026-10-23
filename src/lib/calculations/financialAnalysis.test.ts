@@ -11,6 +11,7 @@ import {
   gameClubFlow,
   groupExpensesByCategory,
   type AnalysisLedgers,
+  visiblePaymentMethodRows,
 } from './financialAnalysis';
 import { calculateDashboardTotals, type ExpenseRow } from './dashboardMetrics';
 import { BAR_LEFT, GAME_CLUB_LEFT, buildDrillSankey } from './sankeyDrill';
@@ -196,5 +197,22 @@ describe('buildCategoryDetail', () => {
     expect(detail.rows.map((row) => row.id).sort()).toEqual(['3', '4']);
     expect(detail.total).toBe(50);
     expect(detail.previousTotal).toBe(10);
+  });
+});
+
+describe('visiblePaymentMethodRows', () => {
+  const rows = [
+    { method: 'cash' as const, income: 0, expenses: 0, left: 0 },
+    { method: 'terminal' as const, income: 0, expenses: 0, left: 0 },
+    { method: 'card' as const, income: 5_000, expenses: 1_000, left: 4_000 },
+  ];
+
+  it('keeps a switched-off method that moved money in the period', () => {
+    expect(visiblePaymentMethodRows(rows, ['cash', 'terminal']).map((row) => row.method))
+      .toEqual(['cash', 'terminal', 'card']);
+  });
+
+  it('hides a switched-off method with no money', () => {
+    expect(visiblePaymentMethodRows(rows, ['card']).map((row) => row.method)).toEqual(['card']);
   });
 });

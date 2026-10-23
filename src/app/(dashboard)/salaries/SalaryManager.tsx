@@ -345,23 +345,26 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
         </LoadErrorAlert>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <MetricCard
-          label={t(view === 'history' ? 'base' : 'activeEmployees')}
-          value={view === 'history' ? <MetricMoney amount={historyMonths.reduce((sum, month) => sum + month.base, 0)} /> : String(activeCount)}
-          trendLabel={view !== 'history' && upcomingCount ? t('upcomingCount', { count: upcomingCount }) : undefined}
-          icon={Users}
-          loading={loading}
-        />
-        <MetricCard
-          label={t(isAdvance ? 'advance' : 'totalDue')}
-          value={<MetricMoney amount={Math.abs(dueValue)} />}
-          icon={Wallet}
-          loading={loading}
-          tone={dueValue > 0 ? 'warning' : 'default'}
-        />
-        <MetricCard label={t('totalPaid')} value={<MetricMoney amount={view === 'history' ? historyMonths.reduce((sum, month) => sum + month.paid, 0) : paid} />} icon={Banknote} loading={loading} />
-      </div>
+      {/* After a failed load the totals are unknown, not zero. */}
+      {!loadError && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <MetricCard
+            label={t(view === 'history' ? 'base' : 'activeEmployees')}
+            value={view === 'history' ? <MetricMoney amount={historyMonths.reduce((sum, month) => sum + month.base, 0)} /> : String(activeCount)}
+            trendLabel={view !== 'history' && upcomingCount ? t('upcomingCount', { count: upcomingCount }) : undefined}
+            icon={Users}
+            loading={loading}
+          />
+          <MetricCard
+            label={t(isAdvance ? 'advance' : 'totalDue')}
+            value={<MetricMoney amount={Math.abs(dueValue)} />}
+            icon={Wallet}
+            loading={loading}
+            tone={dueValue > 0 ? 'warning' : 'default'}
+          />
+          <MetricCard label={t('totalPaid')} value={<MetricMoney amount={view === 'history' ? historyMonths.reduce((sum, month) => sum + month.paid, 0) : paid} />} icon={Banknote} loading={loading} />
+        </div>
+      )}
 
       {view !== 'employees' && (
         <Disclosure summary={t('howItWorks')} className="text-sm text-gray-700">

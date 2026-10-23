@@ -105,4 +105,36 @@ describe('buildDashboardDataFromSnapshot', () => {
     expect(result.inventoryComparisonValue).toBe(0);
     expect(result.hasInventoryComparisonData).toBe(false);
   });
+
+  it('feeds the money flows from the same in-range rows as the cards, PlayStation included', () => {
+    const payload: DashboardSnapshotPayload = {
+      cashRows: [
+        { date: '2026-06-10', cash_income: 100, terminal_income: 0, card_income: 0 },
+        { date: '2026-07-10', cash_income: 200, terminal_income: 0, card_income: 0, playstation_income: 50 },
+      ],
+      stockRows: [],
+      inventoryRows: [],
+      purchaseRows: [],
+      expenseRows: [
+        { id: 'e1', date: '2026-06-15', amount: 10, category: 'utilities', payment_method: 'cash', payment_source: 'game_club', comment: null, created_at: '' },
+        { id: 'e2', date: '2026-07-15', amount: 20, category: 'utilities', payment_method: 'cash', payment_source: 'bar', comment: null, created_at: '' },
+      ],
+      debtRows: [],
+      debtPaymentRows: [],
+      products: [],
+    };
+
+    const result = buildDashboardDataFromSnapshot({
+      period: 'month',
+      range: { from: '2026-07-01', to: '2026-07-31' },
+      previousRange: { from: '2026-06-01', to: '2026-06-30' },
+      inventoryComparisonRange: { from: '2026-06-01', to: '2026-06-30' },
+      payload,
+    });
+
+    // The "Game Club Income" card reads gameClubIncome, which includes PlayStation.
+    expect(result.totals.gameClubIncome).toBe(250);
+    expect(result.ledgers.cashRows.map((row) => row.date)).toEqual(['2026-07-10']);
+    expect(result.ledgers.expenseRows.map((row) => row.id)).toEqual(['e2']);
+  });
 });

@@ -167,6 +167,8 @@ export function drillDetailsHref(target: DrillTarget, range: { from: string; to:
       return `/bar-money-details?${params}`;
     case 'category':
       params.set('category', target.category === OTHER_CATEGORY ? 'expense' : `expense:${target.category}`);
+      // The popup showed only this side's payments; the list must match it.
+      if (target.source) params.set('source', target.source);
       return `/reports?${params}`;
   }
 }

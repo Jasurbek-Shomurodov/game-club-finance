@@ -120,7 +120,9 @@ describe('drillDetailsHref', () => {
 
   it('opens a category in reports filtered to it', () => {
     expect(drillDetailsHref({ kind: 'category', category: 'correction', source: 'game_club' }, range))
-      .toBe('/reports?from=2026-10-01&to=2026-10-31&category=expense%3Acorrection');
+      .toBe('/reports?from=2026-10-01&to=2026-10-31&category=expense%3Acorrection&source=game_club');
+    expect(drillDetailsHref({ kind: 'category', category: 'utilities', source: 'bar' }, range))
+      .toBe('/reports?from=2026-10-01&to=2026-10-31&category=expense%3Autilities&source=bar');
   });
 
   it('opens every expense for the folded other category', () => {

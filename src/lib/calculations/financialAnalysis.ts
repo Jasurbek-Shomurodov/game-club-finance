@@ -81,6 +81,18 @@ export interface PaymentMethodFlowRow {
   left: number;
 }
 
+/**
+ * Methods shown in the payment-method panel: the club's enabled ones, plus any
+ * method that moved money in the period (switched off later, or unassigned
+ * expenses bucketed into it), so the rows still add up to the totals.
+ */
+export function visiblePaymentMethodRows(
+  rows: PaymentMethodFlowRow[],
+  enabledMethods: readonly string[],
+): PaymentMethodFlowRow[] {
+  return rows.filter((row) => enabledMethods.includes(row.method) || row.income !== 0 || row.expenses !== 0);
+}
+
 /** One side of the club; never summed with the other side. */
 export interface SourceIndicators {
   income: number;

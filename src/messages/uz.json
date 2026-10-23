@@ -93,7 +93,6 @@
     "expandAll": "Barchasini ochish",
     "collapseAll": "Barchasini yopish",
     "loadErrorDashboard": "Boshqaruv paneli ma'lumotlarini yuklab bo'lmadi. Internet aloqasini tekshirib, qayta urinib ko'ring.",
-    "loadErrorFlows": "Pul oqimlarini yuklab bo'lmadi. Internet aloqasini tekshirib, qayta urinib ko'ring.",
     "monthlyChartLoadError": "Oylik daromad tarixini yuklab bo'lmadi.",
     "noDeductionsForDay": "Bu kunda ayirmalar yo'q",
     "chartLegendLabel": "{title}: shartli belgilar",
@@ -253,6 +252,9 @@
     "unknownCreator": "Noma'lum foydalanuvchi",
     "date": "Sana",
     "filterByCategory": "Kategoriya bo'yicha filtrlash",
+    "sourceFilterGameClub": "Faqat o‘yin klubi pulidan to‘langan xarajatlar ko‘rsatilmoqda.",
+    "sourceFilterBar": "Faqat bar pulidan to‘langan xarajatlar ko‘rsatilmoqda.",
+    "showAllSources": "Hammasini ko‘rsatish",
     "allCategories": "Barcha kategoriyalar",
     "incomeCategories": "Daromadlar",
     "expenseCategories": "Xarajatlar",
@@ -418,7 +420,8 @@
     "promoCost": "Aksiya xarajati",
     "activePromotionsTitle": "{count, plural, one {Bugun # ta aksiya amalda} other {Bugun # ta aksiya amalda}}",
     "activePromotionRule": "{spend} {currency} dan ortiq chek uchun {quantity} × {product} bepul",
-    "activePromotionsHint": "Bepul berilgan donalarni «Bepul (aksiya)» ustuniga kiriting. Ular ombordan chiqariladi, lekin sotuv hisoblanmaydi."
+    "activePromotionsHint": "Bepul berilgan donalarni «Bepul (aksiya)» ustuniga kiriting. Ular ombordan chiqariladi, lekin sotuv hisoblanmaydi.",
+    "promotionsLoadFailed": "Aksiyalarni yuklab bo‘lmadi. Bepul (aksiya) donalarini baribir kiritish mumkin, aksiya nomi bo‘sh qoladi."
   },
   "stockPurchase": {
     "lowStock": "Kam qolgan",

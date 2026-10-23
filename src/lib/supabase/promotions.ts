@@ -1,9 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Promotion } from '@/types';
+import { isMissingDatabaseTable } from './errors';
 
-/** Databases before migration 078 have no promotions table; treat that as no promotions. */
+/**
+ * Databases before migration 078 have no promotions table; treat that as no
+ * promotions. Any other failure (permissions, network) stays an error.
+ */
 export function isMissingPromotionsTable(error: { message?: string; code?: string | null } | null): boolean {
-  return error?.code === '42P01' || (error?.message?.includes('promotions') ?? false);
+  return isMissingDatabaseTable(error ? { code: error.code ?? undefined, message: error.message } : null, 'promotions');
 }
 
 /** Every promotion of one club, newest first. Reads are club-scoped and RLS-filtered. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildFilteredMoneyReport, buildMoneyReport } from './moneyReport';
+import { buildFilteredMoneyReport, buildMoneyReport, expensesFromSource } from './moneyReport';
 
 describe('money report', () => {
   it('carries resolved creator names into report activities', () => {
@@ -343,4 +343,18 @@ it('splits a day header expenses so income minus game-club expenses equals the d
   const [day] = report.days;
   expect(day).toMatchObject({ income: 300_000, expenses: 150_000, gameClubExpenses: 50_000, barExpenses: 100_000, total: 250_000 });
   expect(day.income - day.gameClubExpenses).toBe(day.total);
+});
+
+describe('expensesFromSource', () => {
+  const rows = [
+    { id: 'club', payment_source: 'game_club' as const },
+    { id: 'unmarked', payment_source: null },
+    { id: 'bar', payment_source: 'bar' as const },
+  ];
+
+  it('keeps only the side a money-flow link came from; unmarked rows are game club money', () => {
+    expect(expensesFromSource(rows, 'bar').map((row) => row.id)).toEqual(['bar']);
+    expect(expensesFromSource(rows, 'game_club').map((row) => row.id)).toEqual(['club', 'unmarked']);
+    expect(expensesFromSource(rows, null)).toBe(rows);
+  });
 });

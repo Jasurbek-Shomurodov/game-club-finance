@@ -31,9 +31,6 @@ import {
 } from '@/components/PresentationFoundation';
 import { MoneyFlowSankeys } from '@/components/financial-analysis/MoneyFlowSankeys';
 import { SIDE_ICON_CLASS } from '@/components/financial-analysis/analysisFormat';
-import { fetchAnalysisLedgers } from '@/lib/supabase/analysisLedgers';
-import type { AnalysisLedgers } from '@/lib/calculations/financialAnalysis';
-import { useClubQuery } from '@/lib/useClubQuery';
 import { formatCurrency } from '@/lib/formatters';
 import {
   calculateAverageDailyIncome,
@@ -62,15 +59,6 @@ const IncomeTrendChart = dynamic(
   () => import('@/components/dashboard/IncomeTrendChart').then((module) => module.IncomeTrendChart),
   { ssr: false, loading: ChartLoading },
 );
-
-const emptyLedgers: AnalysisLedgers = {
-  cashRows: [],
-  stockRows: [],
-  purchaseRows: [],
-  expenseRows: [],
-  debtRows: [],
-  debtPaymentRows: [],
-};
 
 /** A few figures for one side, under its money-flow Sankey. */
 function FlowFigures({ items, loading }: {
@@ -264,14 +252,8 @@ export default function DashboardPage({
     ? `${t('lastMonthInventoryValue')}: ${formatCurrency(data.inventoryComparisonValue)} ${currency}`
     : t('lowStockAlertsCount', { count: data.lowStockCount });
 
-  // The money flows need the period's payments, which the snapshot does not carry.
-  const loadLedgers = useCallback(async () => (
-    selectedClubId ? { clubId: selectedClubId, ledgers: await fetchAnalysisLedgers(createClient(), selectedClubId, range) } : null
-  ), [range, selectedClubId]);
-  const ledgerQuery = useClubQuery<{ clubId: string; ledgers: AnalysisLedgers } | null>(loadLedgers, null);
-  // Ledgers remember their club, so another club's rows never render as current.
-  const ledgers = ledgerQuery.data?.clubId === selectedClubId ? ledgerQuery.data.ledgers : emptyLedgers;
-  const flowsLoading = loading || ledgerQuery.loading;
+  // The money flows come from the same snapshot as the cards, so the two always agree.
+  const { ledgers } = data;
 
   const detailsLink = (href: string) => (
     <ButtonLink href={href} variant="ghost" size="sm" iconRight={<ArrowRight size={15} aria-hidden="true" />}>
@@ -298,11 +280,11 @@ export default function DashboardPage({
           loading={loading}
           currency={currency}
           label={t('gameClubIncome')}
-          amount={totals.computerIncome}
+          amount={totals.gameClubIncome}
           icon={MonitorSmartphone}
           iconClassName={SIDE_ICON_CLASS.gameClub}
           tone="success"
-          comparison={comparisonFor(totals.computerIncome, previousTotals.computerIncome)}
+          comparison={comparisonFor(totals.gameClubIncome, previousTotals.gameClubIncome)}
         />
         <AmountCard
           loading={loading}
@@ -339,21 +321,15 @@ export default function DashboardPage({
         />
       </div>
 
-      {ledgerQuery.error && (
-        <LoadErrorAlert retrying={ledgerQuery.loading} onRetry={() => void ledgerQuery.reload()}>
-          {t('loadErrorFlows')}
-        </LoadErrorAlert>
-      )}
-
       {/* Each business gets its own money flow; tapping a node opens the Sankey behind it. */}
-      {flowsLoading && !ledgerQuery.data ? (
+      {loading ? (
         <div className="grid gap-3 2xl:grid-cols-2" role="status" aria-label={t('loading')}>
           <ChartLoading />
           <ChartLoading />
         </div>
       ) : (
         <MoneyFlowSankeys
-          className={cn('grid items-start gap-3 2xl:grid-cols-2 transition-opacity', flowsLoading && 'pointer-events-none opacity-60')}
+          className="grid items-start gap-3 2xl:grid-cols-2"
           ledgers={ledgers}
           range={range}
           periodLabel={periodLabel}

@@ -45,6 +45,7 @@ import {
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import {
   buildFilteredMoneyReport,
+  expensesFromSource,
   type MoneyReportActivity,
   type MoneyReportCategoryFilter,
   type MoneyReportCashRow,
@@ -197,10 +198,18 @@ function requestedCategoryFilter(category: string | undefined): MoneyReportCateg
   return 'all';
 }
 
-export default function ReportsPage({ requestedFrom, requestedTo, requestedCategory }: {
+/** A `?source` filter from a money-flow link: only expenses paid from that side's money. */
+function requestedSourceFilter(source: string | undefined): ExpenseSourceFilter {
+  return source === 'game_club' || source === 'bar' ? source : null;
+}
+
+type ExpenseSourceFilter = 'game_club' | 'bar' | null;
+
+export default function ReportsPage({ requestedFrom, requestedTo, requestedCategory, requestedSource }: {
   requestedFrom?: string;
   requestedTo?: string;
   requestedCategory?: string;
+  requestedSource?: string;
 } = {}) {
   const t = useTranslations('reports');
   const tc = useTranslations('common');
@@ -224,6 +233,10 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   useEffect(() => {
     setCategoryFilter(requestedCategoryFilter(requestedCategory));
   }, [requestedCategory]);
+  const [sourceFilter, setSourceFilter] = useState<ExpenseSourceFilter>(() => requestedSourceFilter(requestedSource));
+  useEffect(() => {
+    setSourceFilter(requestedSourceFilter(requestedSource));
+  }, [requestedSource]);
   /** Translated result of a failed delete. */
   const [actionError, setActionError] = useState('');
   const { showToast, toastElement } = useToast();
@@ -360,14 +373,14 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     reportRows.barSales,
     reportRows.stockPurchases,
   ), [reportRows]);
-  const filteredReport = useMemo(() => (categoryFilter === 'all' ? report : buildFilteredMoneyReport(
+  const filteredReport = useMemo(() => (categoryFilter === 'all' && !sourceFilter ? report : buildFilteredMoneyReport(
     reportRows.cash,
-    reportRows.expenses,
+    expensesFromSource(reportRows.expenses, sourceFilter),
     reportRows.debtPayments,
     categoryFilter,
     reportRows.barSales,
     reportRows.stockPurchases,
-  )), [categoryFilter, report, reportRows]);
+  )), [categoryFilter, report, reportRows, sourceFilter]);
 
   // Dialogs belong to the club they were opened for: close them on a club switch.
   useEffect(() => {
@@ -642,6 +655,14 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         </LoadErrorAlert>
       )}
       {actionError && <InlineAlert variant="danger">{actionError}</InlineAlert>}
+      {hasReportsAccess && sourceFilter && (
+        <InlineAlert
+          variant="info"
+          action={<Button variant="outline" size="sm" onClick={() => setSourceFilter(null)}>{t('showAllSources')}</Button>}
+        >
+          {t(sourceFilter === 'bar' ? 'sourceFilterBar' : 'sourceFilterGameClub')}
+        </InlineAlert>
+      )}
 
       {/* After a failed load the figures are unknown, not zero: show only the error. */}
       {hasReportsAccess && !loadFailed && (

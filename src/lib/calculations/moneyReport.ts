@@ -1,6 +1,7 @@
 import {
   calculateGameClubMoneyLeftByPaymentMethod,
   gameClubExpensePaymentBucket,
+  isBarPaidExpense,
   type DailyCashRow,
   type DebtPaymentValueRow,
   type ExpenseRow,
@@ -278,6 +279,15 @@ export function buildMoneyReport(
   });
 
   return { totalCollected, gameClubExpenses, barExpenses, gameClubLeft, barLeft, paymentMethods, days };
+}
+
+/** Expenses paid from one side's money (no `source`: every expense). Unmarked rows are game club money. */
+export function expensesFromSource<T extends Pick<ExpenseRow, 'payment_source'>>(
+  rows: T[],
+  source?: 'game_club' | 'bar' | null,
+): T[] {
+  if (!source) return rows;
+  return rows.filter((row) => isBarPaidExpense(row) === (source === 'bar'));
 }
 
 export function buildFilteredMoneyReport(

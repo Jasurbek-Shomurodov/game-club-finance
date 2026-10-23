@@ -46,6 +46,7 @@ import {
   buildCategoryDetail,
   buildFinancialAnalysis,
   buildMonthlyAnalysis,
+  visiblePaymentMethodRows,
   type AnalysisLedgers,
   type MonthlyAnalysisRow,
   type PaymentMethodFlowRow,
@@ -355,7 +356,7 @@ export default function FinancialAnalysisPage() {
     return { value, label: value === null ? td('noComparisonData') : comparisonLabel };
   };
 
-  const visibleMethods = analysis.paymentMethods.filter((row) => enabledPaymentMethods.includes(row.method));
+  const visibleMethods = visiblePaymentMethodRows(analysis.paymentMethods, enabledPaymentMethods);
   const hasActivity = [indicators.gameClub, indicators.bar].some((side) => side.income > 0 || side.spent > 0);
 
   return (
@@ -382,151 +383,156 @@ export default function FinancialAnalysisPage() {
         </LoadErrorAlert>
       )}
 
-      <SourceCards
-        title={td('gameClub')}
-        icon={MonitorSmartphone}
-        iconClassName={SIDE_ICON_CLASS.gameClub}
-        incomeLabel={t('moneyIn')}
-        now={indicators.gameClub}
-        before={previousIndicators.gameClub}
-        loading={loading}
-        currency={currency}
-        compare={compare}
-      />
-      <SourceCards
-        title={td('bar')}
-        icon={ShoppingBag}
-        iconClassName={SIDE_ICON_CLASS.bar}
-        incomeLabel={t('barSalesIn')}
-        now={indicators.bar}
-        before={previousIndicators.bar}
-        loading={loading}
-        currency={currency}
-        compare={compare}
-      />
+      {/* After a failed load the figures are unknown, not zero: show only the error. */}
+      {!error && (
+        <>
+          <SourceCards
+            title={td('gameClub')}
+            icon={MonitorSmartphone}
+            iconClassName={SIDE_ICON_CLASS.gameClub}
+            incomeLabel={t('moneyIn')}
+            now={indicators.gameClub}
+            before={previousIndicators.gameClub}
+            loading={loading}
+            currency={currency}
+            compare={compare}
+          />
+          <SourceCards
+            title={td('bar')}
+            icon={ShoppingBag}
+            iconClassName={SIDE_ICON_CLASS.bar}
+            incomeLabel={t('barSalesIn')}
+            now={indicators.bar}
+            before={previousIndicators.bar}
+            loading={loading}
+            currency={currency}
+            compare={compare}
+          />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Indicator
-          loading={loading}
-          icon={Percent}
-          iconClassName={SIDE_ICON_CLASS.gameClub}
-          label={t('gameClubMargin')}
-          value={formatShare(indicators.gameClub.marginPct, locale)}
-          helper={t('gameClubMarginHelper')}
-          meter={indicators.gameClub.marginPct}
-          tone={indicators.gameClub.marginPct !== null && indicators.gameClub.marginPct < 0 ? 'danger' : 'success'}
-        />
-        <Indicator
-          loading={loading}
-          icon={Percent}
-          iconClassName={SIDE_ICON_CLASS.bar}
-          label={t('barMargin')}
-          value={formatShare(indicators.bar.marginPct, locale)}
-          helper={t('barMarginHelper')}
-          meter={indicators.bar.marginPct}
-          tone={indicators.bar.marginPct !== null && indicators.bar.marginPct < 0 ? 'danger' : 'success'}
-        />
-        <Indicator
-          loading={loading}
-          icon={CalendarDays}
-          iconClassName={SIDE_ICON_CLASS.gameClub}
-          label={t('gameClubDaily')}
-          value={`${formatCurrency(indicators.gameClub.averageDailyIncome)} ${currency}`}
-          helper={t('gameClubDailyHelper')}
-        />
-        <Indicator
-          loading={loading}
-          icon={CalendarDays}
-          iconClassName={SIDE_ICON_CLASS.bar}
-          label={t('barDaily')}
-          value={`${formatCurrency(indicators.bar.averageDailyIncome)} ${currency}`}
-          helper={t('barDailyHelper')}
-        />
-      </div>
-
-      {loading && !hasActivity ? (
-        <div className="space-y-4" role="status" aria-label={tc('loading')}>
-          <ChartSkeleton />
-          <MetricGridSkeleton />
-        </div>
-      ) : (
-        <div className={cn('space-y-6 transition-opacity', loading && 'pointer-events-none opacity-60')} aria-busy={loading || undefined}>
-          <Section title={t('flowSection')} description={t('flowSectionDesc')}>
-            <MoneyFlowSankeys
-              className="space-y-3"
-              ledgers={current}
-              range={range}
-              colors={colors}
-              periodLabel={periodLabel}
-              locale={locale}
-              currency={currency}
-              gameClub={{ title: t('gameClubFlowTitle'), description: t('flowDesc') }}
-              bar={{ title: t('barFlowTitle'), description: t('flowDesc') }}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Indicator
+              loading={loading}
+              icon={Percent}
+              iconClassName={SIDE_ICON_CLASS.gameClub}
+              label={t('gameClubMargin')}
+              value={formatShare(indicators.gameClub.marginPct, locale)}
+              helper={t('gameClubMarginHelper')}
+              meter={indicators.gameClub.marginPct}
+              tone={indicators.gameClub.marginPct !== null && indicators.gameClub.marginPct < 0 ? 'danger' : 'success'}
             />
+            <Indicator
+              loading={loading}
+              icon={Percent}
+              iconClassName={SIDE_ICON_CLASS.bar}
+              label={t('barMargin')}
+              value={formatShare(indicators.bar.marginPct, locale)}
+              helper={t('barMarginHelper')}
+              meter={indicators.bar.marginPct}
+              tone={indicators.bar.marginPct !== null && indicators.bar.marginPct < 0 ? 'danger' : 'success'}
+            />
+            <Indicator
+              loading={loading}
+              icon={CalendarDays}
+              iconClassName={SIDE_ICON_CLASS.gameClub}
+              label={t('gameClubDaily')}
+              value={`${formatCurrency(indicators.gameClub.averageDailyIncome)} ${currency}`}
+              helper={t('gameClubDailyHelper')}
+            />
+            <Indicator
+              loading={loading}
+              icon={CalendarDays}
+              iconClassName={SIDE_ICON_CLASS.bar}
+              label={t('barDaily')}
+              value={`${formatCurrency(indicators.bar.averageDailyIncome)} ${currency}`}
+              helper={t('barDailyHelper')}
+            />
+          </div>
 
-            <div className="grid gap-4 lg:grid-cols-2">
-              <ChartCard title={t('categoriesTitle')} description={t('categoriesDesc')}>
-                <CategoryDonut
-                  categories={analysis.topCategories}
-                  colors={colors}
-                  total={analysis.totals.totalExpenses}
-                  labelFor={categoryName}
-                  locale={locale}
-                  currency={currency}
-                  onSelect={openCategory}
-                />
-              </ChartCard>
-              <ChartCard title={t('compareTitle')} description={t('compareDesc')}>
-                <CategoryComparison
-                  rows={comparison}
-                  colors={colors}
-                  labelFor={categoryName}
-                  locale={locale}
-                  currency={currency}
-                  onSelect={openCategory}
-                />
-              </ChartCard>
+          {loading && !hasActivity ? (
+            <div className="space-y-4" role="status" aria-label={tc('loading')}>
+              <ChartSkeleton />
+              <MetricGridSkeleton />
             </div>
-          </Section>
-
-          <Section title={t('trendsSection')} description={t('trendsSectionDesc')}>
-            <ChartCard title={t('dailyTitle')} description={t('dailyDesc')}>
-              {hasActivity
-                ? <DailyFlowChart data={dailyRows} locale={locale} currency={currency} />
-                : <ChartEmpty title={t('empty')} className="mt-4" />}
-            </ChartCard>
-
-            <ChartCard title={t('monthlyTitle')} description={t('monthlyDesc')}>
-              {monthlyError ? (
-                <LoadErrorAlert className="mt-4" retrying={monthlyQuery.loading} onRetry={() => void monthlyQuery.reload()}>
-                  {t('monthlyLoadError')}
-                </LoadErrorAlert>
-              ) : monthly ? (
-                <MonthlyTrendChart data={monthly} locale={locale} currency={currency} />
-              ) : (
-                <div className="mt-4"><ChartSkeleton /></div>
-              )}
-            </ChartCard>
-          </Section>
-
-          <Section title={t('detailsSection')}>
-            <div className="grid gap-4 lg:grid-cols-2">
-              <ChartCard title={t('largestTitle')} description={t('largestDesc')}>
-                <LargestPayments
-                  rows={analysis.largest}
+          ) : (
+            <div className={cn('space-y-6 transition-opacity', loading && 'pointer-events-none opacity-60')} aria-busy={loading || undefined}>
+              <Section title={t('flowSection')} description={t('flowSectionDesc')}>
+                <MoneyFlowSankeys
+                  className="space-y-3"
+                  ledgers={current}
+                  range={range}
                   colors={colors}
-                  labelFor={categoryName}
+                  periodLabel={periodLabel}
                   locale={locale}
                   currency={currency}
-                  onSelect={openCategory}
+                  gameClub={{ title: t('gameClubFlowTitle'), description: t('flowDesc') }}
+                  bar={{ title: t('barFlowTitle'), description: t('flowDesc') }}
                 />
-              </ChartCard>
-              <ChartCard title={t('methodsTitle')} description={t('methodsDesc')}>
-                <PaymentMethodFlow rows={visibleMethods} methodLabel={methodName} locale={locale} currency={currency} />
-              </ChartCard>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <ChartCard title={t('categoriesTitle')} description={t('categoriesDesc')}>
+                    <CategoryDonut
+                      categories={analysis.topCategories}
+                      colors={colors}
+                      total={analysis.totals.totalExpenses}
+                      labelFor={categoryName}
+                      locale={locale}
+                      currency={currency}
+                      onSelect={openCategory}
+                    />
+                  </ChartCard>
+                  <ChartCard title={t('compareTitle')} description={t('compareDesc')}>
+                    <CategoryComparison
+                      rows={comparison}
+                      colors={colors}
+                      labelFor={categoryName}
+                      locale={locale}
+                      currency={currency}
+                      onSelect={openCategory}
+                    />
+                  </ChartCard>
+                </div>
+              </Section>
+
+              <Section title={t('trendsSection')} description={t('trendsSectionDesc')}>
+                <ChartCard title={t('dailyTitle')} description={t('dailyDesc')}>
+                  {hasActivity
+                    ? <DailyFlowChart data={dailyRows} locale={locale} currency={currency} />
+                    : <ChartEmpty title={t('empty')} className="mt-4" />}
+                </ChartCard>
+
+                <ChartCard title={t('monthlyTitle')} description={t('monthlyDesc')}>
+                  {monthlyError ? (
+                    <LoadErrorAlert className="mt-4" retrying={monthlyQuery.loading} onRetry={() => void monthlyQuery.reload()}>
+                      {t('monthlyLoadError')}
+                    </LoadErrorAlert>
+                  ) : monthly ? (
+                    <MonthlyTrendChart data={monthly} locale={locale} currency={currency} />
+                  ) : (
+                    <div className="mt-4"><ChartSkeleton /></div>
+                  )}
+                </ChartCard>
+              </Section>
+
+              <Section title={t('detailsSection')}>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <ChartCard title={t('largestTitle')} description={t('largestDesc')}>
+                    <LargestPayments
+                      rows={analysis.largest}
+                      colors={colors}
+                      labelFor={categoryName}
+                      locale={locale}
+                      currency={currency}
+                      onSelect={openCategory}
+                    />
+                  </ChartCard>
+                  <ChartCard title={t('methodsTitle')} description={t('methodsDesc')}>
+                    <PaymentMethodFlow rows={visibleMethods} methodLabel={methodName} locale={locale} currency={currency} />
+                  </ChartCard>
+                </div>
+              </Section>
             </div>
-          </Section>
-        </div>
+          )}
+        </>
       )}
 
       <CategoryDrawer

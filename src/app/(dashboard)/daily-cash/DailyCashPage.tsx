@@ -278,7 +278,7 @@ export default function DailyCashPage() {
 
   const total = calculateGameClubIncome(values);
   const totals = calculateFinancialReportTotals({ ...(financeSummary ?? emptyDailyCashSummary), manualIncome: total });
-  const barSummary = { sales: totals.barSales, profit: totals.barSales - totals.barCost };
+  const barSummary = { sales: totals.barSales, profit: totals.barProfit };
   const gameClubProfit = totals.gameClubProfit;
   const editable = entry ? canEditEntryForRole(currentRole, entry.created_at, now) : true;
   const locked = Boolean(entry && !editable);
@@ -470,6 +470,7 @@ export default function DailyCashPage() {
                 ariaLabel={t('date')}
                 value={form.date}
                 max={businessToday}
+                disabled={saving}
                 onChange={(value) => setField('date', value)}
               />
             </div>

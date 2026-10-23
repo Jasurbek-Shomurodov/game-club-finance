@@ -93,7 +93,6 @@
     "expandAll": "Expand all",
     "collapseAll": "Collapse all",
     "loadErrorDashboard": "Could not load dashboard data. Check your connection and try again.",
-    "loadErrorFlows": "Could not load the money flows. Check your connection and try again.",
     "monthlyChartLoadError": "Could not load the monthly income history.",
     "noDeductionsForDay": "No deductions on this day",
     "chartLegendLabel": "{title}: legend",
@@ -253,6 +252,9 @@
     "unknownCreator": "Unknown user",
     "date": "Date",
     "filterByCategory": "Filter by category",
+    "sourceFilterGameClub": "Showing only expenses paid from game club money.",
+    "sourceFilterBar": "Showing only expenses paid from bar money.",
+    "showAllSources": "Show all",
     "allCategories": "All categories",
     "incomeCategories": "Income",
     "expenseCategories": "Expenses",
@@ -418,7 +420,8 @@
     "promoCost": "Promo Cost",
     "activePromotionsTitle": "{count, plural, one {# promotion is running today} other {# promotions are running today}}",
     "activePromotionRule": "{quantity} × {product} free for a bill of {spend} {currency} or more",
-    "activePromotionsHint": "Enter the units handed out free in the “Free (promo)” column. They are deducted from stock but not counted as sales."
+    "activePromotionsHint": "Enter the units handed out free in the “Free (promo)” column. They are deducted from stock but not counted as sales.",
+    "promotionsLoadFailed": "Promotions could not be loaded. You can still enter free (promo) units; the promotion label is left empty."
   },
   "stockPurchase": {
     "lowStock": "Low stock",

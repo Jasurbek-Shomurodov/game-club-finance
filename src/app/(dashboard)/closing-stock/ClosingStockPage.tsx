@@ -221,10 +221,12 @@ interface ClosingStockDayData {
   rows: RowData[];
   hasSavedCounts: boolean;
   promotions: Promotion[];
+  /** Promotions failed to load: giveaways stay enterable, just without a label. */
+  promotionsFailed: boolean;
   purchaseCostsByProduct: Record<string, number>;
 }
 
-const EMPTY_DAY: ClosingStockDayData = { rows: [], hasSavedCounts: false, promotions: [], purchaseCostsByProduct: {} };
+const EMPTY_DAY: ClosingStockDayData = { rows: [], hasSavedCounts: false, promotions: [], promotionsFailed: false, purchaseCostsByProduct: {} };
 
 /** `null` date means "follow the club's current business day". */
 interface DateSelection {
@@ -325,12 +327,13 @@ export default function ClosingStockPage() {
       hasSavedCounts: day.hasSavedCounts,
       // Promotions only label giveaways; a failed read must not block counting.
       promotions: promotionsRes.data ?? [],
+      promotionsFailed: Boolean(promotionsRes.error),
       purchaseCostsByProduct: calculatePurchaseCostsByProduct(day.purchases),
     };
   }, [buildEditableRows, businessDayStartHour, currentRole, date, selectedClubId, today, usesSoldEntry, tRef]);
   const dayQuery = useClubQuery(loadDay, EMPTY_DAY);
   const { loading, refreshing, error: loadError, reload } = dayQuery;
-  const { hasSavedCounts, promotions, purchaseCostsByProduct } = dayQuery.data;
+  const { hasSavedCounts, promotions, promotionsFailed, purchaseCostsByProduct } = dayQuery.data;
 
   // Each landed load replaces the editable rows. Inputs are hidden while a
   // full load runs and disabled while a silent one runs, so no unsaved edit
@@ -718,6 +721,10 @@ export default function ClosingStockPage() {
         <p className="text-sm text-gray-500">{t('draftDisabledSaved')}</p>
       )}
 
+      {promotionsFailed && !loading && !loadError && (
+        <InlineAlert variant="warning">{t('promotionsLoadFailed')}</InlineAlert>
+      )}
+
       {activePromotions.length > 0 && !loading && !loadError && (
         <InlineAlert variant="info" title={t('activePromotionsTitle', { count: activePromotions.length })}>
           <ul className="mt-1 space-y-0.5">
@@ -999,7 +1006,7 @@ export default function ClosingStockPage() {
                             )}
                           </td>
                           <td className="px-4 py-4">
-                            {rowPromotions.length === 0 && giveawayQuantity === 0 ? (
+                            {rowPromotions.length === 0 && giveawayQuantity === 0 && !promotionsFailed ? (
                               <p className="text-center font-semibold text-gray-400">—</p>
                             ) : !rowReadOnly ? (
                               <div className="mx-auto w-32 space-y-2">
