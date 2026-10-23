@@ -86,6 +86,7 @@ export function HistoryView({
                   <p className="font-semibold text-gray-900">{employeePrefix(entry.employee_id)}{t(entry.kind)} · {formatDateOnly(entry.date, locale)}</p>
                   {entry.payment_method && <p className="mt-1 text-xs text-gray-500">{tc(`paymentMethods.${entry.payment_method}`)} · {tp(`paymentSources.${entry.payment_source}`)}</p>}
                   {entry.comment && <p className="mt-1 break-words text-gray-500">{entry.comment}</p>}
+                  {entry.delete_reason && <p className="mt-1 break-words text-gray-500">{t('deleteReason')}: {entry.delete_reason}</p>}
                 </div>
                 <strong className={cn('tabular-nums', entry.kind === 'bonus' ? 'text-success-600' : entry.kind === 'fine' ? 'text-danger-600' : 'text-gray-900')}>{entry.kind === 'bonus' ? '+' : '−'}{currency(Number(entry.amount))}</strong>
                 {entry.deleted_at ? (
@@ -108,9 +109,12 @@ export function HistoryView({
               const deletable = canDeleteSalaryRate(rates, rate);
               return (
                 <li className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm text-gray-600" key={rate.id}>
-                  <p className={rate.deleted_at ? 'line-through opacity-60' : ''}>
-                    {employeePrefix(rate.employee_id)}{formatDateOnly(rate.effective_date, locale)} · {t(rate.salary_type)} · {currency(Number(rate.amount))} · {t('kpi')}: {Number(rate.kpi_percent)}% ({kpiSummary(rate)}) · {t(rate.active ? 'active' : 'inactive')}
-                  </p>
+                  <div className="min-w-0">
+                    <p className={rate.deleted_at ? 'line-through opacity-60' : ''}>
+                      {employeePrefix(rate.employee_id)}{formatDateOnly(rate.effective_date, locale)} · {t(rate.salary_type)} · {currency(Number(rate.amount))} · {t('kpi')}: {Number(rate.kpi_percent)}% ({kpiSummary(rate)}) · {t(rate.active ? 'active' : 'inactive')}
+                    </p>
+                    {rate.delete_reason && <p className="mt-1 break-words text-gray-500 opacity-60">{t('deleteReason')}: {rate.delete_reason}</p>}
+                  </div>
                   {rate.deleted_at ? (
                     <Badge variant="neutral" size="sm">{t('deleted')} · {formatDateTime(rate.deleted_at, locale)}</Badge>
                   ) : isOwner && (

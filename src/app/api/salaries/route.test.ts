@@ -98,10 +98,27 @@ describe('POST /api/salaries', () => {
 
   it('deletes records through the audited RPC', async () => {
     const { rpc } = mockSupabase();
-    const response = await post({ action: 'delete_record', clubId: CLUB, employeeId: EMPLOYEE, recordId: REQUEST, kind: 'entry' });
+    const response = await post({ action: 'delete_record', clubId: CLUB, employeeId: EMPLOYEE, recordId: REQUEST, kind: 'entry', reason: '  Paid twice  ' });
     expect(response.status).toBe(200);
-    expect(rpc).toHaveBeenCalledWith('delete_salary_record', { p_club_id: CLUB, p_id: REQUEST, p_kind: 'entry' });
-    expect((await post({ action: 'delete_record', clubId: CLUB, employeeId: EMPLOYEE, recordId: REQUEST, kind: 'employee' })).status).toBe(400);
+    expect(rpc).toHaveBeenCalledWith('delete_salary_record', { p_club_id: CLUB, p_id: REQUEST, p_kind: 'entry', p_reason: 'Paid twice' });
+    expect((await post({ action: 'delete_record', clubId: CLUB, employeeId: EMPLOYEE, recordId: REQUEST, kind: 'employee', reason: 'x' })).status).toBe(400);
+  });
+
+  it('falls back to the reasonless RPC before migration 089', async () => {
+    const { rpc } = mockSupabase();
+    rpc.mockImplementationOnce(() => Promise.resolve({ error: { code: 'PGRST202', message: 'Could not find the function public.delete_salary_record' } }));
+    const response = await post({ action: 'delete_record', clubId: CLUB, employeeId: EMPLOYEE, recordId: REQUEST, kind: 'entry', reason: 'Paid twice' });
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenLastCalledWith('delete_salary_record', { p_club_id: CLUB, p_id: REQUEST, p_kind: 'entry' });
+  });
+
+  it('requires a deletion reason', async () => {
+    const { rpc } = mockSupabase();
+    for (const reason of [undefined, '', '   ', 'x'.repeat(501)]) {
+      const response = await post({ action: 'delete_record', clubId: CLUB, employeeId: EMPLOYEE, recordId: REQUEST, kind: 'entry', reason });
+      expect(response.status).toBe(400);
+    }
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -111,7 +128,7 @@ describe('POST /api/salaries', () => {
   ])('returns a stable code instead of database text (%o)', async (rpcError, status, code) => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     mockSupabase({ rpcError });
-    const response = await post({ action: 'delete_record', clubId: CLUB, employeeId: EMPLOYEE, recordId: REQUEST, kind: 'rate' });
+    const response = await post({ action: 'delete_record', clubId: CLUB, employeeId: EMPLOYEE, recordId: REQUEST, kind: 'rate', reason: 'Wrong date' });
     expect(response.status).toBe(status);
     const payload = await response.json();
     expect(payload.code).toBe(code);

@@ -21,6 +21,7 @@ export const DEFAULT_KPI_BASIS: KpiBasis = 'overall_profit';
 export interface SalaryRate {
   deleted_at?: string | null;
   deleted_by?: string | null;
+  delete_reason?: string | null;
   id: string;
   employee_id: string;
   effective_date: string;
@@ -37,6 +38,7 @@ export interface SalaryRate {
 export interface SalaryEntry {
   deleted_at?: string | null;
   deleted_by?: string | null;
+  delete_reason?: string | null;
   id: string;
   employee_id: string;
   date: string;

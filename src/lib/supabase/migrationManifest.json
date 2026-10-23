@@ -2372,11 +2372,6 @@
     "probes": [
       {
         "kind": "functionBody",
-        "signature": "public.delete_salary_record(uuid,uuid,text)",
-        "md5": "71b7e58207cb757ce0294fab99fd90c0"
-      },
-      {
-        "kind": "functionBody",
         "signature": "public.deactivate_salary_employee(uuid,uuid)",
         "md5": "3102017fbb086edcdc6752d9b6e63a35"
       },
@@ -2943,6 +2938,25 @@
         "kind": "constraint",
         "table": "public.expenses",
         "name": "expenses_category_allowed"
+      }
+    ]
+  },
+  {
+    "file": "089_salary_deletion_reason.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.salary_entries",
+        "column": "delete_reason"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_rates",
+        "column": "delete_reason"
+      },
+      {
+        "kind": "function",
+        "signature": "public.delete_salary_record(uuid,uuid,text,text)"
       }
     ]
   }

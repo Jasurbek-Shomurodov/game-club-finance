@@ -43,6 +43,7 @@ beforeAll(async () => {
   await db.exec(readFileSync(resolve('migrations/067_owner_only_payroll_terms.sql'), 'utf8'));
   await db.exec(readFileSync(resolve('migrations/070_salary_kpi_basis.sql'), 'utf8'));
   await db.exec(readFileSync(resolve('migrations/077_salary_entry_created_flag.sql'), 'utf8'));
+  await db.exec(readFileSync(resolve('migrations/089_salary_deletion_reason.sql'), 'utf8'));
   await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub','${owner}',false);`);
   await save();
 }, 60_000);
@@ -151,7 +152,7 @@ describe('salary database authorization and ledger integrity', () => {
       await expect(db.query('select activate_salary_employee($1,$2)', [club,employee])).rejects.toThrow('club owner');
       await expect(db.query('select change_salary_employee_role($1,$2,$3)', [club,employee,'Cleaner'])).rejects.toThrow('club owner');
       const rate = (await db.query<{id:string}>('select id from salary_rates where employee_id=$1 and deleted_at is null limit 1',[employee])).rows[0];
-      await expect(db.query('select delete_salary_record($1,$2,$3)',[club,rate.id,'rate'])).rejects.toThrow('club owner');
+      await expect(db.query('select delete_salary_record($1,$2,$3,$4)',[club,rate.id,'rate','Test reason'])).rejects.toThrow('club owner');
       await db.exec(`reset role; update club_memberships set feature_access=array[]::text[]; set role authenticated;`);
       await expect(pay()).rejects.toThrow('Salary editing access');
       await expect(db.query('update salary_rates set amount=0 where employee_id=$1',[employee])).rejects.toThrow();
@@ -161,19 +162,22 @@ describe('salary database authorization and ledger integrity', () => {
 
   it('deletes a payment and expense atomically while retaining the audited entry', async () => {
     await db.exec(`reset role; create function test_prevent_salary_delete() returns trigger language plpgsql as $$ begin raise exception 'test delete failure'; end; $$; create trigger test_delete before delete on expenses for each row execute function test_prevent_salary_delete(); set role authenticated;`);
-    await expect(db.query('select delete_salary_record($1,$2,$3)',[club,payment,'entry'])).rejects.toThrow('test delete failure');
+    await expect(db.query('select delete_salary_record($1,$2,$3,$4)',[club,payment,'entry','Test reason'])).rejects.toThrow('test delete failure');
     expect((await db.query<{deleted_at:string|null}>('select deleted_at from salary_entries where id=$1',[payment])).rows[0]).toEqual({deleted_at:null});
     await db.exec('reset role; drop trigger test_delete on expenses; set role authenticated;');
-    await db.query('select delete_salary_record($1,$2,$3)',[club,payment,'entry']);
-    await db.query('select delete_salary_record($1,$2,$3)',[club,payment,'entry']);
+    for (const reason of [null, '', '   ', 'x'.repeat(501)]) {
+      await expect(db.query('select delete_salary_record($1,$2,$3,$4)',[club,payment,'entry',reason])).rejects.toThrow('deletion reason');
+    }
+    await db.query('select delete_salary_record($1,$2,$3,$4)',[club,payment,'entry','Test reason']);
+    await db.query('select delete_salary_record($1,$2,$3,$4)',[club,payment,'entry','Test reason']);
     expect((await db.query('select * from expenses where salary_entry_id=$1',[payment])).rows).toHaveLength(0);
-    const row = (await db.query<{deleted_at:string|null;deleted_by:string;amount:string}>('select deleted_at,deleted_by,amount from salary_entries where id=$1',[payment])).rows[0];
-    expect(row).toMatchObject({deleted_by:owner,amount:'100.00'});
+    const row = (await db.query<{deleted_at:string|null;deleted_by:string;amount:string;delete_reason:string}>('select deleted_at,deleted_by,amount,delete_reason from salary_entries where id=$1',[payment])).rows[0];
+    expect(row).toMatchObject({deleted_by:owner,amount:'100.00',delete_reason:'Test reason'});
     expect(row.deleted_at).not.toBeNull();
   });
   it('keeps deleted rates when a replacement is saved on the same effective date', async () => {
     const row = (await db.query<{id:string}>("select id from salary_rates where employee_id=$1 and effective_date='2026-09-24'",[employee])).rows[0];
-    await db.query('select delete_salary_record($1,$2,$3)',[club,row.id,'rate']);
+    await db.query('select delete_salary_record($1,$2,$3,$4)',[club,row.id,'rate','Test reason']);
     await save(employee,'2026-09-24');
     const rows = (await db.query<{deleted_at:string|null}>("select deleted_at from salary_rates where employee_id=$1 and effective_date='2026-09-24'",[employee])).rows;
     expect(rows).toHaveLength(2);
@@ -182,12 +186,12 @@ describe('salary database authorization and ledger integrity', () => {
   });
   it('enforces deletion grants, club isolation and protects audit fields', async () => {
     const id='30000000-0000-0000-0000-000000000002';
-    await expect(db.query('select delete_salary_record($1,$2,$3)',[other,id,'entry'])).rejects.toThrow('Salary editing access');
+    await expect(db.query('select delete_salary_record($1,$2,$3,$4)',[other,id,'entry','Test reason'])).rejects.toThrow('Salary editing access');
     await db.exec("reset role; update club_memberships set role='viewer',feature_access=array[]::text[]; set role authenticated;");
-    await expect(db.query('select delete_salary_record($1,$2,$3)',[club,id,'entry'])).rejects.toThrow('Salary editing access');
+    await expect(db.query('select delete_salary_record($1,$2,$3,$4)',[club,id,'entry','Test reason'])).rejects.toThrow('Salary editing access');
     await expect(db.query('update salary_entries set deleted_at=now() where id=$1',[id])).rejects.toThrow();
     await db.exec("reset role; update club_memberships set feature_access=array['salaries']; set role authenticated;");
-    await db.query('select delete_salary_record($1,$2,$3)',[club,id,'entry']);
+    await db.query('select delete_salary_record($1,$2,$3,$4)',[club,id,'entry','Test reason']);
     expect((await db.query<{deleted_at:string|null}>('select deleted_at from salary_entries where id=$1',[id])).rows[0].deleted_at).not.toBeNull();
     await db.exec("reset role; update club_memberships set role='owner',feature_access=null; set role authenticated;");
   });
@@ -246,11 +250,11 @@ it('prevents deleting the last live rate and preserves salary/KPI editing',async
  const id='20000000-0000-0000-0000-000000000099';
  await save(id,'2026-09-01');
  const rate=(await db.query<{id:string}>('select id from salary_rates where employee_id=$1',[id])).rows[0];
- await expect(db.query('select delete_salary_record($1,$2,$3)',[club,rate.id,'rate'])).rejects.toThrow('last salary rate');
+ await expect(db.query('select delete_salary_record($1,$2,$3,$4)',[club,rate.id,'rate','Test reason'])).rejects.toThrow('last salary rate');
  await db.query('select change_salary_term($1,$2,$3,$4,$5)',[club,id,'salary',100,'daily']);
  await db.query('select change_salary_term($1,$2,$3,$4)',[club,id,'kpi',5]);
- await db.query('select delete_salary_record($1,$2,$3)',[club,rate.id,'rate']);
- await db.query('select delete_salary_record($1,$2,$3)',[club,rate.id,'rate']);
+ await db.query('select delete_salary_record($1,$2,$3,$4)',[club,rate.id,'rate','Test reason']);
+ await db.query('select delete_salary_record($1,$2,$3,$4)',[club,rate.id,'rate','Test reason']);
  expect((await db.query('select * from salary_rates where employee_id=$1 and deleted_at is null',[id])).rows).toHaveLength(1);
 });
 it('restores already missing salary settings without erasing deleted history',async()=>{

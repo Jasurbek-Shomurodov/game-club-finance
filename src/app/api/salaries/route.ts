@@ -153,19 +153,25 @@ export async function POST(request: Request) {
         break;
       }
       case 'delete_record': {
-        if (!isId(body.recordId) || (body.kind !== 'entry' && body.kind !== 'rate')) throw new BadRequest();
+        const reason = text(body.reason, 500);
+        if (!isId(body.recordId) || (body.kind !== 'entry' && body.kind !== 'rate') || !reason) throw new BadRequest();
         // Read what is being deleted first, only to describe it in the group notification.
         const lookup = body.kind === 'entry'
           ? await supabase.from('salary_entries').select('kind, amount, date').eq('club_id', clubId).eq('id', body.recordId).maybeSingle()
           : await supabase.from('salary_rates').select('effective_date').eq('club_id', clubId).eq('id', body.recordId).maybeSingle();
         if (lookup.error) return fail('record_lookup', lookup.error);
         // Same audited RPC as before; it checks the record belongs to the club and the caller's access.
-        rpcResult = await supabase.rpc('delete_salary_record', { p_club_id: clubId, p_id: body.recordId, p_kind: body.kind });
+        const deleteParams = { p_club_id: clubId, p_id: body.recordId, p_kind: body.kind };
+        rpcResult = await supabase.rpc('delete_salary_record', { ...deleteParams, p_reason: reason });
+        // Before migration 089 the RPC takes no reason; the reason then only reaches the notification.
+        if (rpcResult.error && isMissingDatabaseFunction(rpcResult.error, 'delete_salary_record')) {
+          rpcResult = await supabase.rpc('delete_salary_record', deleteParams);
+        }
         const record = lookup.data as { kind?: 'payment' | 'bonus' | 'fine'; amount?: number | string; date?: string; effective_date?: string } | null;
         if (record?.kind && record.date) {
-          notification = { event: 'entry_deleted', kind: record.kind, amount: Number(record.amount), date: record.date };
+          notification = { event: 'entry_deleted', kind: record.kind, amount: Number(record.amount), date: record.date, reason };
         } else if (record?.effective_date) {
-          notification = { event: 'rate_deleted', effectiveDate: record.effective_date };
+          notification = { event: 'rate_deleted', effectiveDate: record.effective_date, reason };
         }
         break;
       }

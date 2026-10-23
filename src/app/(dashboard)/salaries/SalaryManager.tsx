@@ -9,6 +9,7 @@ import {
   ConfirmDialog,
   Disclosure,
   EmptyState,
+  Field,
   InlineAlert,
   LoadErrorAlert,
   MetricCard,
@@ -16,6 +17,7 @@ import {
   MetricMoney,
   PageHeader,
   SegmentedControl,
+  Textarea,
   useConfirm,
   useToast,
   type SegmentedOption,
@@ -89,6 +91,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   const [entryError, setEntryError] = useState('');
   const [employeeError, setEmployeeError] = useState('');
   const [deleteError, setDeleteError] = useState('');
+  const [deleteReason, setDeleteReason] = useState('');
   const [setupMode, setSetupMode] = useState<SetupMode>('new');
   const [entrySelected, setEntrySelected] = useState<SalaryEmployee | null>(null);
   const [selectedEmployee, setSelected] = useState<SalaryEmployee | null>(null);
@@ -292,13 +295,14 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   }
 
   async function deleteRecord() {
-    if (!deletion || !canEdit || (deletion.kind === 'rate' && !isOwner) || mutating.current) return;
+    const reason = deleteReason.trim();
+    if (!deletion || !reason || !canEdit || (deletion.kind === 'rate' && !isOwner) || mutating.current) return;
     mutating.current = true;
     setSavingTarget('delete');
     setDeleteError('');
     try {
       // Same route as every other payroll write, so it is logged and notified consistently.
-      await postSalary(clubId, { action: 'delete_record', employeeId: deletion.employeeId, recordId: deletion.id, kind: deletion.kind });
+      await postSalary(clubId, { action: 'delete_record', employeeId: deletion.employeeId, recordId: deletion.id, kind: deletion.kind, reason });
       setDeletion(null);
       showToast(t('deletedSuccess'));
       // Deleting a rate can change accruals; an entry only changes entries.
@@ -426,7 +430,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
           canEdit={canEdit}
           isOwner={isOwner}
           saving={saving}
-          onDelete={(target) => { setDeleteError(''); setDeletion(target); }}
+          onDelete={(target) => { setDeleteError(''); setDeleteReason(''); setDeletion(target); }}
         />
       )}
 
@@ -438,9 +442,13 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
           <>
             <p className="mb-2 font-semibold text-gray-900">{deletion?.label}</p>
             <p>{t(deletion?.kind === 'rate' ? 'deleteRateHelp' : 'deleteEntryHelp')}</p>
+            <Field label={t('deleteReason')} htmlFor="salary-delete-reason" required className="mt-3">
+              <Textarea id="salary-delete-reason" required autoFocus maxLength={500} placeholder={t('deleteReasonPlaceholder')} value={deleteReason} onChange={(e) => setDeleteReason(e.target.value)} />
+            </Field>
           </>
         )}
         confirmLabel={t('delete')}
+        confirmDisabled={!deleteReason.trim()}
         loading={saving}
         error={deleteError || undefined}
         onConfirm={() => void deleteRecord()}

@@ -218,17 +218,9 @@ export async function DELETE(request: Request) {
   if (expenseError) return failure('lookup', context, expenseError);
   if (!expense) return expenseErrorResponse('NOT_FOUND');
 
-  if (expense.salary_entry_id) {
-    // Payroll-linked expenses are only removable through the audited RPC, which
-    // soft-deletes the salary entry and removes the linked expense atomically.
-    const { error: salaryError } = await supabase.rpc('delete_salary_record', {
-      p_club_id: clubId,
-      p_id: expense.salary_entry_id,
-      p_kind: 'entry',
-    });
-    if (salaryError) return failure('salary payment deletion', context, salaryError);
-    return Response.json({ deleted: true });
-  }
+  // Payroll-linked expenses are removed from Salaries, where a deletion reason
+  // is required; the audited RPC then removes this expense atomically.
+  if (expense.salary_entry_id) return expenseErrorResponse('SALARY_PAYMENT_IMMUTABLE');
 
   // Remove the ledger row first: a failed or refused delete must leave its
   // Telegram message in place.

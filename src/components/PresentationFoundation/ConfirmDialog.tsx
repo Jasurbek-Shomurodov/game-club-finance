@@ -15,6 +15,8 @@ export interface ConfirmDialogProps {
   /** danger renders a red confirm button; use it for deletes. */
   tone?: 'danger' | 'primary';
   loading?: boolean;
+  /** Keeps the confirm button disabled, e.g. until a required field is filled. */
+  confirmDisabled?: boolean;
   error?: ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
@@ -29,6 +31,7 @@ export function ConfirmDialog({
   cancelLabel,
   tone = 'danger',
   loading = false,
+  confirmDisabled = false,
   error,
   onConfirm,
   onCancel,
@@ -48,7 +51,7 @@ export function ConfirmDialog({
           <Button variant="outline" onClick={onCancel} disabled={loading}>
             {cancelLabel ?? tc('cancel')}
           </Button>
-          <Button variant={tone === 'danger' ? 'danger' : 'primary'} onClick={onConfirm} loading={loading} loadingLabel={tc('saving')} autoFocus>
+          <Button variant={tone === 'danger' ? 'danger' : 'primary'} onClick={onConfirm} disabled={confirmDisabled} loading={loading} loadingLabel={tc('saving')} autoFocus={!confirmDisabled}>
             {confirmLabel ?? tc('confirm')}
           </Button>
         </>

@@ -33,9 +33,10 @@ describe('buildSalaryNotification', () => {
     expect(text).toContain('Должность: Менеджер');
   });
   it('describes deleted payroll records', () => {
-    const entry = buildSalaryNotification({ ...base, event: 'entry_deleted', kind: 'payment', amount: 500000, date: '2026-10-02' });
+    const entry = buildSalaryNotification({ ...base, event: 'entry_deleted', kind: 'payment', amount: 500000, date: '2026-10-02', reason: 'Paid twice' });
     expect(entry).toContain('Удалена выплата зарплаты');
     expect(entry).toContain('Сумма: 500 000 сум');
-    expect(buildSalaryNotification({ ...base, event: 'rate_deleted', effectiveDate: '2026-10-01' })).toContain('Удалено изменение зарплаты');
+    expect(entry).toContain('Причина: Paid twice');
+    expect(buildSalaryNotification({ ...base, event: 'rate_deleted', effectiveDate: '2026-10-01', reason: 'Wrong rate' })).toContain('Удалено изменение зарплаты');
   });
 });

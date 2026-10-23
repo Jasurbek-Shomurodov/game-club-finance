@@ -159,11 +159,12 @@ describe('expense deletion route', () => {
     expect(deleteQuery.delete).toHaveBeenCalledOnce();
   });
 
-  it('deletes payroll payments through the audited salary RPC', async () => {
+  it('sends payroll payments to Salaries, where a deletion reason is required', async () => {
     const { deleteQuery, rpc } = mockSupabase({ id: EXPENSE_ID, salary_entry_id: 'salary-entry', telegram_chat_id: '-1001', telegram_message_id: 42 });
     const response = await DELETE_AND_FLUSH(deleteRequest());
-    expect(response.status).toBe(200);
-    expect(rpc).toHaveBeenCalledWith('delete_salary_record', { p_club_id: CLUB_ID, p_id: 'salary-entry', p_kind: 'entry' });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: 'SALARY_PAYMENT_IMMUTABLE' });
+    expect(rpc).not.toHaveBeenCalled();
     expect(deleteQuery.delete).not.toHaveBeenCalled();
   });
 
