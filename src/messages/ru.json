@@ -305,7 +305,18 @@
     "yoySectionDesc": "Поступления за каждый календарный месяц, свой цвет для каждого года.",
     "yoyGameClubTitle": "Доход клуба по годам",
     "yoyBarTitle": "Продажи бара по годам",
-    "yoyEmpty": "История начинается в {year} году. Сравнение появится, когда она охватит два календарных года."
+    "yoyEmpty": "История начинается в {year} году. Сравнение появится, когда она охватит два календарных года.",
+    "sectionNav": "Перейти к разделу",
+    "overviewSection": "Обзор",
+    "summaryRingLabel": "Поступило {income} {currency}: потрачено {spent} {currency}, прибыль {profit} {currency}",
+    "summaryShareOfIncome": "{share} от поступлений",
+    "ownerBalanceTitle": "Сколько владелец ещё может забрать",
+    "ownerBalanceDesc": "Каждая полоса — всё, что часть заработала для владельца: цветная доля уже снята, зелёная ещё осталась.",
+    "ownerBarLabel": "Заработано {earned} {currency}: снято {withdrawn} {currency}, осталось {left} {currency}",
+    "ownerOverdrawn": "Снято сверх",
+    "expensesSection": "Расходы",
+    "expensesSectionDesc": "Куда ушли операционные расходы и самые крупные платежи.",
+    "summaryProfitByMonth": "Прибыль по месяцам"
   },
   "reports": {
     "title": "Отчёты",

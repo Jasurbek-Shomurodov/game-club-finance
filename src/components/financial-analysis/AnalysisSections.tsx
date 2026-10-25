@@ -12,7 +12,9 @@ import {
 } from '@/components/PresentationFoundation';
 import type { SourceIndicators } from '@/lib/calculations/financialAnalysis';
 
-export function Section({ title, description, icon: Icon, iconClassName, action, children }: {
+export function Section({ id, title, description, icon: Icon, iconClassName, action, children }: {
+  /** Anchor for in-page navigation. */
+  id?: string;
   title: string;
   description?: string;
   icon?: LucideIcon;
@@ -22,7 +24,7 @@ export function Section({ title, description, icon: Icon, iconClassName, action,
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-3">
+    <section id={id} className="scroll-mt-4 space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
         <div className="min-w-0 flex-1 basis-64">
           <h2 className="flex items-center gap-2 text-base font-semibold text-gray-950">

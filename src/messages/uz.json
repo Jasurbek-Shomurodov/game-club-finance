@@ -305,7 +305,18 @@
     "yoySectionDesc": "Har bir kalendar oy tushumi, har bir yil o‘z rangida.",
     "yoyGameClubTitle": "Klub daromadi yillar bo‘yicha",
     "yoyBarTitle": "Bar savdosi yillar bo‘yicha",
-    "yoyEmpty": "Tarix {year}-yildan boshlanadi. Taqqoslash ikki kalendar yilni qamraganda paydo bo‘ladi."
+    "yoyEmpty": "Tarix {year}-yildan boshlanadi. Taqqoslash ikki kalendar yilni qamraganda paydo bo‘ladi.",
+    "sectionNav": "Bo‘limga o‘tish",
+    "overviewSection": "Umumiy ko‘rinish",
+    "summaryRingLabel": "Tushum {income} {currency}: sarflangan {spent} {currency}, foyda {profit} {currency}",
+    "summaryShareOfIncome": "Tushumning {share}",
+    "ownerBalanceTitle": "Egasi yana qancha olishi mumkin",
+    "ownerBalanceDesc": "Har bir chiziq — shu qism egasi uchun ishlab topgan hamma narsa: rangli qismi olingan, yashil qismi hali qolgan.",
+    "ownerBarLabel": "Ishlab topilgan {earned} {currency}: olingan {withdrawn} {currency}, qolgan {left} {currency}",
+    "ownerOverdrawn": "Ortiqcha olingan",
+    "expensesSection": "Xarajatlar",
+    "expensesSectionDesc": "Operatsion xarajatlar qayerga ketgani va eng katta to‘lovlar.",
+    "summaryProfitByMonth": "Oylar bo‘yicha foyda"
   },
   "reports": {
     "title": "Hisobotlar",

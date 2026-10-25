@@ -2,13 +2,10 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import {
-  ArrowDownToLine,
   ArrowRight,
   CircleDollarSign,
   MonitorSmartphone,
-  PiggyBank,
   ShoppingBag,
-  Wallet,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
@@ -22,7 +19,6 @@ import { capitalizeFirst, formatCurrency, formatDate, formatYearMonth } from '@/
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
-  AmountCard,
   ButtonLink,
   ChartSkeleton,
   DataTable,
@@ -34,7 +30,7 @@ import {
   type DataTableColumn,
 } from '@/components/PresentationFoundation';
 import { ChartCard, ChartEmpty } from '@/components/dashboard/ChartCard';
-import { sumAvailableMoneyResults, type AvailableSourceBalance } from '@/lib/calculations/availableMoney';
+import { sumAvailableMoneyResults } from '@/lib/calculations/availableMoney';
 import { percentChange } from '@/lib/calculations/dashboardMetrics';
 import {
   buildCalendarHeatmap,
@@ -63,8 +59,9 @@ import {
 import { MoneyFlowSankeys } from './MoneyFlowSankeys';
 import { CategoryDonut, LargestPayments } from './AnalysisPanels';
 import { CategoryDrawer } from './CategoryDrawer';
-import { Section, SourceCards } from './AnalysisSections';
-import { categoryColors, formatShare, SIDE_ICON_CLASS } from './analysisFormat';
+import { Section } from './AnalysisSections';
+import { OwnerBalanceCard, SectionNav, SideSummaryCard } from './OverallSummary';
+import { categoryColors, formatShare } from './analysisFormat';
 
 function ChartLoading() {
   return <ChartSkeleton />;
@@ -91,58 +88,6 @@ type Side = 'gameClub' | 'bar';
 interface MonthTableRow extends MonthlyAnalysisRow {
   gameClubWithdrawn: number | null;
   barWithdrawn: number | null;
-}
-
-/** Earned, withdrawn and still-available owner profit for one side over every month. */
-function OwnerSideCards({ side, balance, loading, currency }: {
-  side: Side;
-  balance: AvailableSourceBalance;
-  loading: boolean;
-  currency: string;
-}) {
-  const t = useTranslations('financialAnalysis');
-  const td = useTranslations('dashboard');
-  const Icon = side === 'gameClub' ? MonitorSmartphone : ShoppingBag;
-  const iconClassName = SIDE_ICON_CLASS[side];
-  return (
-    <div className="space-y-2">
-      <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-        <Icon size={16} className={iconClassName} aria-hidden="true" />
-        {td(side)}
-      </h3>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <AmountCard
-          loading={loading}
-          currency={currency}
-          label={t('ownerEarned')}
-          helper={t(side === 'gameClub' ? 'ownerEarnedGameClubHelper' : 'ownerEarnedBarHelper')}
-          amount={balance.earned}
-          icon={PiggyBank}
-          iconClassName={iconClassName}
-          tone={toneForAmount(balance.earned)}
-        />
-        <AmountCard
-          loading={loading}
-          currency={currency}
-          label={t('ownerWithdrawn')}
-          amount={balance.withdrawn}
-          icon={ArrowDownToLine}
-          iconClassName={iconClassName}
-          tone="danger"
-        />
-        <AmountCard
-          loading={loading}
-          currency={currency}
-          label={t('ownerLeft')}
-          helper={t('ownerLeftHelper')}
-          amount={balance.available}
-          icon={Wallet}
-          iconClassName={iconClassName}
-          tone={toneForAmount(balance.available)}
-        />
-      </div>
-    </div>
-  );
 }
 
 /** Compact figures above a side's profit-by-month chart. */
@@ -315,6 +260,18 @@ export function OverallAnalysis({ businessToday }: { businessToday: string }) {
   };
   const hasYearOverYear = yearOverYear.gameClub.years.length > 1;
 
+  const navItems = [
+    { id: 'overview', label: t('overviewSection') },
+    { id: 'flow', label: t('flowSection') },
+    ...(showOwnerProfit ? [{ id: 'owner', label: t('ownerSection') }] : []),
+    { id: 'forecast', label: t('forecastSection') },
+    { id: 'profit', label: t('overallSection') },
+    { id: 'reports', label: t('reportsSection') },
+    { id: 'years', label: t('yoySection') },
+    { id: 'table', label: t('tableTitle') },
+    { id: 'expenses', label: t('expensesSection') },
+  ];
+
   const granularityControl = (
     <SegmentedControl
       variant="soft"
@@ -341,49 +298,79 @@ export function OverallAnalysis({ businessToday }: { businessToday: string }) {
 
   return (
     <>
-      <SourceCards
-        title={td('gameClub')}
-        description={sinceLabel}
-        icon={MonitorSmartphone}
-        iconClassName={SIDE_ICON_CLASS.gameClub}
-        incomeLabel={t('moneyIn')}
-        now={indicators.gameClub}
-        loading={loading}
-        currency={currency}
-      />
-      <SourceCards
-        title={td('bar')}
-        description={sinceLabel}
-        icon={ShoppingBag}
-        iconClassName={SIDE_ICON_CLASS.bar}
-        incomeLabel={t('barSalesIn')}
-        now={indicators.bar}
-        loading={loading}
-        currency={currency}
-      />
+      <SectionNav label={t('sectionNav')} items={navItems} />
+
+      <Section id="overview" title={t('overviewSection')} description={sinceLabel}>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <SideSummaryCard
+            side="gameClub"
+            title={td('gameClub')}
+            icon={MonitorSmartphone}
+            incomeLabel={t('moneyIn')}
+            data={indicators.gameClub}
+            months={profitMonths.gameClub}
+            loading={loading}
+            locale={locale}
+            currency={currency}
+          />
+          <SideSummaryCard
+            side="bar"
+            title={td('bar')}
+            icon={ShoppingBag}
+            incomeLabel={t('barSalesIn')}
+            data={indicators.bar}
+            months={profitMonths.bar}
+            loading={loading}
+            locale={locale}
+            currency={currency}
+          />
+        </div>
+      </Section>
+
+      {!loading && (
+        <Section id="flow" title={t('flowSection')} description={t('flowSectionDesc')}>
+          <MoneyFlowSankeys
+            className="space-y-3"
+            ledgers={history.ledgers}
+            range={range}
+            colors={colors}
+            periodLabel={periodLabel}
+            locale={locale}
+            currency={currency}
+            gameClub={{ title: t('gameClubFlowTitle'), description: t('flowDesc') }}
+            bar={{ title: t('barFlowTitle'), description: t('flowDesc') }}
+          />
+        </Section>
+      )}
 
       {showOwnerProfit && (
-        <section className="space-y-3">
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <div>
-              <h2 className="flex items-center gap-2 text-base font-semibold text-gray-950">
-                <CircleDollarSign size={18} className="shrink-0 text-success-600" aria-hidden="true" />
-                {t('ownerSection')}
-              </h2>
-              <p className="mt-0.5 text-sm text-gray-500">{t('ownerSectionDesc')}</p>
-            </div>
+        <Section
+          id="owner"
+          title={t('ownerSection')}
+          description={t('ownerSectionDesc')}
+          icon={CircleDollarSign}
+          iconClassName="text-success-600"
+          action={(
             <ButtonLink href="/money-taken" variant="ghost" size="sm" iconRight={<ArrowRight size={15} aria-hidden="true" />}>
               {t('ownerOpen')}
             </ButtonLink>
-          </div>
+          )}
+        >
           {ownerQuery.error ? (
             <LoadErrorAlert retrying={ownerQuery.loading} onRetry={() => void ownerQuery.reload()}>
               {t('ownerLoadError')}
             </LoadErrorAlert>
           ) : (
-            <div className="space-y-4">
-              <OwnerSideCards side="gameClub" balance={ownerTotals.gameClub} loading={ownerLoading} currency={currency} />
-              <OwnerSideCards side="bar" balance={ownerTotals.bar} loading={ownerLoading} currency={currency} />
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+              <OwnerBalanceCard
+                loading={ownerLoading}
+                locale={locale}
+                currency={currency}
+                sides={[
+                  { side: 'gameClub', label: td('gameClub'), icon: MonitorSmartphone, balance: ownerTotals.gameClub },
+                  { side: 'bar', label: td('bar'), icon: ShoppingBag, balance: ownerTotals.bar },
+                ]}
+              />
               <ChartCard title={t('ownerChartTitle')} description={t('ownerChartDesc')}>
                 {ownerLoading
                   ? <div className="mt-4"><ChartSkeleton /></div>
@@ -393,7 +380,7 @@ export function OverallAnalysis({ businessToday }: { businessToday: string }) {
               </ChartCard>
             </div>
           )}
-        </section>
+        </Section>
       )}
 
       {loading ? (
@@ -403,7 +390,7 @@ export function OverallAnalysis({ businessToday }: { businessToday: string }) {
         </div>
       ) : (
         <div className="space-y-6">
-          <Section title={t('forecastSection')} description={t('forecastSectionDesc', { month: monthName(forecast.month) })}>
+          <Section id="forecast" title={t('forecastSection')} description={t('forecastSectionDesc', { month: monthName(forecast.month) })}>
             <div className="grid gap-4 xl:grid-cols-2">
               {(['gameClub', 'bar'] as const).map((side) => (
                 <ChartCard key={side} title={t(side === 'gameClub' ? 'forecastGameClubTitle' : 'forecastBarTitle')} description={t('forecastDesc')}>
@@ -416,7 +403,7 @@ export function OverallAnalysis({ businessToday }: { businessToday: string }) {
             </div>
           </Section>
 
-          <Section title={t('overallSection')} description={t('overallSectionDesc', { count: summary.months })}>
+          <Section id="profit" title={t('overallSection')} description={t('overallSectionDesc', { count: summary.months })}>
             <div className="grid gap-4 xl:grid-cols-2">
               {(['gameClub', 'bar'] as const).map((side) => (
                 <ChartCard key={side} title={t(side === 'gameClub' ? 'profitMonthsGameClubTitle' : 'profitMonthsBarTitle')} description={t('profitMonthsDesc')}>
@@ -429,7 +416,7 @@ export function OverallAnalysis({ businessToday }: { businessToday: string }) {
             </div>
           </Section>
 
-          <Section title={t('reportsSection')} description={t('reportsSectionDesc')} action={granularityControl}>
+          <Section id="reports" title={t('reportsSection')} description={t('reportsSectionDesc')} action={granularityControl}>
             {hasActivity ? (
               <>
                 <div className="grid gap-4 xl:grid-cols-2">
@@ -475,7 +462,7 @@ export function OverallAnalysis({ businessToday }: { businessToday: string }) {
             ) : <ChartEmpty title={t('empty')} />}
           </Section>
 
-          <Section title={t('yoySection')} description={t('yoySectionDesc')}>
+          <Section id="years" title={t('yoySection')} description={t('yoySectionDesc')}>
             {hasYearOverYear ? (
               <div className="grid gap-4 xl:grid-cols-2">
                 {(['gameClub', 'bar'] as const).map((side) => (
@@ -489,7 +476,7 @@ export function OverallAnalysis({ businessToday }: { businessToday: string }) {
             )}
           </Section>
 
-          <Section title={t('trendsSection')} description={t('trendsSectionDesc')}>
+          <Section id="table" title={t('trendsSection')} description={t('trendsSectionDesc')}>
             <ChartCard title={t('tableTitle')} description={showOwnerProfit ? t('tableDescOwner') : t('tableDesc')}>
               <DataTable
                 className="mt-4"
@@ -502,18 +489,7 @@ export function OverallAnalysis({ businessToday }: { businessToday: string }) {
             </ChartCard>
           </Section>
 
-          <Section title={t('flowSection')} description={t('flowSectionDesc')}>
-            <MoneyFlowSankeys
-              className="space-y-3"
-              ledgers={history.ledgers}
-              range={range}
-              colors={colors}
-              periodLabel={periodLabel}
-              locale={locale}
-              currency={currency}
-              gameClub={{ title: t('gameClubFlowTitle'), description: t('flowDesc') }}
-              bar={{ title: t('barFlowTitle'), description: t('flowDesc') }}
-            />
+          <Section id="expenses" title={t('expensesSection')} description={t('expensesSectionDesc')}>
             <div className="grid gap-4 lg:grid-cols-2">
               <ChartCard title={t('categoriesTitle')} description={t('categoriesDesc')}>
                 <CategoryDonut
