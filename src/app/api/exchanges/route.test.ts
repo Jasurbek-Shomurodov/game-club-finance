@@ -113,12 +113,18 @@ describe('DELETE /api/exchanges', () => {
     expect((await call(DELETE, body)).status).toBe(200);
     expect(rpc).toHaveBeenCalledWith('delete_money_exchange', { p_club_id: CLUB, p_id: EXCHANGE });
     expect(mocks.deleteTelegramMessage).toHaveBeenCalledWith({ botToken: 'token', chatId: '-1001', messageId: 42 });
+    // The deletion is silent in Telegram, so the group gets its own notice.
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({
+      chatId: '-1001',
+      text: expect.stringMatching(/🗑 Удалён обмен денег[\s\S]*Удалил\(а\): Alisher/),
+    }));
   });
 
   it('keeps the message when the delete is refused, and never deletes outside the club group', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     mockSupabase({ rpcError: { message: 'Only a club owner can delete an exchange.', code: '42501' } });
     expect((await call(DELETE, body)).status).toBe(403);
+    expect(mocks.sendTelegramMessage).not.toHaveBeenCalled();
     mockSupabase({ exchange: { ...saved, telegram_chat_id: '-1009' } });
     expect((await call(DELETE, body)).status).toBe(200);
     expect(mocks.deleteTelegramMessage).not.toHaveBeenCalled();

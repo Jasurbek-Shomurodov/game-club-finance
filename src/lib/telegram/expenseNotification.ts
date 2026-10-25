@@ -11,7 +11,7 @@ export interface ExpenseNotificationInput {
   paymentSource: 'game_club' | 'bar';
 }
 
-const PAYMENT_METHOD_LABELS: Record<string, string> = {
+export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: 'Наличные',
   terminal: 'Терминал',
   card: 'Карта',

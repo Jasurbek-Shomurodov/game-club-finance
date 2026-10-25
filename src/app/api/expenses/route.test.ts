@@ -17,7 +17,8 @@ vi.mock('@/lib/telegram/deleteTelegramMessage', () => ({
 vi.mock('@/lib/telegram/editTelegramMessage', () => ({
   editTelegramMessage: mocks.editTelegramMessage,
 }));
-vi.mock('@/lib/telegram/expenseNotification', () => ({
+vi.mock('@/lib/telegram/expenseNotification', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/telegram/expenseNotification')>()),
   buildExpenseNotification: vi.fn(() => 'expense'),
 }));
 vi.mock('@/lib/telegram/sendDailyFinanceReport', async (importOriginal) => ({
@@ -72,7 +73,7 @@ function queryResult<T>(data: T, error: { message: string } | null = null) {
   return builder;
 }
 
-function mockSupabase(expense: {
+function mockSupabase(expense: Record<string, unknown> & {
   id: string;
   salary_entry_id?: string;
   telegram_chat_id: string | null;
@@ -146,6 +147,19 @@ describe('expense deletion route', () => {
     expect(response.status).toBe(404);
     expect((await response.json()).code).toBe('NOT_FOUND');
     expect(mocks.deleteTelegramMessage).not.toHaveBeenCalled();
+    expect(mocks.sendTelegramMessage).not.toHaveBeenCalled();
+  });
+
+  it('posts a deletion notice to the club group, even without a stored message', async () => {
+    mockSupabase({
+      id: EXPENSE_ID, telegram_chat_id: null, telegram_message_id: null,
+      amount: 50000, category: 'electricity', payment_method: 'cash', payment_source: 'game_club', date: '2026-10-20', comment: null,
+    });
+    expect((await DELETE_AND_FLUSH(deleteRequest())).status).toBe(200);
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({
+      chatId: '-1001',
+      text: expect.stringContaining('🗑 Удалён расход'),
+    }));
   });
 
   it('still deletes the expense when Telegram refuses deletion', async () => {
@@ -382,6 +396,11 @@ describe('expense payment method route', () => {
       p_club_id: CLUB_ID, p_expense_id: EXPENSE_ID, p_payment_method: 'terminal',
     });
     expect(mocks.editTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({ chatId: '-1001', messageId: 42 }));
+    // The edit is silent, so the change is also announced.
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({
+      chatId: '-1001',
+      text: expect.stringContaining('Способ оплаты: Наличные → Терминал'),
+    }));
   });
 
   it('rejects unknown and disabled methods', async () => {
@@ -432,6 +451,9 @@ describe('expense payment method route', () => {
       expect(rpc).toHaveBeenCalledOnce();
       expect(rpc).toHaveBeenCalledWith('update_expense_date', { p_club_id: CLUB_ID, p_expense_id: EXPENSE_ID, p_date: '2026-10-20' });
       expect(mocks.editTelegramMessage).toHaveBeenCalledOnce();
+      expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({
+        text: expect.stringMatching(/✏️ Изменён расход[\s\S]*Дата: 24 октября → 20 октября/),
+      }));
     });
 
     it('changes the method and the date together, and skips unchanged values', async () => {
@@ -439,8 +461,10 @@ describe('expense payment method route', () => {
       expect((await patchBody({ date: '2026-10-20', paymentMethod: 'terminal' })).status).toBe(200);
       expect(both.rpc.mock.calls.map(([name]) => name)).toEqual(['update_expense_payment_method', 'update_expense_date']);
       const same = mockPatchSupabase(baseExpense);
+      mocks.sendTelegramMessage.mockClear();
       expect((await patchBody({ date: baseExpense.date })).status).toBe(200);
       expect(same.rpc).not.toHaveBeenCalled();
+      expect(mocks.sendTelegramMessage).not.toHaveBeenCalled();
     });
 
     it('rejects a future, impossible or missing change', async () => {

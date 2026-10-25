@@ -63,8 +63,8 @@ import {
 import { formatCurrency, formatDateOnly, formatTime, formatUnitCurrency } from '@/lib/formatters';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import { createClient, mutateFinanceRequest } from '@/lib/supabase/client';
+import { requestDailyCashDeletion } from '@/lib/dailyCashApi';
 import { isMissingDatabaseFunction } from '@/lib/supabase/errors';
-import { deleteDailyCashEntry } from '@/lib/supabase/dailyCashEntries';
 import { cn } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
@@ -484,8 +484,10 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
               : t('deleteError');
         }
       } else {
-        const deleted = await deleteDailyCashEntry(createClient(), clubId, activity.id);
-        if (!deleted) deleteError = t('deleteError');
+        const status = await requestDailyCashDeletion(clubId, activity.id);
+        if (status !== 200) {
+          deleteError = status === 401 || status === 403 ? tc('accessDeniedDescription') : t('deleteError');
+        }
       }
 
       if (currentClubId.current !== clubId) return;

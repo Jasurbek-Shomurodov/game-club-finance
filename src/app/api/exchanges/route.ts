@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { actorName } from '@/lib/telegram/actorName';
 import { targetChatId } from '@/lib/telegram/clubChat';
 import { deleteTelegramMessage } from '@/lib/telegram/deleteTelegramMessage';
+import { buildExchangeDeletedNotice, sendClubNotice } from '@/lib/telegram/entryChangeNotification';
 import { buildExchangeNotification } from '@/lib/telegram/exchangeNotification';
 import { isIsoDate, sendTelegramMessage } from '@/lib/telegram/sendDailyFinanceReport';
 import { exchangeErrorCode, exchangeErrorResponse } from './errors';
@@ -131,7 +132,7 @@ export async function DELETE(request: Request) {
 
   const { data: exchange, error: lookupError } = await supabase
     .from('money_exchanges')
-    .select('telegram_chat_id, telegram_message_id')
+    .select('date, from_method, to_method, from_amount, to_amount, comment, telegram_chat_id, telegram_message_id')
     .eq('club_id', clubId)
     .eq('id', exchangeId)
     .maybeSingle();
@@ -141,6 +142,13 @@ export async function DELETE(request: Request) {
   // Owner-only and club-scoped in the RPC. A refused delete keeps the message.
   const { error: deleteError } = await supabase.rpc('delete_money_exchange', { p_club_id: clubId, p_id: exchangeId });
   if (deleteError) return failure('deletion', context, deleteError);
+
+  // A deletion is silent in Telegram, so the group also gets its own notice.
+  after(async () => sendClubNotice(
+    clubId,
+    buildExchangeDeletedNotice(exchange as ExchangeRow, await actorName(supabase, user)),
+    context,
+  ));
 
   // Same rule as expenses: only the club's own group, never a stored chat id.
   const botToken = process.env.TELEGRAM_BOT_TOKEN;

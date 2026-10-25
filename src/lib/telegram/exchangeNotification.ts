@@ -12,14 +12,14 @@ export interface ExchangeNotificationInput {
   comment: string | null;
 }
 
-const METHOD_LABELS: Record<ExchangeMethod, string> = {
+export const EXCHANGE_METHOD_LABELS: Record<ExchangeMethod, string> = {
   cash: 'Наличные',
   terminal: 'Терминал',
   card: 'Карта',
   usd: 'Доллары',
 };
 
-const amount = (method: ExchangeMethod, value: number) => (
+export const exchangeAmount = (method: ExchangeMethod, value: number) => (
   method === 'usd' ? `$${formatUnitCurrency(value)}` : `${formatCurrency(value)} сум`
 );
 
@@ -27,8 +27,8 @@ export function buildExchangeNotification(input: ExchangeNotificationInput): str
   const lines = [
     '🔄 Обмен денег',
     '',
-    `Из: ${METHOD_LABELS[input.from]} — ${amount(input.from, input.fromAmount)}`,
-    `В: ${METHOD_LABELS[input.to]} — ${amount(input.to, input.toAmount)}`,
+    `Из: ${EXCHANGE_METHOD_LABELS[input.from]} — ${exchangeAmount(input.from, input.fromAmount)}`,
+    `В: ${EXCHANGE_METHOD_LABELS[input.to]} — ${exchangeAmount(input.to, input.toAmount)}`,
   ];
   if (input.rate !== null) lines.push(`Курс: 1 $ = ${formatUnitCurrency(input.rate)} сум`);
   lines.push(`Дата: ${formatDateShort(input.date, 'ru')}`, `Добавил(а): ${input.addedBy}`);

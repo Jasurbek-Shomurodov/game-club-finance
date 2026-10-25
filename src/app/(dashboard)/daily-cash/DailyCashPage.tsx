@@ -20,7 +20,7 @@ import { calculateFinancialReportTotals, calculateManualIncome } from '@/lib/cal
 import { canAccessFeature, canReadFinancialTotals } from '@/lib/permissions';
 import ExpenseRegistrationForm from '../reports/ExpenseRegistrationForm';
 import { loadDailyCashSummary, emptyDailyCashSummary, type DailyCashSummary } from '@/lib/supabase/dailyCashSummary';
-import { deleteDailyCashEntry } from '@/lib/supabase/dailyCashEntries';
+import { requestDailyCashDeletion } from '@/lib/dailyCashApi';
 import { calculateGameClubIncome } from '@/lib/calculations/dailyCash';
 import { canEditEntryForRole, getEditDeadline } from '@/lib/time/editWindow';
 import { useClub } from '@/components/layout/DashboardShell';
@@ -381,7 +381,8 @@ export default function DailyCashPage() {
     setError('');
 
     try {
-      const deleted = await deleteDailyCashEntry(createClient(), clubId, target.id);
+      // Through the route, so the club group is told about the deletion.
+      const deleted = (await requestDailyCashDeletion(clubId, target.id)) === 200;
 
       if (currentClubId.current !== clubId) return;
 
