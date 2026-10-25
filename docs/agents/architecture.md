@@ -108,6 +108,7 @@ Separately, finance API routes post short club-group messages as the signed-in
 user, best-effort and after the response (`after()`), only to the group
 `targetChatId` configures for the club: new expenses, exchanges and payroll
 changes announce themselves; deleting an expense, exchange or daily income
-entry (`/api/daily-cash`), and changing an expense's payment method or date,
-also post a notice (`src/lib/telegram/entryChangeNotification.ts`), because
+entry (`/api/daily-cash`), changing an expense's payment method or date, and
+ticking or unticking a Reports date as collected (`/api/collections`), also
+post a notice (`src/lib/telegram/entryChangeNotification.ts`), because
 editing or deleting the original message makes no sound in Telegram.

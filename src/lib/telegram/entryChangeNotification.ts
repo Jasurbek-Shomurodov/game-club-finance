@@ -109,6 +109,26 @@ export function buildIncomeDeletedNotice(entry: IncomeNoticeRow, deletedBy: stri
   ].join('\n');
 }
 
+/** A business date was ticked as collected in Reports, which closes the day. */
+export function buildDayCollectedNotice(isoDate: string, collectedBy: string): string {
+  return [
+    '✅ День отмечен как собранный',
+    '',
+    `Дата: ${date(isoDate)}`,
+    `Собрал(а): ${collectedBy}`,
+  ].join('\n');
+}
+
+/** An owner removed a collected tick, which reopens the day for changes. */
+export function buildDayUncollectedNotice(isoDate: string, removedBy: string): string {
+  return [
+    '↩️ Снята отметка о сборе',
+    '',
+    `Дата: ${date(isoDate)}`,
+    `Снял(а): ${removedBy}`,
+  ].join('\n');
+}
+
 /**
  * Posts `text` to the club's own configured group. Best-effort: a missing
  * group or bot token, or a Telegram failure, is logged and never thrown, so

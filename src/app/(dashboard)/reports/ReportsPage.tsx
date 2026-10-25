@@ -78,6 +78,7 @@ import ExpenseRegistrationForm from './ExpenseRegistrationForm';
 import ExchangeForm from './ExchangeForm';
 import CollectedTab from './CollectedTab';
 import { fetchMoneyExchanges } from '@/lib/supabase/moneyExchanges';
+import { requestCollectionChange } from '@/lib/collectionsApi';
 import { fetchDailyCashCollections, type DailyCashCollection } from '@/lib/supabase/dailyCashCollections';
 import type { ExchangeMethod, MoneyExchangeRow } from '@/lib/calculations/moneyExchanges';
 import { EXPENSE_CATEGORIES, isKnownExpenseCategory } from '@/lib/expenseCategories';
@@ -605,13 +606,10 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     setCollectingDate(date);
     setActionError('');
     try {
-      const { error } = await createClient().rpc(
-        collected ? 'unmark_daily_cash_collected' : 'mark_daily_cash_collected',
-        { p_club_id: clubId, p_date: date },
-      );
+      const status = await requestCollectionChange(clubId, date, !collected);
       if (currentClubId.current !== clubId) return;
-      if (error) {
-        setActionError(error.code === '42501' ? tc('accessDeniedDescription') : t('collectionError'));
+      if (status !== 200) {
+        setActionError(status === 403 ? tc('accessDeniedDescription') : t('collectionError'));
         return;
       }
       showToast(collected ? t('collectionUndone') : t('collectionSaved'));
