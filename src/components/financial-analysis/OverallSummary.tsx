@@ -32,7 +32,7 @@ function LegendRow({ color, label, amount, note, currency, tone }: {
       <div className="min-w-0">
         <p className="text-xs text-gray-500">{label}</p>
         <p className={cn(
-          'text-base font-semibold tabular-nums',
+          'whitespace-nowrap text-base font-semibold tabular-nums',
           tone === 'success' ? 'text-success-600' : tone === 'danger' ? 'text-danger-600' : 'text-gray-950',
         )}
         >
@@ -51,9 +51,9 @@ function ProfitSparkBars({ months, locale, currency }: { months: ProfitMonthRow[
   const peak = Math.max(1, ...shown.map((row) => Math.abs(row.profit)));
   const hasLoss = shown.some((row) => row.profit < 0);
   return (
-    <div className="w-full min-w-0 md:w-56 md:shrink-0">
+    <div className="min-w-0 flex-1 basis-56">
       <p className="text-xs text-gray-500">{t('summaryProfitByMonth')}</p>
-      <div className={cn('mt-2 flex gap-1.5', hasLoss ? 'h-24' : 'h-20')}>
+      <div className={cn('mt-2 flex gap-1.5', hasLoss ? 'h-20' : 'h-16')}>
         {shown.map((row) => {
           const height = `${(Math.abs(row.profit) / peak) * (hasLoss ? 50 : 100)}%`;
           const title = `${capitalizeFirst(formatYearMonth(row.month.slice(0, 7), locale), locale)}: ${formatCurrency(row.profit)} ${currency}`;
@@ -112,13 +112,15 @@ export function SideSummaryCard({ side, title, icon: Icon, incomeLabel, data, mo
     <ChartCard title={title} help={help} action={<Icon size={18} className="shrink-0" style={{ color: SIDE_COLOR[side] }} aria-hidden="true" />}>
       {loading ? (
         <div className="mt-4 flex items-center gap-6">
-          <Skeleton className="h-36 w-36 shrink-0 rounded-full" />
+          <Skeleton className="h-28 w-28 shrink-0 rounded-full sm:h-32 sm:w-32" />
           <div className="flex-1 space-y-3"><Skeleton className="h-10" /><Skeleton className="h-10" /><Skeleton className="h-10" /></div>
         </div>
       ) : (
-        <div className="mt-4 flex flex-col gap-6 md:flex-row md:items-center">
-        <div className="flex min-w-0 flex-1 flex-col items-center gap-6 sm:flex-row">
-          <svg viewBox="0 0 132 132" className="h-36 w-36 shrink-0" role="img" aria-label={ringLabel}>
+        // Every row wraps by the card's own width, not the screen's: the card is half
+        // the page on a desktop and the whole page on a phone.
+        <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-5">
+        <div className="flex min-w-0 flex-1 basis-72 flex-wrap items-center justify-center gap-x-5 gap-y-4">
+          <svg viewBox="0 0 132 132" className="h-28 w-28 shrink-0 sm:h-32 sm:w-32" role="img" aria-label={ringLabel}>
             <circle cx="66" cy="66" r={RADIUS} fill="none" stroke={chartColors.cursor} strokeWidth="14" />
             <g transform="rotate(-90 66 66)">
               <circle
@@ -155,7 +157,7 @@ export function SideSummaryCard({ side, title, icon: Icon, incomeLabel, data, mo
               {formatShare(data.marginPct, locale)}
             </text>
           </svg>
-          <div className="grid w-full min-w-0 flex-1 gap-3">
+          <div className="grid min-w-0 flex-1 basis-40 gap-3">
             <LegendRow color={SIDE_COLOR[side]} label={incomeLabel} amount={data.income} currency={currency} />
             <LegendRow
               color={chartColors.danger}
