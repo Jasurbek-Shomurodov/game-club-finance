@@ -812,7 +812,14 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
               <MetricGridSkeleton count={4} className="gap-3" />
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {paymentCards.map((card) => (
+                {paymentCards.filter((card) => {
+                  // Hide a method the club has turned off, unless it still carries money
+                  // in this period (recorded before it was turned off), so totals add up.
+                  if (card.method === 'playstation') return true;
+                  if (enabledPaymentMethods.includes(card.method)) return true;
+                  const data = report.paymentMethods[card.method];
+                  return data.collected !== 0 || data.expenses !== 0 || data.exchanged !== 0;
+                }).map((card) => (
                   <PaymentCard
                     key={card.method}
                     label={card.label}
