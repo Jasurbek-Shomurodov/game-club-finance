@@ -11,6 +11,7 @@ import {
 import { fetchAnalysisLedgers } from '@/lib/supabase/analysisLedgers';
 import { loadFinanceReportRows } from '@/lib/supabase/financeReportSnapshot';
 import { isMissingDatabaseFunction } from '@/lib/supabase/errors';
+import { fetchMoneyExchanges } from '@/lib/supabase/moneyExchanges';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import {
   categoriesTable,
@@ -175,8 +176,11 @@ export function createDatasetLoader(context: AssistantDataContext) {
         return { table: categoriesTable(analysis), period: range };
       }
       case 'money': {
-        const rows = await fetchMoneyReportRows(context.supabase, context.clubId, range!);
-        const report = buildMoneyReport(rows.cash, rows.expenses, rows.debtPayments, rows.barSales, rows.stockPurchases);
+        const [rows, exchanges] = await Promise.all([
+          fetchMoneyReportRows(context.supabase, context.clubId, range!),
+          fetchMoneyExchanges(context.supabase, context.clubId, range!.from, range!.to),
+        ]);
+        const report = buildMoneyReport(rows.cash, rows.expenses, rows.debtPayments, rows.barSales, rows.stockPurchases, exchanges);
         return { table: moneyTable(report), period: range };
       }
       case 'monthly': {

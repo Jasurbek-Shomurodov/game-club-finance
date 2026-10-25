@@ -258,6 +258,14 @@
     "mixedPayments": "Multiple methods",
     "noDescription": "—",
     "entryDeleted": "Report entry deleted.",
+    "exchangeMoney": "Exchange",
+    "exchanges": "Exchanges",
+    "exchange": "Exchange",
+    "exchanged": "Exchanged",
+    "usd": "US dollars",
+    "usdHeld": "Bought minus sold in this period",
+    "exchangeSaved": "Exchange saved.",
+    "exchangeRate": "Exchange rate",
     "paymentMethodUpdated": "Payment method updated.",
     "paymentMethodUpdateError": "Could not change the payment method. Try again.",
     "salaryPaymentMethodProtected": "Salary payments keep the payment method recorded in Salaries.",
@@ -1382,6 +1390,7 @@
       "debtStatus": "Status",
       "line": "Line",
       "collected": "Collected",
+      "exchanged": "Exchanged",
       "expenses": "Expenses",
       "left": "Left",
       "gameClubIncome": "Game club income",
@@ -1443,5 +1452,35 @@
     "model": "Model: {model}",
     "context": "{percent}% of context used · ≈{count} more messages fit",
     "contextUnknown": "{tokens} tokens of context used"
+  },
+  "exchanges": {
+    "from": "From",
+    "to": "To",
+    "amount": "Amount",
+    "rate": "Exchange rate",
+    "rateHint": "UZS for 1 US dollar",
+    "receive": "You receive",
+    "date": "Date",
+    "comment": "Comment",
+    "commentPlaceholder": "Optional note",
+    "submit": "Save exchange",
+    "sameMethod": "Choose two different methods.",
+    "rateRequired": "Enter the exchange rate.",
+    "futureDateError": "The date cannot be after today.",
+    "saveError": "Could not save the exchange. Try again.",
+    "methods": {
+      "cash": "Cash",
+      "terminal": "Terminal",
+      "card": "Card",
+      "usd": "US dollars"
+    },
+    "errors": {
+      "unauthorized": "Your session has expired. Sign in again.",
+      "invalidRequest": "Check the amount, rate and date.",
+      "forbidden": "You do not have access to exchange money in this club.",
+      "paymentMethodDisabled": "This payment method is not enabled for the club.",
+      "requestConflict": "This exchange was already saved with different values. Reload and try again.",
+      "notAvailable": "Exchanges are not set up in the database yet. Apply migration 092."
+    }
   }
 }

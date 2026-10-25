@@ -2528,11 +2528,6 @@
         "md5": "709664166cd57271e3b73e762111b1c2"
       },
       {
-        "kind": "functionBody",
-        "signature": "public.owner_payment_method_earned_for_month(uuid,text,date)",
-        "md5": "3382159df9d672cacbf35f3996ede96e"
-      },
-      {
         "kind": "function",
         "signature": "public.owner_profit_bucket_available(uuid,text,text,date)"
       },
@@ -3126,6 +3121,126 @@
       {
         "kind": "function",
         "signature": "public.enforce_expense_preset()"
+      }
+    ]
+  },
+  {
+    "file": "092_money_exchanges.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.money_exchanges"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_exchanges",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_exchanges",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_exchanges",
+        "column": "date"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_exchanges",
+        "column": "from_method"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_exchanges",
+        "column": "to_method"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_exchanges",
+        "column": "from_amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_exchanges",
+        "column": "to_amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_exchanges",
+        "column": "rate"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_exchanges",
+        "column": "comment"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_exchanges",
+        "column": "created_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_exchanges",
+        "column": "created_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_exchanges",
+        "column": "telegram_chat_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_exchanges",
+        "column": "telegram_message_id"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.money_exchanges",
+        "name": "money_exchanges_distinct_methods"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.money_exchanges",
+        "name": "money_exchanges_rate_only_for_usd"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.money_exchanges",
+        "name": "money_exchanges_same_amount_without_usd"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.money_exchanges",
+        "name": "money_exchanges_telegram_message_coordinates_check"
+      },
+      {
+        "kind": "relation",
+        "name": "public.money_exchanges_club_date"
+      },
+      {
+        "kind": "policy",
+        "table": "public.money_exchanges",
+        "name": "money_exchanges_member_read"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.owner_payment_method_earned_for_month(uuid,text,date)",
+        "md5": "b34082c7d23fde7dd23db756d48b297f"
+      },
+      {
+        "kind": "function",
+        "signature": "public.record_money_exchange(uuid,uuid,date,text,text,numeric,numeric,text)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.set_money_exchange_telegram_message(uuid,uuid,text,bigint)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.delete_money_exchange(uuid,uuid)"
       }
     ]
   }

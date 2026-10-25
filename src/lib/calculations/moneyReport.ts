@@ -7,6 +7,7 @@ import {
   type ExpenseRow,
   type MoneyLeftByPaymentMethod,
 } from './dashboardMetrics';
+import { exchangeNetByMethod, type ExchangeMethod, type MoneyExchangeRow } from './moneyExchanges';
 import {
   calculateBarMoney,
   type BarSalesRow,
@@ -16,13 +17,15 @@ import {
 export interface MoneyReportPaymentBreakdown {
   collected: number;
   expenses: number;
+  /** Net money moved in (+) or out (-) by exchanges; PlayStation is never exchanged. */
+  exchanged: number;
   left: number;
 }
 
 export interface MoneyReportActivity {
   id: string | null;
-  source: 'daily_cash' | 'debt_payment' | 'expense';
-  kind: 'income' | 'debt_payment' | 'expense';
+  source: 'daily_cash' | 'debt_payment' | 'expense' | 'exchange';
+  kind: 'income' | 'debt_payment' | 'expense' | 'exchange';
   category: string | null;
   /** Positive values are collections; negative values are deductions. */
   amount: number;
@@ -36,6 +39,14 @@ export interface MoneyReportActivity {
     terminal: number;
     card: number;
     playstation: number;
+  };
+  /** Only on exchanges, whose `amount` is 0: they move money rather than add or remove it. */
+  exchange?: {
+    from: ExchangeMethod;
+    to: ExchangeMethod;
+    fromAmount: number;
+    toAmount: number;
+    rate: number | null;
   };
 }
 
@@ -68,6 +79,8 @@ export interface MoneyReport {
   gameClubLeft: number;
   barLeft: number;
   paymentMethods: Record<keyof MoneyLeftByPaymentMethod, MoneyReportPaymentBreakdown>;
+  /** Dollars bought minus dollars sold in the period; never added to UZS figures. */
+  usd: number;
   days: MoneyReportDay[];
 }
 
@@ -91,12 +104,14 @@ export type MoneyReportCategoryFilter =
   | 'income'
   | 'debt_payment'
   | 'expense'
+  | 'exchange'
   | `expense:${string}`;
 
 function buildPaymentMethods(
   cashRows: DailyCashRow[],
   expenseRows: ExpenseRow[],
   debtPaymentRows: DebtPaymentValueRow[],
+  exchangeRows: MoneyExchangeRow[] = [],
 ): MoneyReport['paymentMethods'] {
   const collected = cashRows.reduce(
     (totals, row) => {
@@ -123,15 +138,17 @@ function buildPaymentMethods(
     { cash: 0, terminal: 0, card: 0, playstation: 0 },
   );
 
-  const left = calculateGameClubMoneyLeftByPaymentMethod(cashRows, expenseRows, debtPaymentRows);
+  const left = calculateGameClubMoneyLeftByPaymentMethod(cashRows, expenseRows, debtPaymentRows, exchangeRows);
+  const exchanged = exchangeNetByMethod(exchangeRows);
 
   return {
-    cash: { collected: collected.cash, expenses: expenses.cash, left: left.cash },
-    terminal: { collected: collected.terminal, expenses: expenses.terminal, left: left.terminal },
-    card: { collected: collected.card, expenses: expenses.card, left: left.card },
+    cash: { collected: collected.cash, expenses: expenses.cash, exchanged: exchanged.cash, left: left.cash },
+    terminal: { collected: collected.terminal, expenses: expenses.terminal, exchanged: exchanged.terminal, left: left.terminal },
+    card: { collected: collected.card, expenses: expenses.card, exchanged: exchanged.card, left: left.card },
     playstation: {
       collected: collected.playstation,
       expenses: expenses.playstation,
+      exchanged: 0,
       left: left.playstation,
     },
   };
@@ -141,6 +158,7 @@ function buildDailyActivities(
   cashRows: MoneyReportCashRow[],
   expenseRows: ExpenseRow[],
   debtPaymentRows: MoneyReportDebtPaymentRow[],
+  exchangeRows: MoneyExchangeRow[] = [],
 ): MoneyReportActivity[] {
   const activities: MoneyReportActivity[] = [];
 
@@ -195,6 +213,29 @@ function buildDailyActivities(
       });
     });
 
+  [...exchangeRows]
+    .sort((rowA, rowB) => (rowA.created_at ?? '').localeCompare(rowB.created_at ?? ''))
+    .forEach((row) => {
+      activities.push({
+        id: row.id,
+        source: 'exchange',
+        kind: 'exchange',
+        category: null,
+        amount: 0,
+        paymentMethod: null,
+        comment: row.comment || null,
+        createdAt: row.created_at ?? null,
+        ...(row.creator_name !== undefined ? { createdByName: row.creator_name } : {}),
+        exchange: {
+          from: row.from_method,
+          to: row.to_method,
+          fromAmount: Number(row.from_amount),
+          toAmount: Number(row.to_amount),
+          rate: row.rate === null ? null : Number(row.rate),
+        },
+      });
+    });
+
   return activities;
 }
 
@@ -204,8 +245,10 @@ export function buildMoneyReport(
   debtPaymentRows: MoneyReportDebtPaymentRow[] = [],
   barSalesRows: MoneyReportBarSalesRow[] = [],
   stockPurchaseRows: StockPurchaseCostRow[] = [],
+  exchangeRows: MoneyExchangeRow[] = [],
 ): MoneyReport {
-  const paymentMethods = buildPaymentMethods(cashRows, expenseRows, debtPaymentRows);
+  const paymentMethods = buildPaymentMethods(cashRows, expenseRows, debtPaymentRows, exchangeRows);
+  const usd = exchangeNetByMethod(exchangeRows).usd;
   const totalCollected = Object.values(paymentMethods)
     .reduce((sum, method) => sum + method.collected, 0);
   const gameClubLeft = Object.values(paymentMethods)
@@ -220,11 +263,18 @@ export function buildMoneyReport(
     ...cashRows.map((row) => row.date),
     ...expenseRows.map((row) => row.date),
     ...debtPaymentRows.map((row) => row.date),
+    ...exchangeRows.map((row) => row.date),
   ])).sort((a, b) => b.localeCompare(a));
 
   const cashByDate = new Map<string, MoneyReportCashRow[]>();
   const expensesByDate = new Map<string, ExpenseRow[]>();
   const debtPaymentsByDate = new Map<string, MoneyReportDebtPaymentRow[]>();
+  const exchangesByDate = new Map<string, MoneyExchangeRow[]>();
+  for (const row of exchangeRows) {
+    const rows = exchangesByDate.get(row.date) ?? [];
+    rows.push(row);
+    exchangesByDate.set(row.date, rows);
+  }
   for (const row of cashRows) {
     const rows = cashByDate.get(row.date) ?? [];
     rows.push(row);
@@ -245,15 +295,18 @@ export function buildMoneyReport(
     const dayCashRows = cashByDate.get(date) ?? [];
     const dayExpenseRows = expensesByDate.get(date) ?? [];
     const dayDebtPaymentRows = debtPaymentsByDate.get(date) ?? [];
+    const dayExchangeRows = exchangesByDate.get(date) ?? [];
     const dayMethods = buildPaymentMethods(
       dayCashRows,
       dayExpenseRows,
       dayDebtPaymentRows,
+      dayExchangeRows,
     );
     const activities = buildDailyActivities(
       dayCashRows,
       dayExpenseRows,
       dayDebtPaymentRows,
+      dayExchangeRows,
     );
     const day = {
       date,
@@ -278,7 +331,7 @@ export function buildMoneyReport(
     return day;
   });
 
-  return { totalCollected, gameClubExpenses, barExpenses, gameClubLeft, barLeft, paymentMethods, days };
+  return { totalCollected, gameClubExpenses, barExpenses, gameClubLeft, barLeft, paymentMethods, usd, days };
 }
 
 /** Expenses paid from one side's money (no `source`: every expense). Unmarked rows are game club money. */
@@ -297,7 +350,11 @@ export function buildFilteredMoneyReport(
   categoryFilter: MoneyReportCategoryFilter = 'all',
   barSalesRows: MoneyReportBarSalesRow[] = [],
   stockPurchaseRows: StockPurchaseCostRow[] = [],
+  exchangeRows: MoneyExchangeRow[] = [],
 ): MoneyReport {
+  if (categoryFilter === 'exchange') {
+    return buildMoneyReport([], [], [], [], [], exchangeRows);
+  }
   if (categoryFilter === 'income') {
     return buildMoneyReport(cashRows, [], []);
   }
@@ -316,5 +373,5 @@ export function buildFilteredMoneyReport(
     );
   }
 
-  return buildMoneyReport(cashRows, expenseRows, debtPaymentRows, barSalesRows, stockPurchaseRows);
+  return buildMoneyReport(cashRows, expenseRows, debtPaymentRows, barSalesRows, stockPurchaseRows, exchangeRows);
 }

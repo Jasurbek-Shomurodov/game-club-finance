@@ -34,6 +34,8 @@ import {
 import { cn } from '@/lib/utils';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import { createClient } from '@/lib/supabase/client';
+import { fetchMoneyExchanges } from '@/lib/supabase/moneyExchanges';
+import { withExchangesByMonth } from '@/lib/calculations/moneyExchanges';
 import {
   calculateAvailableMoneyByMonth,
   type AvailableMoneyByMonth,
@@ -167,7 +169,7 @@ export default function MoneyTakenPage() {
 
     const supabase = createClient();
     const snapshotArgs = { p_club_id: selectedClubId, p_through_date: businessToday };
-    const [snapshotWithMethods, carryoverRes] = await Promise.all([
+    const [snapshotWithMethods, carryoverRes, exchangeRows] = await Promise.all([
       // Migration 076: the snapshot's withdrawal rows carry their payment method.
       supabase.rpc('get_owner_profit_snapshot_with_methods', snapshotArgs),
       fetchAllRows<OwnerProfitCarryover>(() => supabase
@@ -176,6 +178,8 @@ export default function MoneyTakenPage() {
         .eq('club_id', selectedClubId)
         .lte('from_month', `${currentMonth}-01`)
         .order('id')),
+      // Exchanges move money between methods (092); neither balance source includes them.
+      fetchMoneyExchanges(supabase, selectedClubId, '2000-01-01', businessToday),
     ]);
 
     // A superseded load stops early; useClubQuery discards whatever it returns.
@@ -219,7 +223,7 @@ export default function MoneyTakenPage() {
       const snapshot = buildOwnerProfitSnapshot(snapshotResult.data as OwnerProfitSnapshotPayload);
       return {
         balancesByMonth: withCarryovers(snapshot.byMonth),
-        paymentMethodBalancesByMonth: snapshot.paymentMethodBalancesByMonth,
+        paymentMethodBalancesByMonth: withExchangesByMonth(snapshot.paymentMethodBalancesByMonth, exchangeRows),
         withdrawals: withMethods(snapshot.withdrawals),
         carryovers,
         ...supported,
@@ -295,11 +299,11 @@ export default function MoneyTakenPage() {
         ...nextLedgerRows,
         throughDate: businessToday,
       })),
-      paymentMethodBalancesByMonth: gameClubMoneyLeftByPaymentMethodByMonth(
+      paymentMethodBalancesByMonth: withExchangesByMonth(gameClubMoneyLeftByPaymentMethodByMonth(
         nextLedgerRows.cashRows,
         nextLedgerRows.expenseRows,
         nextLedgerRows.debtPaymentRows,
-      ),
+      ), exchangeRows),
       withdrawals: withMethods(withdrawalRows),
       carryovers,
       ...supported,

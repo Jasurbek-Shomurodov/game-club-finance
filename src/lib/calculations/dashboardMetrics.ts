@@ -1,6 +1,7 @@
 import { calculateGameClubIncome } from './dailyCash';
 import { calculateBarMoney } from './barMoney';
 import type { StockPurchaseCostRow } from './barMoney';
+import { exchangeNetByMethod, type MoneyExchangeRow } from './moneyExchanges';
 
 export type { StockPurchaseCostRow } from './barMoney';
 
@@ -372,8 +373,11 @@ export function calculateGameClubMoneyLeftByPaymentMethod(
   cashRows: DailyCashRow[],
   expenseRows: ExpenseRow[],
   debtPaymentRows: DebtPaymentValueRow[] = [],
+  exchangeRows: MoneyExchangeRow[] = [],
 ): MoneyLeftByPaymentMethod {
   const gameClub = sumGameClubRows(cashRows);
+  // Exchanges move money between methods (dollars are held apart, see moneyExchanges.ts).
+  const exchanged = exchangeNetByMethod(exchangeRows);
   const expensesByPayment = expenseRows.reduce(
     (acc, row) => {
       if (isBarPaidExpense(row)) return acc;
@@ -393,9 +397,9 @@ export function calculateGameClubMoneyLeftByPaymentMethod(
   );
 
   return {
-    cash: gameClub.cashIncome + debtPaymentsByMethod.cash - expensesByPayment.cash,
-    terminal: gameClub.terminalIncome + debtPaymentsByMethod.terminal - expensesByPayment.terminal,
-    card: gameClub.cardIncome + debtPaymentsByMethod.card - expensesByPayment.card,
+    cash: gameClub.cashIncome + debtPaymentsByMethod.cash - expensesByPayment.cash + exchanged.cash,
+    terminal: gameClub.terminalIncome + debtPaymentsByMethod.terminal - expensesByPayment.terminal + exchanged.terminal,
+    card: gameClub.cardIncome + debtPaymentsByMethod.card - expensesByPayment.card + exchanged.card,
     playstation: gameClub.playstationIncome,
   };
 }

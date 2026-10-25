@@ -14,6 +14,7 @@ finance output, or the meaning of an accounting field.
 | Customer debt principal | `new_debts` |
 | Cash collected from debts | `debt_payments` |
 | Owner money taken | `owner_withdrawals` |
+| Money moved between methods or into dollars | `money_exchanges` |
 
 The older `income_transactions`, `expense_transactions`, and `cash_movements`
 tables are retired ledgers. They remain readable for history but must not accept

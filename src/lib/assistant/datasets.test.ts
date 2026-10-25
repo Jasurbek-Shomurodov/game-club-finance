@@ -44,12 +44,12 @@ describe('moneyTable', () => {
       [{ date: '2026-10-01', bar_income: 2_535_520 }],
     );
     expect(moneyTable(report).rows).toEqual([
-      { line: 'cash', collected: 10_150_000, expenses: 2_993_000, left: 7_157_000 },
-      { line: 'terminal', collected: 13_282_000, expenses: 9_487_000, left: 3_795_000 },
-      { line: 'card', collected: 0, expenses: 0, left: 0 },
-      { line: 'playstation', collected: 0, expenses: 0, left: 0 },
-      { line: 'gameClub', collected: 23_432_000, expenses: 12_480_000, left: 10_952_000 },
-      { line: 'bar', collected: null, expenses: 0, left: 2_535_520 },
+      { line: 'cash', collected: 10_150_000, expenses: 2_993_000, exchanged: 0, left: 7_157_000 },
+      { line: 'terminal', collected: 13_282_000, expenses: 9_487_000, exchanged: 0, left: 3_795_000 },
+      { line: 'card', collected: 0, expenses: 0, exchanged: 0, left: 0 },
+      { line: 'playstation', collected: 0, expenses: 0, exchanged: 0, left: 0 },
+      { line: 'gameClub', collected: 23_432_000, expenses: 12_480_000, exchanged: 0, left: 10_952_000 },
+      { line: 'bar', collected: null, expenses: 0, exchanged: null, left: 2_535_520 },
     ]);
   });
 });

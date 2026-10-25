@@ -79,12 +79,14 @@ describe('money report', () => {
     expect(report.paymentMethods.cash).toEqual({
       collected: 1_000_000,
       expenses: 150_000,
+      exchanged: 0,
       left: 850_000,
     });
     expect(report.paymentMethods.terminal.left).toBe(1_750_000);
     expect(report.paymentMethods.card).toEqual({
       collected: 350_000,
       expenses: 0,
+      exchanged: 0,
       left: 350_000,
     });
     expect(report.paymentMethods.playstation.left).toBe(200_000);
@@ -356,5 +358,32 @@ describe('expensesFromSource', () => {
     expect(expensesFromSource(rows, 'bar').map((row) => row.id)).toEqual(['bar']);
     expect(expensesFromSource(rows, 'game_club').map((row) => row.id)).toEqual(['club', 'unmarked']);
     expect(expensesFromSource(rows, null)).toBe(rows);
+  });
+
+  it('moves money between methods and into dollars without changing collections', () => {
+    const report = buildMoneyReport(
+      [{ date: '2026-08-25', cash_income: 1_000_000, terminal_income: 500_000, card_income: 0, playstation_income: 0, created_at: '2026-08-25T10:00:00Z' }],
+      [],
+      [],
+      [],
+      [],
+      [
+        { id: 'x1', date: '2026-08-25', from_method: 'terminal', to_method: 'cash', from_amount: 200_000, to_amount: 200_000, rate: null, created_at: '2026-08-25T11:00:00Z' },
+        { id: 'x2', date: '2026-08-25', from_method: 'cash', to_method: 'usd', from_amount: 640_000, to_amount: 50, rate: 12_800, created_at: '2026-08-25T12:00:00Z' },
+      ],
+    );
+
+    expect(report.totalCollected).toBe(1_500_000);
+    expect(report.paymentMethods.cash).toEqual({ collected: 1_000_000, expenses: 0, exchanged: -440_000, left: 560_000 });
+    expect(report.paymentMethods.terminal).toEqual({ collected: 500_000, expenses: 0, exchanged: -200_000, left: 300_000 });
+    expect(report.usd).toBe(50);
+    expect(report.gameClubLeft).toBe(860_000);
+    const day = report.days[0];
+    expect(day.income).toBe(1_500_000);
+    expect(day.expenses).toBe(0);
+    expect(day.activities.filter((activity) => activity.kind === 'exchange').map((activity) => activity.exchange)).toEqual([
+      { from: 'terminal', to: 'cash', fromAmount: 200_000, toAmount: 200_000, rate: null },
+      { from: 'cash', to: 'usd', fromAmount: 640_000, toAmount: 50, rate: 12_800 },
+    ]);
   });
 });

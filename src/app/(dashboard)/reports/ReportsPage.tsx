@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
+  ArrowRightLeft,
   Banknote,
   CircleDollarSign,
   CreditCard,
@@ -58,7 +59,7 @@ import {
   getDashboardRange,
   type ExpenseRow,
 } from '@/lib/calculations/dashboardMetrics';
-import { formatCurrency, formatDateOnly, formatTime } from '@/lib/formatters';
+import { formatCurrency, formatDateOnly, formatTime, formatUnitCurrency } from '@/lib/formatters';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import { createClient, mutateFinanceRequest } from '@/lib/supabase/client';
 import { isMissingDatabaseFunction } from '@/lib/supabase/errors';
@@ -69,6 +70,9 @@ import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { canAccessFeature } from '@/lib/permissions';
 import ExpenseRegistrationForm from './ExpenseRegistrationForm';
+import ExchangeForm from './ExchangeForm';
+import { fetchMoneyExchanges } from '@/lib/supabase/moneyExchanges';
+import type { ExchangeMethod, MoneyExchangeRow } from '@/lib/calculations/moneyExchanges';
 import { EXPENSE_CATEGORIES, isKnownExpenseCategory } from '@/lib/expenseCategories';
 
 const emptyReportRows = {
@@ -77,6 +81,7 @@ const emptyReportRows = {
   debtPayments: [] as MoneyReportDebtPaymentRow[],
   barSales: [] as MoneyReportBarSalesRow[],
   stockPurchases: [] as StockPurchaseCostRow[],
+  exchanges: [] as MoneyExchangeRow[],
 };
 
 type ReportRange = { from: string; to: string };
@@ -105,7 +110,7 @@ function amountToneClassName(amount: number): string {
 
 function activityKindVariant(kind: MoneyReportActivity['kind']): BadgeVariant {
   if (kind === 'income') return 'success';
-  if (kind === 'debt_payment') return 'info';
+  if (kind === 'debt_payment' || kind === 'exchange') return 'info';
   return 'danger';
 }
 
@@ -144,6 +149,7 @@ function PaymentCard({
   icon: Icon,
   collectedLabel,
   expensesLabel,
+  exchangedLabel,
   leftLabel,
 }: {
   label: string;
@@ -151,6 +157,7 @@ function PaymentCard({
   icon: LucideIcon;
   collectedLabel: string;
   expensesLabel: string;
+  exchangedLabel: string;
   leftLabel: string;
 }) {
   return (
@@ -176,6 +183,14 @@ function PaymentCard({
             <Money amount={data.expenses} currency={null} />
           </dd>
         </div>
+        {data.exchanged !== 0 && (
+          <div className="flex items-baseline justify-between gap-3">
+            <dt className="text-gray-500">{exchangedLabel}</dt>
+            <dd className={cn('shrink-0 font-semibold tabular-nums', amountToneClassName(data.exchanged))}>
+              <Money amount={data.exchanged} showPlus currency={null} />
+            </dd>
+          </div>
+        )}
       </dl>
     </Card>
   );
@@ -191,7 +206,7 @@ function requestedReportRange(from: string | undefined, to: string | undefined):
 
 /** A `?category` filter from a link; unknown values fall back to every row. */
 function requestedCategoryFilter(category: string | undefined): MoneyReportCategoryFilter {
-  if (category === 'income' || category === 'debt_payment' || category === 'expense') return category;
+  if (category === 'income' || category === 'debt_payment' || category === 'expense' || category === 'exchange') return category;
   if (category?.startsWith('expense:') && isKnownExpenseCategory(category.slice('expense:'.length))) {
     return category as MoneyReportCategoryFilter;
   }
@@ -220,6 +235,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   // Members with only the expenses feature land here to register expenses.
   const canRegisterExpenses = canAccessFeature(role, featureAccess, 'expenses');
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
+  const [exchangeDialogOpen, setExchangeDialogOpen] = useState(false);
   const businessToday = useBusinessToday(businessDayStartHour);
   // A club switch opens the current month; a business-day rollover moves the
   // range forward only while it is still the previous day's default range.
@@ -251,11 +267,15 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     if (!selectedClubId || !hasReportsAccess) return emptyReportRows;
 
     const supabase = createClient();
-    const snapshotResult = await supabase.rpc('get_money_report_snapshot', {
-      p_club_id: selectedClubId,
-      p_range_from: range.from,
-      p_range_to: range.to,
-    });
+    const [snapshotResult, exchangeRows] = await Promise.all([
+      supabase.rpc('get_money_report_snapshot', {
+        p_club_id: selectedClubId,
+        p_range_from: range.from,
+        p_range_to: range.to,
+      }),
+      // Exchanges (092) are read beside the snapshot, which predates them.
+      fetchMoneyExchanges(supabase, selectedClubId, range.from, range.to),
+    ]);
 
     if (!snapshotResult.error) {
       const snapshot = snapshotResult.data as MoneyReportSnapshotPayload;
@@ -265,6 +285,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         debtPayments: snapshot.debtPayments ?? [],
         barSales: snapshot.barSales ?? [],
         stockPurchases: snapshot.stockPurchases ?? [],
+        exchanges: await withExchangeCreators(exchangeRows),
       };
     }
 
@@ -330,6 +351,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     const creatorIds = Array.from(new Set([
       ...cashRows.map((row) => row.created_by),
       ...expenseRows.map((row) => row.created_by),
+      ...exchangeRows.map((row) => row.created_by),
     ].filter((creatorId): creatorId is string => Boolean(creatorId))));
     // A superseded load skips the creator lookup.
     if (!isCurrent()) return emptyReportRows;
@@ -355,7 +377,21 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       debtPayments: (debtPaymentResult.data ?? []) as MoneyReportDebtPaymentRow[],
       barSales: (barSalesResult.data ?? []) as MoneyReportBarSalesRow[],
       stockPurchases: (stockPurchaseResult.data ?? []) as StockPurchaseCostRow[],
+      exchanges: exchangeRows.map((row) => ({
+        ...row,
+        creator_name: row.created_by ? creatorNames.get(row.created_by) ?? null : null,
+      })),
     };
+
+    /** The snapshot names its own rows' creators; exchanges need the same lookup. */
+    async function withExchangeCreators(rows: MoneyExchangeRow[]): Promise<MoneyExchangeRow[]> {
+      const ids = Array.from(new Set(rows.map((row) => row.created_by).filter((id): id is string => Boolean(id))));
+      if (ids.length === 0) return rows;
+      const { data, error } = await supabase.from('profiles').select('id,full_name').in('id', ids);
+      if (error) throw error;
+      const names = new Map(((data ?? []) as ReportProfileRow[]).map((profile) => [profile.id, profile.full_name]));
+      return rows.map((row) => ({ ...row, creator_name: row.created_by ? names.get(row.created_by) ?? null : null }));
+    }
   }, [hasReportsAccess, range.from, range.to, selectedClubId]);
   const reportQuery = useClubQuery<typeof emptyReportRows>(loadReport, emptyReportRows);
   const { loading, reload: reloadReport } = reportQuery;
@@ -373,6 +409,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     'all',
     reportRows.barSales,
     reportRows.stockPurchases,
+    reportRows.exchanges,
   ), [reportRows]);
   const filteredReport = useMemo(() => (categoryFilter === 'all' && !sourceFilter ? report : buildFilteredMoneyReport(
     reportRows.cash,
@@ -381,6 +418,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     categoryFilter,
     reportRows.barSales,
     reportRows.stockPurchases,
+    // Exchanges move Game Club money; a bar-only view has none.
+    sourceFilter === 'bar' ? [] : reportRows.exchanges,
   )), [categoryFilter, report, reportRows, sourceFilter]);
 
   // Dialogs belong to the club they were opened for: close them on a club switch.
@@ -388,6 +427,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     currentClubId.current = selectedClubId;
     setSelectedEntry(null);
     setExpenseDialogOpen(false);
+    setExchangeDialogOpen(false);
     setActionError('');
   }, [selectedClubId]);
 
@@ -400,7 +440,9 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       description: t('deleteEntryConfirmDetailed', {
         type: activityTypeLabel(activity),
         category: categoryLabel(activity),
-        amount: `${formatCurrency(Math.abs(activity.amount))} ${tc('currency')}`,
+        amount: activity.exchange
+          ? exchangeAmountLabel(activity.exchange.from, activity.exchange.fromAmount)
+          : `${formatCurrency(Math.abs(activity.amount))} ${tc('currency')}`,
         date: formatDateOnly(date, locale),
       }),
       confirmLabel: tc('delete'),
@@ -415,7 +457,18 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
 
     try {
       let deleteError: string | null = null;
-      if (activity.source === 'expense') {
+      if (activity.source === 'exchange') {
+        const response = await mutateFinanceRequest('/api/exchanges', {
+          method: 'DELETE',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ clubId, exchangeId: activity.id }),
+        });
+        if (!response.ok) {
+          deleteError = response.status === 401 || response.status === 403
+            ? tc('accessDeniedDescription')
+            : t('deleteError');
+        }
+      } else if (activity.source === 'expense') {
         const response = await mutateFinanceRequest('/api/expenses', {
           method: 'DELETE',
           headers: { 'content-type': 'application/json' },
@@ -487,6 +540,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   }
 
   function categoryLabel(activity: MoneyReportActivity): string {
+    if (activity.exchange) return `${exchangeMethodLabel(activity.exchange.from)} → ${exchangeMethodLabel(activity.exchange.to)}`;
     if (activity.kind === 'income') return t('dailyClubIncome');
     if (activity.kind === 'debt_payment') return t('debtPayment');
     const category = activity.category ?? 'other';
@@ -505,7 +559,17 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     return current && !methods.includes(current) ? [current, ...methods] : methods;
   }
 
+  function exchangeMethodLabel(method: ExchangeMethod): string {
+    return method === 'usd' ? t('usd') : tc(`paymentMethods.${method}`);
+  }
+
+  /** "500 000 UZS" or "$40"; dollars keep cents. */
+  function exchangeAmountLabel(method: ExchangeMethod, amount: number): string {
+    return method === 'usd' ? `$${formatUnitCurrency(amount)}` : `${formatCurrency(amount)} ${tc('currency')}`;
+  }
+
   function activityTypeLabel(activity: MoneyReportActivity): string {
+    if (activity.kind === 'exchange') return t('exchange');
     if (activity.kind === 'income') return t('income');
     if (activity.kind === 'debt_payment') return t('debtPayment');
     return t('expense');
@@ -590,6 +654,12 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         <span className={cn('font-semibold', amountToneClassName(row.total))}>
           <Money amount={row.total} showPlus currency={null} />
         </span>
+      ) : row.activity.exchange ? (
+        <span className="font-semibold text-gray-700">
+          {exchangeAmountLabel(row.activity.exchange.from, row.activity.exchange.fromAmount)}
+          {' → '}
+          {exchangeAmountLabel(row.activity.exchange.to, row.activity.exchange.toAmount)}
+        </span>
       ) : (
         <span className={cn('font-semibold', amountToneClassName(row.activity.amount))}>
           <Money amount={row.activity.amount} showPlus currency={null} />
@@ -632,7 +702,9 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
           <IconButton
             variant="danger"
             size="sm"
-            label={`${tc('delete')}: ${categoryLabel(row.activity)} · ${formatCurrency(Math.abs(row.activity.amount))} ${tc('currency')}`}
+            label={`${tc('delete')}: ${categoryLabel(row.activity)} · ${row.activity.exchange
+              ? exchangeAmountLabel(row.activity.exchange.from, row.activity.exchange.fromAmount)
+              : `${formatCurrency(Math.abs(row.activity.amount))} ${tc('currency')}`}`}
             icon={<Trash2 size={15} aria-hidden="true" />}
             loading={deletingKey === deleteKey}
             disabled={deletingKey !== null && deletingKey !== deleteKey}
@@ -657,6 +729,11 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                 {t('registerExpense')}
               </Button>
             )}
+            {canRegisterExpenses && (
+              <Button variant="outline" onClick={() => setExchangeDialogOpen(true)} icon={<ArrowRightLeft size={18} aria-hidden="true" />}>
+                {t('exchangeMoney')}
+              </Button>
+            )}
             <DateRangePicker
               from={range.from}
               to={range.to}
@@ -676,6 +753,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                 <option value="income">{t('dailyClubIncome')}</option>
                 <option value="debt_payment">{t('debtPayment')}</option>
               </optgroup>
+              <option value="exchange">{t('exchanges')}</option>
               <optgroup label={t('expenseCategories')}>
                 <option value="expense">{t('allExpenses')}</option>
                 {EXPENSE_CATEGORIES.map((category) => (
@@ -735,9 +813,22 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                     data={report.paymentMethods[card.method]}
                     collectedLabel={t('collected')}
                     expensesLabel={t('expenses')}
+                    exchangedLabel={t('exchanged')}
                     leftLabel={t('left')}
                   />
                 ))}
+                {report.usd !== 0 && (
+                  <Card as="article">
+                    <div className="flex items-center gap-2">
+                      <CircleDollarSign size={15} className="shrink-0 text-gray-400" aria-hidden="true" />
+                      <h3 className="text-[13px] font-medium text-gray-500">{t('usd')}</h3>
+                    </div>
+                    <p className={cn('mt-2.5 break-words text-[1.375rem] font-bold leading-none tracking-tight tabular-nums sm:text-2xl', amountToneClassName(report.usd))}>
+                      {report.usd < 0 ? '−' : ''}${formatUnitCurrency(Math.abs(report.usd))}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">{t('usdHeld')}</p>
+                  </Card>
+                )}
               </div>
             )}
           </section>
@@ -784,6 +875,23 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         </Modal>
       )}
 
+      {hasReportsAccess && canRegisterExpenses && (
+        <Modal
+          open={exchangeDialogOpen}
+          onClose={() => setExchangeDialogOpen(false)}
+          title={t('exchangeMoney')}
+          size="xl"
+        >
+          <ExchangeForm
+            onSaved={async () => {
+              setExchangeDialogOpen(false);
+              showToast(t('exchangeSaved'));
+              await reloadReport({ silent: true });
+            }}
+          />
+        </Modal>
+      )}
+
       <Modal
         open={Boolean(selectedEntry)}
         onClose={() => setSelectedEntry(null)}
@@ -797,9 +905,17 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
               <Badge variant={activityKindVariant(selectedEntry.activity.kind)}>
                 {activityTypeLabel(selectedEntry.activity)}
               </Badge>
-              <p className={cn('mt-3 text-2xl font-bold tracking-tight tabular-nums', amountToneClassName(selectedEntry.activity.amount))}>
-                <Money amount={selectedEntry.activity.amount} showPlus currencyClassName="text-sm font-medium tracking-normal text-gray-500" />
-              </p>
+              {selectedEntry.activity.exchange ? (
+                <p className="mt-3 text-2xl font-bold tracking-tight tabular-nums text-gray-900">
+                  {exchangeAmountLabel(selectedEntry.activity.exchange.from, selectedEntry.activity.exchange.fromAmount)}
+                  {' → '}
+                  {exchangeAmountLabel(selectedEntry.activity.exchange.to, selectedEntry.activity.exchange.toAmount)}
+                </p>
+              ) : (
+                <p className={cn('mt-3 text-2xl font-bold tracking-tight tabular-nums', amountToneClassName(selectedEntry.activity.amount))}>
+                  <Money amount={selectedEntry.activity.amount} showPlus currencyClassName="text-sm font-medium tracking-normal text-gray-500" />
+                </p>
+              )}
             </div>
 
             <dl className="divide-y divide-gray-100 rounded-xl border border-gray-200 px-4">
@@ -819,36 +935,46 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                   {selectedEntry.activity.createdByName || t('unknownCreator')}
                 </dd>
               </div>
-              <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 py-3 text-sm">
-                <dt className="text-gray-500">{t('paymentMethod')}</dt>
-                <dd className="text-right font-semibold text-gray-900">
-                  {selectedEntry.activity.paymentBreakdown ? (
-                    <div className="flex flex-wrap justify-end gap-2">
-                      {Object.entries(selectedEntry.activity.paymentBreakdown)
-                        .filter(([, amount]) => amount !== 0)
-                        .map(([method, amount]) => (
-                          <Badge key={method} variant="outline">
-                            {paymentLabel(method)} · <Money amount={amount} />
-                          </Badge>
+              {selectedEntry.activity.exchange?.rate != null && (
+                <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 py-3 text-sm">
+                  <dt className="text-gray-500">{t('exchangeRate')}</dt>
+                  <dd className="text-right font-semibold tabular-nums text-gray-900">
+                    1 $ = {formatUnitCurrency(selectedEntry.activity.exchange.rate)} {tc('currency')}
+                  </dd>
+                </div>
+              )}
+              {!selectedEntry.activity.exchange && (
+                <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 py-3 text-sm">
+                  <dt className="text-gray-500">{t('paymentMethod')}</dt>
+                  <dd className="text-right font-semibold text-gray-900">
+                    {selectedEntry.activity.paymentBreakdown ? (
+                      <div className="flex flex-wrap justify-end gap-2">
+                        {Object.entries(selectedEntry.activity.paymentBreakdown)
+                          .filter(([, amount]) => amount !== 0)
+                          .map(([method, amount]) => (
+                            <Badge key={method} variant="outline">
+                              {paymentLabel(method)} · <Money amount={amount} />
+                            </Badge>
+                          ))}
+                      </div>
+                    ) : canChangePaymentMethod(selectedEntry.activity) ? (
+                      <Select
+                        value={selectedEntry.activity.paymentMethod ?? ''}
+                        onChange={(event) => void handleChangePaymentMethod(selectedEntry.activity, event.target.value)}
+                        disabled={methodSaving}
+                        aria-label={t('paymentMethod')}
+                        className="ml-auto w-40"
+                      >
+                        {paymentMethodOptions(selectedEntry.activity.paymentMethod).map((method) => (
+                          <option key={method} value={method}>{paymentLabel(method)}</option>
                         ))}
-                    </div>
-                  ) : canChangePaymentMethod(selectedEntry.activity) ? (
-                    <Select
-                      value={selectedEntry.activity.paymentMethod ?? ''}
-                      onChange={(event) => void handleChangePaymentMethod(selectedEntry.activity, event.target.value)}
-                      disabled={methodSaving}
-                      aria-label={t('paymentMethod')}
-                      className="ml-auto w-40"
-                    >
-                      {paymentMethodOptions(selectedEntry.activity.paymentMethod).map((method) => (
-                        <option key={method} value={method}>{paymentLabel(method)}</option>
-                      ))}
-                    </Select>
-                  ) : (
-                    paymentLabel(selectedEntry.activity.paymentMethod)
-                  )}
-                </dd>
-              </div>
+                      </Select>
+                    ) : (
+                      paymentLabel(selectedEntry.activity.paymentMethod)
+                    )}
+                  </dd>
+                </div>
+              )}
               <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 py-3 text-sm">
                 <dt className="text-gray-500">{t('descriptionLabel')}</dt>
                 <dd className="break-words text-right text-gray-700">

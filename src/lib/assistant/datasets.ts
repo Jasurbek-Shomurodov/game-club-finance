@@ -112,18 +112,21 @@ export function moneyTable(report: MoneyReport): DataTable {
   const methods = MONEY_METHODS.map((method) => ({ line: method, ...report.paymentMethods[method] }));
   const gameClubExpenses = methods.reduce((sum, row) => sum + row.expenses, 0);
   const gameClubLeft = methods.reduce((sum, row) => sum + row.left, 0);
+  // Money moved between methods by exchanges; UZS sent to dollars leaves the Game Club total.
+  const gameClubExchanged = methods.reduce((sum, row) => sum + row.exchanged, 0);
   return {
     dataset: 'money',
     columns: [
       { key: 'line', type: 'text' },
       { key: 'collected', type: 'money' },
       { key: 'expenses', type: 'money' },
+      { key: 'exchanged', type: 'money' },
       { key: 'left', type: 'money' },
     ],
     rows: [
       ...methods,
-      { line: 'gameClub', collected: report.totalCollected, expenses: gameClubExpenses, left: gameClubLeft },
-      { line: 'bar', collected: null, expenses: report.barExpenses, left: report.barLeft },
+      { line: 'gameClub', collected: report.totalCollected, expenses: gameClubExpenses, exchanged: gameClubExchanged, left: gameClubLeft },
+      { line: 'bar', collected: null, expenses: report.barExpenses, exchanged: null, left: report.barLeft },
     ],
   };
 }

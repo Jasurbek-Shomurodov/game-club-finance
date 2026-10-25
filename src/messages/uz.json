@@ -258,6 +258,14 @@
     "mixedPayments": "Bir nechta usul",
     "noDescription": "—",
     "entryDeleted": "Hisobot yozuvi o'chirildi.",
+    "exchangeMoney": "Almashtirish",
+    "exchanges": "Almashtirishlar",
+    "exchange": "Almashtirish",
+    "exchanged": "Almashtirildi",
+    "usd": "AQSH dollari",
+    "usdHeld": "Davr ichida sotib olingan minus sotilgan",
+    "exchangeSaved": "Almashtirish saqlandi.",
+    "exchangeRate": "Kurs",
     "paymentMethodUpdated": "To'lov usuli o'zgartirildi.",
     "paymentMethodUpdateError": "To'lov usulini o'zgartirib bo'lmadi. Qayta urinib ko'ring.",
     "salaryPaymentMethodProtected": "Ish haqi to'lovlarining to'lov usuli «Ish haqi» bo'limida belgilanadi.",
@@ -1382,6 +1390,7 @@
       "debtStatus": "Holati",
       "line": "Qator",
       "collected": "Yig'ildi",
+      "exchanged": "Almashtirildi",
       "expenses": "Xarajatlar",
       "left": "Qoldi",
       "gameClubIncome": "O'yin klubi daromadi",
@@ -1443,5 +1452,35 @@
     "model": "Model: {model}",
     "context": "Kontekstning {percent}% ishlatildi · yana ≈{count} ta xabar sig'adi",
     "contextUnknown": "Kontekstdan {tokens} token ishlatildi"
+  },
+  "exchanges": {
+    "from": "Qayerdan",
+    "to": "Qayerga",
+    "amount": "Summa",
+    "rate": "Kurs",
+    "rateHint": "1 AQSH dollari uchun so‘m",
+    "receive": "Olasiz",
+    "date": "Sana",
+    "comment": "Izoh",
+    "commentPlaceholder": "Ixtiyoriy izoh",
+    "submit": "Almashtirishni saqlash",
+    "sameMethod": "Ikki xil usulni tanlang.",
+    "rateRequired": "Kursni kiriting.",
+    "futureDateError": "Sana bugundan keyin bo‘lishi mumkin emas.",
+    "saveError": "Almashtirishni saqlab bo‘lmadi. Qayta urinib ko‘ring.",
+    "methods": {
+      "cash": "Naqd",
+      "terminal": "Terminal",
+      "card": "Karta",
+      "usd": "AQSH dollari"
+    },
+    "errors": {
+      "unauthorized": "Sessiya tugadi. Qayta kiring.",
+      "invalidRequest": "Summa, kurs va sanani tekshiring.",
+      "forbidden": "Bu klubda pul almashtirishga ruxsatingiz yo‘q.",
+      "paymentMethodDisabled": "Bu to‘lov usuli klub uchun yoqilmagan.",
+      "requestConflict": "Bu almashtirish boshqa qiymatlar bilan saqlangan. Sahifani yangilab, qayta urinib ko‘ring.",
+      "notAvailable": "Almashtirishlar ma’lumotlar bazasida hali sozlanmagan. 092-migratsiyani qo‘llang."
+    }
   }
 }
