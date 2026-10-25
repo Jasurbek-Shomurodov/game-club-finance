@@ -363,7 +363,19 @@
     "collectionError": "Could not update the collection. Try again.",
     "dayClosed": "Closed",
     "dayClosedHint": "Day closed: money collected",
-    "dayClosedDetails": "{name} collected this day's money. Nothing can be added, changed or deleted until an owner undoes the collection."
+    "dayClosedDetails": "{name} collected this day's money. Nothing can be added, changed or deleted until an owner undoes the collection.",
+    "viewSwitcher": "Reports view",
+    "collectedTab": "Collected",
+    "collectedTitle": "Collected money",
+    "collectedDescription": "Each date ticked as collected: who took the money, when, and how much from each payment method.",
+    "collectedByColumn": "Collected by",
+    "collectedTotal": "Total taken",
+    "collectedFooterTotal": "Total",
+    "collectedTakenTotal": "Total taken",
+    "collectedDays": "Days collected",
+    "notCollectedYet": "Not collected yet",
+    "notCollectedDays": "{count, plural, one {# day with money left} other {# days with money left}}",
+    "collectedEmpty": "No date in this period has been marked as collected."
   },
   "dailyCash": {
     "title": "Daily Cash Entry",

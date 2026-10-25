@@ -363,7 +363,19 @@
     "collectionError": "Yig‘ishni yangilab bo‘lmadi. Qayta urinib ko‘ring.",
     "dayClosed": "Yopilgan",
     "dayClosedHint": "Kun yopilgan: pul olingan",
-    "dayClosedDetails": "{name} bu kunning pulini oldi. Egasi yig‘ishni bekor qilmaguncha hech narsa qo‘shib, o‘zgartirib yoki o‘chirib bo‘lmaydi."
+    "dayClosedDetails": "{name} bu kunning pulini oldi. Egasi yig‘ishni bekor qilmaguncha hech narsa qo‘shib, o‘zgartirib yoki o‘chirib bo‘lmaydi.",
+    "viewSwitcher": "Hisobot ko‘rinishi",
+    "collectedTab": "Yig‘ilgan",
+    "collectedTitle": "Yig‘ilgan pul",
+    "collectedDescription": "Yig‘ilgan deb belgilangan har bir sana: pulni kim olgan, qachon va har bir to‘lov usulidan qancha.",
+    "collectedByColumn": "Kim olgan",
+    "collectedTotal": "Jami olingan",
+    "collectedFooterTotal": "Jami",
+    "collectedTakenTotal": "Jami olingan",
+    "collectedDays": "Yig‘ilgan kunlar",
+    "notCollectedYet": "Hali yig‘ilmagan",
+    "notCollectedDays": "{count, plural, other {pul qolgan # kun}}",
+    "collectedEmpty": "Bu davrda hech bir sana yig‘ilgan deb belgilanmagan."
   },
   "dailyCash": {
     "title": "Kunlik kassa",

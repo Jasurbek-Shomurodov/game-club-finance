@@ -38,6 +38,7 @@ import {
   PageHeader,
   SectionHeading,
   Select,
+  SegmentedControl,
   DatePicker,
   TableSkeleton,
   toneForAmount,
@@ -75,6 +76,7 @@ import { useClubQuery } from '@/lib/useClubQuery';
 import { canAccessFeature } from '@/lib/permissions';
 import ExpenseRegistrationForm from './ExpenseRegistrationForm';
 import ExchangeForm from './ExchangeForm';
+import CollectedTab from './CollectedTab';
 import { fetchMoneyExchanges } from '@/lib/supabase/moneyExchanges';
 import { fetchDailyCashCollections, type DailyCashCollection } from '@/lib/supabase/dailyCashCollections';
 import type { ExchangeMethod, MoneyExchangeRow } from '@/lib/calculations/moneyExchanges';
@@ -226,14 +228,17 @@ function requestedSourceFilter(source: string | undefined): ExpenseSourceFilter 
 
 type ExpenseSourceFilter = 'game_club' | 'bar' | null;
 
+type ReportsView = 'closeout' | 'collected';
+
 /** A red edge down the left of every row of a closed (collected) day. */
 const CLOSED_DAY_ROW = '[&>td:first-child]:shadow-[inset_4px_0_0_rgb(var(--c-danger-500))]';
 
-export default function ReportsPage({ requestedFrom, requestedTo, requestedCategory, requestedSource }: {
+export default function ReportsPage({ requestedFrom, requestedTo, requestedCategory, requestedSource, requestedView }: {
   requestedFrom?: string;
   requestedTo?: string;
   requestedCategory?: string;
   requestedSource?: string;
+  requestedView?: string;
 } = {}) {
   const t = useTranslations('reports');
   const tc = useTranslations('common');
@@ -260,6 +265,17 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   useEffect(() => {
     setCategoryFilter(requestedCategoryFilter(requestedCategory));
   }, [requestedCategory]);
+  const [view, setView] = useState<ReportsView>(requestedView === 'collected' ? 'collected' : 'closeout');
+  // Keep the tab shareable without dropping the rest of the link.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (view === 'collected') params.set('view', 'collected');
+    else params.delete('view');
+    const query = params.toString();
+    if (query !== window.location.search.replace(/^\?/, '')) {
+      window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
+    }
+  }, [view]);
   const [sourceFilter, setSourceFilter] = useState<ExpenseSourceFilter>(() => requestedSourceFilter(requestedSource));
   useEffect(() => {
     setSourceFilter(requestedSourceFilter(requestedSource));
@@ -881,6 +897,18 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     <div className="space-y-5">
       <PageHeader
         title={t('title')}
+        tabs={hasReportsAccess ? (
+          <SegmentedControl
+            variant="tabs"
+            label={t('viewSwitcher')}
+            options={[
+              { value: 'closeout', label: t('title') },
+              { value: 'collected', label: t('collectedTab') },
+            ]}
+            value={view}
+            onChange={setView}
+          />
+        ) : undefined}
         action={hasReportsAccess ? (
           <>
             {canRegisterExpenses && (
@@ -901,27 +929,29 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
               className="sm:w-80"
               onChange={setRange}
             />
-            <Select
-              value={categoryFilter}
-              onChange={(event) => setCategoryFilter(event.target.value as MoneyReportCategoryFilter)}
-              aria-label={t('filterByCategory')}
-              className="sm:w-60"
-            >
-              <option value="all">{t('allCategories')}</option>
-              <optgroup label={t('incomeCategories')}>
-                <option value="income">{t('dailyClubIncome')}</option>
-                <option value="debt_payment">{t('debtPayment')}</option>
-              </optgroup>
-              <option value="exchange">{t('exchanges')}</option>
-              <optgroup label={t('expenseCategories')}>
-                <option value="expense">{t('allExpenses')}</option>
-                {EXPENSE_CATEGORIES.map((category) => (
-                  <option key={category} value={`expense:${category}`}>
-                    {te(category)}
-                  </option>
-                ))}
-              </optgroup>
-            </Select>
+            {view === 'closeout' && (
+              <Select
+                value={categoryFilter}
+                onChange={(event) => setCategoryFilter(event.target.value as MoneyReportCategoryFilter)}
+                aria-label={t('filterByCategory')}
+                className="sm:w-60"
+              >
+                <option value="all">{t('allCategories')}</option>
+                <optgroup label={t('incomeCategories')}>
+                  <option value="income">{t('dailyClubIncome')}</option>
+                  <option value="debt_payment">{t('debtPayment')}</option>
+                </optgroup>
+                <option value="exchange">{t('exchanges')}</option>
+                <optgroup label={t('expenseCategories')}>
+                  <option value="expense">{t('allExpenses')}</option>
+                  {EXPENSE_CATEGORIES.map((category) => (
+                    <option key={category} value={`expense:${category}`}>
+                      {te(category)}
+                    </option>
+                  ))}
+                </optgroup>
+              </Select>
+            )}
           </>
         ) : undefined}
       />
@@ -939,7 +969,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         </LoadErrorAlert>
       )}
       {actionError && <InlineAlert variant="danger">{actionError}</InlineAlert>}
-      {hasReportsAccess && sourceFilter && (
+      {hasReportsAccess && view === 'closeout' && sourceFilter && (
         <InlineAlert
           variant="info"
           action={<Button variant="outline" size="sm" onClick={() => setSourceFilter(null)}>{t('showAllSources')}</Button>}
@@ -949,7 +979,15 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       )}
 
       {/* After a failed load the figures are unknown, not zero: show only the error. */}
-      {hasReportsAccess && !loadFailed && (
+      {hasReportsAccess && !loadFailed && view === 'collected' && (
+        <CollectedTab
+          days={report.days}
+          collections={reportRows.collections}
+          enabledPaymentMethods={enabledPaymentMethods}
+          loading={loading}
+        />
+      )}
+      {hasReportsAccess && !loadFailed && view === 'closeout' && (
         <>
           <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <SummaryCard loading={loading} label={t('totalCollected')} value={report.totalCollected} icon={WalletCards} tone="success" />
