@@ -7,6 +7,8 @@ import type { LucideIcon } from 'lucide-react';
 import {
   ArrowRightLeft,
   Banknote,
+  Check,
+  CircleCheck,
   CircleDollarSign,
   CreditCard,
   Gamepad2,
@@ -73,6 +75,7 @@ import { canAccessFeature } from '@/lib/permissions';
 import ExpenseRegistrationForm from './ExpenseRegistrationForm';
 import ExchangeForm from './ExchangeForm';
 import { fetchMoneyExchanges } from '@/lib/supabase/moneyExchanges';
+import { fetchDailyCashCollections, type DailyCashCollection } from '@/lib/supabase/dailyCashCollections';
 import type { ExchangeMethod, MoneyExchangeRow } from '@/lib/calculations/moneyExchanges';
 import { EXPENSE_CATEGORIES, isKnownExpenseCategory } from '@/lib/expenseCategories';
 
@@ -83,6 +86,7 @@ const emptyReportRows = {
   barSales: [] as MoneyReportBarSalesRow[],
   stockPurchases: [] as StockPurchaseCostRow[],
   exchanges: [] as MoneyExchangeRow[],
+  collections: [] as DailyCashCollection[],
 };
 
 type ReportRange = { from: string; to: string };
@@ -235,6 +239,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   const hasReportsAccess = canAccessFeature(role, featureAccess, 'reports');
   // Members with only the expenses feature land here to register expenses.
   const canRegisterExpenses = canAccessFeature(role, featureAccess, 'expenses');
+  // Collectors tick a date once they have the money; only an owner can undo it.
+  const canCollect = canAccessFeature(role, featureAccess, 'collection');
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
   const [exchangeDialogOpen, setExchangeDialogOpen] = useState(false);
   const businessToday = useBusinessToday(businessDayStartHour);
@@ -263,12 +269,13 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   const currentClubId = useRef(selectedClubId);
   const deletePending = useRef(false);
   const [methodSaving, setMethodSaving] = useState(false);
+  const [collectingDate, setCollectingDate] = useState<string | null>(null);
   const isOwner = role === 'owner';
   const loadReport = useCallback(async (isCurrent: () => boolean): Promise<typeof emptyReportRows> => {
     if (!selectedClubId || !hasReportsAccess) return emptyReportRows;
 
     const supabase = createClient();
-    const [snapshotResult, exchangeRows] = await Promise.all([
+    const [snapshotResult, exchangeRows, collections] = await Promise.all([
       supabase.rpc('get_money_report_snapshot', {
         p_club_id: selectedClubId,
         p_range_from: range.from,
@@ -276,6 +283,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       }),
       // Exchanges (092) are read beside the snapshot, which predates them.
       fetchMoneyExchanges(supabase, selectedClubId, range.from, range.to),
+      fetchDailyCashCollections(supabase, selectedClubId, range.from, range.to),
     ]);
 
     if (!snapshotResult.error) {
@@ -287,6 +295,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         barSales: snapshot.barSales ?? [],
         stockPurchases: snapshot.stockPurchases ?? [],
         exchanges: await withExchangeCreators(exchangeRows),
+        collections,
       };
     }
 
@@ -382,6 +391,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         ...row,
         creator_name: row.created_by ? creatorNames.get(row.created_by) ?? null : null,
       })),
+      collections,
     };
 
     /** The snapshot names its own rows' creators; exchanges need the same lookup. */
@@ -546,6 +556,94 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     }
   }
 
+  const collectionsByDate = useMemo(
+    () => new Map(reportRows.collections.map((collection) => [collection.date, collection])),
+    [reportRows.collections],
+  );
+
+  /** A collector ticks a date as collected; an owner can also undo a tick. */
+  async function handleToggleCollected(date: string) {
+    if (!selectedClubId || collectingDate) return;
+    const collected = collectionsByDate.has(date);
+    if (collected ? !isOwner : !canCollect) return;
+    const clubId = selectedClubId;
+    const confirmed = await confirm(collected ? {
+      title: t('collectionUndo'),
+      description: t('collectionUndoConfirm', { date: formatDateOnly(date, locale) }),
+      confirmLabel: t('collectionUndo'),
+    } : {
+      title: t('collectionMark'),
+      description: t('collectionMarkConfirm', { date: formatDateOnly(date, locale) }),
+      confirmLabel: t('collectionMark'),
+      tone: 'primary',
+    });
+    if (!confirmed || currentClubId.current !== clubId) return;
+    setCollectingDate(date);
+    setActionError('');
+    try {
+      const { error } = await createClient().rpc(
+        collected ? 'unmark_daily_cash_collected' : 'mark_daily_cash_collected',
+        { p_club_id: clubId, p_date: date },
+      );
+      if (currentClubId.current !== clubId) return;
+      if (error) {
+        setActionError(error.code === '42501' ? tc('accessDeniedDescription') : t('collectionError'));
+        return;
+      }
+      showToast(collected ? t('collectionUndone') : t('collectionSaved'));
+      await reloadReport({ silent: true });
+    } catch {
+      if (currentClubId.current === clubId) setActionError(t('collectionError'));
+    } finally {
+      setCollectingDate(null);
+    }
+  }
+
+  function collectionCell(date: string) {
+    const collection = collectionsByDate.get(date);
+    const dateLabel = formatDateOnly(date, locale);
+    if (collection) {
+      const label = t('collectedBy', { name: collection.collector_name || t('unknownCreator') });
+      if (!isOwner) {
+        return (
+          <span className="inline-flex h-8 w-8 items-center justify-center text-success-600" title={label}>
+            <CircleCheck size={18} aria-label={label} />
+          </span>
+        );
+      }
+      return (
+        <IconButton
+          variant="ghost"
+          size="sm"
+          label={`${label} · ${t('collectionUndo')}: ${dateLabel}`}
+          icon={<CircleCheck size={18} aria-hidden="true" />}
+          className="text-success-600 hover:bg-success-50 hover:text-success-700"
+          loading={collectingDate === date}
+          disabled={collectingDate !== null && collectingDate !== date}
+          onClick={(event) => {
+            event.stopPropagation();
+            void handleToggleCollected(date);
+          }}
+        />
+      );
+    }
+    if (!canCollect) return null;
+    return (
+      <IconButton
+        variant="outline"
+        size="sm"
+        label={`${t('collectionMark')}: ${dateLabel}`}
+        icon={<Check size={15} aria-hidden="true" />}
+        loading={collectingDate === date}
+        disabled={collectingDate !== null && collectingDate !== date}
+        onClick={(event) => {
+          event.stopPropagation();
+          void handleToggleCollected(date);
+        }}
+      />
+    );
+  }
+
   function categoryLabel(activity: MoneyReportActivity): string {
     if (activity.exchange) return `${exchangeMethodLabel(activity.exchange.from)} → ${exchangeMethodLabel(activity.exchange.to)}`;
     if (activity.kind === 'income') return t('dailyClubIncome');
@@ -628,6 +726,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     })),
   ]), [filteredReport.days]);
 
+  // Owners delete entries and undo ticks; collectors tick dates.
+  const showActions = isOwner || canCollect;
   const closeoutColumns: DataTableColumn<CloseoutRow>[] = [
     {
       key: 'date',
@@ -723,13 +823,14 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         <span className="block max-w-[320px] break-words text-gray-600">{row.activity.comment || t('noDescription')}</span>
       )),
     },
-    ...(isOwner ? [{
+    ...(showActions ? [{
       key: 'actions',
       header: <span className="sr-only">{t('actions')}</span>,
       align: 'right' as const,
       className: 'w-16',
       render: (row: CloseoutRow) => {
-        if (row.kind !== 'activity') return null;
+        if (row.kind === 'day') return collectionCell(row.date);
+        if (!isOwner) return null;
         const deleteKey = row.activity.id ? `${row.activity.source}:${row.activity.id}` : null;
         const canDelete = row.activity.source !== 'debt_payment' && Boolean(row.activity.id);
         if (!canDelete) return null;
@@ -880,12 +981,12 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
               <SectionHeading title={t('dailyCloseout')} description={t('dailyCloseoutDescription')} />
             </CardHeader>
             {loading ? (
-              <TableSkeleton rows={6} columns={isOwner ? 7 : 6} className="rounded-none border-0 shadow-none" />
+              <TableSkeleton rows={6} columns={showActions ? 7 : 6} className="rounded-none border-0 shadow-none" />
             ) : (
               <DataTable
                 bare
                 label={t('dailyCloseout')}
-                minWidth={isOwner ? 1040 : 980}
+                minWidth={showActions ? 1040 : 980}
                 columns={closeoutColumns}
                 data={closeoutRows}
                 keyExtractor={(row) => row.key}

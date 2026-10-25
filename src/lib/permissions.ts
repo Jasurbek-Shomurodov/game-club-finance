@@ -12,6 +12,8 @@ export const FEATURE_DEFINITIONS = [
   { key: 'inventory', paths: ['/products'], labelKey: 'inventory', descriptionKey: 'inventoryDescription' },
   { key: 'salaries', paths: ['/salaries'], labelKey: 'salaries', descriptionKey: 'salariesDescription' },
   { key: 'assistant', paths: ['/assistant'], labelKey: 'assistant', descriptionKey: 'assistantDescription' },
+  // Ticks a date in Reports as collected; it has no page of its own.
+  { key: 'collection', paths: [], labelKey: 'collection', descriptionKey: 'collectionDescription' },
   { key: 'team', paths: ['/team'], labelKey: 'team', descriptionKey: 'teamDescription', ownerOnly: true },
   { key: 'settings', paths: ['/settings'], labelKey: 'settings', descriptionKey: 'settingsDescription' },
 ] as const;
@@ -96,8 +98,12 @@ export function canAccessPath(role: UserRole, explicitAccess: unknown, pathname:
 export function defaultPathForAccess(role: UserRole, explicitAccess: unknown): string | null {
   const access = featureAccessForMembership(role, explicitAccess);
   for (const feature of FEATURE_DEFINITIONS) {
-    if (access.includes(feature.key) && (!('ownerOnly' in feature) || !feature.ownerOnly || role === 'owner')) {
-      return feature.key === 'expenses' ? '/reports' : feature.paths[0];
+    if (
+      access.includes(feature.key)
+      && feature.paths.length > 0
+      && (!('ownerOnly' in feature) || !feature.ownerOnly || role === 'owner')
+    ) {
+      return feature.key === 'expenses' ? '/reports' : (feature.paths as readonly string[])[0];
     }
   }
   return '/salaries';

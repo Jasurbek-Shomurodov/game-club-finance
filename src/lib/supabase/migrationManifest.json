@@ -3276,5 +3276,47 @@
         "signature": "public.update_expense_date(uuid,uuid,date)"
       }
     ]
+  },
+  {
+    "file": "096_daily_cash_collections.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.daily_cash_collections"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_cash_collections",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_cash_collections",
+        "column": "date"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_cash_collections",
+        "column": "collected_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.daily_cash_collections",
+        "column": "collected_at"
+      },
+      {
+        "kind": "policy",
+        "table": "public.daily_cash_collections",
+        "name": "daily_cash_collections_member_read"
+      },
+      {
+        "kind": "function",
+        "signature": "public.mark_daily_cash_collected(uuid,date)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.unmark_daily_cash_collected(uuid,date)"
+      }
+    ]
   }
 ]

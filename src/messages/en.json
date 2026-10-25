@@ -290,7 +290,15 @@
     "gameClubLeft": "Game club left",
     "dateUpdated": "Date changed",
     "dateUpdateError": "Could not change the date. Try again.",
-    "addedAt": "Added at {time}"
+    "addedAt": "Added at {time}",
+    "collectionMark": "Mark as collected",
+    "collectionMarkConfirm": "Confirm that you have collected the money for {date}. Only an owner can undo this.",
+    "collectionUndo": "Undo collection",
+    "collectionUndoConfirm": "Mark {date} as not collected?",
+    "collectedBy": "Collected by {name}",
+    "collectionSaved": "Marked as collected",
+    "collectionUndone": "Collection undone",
+    "collectionError": "Could not update the collection. Try again."
   },
   "dailyCash": {
     "title": "Daily Cash Entry",
@@ -914,7 +922,9 @@
       "salaries": "Edit salaries",
       "salariesDescription": "Allow recording salary payments, bonuses and fines. Only owners change employees, salary and KPI. All club members can view salaries.",
       "assistant": "AI Assistant",
-      "assistantDescription": "Ask questions about club data and export Excel reports. Answers only use data this member can already see."
+      "assistantDescription": "Ask questions about club data and export Excel reports. Answers only use data this member can already see.",
+      "collection": "Money collection",
+      "collectionDescription": "Tick a date in Reports once its money has been collected. Only an owner can undo a tick. Needs Reports access to see the dates."
     },
     "roles": {
       "owner": "Owner",

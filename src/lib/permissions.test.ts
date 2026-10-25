@@ -46,6 +46,10 @@ describe('feature permissions', () => {
     expect(canAccessPath('admin', ['expenses'], '/balance')).toBe(true);
     expect(defaultPathForAccess('admin', ['reports'])).toBe('/reports');
     expect(defaultPathForAccess('admin', ['expenses'])).toBe('/reports');
+    // Collection has no page; a collector lands on the next page they can open.
+    expect(defaultPathForAccess('admin', ['collection', 'reports'])).toBe('/reports');
+    expect(defaultPathForAccess('admin', ['collection'])).toBe('/salaries');
+    expect(canAccessFeature('admin', null, 'collection')).toBe(false);
   });
 
   it('always gives owners full access and keeps Team owner-only', () => {

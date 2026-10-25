@@ -290,7 +290,15 @@
     "gameClubLeft": "Klub qoldig‘i",
     "dateUpdated": "Sana o'zgartirildi",
     "dateUpdateError": "Sanani o'zgartirib bo'lmadi. Qayta urinib ko'ring.",
-    "addedAt": "{time} da qo'shilgan"
+    "addedAt": "{time} da qo'shilgan",
+    "collectionMark": "Olindi deb belgilash",
+    "collectionMarkConfirm": "{date} uchun pulni olganingizni tasdiqlang. Buni faqat egasi bekor qila oladi.",
+    "collectionUndo": "Yig‘ishni bekor qilish",
+    "collectionUndoConfirm": "{date} olinmagan deb belgilansinmi?",
+    "collectedBy": "Oldi: {name}",
+    "collectionSaved": "Olindi deb belgilandi",
+    "collectionUndone": "Yig‘ish bekor qilindi",
+    "collectionError": "Yig‘ishni yangilab bo‘lmadi. Qayta urinib ko‘ring."
   },
   "dailyCash": {
     "title": "Kunlik kassa",
@@ -914,7 +922,9 @@
       "salaries": "Ish haqini tahrirlash",
       "salariesDescription": "Ish haqi to‘lovlari, mukofot va jarimalarni kiritish. Xodimlar, ish haqi va KPI ni faqat egalar o‘zgartiradi. Barcha klub a’zolari ish haqini ko‘ra oladi.",
       "assistant": "AI yordamchi",
-      "assistantDescription": "Klub ma'lumotlari bo'yicha savollar va Excel hisobotlari. Javoblar faqat shu xodim ko'ra oladigan ma'lumotlardan foydalanadi."
+      "assistantDescription": "Klub ma'lumotlari bo'yicha savollar va Excel hisobotlari. Javoblar faqat shu xodim ko'ra oladigan ma'lumotlardan foydalanadi.",
+      "collection": "Pul yig‘ish",
+      "collectionDescription": "Pul olib ketilgan sanani hisobotlarda belgilash. Belgini faqat egasi bekor qila oladi. Sanalarni ko‘rish uchun Hisobotlarga ruxsat kerak."
     },
     "roles": {
       "owner": "Klub egasi",
