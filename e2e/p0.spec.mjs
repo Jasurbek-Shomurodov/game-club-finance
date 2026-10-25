@@ -2,7 +2,7 @@
 // against the app's own schema, RLS and RPCs in PGlite (e2e/fake-supabase.mjs). Each test names its catalog cases.
 // Expected figures are worked out from the fixture, never read off the screen.
 import { test, expect } from '@playwright/test';
-import { englishCookie, expectDashboardAmount, open, pageText, resetDatabase, restAs, signIn, uzs } from './helpers.mjs';
+import { englishCookie, expectDashboardAmount, expectGameClubExpenses, open, pageText, resetDatabase, restAs, signIn, uzs } from './helpers.mjs';
 import { clubs, dailyCash, debts, expected, expenses, products, today } from './fixture.mjs';
 import { accounts, storageStatePath } from './settings.mjs';
 
@@ -35,14 +35,15 @@ test.describe('signed out', () => {
 test('DASH-001 the dashboard headline figures equal the fixture arithmetic', async ({ page }) => {
   await page.goto('/');
   await expectDashboardAmount(page, 'Game Club Income', expected.gameClubIncome);
-  await expectDashboardAmount(page, 'Bar Sales', expected.barSales);
-  await expectDashboardAmount(page, 'Total Expenses', expected.totalExpenses);
-  await expectDashboardAmount(page, 'Net Profit', expected.netProfit);
+  await expectDashboardAmount(page, 'Game Club Net Profit', expected.gameClubNetProfit);
+  await expectGameClubExpenses(page, expected.gameClubExpenses);
+  // Profit counts new debts as income; money left counts only cash collected, including debt payments.
+  await expectDashboardAmount(page, 'Total Money Left', expected.gameClubMoneyLeft);
   await expectDashboardAmount(page, 'Active Debts', expected.activeDebts);
-  await expectDashboardAmount(page, 'PlayStation Income', expected.playstationIncome);
+  await expectDashboardAmount(page, 'Bar Sales', expected.barSales);
   // Accounting profit and cash left are different numbers: bar money left deducts the purchase, not the cost of goods.
   await expectDashboardAmount(page, 'Bar Money Left', expected.barSales - expected.stockPurchaseCost);
-  await expectDashboardAmount(page, 'Bar Net Profit', expected.barSales - expected.barCost);
+  await expectDashboardAmount(page, 'Bar Net Profit', expected.barNetProfit);
 });
 
 test('INC-001 XAPP-001 editing the day\'s cash entry moves every game club total once', async ({ page }) => {
@@ -59,8 +60,9 @@ test('INC-001 XAPP-001 editing the day\'s cash entry moves every game club total
   expect(writes).toHaveLength(1);
   await open(page, 'Dashboard');
   await expectDashboardAmount(page, 'Game Club Income', expected.gameClubIncome + 100_000);
-  await expectDashboardAmount(page, 'Net Profit', expected.netProfit + 100_000);
-  await expectDashboardAmount(page, 'Total Expenses', expected.totalExpenses);
+  await expectDashboardAmount(page, 'Game Club Net Profit', expected.gameClubNetProfit + 100_000);
+  await expectDashboardAmount(page, 'Total Money Left', expected.gameClubMoneyLeft + 100_000);
+  await expectGameClubExpenses(page, expected.gameClubExpenses);
 });
 
 test('EXP-001 XAPP-001 an expense saves once and lowers net profit by its amount', async ({ page }) => {
@@ -81,8 +83,9 @@ test('EXP-001 XAPP-001 an expense saves once and lowers net profit by its amount
   expect(rows).toHaveLength(expenses.length + 1);
   expect(rows.at(-1)).toEqual({ amount: 25000, category: 'cleaning', payment_source: 'game_club' });
   await open(page, 'Dashboard');
-  await expectDashboardAmount(page, 'Total Expenses', expected.totalExpenses + 25_000);
-  await expectDashboardAmount(page, 'Net Profit', expected.netProfit - 25_000);
+  await expectGameClubExpenses(page, expected.gameClubExpenses + 25_000);
+  await expectDashboardAmount(page, 'Game Club Net Profit', expected.gameClubNetProfit - 25_000);
+  await expectDashboardAmount(page, 'Total Money Left', expected.gameClubMoneyLeft - 25_000);
   await expectDashboardAmount(page, 'Game Club Income', expected.gameClubIncome);
 });
 
@@ -223,7 +226,8 @@ test('AUTH-002 switching club shows only that club\'s figures and no row of the 
   });
   await page.getByRole('combobox', { name: 'Club' }).selectOption({ label: clubs.bunker.name });
   await expectDashboardAmount(page, 'Game Club Income', expected.bunkerGameClubIncome);
-  await expectDashboardAmount(page, 'Total Expenses', 0);
+  await expectDashboardAmount(page, 'Game Club Net Profit', expected.bunkerGameClubIncome);
+  await expectGameClubExpenses(page, 0);
   await expectDashboardAmount(page, 'Active Debts', 0);
   await open(page, 'Debts');
   await expect(page.locator('#main-content')).not.toContainText('E2E Alibek');
@@ -249,39 +253,30 @@ test('SET-001 the Settings health check shows every migration applied and confir
   expect(calls).toEqual([{ p_club_id: clubs.arcade.id }]);
 });
 
-test('REP-008 a tap on the money flow opens its own Sankey, and one inside it opens the next', async ({ page }) => {
+test('REP-008 each side has its own money flow, and a category in it opens its payments', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/financial-analysis');
   await expect(page.getByRole('heading', { name: 'Financial Analysis', level: 1 })).toBeVisible();
-  const dialog = page.getByRole('dialog');
+  const flowTitle = (text) => page.locator('#main-content svg title', { hasText: new RegExp(`^${text} `) });
 
-  // New debts open the game club: its income, including the debts, against what it paid for.
-  await page.getByRole('button', { name: 'Open New debts' }).click();
-  await expect(dialog.getByRole('heading', { name: 'Game Club', exact: true })).toBeVisible();
+  // The game club flow: its income, including new debts, against what it paid for and kept.
   const debtIncome = debts.reduce((sum, debt) => sum + debt.amount, 0);
-  await expect(dialog.locator('title', { hasText: new RegExp(`^New debts: ${uzs(debtIncome)} `) })).toHaveCount(1);
-  const gameClubLeft = expected.gameClubIncome + expected.playstationIncome - expected.totalExpenses;
-  await expect(dialog.locator('title', { hasText: new RegExp(`^Game club profit: ${uzs(gameClubLeft)} `) })).toHaveCount(1);
-  await page.keyboard.press('Escape');
+  await expect(flowTitle(`New debts: ${uzs(debtIncome)}`)).toHaveCount(1);
+  await expect(flowTitle(`Game club profit: ${uzs(expected.gameClubNetProfit)}`)).toHaveCount(1);
+  // The bar has its own flow; nothing adds the two sides together.
+  await expect(flowTitle(`Bar profit: ${uzs(expected.barNetProfit)}`)).toHaveCount(1);
+  await expect(flowTitle(`Bar goods cost: ${uzs(expected.barCost)}`)).toHaveCount(1);
 
   // A category: the money that paid it, and its payments listed below.
   const [cleaning] = expenses;
   await page.getByRole('button', { name: 'Open Cleaning' }).click();
+  const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('heading', { name: 'Cleaning' })).toBeVisible();
   await expect(dialog.locator('title', { hasText: new RegExp(`^Paid from game club: ${uzs(cleaning.amount)} `) })).toHaveCount(1);
   await expect(dialog.getByRole('listitem').filter({ hasText: cleaning.comment })).toContainText(uzs(cleaning.amount));
   await page.keyboard.press('Escape');
-
-  // Bar sales → Bar → Bar profit → Profit, and Back again.
-  await page.getByRole('button', { name: 'Open Bar sales' }).click();
-  await expect(dialog.getByRole('heading', { name: 'Bar', exact: true })).toBeVisible();
-  await expect(dialog.locator('title', { hasText: new RegExp(`^Bar profit: ${uzs(expected.barSales - expected.barCost)} `) })).toHaveCount(1);
-  await dialog.getByRole('button', { name: 'Open Bar profit' }).click();
-  await expect(dialog.getByRole('heading', { name: 'Profit', exact: true })).toBeVisible();
-  await expect(dialog.locator('title', { hasText: new RegExp(`^Profit: ${uzs(expected.netProfit)} `) })).toHaveCount(1);
-  await dialog.getByRole('button', { name: 'Back' }).click();
-  await expect(dialog.getByRole('heading', { name: 'Bar', exact: true })).toBeVisible();
+  await expect(dialog).toBeHidden();
   expect(errors).toEqual([]);
 });
 
@@ -318,7 +313,7 @@ test('I18N-003 switching language keeps the figures and formats money as 1 000 0
   await page.getByRole('group', { name: 'Language / Язык / Til' }).getByRole('button', { name: 'Русский' }).click();
   await expect(page.getByRole('heading', { name: 'Панель управления', level: 1 })).toBeVisible();
   await expectDashboardAmount(page, 'Доход клуба', expected.gameClubIncome);
-  expect(uzs(expected.gameClubIncome)).toBe('3 200 000');
+  expect(uzs(expected.gameClubIncome)).toBe('3 450 000');
   await page.getByRole('group', { name: 'Language / Язык / Til' }).getByRole('button', { name: "O'zbekcha" }).click();
   await expect(page.getByRole('heading', { name: 'Boshqaruv paneli', level: 1 })).toBeVisible();
   await expectDashboardAmount(page, 'Klub daromadi', expected.gameClubIncome);

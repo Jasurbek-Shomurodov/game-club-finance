@@ -46,6 +46,12 @@ export async function expectDashboardAmount(page, label, amount) {
   await expect.poll(() => dashboardAmount(page, label), { message: `${label} should be ${uzs(amount)}` }).toBe(uzs(amount));
 }
 
+/** Waits until the Game Club Net Profit card's note shows `amount` of game-club-paid expenses. */
+export async function expectGameClubExpenses(page, amount) {
+  await expect.poll(() => pageText(page), { message: `Game club expenses should be ${uzs(amount)}` })
+    .toMatch(new RegExp(`Game club expenses: ${uzs(amount)} (UZS|сум|so'm)`));
+}
+
 /** Opens a page from the sidebar and waits for its heading. */
 export async function open(page, label, heading = label) {
   await page.getByRole('navigation').getByRole('link', { name: label, exact: true }).click();

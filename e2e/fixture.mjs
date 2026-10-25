@@ -41,16 +41,24 @@ const debtIncome = debts.reduce((sum, debt) => sum + debt.amount, 0); // 800 000
 const barSales = closing.cola.sold_quantity * products.cola.sale_price + closing.snickers.sold_quantity * products.snickers.sale_price; // 156 000
 const barCost = closing.cola.sold_quantity * products.cola.cost_price + closing.snickers.sold_quantity * products.snickers.cost_price; // 87 600
 const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0); // 200 000
+const arcadeCollected = arcadeCash.cash_income + arcadeCash.terminal_income + arcadeCash.card_income + arcadeCash.playstation_income; // 2 650 000
+const debtPayments = debts.reduce((sum, debt) => sum + (debt.payment?.amount ?? 0), 0); // 200 000
+
+// The game club and the bar are separate businesses: the dashboard shows each side's figures, never a combined total.
 export const expected = {
-  /** "Game Club Income": cash + terminal + card + new debts. */
-  gameClubIncome: arcadeCash.cash_income + arcadeCash.terminal_income + arcadeCash.card_income + debtIncome, // 3 200 000
-  playstationIncome: arcadeCash.playstation_income,
+  /** "Game Club Income": cash + terminal + card + PlayStation + new debts. */
+  gameClubIncome: arcadeCollected + debtIncome, // 3 450 000
   barSales,
   barCost,
   stockPurchaseCost: purchase.quantity * purchase.cost_price, // 108 000
-  totalExpenses,
-  /** "Net Profit": accounting profit = game club income (with PlayStation) + bar sales − cost of goods − expenses. */
-  netProfit: arcadeCash.cash_income + arcadeCash.terminal_income + arcadeCash.card_income + arcadeCash.playstation_income + debtIncome + barSales - barCost - totalExpenses, // 3 318 400
+  /** Every fixture expense is paid from game club money ("Game club expenses" under the net profit card). */
+  gameClubExpenses: totalExpenses, // 200 000
+  /** "Game Club Net Profit": game club income − game-club-paid expenses. */
+  gameClubNetProfit: arcadeCollected + debtIncome - totalExpenses, // 3 250 000
+  /** "Total Money Left": collected + debt payments − game-club-paid expenses (new debts are not cash yet). */
+  gameClubMoneyLeft: arcadeCollected + debtPayments - totalExpenses, // 2 650 000
+  /** "Bar Net Profit": bar sales − cost of goods sold − bar-paid expenses (none). */
+  barNetProfit: barSales - barCost, // 68 400
   activeDebts: debts.reduce((sum, debt) => sum + debt.amount - (debt.payment?.amount ?? 0), 0), // 600 000
   colaStock: products.cola.current_stock + purchase.quantity - closing.cola.sold_quantity, // 62
   bunkerGameClubIncome: dailyCash.bunker.cash_income, // 500 000

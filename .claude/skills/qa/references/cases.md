@@ -35,7 +35,7 @@ Telegram group if one is set up.
 
 | ID | Sev | Case | Check | Expect |
 |---|---|---|---|---|
-| DASH-001 | S0 | Headline totals match the ledgers [e2e] | Hand-compute income, expenses and profit for today from the Income and Expenses pages | Dashboard cards equal the sums; profit = income − expenses − salaries per `dashboardMetrics.ts` |
+| DASH-001 | S0 | Headline totals match the ledgers [e2e] | Hand-compute each side's income, expenses, profit and money left for today from the Income and Expenses pages | Game Club and Bar cards each equal their own sums per `dashboardMetrics.ts`; no card adds the two sides together |
 | DASH-002 | S0 | Cash left and profit are different numbers | Compare the cash-left card with the profit card after an owner withdrawal exists | Cash left excludes withdrawn money; profit does not change |
 | DASH-003 | S1 | Range picker drives every card and chart | Switch today → this month → last month | All cards and the chart update together; no card keeps the old range |
 | DASH-004 | S1 | Fast range switching: last selection wins | Click three ranges quickly | Final cards match the last range; `read_network_requests` shows no out-of-order response applied |
@@ -121,7 +121,7 @@ Telegram group if one is set up.
 | REP-002 | S0 | Monthly report sums the daily reports | Sum a month's daily income manually | Monthly income equals the sum |
 | REP-003 | S0 | Money details separate profit from cash left | Open Game club and Bar money details | Both show profit and cash left as different numbers; bar and game club split per `barMoney.ts` |
 | REP-004 | S1 | Financial analysis respects the range | Switch range | Charts and tables reload; no future points |
-| REP-008 | S1 | Money flow opens its own flows [e2e] | Tap New debts, a category, Bar sales then Bar profit in the Financial analysis Sankey | Each opens its Sankey in a dialog with figures from the ledgers; a category lists its payments; Back returns to the one before |
+| REP-008 | S1 | Each side's money flow, and a category's payments [e2e] | Read the Game Club and Bar Sankeys in Financial analysis, then tap a category | Game Club and Bar flows show their own figures from the ledgers and are never combined; a category opens a dialog with the money that paid it and its payments |
 | REP-005 | S1 | Recent transactions page pages past 1,000 rows | Pick a range with many rows | Total matches the ledger sum; `fetchAllRows` evident in the request pattern |
 | REP-006 | S1 | Reports export, if present, matches the screen | Export the month | File totals equal the page |
 | REP-007 | S2 | Empty month | Pick a month with no data | Empty states, no NaN |
