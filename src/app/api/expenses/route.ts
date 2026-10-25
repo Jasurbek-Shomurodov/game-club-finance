@@ -7,6 +7,7 @@ import { actorName } from '@/lib/telegram/actorName';
 import { buildExpenseNotification } from '@/lib/telegram/expenseNotification';
 import { targetChatId } from '@/lib/telegram/clubChat';
 import { deleteTelegramMessage } from '@/lib/telegram/deleteTelegramMessage';
+import { editTelegramMessage } from '@/lib/telegram/editTelegramMessage';
 import { isIsoDate, sendTelegramMessage } from '@/lib/telegram/sendDailyFinanceReport';
 import { serverTodayIso } from '@/lib/utils';
 import { PAYMENT_METHODS, type Expense } from '@/types';
@@ -269,4 +270,99 @@ export async function DELETE(request: Request) {
     });
   }
   return Response.json({ deleted: true });
+}
+
+interface UpdateExpenseRequestBody {
+  clubId?: unknown;
+  expenseId?: unknown;
+  paymentMethod?: unknown;
+}
+
+/** Owner correction of an expense's payment method; the group message is edited to match. */
+export async function PATCH(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return expenseErrorResponse('UNAUTHORIZED');
+
+  const body = await request.json().catch(() => null) as UpdateExpenseRequestBody | null;
+  if (!body || !isId(body.clubId) || !isId(body.expenseId)
+    || !PAYMENT_METHODS.includes(body.paymentMethod as (typeof PAYMENT_METHODS)[number])) {
+    return expenseErrorResponse('INVALID_REQUEST');
+  }
+  const clubId = body.clubId;
+  const expenseId = body.expenseId;
+  const paymentMethod = body.paymentMethod as (typeof PAYMENT_METHODS)[number];
+  const context = { clubId, expenseId };
+
+  const { data: club, error: clubError } = await supabase
+    .from('clubs')
+    .select('enabled_payment_methods')
+    .eq('id', clubId)
+    .maybeSingle();
+  if (clubError) return failure('club lookup', context, clubError);
+  if (!club) return expenseErrorResponse('FORBIDDEN');
+  if (!normalizePaymentMethods(club.enabled_payment_methods).includes(paymentMethod)) {
+    return expenseErrorResponse('PAYMENT_METHOD_DISABLED');
+  }
+
+  const { data: expense, error: expenseError } = await supabase
+    .from('expenses')
+    .select('*')
+    .eq('club_id', clubId)
+    .eq('id', expenseId)
+    .maybeSingle();
+  if (expenseError) return failure('lookup', context, expenseError);
+  if (!expense) return expenseErrorResponse('NOT_FOUND');
+  // Payroll payments keep the method recorded on their salary entry.
+  if (expense.salary_entry_id) return expenseErrorResponse('SALARY_PAYMENT_IMMUTABLE');
+  if (expense.payment_method === paymentMethod) return Response.json({ expense });
+
+  // Owner check, enabled-method check and the write itself happen atomically in the RPC.
+  const { error: updateError } = await supabase.rpc('update_expense_payment_method', {
+    p_club_id: clubId,
+    p_expense_id: expenseId,
+    p_payment_method: paymentMethod,
+  });
+  if (updateError) return failure('payment method change', context, updateError);
+  const updated = { ...expense, payment_method: paymentMethod } as Expense;
+
+  // Best-effort, as for deletion: only the club's own group, and an edit
+  // Telegram refuses (old message, lost access) never undoes the change.
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  const clubChatId = targetChatId(clubId);
+  if (
+    botToken
+    && clubChatId
+    && updated.telegram_message_id
+    && String(updated.telegram_chat_id) === clubChatId
+  ) {
+    after(async () => {
+      try {
+        const { data: creator } = updated.created_by
+          ? await supabase.from('profiles').select('full_name').eq('id', updated.created_by).maybeSingle()
+          : { data: null };
+        const creatorName = typeof creator?.full_name === 'string' ? creator.full_name.trim() : '';
+        await editTelegramMessage({
+          botToken,
+          chatId: clubChatId,
+          messageId: Number(updated.telegram_message_id),
+          text: buildExpenseNotification({
+            addedBy: creatorName || '—',
+            amount: Number(updated.amount),
+            category: updated.category,
+            comment: updated.comment,
+            date: updated.date,
+            paymentMethod: updated.payment_method,
+            paymentSource: updated.payment_source,
+          }),
+        });
+      } catch (telegramError) {
+        console.error('[telegram/expense] message edit failed', {
+          ...context,
+          error: telegramError instanceof Error ? telegramError.message : String(telegramError),
+        });
+      }
+    });
+  }
+  return Response.json({ expense: updated });
 }

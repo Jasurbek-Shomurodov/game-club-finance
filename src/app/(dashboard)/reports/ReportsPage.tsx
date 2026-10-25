@@ -215,7 +215,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   const tc = useTranslations('common');
   const te = useTranslations('expenses.categories');
   const { locale } = useAppLocale();
-  const { selectedClubId, businessDayStartHour, role, featureAccess } = useClub();
+  const { selectedClubId, businessDayStartHour, role, featureAccess, enabledPaymentMethods } = useClub();
   const hasReportsAccess = canAccessFeature(role, featureAccess, 'reports');
   // Members with only the expenses feature land here to register expenses.
   const canRegisterExpenses = canAccessFeature(role, featureAccess, 'expenses');
@@ -245,6 +245,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   const [selectedEntry, setSelectedEntry] = useState<{ activity: MoneyReportActivity; date: string } | null>(null);
   const currentClubId = useRef(selectedClubId);
   const deletePending = useRef(false);
+  const [methodSaving, setMethodSaving] = useState(false);
   const isOwner = role === 'owner';
   const loadReport = useCallback(async (isCurrent: () => boolean): Promise<typeof emptyReportRows> => {
     if (!selectedClubId || !hasReportsAccess) return emptyReportRows;
@@ -450,12 +451,58 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     }
   }
 
+  /** Owners correct an ordinary expense's payment method; the club group message is edited server-side. */
+  async function handleChangePaymentMethod(activity: MoneyReportActivity, paymentMethod: string) {
+    if (!isOwner || !selectedClubId || !activity.id || activity.source !== 'expense' || methodSaving) return;
+    if (paymentMethod === activity.paymentMethod) return;
+    const clubId = selectedClubId;
+    setMethodSaving(true);
+    setActionError('');
+    try {
+      const response = await mutateFinanceRequest('/api/expenses', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ clubId, expenseId: activity.id, paymentMethod }),
+      });
+      if (currentClubId.current !== clubId) return;
+      if (!response.ok) {
+        const result = await response.json().catch(() => null) as { code?: string } | null;
+        setActionError(result?.code === 'SALARY_PAYMENT_IMMUTABLE'
+          ? t('salaryPaymentMethodProtected')
+          : response.status === 401 || response.status === 403
+            ? tc('accessDeniedDescription')
+            : t('paymentMethodUpdateError'));
+        return;
+      }
+      setSelectedEntry((current) => (current?.activity.id === activity.id
+        ? { ...current, activity: { ...current.activity, paymentMethod } }
+        : current));
+      showToast(t('paymentMethodUpdated'));
+      await reloadReport({ silent: true });
+    } catch {
+      if (currentClubId.current === clubId) setActionError(t('paymentMethodUpdateError'));
+    } finally {
+      setMethodSaving(false);
+    }
+  }
+
   function categoryLabel(activity: MoneyReportActivity): string {
     if (activity.kind === 'income') return t('dailyClubIncome');
     if (activity.kind === 'debt_payment') return t('debtPayment');
     const category = activity.category ?? 'other';
     const label = isKnownExpenseCategory(category) || category === 'other' ? te(category) : category;
     return activity.paymentSource === 'bar' ? `${t('bar')} · ${label}` : label;
+  }
+
+  function canChangePaymentMethod(activity: MoneyReportActivity): boolean {
+    // Payroll payments take their method from the salary entry.
+    return isOwner && activity.source === 'expense' && Boolean(activity.id) && activity.category !== 'salary';
+  }
+
+  /** Enabled methods, plus the current one so a since-disabled method still displays. */
+  function paymentMethodOptions(current: string | null): string[] {
+    const methods: string[] = [...enabledPaymentMethods];
+    return current && !methods.includes(current) ? [current, ...methods] : methods;
   }
 
   function activityTypeLabel(activity: MoneyReportActivity): string {
@@ -745,6 +792,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       >
         {selectedEntry && (
           <div className="space-y-5">
+            {actionError && <InlineAlert variant="danger">{actionError}</InlineAlert>}
             <div>
               <Badge variant={activityKindVariant(selectedEntry.activity.kind)}>
                 {activityTypeLabel(selectedEntry.activity)}
@@ -784,6 +832,18 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                           </Badge>
                         ))}
                     </div>
+                  ) : canChangePaymentMethod(selectedEntry.activity) ? (
+                    <Select
+                      value={selectedEntry.activity.paymentMethod ?? ''}
+                      onChange={(event) => void handleChangePaymentMethod(selectedEntry.activity, event.target.value)}
+                      disabled={methodSaving}
+                      aria-label={t('paymentMethod')}
+                      className="ml-auto w-40"
+                    >
+                      {paymentMethodOptions(selectedEntry.activity.paymentMethod).map((method) => (
+                        <option key={method} value={method}>{paymentLabel(method)}</option>
+                      ))}
+                    </Select>
                   ) : (
                     paymentLabel(selectedEntry.activity.paymentMethod)
                   )}

@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ createClient: vi.fn(), sendTelegramMessage: vi.fn(), afterTasks: [] as Promise<unknown>[] }));
+const mocks = vi.hoisted(() => ({ createClient: vi.fn(), sendTelegramMessage: vi.fn(), deleteTelegramMessage: vi.fn(), afterTasks: [] as Promise<unknown>[] }));
 vi.mock('@/lib/supabase/server', () => ({ createClient: mocks.createClient }));
 // after() needs a live request scope; run the task immediately and let tests await it.
 vi.mock('next/server', () => ({ after: (task: () => unknown) => { mocks.afterTasks.push(Promise.resolve().then(task)); } }));
 vi.mock('@/lib/telegram/sendDailyFinanceReport', () => ({ sendTelegramMessage: mocks.sendTelegramMessage }));
+vi.mock('@/lib/telegram/deleteTelegramMessage', () => ({ deleteTelegramMessage: mocks.deleteTelegramMessage }));
 
 import { POST } from './route';
 
@@ -12,7 +13,7 @@ const CLUB = '290c5c33-9dfa-464a-a072-ef5a231f5308';
 const EMPLOYEE = '40c05af5-5a59-45ae-a891-19a18228a721';
 const REQUEST = '50c05af5-5a59-45ae-a891-19a18228a722';
 
-function mockSupabase({ user = { id: 'u1', email: 'o@example.test', user_metadata: {} } as unknown, rpcError = null as { message: string; code?: string } | null, existingEntry = false, withStatus = true } = {}) {
+function mockSupabase({ user = { id: 'u1', email: 'o@example.test', user_metadata: {} } as unknown, rpcError = null as { message: string; code?: string } | null, existingEntry = false, withStatus = true, coordinates = null as Record<string, unknown> | null } = {}) {
   const rpc = vi.fn((name: string) => {
     if (name !== 'record_salary_entry_with_status') return Promise.resolve({ error: rpcError });
     if (!withStatus) return Promise.resolve({ data: null, error: { code: 'PGRST202', message: 'Could not find the function public.record_salary_entry_with_status' } });
@@ -21,11 +22,19 @@ function mockSupabase({ user = { id: 'u1', email: 'o@example.test', user_metadat
   const from = vi.fn((table: string) => {
     const result = table === 'profiles' ? { full_name: 'Owner Name' }
       : table === 'salary_employees' ? { id: EMPLOYEE, name: 'Izzat' }
-      : table === 'salary_entries' ? (existingEntry ? { id: REQUEST } : null) : null;
+      : table === 'salary_rates' ? { id: 'rate-1' } : null;
     const builder: Record<string, unknown> = {};
-    builder.select = () => builder;
+    let columns = '';
+    builder.select = (selected: string) => { columns = selected; return builder; };
+    builder.is = () => builder;
+    builder.order = () => builder;
+    builder.limit = () => builder;
     builder.eq = () => builder;
-    builder.maybeSingle = () => Promise.resolve({ data: result, error: null });
+    builder.maybeSingle = () => Promise.resolve({
+      data: columns.startsWith('telegram_') ? coordinates
+        : table === 'salary_entries' ? (existingEntry ? { id: REQUEST, kind: 'bonus', amount: 100, date: '2026-10-01' } : null) : result,
+      error: null,
+    });
     return builder;
   });
   mocks.createClient.mockResolvedValue({ auth: { getUser: () => Promise.resolve({ data: { user } }) }, rpc, from });
@@ -89,7 +98,7 @@ describe('POST /api/salaries', () => {
     const entry = { action: 'record_entry', clubId: CLUB, employeeId: EMPLOYEE, requestId: REQUEST, date: '2026-10-01', kind: 'bonus', amount: 100, comment: '' };
     const { rpc } = mockSupabase({ withStatus: false });
     expect((await post(entry)).status).toBe(200);
-    expect(rpc.mock.calls.map(([name]) => name)).toEqual(['record_salary_entry_with_status', 'record_salary_entry']);
+    expect(rpc.mock.calls.map(([name]) => name)).toEqual(['record_salary_entry_with_status', 'record_salary_entry', 'set_salary_record_telegram_message']);
     expect(mocks.sendTelegramMessage).toHaveBeenCalledTimes(1);
     mockSupabase({ withStatus: false, existingEntry: true });
     await post(entry);
@@ -171,5 +180,32 @@ describe('POST /api/salaries', () => {
     const response = await post({ action: 'set_active', clubId: CLUB, employeeId: EMPLOYEE, active: false });
     expect(response.status).toBe(200);
     expect(console.error).toHaveBeenCalledWith('[telegram/salary] notification failed', expect.anything());
+  });
+
+  it('remembers where an entry and a rate change were announced', async () => {
+    const { rpc } = mockSupabase();
+    await post({ action: 'record_entry', clubId: CLUB, employeeId: EMPLOYEE, requestId: REQUEST, date: '2026-10-01', kind: 'bonus', amount: 100, comment: '' });
+    expect(rpc).toHaveBeenCalledWith('set_salary_record_telegram_message', { p_club_id: CLUB, p_kind: 'entry', p_id: REQUEST, p_chat_id: '-100123', p_message_id: 7 });
+    await post({ action: 'change_term', clubId: CLUB, employeeId: EMPLOYEE, kind: 'kpi', amount: 5 });
+    expect(rpc).toHaveBeenCalledWith('set_salary_record_telegram_message', { p_club_id: CLUB, p_kind: 'rate', p_id: 'rate-1', p_chat_id: '-100123', p_message_id: 7 });
+  });
+
+  it('deletes a deleted record\'s announcement, only from the club group', async () => {
+    const body = { action: 'delete_record', clubId: CLUB, employeeId: EMPLOYEE, recordId: REQUEST, kind: 'entry', reason: 'Paid twice' };
+    mockSupabase({ existingEntry: true, coordinates: { telegram_chat_id: '-100123', telegram_message_id: 42 } });
+    expect((await post(body)).status).toBe(200);
+    expect(mocks.deleteTelegramMessage).toHaveBeenCalledWith({ botToken: 'token', chatId: '-100123', messageId: 42 });
+
+    mocks.deleteTelegramMessage.mockClear();
+    mockSupabase({ existingEntry: true, coordinates: { telegram_chat_id: '-100999', telegram_message_id: 42 } });
+    await post(body);
+    expect(mocks.deleteTelegramMessage).not.toHaveBeenCalled();
+  });
+
+  it('keeps the message when the record could not be deleted', async () => {
+    mockSupabase({ existingEntry: true, rpcError: { message: 'denied', code: '42501' }, coordinates: { telegram_chat_id: '-100123', telegram_message_id: 42 } });
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    expect((await post({ action: 'delete_record', clubId: CLUB, employeeId: EMPLOYEE, recordId: REQUEST, kind: 'entry', reason: 'x' })).status).toBe(403);
+    expect(mocks.deleteTelegramMessage).not.toHaveBeenCalled();
   });
 });

@@ -42,6 +42,7 @@ export function expenseErrorCode(error: { code?: string | null; message?: string
   if (error.code === '23514') return 'CHECK_FAILED';
   if (error.code === '23505') return 'REQUEST_CONFLICT';
   if (error.code === 'P0001') return 'INVALID_VALUES';
+  if (error.code === 'P0002') return 'NOT_FOUND';
   return 'SERVER_ERROR';
 }
 

@@ -2961,6 +2961,49 @@
     ]
   },
   {
+    "file": "090_record_telegram_messages_and_expense_method.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.salary_entries",
+        "column": "telegram_chat_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_entries",
+        "column": "telegram_message_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_rates",
+        "column": "telegram_chat_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_rates",
+        "column": "telegram_message_id"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.salary_entries",
+        "name": "salary_entries_telegram_message_coordinates_check"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.salary_rates",
+        "name": "salary_rates_telegram_message_coordinates_check"
+      },
+      {
+        "kind": "function",
+        "signature": "public.set_salary_record_telegram_message(uuid,text,uuid,text,bigint)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.update_expense_payment_method(uuid,uuid,text)"
+      }
+    ]
+  },
+  {
     "file": "091_expense_presets.sql",
     "probes": [
       {

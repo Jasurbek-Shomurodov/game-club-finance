@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   deleteTelegramMessage: vi.fn(),
+  editTelegramMessage: vi.fn(),
   sendTelegramMessage: vi.fn(),
   afterTasks: [] as Promise<unknown>[],
 }));
@@ -13,6 +14,9 @@ vi.mock('next/server', () => ({ after: (task: () => unknown) => { mocks.afterTas
 vi.mock('@/lib/telegram/deleteTelegramMessage', () => ({
   deleteTelegramMessage: mocks.deleteTelegramMessage,
 }));
+vi.mock('@/lib/telegram/editTelegramMessage', () => ({
+  editTelegramMessage: mocks.editTelegramMessage,
+}));
 vi.mock('@/lib/telegram/expenseNotification', () => ({
   buildExpenseNotification: vi.fn(() => 'expense'),
 }));
@@ -22,7 +26,7 @@ vi.mock('@/lib/telegram/sendDailyFinanceReport', async (importOriginal) => ({
 }));
 vi.mock('@/types', () => ({ PAYMENT_METHODS: ['cash', 'terminal', 'card'] }));
 
-import { DELETE, POST } from './route';
+import { DELETE, PATCH, POST } from './route';
 
 const CLUB_ID = '290c5c33-9dfa-464a-a072-ef5a231f5308';
 const EXPENSE_ID = '40c05af5-5a59-45ae-a891-19a18228a721';
@@ -315,5 +319,80 @@ describe('expense creation route', () => {
     const response = await create(body);
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: 'Expense change failed', code: 'SERVER_ERROR' });
+  });
+});
+
+describe('expense payment method route', () => {
+  const baseExpense = {
+    id: EXPENSE_ID, club_id: CLUB_ID, date: '2026-10-24', amount: 8000, category: 'food_drinks',
+    payment_method: 'cash', payment_source: 'bar', comment: 'non', created_by: 'user-1',
+    salary_entry_id: null as string | null, telegram_chat_id: '-1001' as string | null, telegram_message_id: 42 as number | null,
+  };
+
+  function mockPatchSupabase(expense: typeof baseExpense | null, rpcError: { message: string; code?: string } | null = null) {
+    const rpc = vi.fn().mockResolvedValue({ error: rpcError });
+    const from = vi.fn((table: string) => (
+      table === 'clubs' ? queryResult({ enabled_payment_methods: ['cash', 'terminal'] })
+        : table === 'profiles' ? queryResult({ full_name: 'Alisher' })
+          : queryResult(expense)
+    ));
+    mocks.createClient.mockResolvedValue({
+      auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }) },
+      from,
+      rpc,
+    });
+    return { rpc };
+  }
+
+  async function patch(paymentMethod: unknown) {
+    const response = await PATCH(new Request('https://example.test/api/expenses', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ clubId: CLUB_ID, expenseId: EXPENSE_ID, paymentMethod }),
+    }));
+    await Promise.all(mocks.afterTasks.splice(0));
+    return response;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubEnv('TELEGRAM_BOT_TOKEN', 'bot-token');
+    vi.stubEnv('TELEGRAM_MAIN_CLUB_ID', CLUB_ID);
+    vi.stubEnv('TELEGRAM_MAIN_CHAT_ID', '-1001');
+    mocks.editTelegramMessage.mockResolvedValue(undefined);
+  });
+
+  it('changes the method through the RPC and edits the group message', async () => {
+    const { rpc } = mockPatchSupabase(baseExpense);
+    const response = await patch('terminal');
+    expect(response.status).toBe(200);
+    expect((await response.json()).expense.payment_method).toBe('terminal');
+    expect(rpc).toHaveBeenCalledWith('update_expense_payment_method', {
+      p_club_id: CLUB_ID, p_expense_id: EXPENSE_ID, p_payment_method: 'terminal',
+    });
+    expect(mocks.editTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({ chatId: '-1001', messageId: 42 }));
+  });
+
+  it('rejects unknown and disabled methods', async () => {
+    const { rpc } = mockPatchSupabase(baseExpense);
+    expect((await patch('dollars')).status).toBe(400);
+    const disabled = await patch('card');
+    expect((await disabled.json()).code).toBe('PAYMENT_METHOD_DISABLED');
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('leaves payroll payments to Salaries', async () => {
+    const { rpc } = mockPatchSupabase({ ...baseExpense, salary_entry_id: 'salary-entry' });
+    expect((await (await patch('terminal')).json()).code).toBe('SALARY_PAYMENT_IMMUTABLE');
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('never edits a message outside the club group, nor after a refused write', async () => {
+    mockPatchSupabase({ ...baseExpense, telegram_chat_id: '-1009' });
+    expect((await patch('terminal')).status).toBe(200);
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockPatchSupabase(baseExpense, { message: 'Only a club owner can change an expense.', code: '42501' });
+    expect((await patch('terminal')).status).toBe(403);
+    expect(mocks.editTelegramMessage).not.toHaveBeenCalled();
   });
 });
