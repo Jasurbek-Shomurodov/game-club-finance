@@ -11,6 +11,7 @@ import {
   Field,
   InlineAlert,
   SegmentedControl,
+  Skeleton,
   Select,
   Textarea,
 } from '@/components/PresentationFoundation';
@@ -226,6 +227,18 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     <form onSubmit={handleSubmit} className="space-y-5">
       {error && <InlineAlert variant="danger">{error}</InlineAlert>}
       {enabledPaymentMethods.length === 0 && <InlineAlert variant="warning">{t('paymentMethodUnavailable')}</InlineAlert>}
+
+      {presetQuery.loading && presets.length === 0 && (
+        <div role="status" aria-label={tc('loading')} aria-busy="true" className="space-y-2">
+          <Skeleton className="h-4 w-32" />
+          <div className="flex flex-wrap gap-2">
+            {['w-32', 'w-20', 'w-24', 'w-20'].map((width, index) => (
+              <Skeleton key={index} className={`h-10 rounded-full ${width}`} />
+            ))}
+          </div>
+          <Skeleton className="h-3 w-64 max-w-full" />
+        </div>
+      )}
 
       {presets.length > 0 && (
         <Field label={t('preset')} hint={selectedPreset
