@@ -27,6 +27,7 @@ import { Button, Card, Field, Input, InlineAlert, PageHeader } from '@/component
 | Destructive confirmation | `useConfirm` / `ConfirmDialog` (never `window.confirm`) |
 | Dialogs | `Modal`, `Drawer` (animated side panel) |
 | Collapsible help or secondary list | `Disclosure` (native `<details>` with a chevron summary) |
+| "What is this?" beside a heading | `HelpButton` (a `?` that opens a `Modal`; blank lines in `body` start paragraphs) |
 | KPI numbers | `MetricCard` (formatted value), `AmountCard` (money with comparison), `StatTile` (compact) |
 | Tables | `DataTable` (supports totals row, sticky header, empty state; pass `label` so keyboard users can scroll wide tables) |
 | Nothing to show | `EmptyState` |

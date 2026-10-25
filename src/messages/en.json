@@ -316,7 +316,31 @@
     "ownerOverdrawn": "Overdrawn",
     "expensesSection": "Expenses",
     "expensesSectionDesc": "Where the operating expenses went, and the biggest single payments.",
-    "summaryProfitByMonth": "Profit by month"
+    "summaryProfitByMonth": "Profit by month",
+    "help": {
+      "overview": "Everything each side has done since the club's first entry. The game club and the bar are separate businesses, so their money is never added together.\n\nGame club money in = computers (cash, terminal and card) + PlayStation + new debts on the day they are given. Bar money in = bar sales.",
+      "sideSummary": "The ring is this side's money in. The red arc is what was spent and the green arc is the profit that was left; the number in the middle is the margin, the share of money in that stayed as profit.\n\nGame club spending is the expenses paid from game club money. Bar spending is the cost of the goods sold plus the expenses paid from bar money.\n\nThe small bars on the right are the profit of each month: green above the line for a profit, red below it for a loss.",
+      "flow": "A Sankey diagram: money enters on the left, passes through the side in the middle and leaves on the right as each expense category and the profit. The thicker a stream, the more money it carries.\n\nTap a category or a stream to open the payments behind it.",
+      "owner": "What each side earned for the owner, what was already withdrawn and what is still left to take, over every month.\n\nThis is cash-based, so it can differ from the profit above: the bar counts stock purchases when they are paid (not the cost of goods when sold), and the game club counts debt payments when the money comes in.",
+      "ownerBalance": "Each bar is everything that side earned for the owner. The coloured part has been withdrawn and the green part is still left to take.\n\nIf more was taken than earned, the side shows \"Overdrawn\" in red with the amount over.",
+      "ownerMonths": "For every month, the left column is the game club and the right column is the bar. The lower block is what was withdrawn, the upper block what is still left to take from that month.\n\nA month with nothing shown earned nothing left to take.",
+      "forecast": "Where this month is heading. The forecast takes each side's money in and profit per day so far and stretches that pace over the whole month.\n\nOnly days up to the side's latest entry are counted, so a day that has not been entered yet does not pull the forecast down.",
+      "forecastChart": "Solid line: money in so far this month, added up day by day. Dashed line: where it ends if the same daily pace continues. Grey line: last month, day by day, for comparison.\n\nThe forecast profit uses the same pace, so it reads high when big bills such as salaries or rent are still to come later in the month.",
+      "profit": "How each side's profit behaved month by month over the whole history: the average month, the best and weakest months and how many months ended with a loss.",
+      "profitMonths": "Each bar is a month's profit: green for a profit, red for a loss. The dashed line is the average monthly profit and the purple line is the margin, read on the right-hand scale.\n\nThe average includes every month, even quiet ones, so it shows what a typical month really brings.",
+      "reports": "The same money split by period. Switch between days, weeks and months above: days show the last 31 days, weeks (Monday to Sunday) the last 26 weeks, months the whole history.\n\nHover or tap a bar to see its exact amounts.",
+      "sideFlow": "For each period, the first bar is the money in and the second is the spending; the green line is the profit (money in minus spending). When the line drops below zero, that period lost money.",
+      "cumulative": "The profit of each side added up period after period, starting at the first period shown. A rising line means the side keeps making money; a falling stretch means losses ate into what was earned before.",
+      "incomeMix": "Game club money in for each period, split into computers, PlayStation and new debts. A large debts block means much of that income has not been paid in cash yet.",
+      "categoryTrend": "Operating expenses of each period, stacked by category in the same colours as elsewhere on the page. The bar cost of goods sold is not included. Use it to spot months when one category jumped.",
+      "weekday": "The average money in on each day of the week, counted only over the days that side actually had income, so closed or unentered days do not lower the average. Use it to plan staff, promotions and stock for the busiest days.",
+      "heatmap": "Each square is one day: columns are weeks, rows are weekdays. The darker the square, the stronger the day compared with the others; pale grey means no money in that day.\n\nHover a square to see its date and amount.",
+      "years": "Money in for each calendar month, one colour per year, so the same month can be compared across years and seasons become visible. It appears once the history covers two calendar years.",
+      "table": "Every month in one table, newest first: each side's money in and profit and, for the owner, what was withdrawn from each side that month.",
+      "expenses": "Where the operating expenses went over the whole history, and the biggest single payments.",
+      "categories": "The share of every expense category in all operating expenses. The seven largest are shown by name and the rest are grouped as Other. The bar cost of goods sold is not an expense here.\n\nTap a category to see all its payments.",
+      "largest": "The biggest single expenses ever recorded, with their date, comment and which side paid them. Tap one to open its category."
+    }
   },
   "reports": {
     "title": "Reports",
@@ -1284,7 +1308,8 @@
       "dark": "Dark",
       "system": "System"
     },
-    "dayClosed": "The money for this day was collected, so the day is closed. No income or expense can be added, changed or deleted. Only an owner can reopen it in Reports."
+    "dayClosed": "The money for this day was collected, so the day is closed. No income or expense can be added, changed or deleted. Only an owner can reopen it in Reports.",
+    "aboutSection": "About {title}"
   },
   "salaries": {
     "title": "Salaries",

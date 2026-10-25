@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, type ReactNode } from 'react';
-import { Card, EmptyState } from '@/components/PresentationFoundation';
+import { Card, EmptyState, HelpButton } from '@/components/PresentationFoundation';
 import { cn } from '@/lib/utils';
 import { intlLocaleFor } from '@/lib/formatters';
 
@@ -38,9 +38,11 @@ export const chartTooltipStyle = {
 } as const;
 
 /** Card wrapper shared by every dashboard chart; the section is named by its heading. */
-export function ChartCard({ title, description, action, className, children }: {
+export function ChartCard({ title, description, help, action, className, children }: {
   title: string;
   description?: string;
+  /** Explanation behind a "?" beside the title. */
+  help?: string;
   action?: ReactNode;
   className?: string;
   children: ReactNode;
@@ -50,7 +52,10 @@ export function ChartCard({ title, description, action, className, children }: {
     <Card as="section" className={cn('flex flex-col', className)} aria-labelledby={headingId}>
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0 flex-1 basis-48">
-          <h2 id={headingId} className="break-words text-sm font-semibold text-gray-950">{title}</h2>
+          <div className="flex items-center gap-1">
+            <h2 id={headingId} className="min-w-0 break-words text-sm font-semibold text-gray-950">{title}</h2>
+            {help && <HelpButton title={title} body={help} className="-my-2 shrink-0" />}
+          </div>
           {description && <p className="mt-0.5 text-xs leading-5 text-gray-500">{description}</p>}
         </div>
         {action}

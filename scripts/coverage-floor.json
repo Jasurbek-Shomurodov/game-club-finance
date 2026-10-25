@@ -86,6 +86,7 @@
     "src/components/PresentationFoundation/Drawer.tsx",
     "src/components/PresentationFoundation/EmptyState.tsx",
     "src/components/PresentationFoundation/Field.tsx",
+    "src/components/PresentationFoundation/HelpButton.tsx",
     "src/components/PresentationFoundation/IconButton.tsx",
     "src/components/PresentationFoundation/InlineAlert.tsx",
     "src/components/PresentationFoundation/LanguageSwitcher.tsx",

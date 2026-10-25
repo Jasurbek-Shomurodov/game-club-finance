@@ -6,13 +6,14 @@ import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import {
   AmountCard,
+  HelpButton,
   MetricCard,
   toneForAmount,
   type MetricTone,
 } from '@/components/PresentationFoundation';
 import type { SourceIndicators } from '@/lib/calculations/financialAnalysis';
 
-export function Section({ id, title, description, icon: Icon, iconClassName, action, children }: {
+export function Section({ id, title, description, icon: Icon, iconClassName, action, help, children }: {
   /** Anchor for in-page navigation. */
   id?: string;
   title: string;
@@ -21,16 +22,21 @@ export function Section({ id, title, description, icon: Icon, iconClassName, act
   iconClassName?: string;
   /** Control beside the heading, e.g. a grouping switch. */
   action?: ReactNode;
+  /** Explanation behind a "?" beside the title. */
+  help?: string;
   children: ReactNode;
 }) {
   return (
-    <section id={id} className="scroll-mt-4 space-y-3">
+    <section id={id} className="scroll-mt-28 space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
         <div className="min-w-0 flex-1 basis-64">
-          <h2 className="flex items-center gap-2 text-base font-semibold text-gray-950">
-            {Icon && <Icon size={18} className={cn('shrink-0', iconClassName)} aria-hidden="true" />}
-            {title}
-          </h2>
+          <div className="flex items-center gap-1">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-gray-950">
+              {Icon && <Icon size={18} className={cn('shrink-0', iconClassName)} aria-hidden="true" />}
+              {title}
+            </h2>
+            {help && <HelpButton title={title} body={help} className="-my-1.5" />}
+          </div>
           {description && <p className="mt-0.5 text-sm text-gray-500">{description}</p>}
         </div>
         {action}

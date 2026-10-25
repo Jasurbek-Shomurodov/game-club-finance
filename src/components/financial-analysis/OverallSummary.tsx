@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Skeleton } from '@/components/PresentationFoundation';
@@ -84,8 +85,9 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
  * One side's all-time money in as a ring: the red arc is what was spent, the
  * green arc what was left as profit. A loss fills the ring red.
  */
-export function SideSummaryCard({ side, title, icon: Icon, incomeLabel, data, months, loading, locale, currency }: {
+export function SideSummaryCard({ side, title, icon: Icon, incomeLabel, data, months, help, loading, locale, currency }: {
   side: Side;
+  help?: string;
   months: ProfitMonthRow[];
   title: string;
   icon: LucideIcon;
@@ -107,7 +109,7 @@ export function SideSummaryCard({ side, title, icon: Icon, incomeLabel, data, mo
   });
 
   return (
-    <ChartCard title={title} action={<Icon size={18} className="shrink-0" style={{ color: SIDE_COLOR[side] }} aria-hidden="true" />}>
+    <ChartCard title={title} help={help} action={<Icon size={18} className="shrink-0" style={{ color: SIDE_COLOR[side] }} aria-hidden="true" />}>
       {loading ? (
         <div className="mt-4 flex items-center gap-6">
           <Skeleton className="h-36 w-36 shrink-0 rounded-full" />
@@ -238,7 +240,8 @@ function OwnerBalanceBar({ side, label, icon: Icon, balance, locale, currency }:
   );
 }
 
-export function OwnerBalanceCard({ sides, loading, locale, currency }: {
+export function OwnerBalanceCard({ sides, help, loading, locale, currency }: {
+  help?: string;
   sides: Array<{ side: Side; label: string; icon: LucideIcon; balance: AvailableSourceBalance }>;
   loading: boolean;
   locale: string;
@@ -246,7 +249,7 @@ export function OwnerBalanceCard({ sides, loading, locale, currency }: {
 }) {
   const t = useTranslations('financialAnalysis');
   return (
-    <ChartCard title={t('ownerBalanceTitle')} description={t('ownerBalanceDesc')}>
+    <ChartCard title={t('ownerBalanceTitle')} description={t('ownerBalanceDesc')} help={help}>
       <div className="mt-5 space-y-6">
         {sides.map((entry) => (loading
           ? <Skeleton key={entry.side} className="h-16" />
@@ -256,19 +259,89 @@ export function OwnerBalanceCard({ sides, loading, locale, currency }: {
   );
 }
 
-/** Chips that jump to each part of the overall analysis. */
+/** Below the app's top bar (3.5rem plus the phone's safe area), with a little air. */
+const NAV_OFFSET_GAP = 12;
+
+/**
+ * Chips that jump to each part of the overall analysis. The row sticks under
+ * the app's top bar while the page scrolls and marks the section in view.
+ */
 export function SectionNav({ items, label }: { items: Array<{ id: string; label: string }>; label: string }) {
+  const navRef = useRef<HTMLElement | null>(null);
+  const [active, setActive] = useState(items[0]?.id ?? '');
+
+  useEffect(() => {
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const bottom = (navRef.current?.getBoundingClientRect().bottom ?? 0) + NAV_OFFSET_GAP;
+      let current = items[0]?.id ?? '';
+      for (const item of items) {
+        const section = document.getElementById(item.id);
+        if (section && section.getBoundingClientRect().top <= bottom) current = item.id;
+      }
+      // At the very bottom the last short sections can never reach the top; mark the last one.
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) current = items.at(-1)?.id ?? current;
+      setActive(current);
+    };
+    const schedule = () => {
+      if (!frame) frame = window.requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [items]);
+
+  // Keep the marked chip visible when the row scrolls sideways on a phone.
+  useEffect(() => {
+    const nav = navRef.current;
+    const chip = nav?.querySelector<HTMLElement>(`[data-section="${active}"]`);
+    if (!nav || !chip) return;
+    const left = chip.offsetLeft - nav.clientWidth / 2 + chip.clientWidth / 2;
+    nav.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+  }, [active]);
+
+  const jump = (event: MouseEvent<HTMLAnchorElement>, id: string) => {
+    const section = document.getElementById(id);
+    if (!section) return;
+    event.preventDefault();
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const top = section.getBoundingClientRect().top + window.scrollY
+      - (navRef.current?.getBoundingClientRect().bottom ?? 0) - NAV_OFFSET_GAP + 1;
+    window.scrollTo({ top, behavior: reduceMotion ? 'auto' : 'smooth' });
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${id}`);
+    setActive(id);
+  };
+
   return (
-    <nav aria-label={label} className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-      {items.map((item) => (
-        <a
-          key={item.id}
-          href={`#${item.id}`}
-          className="shrink-0 rounded-full border border-gray-200 bg-surface px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-primary-300 hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-        >
-          {item.label}
-        </a>
-      ))}
-    </nav>
+    <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-20 -mx-4 bg-gray-50/90 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6 lg:top-14 lg:-mx-8 lg:px-8">
+      <nav ref={navRef} aria-label={label} className="-mx-1 flex gap-2 overflow-x-auto px-1 [scrollbar-width:none]">
+        {items.map((item) => {
+          const current = item.id === active;
+          return (
+            <a
+              key={item.id}
+              href={`#${item.id}`}
+              data-section={item.id}
+              aria-current={current ? 'location' : undefined}
+              onClick={(event) => jump(event, item.id)}
+              className={cn(
+                'shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+                current
+                  ? 'border-primary-600 bg-primary-600 text-on-accent'
+                  : 'border-gray-200 bg-surface text-gray-700 hover:border-primary-300 hover:text-primary-700',
+              )}
+            >
+              {item.label}
+            </a>
+          );
+        })}
+      </nav>
+    </div>
   );
 }

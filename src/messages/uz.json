@@ -316,7 +316,31 @@
     "ownerOverdrawn": "Ortiqcha olingan",
     "expensesSection": "Xarajatlar",
     "expensesSectionDesc": "Operatsion xarajatlar qayerga ketgani va eng katta to‘lovlar.",
-    "summaryProfitByMonth": "Oylar bo‘yicha foyda"
+    "summaryProfitByMonth": "Oylar bo‘yicha foyda",
+    "help": {
+      "overview": "Klubning birinchi yozuvidan beri har bir qism qilgan hamma narsa. O‘yin klubi va bar alohida biznes, ularning pullari hech qachon qo‘shilmaydi.\n\nKlub tushumi = kompyuterlar (naqd, terminal va karta) + PlayStation + berilgan kuni yangi qarzlar. Bar tushumi = bar savdosi.",
+      "sideSummary": "Halqa — shu qismning tushumi. Qizil yoy — sarflangan, yashil yoy — foyda bo‘lib qolgan qism; markazdagi son — marja, tushumning foyda bo‘lib qolgan ulushi.\n\nKlub xarajatlari — klub pulidan to‘langan xarajatlar. Bar xarajatlari — sotilgan tovar tannarxi va bar pulidan to‘langan xarajatlar.\n\nO‘ngdagi kichik ustunlar — har oyning foydasi: yashil yuqoriga — foyda, qizil pastga — zarar.",
+      "flow": "Sankey diagrammasi: pul chapdan kiradi, markazdagi qismdan o‘tadi va o‘ngga xarajat toifalari va foydaga chiqadi. Oqim qancha qalin bo‘lsa, unda pul shuncha ko‘p.\n\nTo‘lovlarni ochish uchun toifa yoki oqimni bosing.",
+      "owner": "Har bir qism egasi uchun qancha ishlab topgani, qancha olingani va yana qancha olish mumkinligi — barcha oylar bo‘yicha.\n\nBu pul harakati bo‘yicha hisob, shuning uchun yuqoridagi foydadan farq qilishi mumkin: bar tovar xaridini to‘langanda hisoblaydi (sotilgandagi tannarx emas), klub esa qarz to‘lovlarini pul kelganda hisoblaydi.",
+      "ownerBalance": "Har bir chiziq — shu qism egasi uchun ishlab topgan hamma narsa. Rangli qismi olingan, yashil qismi hali olish uchun qolgan.\n\nAgar ishlab topilganidan ko‘p olingan bo‘lsa, qizil rangda «Ortiqcha olingan» va ortiqcha summa ko‘rsatiladi.",
+      "ownerMonths": "Har bir oy uchun chap ustun — klub, o‘ng ustun — bar. Pastki qismi — olingan pul, yuqori qismi — shu oydan yana olish mumkin bo‘lgani.\n\nHech narsa ko‘rsatilmagan oydan olinadigan pul qolmagan.",
+      "forecast": "Bu oy qayerga ketmoqda. Prognoz har bir qismning hozirgacha kunlik tushumi va foydasini olib, shu sur’atni butun oyga cho‘zadi.\n\nFaqat qismning oxirgi yozuvigacha bo‘lgan kunlar hisoblanadi, shuning uchun hali kiritilmagan kun prognozni pasaytirmaydi.",
+      "forecastChart": "To‘liq chiziq — shu oy tushumi kunma-kun yig‘ilib boradi. Uzuq chiziq — sur’at saqlansa oy qanday tugashi. Kulrang chiziq — taqqoslash uchun o‘tgan oy kunma-kun.\n\nFoyda prognozi ham shu sur’atda, shuning uchun ish haqi yoki ijara kabi katta to‘lovlar hali oldinda bo‘lsa, u yuqori ko‘rinadi.",
+      "profit": "Butun tarix davomida har bir qism foydasi oyma-oy qanday bo‘lgani: o‘rtacha oy, eng yaxshi va eng zaif oylar, nechta oy zarar bilan yakunlangani.",
+      "profitMonths": "Har bir ustun — oy foydasi: yashil — foyda, qizil — zarar. Uzuq chiziq — oylik o‘rtacha foyda, binafsha chiziq — o‘ng shkala bo‘yicha marja.\n\nO‘rtachaga barcha oylar, hatto sokin oylar ham kiradi, shuning uchun u oddiy oy haqiqatda nima keltirishini ko‘rsatadi.",
+      "reports": "O‘sha pul davrlar bo‘yicha. Yuqorida kunlar, haftalar va oylarni almashtiring: kunlar — oxirgi 31 kun, haftalar (dushanbadan yakshanbagacha) — oxirgi 26 hafta, oylar — butun tarix.\n\nAniq summalarni ko‘rish uchun ustun ustiga olib boring yoki bosing.",
+      "sideFlow": "Har bir davrda birinchi ustun — tushum, ikkinchisi — xarajat; yashil chiziq — foyda (tushum minus xarajat). Chiziq noldan pastga tushsa, o‘sha davr zarar bilan o‘tgan.",
+      "cumulative": "Har bir qism foydasi ko‘rsatilgan birinchi davrdan boshlab davrma-davr qo‘shib boriladi. Ko‘tarilayotgan chiziq — qism pul topishda davom etmoqda; pasayish — zararlar avval topilganning bir qismini yeb qo‘ygan.",
+      "incomeMix": "Har bir davrdagi klub tushumi kompyuterlar, PlayStation va yangi qarzlarga bo‘lingan. Qarzlar ulushi katta bo‘lsa, bu daromadning ko‘p qismi hali pul bilan to‘lanmagan.",
+      "categoryTrend": "Har bir davrning operatsion xarajatlari toifalar bo‘yicha, sahifadagi ranglarda. Bar tannarxi kirmaydi. Bitta toifa keskin oshgan oylarni topishga yordam beradi.",
+      "weekday": "Hafta kunlaridagi o‘rtacha tushum, faqat qismda tushum bo‘lgan kunlar bo‘yicha — yopiq yoki kiritilmagan kunlar o‘rtachani pasaytirmaydi. Eng gavjum kunlar uchun xodimlar, aksiyalar va xaridni rejalashtirishga yordam beradi.",
+      "heatmap": "Har bir kvadrat — bir kun: ustunlar — haftalar, qatorlar — hafta kunlari. Kvadrat qancha to‘q bo‘lsa, kun boshqalarga nisbatan shuncha kuchli; och kulrang — o‘sha kuni tushum bo‘lmagan.\n\nSana va summani ko‘rish uchun kvadrat ustiga olib boring.",
+      "years": "Har bir kalendar oy tushumi, har bir yil o‘z rangida — bir xil oyni turli yillarda taqqoslash va mavsumiylikni ko‘rish uchun. Tarix ikki kalendar yilni qamraganda paydo bo‘ladi.",
+      "table": "Barcha oylar bitta jadvalda, yangilari yuqorida: har bir qismning tushumi va foydasi hamda egasi uchun shu oyda har bir qismdan qancha olingani.",
+      "expenses": "Butun tarix davomida operatsion xarajatlar qayerga ketgani va eng katta alohida to‘lovlar.",
+      "categories": "Har bir toifaning barcha operatsion xarajatlardagi ulushi. Eng katta yettitasi nomi bilan, qolganlari «Boshqa» ga yig‘ilgan. Bar tannarxi bu yerda xarajat hisoblanmaydi.\n\nBarcha to‘lovlarini ko‘rish uchun toifani bosing.",
+      "largest": "Hamma vaqtdagi eng katta alohida xarajatlar — sanasi, izohi va qaysi qism pulidan to‘langani bilan. Toifasini ochish uchun bosing."
+    }
   },
   "reports": {
     "title": "Hisobotlar",
@@ -1284,7 +1308,8 @@
       "dark": "Qorong‘i",
       "system": "Tizimdagidek"
     },
-    "dayClosed": "Bu kunning puli olindi, kun yopilgan. Daromad yoki xarajat qo‘shib, o‘zgartirib yoki o‘chirib bo‘lmaydi. Kunni faqat egasi Hisobotlarda qayta ochishi mumkin."
+    "dayClosed": "Bu kunning puli olindi, kun yopilgan. Daromad yoki xarajat qo‘shib, o‘zgartirib yoki o‘chirib bo‘lmaydi. Kunni faqat egasi Hisobotlarda qayta ochishi mumkin.",
+    "aboutSection": "Batafsil: {title}"
   },
   "salaries": {
     "title": "Ish haqi",
