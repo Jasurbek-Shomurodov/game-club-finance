@@ -3,7 +3,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 import { Check, LogOut, Plus } from 'lucide-react';
+import { ExpensePresetsSection } from './ExpensePresetsSection';
 import { MigrationHealthPanel } from './MigrationHealthPanel';
+import { SettingsSection } from './SettingsSection';
 import {
   Avatar,
   Badge,
@@ -33,19 +35,6 @@ const MONTH_DAYS = Array.from({ length: 31 }, (_, index) => index + 1);
 
 function hourLabel(hour: number): string {
   return `${String(hour).padStart(2, '0')}:00`;
-}
-
-/** A titled group of settings: a small heading above its own card. */
-function SettingsSection({ title, aside, children }: { title: ReactNode; aside?: ReactNode; children: ReactNode }) {
-  return (
-    <section className="space-y-2.5">
-      <div className="flex min-h-8 items-center justify-between gap-3 px-1">
-        <h2 className="text-[13px] font-semibold text-gray-500">{title}</h2>
-        {aside}
-      </div>
-      {children}
-    </section>
-  );
 }
 
 /** One setting inside a section card: label and help on the left, a compact control on the right. Stacks on phones. */
@@ -479,6 +468,8 @@ export function SettingsPageClient() {
           )}
         </ul>
       </SettingsSection>
+
+      {selectedClub && <ExpensePresetsSection key={selectedClub.id} clubId={selectedClub.id} isOwner={isOwner} />}
 
       {isOwner && selectedClub && (
         <Card as="section" padding="none" className="overflow-hidden">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Banknote, Building2, CreditCard, Save, WalletCards } from 'lucide-react';
 import { useClub } from '@/components/layout/DashboardShell';
@@ -14,9 +14,12 @@ import {
   Select,
   Textarea,
 } from '@/components/PresentationFoundation';
-import { parseCurrencyInput } from '@/lib/formatters';
+import { formatCurrency, parseCurrencyInput } from '@/lib/formatters';
 import { MANUAL_EXPENSE_CATEGORIES } from '@/lib/expenseCategories';
-import { mutateFinanceRequest } from '@/lib/supabase/client';
+import { createClient, mutateFinanceRequest } from '@/lib/supabase/client';
+import { fetchExpensePresets } from '@/lib/supabase/expensePresets';
+import type { ExpensePreset } from '@/lib/calculations/expensePlans';
+import { useClubQuery } from '@/lib/useClubQuery';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
@@ -60,7 +63,18 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     payment_method: defaultPaymentMethod(enabledPaymentMethods),
     payment_source: 'game_club' as PaymentSource,
     comment: '',
+    preset_id: '',
   });
+
+  // The club's planned expenses: picking one fills its category and money
+  // source; the amount is still entered by hand. Hidden before migration 091.
+  const loadPresets = useCallback(async (): Promise<ExpensePreset[]> => {
+    if (!selectedClubId) return [];
+    const { presets } = await fetchExpensePresets(createClient(), selectedClubId);
+    return presets.filter((preset) => !preset.archived_at);
+  }, [selectedClubId]);
+  const presets = useClubQuery<ExpensePreset[]>(loadPresets, []).data;
+  const selectedPreset = presets.find((preset) => preset.id === form.preset_id) ?? null;
 
   // When the business day rolls over, a date still on the old day moves to the
   // new one; a date the user picked deliberately is kept.
@@ -89,6 +103,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
       payment_method: defaultPaymentMethod(enabledPaymentMethods),
       payment_source: 'game_club',
       comment: '',
+      preset_id: '',
     });
   }, [businessToday, enabledPaymentMethods, selectedClubId]);
 
@@ -102,6 +117,14 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     // Edited values are a different expense, not a retry of the last attempt.
     requestId.current = null;
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function choosePreset(presetId: string) {
+    requestId.current = null;
+    const preset = presets.find((item) => item.id === presetId);
+    setForm((current) => (preset
+      ? { ...current, preset_id: preset.id, category: preset.category, payment_source: preset.payment_source }
+      : { ...current, preset_id: '' }));
   }
 
   function categoryLabel(category: string): string {
@@ -153,6 +176,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
           paymentMethod: form.payment_method,
           paymentSource: form.payment_source,
           comment: form.comment.trim() || null,
+          presetId: selectedPreset?.id ?? null,
         }),
       });
 
@@ -171,6 +195,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
         payment_method: defaultPaymentMethod(enabledPaymentMethods),
         payment_source: 'game_club',
         comment: '',
+        preset_id: '',
       });
     } catch {
       setError(t('saveError'));
@@ -188,6 +213,24 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     <form onSubmit={handleSubmit} className="space-y-5">
       {error && <InlineAlert variant="danger">{error}</InlineAlert>}
       {enabledPaymentMethods.length === 0 && <InlineAlert variant="warning">{t('paymentMethodUnavailable')}</InlineAlert>}
+
+      {presets.length > 0 && (
+        <Field label={t('preset')} hint={selectedPreset
+          ? t('presetPlanned', { amount: formatCurrency(selectedPreset.monthly_amount), currency: tc('currency') })
+          : t('presetHelp')}
+        >
+          <SegmentedControl
+            variant="chips"
+            label={t('preset')}
+            value={form.preset_id}
+            onChange={choosePreset}
+            options={[
+              { value: '', label: t('presetNone') },
+              ...presets.map((preset) => ({ value: preset.id, label: preset.name })),
+            ]}
+          />
+        </Field>
+      )}
 
       <Field label={t('amount')} htmlFor="expense-amount" required>
         <CurrencyInput
@@ -207,7 +250,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
           <DatePicker ariaLabel={t('date')} value={form.date} max={businessToday} onChange={(value) => set('date', value)} />
         </Field>
         <Field label={t('category')} htmlFor="expense-category">
-          <Select id="expense-category" required value={form.category} onChange={(event) => set('category', event.target.value)}>
+          <Select id="expense-category" required disabled={selectedPreset !== null} value={form.category} onChange={(event) => set('category', event.target.value)}>
             <option value="" disabled>{t('selectCategory')}</option>
             {MANUAL_EXPENSE_CATEGORIES.map((category) => (
               <option key={category} value={category}>{categoryLabel(category)}</option>
@@ -221,6 +264,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
           variant="soft"
           label={t('paymentSource')}
           value={form.payment_source}
+          disabled={selectedPreset !== null}
           onChange={(source) => set('payment_source', source)}
           options={PAYMENT_SOURCES.map((source) => ({
             value: source,

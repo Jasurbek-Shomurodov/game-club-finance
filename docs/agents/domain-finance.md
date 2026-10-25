@@ -110,6 +110,37 @@ withdrawals) are unchanged, while `available` becomes
 (`applyOwnerProfitCarryovers`). `delete_owner_profit_carryover` refuses when the
 next month has already withdrawn or moved that money.
 
+## Planned expenses
+
+`expense_presets` (migration 091) is each club's own list of recurring costs
+(Electricity, iCafe, Server maintenance, ...) with a monthly planned amount and
+one money source. Staff pick a preset in the expense form and type the amount;
+the expense stores `preset_id`, with the preset's category and source. It is an
+ordinary expense in every total. Financial analysis compares plan with actual
+per side through `buildExpensePlanSummary` in `expensePlans.ts`: the plan for a
+range is each month's amount times the share of its days in the range, actual
+is the sum of linked expenses. Unlinked expenses never count against a plan.
+Archived presets keep their linked history but have no plan. Editing a monthly
+amount changes the plan for past ranges too (there is no plan history).
+
+## Money exchanges
+
+`money_exchanges` (migration 092) moves Game Club money between cash,
+terminal and card, or into and out of US dollars at a rate the user types
+(UZS per $1). An exchange is neither income nor an expense: collections,
+expenses and profit are unchanged. The "from" method loses `from_amount`, the
+"to" method gains `to_amount` (`exchangeNetByMethod` in `moneyExchanges.ts`,
+applied inside `calculateGameClubMoneyLeftByPaymentMethod`). Dollars are a
+separate holding shown as their own Reports card and are never added to a
+UZS total, so UZS sent to dollars lowers Game Club money left.
+
+Owner per-method withdrawal limits follow exchanges: the 092 version of
+`owner_payment_method_earned_for_month` includes them, and Money Taken adds
+them to the 050 snapshot balances with `withExchangesByMonth`. Dollars cannot
+be withdrawn. Members with the expenses feature record exchanges through
+`record_money_exchange`; only owners delete (`delete_money_exchange`), which
+also removes the club-group Telegram message.
+
 ## Debts
 
 - New debts begin unpaid with `paid_amount = 0` and the full amount remaining.

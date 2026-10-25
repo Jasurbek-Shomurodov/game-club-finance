@@ -288,6 +288,21 @@ describe('expense creation route', () => {
     expect((await create({ ...body, id: EXPENSE_ID })).status).toBe(409);
   });
 
+  it('links a chosen planned expense and leaves the column out otherwise', async () => {
+    const presetId = '9b2f4c1e-3d5a-4e6f-8a7b-1c2d3e4f5a6b';
+    const linked = mockCreate();
+    expect((await create({ ...body, presetId })).status).toBe(201);
+    expect(linked.writeQuery.insert).toHaveBeenCalledWith(expect.objectContaining({ preset_id: presetId }));
+
+    const plain = mockCreate();
+    expect((await create({ ...body, presetId: null })).status).toBe(201);
+    expect(plain.writeQuery.insert).toHaveBeenCalledWith(expect.not.objectContaining({ preset_id: expect.anything() }));
+
+    const malformed = mockCreate();
+    expect((await create({ ...body, presetId: 'electricity' })).status).toBe(400);
+    expect(malformed.writeQuery.insert).not.toHaveBeenCalled();
+  });
+
   it('still inserts without a client id', async () => {
     const { writeQuery } = mockCreate();
     expect((await create(body)).status).toBe(201);

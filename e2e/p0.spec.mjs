@@ -86,6 +86,38 @@ test('EXP-001 XAPP-001 an expense saves once and lowers net profit by its amount
   await expectDashboardAmount(page, 'Game Club Income', expected.gameClubIncome);
 });
 
+test('EXP-008 a planned expense is set up in Settings, picked in the expense form and compared in Financial analysis', async ({ page }) => {
+  await page.goto('/settings');
+  await page.getByRole('button', { name: 'Add planned expense' }).click();
+  const presetDialog = page.getByRole('dialog', { name: 'Add planned expense' });
+  await presetDialog.locator('#expense-preset-name').fill('iCafe');
+  await presetDialog.locator('#expense-preset-category').selectOption('equipment');
+  await presetDialog.locator('#expense-preset-amount').fill('500000');
+  await expect(presetDialog.locator('#expense-preset-amount')).toHaveValue('500 000');
+  await presetDialog.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('Planned expense saved')).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Planned expenses' }).getByText('iCafe')).toBeVisible();
+
+  await page.goto('/reports');
+  await page.getByRole('button', { name: 'Register Expense' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Register Expense' });
+  await dialog.getByRole('radio', { name: 'iCafe' }).click();
+  await expect(dialog.locator('#expense-category')).toHaveValue('equipment');
+  await expect(dialog.locator('#expense-category')).toBeDisabled();
+  await dialog.locator('#expense-amount').fill('650000');
+  await dialog.getByRole('button', { name: 'Save Expense' }).click();
+  await expect(page.getByText('Expense registered successfully.')).toBeVisible();
+  const [linked] = await (await restAs(accounts.owner, 'GET', `expenses?select=amount,category,preset_id&club_id=eq.${clubs.arcade.id}&preset_id=not.is.null`)).json();
+  expect(linked).toMatchObject({ amount: 650000, category: 'equipment' });
+
+  const month = today.slice(0, 7);
+  const lastDay = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate();
+  await page.goto(`/financial-analysis?from=${month}-01&to=${month}-${lastDay}`);
+  const plan = page.getByRole('region', { name: 'Game Club' }).filter({ hasText: 'iCafe' });
+  await expect(plan).toContainText(`${uzs(650_000)} of ${uzs(500_000)}`);
+  await expect(plan).toContainText(`+${uzs(150_000)}`);
+});
+
 test('STOCK-001 STOCK-002 STOCK-003 a purchase and a closing count go through the atomic RPCs and agree with the stock math', async ({ page }) => {
   // E2E Bunker's product has no closing yet today, so a purchase dated today is allowed.
   await page.goto('/stock-purchase');

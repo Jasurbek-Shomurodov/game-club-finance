@@ -28,6 +28,8 @@ interface ExpenseRequestBody {
   paymentMethod?: unknown;
   paymentSource?: unknown;
   comment?: unknown;
+  /** Optional planned expense (091) this payment belongs to. */
+  presetId?: unknown;
 }
 
 interface ValidExpenseRequestBody {
@@ -39,6 +41,7 @@ interface ValidExpenseRequestBody {
   paymentMethod: (typeof PAYMENT_METHODS)[number];
   paymentSource: (typeof PAYMENT_SOURCES)[number];
   comment?: string | null;
+  presetId?: string | null;
 }
 
 interface DeleteExpenseRequestBody {
@@ -58,7 +61,8 @@ function isValidBody(body: ExpenseRequestBody): body is ValidExpenseRequestBody 
     && isManualExpenseCategory(body.category.trim())
     && PAYMENT_METHODS.includes(body.paymentMethod as (typeof PAYMENT_METHODS)[number])
     && PAYMENT_SOURCES.includes(body.paymentSource as (typeof PAYMENT_SOURCES)[number])
-    && (body.comment === null || body.comment === undefined || (typeof body.comment === 'string' && body.comment.length <= 300));
+    && (body.comment === null || body.comment === undefined || (typeof body.comment === 'string' && body.comment.length <= 300))
+    && (body.presetId === null || body.presetId === undefined || isId(body.presetId));
 }
 
 /** Postgres invalid/out-of-range datetime (e.g. the future-date guard of migration 086). */
@@ -73,7 +77,7 @@ function failure(scope: string, context: Record<string, unknown>, error: Databas
 /** Same request id must describe the same expense; anything else is a conflicting reuse. */
 function sameExpense(existing: Record<string, unknown>, row: Record<string, unknown>) {
   return Number(existing.amount) === Number(row.amount)
-    && ['date', 'category', 'payment_method', 'payment_source', 'comment'].every((field) => (existing[field] ?? null) === (row[field] ?? null));
+    && ['date', 'category', 'payment_method', 'payment_source', 'comment', 'preset_id'].every((field) => (existing[field] ?? null) === (row[field] ?? null));
 }
 
 /** Best-effort, after the response: Telegram never fails or delays an already saved expense. */
@@ -154,6 +158,9 @@ export async function POST(request: Request) {
     payment_source: body.paymentSource,
     comment: typeof body.comment === 'string' && body.comment.trim() ? body.comment.trim() : null,
     created_by: user.id,
+    // Sent only when chosen, so clubs without migration 091 keep saving expenses.
+    // The 091 trigger checks the preset is live and matches category and source.
+    ...(body.presetId ? { preset_id: body.presetId } : {}),
   };
 
   let expense: Expense;

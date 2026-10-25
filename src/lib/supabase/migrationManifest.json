@@ -2959,5 +2959,131 @@
         "signature": "public.delete_salary_record(uuid,uuid,text,text)"
       }
     ]
+  },
+  {
+    "file": "091_expense_presets.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.expense_presets"
+      },
+      {
+        "kind": "column",
+        "table": "public.expense_presets",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.expense_presets",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.expense_presets",
+        "column": "name"
+      },
+      {
+        "kind": "column",
+        "table": "public.expense_presets",
+        "column": "category"
+      },
+      {
+        "kind": "column",
+        "table": "public.expense_presets",
+        "column": "payment_source"
+      },
+      {
+        "kind": "column",
+        "table": "public.expense_presets",
+        "column": "monthly_amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.expense_presets",
+        "column": "sort_order"
+      },
+      {
+        "kind": "column",
+        "table": "public.expense_presets",
+        "column": "archived_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.expense_presets",
+        "column": "created_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.expense_presets",
+        "column": "created_at"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.expense_presets",
+        "name": "expense_presets_name_length"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.expense_presets",
+        "name": "expense_presets_category_manual"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.expense_presets",
+        "name": "expense_presets_payment_source_valid"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.expense_presets",
+        "name": "expense_presets_monthly_amount_non_negative"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.expense_presets",
+        "name": "expense_presets_club_id_id_key"
+      },
+      {
+        "kind": "relation",
+        "name": "public.expense_presets_live_name_key"
+      },
+      {
+        "kind": "policy",
+        "table": "public.expense_presets",
+        "name": "club_read_expense_presets"
+      },
+      {
+        "kind": "policy",
+        "table": "public.expense_presets",
+        "name": "club_owner_insert_expense_presets"
+      },
+      {
+        "kind": "policy",
+        "table": "public.expense_presets",
+        "name": "club_owner_update_expense_presets"
+      },
+      {
+        "kind": "column",
+        "table": "public.expenses",
+        "column": "preset_id"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.expenses",
+        "name": "expenses_preset_fkey"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_expenses_club_preset_date"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.expenses",
+        "name": "trg_expense_preset_guard"
+      },
+      {
+        "kind": "function",
+        "signature": "public.enforce_expense_preset()"
+      }
+    ]
   }
 ]

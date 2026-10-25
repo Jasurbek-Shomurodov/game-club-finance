@@ -17,6 +17,7 @@ import dynamic from 'next/dynamic';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { fetchAnalysisLedgers } from '@/lib/supabase/analysisLedgers';
+import { fetchExpensePresets, fetchPresetExpenses } from '@/lib/supabase/expensePresets';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
@@ -52,6 +53,8 @@ import {
   type PaymentMethodFlowRow,
   type SourceIndicators,
 } from '@/lib/calculations/financialAnalysis';
+import { buildExpensePlanSummary, type ExpensePlanSummary } from '@/lib/calculations/expensePlans';
+import { ExpensePlanPanel } from '@/components/financial-analysis/ExpensePlanPanel';
 import { MoneyFlowSankeys } from '@/components/financial-analysis/MoneyFlowSankeys';
 import {
   CategoryComparison,
@@ -307,10 +310,24 @@ export default function FinancialAnalysisPage() {
   const monthly = monthlyQuery.loading ? null : monthlyQuery.data;
   const monthlyError = monthlyQuery.error;
 
+  // Planned expenses (091) for the selected range; absent until a club sets some up.
+  const loadPlans = useCallback(async () => {
+    if (!selectedClubId) return null;
+    const supabase = createClient();
+    const [{ presets, available }, expenses] = await Promise.all([
+      fetchExpensePresets(supabase, selectedClubId),
+      fetchPresetExpenses(supabase, selectedClubId, range),
+    ]);
+    if (!available || presets.length === 0) return null;
+    return { clubId: selectedClubId, summary: buildExpensePlanSummary(presets, expenses, range) };
+  }, [range, selectedClubId]);
+  const planQuery = useClubQuery<{ clubId: string; summary: ExpensePlanSummary } | null>(loadPlans, null);
+  const plans = planQuery.data && planQuery.data.clubId === selectedClubId ? planQuery.data.summary : null;
+
   // A failed window read is evicted above, so a retry reads it afresh while a
   // successful one is shared; the page-level retry covers both queries.
   const retryAll = () => {
-    void Promise.all([ledgerQuery.reload(), monthlyQuery.reload()]);
+    void Promise.all([ledgerQuery.reload(), monthlyQuery.reload(), planQuery.reload()]);
   };
 
   const current = useMemo(() => sliceLedgers(ledgers, range), [ledgers, range]);
@@ -455,6 +472,39 @@ export default function FinancialAnalysisPage() {
             </div>
           ) : (
             <div className={cn('space-y-6 transition-opacity', loading && 'pointer-events-none opacity-60')} aria-busy={loading || undefined}>
+              {planQuery.error ? (
+                <Section title={t('planSection')}>
+                  <LoadErrorAlert retrying={planQuery.loading} onRetry={() => void planQuery.reload()}>
+                    {t('planLoadError')}
+                  </LoadErrorAlert>
+                </Section>
+              ) : plans && (plans.gameClub.rows.length > 0 || plans.bar.rows.length > 0) && (
+                <Section title={t('planSection')} description={t('planSectionDesc')}>
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {plans.gameClub.rows.length > 0 && (
+                      <ExpensePlanPanel
+                        title={td('gameClub')}
+                        icon={MonitorSmartphone}
+                        iconClassName={SIDE_ICON_CLASS.gameClub}
+                        side={plans.gameClub}
+                        currency={currency}
+                        locale={locale}
+                      />
+                    )}
+                    {plans.bar.rows.length > 0 && (
+                      <ExpensePlanPanel
+                        title={td('bar')}
+                        icon={ShoppingBag}
+                        iconClassName={SIDE_ICON_CLASS.bar}
+                        side={plans.bar}
+                        currency={currency}
+                        locale={locale}
+                      />
+                    )}
+                  </div>
+                </Section>
+              )}
+
               <Section title={t('flowSection')} description={t('flowSectionDesc')}>
                 <MoneyFlowSankeys
                   className="space-y-3"

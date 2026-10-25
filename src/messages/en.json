@@ -206,7 +206,18 @@
     "gameClubFlowTitle": "Where the game club money goes",
     "barFlowTitle": "Where the bar money goes",
     "gameClubIncome": "Game club income",
-    "barSales": "Bar sales"
+    "barSales": "Bar sales",
+    "planSection": "Planned vs actual expenses",
+    "planSectionDesc": "Each planned expense against the payments recorded for it. Partial months count their share of the monthly plan.",
+    "planLoadError": "Could not load planned expenses.",
+    "planPlanned": "Planned",
+    "planActual": "Actual",
+    "planDifference": "Difference",
+    "planOver": "+{amount} {currency} over",
+    "planUnder": "{amount} {currency} under",
+    "planOnTarget": "On plan",
+    "planSpentOf": "{actual} of {planned} {currency}",
+    "planArchived": "archived"
   },
   "reports": {
     "title": "Reports",
@@ -640,7 +651,11 @@
       "notFound": "This expense no longer exists. Refresh the page.",
       "salaryPaymentImmutable": "Salary payments can only be removed from the Salaries page.",
       "serverError": "Something went wrong on the server. Try again in a moment."
-    }
+    },
+    "preset": "Planned expense",
+    "presetHelp": "Pick one to count this payment against its monthly plan.",
+    "presetNone": "Other expense",
+    "presetPlanned": "Planned {amount} {currency} a month. Category and money source come from the plan."
   },
   "debts": {
     "title": "Debts",
@@ -797,7 +812,28 @@
     "saveError": "Could not save. Check your connection and owner access, then try again.",
     "tabClub": "Club",
     "tabProfile": "Profile",
-    "selectedClub": "Selected"
+    "selectedClub": "Selected",
+    "expensePresets": {
+      "title": "Planned expenses",
+      "help": "Recurring costs of this club with a monthly plan, such as electricity or iCafe. Staff pick them when recording an expense, and Financial analysis compares the plan with what was actually paid.",
+      "add": "Add planned expense",
+      "editTitle": "Edit planned expense",
+      "edit": "Edit {name}",
+      "archive": "Archive",
+      "archiveTitle": "Archive {name}",
+      "archiveDescription": "It disappears from the expense form and the plan. Expenses already recorded against it are kept.",
+      "archived": "Planned expense archived",
+      "saved": "Planned expense saved",
+      "saveError": "Could not save the planned expense. Try again.",
+      "loadError": "Could not load planned expenses.",
+      "empty": "No planned expenses yet.",
+      "duplicateName": "A planned expense with this name already exists.",
+      "name": "Name",
+      "namePlaceholder": "e.g. Electricity, iCafe, Server maintenance",
+      "monthlyAmount": "Planned per month",
+      "monthlyAmountHelp": "The amount you expect to pay each month.",
+      "perMonth": "month"
+    }
   },
   "team": {
     "title": "Team",

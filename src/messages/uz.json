@@ -206,7 +206,18 @@
     "gameClubFlowTitle": "Klub pullari qayerga ketadi",
     "barFlowTitle": "Bar pullari qayerga ketadi",
     "gameClubIncome": "Klub daromadi",
-    "barSales": "Bar savdosi"
+    "barSales": "Bar savdosi",
+    "planSection": "Reja va haqiqiy xarajatlar",
+    "planSectionDesc": "Har bir rejalashtirilgan xarajat unga yozilgan to'lovlar bilan solishtiriladi. To'liq bo'lmagan oy oylik rejaning o'z ulushini hisoblaydi.",
+    "planLoadError": "Rejalashtirilgan xarajatlarni yuklab bo'lmadi.",
+    "planPlanned": "Reja",
+    "planActual": "Haqiqiy",
+    "planDifference": "Farq",
+    "planOver": "+{amount} {currency} rejadan ortiq",
+    "planUnder": "{amount} {currency} kam",
+    "planOnTarget": "Reja bo'yicha",
+    "planSpentOf": "{actual} / {planned} {currency}",
+    "planArchived": "arxivda"
   },
   "reports": {
     "title": "Hisobotlar",
@@ -640,7 +651,11 @@
       "notFound": "Bu xarajat endi mavjud emas. Sahifani yangilang.",
       "salaryPaymentImmutable": "Maosh to‘lovlarini faqat «Maoshlar» sahifasida o‘chirish mumkin.",
       "serverError": "Serverda xatolik yuz berdi. Birozdan so‘ng qayta urinib ko‘ring."
-    }
+    },
+    "preset": "Rejalashtirilgan xarajat",
+    "presetHelp": "Bu to'lovni oylik rejaga hisoblash uchun tanlang.",
+    "presetNone": "Boshqa xarajat",
+    "presetPlanned": "Oyiga {amount} {currency} rejalashtirilgan. Kategoriya va pul manbai rejadan olinadi."
   },
   "debts": {
     "title": "Qarzlar",
@@ -797,7 +812,28 @@
     "saveError": "Saqlab bo‘lmadi. Internet aloqasi va egasi huquqlarini tekshirib, qayta urinib ko‘ring.",
     "tabClub": "Klub",
     "tabProfile": "Profil",
-    "selectedClub": "Tanlangan"
+    "selectedClub": "Tanlangan",
+    "expensePresets": {
+      "title": "Rejalashtirilgan xarajatlar",
+      "help": "Klubning oylik rejasi bor doimiy xarajatlari, masalan elektr yoki iCafe. Xodimlar xarajat yozishda ularni tanlaydi, Moliyaviy tahlil esa rejani haqiqatda to'langan summa bilan solishtiradi.",
+      "add": "Rejalashtirilgan xarajat qo'shish",
+      "editTitle": "Rejalashtirilgan xarajatni o'zgartirish",
+      "edit": "{name} ni o'zgartirish",
+      "archive": "Arxivlash",
+      "archiveTitle": "{name} ni arxivlash",
+      "archiveDescription": "U xarajat formasi va rejadan yo'qoladi. Unga yozilgan xarajatlar saqlanib qoladi.",
+      "archived": "Rejalashtirilgan xarajat arxivlandi",
+      "saved": "Rejalashtirilgan xarajat saqlandi",
+      "saveError": "Rejalashtirilgan xarajatni saqlab bo'lmadi. Qayta urinib ko'ring.",
+      "loadError": "Rejalashtirilgan xarajatlarni yuklab bo'lmadi.",
+      "empty": "Hozircha rejalashtirilgan xarajatlar yo'q.",
+      "duplicateName": "Bu nomdagi rejalashtirilgan xarajat allaqachon bor.",
+      "name": "Nomi",
+      "namePlaceholder": "Masalan: Elektr, iCafe, Server xizmati",
+      "monthlyAmount": "Oylik reja",
+      "monthlyAmountHelp": "Har oy to'lashni kutayotgan summangiz.",
+      "perMonth": "oy"
+    }
   },
   "team": {
     "title": "Jamoa",

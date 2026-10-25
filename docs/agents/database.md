@@ -20,6 +20,7 @@ migrations.
 | `owner_withdrawals` | Monthly/source withdrawals; Game Club rows may name a `payment_method` (066) | Insert through `withdraw_owner_money_for_month` or `withdraw_owner_game_club_money_by_method`. |
 | `owner_profit_carryovers` | Unwithdrawn profit moved from `from_month` to the next month (071) | Select only; write through `carry_owner_profit_to_next_month` and `delete_owner_profit_carryover`. |
 | `promotions` | Owner-managed bonus rules (078) | Owner writes; members with inventory/stock/report access read. |
+| `expense_presets` | Per-club planned (recurring) expenses with a monthly amount (091) | Owner inserts/updates, archived never deleted; expense readers read. `expenses.preset_id` links a payment; a trigger requires a live preset of the same club, category and `payment_source`. |
 | `telegram_report_deliveries` | Service-only delivery state | Never expose to browser roles. |
 
 Retired read-only ledgers: `income_transactions`, `expense_transactions`, and

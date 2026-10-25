@@ -67,6 +67,7 @@ Telegram group if one is set up.
 | EXP-005 | S1 | Decimal and large amounts | Enter 1 000 000 000 and 12.5 | Large value saved and formatted; decimals rejected where the field is whole UZS |
 | EXP-006 | S1 | Error state has retry | Block the expenses request in devtools and open the page | `InlineAlert` with a retry button that reloads |
 | EXP-007 | S2 | Long category names do not overflow | Add a 40-character RU name (approved) | Wraps or truncates with a title; no clipped text at 375 px |
+| EXP-008 | S1 | Planned expense: plan vs actual [e2e] | Settings → add planned expense `iCafe`, equipment, 500 000 a month; record 650 000 against it from the expense form; Financial analysis for this month | Category and money source locked to the plan; Game Club plan shows 650 000 of 500 000 and +150 000 over |
 
 ## STOCK — products, purchases and closing stock
 

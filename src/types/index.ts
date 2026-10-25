@@ -214,6 +214,8 @@ export interface Expense {
   telegram_message_id: number | null;
   /** The salary payment this expense mirrors (059); null for ordinary expenses. */
   salary_entry_id: string | null;
+  /** The planned expense this payment counts against (091); null when none was picked. */
+  preset_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
