@@ -377,7 +377,9 @@ describe('expensesFromSource', () => {
     expect(report.paymentMethods.cash).toEqual({ collected: 1_000_000, expenses: 0, exchanged: -440_000, left: 560_000 });
     expect(report.paymentMethods.terminal).toEqual({ collected: 500_000, expenses: 0, exchanged: -200_000, left: 300_000 });
     expect(report.usd).toBe(50);
-    expect(report.gameClubLeft).toBe(860_000);
+    // Changing 640 000 of cash into $50 keeps Game Club money left at 1 500 000.
+    expect(report.gameClubLeft).toBe(1_500_000);
+    expect(report.days[0].total).toBe(1_500_000);
     const day = report.days[0];
     expect(day.income).toBe(1_500_000);
     expect(day.expenses).toBe(0);

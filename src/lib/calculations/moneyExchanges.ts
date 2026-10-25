@@ -5,9 +5,11 @@
  * Dollars are a separate holding and are never added to UZS totals.
  */
 
+import { PAYMENT_METHODS } from '@/types';
 import type { MoneyLeftByPaymentMethod } from './dashboardMetrics';
 
-export const EXCHANGE_METHODS = ['cash', 'terminal', 'card', 'usd'] as const;
+/** The club payment methods plus US dollars, which are held apart from UZS. */
+export const EXCHANGE_METHODS = [...PAYMENT_METHODS, 'usd'] as const;
 export type ExchangeMethod = (typeof EXCHANGE_METHODS)[number];
 
 export interface MoneyExchangeRow {

@@ -137,7 +137,10 @@ expenses and profit are unchanged. The "from" method loses `from_amount`, the
 "to" method gains `to_amount` (`exchangeNetByMethod` in `moneyExchanges.ts`,
 applied inside `calculateGameClubMoneyLeftByPaymentMethod`). Dollars are a
 separate holding shown as their own Reports card and are never added to a
-UZS total, so UZS sent to dollars lowers Game Club money left.
+UZS total. Game Club money left (Reports, day totals, dashboard, money details,
+Telegram, the assistant) is unchanged by exchanges: the method cards show where
+the money sits, so with dollars bought they sum to less than the headline.
+A rate gain or loss on dollars is not profit and is not counted.
 
 Owner per-method withdrawal limits follow exchanges: the 092 version of
 `owner_payment_method_earned_for_month` includes them, and Money Taken adds

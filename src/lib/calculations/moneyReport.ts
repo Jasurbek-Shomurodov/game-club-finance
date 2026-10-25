@@ -56,7 +56,7 @@ export interface MoneyReportDay {
   terminal: number;
   card: number;
   playstation: number;
-  /** Game-club money left for the day: income minus `gameClubExpenses`. */
+  /** Game-club money left for the day: income minus `gameClubExpenses`; exchanges do not change it. */
   total: number;
   income: number;
   /** Every expense recorded on the day, whichever money paid it. */
@@ -75,7 +75,11 @@ export interface MoneyReport {
   gameClubExpenses: number;
   /** Expenses paid from bar money. */
   barExpenses: number;
-  /** Game-club money collected minus game-club expenses. */
+  /**
+   * Game-club money collected minus game-club expenses. Exchanges never change
+   * it: they only move money between methods, and dollars bought are still the
+   * club's money, so this matches the dashboard and money details headline.
+   */
   gameClubLeft: number;
   barLeft: number;
   paymentMethods: Record<keyof MoneyLeftByPaymentMethod, MoneyReportPaymentBreakdown>;
@@ -152,6 +156,15 @@ function buildPaymentMethods(
       left: left.playstation,
     },
   };
+}
+
+/**
+ * Sum of the methods' money left with exchanges taken back out: UZS moved
+ * between methods nets to zero, and UZS sent into (or brought back from)
+ * dollars is still Game Club money, not money gained or spent.
+ */
+function gameClubLeftExcludingExchanges(methods: MoneyReport['paymentMethods']): number {
+  return Object.values(methods).reduce((sum, method) => sum + method.left - method.exchanged, 0);
 }
 
 function buildDailyActivities(
@@ -251,8 +264,7 @@ export function buildMoneyReport(
   const usd = exchangeNetByMethod(exchangeRows).usd;
   const totalCollected = Object.values(paymentMethods)
     .reduce((sum, method) => sum + method.collected, 0);
-  const gameClubLeft = Object.values(paymentMethods)
-    .reduce((sum, method) => sum + method.left, 0);
+  const gameClubLeft = gameClubLeftExcludingExchanges(paymentMethods);
   const barExpenses = expenseRows.reduce(
     (sum, row) => row.payment_source === 'bar' ? sum + Number(row.amount ?? 0) : sum,
     0,
@@ -314,7 +326,7 @@ export function buildMoneyReport(
       terminal: dayMethods.terminal.left,
       card: dayMethods.card.left,
       playstation: dayMethods.playstation.left,
-      total: Object.values(dayMethods).reduce((sum, method) => sum + method.left, 0),
+      total: gameClubLeftExcludingExchanges(dayMethods),
       income: activities
         .filter((activity) => activity.amount > 0)
         .reduce((sum, activity) => sum + activity.amount, 0),

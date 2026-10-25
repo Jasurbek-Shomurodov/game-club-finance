@@ -111,9 +111,8 @@ const MONEY_METHODS = ['cash', 'terminal', 'card', 'playstation'] as const;
 export function moneyTable(report: MoneyReport): DataTable {
   const methods = MONEY_METHODS.map((method) => ({ line: method, ...report.paymentMethods[method] }));
   const gameClubExpenses = methods.reduce((sum, row) => sum + row.expenses, 0);
-  const gameClubLeft = methods.reduce((sum, row) => sum + row.left, 0);
-  // Money moved between methods by exchanges; UZS sent to dollars leaves the Game Club total.
-  const gameClubExchanged = methods.reduce((sum, row) => sum + row.exchanged, 0);
+  // Exchanges only move money between methods (or into dollars), so the Game
+  // Club total keeps the report's figure rather than the sum of method rows.
   return {
     dataset: 'money',
     columns: [
@@ -125,7 +124,7 @@ export function moneyTable(report: MoneyReport): DataTable {
     ],
     rows: [
       ...methods,
-      { line: 'gameClub', collected: report.totalCollected, expenses: gameClubExpenses, exchanged: gameClubExchanged, left: gameClubLeft },
+      { line: 'gameClub', collected: report.totalCollected, expenses: gameClubExpenses, exchanged: null, left: report.gameClubLeft },
       { line: 'bar', collected: null, expenses: report.barExpenses, exchanged: null, left: report.barLeft },
     ],
   };

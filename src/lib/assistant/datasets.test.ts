@@ -48,7 +48,7 @@ describe('moneyTable', () => {
       { line: 'terminal', collected: 13_282_000, expenses: 9_487_000, exchanged: 0, left: 3_795_000 },
       { line: 'card', collected: 0, expenses: 0, exchanged: 0, left: 0 },
       { line: 'playstation', collected: 0, expenses: 0, exchanged: 0, left: 0 },
-      { line: 'gameClub', collected: 23_432_000, expenses: 12_480_000, exchanged: 0, left: 10_952_000 },
+      { line: 'gameClub', collected: 23_432_000, expenses: 12_480_000, exchanged: null, left: 10_952_000 },
       { line: 'bar', collected: null, expenses: 0, exchanged: null, left: 2_535_520 },
     ]);
   });

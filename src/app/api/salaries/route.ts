@@ -13,7 +13,9 @@ type Body = Record<string, unknown>;
 type Notification = SalaryNotificationInput extends infer T ? T extends unknown ? Omit<T, 'addedBy' | 'employee'> : never : never;
 type DatabaseError = { message: string; code?: string };
 /** The payroll record a notification announces; its message is removed when the record is deleted. */
-type AnnouncedRecord = { kind: 'entry'; id: string } | { kind: 'rate' };
+type RateVersion = { id: string; created_at: string };
+/** A rate change carries the employee's newest rate before it, so a call that wrote nothing links nothing. */
+type AnnouncedRecord = { kind: 'entry'; id: string } | { kind: 'rate'; before: RateVersion | null };
 type TelegramCoordinates = { telegram_chat_id: string | null; telegram_message_id: number | string | null };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -67,6 +69,13 @@ async function notify(supabase: SupabaseClient, user: User, clubId: string, empl
   }
 }
 
+/** The employee's most recently saved live rate; the payroll RPCs return the employee id, not the rate. */
+async function latestRate(supabase: SupabaseClient, clubId: string, employeeId: string): Promise<RateVersion | null> {
+  const { data } = await supabase.from('salary_rates').select('id, created_at').eq('club_id', clubId).eq('employee_id', employeeId)
+    .is('deleted_at', null).order('created_at', { ascending: false }).limit(1).maybeSingle();
+  return (data as RateVersion | null) ?? null;
+}
+
 /** Saves where the announcement went (migration 090); without it the message simply stays on deletion. */
 async function rememberMessage(
   supabase: SupabaseClient, clubId: string, employeeId: string, record: AnnouncedRecord,
@@ -74,10 +83,12 @@ async function rememberMessage(
 ) {
   let recordId: string | null = record.kind === 'entry' ? record.id : null;
   if (record.kind === 'rate') {
-    // The RPCs return the employee id; the rate just written is the employee's most recently saved one.
-    const { data } = await supabase.from('salary_rates').select('id').eq('club_id', clubId).eq('employee_id', employeeId)
-      .is('deleted_at', null).order('created_at', { ascending: false }).limit(1).maybeSingle();
-    recordId = (data as { id?: string } | null)?.id ?? null;
+    // Written rows get a fresh created_at (also on a same-day upsert); an
+    // unchanged newest rate means this call (a retry, or deactivating an
+    // inactive employee) wrote nothing, and an older rate keeps its own message.
+    const after = await latestRate(supabase, clubId, employeeId);
+    const unchanged = after && record.before && after.id === record.before.id && after.created_at === record.before.created_at;
+    recordId = after && !unchanged ? after.id : null;
   }
   if (!recordId) return;
   const { error } = await supabase.rpc('set_salary_record_telegram_message', {
@@ -128,14 +139,17 @@ export async function POST(request: Request) {
           || !isNumber(body.amount) || !isNumber(body.kpi) || typeof body.active !== 'boolean') throw new BadRequest();
         const kpiOptions = kpiSettings(body);
         // Only picks the notification title; the RPC itself decides insert vs update.
-        const { data: existing, error: lookupError } = await supabase.from('salary_employees').select('id').eq('club_id', clubId).eq('id', employeeId).maybeSingle();
+        const [{ data: existing, error: lookupError }, before] = await Promise.all([
+          supabase.from('salary_employees').select('id').eq('club_id', clubId).eq('id', employeeId).maybeSingle(),
+          latestRate(supabase, clubId, employeeId),
+        ]);
         if (lookupError) return fail('employee_lookup', lookupError);
         rpcResult = await supabase.rpc('save_salary_employee', {
           p_kpi_basis: kpiOptions.basis, p_kpi_game_club: kpiOptions.gameClub, p_kpi_bar: kpiOptions.bar,
           p_club_id: clubId, p_employee_id: employeeId, p_name: name, p_job_title: jobTitle,
           p_effective_date: body.date, p_salary_type: body.salaryType, p_amount: body.amount, p_kpi_percent: body.kpi, p_active: body.active,
         });
-        announced = { kind: 'rate' };
+        announced = { kind: 'rate', before };
         notification = { event: existing ? 'employee_updated' : 'employee_added', role: jobTitle, salaryType: body.salaryType, amount: body.amount, kpi: body.kpi, kpiSettings: withDefaults(kpiOptions), date: body.date };
         break;
       }
@@ -144,11 +158,12 @@ export async function POST(request: Request) {
         const salaryType = body.kind === 'salary' ? body.salaryType : null;
         if (body.kind === 'salary' && !isSalaryType(salaryType)) throw new BadRequest();
         const kpiOptions = kpiSettings(body);
+        const before = await latestRate(supabase, clubId, employeeId);
         rpcResult = await supabase.rpc('change_salary_term', {
           p_club_id: clubId, p_employee_id: employeeId, p_kind: body.kind, p_amount: body.amount, p_salary_type: salaryType,
           p_kpi_basis: kpiOptions.basis, p_kpi_game_club: kpiOptions.gameClub, p_kpi_bar: kpiOptions.bar,
         });
-        announced = { kind: 'rate' };
+        announced = { kind: 'rate', before };
         notification = body.kind === 'kpi'
           ? { event: 'kpi_changed', kpi: body.amount, kpiSettings: withDefaults(kpiOptions) }
           : { event: 'salary_changed', salaryType: salaryType as 'daily' | 'monthly', amount: body.amount };
@@ -162,7 +177,10 @@ export async function POST(request: Request) {
       }
       case 'set_active': {
         if (typeof body.active !== 'boolean') throw new BadRequest();
+        // Activating and deactivating write a rate row; deleting it removes this announcement.
+        const before = await latestRate(supabase, clubId, employeeId);
         rpcResult = await supabase.rpc(body.active ? 'activate_salary_employee' : 'deactivate_salary_employee', { p_club_id: clubId, p_employee_id: employeeId });
+        announced = { kind: 'rate', before };
         notification = { event: body.active ? 'activated' : 'deactivated' };
         break;
       }

@@ -13,7 +13,8 @@ const CLUB = '290c5c33-9dfa-464a-a072-ef5a231f5308';
 const EMPLOYEE = '40c05af5-5a59-45ae-a891-19a18228a721';
 const REQUEST = '50c05af5-5a59-45ae-a891-19a18228a722';
 
-function mockSupabase({ user = { id: 'u1', email: 'o@example.test', user_metadata: {} } as unknown, rpcError = null as { message: string; code?: string } | null, existingEntry = false, withStatus = true, coordinates = null as Record<string, unknown> | null } = {}) {
+function mockSupabase({ user = { id: 'u1', email: 'o@example.test', user_metadata: {} } as unknown, rpcError = null as { message: string; code?: string } | null, existingEntry = false, withStatus = true, coordinates = null as Record<string, unknown> | null, rateVersions = [{ id: 'rate-0', created_at: 't0' }, { id: 'rate-1', created_at: 't1' }] } = {}) {
+  let rateRead = 0;
   const rpc = vi.fn((name: string) => {
     if (name !== 'record_salary_entry_with_status') return Promise.resolve({ error: rpcError });
     if (!withStatus) return Promise.resolve({ data: null, error: { code: 'PGRST202', message: 'Could not find the function public.record_salary_entry_with_status' } });
@@ -22,7 +23,7 @@ function mockSupabase({ user = { id: 'u1', email: 'o@example.test', user_metadat
   const from = vi.fn((table: string) => {
     const result = table === 'profiles' ? { full_name: 'Owner Name' }
       : table === 'salary_employees' ? { id: EMPLOYEE, name: 'Izzat' }
-      : table === 'salary_rates' ? { id: 'rate-1' } : null;
+      : table === 'salary_rates' ? rateVersions[Math.min(rateRead++, rateVersions.length - 1)] : null;
     const builder: Record<string, unknown> = {};
     let columns = '';
     builder.select = (selected: string) => { columns = selected; return builder; };
@@ -79,7 +80,8 @@ describe('POST /api/salaries', () => {
     const { rpc } = mockSupabase();
     await post({ action: 'set_active', clubId: CLUB, employeeId: EMPLOYEE, active: true });
     await post({ action: 'set_active', clubId: CLUB, employeeId: EMPLOYEE, active: false });
-    expect(rpc.mock.calls.map(([name]) => name)).toEqual(['activate_salary_employee', 'deactivate_salary_employee']);
+    expect(rpc.mock.calls.map(([name]) => name).filter((name) => name !== 'set_salary_record_telegram_message'))
+      .toEqual(['activate_salary_employee', 'deactivate_salary_employee']);
     expect(mocks.sendTelegramMessage).toHaveBeenCalledTimes(2);
   });
 
@@ -188,6 +190,21 @@ describe('POST /api/salaries', () => {
     expect(rpc).toHaveBeenCalledWith('set_salary_record_telegram_message', { p_club_id: CLUB, p_kind: 'entry', p_id: REQUEST, p_chat_id: '-100123', p_message_id: 7 });
     await post({ action: 'change_term', clubId: CLUB, employeeId: EMPLOYEE, kind: 'kpi', amount: 5 });
     expect(rpc).toHaveBeenCalledWith('set_salary_record_telegram_message', { p_club_id: CLUB, p_kind: 'rate', p_id: 'rate-1', p_chat_id: '-100123', p_message_id: 7 });
+  });
+
+  it('links nothing when the rate change wrote no rate', async () => {
+    // Deactivating an already inactive employee leaves the newest rate as it was.
+    const same = { id: 'rate-0', created_at: 't0' };
+    const { rpc } = mockSupabase({ rateVersions: [same, same] });
+    await post({ action: 'set_active', clubId: CLUB, employeeId: EMPLOYEE, active: false });
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledTimes(1);
+    expect(rpc).not.toHaveBeenCalledWith('set_salary_record_telegram_message', expect.anything());
+  });
+
+  it('links an activation to the rate it wrote', async () => {
+    const { rpc } = mockSupabase();
+    await post({ action: 'set_active', clubId: CLUB, employeeId: EMPLOYEE, active: true });
+    expect(rpc).toHaveBeenCalledWith('set_salary_record_telegram_message', expect.objectContaining({ p_kind: 'rate', p_id: 'rate-1' }));
   });
 
   it('deletes a deleted record\'s announcement, only from the club group', async () => {
