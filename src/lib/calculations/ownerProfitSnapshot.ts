@@ -141,6 +141,22 @@ export function gameClubWithdrawalsByMethod(
   };
 }
 
+/**
+ * Money withdrawn in one calendar month (`YYYY-MM`), per source. The game club
+ * and the bar are separate businesses, so the two totals are never added.
+ */
+export function withdrawnBySourceForMonth(
+  withdrawals: readonly OwnerWithdrawal[],
+  month: string,
+): Record<'game_club' | 'bar', number> {
+  const totals = { game_club: 0, bar: 0 };
+  for (const row of withdrawals) {
+    if (row.period_month.slice(0, 7) !== month) continue;
+    totals[row.source === 'bar' ? 'bar' : 'game_club'] += Number(row.amount ?? 0);
+  }
+  return totals;
+}
+
 /** What can still be taken from one method: never more than the Game Club month balance. */
 export function availableForPaymentMethod(methodAvailable: number, gameClubAvailable: number): number {
   return Math.max(0, Math.min(methodAvailable, gameClubAvailable));

@@ -6,6 +6,7 @@ import {
   buildOwnerProfitSnapshot,
   gameClubMoneyLeftByPaymentMethodByMonth,
   gameClubWithdrawalsByMethod,
+  withdrawnBySourceForMonth,
 } from './ownerProfitSnapshot';
 import { calculateGameClubMoneyLeftByPaymentMethod, type ExpenseRow } from './dashboardMetrics';
 
@@ -237,5 +238,19 @@ describe('gameClubMoneyLeftByPaymentMethodByMonth', () => {
 
   it('returns no months without activity', () => {
     expect(gameClubMoneyLeftByPaymentMethodByMonth([], [], [])).toEqual({});
+  });
+});
+
+describe('withdrawn by source for a month', () => {
+  const row = (source: 'game_club' | 'bar', amount: number, month = '2026-09-01') => ({
+    id: `${source}-${amount}`, club_id: 'c', period_month: month, source, amount, comment: null,
+    created_by: 'u', created_at: '', updated_at: '',
+  }) as OwnerWithdrawal;
+
+  it('keeps game club and bar totals apart and ignores other months', () => {
+    expect(withdrawnBySourceForMonth([
+      row('bar', 4_528_547), row('game_club', 4_500_000), row('game_club', 500_000), row('bar', 1, '2026-08-01'),
+    ], '2026-09')).toEqual({ game_club: 5_000_000, bar: 4_528_547 });
+    expect(withdrawnBySourceForMonth([], '2026-09')).toEqual({ game_club: 0, bar: 0 });
   });
 });

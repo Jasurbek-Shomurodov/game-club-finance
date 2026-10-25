@@ -47,6 +47,7 @@ import {
   carryoversForMonth,
   gameClubMoneyLeftByPaymentMethodByMonth,
   gameClubWithdrawalsByMethod,
+  withdrawnBySourceForMonth,
   type OwnerProfitSnapshotPayload,
 } from '@/lib/calculations/ownerProfitSnapshot';
 import type { StockPurchaseCostRow } from '@/lib/calculations/barMoney';
@@ -773,11 +774,32 @@ export default function MoneyTakenPage() {
     })),
   ].sort((a, b) => b.month.localeCompare(a.month) || historyCreatedAt(b).localeCompare(historyCreatedAt(a)));
 
+  /** The month's name, then what was withdrawn from each side (never one combined figure). */
+  function historyMonthHeader(month: string) {
+    const totals = withdrawnBySourceForMonth(withdrawals, month);
+    const sides = (['game_club', 'bar'] as const).filter((source) => totals[source] > 0);
+    return (
+      <span className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <span>{formatYearMonth(month, locale)}</span>
+        {sides.length > 0 && (
+          <span className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-normal text-gray-500">
+            {sides.map((source) => (
+              <span key={source} className="whitespace-nowrap">
+                {t(`sources.${source}`)}:{' '}
+                <span className="font-semibold tabular-nums text-danger-600">-{formatCurrency(totals[source])}</span>
+              </span>
+            ))}
+          </span>
+        )}
+      </span>
+    );
+  }
+
   // Rows are already newest month first, so each month becomes one titled section.
   const historyGroups = historyRows.reduce<DataTableGroup<HistoryRow>[]>((groups, row) => {
     const last = groups.at(-1);
     if (last?.key === row.month) last.rows.push(row);
-    else groups.push({ key: row.month, header: formatYearMonth(row.month, locale), rows: [row] });
+    else groups.push({ key: row.month, header: historyMonthHeader(row.month), rows: [row] });
     return groups;
   }, []);
 

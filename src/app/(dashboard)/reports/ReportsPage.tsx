@@ -598,6 +598,17 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     { method: 'playstation' as const, label: t('playstation'), icon: Gamepad2 },
   ];
 
+  /** A payment method's icon and name, as on the payment method cards above the table. */
+  function paymentMethodChip(method: string) {
+    const Icon = paymentCards.find((card) => card.method === method)?.icon;
+    return (
+      <span key={method} className="inline-flex items-center gap-1.5 whitespace-nowrap text-gray-700">
+        {Icon && <Icon size={14} className="shrink-0 text-gray-400" aria-hidden="true" />}
+        {paymentLabel(method)}
+      </span>
+    );
+  }
+
   const closeoutRows = useMemo<CloseoutRow[]>(() => filteredReport.days.flatMap((day) => [
     {
       kind: 'day' as const,
@@ -672,6 +683,23 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
           <Money amount={row.activity.amount} showPlus currency={null} />
         </span>
       )),
+    },
+    {
+      key: 'payment',
+      header: <span className="whitespace-nowrap">{t('paymentMethod')}</span>,
+      className: 'w-36',
+      render: (row) => {
+        if (row.kind !== 'activity' || row.activity.exchange) return null;
+        const { paymentBreakdown, paymentMethod } = row.activity;
+        if (paymentBreakdown) {
+          const used = (Object.keys(paymentBreakdown) as Array<keyof typeof paymentBreakdown>)
+            .filter((method) => paymentBreakdown[method] !== 0);
+          return used.length ? <span className="flex flex-col gap-1 text-xs">{used.map(paymentMethodChip)}</span> : null;
+        }
+        return paymentMethod
+          ? <span className="text-xs">{paymentMethodChip(paymentMethod)}</span>
+          : <span className="text-gray-400">—</span>;
+      },
     },
     {
       key: 'description',
@@ -852,12 +880,12 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
               <SectionHeading title={t('dailyCloseout')} description={t('dailyCloseoutDescription')} />
             </CardHeader>
             {loading ? (
-              <TableSkeleton rows={6} columns={isOwner ? 6 : 5} className="rounded-none border-0 shadow-none" />
+              <TableSkeleton rows={6} columns={isOwner ? 7 : 6} className="rounded-none border-0 shadow-none" />
             ) : (
               <DataTable
                 bare
                 label={t('dailyCloseout')}
-                minWidth={isOwner ? 900 : 840}
+                minWidth={isOwner ? 1040 : 980}
                 columns={closeoutColumns}
                 data={closeoutRows}
                 keyExtractor={(row) => row.key}
