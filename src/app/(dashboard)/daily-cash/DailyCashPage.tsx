@@ -49,6 +49,8 @@ import {
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { todayIso } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
+import { useCollectedDay } from '@/lib/useCollectedDay';
+import { isDayCollectedError } from '@/lib/supabase/dailyCashCollections';
 import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { formatCurrency, formatCurrencyInput, formatDateOnly, formatDateTime, parseCurrencyInput } from '@/lib/formatters';
@@ -281,7 +283,9 @@ export default function DailyCashPage() {
   const barSummary = { sales: totals.barSales, profit: totals.barProfit };
   const gameClubProfit = totals.gameClubProfit;
   const editable = entry ? canEditEntryForRole(currentRole, entry.created_at, now) : true;
-  const locked = Boolean(entry && !editable);
+  // A date whose money was collected is closed to everyone (097).
+  const dayClosed = useCollectedDay(selectedClubId, form.date);
+  const locked = Boolean(entry && !editable) || dayClosed;
   const deadline = entry ? getEditDeadline(entry.created_at) : null;
   const remainingMs = deadline ? deadline.getTime() - now.getTime() : 0;
   const disabled = loading || saving || locked || loadFailed;
@@ -340,7 +344,8 @@ export default function DailyCashPage() {
       if (currentClubId.current !== clubId) return;
 
       if (result.error) {
-        setError(result.error.code === '23505' ? t('duplicateEntryError') : t('saveError'));
+        setError(result.error.code === '23505' ? t('duplicateEntryError')
+          : isDayCollectedError(result.error) ? tc('dayClosed') : t('saveError'));
         return;
       }
       if (entry && (result.data ?? []).length === 0) {
@@ -489,7 +494,9 @@ export default function DailyCashPage() {
           )}
         </div>
 
-        {locked && (
+        {dayClosed ? (
+          <InlineAlert variant="danger" className="mt-4">{tc('dayClosed')}</InlineAlert>
+        ) : locked && (
           <InlineAlert variant="warning" className="mt-4">{t('entryLocked')}</InlineAlert>
         )}
 
@@ -561,7 +568,7 @@ export default function DailyCashPage() {
             size="lg"
             title={t('todayEntry')}
             badge={<Badge variant="success">{t('savedBadge')}</Badge>}
-            action={editable && isOwner ? (
+            action={editable && isOwner && !dayClosed ? (
               <Button variant="dangerOutline" size="sm" disabled={saving} onClick={handleDelete} icon={<Trash2 size={15} aria-hidden="true" />}>
                 {tc('delete')}
               </Button>

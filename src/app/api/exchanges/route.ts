@@ -14,7 +14,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isId = (value: unknown): value is string => typeof value === 'string' && UUID.test(value);
 const isPositive = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0;
 
-type DatabaseError = { message: string; code?: string };
+type DatabaseError = { message: string; code?: string; hint?: string };
 
 interface ExchangeRow {
   id: string;

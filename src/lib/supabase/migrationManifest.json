@@ -3318,5 +3318,43 @@
         "signature": "public.unmark_daily_cash_collected(uuid,date)"
       }
     ]
+  },
+  {
+    "file": "097_collected_day_lock.sql",
+    "probes": [
+      {
+        "kind": "trigger",
+        "table": "public.daily_cash_entries",
+        "name": "lock_collected_day"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.expenses",
+        "name": "lock_collected_day"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.debt_payments",
+        "name": "lock_collected_day"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.money_exchanges",
+        "name": "lock_collected_day"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.new_debts",
+        "name": "lock_collected_day"
+      },
+      {
+        "kind": "function",
+        "signature": "public.assert_day_not_collected(uuid,date)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.prevent_collected_day_changes()"
+      }
+    ]
   }
 ]

@@ -24,6 +24,7 @@ import type { ExpensePreset } from '@/lib/calculations/expensePlans';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessRollover } from '@/lib/useBusinessPeriod';
+import { useCollectedDay } from '@/lib/useCollectedDay';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
 import type { EntryPaymentMethod } from '@/types';
 
@@ -44,6 +45,7 @@ const EXPENSE_ERROR_KEYS: Record<string, string> = {
   INVALID_VALUES: 'invalidValues',
   NOT_FOUND: 'notFound',
   PRESET_UNAVAILABLE: 'presetUnavailable',
+  DAY_COLLECTED: 'dayCollected',
   SERVER_ERROR: 'serverError',
 };
 
@@ -68,6 +70,8 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     comment: '',
     preset_id: '',
   });
+  // A date whose money was collected is closed (097); say so before saving.
+  const dayClosed = useCollectedDay(selectedClubId, form.date);
 
   // The club's planned expenses: picking one fills its category and money
   // source; the amount is still entered by hand. Hidden before migration 091.
@@ -170,6 +174,10 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     }
     if (form.date > businessToday) {
       setError(t('futureDateError'));
+      return;
+    }
+    if (dayClosed) {
+      setError(tc('dayClosed'));
       return;
     }
 
@@ -285,7 +293,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
       </Field>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label={t('date')}>
+        <Field label={t('date')} error={dayClosed ? tc('dayClosed') : undefined}>
           <DatePicker ariaLabel={t('date')} value={form.date} max={businessToday} onChange={(value) => set('date', value)} />
         </Field>
         <Field label={t('category')} htmlFor="expense-category">
@@ -337,7 +345,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
         />
       </Field>
 
-      <Button type="submit" size="lg" fullWidth disabled={enabledPaymentMethods.length === 0} loading={saving} loadingLabel={tc('saving')} icon={<Save size={18} aria-hidden="true" />}>
+      <Button type="submit" size="lg" fullWidth disabled={enabledPaymentMethods.length === 0 || dayClosed} loading={saving} loadingLabel={tc('saving')} icon={<Save size={18} aria-hidden="true" />}>
         {t('submit')}
       </Button>
     </form>

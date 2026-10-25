@@ -1,3 +1,5 @@
+import { isDayCollectedError } from '@/lib/supabase/dailyCashCollections';
+
 /**
  * Stable error codes returned by /api/exchanges. The browser maps each code to
  * a translated message; raw database text is only logged on the server.
@@ -10,6 +12,7 @@ export const EXCHANGE_ERROR_CODES = [
   'REQUEST_CONFLICT',
   'NOT_FOUND',
   'NOT_AVAILABLE',
+  'DAY_COLLECTED',
   'SERVER_ERROR',
 ] as const;
 
@@ -23,12 +26,15 @@ const ERRORS: Record<ExchangeErrorCode, { status: number; text: string }> = {
   REQUEST_CONFLICT: { status: 409, text: 'This request was already used for a different exchange' },
   NOT_FOUND: { status: 404, text: 'Exchange not found' },
   NOT_AVAILABLE: { status: 503, text: 'Exchanges are not set up in the database yet' },
+  DAY_COLLECTED: { status: 409, text: 'The money for this day was collected; the day is closed' },
   SERVER_ERROR: { status: 500, text: 'Exchange failed' },
 };
 
 /** Maps a database error to a stable code; anything unrecognised is a server fault. */
-export function exchangeErrorCode(error: { code?: string | null; message?: string | null }): ExchangeErrorCode {
+export function exchangeErrorCode(error: { code?: string | null; message?: string | null; hint?: string | null }): ExchangeErrorCode {
   const message = error.message ?? '';
+  // The 097 trigger: the exchange's day was collected, so the day is closed.
+  if (isDayCollectedError(error)) return 'DAY_COLLECTED';
   if (/not enabled for this club/i.test(message)) return 'PAYMENT_METHOD_DISABLED';
   if (/could not find the function|does not exist/i.test(message) || error.code === 'PGRST202') return 'NOT_AVAILABLE';
   if (error.code === '42501') return 'FORBIDDEN';

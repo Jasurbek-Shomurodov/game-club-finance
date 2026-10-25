@@ -1,3 +1,5 @@
+import { isDayCollectedError } from '@/lib/supabase/dailyCashCollections';
+
 /**
  * Stable error codes returned by POST /api/salaries. The browser maps each code
  * to a translated message; raw database text is only logged on the server.
@@ -15,6 +17,7 @@ export const SALARY_ERROR_CODES = [
   'NOT_FOUND',
   'SETTINGS_MISSING',
   'LAST_RATE',
+  'DAY_COLLECTED',
   'SERVER_ERROR',
 ] as const;
 
@@ -33,6 +36,7 @@ export const SALARY_ERROR_TEXT: Record<SalaryErrorCode, string> = {
   NOT_FOUND: 'Salary record not found',
   SETTINGS_MISSING: 'Employee salary settings are missing',
   LAST_RATE: 'The last salary rate cannot be deleted',
+  DAY_COLLECTED: 'The money for this day was collected; the day is closed',
   SERVER_ERROR: 'Salary change failed',
 };
 
@@ -49,6 +53,7 @@ const STATUS: Record<SalaryErrorCode, number> = {
   NOT_FOUND: 404,
   SETTINGS_MISSING: 409,
   LAST_RATE: 409,
+  DAY_COLLECTED: 409,
   SERVER_ERROR: 500,
 };
 
@@ -57,8 +62,10 @@ export function isSalaryErrorCode(value: unknown): value is SalaryErrorCode {
 }
 
 /** Maps a payroll RPC error to a stable code; anything unrecognised is a server fault. */
-export function salaryErrorCode(error: { code?: string | null; message?: string | null }): SalaryErrorCode {
+export function salaryErrorCode(error: { code?: string | null; message?: string | null; hint?: string | null }): SalaryErrorCode {
   const message = error.message ?? '';
+  // The 097 trigger: the payment's day was collected, so the day is closed.
+  if (isDayCollectedError(error)) return 'DAY_COLLECTED';
   if (error.code === '42501') return /club owner/i.test(message) ? 'OWNER_ONLY' : 'FORBIDDEN';
   if (error.code === '23514') return 'CHECK_FAILED';
   if (error.code === '23505') return 'REQUEST_CONFLICT';

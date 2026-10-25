@@ -323,13 +323,16 @@
     "dateUpdateError": "Sanani o'zgartirib bo'lmadi. Qayta urinib ko'ring.",
     "addedAt": "{time} da qo'shilgan",
     "collectionMark": "Olindi deb belgilash",
-    "collectionMarkConfirm": "{date} uchun pulni olganingizni tasdiqlang. Buni faqat egasi bekor qila oladi.",
+    "collectionMarkConfirm": "{date} uchun pulni olganingizni tasdiqlang. Kun yopiladi: daromad yoki xarajat qo‘shib, o‘zgartirib yoki o‘chirib bo‘lmaydi. Buni faqat egasi bekor qila oladi.",
     "collectionUndo": "Yig‘ishni bekor qilish",
     "collectionUndoConfirm": "{date} olinmagan deb belgilansinmi?",
     "collectedBy": "Oldi: {name}",
     "collectionSaved": "Olindi deb belgilandi",
     "collectionUndone": "Yig‘ish bekor qilindi",
-    "collectionError": "Yig‘ishni yangilab bo‘lmadi. Qayta urinib ko‘ring."
+    "collectionError": "Yig‘ishni yangilab bo‘lmadi. Qayta urinib ko‘ring.",
+    "dayClosed": "Yopilgan",
+    "dayClosedHint": "Kun yopilgan: pul olingan",
+    "dayClosedDetails": "{name} bu kunning pulini oldi. Egasi yig‘ishni bekor qilmaguncha hech narsa qo‘shib, o‘zgartirib yoki o‘chirib bo‘lmaydi."
   },
   "dailyCash": {
     "title": "Kunlik kassa",
@@ -704,7 +707,8 @@
       "notFound": "Bu xarajat endi mavjud emas. Sahifani yangilang.",
       "salaryPaymentImmutable": "Maosh to‘lovlarini faqat «Maoshlar» sahifasida o‘chirish mumkin.",
       "serverError": "Serverda xatolik yuz berdi. Birozdan so‘ng qayta urinib ko‘ring.",
-      "presetUnavailable": "Bu rejalashtirilgan xarajat arxivlangan yoki o'zgargan. Uni qayta yoki boshqasini tanlang."
+      "presetUnavailable": "Bu rejalashtirilgan xarajat arxivlangan yoki o'zgargan. Uni qayta yoki boshqasini tanlang.",
+      "dayCollected": "Bu kunning puli olindi, kun yopilgan. Boshqa sanani tanlang."
     },
     "preset": "Rejalashtirilgan xarajat",
     "presetHelp": "Bu to'lovni oylik rejaga hisoblash uchun tanlang.",
@@ -955,7 +959,7 @@
       "assistant": "AI yordamchi",
       "assistantDescription": "Klub ma'lumotlari bo'yicha savollar va Excel hisobotlari. Javoblar faqat shu xodim ko'ra oladigan ma'lumotlardan foydalanadi.",
       "collection": "Pul yig‘ish",
-      "collectionDescription": "Pul olib ketilgan sanani hisobotlarda belgilash. Belgini faqat egasi bekor qila oladi. Sanalarni ko‘rish uchun Hisobotlarga ruxsat kerak."
+      "collectionDescription": "Pul olib ketilgan sanani hisobotlarda belgilash. Belgilangan kun yopiladi: daromad yoki xarajat qo‘shib, o‘zgartirib yoki o‘chirib bo‘lmaydi. Belgini faqat egasi bekor qila oladi. Sanalarni ko‘rish uchun Hisobotlarga ruxsat kerak."
     },
     "roles": {
       "owner": "Klub egasi",
@@ -1199,7 +1203,8 @@
       "light": "Yorug‘",
       "dark": "Qorong‘i",
       "system": "Tizimdagidek"
-    }
+    },
+    "dayClosed": "Bu kunning puli olindi, kun yopilgan. Daromad yoki xarajat qo‘shib, o‘zgartirib yoki o‘chirib bo‘lmaydi. Kunni faqat egasi Hisobotlarda qayta ochishi mumkin."
   },
   "salaries": {
     "title": "Ish haqi",
@@ -1322,7 +1327,8 @@
       "invalidValues": "Ayrim qiymatlar noto‘g‘ri. Summa, foiz, lavozim va sanani tekshiring.",
       "notFound": "Bu xodim yoki yozuv endi mavjud emas. Sahifani yangilang.",
       "settingsMissing": "Bu xodimda hali maosh sozlamalari yo‘q. Avval ularni saqlang.",
-      "lastRate": "Oxirgi maosh stavkasini o‘chirib bo‘lmaydi. Maosh sozlamalarini o‘zgartiring yoki xodimni nofaol qiling."
+      "lastRate": "Oxirgi maosh stavkasini o‘chirib bo‘lmaydi. Maosh sozlamalarini o‘zgartiring yoki xodimni nofaol qiling.",
+      "dayCollected": "Bu kunning puli olindi, kun yopilgan. Boshqa sanani tanlang yoki egasidan kunni qayta ochishni so‘rang."
     }
   },
   "testChecklist": {

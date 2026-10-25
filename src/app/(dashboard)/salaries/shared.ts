@@ -57,6 +57,7 @@ const ERROR_KEYS: Record<Exclude<SalaryErrorCode, 'FORBIDDEN' | 'CHECK_FAILED' |
   NOT_FOUND: 'errors.notFound',
   SETTINGS_MISSING: 'errors.settingsMissing',
   LAST_RATE: 'errors.lastRate',
+  DAY_COLLECTED: 'errors.dayCollected',
 };
 
 /** Translated labels and messages shared by the salary views. */

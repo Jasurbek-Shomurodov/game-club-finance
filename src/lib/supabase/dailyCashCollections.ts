@@ -40,3 +40,24 @@ export async function fetchDailyCashCollections(
     .map((profile) => [profile.id, profile.full_name]));
   return rows.map((row) => ({ ...row, collector_name: names.get(row.collected_by) ?? null }));
 }
+
+/** The 097 refusal: the date was ticked as collected, so its money is closed. */
+export function isDayCollectedError(error: { code?: string | null; message?: string | null; hint?: string | null } | null | undefined): boolean {
+  if (!error) return false;
+  return error.hint === 'day_collected' || /this day is closed/i.test(error.message ?? '');
+}
+
+/** Whether a club's business date has been ticked as collected. False before migration 096. */
+export async function fetchIsDateCollected(supabase: SupabaseClient, clubId: string, date: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('daily_cash_collections')
+    .select('date')
+    .eq('club_id', clubId)
+    .eq('date', date)
+    .maybeSingle();
+  if (error) {
+    if (isMissingDatabaseTable(error, 'daily_cash_collections')) return false;
+    throw error;
+  }
+  return Boolean(data);
+}

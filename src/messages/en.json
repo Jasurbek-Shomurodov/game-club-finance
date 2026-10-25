@@ -323,13 +323,16 @@
     "dateUpdateError": "Could not change the date. Try again.",
     "addedAt": "Added at {time}",
     "collectionMark": "Mark as collected",
-    "collectionMarkConfirm": "Confirm that you have collected the money for {date}. Only an owner can undo this.",
+    "collectionMarkConfirm": "Confirm that you have collected the money for {date}. The day will be closed: no income or expense can be added, changed or deleted. Only an owner can undo this.",
     "collectionUndo": "Undo collection",
     "collectionUndoConfirm": "Mark {date} as not collected?",
     "collectedBy": "Collected by {name}",
     "collectionSaved": "Marked as collected",
     "collectionUndone": "Collection undone",
-    "collectionError": "Could not update the collection. Try again."
+    "collectionError": "Could not update the collection. Try again.",
+    "dayClosed": "Closed",
+    "dayClosedHint": "Day closed: money collected",
+    "dayClosedDetails": "{name} collected this day's money. Nothing can be added, changed or deleted until an owner undoes the collection."
   },
   "dailyCash": {
     "title": "Daily Cash Entry",
@@ -704,7 +707,8 @@
       "notFound": "This expense no longer exists. Refresh the page.",
       "salaryPaymentImmutable": "Salary payments can only be removed from the Salaries page.",
       "serverError": "Something went wrong on the server. Try again in a moment.",
-      "presetUnavailable": "This planned expense was archived or changed. Pick it again or choose another."
+      "presetUnavailable": "This planned expense was archived or changed. Pick it again or choose another.",
+      "dayCollected": "The money for this day was collected, so the day is closed. Pick another date."
     },
     "preset": "Planned expense",
     "presetHelp": "Pick one to count this payment against its monthly plan.",
@@ -955,7 +959,7 @@
       "assistant": "AI Assistant",
       "assistantDescription": "Ask questions about club data and export Excel reports. Answers only use data this member can already see.",
       "collection": "Money collection",
-      "collectionDescription": "Tick a date in Reports once its money has been collected. Only an owner can undo a tick. Needs Reports access to see the dates."
+      "collectionDescription": "Tick a date in Reports once its money has been collected. A ticked day is closed: no income or expense can be added, changed or deleted. Only an owner can undo a tick. Needs Reports access to see the dates."
     },
     "roles": {
       "owner": "Owner",
@@ -1199,7 +1203,8 @@
       "light": "Light",
       "dark": "Dark",
       "system": "System"
-    }
+    },
+    "dayClosed": "The money for this day was collected, so the day is closed. No income or expense can be added, changed or deleted. Only an owner can reopen it in Reports."
   },
   "salaries": {
     "title": "Salaries",
@@ -1322,7 +1327,8 @@
       "invalidValues": "Some values are invalid. Check the amount, percentage, role and date.",
       "notFound": "This employee or record no longer exists. Refresh the page.",
       "settingsMissing": "This employee has no salary settings yet. Save their settings first.",
-      "lastRate": "The last salary rate cannot be deleted. Change the salary settings or deactivate the employee instead."
+      "lastRate": "The last salary rate cannot be deleted. Change the salary settings or deactivate the employee instead.",
+      "dayCollected": "The money for this day was collected, so the day is closed. Pick another date or ask an owner to reopen it."
     }
   },
   "testChecklist": {

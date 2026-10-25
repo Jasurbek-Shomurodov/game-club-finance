@@ -136,6 +136,7 @@
     "src/lib/supabase/server.ts",
     "src/lib/useBusinessPeriod.ts",
     "src/lib/useBusinessToday.ts",
-    "src/lib/useClubQuery.ts"
+    "src/lib/useClubQuery.ts",
+    "src/lib/useCollectedDay.ts"
   ]
 }

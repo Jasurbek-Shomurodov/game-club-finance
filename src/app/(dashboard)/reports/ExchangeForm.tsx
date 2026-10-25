@@ -23,6 +23,7 @@ import {
 import { mutateFinanceRequest } from '@/lib/supabase/client';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessRollover } from '@/lib/useBusinessPeriod';
+import { useCollectedDay } from '@/lib/useCollectedDay';
 
 interface ExchangeFormProps {
   onSaved?: () => void | Promise<void>;
@@ -55,6 +56,8 @@ export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
     comment: '',
   });
   const [form, setForm] = useState(emptyForm);
+  // A date whose money was collected is closed (097); say so before saving.
+  const dayClosed = useCollectedDay(selectedClubId, form.date);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const submitPending = useRef(false);
@@ -123,6 +126,10 @@ export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
       setError(t('futureDateError'));
       return;
     }
+    if (dayClosed) {
+      setError(tc('dayClosed'));
+      return;
+    }
 
     submitPending.current = true;
     setSaving(true);
@@ -145,6 +152,10 @@ export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
       });
       if (!response.ok) {
         const body = await response.json().catch(() => null) as { code?: unknown } | null;
+        if (body?.code === 'DAY_COLLECTED') {
+          setError(tc('dayClosed'));
+          return;
+        }
         const key = typeof body?.code === 'string' ? ERROR_KEYS[body.code] : undefined;
         setError(key ? t(`errors.${key}`) : t('saveError'));
         return;
@@ -205,7 +216,7 @@ export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
         </span>
       </div>
 
-      <Field label={t('date')}>
+      <Field label={t('date')} error={dayClosed ? tc('dayClosed') : undefined}>
         <DatePicker ariaLabel={t('date')} value={form.date} max={businessToday} onChange={(value) => set('date', value)} />
       </Field>
 
@@ -220,7 +231,7 @@ export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
         />
       </Field>
 
-      <Button type="submit" size="lg" fullWidth loading={saving} loadingLabel={tc('saving')} icon={<ArrowRightLeft size={18} aria-hidden="true" />}>
+      <Button type="submit" size="lg" fullWidth disabled={dayClosed} loading={saving} loadingLabel={tc('saving')} icon={<ArrowRightLeft size={18} aria-hidden="true" />}>
         {t('submit')}
       </Button>
     </form>

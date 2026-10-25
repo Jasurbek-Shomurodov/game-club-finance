@@ -34,6 +34,7 @@ import {
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { cn } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
+import { isDayCollectedError } from '@/lib/supabase/dailyCashCollections';
 import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { fetchAllRows } from '@/lib/supabase/pagination';
@@ -278,7 +279,7 @@ export default function DebtsPage() {
       // 23505 on our own id: an earlier attempt of this submit was already saved.
       if (err && err.code !== '23505') {
         console.error('Failed to save debt', err);
-        setError(t('saveError'));
+        setError(isDayCollectedError(err) ? tc('dayClosed') : t('saveError'));
         return;
       }
 
@@ -343,13 +344,15 @@ export default function DebtsPage() {
         console.error('Failed to save debt payment', err);
         const issue = classifyDebtPaymentInsertError(err);
         setError(
-          issue === 'exceeds_remaining'
-            ? t('paymentExceedsRemaining')
-            : issue === 'before_debt_date'
-              ? t('paymentBeforeDebtDate')
-              : issue === 'future_date'
-                ? t('futureDateError')
-                : t('saveError'),
+          isDayCollectedError(err)
+            ? tc('dayClosed')
+            : issue === 'exceeds_remaining'
+              ? t('paymentExceedsRemaining')
+              : issue === 'before_debt_date'
+                ? t('paymentBeforeDebtDate')
+                : issue === 'future_date'
+                  ? t('futureDateError')
+                  : t('saveError'),
         );
         // Another payment may have landed first: show the current balance and history.
         if (issue === 'exceeds_remaining') {

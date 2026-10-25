@@ -18,7 +18,7 @@ const PAYMENT_SOURCES = ['game_club', 'bar'] as const;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isId = (value: unknown): value is string => typeof value === 'string' && UUID.test(value);
 
-type DatabaseError = { message: string; code?: string };
+type DatabaseError = { message: string; code?: string; hint?: string };
 
 interface ExpenseRequestBody {
   /** Optional client-generated UUID; a retried submit with the same id is recorded once. */

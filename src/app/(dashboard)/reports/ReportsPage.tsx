@@ -13,6 +13,7 @@ import {
   CreditCard,
   Gamepad2,
   Landmark,
+  Lock,
   ReceiptText,
   Trash2,
   WalletCards,
@@ -224,6 +225,9 @@ function requestedSourceFilter(source: string | undefined): ExpenseSourceFilter 
 }
 
 type ExpenseSourceFilter = 'game_club' | 'bar' | null;
+
+/** A red edge down the left of every row of a closed (collected) day. */
+const CLOSED_DAY_ROW = '[&>td:first-child]:shadow-[inset_4px_0_0_rgb(var(--c-danger-500))]';
 
 export default function ReportsPage({ requestedFrom, requestedTo, requestedCategory, requestedSource }: {
   requestedFrom?: string;
@@ -489,7 +493,9 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
           const result = await response.json().catch(() => null) as { error?: string; code?: string } | null;
           deleteError = result?.code === 'SALARY_PAYMENT_IMMUTABLE'
             ? t('salaryPaymentProtected')
-            : response.status === 401 || response.status === 403
+            : result?.code === 'DAY_COLLECTED'
+              ? tc('dayClosed')
+              : response.status === 401 || response.status === 403
               ? tc('accessDeniedDescription')
               : t('deleteError');
         }
@@ -537,7 +543,9 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         const result = await response.json().catch(() => null) as { code?: string } | null;
         setActionError(result?.code === 'SALARY_PAYMENT_IMMUTABLE'
           ? t('salaryPaymentMethodProtected')
-          : response.status === 401 || response.status === 403
+          : result?.code === 'DAY_COLLECTED'
+            ? tc('dayClosed')
+            : response.status === 401 || response.status === 403
             ? tc('accessDeniedDescription')
             : errorText);
         return;
@@ -653,9 +661,10 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     return activity.paymentSource === 'bar' ? `${t('bar')} · ${label}` : label;
   }
 
-  function canCorrectExpense(activity: MoneyReportActivity): boolean {
-    // Payroll payments take their method and date from the salary entry.
-    return isOwner && activity.source === 'expense' && Boolean(activity.id) && activity.category !== 'salary';
+  function canCorrectExpense(activity: MoneyReportActivity, date: string): boolean {
+    // Payroll payments take their method and date from the salary entry; a collected day is closed.
+    return isOwner && activity.source === 'expense' && Boolean(activity.id) && activity.category !== 'salary'
+      && !collectionsByDate.has(date);
   }
 
   /** Enabled methods, plus the current one so a since-disabled method still displays. */
@@ -734,9 +743,16 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       header: t('dateAndTime'),
       className: 'w-44 whitespace-nowrap',
       render: (row) => (row.kind === 'day' ? (
-        <span className="flex items-center gap-2">
-          <span className="font-semibold text-gray-900">{formatDateOnly(row.date, locale)}</span>
-          <Badge variant="outline" size="sm">{row.count}</Badge>
+        <span className="block">
+          <span className="flex items-center gap-2">
+            <span className={cn('font-semibold', collectionsByDate.has(row.date) ? 'text-danger-700' : 'text-gray-900')}>
+              {formatDateOnly(row.date, locale)}
+            </span>
+            <Badge variant="outline" size="sm">{row.count}</Badge>
+          </span>
+          {collectionsByDate.has(row.date) && (
+            <Badge variant="danger" size="sm" icon={<Lock size={11} aria-hidden="true" />} className="mt-1.5">{t('dayClosed')}</Badge>
+          )}
         </span>
       ) : (
         <span className="block">
@@ -830,6 +846,13 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       className: 'w-16',
       render: (row: CloseoutRow) => {
         if (row.kind === 'day') return collectionCell(row.date);
+        if (collectionsByDate.has(row.date)) {
+          return (
+            <span className="inline-flex h-8 w-8 items-center justify-center text-danger-400" title={t('dayClosedHint')}>
+              <Lock size={14} aria-label={t('dayClosedHint')} />
+            </span>
+          );
+        }
         if (!isOwner) return null;
         const deleteKey = row.activity.id ? `${row.activity.source}:${row.activity.id}` : null;
         const canDelete = row.activity.source !== 'debt_payment' && Boolean(row.activity.id);
@@ -991,7 +1014,15 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                 data={closeoutRows}
                 keyExtractor={(row) => row.key}
                 emptyState={<EmptyState compact title={t('noData')} />}
-                rowClassName={(row) => (row.kind === 'day' ? 'bg-gray-50 hover:bg-gray-50 cursor-default' : undefined)}
+                rowClassName={(row) => {
+                  // A collected day is closed: its header and entries read as one red block.
+                  if (collectionsByDate.has(row.date)) {
+                    return cn(CLOSED_DAY_ROW, row.kind === 'day'
+                      ? 'bg-danger-100/70 hover:bg-danger-100/70 cursor-default'
+                      : 'bg-danger-50 hover:bg-danger-100/50');
+                  }
+                  return row.kind === 'day' ? 'bg-gray-50 hover:bg-gray-50 cursor-default' : undefined;
+                }}
                 onRowClick={(row) => {
                   if (row.kind === 'activity') setSelectedEntry({ activity: row.activity, date: row.date });
                 }}
@@ -1044,6 +1075,13 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         {selectedEntry && (
           <div className="space-y-5">
             {actionError && <InlineAlert variant="danger">{actionError}</InlineAlert>}
+            {collectionsByDate.has(selectedEntry.date) && (
+              <InlineAlert variant="danger" title={t('dayClosed')}>
+                {t('dayClosedDetails', {
+                  name: collectionsByDate.get(selectedEntry.date)?.collector_name || t('unknownCreator'),
+                })}
+              </InlineAlert>
+            )}
             <div>
               <Badge variant={activityKindVariant(selectedEntry.activity.kind)}>
                 {activityTypeLabel(selectedEntry.activity)}
@@ -1065,7 +1103,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
               <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 py-3 text-sm">
                 <dt className="text-gray-500">{t('dateAndTime')}</dt>
                 <dd className="text-right font-semibold text-gray-900">
-                  {canCorrectExpense(selectedEntry.activity) ? (
+                  {canCorrectExpense(selectedEntry.activity, selectedEntry.date) ? (
                     <div className="ml-auto flex max-w-60 flex-col items-end gap-1">
                       <DatePicker
                         ariaLabel={t('date')}
@@ -1116,7 +1154,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                             </Badge>
                           ))}
                       </div>
-                    ) : canCorrectExpense(selectedEntry.activity) ? (
+                    ) : canCorrectExpense(selectedEntry.activity, selectedEntry.date) ? (
                       <Select
                         value={selectedEntry.activity.paymentMethod ?? ''}
                         onChange={(event) => void handleUpdateExpense(selectedEntry.activity, { paymentMethod: event.target.value })}
