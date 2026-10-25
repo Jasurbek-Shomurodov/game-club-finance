@@ -23,25 +23,36 @@ import {
 import type { ExpensePreset, ExpensePresetSource } from '@/lib/calculations/expensePlans';
 import { MANUAL_EXPENSE_CATEGORIES } from '@/lib/expenseCategories';
 import { formatCurrency, formatCurrencyInput, parseCurrencyInput } from '@/lib/formatters';
+import { useClub } from '@/components/layout/DashboardShell';
 import { createClient } from '@/lib/supabase/client';
 import { fetchExpensePresets, type ExpensePresetsResult } from '@/lib/supabase/expensePresets';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { SettingsSection } from './SettingsSection';
 
 const SOURCES: ExpensePresetSource[] = ['game_club', 'bar'];
+/** The features whose members may read planned expenses (the 091 read policy). */
+const READ_FEATURES = ['dashboard', 'expenses', 'reports', 'owner_profit'] as const;
 
 interface PresetForm {
   id: string | null;
+  /** Category and money source are fixed once a payment links to the preset (093); null while checking. */
+  termsLocked: boolean | null;
   name: string;
   category: string;
   payment_source: ExpensePresetSource;
   monthly_amount: string;
 }
 
-const emptyForm: PresetForm = { id: null, name: '', category: '', payment_source: 'game_club', monthly_amount: '' };
+const emptyForm: PresetForm = { id: null, termsLocked: false, name: '', category: '', payment_source: 'game_club', monthly_amount: '' };
 
 /** Owner-managed list of the club's recurring expenses and their monthly plan. */
 export function ExpensePresetsSection({ clubId, isOwner }: { clubId: string; isOwner: boolean }) {
+  const { featureAccess } = useClub();
+  const canRead = READ_FEATURES.some((feature) => featureAccess.includes(feature));
+  return canRead ? <PresetList clubId={clubId} isOwner={isOwner} /> : null;
+}
+
+function PresetList({ clubId, isOwner }: { clubId: string; isOwner: boolean }) {
   const t = useTranslations('settings.expensePresets');
   const tExpenses = useTranslations('expenses');
   const tc = useTranslations('common');
@@ -59,15 +70,29 @@ export function ExpensePresetsSection({ clubId, isOwner }: { clubId: string; isO
 
   function edit(preset: ExpensePreset | null) {
     setFormError('');
+    if (preset) void checkTermsLocked(preset.id);
     setForm(preset
       ? {
         id: preset.id,
+        termsLocked: null,
         name: preset.name,
         category: preset.category,
         payment_source: preset.payment_source,
         monthly_amount: formatCurrencyInput(preset.monthly_amount),
       }
       : emptyForm);
+  }
+
+  /** Whether any expense already counts against the preset; on a failed read the fields stay locked. */
+  async function checkTermsLocked(presetId: string) {
+    const { data, error } = await createClient()
+      .from('expenses')
+      .select('id')
+      .eq('club_id', clubId)
+      .eq('preset_id', presetId)
+      .limit(1);
+    const termsLocked = Boolean(error) || (data?.length ?? 0) > 0;
+    setForm((current) => (current?.id === presetId ? { ...current, termsLocked } : current));
   }
 
   function close() {
@@ -90,9 +115,9 @@ export function ExpensePresetsSection({ clubId, isOwner }: { clubId: string; isO
     }
     const values = {
       name,
-      category: form.category,
-      payment_source: form.payment_source,
       monthly_amount: parseCurrencyInput(form.monthly_amount),
+      // Locked terms are left out, so the 093 guard never sees a change to them.
+      ...(form.termsLocked ? {} : { category: form.category, payment_source: form.payment_source }),
     };
     setSaving(true);
     setFormError('');
@@ -102,7 +127,9 @@ export function ExpensePresetsSection({ clubId, isOwner }: { clubId: string; isO
       : await supabase.from('expense_presets').insert({ club_id: clubId, sort_order: live.length, ...values }).select('id').single();
     setSaving(false);
     if (error) {
-      setFormError(error.code === '23505' ? t('duplicateName') : t('saveError'));
+      setFormError(error.code === '23505'
+        ? t('duplicateName')
+        : /cannot change/i.test(error.message) ? t('termsLocked') : t('saveError'));
       return;
     }
     setForm(null);
@@ -207,6 +234,7 @@ export function ExpensePresetsSection({ clubId, isOwner }: { clubId: string; isO
             <Field label={tExpenses('category')} htmlFor="expense-preset-category" required>
               <Select
                 id="expense-preset-category"
+                disabled={form.termsLocked !== false}
                 value={form.category}
                 onChange={(event) => setForm({ ...form, category: event.target.value })}
               >
@@ -216,11 +244,12 @@ export function ExpensePresetsSection({ clubId, isOwner }: { clubId: string; isO
                 ))}
               </Select>
             </Field>
-            <Field label={tExpenses('paymentSource')}>
+            <Field label={tExpenses('paymentSource')} hint={form.termsLocked ? t('termsLocked') : undefined}>
               <SegmentedControl
                 variant="soft"
                 label={tExpenses('paymentSource')}
                 value={form.payment_source}
+                disabled={form.termsLocked !== false}
                 onChange={(source) => setForm({ ...form, payment_source: source })}
                 options={SOURCES.map((source) => ({ value: source, label: tExpenses(`paymentSources.${source}`) }))}
               />

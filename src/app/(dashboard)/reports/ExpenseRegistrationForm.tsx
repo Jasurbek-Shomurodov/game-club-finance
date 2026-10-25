@@ -41,6 +41,7 @@ const EXPENSE_ERROR_KEYS: Record<string, string> = {
   REQUEST_CONFLICT: 'requestConflict',
   INVALID_VALUES: 'invalidValues',
   NOT_FOUND: 'notFound',
+  PRESET_UNAVAILABLE: 'presetUnavailable',
   SERVER_ERROR: 'serverError',
 };
 
@@ -73,7 +74,8 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     const { presets } = await fetchExpensePresets(createClient(), selectedClubId);
     return presets.filter((preset) => !preset.archived_at);
   }, [selectedClubId]);
-  const presets = useClubQuery<ExpensePreset[]>(loadPresets, []).data;
+  const presetQuery = useClubQuery<ExpensePreset[]>(loadPresets, []);
+  const presets = presetQuery.data;
   const selectedPreset = presets.find((preset) => preset.id === form.preset_id) ?? null;
 
   // When the business day rolls over, a date still on the old day moves to the
@@ -182,12 +184,21 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
 
       if (!response.ok) {
         const body = await response.json().catch(() => null) as { code?: unknown } | null;
-        setError(expenseErrorMessage(typeof body?.code === 'string' ? body.code : null));
+        const code = typeof body?.code === 'string' ? body.code : null;
+        setError(expenseErrorMessage(code));
+        // The plan was archived or changed meanwhile: drop it and show the current list.
+        if (code === 'PRESET_UNAVAILABLE') {
+          requestId.current = null;
+          setForm((current) => ({ ...current, preset_id: '' }));
+          void presetQuery.reload({ silent: true });
+        }
         return;
       }
 
       saved = true;
       requestId.current = null;
+      // The inline form stays mounted between expenses; keep its plan list current.
+      void presetQuery.reload({ silent: true });
       setForm({
         date: businessToday,
         amount: '',

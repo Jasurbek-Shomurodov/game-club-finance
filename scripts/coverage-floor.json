@@ -40,6 +40,7 @@
     "src/app/(dashboard)/products/page.tsx",
     "src/app/(dashboard)/promotions/PromotionsPage.tsx",
     "src/app/(dashboard)/promotions/page.tsx",
+    "src/app/(dashboard)/reports/ExchangeForm.tsx",
     "src/app/(dashboard)/reports/ExpenseRegistrationForm.tsx",
     "src/app/(dashboard)/reports/ReportsPage.tsx",
     "src/app/(dashboard)/reports/page.tsx",

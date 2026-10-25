@@ -116,6 +116,13 @@ test('EXP-008 a planned expense is set up in Settings, picked in the expense for
   const plan = page.getByRole('region', { name: 'Game Club' }).filter({ hasText: 'iCafe' });
   await expect(plan).toContainText(`${uzs(650_000)} of ${uzs(500_000)}`);
   await expect(plan).toContainText(`+${uzs(150_000)}`);
+
+  // With a payment linked, the plan keeps its category and money source (093); the amount stays editable.
+  await page.goto('/settings');
+  await page.getByRole('button', { name: 'Edit iCafe' }).click();
+  const editDialog = page.getByRole('dialog', { name: 'Edit planned expense' });
+  await expect(editDialog.locator('#expense-preset-category')).toBeDisabled();
+  await expect(editDialog.locator('#expense-preset-amount')).toBeEnabled();
 });
 
 test('STOCK-001 STOCK-002 STOCK-003 a purchase and a closing count go through the atomic RPCs and agree with the stock math', async ({ page }) => {

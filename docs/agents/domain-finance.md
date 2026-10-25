@@ -123,6 +123,10 @@ range is each month's amount times the share of its days in the range, actual
 is the sum of linked expenses. Unlinked expenses never count against a plan.
 Archived presets keep their linked history but have no plan. Editing a monthly
 amount changes the plan for past ranges too (there is no plan history).
+Once a payment links to a preset, its category and money source are fixed
+(migration 093), so linked payments never move to the other side's plan.
+The preset category check must list every manual expense category;
+`migrationReplay.test.ts` fails when it drifts from `expenses_category_allowed`.
 
 ## Money exchanges
 

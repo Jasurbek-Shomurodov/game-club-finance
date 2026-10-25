@@ -661,7 +661,8 @@
       "invalidValues": "Some values are invalid. Check the amount, category and date.",
       "notFound": "This expense no longer exists. Refresh the page.",
       "salaryPaymentImmutable": "Salary payments can only be removed from the Salaries page.",
-      "serverError": "Something went wrong on the server. Try again in a moment."
+      "serverError": "Something went wrong on the server. Try again in a moment.",
+      "presetUnavailable": "This planned expense was archived or changed. Pick it again or choose another."
     },
     "preset": "Planned expense",
     "presetHelp": "Pick one to count this payment against its monthly plan.",
@@ -843,7 +844,8 @@
       "namePlaceholder": "e.g. Electricity, iCafe, Server maintenance",
       "monthlyAmount": "Planned per month",
       "monthlyAmountHelp": "The amount you expect to pay each month.",
-      "perMonth": "month"
+      "perMonth": "month",
+      "termsLocked": "Payments are already recorded against this planned expense, so its category and money source stay as they are."
     }
   },
   "team": {

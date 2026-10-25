@@ -12,6 +12,7 @@ export const EXPENSE_ERROR_CODES = [
   'INVALID_VALUES',
   'NOT_FOUND',
   'SALARY_PAYMENT_IMMUTABLE',
+  'PRESET_UNAVAILABLE',
   'SERVER_ERROR',
 ] as const;
 
@@ -27,6 +28,7 @@ const ERRORS: Record<ExpenseErrorCode, { status: number; text: string }> = {
   INVALID_VALUES: { status: 400, text: 'Invalid expense values' },
   NOT_FOUND: { status: 404, text: 'Expense not found' },
   SALARY_PAYMENT_IMMUTABLE: { status: 409, text: 'Salary payments can only be removed from Salaries' },
+  PRESET_UNAVAILABLE: { status: 409, text: 'The planned expense is archived or no longer matches this expense' },
   SERVER_ERROR: { status: 500, text: 'Expense change failed' },
 };
 
@@ -38,6 +40,8 @@ export function isExpenseErrorCode(value: unknown): value is ExpenseErrorCode {
 export function expenseErrorCode(error: { code?: string | null; message?: string | null }): ExpenseErrorCode {
   const message = error.message ?? '';
   if (/salary payments cannot be (deleted|edited)/i.test(message)) return 'SALARY_PAYMENT_IMMUTABLE';
+  // The 091 trigger: an archived, foreign or mismatched planned expense.
+  if (/expense preset is not available|does not match its preset/i.test(message)) return 'PRESET_UNAVAILABLE';
   if (error.code === '42501') return 'FORBIDDEN';
   if (error.code === '23514') return 'CHECK_FAILED';
   if (error.code === '23505') return 'REQUEST_CONFLICT';

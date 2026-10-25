@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const migration = readFileSync(resolve(process.cwd(), 'migrations/091_expense_presets.sql'), 'utf8');
+const integrity = readFileSync(resolve(process.cwd(), 'migrations/093_expense_preset_integrity.sql'), 'utf8');
 const owner = '00000000-0000-0000-0000-000000000001';
 const admin = '00000000-0000-0000-0000-000000000002';
 const club = '10000000-0000-0000-0000-000000000001';
@@ -50,9 +51,8 @@ beforeAll(async () => {
     alter default privileges in schema public grant all on tables to authenticated;
     grant all on public.expenses to authenticated;
   `);
-  await db.exec(migration);
-  // Re-runnable.
-  await db.exec(migration);
+  // Both re-runnable.
+  for (const sql of [migration, migration, integrity, integrity]) await db.exec(sql);
   await db.exec(`
     insert into public.expense_presets (id, club_id, name, category, payment_source, monthly_amount) values
       ('${power}', '${club}', 'Electricity', 'electricity', 'game_club', 3000000),
@@ -69,6 +69,12 @@ describe('expense presets migration (091)', () => {
       "insert into public.expense_presets (club_id, name, category, monthly_amount) values ($1, 'Server maintenance', 'equipment', 400000)",
       [club],
     ));
+    // 093: the author is the signed-in owner.
+    const author = await db.query<{ created_by: string }>("select created_by from public.expense_presets where name = 'Server maintenance'");
+    expect(author.rows).toEqual([{ created_by: owner }]);
+    await expect(asUser(owner, () => db.query(
+      "insert into public.expense_presets (club_id, name, category, created_by) values ($1, 'Rent', 'rent', $2)", [club, admin],
+    ))).rejects.toThrow(/row-level security/);
     await expect(asUser(admin, () => db.query(
       "insert into public.expense_presets (club_id, name, category) values ($1, 'Rent', 'rent')", [club],
     ))).rejects.toThrow(/row-level security/);
@@ -105,5 +111,23 @@ describe('expense presets migration (091)', () => {
     await expect(db.query(
       "insert into public.expense_presets (club_id, name, category, payment_source) values ($1, 'Fridge service', 'repair', 'bar')", [club],
     )).resolves.toBeDefined();
+  });
+
+  it('fixes the category and money source once a payment links to the preset (093)', async () => {
+    await db.query(
+      "insert into public.expense_presets (id, club_id, name, category) values ('20000000-0000-0000-0000-000000000009', $1, 'Cleaning firm', 'cleaning')",
+      [club],
+    );
+    const unused = '20000000-0000-0000-0000-000000000009';
+    // A preset nothing links to yet can still be corrected.
+    await expect(asUser(owner, () => db.query("update public.expense_presets set category = 'supplies' where id = $1", [unused])))
+      .resolves.toBeDefined();
+    await expect(asUser(owner, () => db.query("update public.expense_presets set payment_source = 'bar' where id = $1", [power])))
+      .rejects.toThrow(/cannot change/);
+    await expect(asUser(owner, () => db.query("update public.expense_presets set category = 'rent' where id = $1", [power])))
+      .rejects.toThrow(/cannot change/);
+    await expect(asUser(owner, () => db.query(
+      "update public.expense_presets set name = 'Power', monthly_amount = 3200000 where id = $1", [power],
+    ))).resolves.toBeDefined();
   });
 });

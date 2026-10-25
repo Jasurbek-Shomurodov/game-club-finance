@@ -661,7 +661,8 @@
       "invalidValues": "Ayrim qiymatlar noto‘g‘ri. Summa, toifa va sanani tekshiring.",
       "notFound": "Bu xarajat endi mavjud emas. Sahifani yangilang.",
       "salaryPaymentImmutable": "Maosh to‘lovlarini faqat «Maoshlar» sahifasida o‘chirish mumkin.",
-      "serverError": "Serverda xatolik yuz berdi. Birozdan so‘ng qayta urinib ko‘ring."
+      "serverError": "Serverda xatolik yuz berdi. Birozdan so‘ng qayta urinib ko‘ring.",
+      "presetUnavailable": "Bu rejalashtirilgan xarajat arxivlangan yoki o'zgargan. Uni qayta yoki boshqasini tanlang."
     },
     "preset": "Rejalashtirilgan xarajat",
     "presetHelp": "Bu to'lovni oylik rejaga hisoblash uchun tanlang.",
@@ -843,7 +844,8 @@
       "namePlaceholder": "Masalan: Elektr, iCafe, Server xizmati",
       "monthlyAmount": "Oylik reja",
       "monthlyAmountHelp": "Har oy to'lashni kutayotgan summangiz.",
-      "perMonth": "oy"
+      "perMonth": "oy",
+      "termsLocked": "Bu rejalashtirilgan xarajatga to'lovlar yozilgan, shuning uchun kategoriya va pul manbai o'zgarmaydi."
     }
   },
   "team": {

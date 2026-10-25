@@ -320,6 +320,17 @@ describe('expense creation route', () => {
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: 'Expense change failed', code: 'SERVER_ERROR' });
   });
+
+  it('reports an archived or mismatched planned expense with its own code', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const presetId = '9b2f4c1e-3d5a-4e6f-8a7b-1c2d3e4f5a6b';
+    for (const message of ['Expense preset is not available.', 'Expense does not match its preset.']) {
+      mockCreate({ upserted: null, insertError: { message, code: '23514' } });
+      const response = await create({ ...body, presetId });
+      expect(response.status).toBe(409);
+      expect((await response.json()).code).toBe('PRESET_UNAVAILABLE');
+    }
+  });
 });
 
 describe('expense payment method route', () => {

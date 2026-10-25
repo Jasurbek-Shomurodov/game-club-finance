@@ -3,6 +3,7 @@ import { uuid_ossp } from '@electric-sql/pglite/contrib/uuid_ossp';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { EXPENSE_CATEGORIES, MANUAL_EXPENSE_CATEGORIES } from '@/lib/expenseCategories';
 
 /**
  * The /cr pass 9 migration replay and schema drift checks (MIG-008, MIG-009,
@@ -143,5 +144,21 @@ describe('row types match the migrated tables (schema drift)', () => {
       if (missingInType.length || missingInTable.length) drift[name] = { table, missingInType, missingInTable };
     }
     expect(drift).toEqual({});
+  });
+});
+
+describe('expense category checks match the application lists', () => {
+  /** The quoted values of a check constraint after the whole chain. */
+  const allowed = async (table: string, constraint: string) => {
+    const { rows } = await db.query<{ def: string }>(
+      'select pg_get_constraintdef(oid) as def from pg_constraint where conrelid = $1::regclass and conname = $2',
+      [`public.${table}`, constraint],
+    );
+    return [...rows[0].def.matchAll(/'([a-z_]+)'/g)].map((match) => match[1]).sort();
+  };
+
+  it('expenses allow every category and planned expenses every manual one (091, 093)', async () => {
+    expect(await allowed('expenses', 'expenses_category_allowed')).toEqual([...EXPENSE_CATEGORIES].sort());
+    expect(await allowed('expense_presets', 'expense_presets_category_manual')).toEqual([...MANUAL_EXPENSE_CATEGORIES].sort());
   });
 });

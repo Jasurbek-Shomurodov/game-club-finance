@@ -3092,11 +3092,6 @@
       {
         "kind": "policy",
         "table": "public.expense_presets",
-        "name": "club_owner_insert_expense_presets"
-      },
-      {
-        "kind": "policy",
-        "table": "public.expense_presets",
         "name": "club_owner_update_expense_presets"
       },
       {
@@ -3241,6 +3236,20 @@
       {
         "kind": "function",
         "signature": "public.delete_money_exchange(uuid,uuid)"
+      }
+    ]
+  },
+  {
+    "file": "093_expense_preset_integrity.sql",
+    "probes": [
+      {
+        "kind": "trigger",
+        "table": "public.expense_presets",
+        "name": "trg_expense_preset_terms_guard"
+      },
+      {
+        "kind": "function",
+        "signature": "public.enforce_expense_preset_terms()"
       }
     ]
   }
