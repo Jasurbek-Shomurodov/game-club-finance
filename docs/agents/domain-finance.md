@@ -51,6 +51,15 @@ Financial analysis labels `income - spent` per side as **Profit** (accounting
 profit, after bar cost of goods sold). The dashboard's "Money left" is cash left;
 do not label one as the other.
 
+Financial analysis has two tabs. **Monthly** analyses one calendar month and
+compares it with the previous month (the same days of it while the month is in
+progress). **Overall** covers every month since the club's first ledger row:
+each side's all-time profit, month-by-month history (`buildMonthlyAnalysis`,
+`buildOverallSummary`) and, for users with `owner_profit` access, each side's
+owner profit earned, withdrawn and left to take, summed over the months by
+`sumAvailableMoneyResults` from the same `fetchOwnerMoney` read as Owner Profit.
+Owner profit is cash-based, so its "earned" differs from accounting profit.
+
 `debtIncome` in financial reports represents new debt principal for the period.
 Debt payments are collections used in retained/available game-club money; do not
 count the same cash as both new income and collection without checking the

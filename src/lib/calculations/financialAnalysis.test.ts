@@ -6,6 +6,9 @@ import {
   buildCategoryDetail,
   buildFinancialAnalysis,
   buildMonthlyAnalysis,
+  buildOverallSummary,
+  firstLedgerDate,
+  monthsSpanned,
   barFlow,
   foldCategories,
   gameClubFlow,
@@ -173,6 +176,36 @@ describe('buildMonthlyAnalysis', () => {
     expect(months[0].month).toBe('2025-10-01');
     expect(months[11]).toEqual({ month: '2026-09-01', gameClubIncome: 295_000, gameClubLeft: 205_000, barSales: 50_000, barLeft: 10_000 });
     expect(months[10]).toEqual({ month: '2026-08-01', gameClubIncome: 0, gameClubLeft: 0, barSales: 0, barLeft: 0 });
+  });
+});
+
+describe('overall helpers', () => {
+  it('finds the first dated ledger row', () => {
+    expect(firstLedgerDate(ledgers)).toBe('2026-09-01');
+    expect(firstLedgerDate({ cashRows: [], stockRows: [], expenseRows: [], debtRows: [], debtPaymentRows: [] })).toBeNull();
+  });
+
+  it('counts calendar months inclusively', () => {
+    expect(monthsSpanned('2025-11-20', '2026-02-03')).toBe(4);
+    expect(monthsSpanned('2026-10-01', '2026-10-25')).toBe(1);
+    expect(monthsSpanned('2026-11-01', '2026-10-25')).toBe(1);
+  });
+
+  it('summarises each side separately', () => {
+    const row = (month: string, gameClubLeft: number, barLeft: number) => ({
+      month, gameClubIncome: gameClubLeft === 0 ? 0 : 100, gameClubLeft, barSales: barLeft === 0 ? 0 : 50, barLeft,
+    });
+    const summary = buildOverallSummary([row('2026-07-01', 0, 0), row('2026-08-01', 300, -20), row('2026-09-01', -60, 40)]);
+    expect(summary.months).toBe(3);
+    expect(summary.gameClub).toEqual({
+      averageMonthlyProfit: 80,
+      best: { month: '2026-08-01', profit: 300 },
+      worst: { month: '2026-09-01', profit: -60 },
+      lossMonths: 1,
+    });
+    expect(summary.bar.best).toEqual({ month: '2026-09-01', profit: 40 });
+    expect(summary.bar.worst).toEqual({ month: '2026-08-01', profit: -20 });
+    expect(buildOverallSummary([]).gameClub).toEqual({ averageMonthlyProfit: 0, best: null, worst: null, lossMonths: 0 });
   });
 });
 

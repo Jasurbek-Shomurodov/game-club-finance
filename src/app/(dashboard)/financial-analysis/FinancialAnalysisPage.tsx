@@ -2,15 +2,12 @@
 
 // Route: /financial-analysis
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDownRight,
   CalendarDays,
   MonitorSmartphone,
   Percent,
   ShoppingBag,
-  Wallet,
-  type LucideIcon,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
@@ -19,28 +16,25 @@ import { createClient } from '@/lib/supabase/client';
 import { fetchAnalysisLedgers } from '@/lib/supabase/analysisLedgers';
 import { fetchExpensePresets, fetchPresetExpenses } from '@/lib/supabase/expensePresets';
 import { useBusinessToday } from '@/lib/useBusinessToday';
+import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { useClub } from '@/components/layout/DashboardShell';
 import { cn, monthRange } from '@/lib/utils';
 import { formatCurrency, formatDateShort } from '@/lib/formatters';
 import {
-  AmountCard,
   ChartSkeleton,
-  DateRangePicker,
   LoadErrorAlert,
-  MetricCard,
   MetricGridSkeleton,
+  MonthPicker,
   PageHeader,
-  toneForAmount,
-  type MetricTone,
+  SegmentedControl,
 } from '@/components/PresentationFoundation';
 import { ChartCard, ChartEmpty } from '@/components/dashboard/ChartCard';
 import {
   getDashboardComparisonRange,
   percentChange,
 } from '@/lib/calculations/dashboardMetrics';
-import { dashboardPeriodForRange, initialDashboardRange } from '@/lib/calculations/dashboardRangeState';
 import {
   BAR_COST_TARGET,
   buildCategoryComparison,
@@ -51,7 +45,6 @@ import {
   type AnalysisLedgers,
   type MonthlyAnalysisRow,
   type PaymentMethodFlowRow,
-  type SourceIndicators,
 } from '@/lib/calculations/financialAnalysis';
 import { buildExpensePlanSummary, type ExpensePlanSummary } from '@/lib/calculations/expensePlans';
 import { ExpensePlanPanel } from '@/components/financial-analysis/ExpensePlanPanel';
@@ -63,6 +56,8 @@ import {
   PaymentMethodFlow,
 } from '@/components/financial-analysis/AnalysisPanels';
 import { CategoryDrawer } from '@/components/financial-analysis/CategoryDrawer';
+import { Indicator, Section, SourceCards } from '@/components/financial-analysis/AnalysisSections';
+import { OverallAnalysis } from '@/components/financial-analysis/OverallAnalysis';
 import { categoryColors, formatShare, SIDE_ICON_CLASS } from '@/components/financial-analysis/analysisFormat';
 
 function ChartLoading() {
@@ -114,134 +109,86 @@ function firstMonthOfWindow(businessToday: string, months = 12): string {
   return `${Math.floor(absolute / 12)}-${String((absolute % 12) + 1).padStart(2, '0')}-01`;
 }
 
-function Section({ title, description, icon: Icon, iconClassName, children }: {
-  title: string;
-  description?: string;
-  icon?: LucideIcon;
-  iconClassName?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="space-y-3">
-      <div>
-        <h2 className="flex items-center gap-2 text-base font-semibold text-gray-950">
-          {Icon && <Icon size={18} className={cn('shrink-0', iconClassName)} aria-hidden="true" />}
-          {title}
-        </h2>
-        {description && <p className="mt-0.5 text-sm text-gray-500">{description}</p>}
-      </div>
-      {children}
-    </section>
-  );
-}
+type AnalysisView = 'monthly' | 'overall';
 
-/** Small ratio tile: icon, label, value, optional 0–100 meter and a caption. */
-function Indicator({ icon, iconClassName, label, value, helper, meter, tone = 'default', loading }: {
-  icon: LucideIcon;
-  iconClassName?: string;
-  label: string;
-  value: string;
-  helper: string;
-  meter?: number | null;
-  tone?: MetricTone;
-  loading: boolean;
-}) {
-  const meterColor = tone === 'danger' ? 'bg-danger-500' : tone === 'success' ? 'bg-success-500' : tone === 'warning' ? 'bg-warning-500' : 'bg-primary-600';
-  return (
-    <MetricCard
-      loading={loading}
-      icon={icon}
-      iconClassName={iconClassName}
-      label={label}
-      value={value}
-      tone={tone}
-      helper={(
-        <>
-          {meter !== undefined && meter !== null && (
-            <span className="mb-2 block h-1.5 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
-              <span className={cn('block h-full rounded-full', meterColor)} style={{ width: `${Math.min(100, Math.max(0, meter))}%` }} />
-            </span>
-          )}
-          {helper}
-        </>
-      )}
-    />
-  );
-}
-
-/** Money in, spent and accounting profit for one side of the club; the two sides are never added together. */
-function SourceCards({ title, icon, iconClassName, incomeLabel, now, before, loading, currency, compare }: {
-  title: string;
-  icon: LucideIcon;
-  /** The side's colour, so club and bar cards are told apart at a glance. */
-  iconClassName: string;
-  incomeLabel: string;
-  now: SourceIndicators;
-  before: SourceIndicators;
-  loading: boolean;
-  currency: string;
-  compare: (now: number, before: number) => { value: number | null; label: string };
-}) {
-  const t = useTranslations('financialAnalysis');
-  return (
-    <Section title={title} icon={icon} iconClassName={iconClassName}>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <AmountCard
-          loading={loading}
-          currency={currency}
-          label={incomeLabel}
-          amount={now.income}
-          icon={icon}
-          iconClassName={iconClassName}
-          tone="success"
-          comparison={compare(now.income, before.income)}
-        />
-        <AmountCard
-          loading={loading}
-          currency={currency}
-          label={t('spent')}
-          amount={now.spent}
-          icon={ArrowDownRight}
-          iconClassName={iconClassName}
-          tone="danger"
-          comparison={compare(now.spent, before.spent)}
-          comparisonGoodWhen="down"
-        />
-        <AmountCard
-          loading={loading}
-          currency={currency}
-          label={t('profit')}
-          amount={now.left}
-          icon={Wallet}
-          iconClassName={iconClassName}
-          tone={toneForAmount(now.left)}
-          comparison={compare(now.left, before.left)}
-        />
-      </div>
-    </Section>
-  );
+/** The month in the link (`month`, or the month a dashboard `from`/`to` range ends in), else the business month. */
+function initialMonth(searchParams: URLSearchParams | { get(name: string): string | null }, businessMonth: string): string {
+  const fromQuery = searchParams.get('month') ?? searchParams.get('to')?.slice(0, 7) ?? null;
+  return fromQuery && /^\d{4}-(0[1-9]|1[0-2])$/.test(fromQuery) && fromQuery <= businessMonth ? fromQuery : businessMonth;
 }
 
 export default function FinancialAnalysisPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { selectedClubId, businessDayStartHour, enabledPaymentMethods } = useClub();
+  const { businessDayStartHour } = useClub();
+  const t = useTranslations('financialAnalysis');
+  const businessToday = useBusinessToday(businessDayStartHour);
+  const businessMonth = businessToday.slice(0, 7);
+  const [view, setView] = useState<AnalysisView>(() => (searchParams.get('view') === 'overall' ? 'overall' : 'monthly'));
+  const [month, setMonth] = useState(() => initialMonth(searchParams, businessMonth));
+  const range = useMemo(() => monthRange(month), [month]);
+
+  // A month the user picked is kept on rollover; the default month follows the business month.
+  useBusinessRollover(businessMonth, (previousMonth, nextMonth) => {
+    setMonth((current) => (current === previousMonth ? nextMonth : current));
+  });
+
+  // Keep the view and month shareable.
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    for (const key of ['period', 'from', 'to', 'month', 'view']) params.delete(key);
+    if (view === 'overall') params.set('view', 'overall');
+    else params.set('month', month);
+    const nextQuery = params.toString();
+    if (nextQuery !== searchParams.toString()) {
+      window.history.replaceState(null, '', `${pathname}?${nextQuery}`);
+    }
+  }, [month, pathname, searchParams, view]);
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title={t('title')}
+        className="mb-0"
+        tabs={(
+          <SegmentedControl
+            variant="tabs"
+            label={t('viewSwitcher')}
+            options={[
+              { value: 'monthly', label: t('monthlyView') },
+              { value: 'overall', label: t('overallView') },
+            ]}
+            value={view}
+            onChange={setView}
+          />
+        )}
+        action={view === 'monthly' ? (
+          <MonthPicker value={month} max={businessMonth} onChange={setMonth} className="sm:w-56" />
+        ) : undefined}
+      />
+      {view === 'monthly'
+        ? <MonthlyAnalysis range={range} businessToday={businessToday} />
+        : <OverallAnalysis businessToday={businessToday} />}
+    </div>
+  );
+}
+
+function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday: string }) {
+  const { selectedClubId, enabledPaymentMethods } = useClub();
   const { locale } = useAppLocale();
   const t = useTranslations('financialAnalysis');
   const td = useTranslations('dashboard');
   const tc = useTranslations('common');
   const tCategories = useTranslations('expenses.categories');
   const currency = tc('currency');
-  const businessToday = useBusinessToday(businessDayStartHour);
-  const [range, setRange] = useState<Range>(() => initialDashboardRange(searchParams, businessToday));
-  const period = useMemo(() => dashboardPeriodForRange(range, businessToday), [businessToday, range]);
+  // The current month is compared with the same days of last month; a past month with all of the month before.
   const previousRange = useMemo(
-    () => getDashboardComparisonRange(period, range, businessToday),
-    [businessToday, period, range],
+    () => getDashboardComparisonRange(range.from.slice(0, 7) === businessToday.slice(0, 7) ? 'month' : 'lastMonth', range, businessToday),
+    [businessToday, range],
   );
-  // The 12-month trend window; a selected period inside it reuses its read. It
-  // ends with the current month (not today) so the default month-to-month view,
-  // whose range runs to the month's last day, shares this one RPC.
+  // The 12-month trend window; a selected month inside it reuses its read. It
+  // ends with the current month (not today) so the current month, whose range
+  // runs to the month's last day, shares this one RPC.
   const monthlyWindow = useMemo(
     () => ({ from: firstMonthOfWindow(businessToday), to: monthRange(businessToday.slice(0, 7)).to }),
     [businessToday],
@@ -258,19 +205,6 @@ export default function FinancialAnalysisPage() {
   const [drawerCategory, setDrawerCategory] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Keep the range shareable, like the dashboard.
-  useEffect(() => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete('period');
-    params.set('from', range.from);
-    params.set('to', range.to);
-    const nextQuery = params.toString();
-    if (nextQuery !== searchParams.toString()) {
-      window.history.replaceState(null, '', `${pathname}?${nextQuery}`);
-    }
-  }, [pathname, range.from, range.to, searchParams]);
-
-  /** One shared read of the 12-month window per club, day and retry. */
   const loadMonthlyWindow = useCallback((clubId: string) => {
     const key = `${clubId}:${monthlyWindow.from}:${monthlyWindow.to}`;
     if (windowRequest.current?.key === key) return windowRequest.current.promise;
@@ -377,23 +311,7 @@ export default function FinancialAnalysisPage() {
   const hasActivity = [indicators.gameClub, indicators.bar].some((side) => side.income > 0 || side.spent > 0);
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title={t('title')}
-        className="mb-0"
-        action={(
-          <DateRangePicker
-            from={range.from}
-            to={range.to}
-            fromLabel={td('from')}
-            toLabel={td('to')}
-            max={businessToday}
-            className="sm:w-80"
-            onChange={setRange}
-          />
-        )}
-      />
-
+    <>
       {error && (
         <LoadErrorAlert retrying={loading} onRetry={retryAll}>
           {t('loadError')}
@@ -595,6 +513,6 @@ export default function FinancialAnalysisPage() {
         locale={locale}
         currency={currency}
       />
-    </div>
+    </>
   );
 }

@@ -123,7 +123,7 @@ export function MonthlyTrendChart({ data, locale, currency }: { data: MonthlyAna
               dataKey="month"
               {...axisProps}
               axisLine={{ stroke: chartColors.grid }}
-              interval={0}
+              interval={data.length > 12 ? 'preserveStartEnd' : 0}
               tickFormatter={(month: string) => formatMonthShort(month, locale)}
             />
             <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
@@ -136,8 +136,8 @@ export function MonthlyTrendChart({ data, locale, currency }: { data: MonthlyAna
             />
             <Bar dataKey="gameClubIncome" fill={chartColors.primary} radius={[3, 3, 0, 0]} maxBarSize={20} />
             <Bar dataKey="barSales" fill={chartColors.orange} radius={[3, 3, 0, 0]} maxBarSize={20} />
-            <Line dataKey="gameClubLeft" type="monotone" stroke={chartColors.success} strokeWidth={2.5} dot={{ r: 3 }} />
-            <Line dataKey="barLeft" type="monotone" stroke={chartColors.purple} strokeWidth={2.5} dot={{ r: 3 }} />
+            <Line dataKey="gameClubLeft" type="monotone" stroke={chartColors.success} strokeWidth={2.5} dot={data.length <= 24 ? { r: 3 } : false} />
+            <Line dataKey="barLeft" type="monotone" stroke={chartColors.purple} strokeWidth={2.5} dot={data.length <= 24 ? { r: 3 } : false} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>

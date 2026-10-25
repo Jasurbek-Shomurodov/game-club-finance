@@ -373,6 +373,55 @@ export function buildMonthlyAnalysis(
   });
 }
 
+/** Earliest dated row across the analysis ledgers, or null when the club has none. */
+export function firstLedgerDate(ledgers: Omit<AnalysisLedgers, 'purchaseRows'>): string | null {
+  let first: string | null = null;
+  for (const rows of [ledgers.cashRows, ledgers.stockRows, ledgers.expenseRows, ledgers.debtRows, ledgers.debtPaymentRows]) {
+    for (const row of rows as Array<{ date?: string }>) {
+      if (row.date && (first === null || row.date < first)) first = row.date;
+    }
+  }
+  return first;
+}
+
+/** Calendar months from `from` through `to`, both included (at least one). */
+export function monthsSpanned(from: string, to: string): number {
+  const [fromYear, fromMonth] = from.split('-').map(Number);
+  const [toYear, toMonth] = to.split('-').map(Number);
+  return Math.max(1, (toYear * 12 + toMonth) - (fromYear * 12 + fromMonth) + 1);
+}
+
+export interface OverallSideSummary {
+  /** Average monthly profit over every month in the history, empty months included. */
+  averageMonthlyProfit: number;
+  best: { month: string; profit: number } | null;
+  worst: { month: string; profit: number } | null;
+  /** Months that ended with a loss. */
+  lossMonths: number;
+}
+
+/** Average, best and worst month of each side's profit; the sides are never combined. */
+export function buildOverallSummary(rows: MonthlyAnalysisRow[]): { months: number; gameClub: OverallSideSummary; bar: OverallSideSummary } {
+  const side = (profitOf: (row: MonthlyAnalysisRow) => number, incomeOf: (row: MonthlyAnalysisRow) => number): OverallSideSummary => {
+    const active = rows.filter((row) => incomeOf(row) !== 0 || profitOf(row) !== 0);
+    const pick = (better: (a: number, b: number) => boolean) => active.reduce<OverallSideSummary['best']>(
+      (found, row) => (found === null || better(profitOf(row), found.profit) ? { month: row.month, profit: profitOf(row) } : found),
+      null,
+    );
+    return {
+      averageMonthlyProfit: rows.length ? Math.round(rows.reduce((sum, row) => sum + profitOf(row), 0) / rows.length) : 0,
+      best: pick((a, b) => a > b),
+      worst: pick((a, b) => a < b),
+      lossMonths: active.filter((row) => profitOf(row) < 0).length,
+    };
+  };
+  return {
+    months: rows.length,
+    gameClub: side((row) => row.gameClubLeft, (row) => row.gameClubIncome),
+    bar: side((row) => row.barLeft, (row) => row.barSales),
+  };
+}
+
 export interface CategoryDetail {
   category: string;
   /** Newest first. */

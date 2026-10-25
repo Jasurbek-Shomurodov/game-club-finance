@@ -17,10 +17,12 @@ export interface CategoryDrawerProps {
   periodLabel: string;
   locale: string;
   currency: string;
+  /** Hide the previous-period comparison where there is no earlier period (the overall view). */
+  showPrevious?: boolean;
 }
 
 /** Slide-in panel with every payment behind one expense category of the period. */
-export function CategoryDrawer({ open, onClose, detail, color, labelFor, periodLabel, locale, currency }: CategoryDrawerProps) {
+export function CategoryDrawer({ open, onClose, detail, color, labelFor, periodLabel, locale, currency, showPrevious = true }: CategoryDrawerProps) {
   const t = useTranslations('financialAnalysis');
   const td = useTranslations('dashboard');
   const money = (amount: number) => `${formatCurrency(amount)} ${currency}`;
@@ -52,16 +54,18 @@ export function CategoryDrawer({ open, onClose, detail, color, labelFor, periodL
             <StatTile variant="soft" size="sm" label={t('drawerAverage')} value={formatCurrency(detail.average)} unit={currency} />
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 px-3 py-2.5 text-sm">
-            <span className="text-gray-500">{t('previous')}: <span className="font-semibold tabular-nums text-gray-900">{money(detail.previousTotal)}</span></span>
-            {detail.changePct === null ? (
-              <Badge variant="neutral">{detail.total > 0 ? t('newItem') : '—'}</Badge>
-            ) : (
-              <Badge variant={detail.changePct === 0 ? 'neutral' : up ? 'danger' : 'success'} className="tabular-nums">
-                {up ? '+' : detail.changePct < 0 ? '−' : ''}{formatShare(Math.abs(detail.changePct), locale)}
-              </Badge>
-            )}
-          </div>
+          {showPrevious && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 px-3 py-2.5 text-sm">
+              <span className="text-gray-500">{t('previous')}: <span className="font-semibold tabular-nums text-gray-900">{money(detail.previousTotal)}</span></span>
+              {detail.changePct === null ? (
+                <Badge variant="neutral">{detail.total > 0 ? t('newItem') : '—'}</Badge>
+              ) : (
+                <Badge variant={detail.changePct === 0 ? 'neutral' : up ? 'danger' : 'success'} className="tabular-nums">
+                  {up ? '+' : detail.changePct < 0 ? '−' : ''}{formatShare(Math.abs(detail.changePct), locale)}
+                </Badge>
+              )}
+            </div>
+          )}
 
           {detail.total > 0 && (
             <div>
