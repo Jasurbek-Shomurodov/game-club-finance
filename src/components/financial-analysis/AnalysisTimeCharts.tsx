@@ -21,7 +21,7 @@ import {
 } from '@/lib/calculations/financialAnalysis';
 import { SPENDING_GROUP_COLORS } from './analysisFormat';
 
-function LegendItem({ color, label, line = false }: { color: string; label: string; line?: boolean }) {
+export function LegendItem({ color, label, line = false }: { color: string; label: string; line?: boolean }) {
   return (
     <span className="inline-flex items-center gap-1.5">
       {line
@@ -32,7 +32,7 @@ function LegendItem({ color, label, line = false }: { color: string; label: stri
   );
 }
 
-const axisProps = {
+export const axisProps = {
   tick: { fontSize: 11, fill: chartColors.axis },
   tickLine: false,
 } as const;

@@ -114,6 +114,7 @@
     "src/components/financial-analysis/ExpensePlanPanel.tsx",
     "src/components/financial-analysis/MoneyFlowSankeys.tsx",
     "src/components/financial-analysis/OverallAnalysis.tsx",
+    "src/components/financial-analysis/OverallCharts.tsx",
     "src/components/financial-analysis/PaymentList.tsx",
     "src/components/financial-analysis/SankeyDrillModal.tsx",
     "src/components/financial-analysis/SankeyFlowChart.tsx",

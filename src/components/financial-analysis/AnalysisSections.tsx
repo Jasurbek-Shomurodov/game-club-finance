@@ -12,21 +12,26 @@ import {
 } from '@/components/PresentationFoundation';
 import type { SourceIndicators } from '@/lib/calculations/financialAnalysis';
 
-export function Section({ title, description, icon: Icon, iconClassName, children }: {
+export function Section({ title, description, icon: Icon, iconClassName, action, children }: {
   title: string;
   description?: string;
   icon?: LucideIcon;
   iconClassName?: string;
+  /** Control beside the heading, e.g. a grouping switch. */
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <section className="space-y-3">
-      <div>
-        <h2 className="flex items-center gap-2 text-base font-semibold text-gray-950">
-          {Icon && <Icon size={18} className={cn('shrink-0', iconClassName)} aria-hidden="true" />}
-          {title}
-        </h2>
-        {description && <p className="mt-0.5 text-sm text-gray-500">{description}</p>}
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0 flex-1 basis-64">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-gray-950">
+            {Icon && <Icon size={18} className={cn('shrink-0', iconClassName)} aria-hidden="true" />}
+            {title}
+          </h2>
+          {description && <p className="mt-0.5 text-sm text-gray-500">{description}</p>}
+        </div>
+        {action}
       </div>
       {children}
     </section>

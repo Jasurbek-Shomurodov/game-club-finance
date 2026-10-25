@@ -6,11 +6,8 @@ import {
   ArrowRight,
   CircleDollarSign,
   MonitorSmartphone,
-  Percent,
   PiggyBank,
   ShoppingBag,
-  TrendingDown,
-  TrendingUp,
   Wallet,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -31,12 +28,22 @@ import {
   DataTable,
   LoadErrorAlert,
   MetricGridSkeleton,
+  SegmentedControl,
   metricToneClassName,
   toneForAmount,
   type DataTableColumn,
 } from '@/components/PresentationFoundation';
 import { ChartCard, ChartEmpty } from '@/components/dashboard/ChartCard';
 import { sumAvailableMoneyResults, type AvailableSourceBalance } from '@/lib/calculations/availableMoney';
+import {
+  buildCategorySeries,
+  buildOwnerMonthSeries,
+  buildPeriodSeries,
+  buildProfitMonths,
+  buildWeekdayPattern,
+  granularityRange,
+  type Granularity,
+} from '@/lib/calculations/analysisSeries';
 import {
   BAR_COST_TARGET,
   buildCategoryDetail,
@@ -52,17 +59,22 @@ import {
 import { MoneyFlowSankeys } from './MoneyFlowSankeys';
 import { CategoryDonut, LargestPayments } from './AnalysisPanels';
 import { CategoryDrawer } from './CategoryDrawer';
-import { Indicator, Section, SourceCards } from './AnalysisSections';
+import { Section, SourceCards } from './AnalysisSections';
 import { categoryColors, formatShare, SIDE_ICON_CLASS } from './analysisFormat';
 
 function ChartLoading() {
   return <ChartSkeleton />;
 }
 
-const MonthlyTrendChart = dynamic(
-  () => import('./AnalysisTimeCharts').then((module) => module.MonthlyTrendChart),
-  { ssr: false, loading: ChartLoading },
-);
+// One recharts chunk for every overall chart, requested once.
+const loadCharts = () => import('./OverallCharts');
+const SideFlowChart = dynamic(() => loadCharts().then((module) => module.SideFlowChart), { ssr: false, loading: ChartLoading });
+const CumulativeProfitChart = dynamic(() => loadCharts().then((module) => module.CumulativeProfitChart), { ssr: false, loading: ChartLoading });
+const IncomeMixChart = dynamic(() => loadCharts().then((module) => module.IncomeMixChart), { ssr: false, loading: ChartLoading });
+const CategoryTrendChart = dynamic(() => loadCharts().then((module) => module.CategoryTrendChart), { ssr: false, loading: ChartLoading });
+const WeekdayChart = dynamic(() => loadCharts().then((module) => module.WeekdayChart), { ssr: false, loading: ChartLoading });
+const ProfitMonthsChart = dynamic(() => loadCharts().then((module) => module.ProfitMonthsChart), { ssr: false, loading: ChartLoading });
+const OwnerMonthsChart = dynamic(() => loadCharts().then((module) => module.OwnerMonthsChart), { ssr: false, loading: ChartLoading });
 
 /** Before the first ledger row; the analysis then starts at the club's first entry. */
 const HISTORY_START = '2000-01-01';
@@ -126,6 +138,23 @@ function OwnerSideCards({ side, balance, loading, currency }: {
   );
 }
 
+/** Compact figures above a side's profit-by-month chart. */
+function ProfitStats({ items }: { items: Array<{ label: string; value: string; helper?: string; tone?: ReturnType<typeof toneForAmount> }> }) {
+  return (
+    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
+      {items.map((item) => (
+        <div key={item.label} className="min-w-0">
+          <dt className="truncate text-xs text-gray-500">{item.label}</dt>
+          <dd className={cn('truncate text-sm font-semibold tabular-nums', item.tone ? metricToneClassName[item.tone] : 'text-gray-950')}>
+            {item.value}
+          </dd>
+          {item.helper && <dd className="truncate text-xs text-gray-500">{item.helper}</dd>}
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 export function OverallAnalysis({ businessToday }: { businessToday: string }) {
   const { selectedClubId, role, featureAccess } = useClub();
   const { locale } = useAppLocale();
@@ -137,6 +166,7 @@ export function OverallAnalysis({ businessToday }: { businessToday: string }) {
   const showOwnerProfit = canAccessFeature(role, featureAccess, 'owner_profit');
   const [drawerCategory, setDrawerCategory] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [granularity, setGranularity] = useState<Granularity>('week');
 
   // Every ledger row through today, in one read; the history starts at the first entry.
   const loadLedgers = useCallback(async () => {
@@ -173,8 +203,22 @@ export function OverallAnalysis({ businessToday }: { businessToday: string }) {
   const { analysis, months, summary, range } = history;
   const colors = useMemo(() => categoryColors(analysis.topCategories), [analysis.topCategories]);
 
+  const series = useMemo(() => {
+    const window = granularityRange(range, granularity);
+    return {
+      periods: buildPeriodSeries(window, history.ledgers, granularity),
+      categories: buildCategorySeries(window, history.ledgers.expenseRows, granularity, analysis.topCategories),
+    };
+  }, [analysis.topCategories, granularity, history.ledgers, range]);
+  const weekdays = useMemo(() => buildWeekdayPattern(range, history.ledgers), [history.ledgers, range]);
+  const profitMonths = useMemo(() => ({
+    gameClub: buildProfitMonths(months, 'gameClub'),
+    bar: buildProfitMonths(months, 'bar'),
+  }), [months]);
+
   const balancesByMonth = (ownerMoney ?? EMPTY_OWNER_MONEY).balancesByMonth;
   const ownerTotals = useMemo(() => sumAvailableMoneyResults(Object.values(balancesByMonth)), [balancesByMonth]);
+  const ownerMonths = useMemo(() => buildOwnerMonthSeries(balancesByMonth), [balancesByMonth]);
 
   const tableRows = useMemo<MonthTableRow[]>(() => months
     .map((row) => {
@@ -224,21 +268,31 @@ export function OverallAnalysis({ businessToday }: { businessToday: string }) {
     ] : []),
   ];
 
-  const bestWorst = (side: Side, which: 'best' | 'worst', data: OverallSideSummary) => {
-    const pick = data[which];
-    return (
-      <Indicator
-        key={`${side}-${which}`}
-        loading={loading}
-        icon={which === 'best' ? TrendingUp : TrendingDown}
-        iconClassName={SIDE_ICON_CLASS[side]}
-        label={t(`${side}${which === 'best' ? 'Best' : 'Worst'}Month`)}
-        value={pick ? money(pick.profit) : '—'}
-        helper={pick ? monthName(pick.month) : t('empty')}
-        tone={pick ? toneForAmount(pick.profit) : 'default'}
-      />
-    );
-  };
+  const profitStats = (side: Side, data: OverallSideSummary) => [
+    {
+      label: t('margin'),
+      value: formatShare(indicators[side].marginPct, locale),
+      tone: indicators[side].marginPct !== null && indicators[side].marginPct < 0 ? 'danger' as const : 'success' as const,
+    },
+    { label: t('average'), value: money(data.averageMonthlyProfit), helper: t('lossMonths', { count: data.lossMonths }), tone: toneForAmount(data.averageMonthlyProfit) },
+    { label: t('best'), value: data.best ? money(data.best.profit) : '—', helper: data.best ? monthName(data.best.month) : undefined, tone: data.best ? toneForAmount(data.best.profit) : undefined },
+    { label: t('worst'), value: data.worst ? money(data.worst.profit) : '—', helper: data.worst ? monthName(data.worst.month) : undefined, tone: data.worst ? toneForAmount(data.worst.profit) : undefined },
+  ];
+  const granularityControl = (
+    <SegmentedControl
+      variant="soft"
+      size="sm"
+      label={t('granularity')}
+      options={[
+        { value: 'day', label: t('granularityDay') },
+        { value: 'week', label: t('granularityWeek') },
+        { value: 'month', label: t('granularityMonth') },
+      ]}
+      value={granularity}
+      onChange={setGranularity}
+      className="w-full sm:w-72"
+    />
+  );
 
   if (ledgerQuery.error) {
     return (
@@ -293,57 +347,17 @@ export function OverallAnalysis({ businessToday }: { businessToday: string }) {
             <div className="space-y-4">
               <OwnerSideCards side="gameClub" balance={ownerTotals.gameClub} loading={ownerLoading} currency={currency} />
               <OwnerSideCards side="bar" balance={ownerTotals.bar} loading={ownerLoading} currency={currency} />
+              <ChartCard title={t('ownerChartTitle')} description={t('ownerChartDesc')}>
+                {ownerLoading
+                  ? <div className="mt-4"><ChartSkeleton /></div>
+                  : ownerMonths.length > 0
+                    ? <OwnerMonthsChart rows={ownerMonths} locale={locale} currency={currency} />
+                    : <ChartEmpty title={t('empty')} className="mt-4" />}
+              </ChartCard>
             </div>
           )}
         </section>
       )}
-
-      <Section title={t('overallSection')} description={t('overallSectionDesc', { count: summary.months })}>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Indicator
-            loading={loading}
-            icon={Percent}
-            iconClassName={SIDE_ICON_CLASS.gameClub}
-            label={t('gameClubMargin')}
-            value={formatShare(indicators.gameClub.marginPct, locale)}
-            helper={t('gameClubMarginHelper')}
-            meter={indicators.gameClub.marginPct}
-            tone={indicators.gameClub.marginPct !== null && indicators.gameClub.marginPct < 0 ? 'danger' : 'success'}
-          />
-          <Indicator
-            loading={loading}
-            icon={Percent}
-            iconClassName={SIDE_ICON_CLASS.bar}
-            label={t('barMargin')}
-            value={formatShare(indicators.bar.marginPct, locale)}
-            helper={t('barMarginHelper')}
-            meter={indicators.bar.marginPct}
-            tone={indicators.bar.marginPct !== null && indicators.bar.marginPct < 0 ? 'danger' : 'success'}
-          />
-          <Indicator
-            loading={loading}
-            icon={Wallet}
-            iconClassName={SIDE_ICON_CLASS.gameClub}
-            label={t('gameClubMonthlyAverage')}
-            value={money(summary.gameClub.averageMonthlyProfit)}
-            helper={t('lossMonths', { count: summary.gameClub.lossMonths })}
-            tone={toneForAmount(summary.gameClub.averageMonthlyProfit)}
-          />
-          <Indicator
-            loading={loading}
-            icon={Wallet}
-            iconClassName={SIDE_ICON_CLASS.bar}
-            label={t('barMonthlyAverage')}
-            value={money(summary.bar.averageMonthlyProfit)}
-            helper={t('lossMonths', { count: summary.bar.lossMonths })}
-            tone={toneForAmount(summary.bar.averageMonthlyProfit)}
-          />
-          {bestWorst('gameClub', 'best', summary.gameClub)}
-          {bestWorst('gameClub', 'worst', summary.gameClub)}
-          {bestWorst('bar', 'best', summary.bar)}
-          {bestWorst('bar', 'worst', summary.bar)}
-        </div>
-      </Section>
 
       {loading ? (
         <div className="space-y-4" role="status" aria-label={tc('loading')}>
@@ -352,12 +366,59 @@ export function OverallAnalysis({ businessToday }: { businessToday: string }) {
         </div>
       ) : (
         <div className="space-y-6">
+          <Section title={t('overallSection')} description={t('overallSectionDesc', { count: summary.months })}>
+            <div className="grid gap-4 xl:grid-cols-2">
+              {(['gameClub', 'bar'] as const).map((side) => (
+                <ChartCard key={side} title={t(side === 'gameClub' ? 'profitMonthsGameClubTitle' : 'profitMonthsBarTitle')} description={t('profitMonthsDesc')}>
+                  <ProfitStats items={profitStats(side, summary[side])} />
+                  {hasActivity
+                    ? <ProfitMonthsChart rows={profitMonths[side]} average={summary[side].averageMonthlyProfit} locale={locale} currency={currency} />
+                    : <ChartEmpty title={t('empty')} className="mt-4" />}
+                </ChartCard>
+              ))}
+            </div>
+          </Section>
+
+          <Section title={t('reportsSection')} description={t('reportsSectionDesc')} action={granularityControl}>
+            {hasActivity ? (
+              <>
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <ChartCard title={t('sideFlowGameClubTitle')} description={t('sideFlowDesc')}>
+                    <SideFlowChart rows={series.periods} side="gameClub" granularity={granularity} locale={locale} currency={currency} />
+                  </ChartCard>
+                  <ChartCard title={t('sideFlowBarTitle')} description={t('sideFlowDesc')}>
+                    <SideFlowChart rows={series.periods} side="bar" granularity={granularity} locale={locale} currency={currency} />
+                  </ChartCard>
+                </div>
+                <ChartCard title={t('cumulativeTitle')} description={t('cumulativeDesc')}>
+                  <CumulativeProfitChart rows={series.periods} granularity={granularity} locale={locale} currency={currency} />
+                </ChartCard>
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <ChartCard title={t('incomeMixTitle')} description={t('incomeMixDesc')}>
+                    <IncomeMixChart rows={series.periods} granularity={granularity} locale={locale} currency={currency} />
+                  </ChartCard>
+                  <ChartCard title={t('categoryTrendTitle')} description={t('categoryTrendDesc')}>
+                    {analysis.topCategories.length > 0 ? (
+                      <CategoryTrendChart
+                        rows={series.categories}
+                        categories={analysis.topCategories}
+                        colors={colors}
+                        labelFor={categoryName}
+                        granularity={granularity}
+                        locale={locale}
+                        currency={currency}
+                      />
+                    ) : <ChartEmpty title={t('noExpenses')} className="mt-4" />}
+                  </ChartCard>
+                </div>
+                <ChartCard title={t('weekdayTitle')} description={t('weekdayDesc')}>
+                  <WeekdayChart rows={weekdays} locale={locale} currency={currency} />
+                </ChartCard>
+              </>
+            ) : <ChartEmpty title={t('empty')} />}
+          </Section>
+
           <Section title={t('trendsSection')} description={t('trendsSectionDesc')}>
-            <ChartCard title={t('overallMonthlyTitle')} description={t('monthlyDesc')}>
-              {hasActivity
-                ? <MonthlyTrendChart data={months} locale={locale} currency={currency} />
-                : <ChartEmpty title={t('empty')} className="mt-4" />}
-            </ChartCard>
             <ChartCard title={t('tableTitle')} description={showOwnerProfit ? t('tableDescOwner') : t('tableDesc')}>
               <DataTable
                 className="mt-4"
