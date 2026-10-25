@@ -1,7 +1,7 @@
 'use client';
 
 import { NextIntlClientProvider, type AbstractIntlMessages } from 'next-intl';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { setFormatterLocale } from '@/lib/formatters';
 import {
   AppLocaleContext,
@@ -37,6 +37,28 @@ export function AppIntlProvider({
   const { locale, messages } = current;
 
   setFormatterLocale(locale);
+
+  // Once the page is idle, fetch the other languages in the background so the
+  // first switch doesn't wait on a download.
+  useEffect(() => {
+    const prefetch = () => {
+      for (const other of Object.keys(loadMessages) as AppLocale[]) {
+        if (loadedMessages.current[other]) continue;
+        loadMessages[other]()
+          .then((otherMessages) => {
+            loadedMessages.current[other] ??= otherMessages;
+          })
+          // A later click retries the download; nothing to show here.
+          .catch(() => undefined);
+      }
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      const handle = window.requestIdleCallback(prefetch, { timeout: 5000 });
+      return () => window.cancelIdleCallback(handle);
+    }
+    const handle = window.setTimeout(prefetch, 2000);
+    return () => window.clearTimeout(handle);
+  }, []);
 
   const setLocale = useCallback((nextLocale: AppLocale) => {
     const request = ++latestRequest.current;

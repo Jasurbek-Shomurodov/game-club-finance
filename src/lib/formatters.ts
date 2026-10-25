@@ -54,6 +54,32 @@ const UZBEK_MONTHS_SHORT = [
 
 let currentFormatterLocale: FormatterLocale = 'ru';
 
+// Building an Intl formatter costs far more than using one, and a report page
+// formats thousands of values on every render (and all of them again on a
+// language switch), so each locale/options pair is built once and reused.
+const dateTimeFormats = new Map<string, Intl.DateTimeFormat>();
+const numberFormats = new Map<string, Intl.NumberFormat>();
+
+function dateTimeFormat(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = `${locale}|${JSON.stringify(options)}`;
+  let format = dateTimeFormats.get(key);
+  if (!format) {
+    format = new Intl.DateTimeFormat(locale, options);
+    dateTimeFormats.set(key, format);
+  }
+  return format;
+}
+
+function numberFormat(locale: string, options: Intl.NumberFormatOptions): Intl.NumberFormat {
+  const key = `${locale}|${JSON.stringify(options)}`;
+  let format = numberFormats.get(key);
+  if (!format) {
+    format = new Intl.NumberFormat(locale, options);
+    numberFormats.set(key, format);
+  }
+  return format;
+}
+
 function isFormatterLocale(locale: string): locale is FormatterLocale {
   return locale === 'ru' || locale === 'uz' || locale === 'en';
 }
@@ -99,7 +125,7 @@ function formatDayMonth(date: Date, includeYear: boolean, locale?: string): stri
     return includeYear ? `${day} ${month} ${date.getFullYear()}` : `${day} ${month}`;
   }
 
-  const parts = new Intl.DateTimeFormat(DATE_LOCALES[appLocale], {
+  const parts = dateTimeFormat(DATE_LOCALES[appLocale], {
     day: 'numeric',
     month: 'long',
     ...(includeYear ? { year: 'numeric' } : {}),
@@ -122,7 +148,7 @@ export function formatDateTime(value: string | Date | null | undefined, locale?:
   const date = parseDateValue(value);
   if (!date) return '-';
   const appLocale = resolveFormatterLocale(locale);
-  const time = new Intl.DateTimeFormat(TIME_LOCALES[appLocale], {
+  const time = dateTimeFormat(TIME_LOCALES[appLocale], {
     hour: 'numeric',
     minute: '2-digit',
     hour12: appLocale === 'en',
@@ -141,7 +167,7 @@ export function formatTime(value: string | Date | null | undefined, locale?: str
   if (!date) return '-';
   const appLocale = resolveFormatterLocale(locale);
 
-  return new Intl.DateTimeFormat(TIME_LOCALES[appLocale], {
+  return dateTimeFormat(TIME_LOCALES[appLocale], {
     hour: 'numeric',
     minute: '2-digit',
     hour12: appLocale === 'en',
@@ -194,7 +220,7 @@ export function formatYearMonth(value: string | null | undefined, locale?: strin
     return `${UZBEK_MONTHS[month - 1]} ${year}`;
   }
 
-  const parts = new Intl.DateTimeFormat(DATE_LOCALES[appLocale], {
+  const parts = dateTimeFormat(DATE_LOCALES[appLocale], {
     month: 'long',
     year: 'numeric',
   }).formatToParts(new Date(year, month - 1, 1));
@@ -218,7 +244,7 @@ export function formatMonthShort(value: string | null | undefined, locale?: stri
   const appLocale = resolveFormatterLocale(locale);
   if (appLocale === 'uz') return UZBEK_MONTHS_SHORT[month - 1];
 
-  const formattedMonth = new Intl.DateTimeFormat(DATE_LOCALES[appLocale], { month: 'short' })
+  const formattedMonth = dateTimeFormat(DATE_LOCALES[appLocale], { month: 'short' })
     .formatToParts(new Date(year, month - 1, 1))
     .find((part) => part.type === 'month')?.value;
   return formattedMonth ?? '-';
@@ -233,7 +259,7 @@ export function formatNumber(value: number, locale = 'ru-UZ'): string {
   // round to zero would keep their sign ("-0"); show a plain 0 for both.
   // Round half away from zero, matching Intl's default, before the sign check.
   const rounded = Number.isFinite(value) ? Math.sign(value) * Math.round(Math.abs(value)) : 0;
-  return new Intl.NumberFormat(locale, {
+  return numberFormat(locale, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(rounded === 0 ? 0 : rounded).replace(/[\u00a0\u202f]/g, ' ');
@@ -248,7 +274,7 @@ export function formatCurrency(amount: number, locale = 'ru-UZ'): string {
  * Aggregate UZS totals still use formatCurrency() and round to whole sums.
  */
 export function formatUnitCurrency(amount: number, locale = 'ru-UZ'): string {
-  return new Intl.NumberFormat(locale, {
+  return numberFormat(locale, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(amount).replace(/[\u00a0\u202f]/g, ' ');
