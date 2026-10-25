@@ -1075,7 +1075,8 @@
     "carryMigrationRequired": "Foydani keyingi oyga o‘tkazish uchun 071-ma’lumotlar bazasi migratsiyasi kerak. Avval uni qo‘llang.",
     "carryDeleteConfirm": "{amount} ({source}) ning {from} dan {to} ga o‘tkazilishi o‘chirilsinmi? Summa {from} ga qaytadi.",
     "carryDeleted": "O‘tkazish o‘chirildi. Summa asl oyiga qaytdi.",
-    "carryDeleteUsed": "Bu pul keyingi oyda allaqachon yechib olingan yoki yana o‘tkazilgan. Avval o‘sha yozuvni o‘chiring."
+    "carryDeleteUsed": "Bu pul keyingi oyda allaqachon yechib olingan yoki yana o‘tkazilgan. Avval o‘sha yozuvni o‘chiring.",
+    "historyMonthTotal": "Jami"
   },
   "calendar": {
     "selectDate": "Sanani tanlang",

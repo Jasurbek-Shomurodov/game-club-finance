@@ -62,6 +62,7 @@ import {
   StockCountRow,
 } from '@/lib/calculations/dashboardMetrics';
 import {
+  capitalizeFirst,
   formatCurrency,
   parseCurrencyInput,
   formatDateTime,
@@ -774,15 +775,23 @@ export default function MoneyTakenPage() {
     })),
   ].sort((a, b) => b.month.localeCompare(a.month) || historyCreatedAt(b).localeCompare(historyCreatedAt(a)));
 
-  /** The month's name, then what was withdrawn from each side (never one combined figure). */
+  /**
+   * The month's name, its overall withdrawn total, then each side's share.
+   * The overall total is the one owner-requested club + bar figure (see
+   * docs/agents/domain-finance.md, "Owner available money").
+   */
   function historyMonthHeader(month: string) {
     const totals = withdrawnBySourceForMonth(withdrawals, month);
     const sides = (['game_club', 'bar'] as const).filter((source) => totals[source] > 0);
     return (
       <span className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <span>{formatYearMonth(month, locale)}</span>
+        <span>{capitalizeFirst(formatYearMonth(month, locale), locale)}</span>
         {sides.length > 0 && (
           <span className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-normal text-gray-500">
+            <span className="whitespace-nowrap text-gray-700">
+              {t('historyMonthTotal')}:{' '}
+              <span className="font-bold tabular-nums text-danger-600">-{formatCurrency(totals.game_club + totals.bar)}</span>
+            </span>
             {sides.map((source) => (
               <span key={source} className="whitespace-nowrap">
                 {t(`sources.${source}`)}:{' '}

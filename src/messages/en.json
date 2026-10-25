@@ -1075,7 +1075,8 @@
     "carryMigrationRequired": "Moving profit to the next month requires database migration 071. Apply it first.",
     "carryDeleteConfirm": "Delete the move of {amount} ({source}) from {from} to {to}? The amount will return to {from}.",
     "carryDeleted": "Move deleted. The amount is back in its original month.",
-    "carryDeleteUsed": "This money has already been withdrawn or moved again in the next month. Delete that first."
+    "carryDeleteUsed": "This money has already been withdrawn or moved again in the next month. Delete that first.",
+    "historyMonthTotal": "Total"
   },
   "calendar": {
     "selectDate": "Select date",

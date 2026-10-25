@@ -90,7 +90,11 @@ a custom positive amount for one month. For `all`, it allocates Game Club first,
 then Bar, without overdrawing either bucket; the form caps `all` at the sum of
 the two positive balances, a withdrawal limit only and never a figure shown as a
 club + bar total. Money Taken shows each side's remaining, earned and withdrawn
-separately (`AvailableMoneyResult` has no combined totals). The legacy
+separately (`AvailableMoneyResult` has no combined totals).
+One owner-requested exception: each month row of the profit withdrawal
+history shows the month's overall withdrawn total (Game Club + Bar), followed
+by each side's own amount (`withdrawnBySourceForMonth`). It is the only place a
+club + bar figure is displayed; keep it there and nowhere else. The legacy
 `take_all_owner_money_for_month` remains available for older clients. Never
 replace these RPCs with direct browser inserts.
 

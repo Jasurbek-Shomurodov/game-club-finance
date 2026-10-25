@@ -209,6 +209,11 @@ export function formatDatePickerValue(value: string | null | undefined, locale?:
  * Output: "June 2026"
  * Use for: month picker controls and month-based ledger entries.
  */
+/** Upper-cases the first letter, for a value that starts a heading ("сентябрь 2026" → "Сентябрь 2026"). */
+export function capitalizeFirst(value: string, locale?: string): string {
+  return value ? value.charAt(0).toLocaleUpperCase(resolveFormatterLocale(locale)) + value.slice(1) : value;
+}
+
 export function formatYearMonth(value: string | null | undefined, locale?: string): string {
   if (!value || !/^\d{4}-\d{2}$/.test(value)) return '-';
 

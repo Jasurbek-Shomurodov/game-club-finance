@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  capitalizeFirst,
   extractCurrencyDigits,
   formatCurrency,
   formatCurrencyInput,
@@ -227,5 +228,14 @@ describe('currency input helpers', () => {
     expect(extractCurrencyDigits('9'.repeat(30))).toHaveLength(15);
     expect(formatCurrencyInput('007')).toBe('7');
     expect(formatCurrencyInput('0')).toBe('0');
+  });
+});
+
+describe('capitalizeFirst', () => {
+  it('upper-cases only the first letter in every app language', () => {
+    expect(capitalizeFirst(formatYearMonth('2026-09', 'ru'), 'ru')).toBe('Сентябрь 2026');
+    expect(capitalizeFirst('sentabr 2026', 'uz')).toBe('Sentabr 2026');
+    expect(capitalizeFirst('September 2026', 'en')).toBe('September 2026');
+    expect(capitalizeFirst('', 'ru')).toBe('');
   });
 });
