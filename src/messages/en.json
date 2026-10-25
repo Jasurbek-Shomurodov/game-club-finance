@@ -667,7 +667,7 @@
     "preset": "Planned expense",
     "presetHelp": "Pick one to count this payment against its monthly plan.",
     "presetNone": "Other expense",
-    "presetPlanned": "Planned {amount} {currency} a month. Category and money source come from the plan."
+    "presetPlanned": "Planned {amount} {currency} a month; leave Amount empty to record exactly that. Category and money source come from the plan."
   },
   "debts": {
     "title": "Debts",

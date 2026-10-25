@@ -77,6 +77,8 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
   const presetQuery = useClubQuery<ExpensePreset[]>(loadPresets, []);
   const presets = presetQuery.data;
   const selectedPreset = presets.find((preset) => preset.id === form.preset_id) ?? null;
+  // A chosen plan's monthly amount is the amount's placeholder and its value when left empty.
+  const plannedAmount = selectedPreset && selectedPreset.monthly_amount > 0 ? selectedPreset.monthly_amount : null;
 
   // When the business day rolls over, a date still on the old day moves to the
   // new one; a date the user picked deliberately is kept.
@@ -136,7 +138,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (submitPending.current) return;
-    const amount = parseCurrencyInput(form.amount);
+    const amount = parseCurrencyInput(form.amount) || plannedAmount || 0;
     const category = form.category;
 
     if (!selectedClubId) {
@@ -243,12 +245,13 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
         </Field>
       )}
 
-      <Field label={t('amount')} htmlFor="expense-amount" required>
+      <Field label={t('amount')} htmlFor="expense-amount" required={plannedAmount === null}>
         <CurrencyInput
           id="expense-amount"
           controlSize="lg"
           autoFocus
-          required
+          required={plannedAmount === null}
+          placeholder={plannedAmount === null ? undefined : formatCurrency(plannedAmount)}
           value={form.amount}
           onValueChange={(value) => set('amount', value)}
           trailingAddon={tc('currency')}

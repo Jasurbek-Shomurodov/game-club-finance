@@ -104,6 +104,7 @@ test('EXP-008 a planned expense is set up in Settings, picked in the expense for
   await dialog.getByRole('radio', { name: 'iCafe' }).click();
   await expect(dialog.locator('#expense-category')).toHaveValue('equipment');
   await expect(dialog.locator('#expense-category')).toBeDisabled();
+  await expect(dialog.locator('#expense-amount')).toHaveAttribute('placeholder', uzs(500_000));
   await dialog.locator('#expense-amount').fill('650000');
   await dialog.getByRole('button', { name: 'Save Expense' }).click();
   await expect(page.getByText('Expense registered successfully.')).toBeVisible();

@@ -667,7 +667,7 @@
     "preset": "Rejalashtirilgan xarajat",
     "presetHelp": "Bu to'lovni oylik rejaga hisoblash uchun tanlang.",
     "presetNone": "Boshqa xarajat",
-    "presetPlanned": "Oyiga {amount} {currency} rejalashtirilgan. Kategoriya va pul manbai rejadan olinadi."
+    "presetPlanned": "Oyiga {amount} {currency} rejalashtirilgan; aynan shu summani yozish uchun Summani bo'sh qoldiring. Kategoriya va pul manbai rejadan olinadi."
   },
   "debts": {
     "title": "Qarzlar",
