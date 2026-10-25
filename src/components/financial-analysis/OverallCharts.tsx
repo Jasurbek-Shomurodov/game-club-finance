@@ -9,6 +9,7 @@ import {
   Cell,
   ComposedChart,
   Line,
+  LineChart,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -28,10 +29,13 @@ import {
 } from '@/lib/formatters';
 import type {
   Granularity,
+  HeatmapCell,
+  MonthForecast,
   OwnerMonthRow,
   PeriodSeriesRow,
   ProfitMonthRow,
   WeekdayPatternRow,
+  YearOverYear,
 } from '@/lib/calculations/analysisSeries';
 import { OTHER_CATEGORY, type CategoryAmount } from '@/lib/calculations/financialAnalysis';
 import { axisProps, LegendItem } from './AnalysisTimeCharts';
@@ -285,7 +289,7 @@ export function ProfitMonthsChart({ rows, average, locale, currency }: {
       <Legend>
         <LegendItem color={chartColors.success} label={t('profit')} />
         <LegendItem color={chartColors.danger} label={t('loss')} />
-        <LegendItem color={chartColors.axis} label={t('average')} line />
+        <LegendItem color={chartColors.axis} label={t('average')} dashed />
         <LegendItem color={chartColors.purple} label={t('margin')} line />
       </Legend>
       <ChartFrame>
@@ -364,5 +368,151 @@ export function OwnerMonthsChart({ rows, locale, currency }: { rows: OwnerMonthR
         </BarChart>
       </ChartFrame>
     </>
+  );
+}
+
+/**
+ * This month's running money in for one side: actual so far, the dashed
+ * forecast at the current pace through month end, and last month by day.
+ */
+export function ForecastChart({ forecast, side, locale, currency }: {
+  forecast: MonthForecast;
+  side: Side;
+  locale: string;
+  currency: string;
+}) {
+  const t = useTranslations('financialAnalysis');
+  const keys = { actual: `${side}Actual`, projected: `${side}Projected`, lastMonth: `${side}LastMonth` };
+  const names: Record<string, string> = {
+    [keys.actual]: t('forecastActual'),
+    [keys.projected]: t('forecastProjected'),
+    [keys.lastMonth]: t('forecastLastMonth'),
+  };
+  const dayTitle = (day: number) => formatDate(`${forecast.month}-${String(day).padStart(2, '0')}`, locale);
+
+  return (
+    <>
+      <Legend>
+        <LegendItem color={SIDE_COLOR[side]} label={names[keys.actual]} line />
+        <LegendItem color={SIDE_COLOR[side]} label={names[keys.projected]} dashed />
+        <LegendItem color={chartColors.gray} label={names[keys.lastMonth]} line />
+      </Legend>
+      <ChartFrame>
+        <LineChart accessibilityLayer data={forecast.days} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
+          <CartesianGrid stroke={chartColors.grid} vertical={false} />
+          <XAxis dataKey="day" {...axisProps} axisLine={{ stroke: chartColors.grid }} minTickGap={12} />
+          <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
+          <Tooltip
+            {...chartTooltipStyle}
+            labelFormatter={(day) => dayTitle(Number(day))}
+            formatter={moneyFormatter(currency, names)}
+          />
+          <Line dataKey={keys.lastMonth} type="monotone" stroke={chartColors.gray} strokeWidth={1.5} dot={false} connectNulls={false} />
+          <Line dataKey={keys.projected} type="linear" stroke={SIDE_COLOR[side]} strokeWidth={2} strokeDasharray="6 4" dot={false} />
+          <Line dataKey={keys.actual} type="monotone" stroke={SIDE_COLOR[side]} strokeWidth={2.5} dot={false} />
+        </LineChart>
+      </ChartFrame>
+    </>
+  );
+}
+
+const YEAR_COLORS = [chartColors.gray, chartColors.purple, chartColors.orange, chartColors.success, chartColors.primary];
+
+/** One side's money in by calendar month, one bar per year. */
+export function YearOverYearChart({ data, locale, currency }: { data: YearOverYear; locale: string; currency: string }) {
+  // The newest year takes the strongest colour.
+  const colorOf = (index: number) => YEAR_COLORS[(YEAR_COLORS.length - data.years.length + index + YEAR_COLORS.length) % YEAR_COLORS.length];
+  const names: Record<string, string> = Object.fromEntries(data.years.map((year) => [year, year]));
+  const monthLabel = (month: number) => formatMonthShort(`2000-${String(month).padStart(2, '0')}`, locale);
+
+  return (
+    <>
+      <Legend>
+        {data.years.map((year, index) => <LegendItem key={year} color={colorOf(index)} label={year} />)}
+      </Legend>
+      <ChartFrame>
+        <BarChart accessibilityLayer data={data.rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barGap={2} barCategoryGap="20%">
+          <CartesianGrid stroke={chartColors.grid} vertical={false} />
+          <XAxis dataKey="month" {...axisProps} axisLine={{ stroke: chartColors.grid }} interval={0} tickFormatter={monthLabel} />
+          <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
+          <Tooltip
+            {...chartTooltipStyle}
+            cursor={{ fill: chartColors.cursor }}
+            labelFormatter={(month) => capitalizeFirst(monthLabel(Number(month)), locale)}
+            formatter={moneyFormatter(currency, names)}
+          />
+          {data.years.map((year, index) => (
+            <Bar key={year} dataKey={year} fill={colorOf(index)} radius={[3, 3, 0, 0]} maxBarSize={18} />
+          ))}
+        </BarChart>
+      </ChartFrame>
+    </>
+  );
+}
+
+const HEAT_OPACITY = [0, 0.28, 0.5, 0.75, 1] as const;
+
+/** Money in per day as a week-by-weekday calendar; darker cells are stronger days. */
+export function CalendarHeatmap({ weeks, side, locale, currency }: {
+  weeks: Array<{ start: string; days: HeatmapCell[] }>;
+  side: Side;
+  locale: string;
+  currency: string;
+}) {
+  const t = useTranslations('financialAnalysis');
+  const color = SIDE_COLOR[side];
+  const cellStyle = (cell: HeatmapCell) => (cell.value === null
+    ? { backgroundColor: 'transparent' }
+    : cell.level === 0
+      ? { backgroundColor: chartColors.cursor }
+      : { backgroundColor: color, opacity: HEAT_OPACITY[cell.level] });
+  const cellTitle = (cell: HeatmapCell) => `${formatDate(cell.date, locale)}: ${cell.value
+    ? `${formatCurrency(cell.value)} ${currency}`
+    : t('heatmapNoIncome')}`;
+
+  return (
+    <div className="mt-4">
+      <div className="flex gap-1">
+        <div className="grid shrink-0 grid-rows-7 gap-1 pr-1 pt-5 text-[10px] leading-none text-gray-500" aria-hidden="true">
+          {WEEKDAY_KEYS.map((key, index) => (
+            <span key={key} className="flex items-center">{index % 2 === 0 ? t(`weekdays.${key}`) : ''}</span>
+          ))}
+        </div>
+        <div className="grid min-w-0 flex-1 gap-1" style={{ gridTemplateColumns: `repeat(${weeks.length}, minmax(0, 1fr))` }}>
+          {weeks.map((week, index) => {
+            const month = week.start.slice(0, 7);
+            const showMonth = index === 0 || weeks[index - 1].start.slice(0, 7) !== month;
+            return (
+              <div key={week.start} className="grid min-w-0 grid-rows-[1rem_repeat(7,minmax(0,1fr))] gap-1">
+                <span className="truncate text-[10px] leading-4 text-gray-500" aria-hidden="true">
+                  {showMonth ? formatMonthShort(month, locale) : ''}
+                </span>
+                {week.days.map((cell) => (
+                  <span
+                    key={cell.date}
+                    className="aspect-square w-full max-w-6 rounded-[3px]"
+                    style={cellStyle(cell)}
+                    title={cell.value === null ? undefined : cellTitle(cell)}
+                    role={cell.value === null ? undefined : 'img'}
+                    aria-label={cell.value === null ? undefined : cellTitle(cell)}
+                  />
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div className="mt-3 flex items-center justify-end gap-1.5 text-[11px] text-gray-500" aria-hidden="true">
+        {t('heatmapLess')}
+        {HEAT_OPACITY.map((opacity, level) => (
+          <span
+            key={level}
+            className="h-3 w-3 rounded-[3px]"
+            style={level === 0 ? { backgroundColor: chartColors.cursor } : { backgroundColor: color, opacity }}
+          />
+        ))}
+        {t('heatmapMore')}
+      </div>
+    </div>
   );
 }

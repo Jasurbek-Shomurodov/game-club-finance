@@ -1,4 +1,4 @@
-import { sumGameClubRows, type ExpenseRow } from './dashboardMetrics';
+import { getAverageIncomeDayCounts, sumGameClubRows, type ExpenseRow } from './dashboardMetrics';
 import type { AvailableMoneyByMonth } from './availableMoney';
 import {
   OTHER_CATEGORY,
@@ -250,4 +250,193 @@ export function buildProfitMonths(rows: MonthlyAnalysisRow[], side: 'gameClub' |
     const profit = side === 'gameClub' ? row.gameClubLeft : row.barLeft;
     return { month: row.month, profit, marginPct: income ? Math.round((profit / income) * 1000) / 10 : null };
   });
+}
+
+type Side = 'gameClub' | 'bar';
+
+function daysInMonth(month: string): number {
+  const [year, monthNumber] = month.split('-').map(Number);
+  return new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+}
+
+function previousMonth(month: string): string {
+  const [year, monthNumber] = month.split('-').map(Number);
+  const absolute = year * 12 + monthNumber - 2;
+  return `${Math.floor(absolute / 12)}-${String((absolute % 12) + 1).padStart(2, '0')}`;
+}
+
+export interface SideForecast {
+  /** Days from the month start through the side's latest entry; 0 without any entry. */
+  daysCounted: number;
+  incomeToDate: number;
+  profitToDate: number;
+  /** Month-end figures if the rest of the month keeps this month's daily pace; null without entries. */
+  projectedIncome: number | null;
+  projectedProfit: number | null;
+  lastMonthIncome: number;
+  lastMonthProfit: number;
+}
+
+export interface ForecastDayRow {
+  day: number;
+  /** Cumulative money in; actual through the counted days, projected after them, null where not drawn. */
+  gameClubActual: number | null;
+  gameClubProjected: number | null;
+  gameClubLastMonth: number | null;
+  barActual: number | null;
+  barProjected: number | null;
+  barLastMonth: number | null;
+}
+
+export interface MonthForecast {
+  month: string;
+  daysInMonth: number;
+  gameClub: SideForecast;
+  bar: SideForecast;
+  days: ForecastDayRow[];
+}
+
+/**
+ * The business month so far and where it ends at its current pace: each side's
+ * money in and profit per counted day (through that side's latest entry, as
+ * "average daily income" counts them), stretched over the whole month. Last
+ * month's running money in is drawn alongside by day of month.
+ */
+export function buildMonthForecast(businessToday: string, ledgers: AnalysisLedgers): MonthForecast {
+  const month = businessToday.slice(0, 7);
+  const length = daysInMonth(month);
+  const range = { from: `${month}-01`, to: businessToday };
+  const lastMonth = previousMonth(month);
+  const lastRange = { from: `${lastMonth}-01`, to: `${lastMonth}-${String(daysInMonth(lastMonth)).padStart(2, '0')}` };
+  const current = buildDailyAnalysis(range, ledgers);
+  const previous = buildDailyAnalysis(lastRange, ledgers);
+  const dayCounts = getAverageIncomeDayCounts(range, {
+    cashRows: ledgers.cashRows.filter((row) => row.date >= range.from && row.date <= range.to),
+    debtRows: ledgers.debtRows.filter((row) => row.date !== undefined && row.date >= range.from && row.date <= range.to),
+    stockRows: ledgers.stockRows.filter((row) => row.date >= range.from && row.date <= range.to),
+  });
+
+  const incomeOf = (side: Side, row: (typeof current)[number]) => (side === 'gameClub' ? row.gameClubIncome : row.barSales);
+  const spentOf = (side: Side, row: (typeof current)[number]) => (
+    side === 'gameClub' ? row.gameClubExpenses : row.barCost + row.barExpenses
+  );
+  const sideForecast = (side: Side): SideForecast => {
+    const incomeToDate = current.reduce((total, row) => total + incomeOf(side, row), 0);
+    const profitToDate = current.reduce((total, row) => total + incomeOf(side, row) - spentOf(side, row), 0);
+    const daysCounted = incomeToDate > 0 ? dayCounts[side] : 0;
+    const scale = daysCounted ? length / daysCounted : 0;
+    return {
+      daysCounted,
+      incomeToDate,
+      profitToDate,
+      projectedIncome: daysCounted ? Math.round(incomeToDate * scale) : null,
+      projectedProfit: daysCounted ? Math.round(profitToDate * scale) : null,
+      lastMonthIncome: previous.reduce((total, row) => total + incomeOf(side, row), 0),
+      lastMonthProfit: previous.reduce((total, row) => total + incomeOf(side, row) - spentOf(side, row), 0),
+    };
+  };
+  const gameClub = sideForecast('gameClub');
+  const bar = sideForecast('bar');
+
+  const running = (side: Side, rows: typeof current) => {
+    let total = 0;
+    return rows.map((row) => (total += incomeOf(side, row)));
+  };
+  const actual = { gameClub: running('gameClub', current), bar: running('bar', current) };
+  const before = { gameClub: running('gameClub', previous), bar: running('bar', previous) };
+  const line = (side: Side, forecast: SideForecast, day: number) => {
+    const counted = forecast.daysCounted;
+    const reached = counted ? actual[side][counted - 1] : 0;
+    const pace = counted ? reached / counted : 0;
+    return {
+      actual: counted && day <= counted ? actual[side][day - 1] : null,
+      projected: counted && day >= counted ? Math.round(reached + pace * (day - counted)) : null,
+      lastMonth: day <= before[side].length ? before[side][day - 1] : null,
+    };
+  };
+
+  return {
+    month,
+    daysInMonth: length,
+    gameClub,
+    bar,
+    days: Array.from({ length }, (_, index) => {
+      const day = index + 1;
+      const club = line('gameClub', gameClub, day);
+      const barLine = line('bar', bar, day);
+      return {
+        day,
+        gameClubActual: club.actual,
+        gameClubProjected: club.projected,
+        gameClubLastMonth: club.lastMonth,
+        barActual: barLine.actual,
+        barProjected: barLine.projected,
+        barLastMonth: barLine.lastMonth,
+      };
+    }),
+  };
+}
+
+export interface YearOverYear {
+  /** Calendar years in the history, oldest first. */
+  years: string[];
+  /** One row per calendar month (1–12) with each year's money in, absent where that month has no history. */
+  rows: Array<{ month: number } & Record<string, number>>;
+}
+
+/** One side's money in by calendar month, one series per year. */
+export function buildYearOverYear(rows: MonthlyAnalysisRow[], side: Side): YearOverYear {
+  const years = Array.from(new Set(rows.map((row) => row.month.slice(0, 4)))).sort();
+  const byMonth = Array.from({ length: 12 }, (_, index) => ({ month: index + 1 }) as { month: number } & Record<string, number>);
+  for (const row of rows) {
+    byMonth[Number(row.month.slice(5, 7)) - 1][row.month.slice(0, 4)] = side === 'gameClub' ? row.gameClubIncome : row.barSales;
+  }
+  return { years, rows: byMonth };
+}
+
+export interface HeatmapCell {
+  date: string;
+  /** Money in that day; null for a day after the range end or before its start. */
+  value: number | null;
+  /** 0 = no money in, 1–4 = quartile of the days that had money in. */
+  level: 0 | 1 | 2 | 3 | 4;
+}
+
+/**
+ * One side's money in per day as a calendar: one column per Monday-first week
+ * (the last `weeks` weeks through the range end), one row per weekday.
+ */
+export function buildCalendarHeatmap(
+  range: { from: string; to: string },
+  ledgers: AnalysisLedgers,
+  side: Side,
+  weeks = WEEK_WINDOW,
+): { weeks: Array<{ start: string; days: HeatmapCell[] }>; max: number } {
+  const firstMonday = shiftDate(periodStart(range.to, 'week'), -7 * (weeks - 1));
+  const shown = { from: firstMonday > range.from ? firstMonday : range.from, to: range.to };
+  const values = new Map(buildDailyAnalysis(shown, ledgers).map((row) => [row.date, side === 'gameClub' ? row.gameClubIncome : row.barSales]));
+  const sorted = Array.from(values.values()).filter((value) => value > 0).sort((a, b) => a - b);
+  const threshold = (share: number) => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * share))];
+  const cuts = sorted.length ? [threshold(0.25), threshold(0.5), threshold(0.75)] : [];
+  const levelOf = (value: number): HeatmapCell['level'] => {
+    if (value <= 0) return 0;
+    if (value < cuts[0]) return 1;
+    if (value < cuts[1]) return 2;
+    if (value < cuts[2]) return 3;
+    return 4;
+  };
+  const columns = Array.from({ length: weeks }, (_, week) => {
+    const start = shiftDate(firstMonday, week * 7);
+    return {
+      start,
+      days: Array.from({ length: 7 }, (_, weekday): HeatmapCell => {
+        const date = shiftDate(start, weekday);
+        const value = values.get(date);
+        return value === undefined ? { date, value: null, level: 0 } : { date, value, level: levelOf(value) };
+      }),
+    };
+  });
+  // A history shorter than the window starts at its first week, not with empty columns.
+  const first = columns.findIndex((column) => column.days.some((day) => day.value !== null));
+  return { max: sorted.at(-1) ?? 0, weeks: first < 0 ? [] : columns.slice(first) };
 }

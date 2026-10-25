@@ -35,8 +35,12 @@ import {
 } from '@/components/PresentationFoundation';
 import { ChartCard, ChartEmpty } from '@/components/dashboard/ChartCard';
 import { sumAvailableMoneyResults, type AvailableSourceBalance } from '@/lib/calculations/availableMoney';
+import { percentChange } from '@/lib/calculations/dashboardMetrics';
 import {
+  buildCalendarHeatmap,
   buildCategorySeries,
+  buildMonthForecast,
+  buildYearOverYear,
   buildOwnerMonthSeries,
   buildPeriodSeries,
   buildProfitMonths,
@@ -74,6 +78,9 @@ const IncomeMixChart = dynamic(() => loadCharts().then((module) => module.Income
 const CategoryTrendChart = dynamic(() => loadCharts().then((module) => module.CategoryTrendChart), { ssr: false, loading: ChartLoading });
 const WeekdayChart = dynamic(() => loadCharts().then((module) => module.WeekdayChart), { ssr: false, loading: ChartLoading });
 const ProfitMonthsChart = dynamic(() => loadCharts().then((module) => module.ProfitMonthsChart), { ssr: false, loading: ChartLoading });
+const ForecastChart = dynamic(() => loadCharts().then((module) => module.ForecastChart), { ssr: false, loading: ChartLoading });
+const YearOverYearChart = dynamic(() => loadCharts().then((module) => module.YearOverYearChart), { ssr: false, loading: ChartLoading });
+const CalendarHeatmap = dynamic(() => loadCharts().then((module) => module.CalendarHeatmap), { ssr: false, loading: ChartLoading });
 const OwnerMonthsChart = dynamic(() => loadCharts().then((module) => module.OwnerMonthsChart), { ssr: false, loading: ChartLoading });
 
 /** Before the first ledger row; the analysis then starts at the club's first entry. */
@@ -211,6 +218,15 @@ export function OverallAnalysis({ businessToday }: { businessToday: string }) {
     };
   }, [analysis.topCategories, granularity, history.ledgers, range]);
   const weekdays = useMemo(() => buildWeekdayPattern(range, history.ledgers), [history.ledgers, range]);
+  const forecast = useMemo(() => buildMonthForecast(businessToday, history.ledgers), [businessToday, history.ledgers]);
+  const heatmaps = useMemo(() => ({
+    gameClub: buildCalendarHeatmap(range, history.ledgers, 'gameClub').weeks,
+    bar: buildCalendarHeatmap(range, history.ledgers, 'bar').weeks,
+  }), [history.ledgers, range]);
+  const yearOverYear = useMemo(() => ({
+    gameClub: buildYearOverYear(months, 'gameClub'),
+    bar: buildYearOverYear(months, 'bar'),
+  }), [months]);
   const profitMonths = useMemo(() => ({
     gameClub: buildProfitMonths(months, 'gameClub'),
     bar: buildProfitMonths(months, 'bar'),
@@ -278,6 +294,27 @@ export function OverallAnalysis({ businessToday }: { businessToday: string }) {
     { label: t('best'), value: data.best ? money(data.best.profit) : '—', helper: data.best ? monthName(data.best.month) : undefined, tone: data.best ? toneForAmount(data.best.profit) : undefined },
     { label: t('worst'), value: data.worst ? money(data.worst.profit) : '—', helper: data.worst ? monthName(data.worst.month) : undefined, tone: data.worst ? toneForAmount(data.worst.profit) : undefined },
   ];
+  const forecastStats = (side: Side) => {
+    const data = forecast[side];
+    const change = data.projectedIncome === null ? null : percentChange(data.projectedIncome, data.lastMonthIncome);
+    return [
+      { label: t('forecastSoFar'), value: money(data.incomeToDate), helper: t('forecastDays', { count: data.daysCounted, total: forecast.daysInMonth }) },
+      {
+        label: t('forecastIncome'),
+        value: data.projectedIncome === null ? '—' : money(data.projectedIncome),
+        helper: change === null ? undefined : t('forecastVsLastMonth', { change: `${change > 0 ? '+' : ''}${formatShare(change, locale)}` }),
+        tone: change === null ? undefined : change < 0 ? 'danger' as const : 'success' as const,
+      },
+      {
+        label: t('forecastProfit'),
+        value: data.projectedProfit === null ? '—' : money(data.projectedProfit),
+        tone: data.projectedProfit === null ? undefined : toneForAmount(data.projectedProfit),
+      },
+      { label: t('forecastLastMonth'), value: money(data.lastMonthIncome), helper: t('forecastLastMonthProfit', { amount: money(data.lastMonthProfit) }) },
+    ];
+  };
+  const hasYearOverYear = yearOverYear.gameClub.years.length > 1;
+
   const granularityControl = (
     <SegmentedControl
       variant="soft"
@@ -366,6 +403,19 @@ export function OverallAnalysis({ businessToday }: { businessToday: string }) {
         </div>
       ) : (
         <div className="space-y-6">
+          <Section title={t('forecastSection')} description={t('forecastSectionDesc', { month: monthName(forecast.month) })}>
+            <div className="grid gap-4 xl:grid-cols-2">
+              {(['gameClub', 'bar'] as const).map((side) => (
+                <ChartCard key={side} title={t(side === 'gameClub' ? 'forecastGameClubTitle' : 'forecastBarTitle')} description={t('forecastDesc')}>
+                  <ProfitStats items={forecastStats(side)} />
+                  {forecast[side].daysCounted > 0
+                    ? <ForecastChart forecast={forecast} side={side} locale={locale} currency={currency} />
+                    : <ChartEmpty title={t('forecastNoData')} className="mt-4" />}
+                </ChartCard>
+              ))}
+            </div>
+          </Section>
+
           <Section title={t('overallSection')} description={t('overallSectionDesc', { count: summary.months })}>
             <div className="grid gap-4 xl:grid-cols-2">
               {(['gameClub', 'bar'] as const).map((side) => (
@@ -414,8 +464,29 @@ export function OverallAnalysis({ businessToday }: { businessToday: string }) {
                 <ChartCard title={t('weekdayTitle')} description={t('weekdayDesc')}>
                   <WeekdayChart rows={weekdays} locale={locale} currency={currency} />
                 </ChartCard>
+                <div className="grid gap-4 xl:grid-cols-2">
+                  {(['gameClub', 'bar'] as const).map((side) => (
+                    <ChartCard key={side} title={t(side === 'gameClub' ? 'heatmapGameClubTitle' : 'heatmapBarTitle')} description={t('heatmapDesc')}>
+                      <CalendarHeatmap weeks={heatmaps[side]} side={side} locale={locale} currency={currency} />
+                    </ChartCard>
+                  ))}
+                </div>
               </>
             ) : <ChartEmpty title={t('empty')} />}
+          </Section>
+
+          <Section title={t('yoySection')} description={t('yoySectionDesc')}>
+            {hasYearOverYear ? (
+              <div className="grid gap-4 xl:grid-cols-2">
+                {(['gameClub', 'bar'] as const).map((side) => (
+                  <ChartCard key={side} title={t(side === 'gameClub' ? 'yoyGameClubTitle' : 'yoyBarTitle')}>
+                    <YearOverYearChart data={yearOverYear[side]} locale={locale} currency={currency} />
+                  </ChartCard>
+                ))}
+              </div>
+            ) : (
+              <ChartEmpty title={t('yoyEmpty', { year: yearOverYear.gameClub.years[0] ?? businessToday.slice(0, 4) })} className="min-h-32" />
+            )}
           </Section>
 
           <Section title={t('trendsSection')} description={t('trendsSectionDesc')}>

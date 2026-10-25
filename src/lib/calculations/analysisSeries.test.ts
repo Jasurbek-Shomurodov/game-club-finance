@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildCalendarHeatmap,
   buildCategorySeries,
+  buildMonthForecast,
+  buildYearOverYear,
   buildOwnerMonthSeries,
   buildPeriodSeries,
   buildProfitMonths,
@@ -149,5 +152,67 @@ describe('buildProfitMonths', () => {
       { month: '2026-09-01', profit: -10, marginPct: null },
       { month: '2026-10-01', profit: 33, marginPct: 33 },
     ]);
+  });
+});
+
+describe('buildMonthForecast', () => {
+  it('stretches each side’s pace through its latest entry over the month', () => {
+    // Business today is 6 Oct: game club entries through 5 Oct, bar through 5 Oct; 31 days in October.
+    const forecast = buildMonthForecast('2026-10-06', ledgers);
+    expect(forecast).toMatchObject({ month: '2026-10', daysInMonth: 31 });
+    const clubIncome = 110_000 + 15_000 + 70_000;
+    expect(forecast.gameClub).toMatchObject({
+      daysCounted: 5,
+      incomeToDate: clubIncome,
+      profitToDate: clubIncome - 8_000,
+      projectedIncome: Math.round(clubIncome * 31 / 5),
+      projectedProfit: Math.round((clubIncome - 8_000) * 31 / 5),
+      lastMonthIncome: 170_000,
+      lastMonthProfit: 140_000,
+    });
+    expect(forecast.bar).toMatchObject({ daysCounted: 5, incomeToDate: 10_000, profitToDate: 10_000 - 5_000 - 12_000 });
+    expect(forecast.days).toHaveLength(31);
+    expect(forecast.days[4]).toMatchObject({ gameClubActual: clubIncome, gameClubProjected: clubIncome });
+    expect(forecast.days[5]).toMatchObject({ gameClubActual: null, gameClubProjected: Math.round(clubIncome + clubIncome / 5) });
+    expect(forecast.days[30].gameClubProjected).toBe(Math.round(clubIncome * 31 / 5));
+    // September has 30 days; the 28th carries its first entry.
+    expect(forecast.days[27].gameClubLastMonth).toBe(170_000);
+    expect(forecast.days[30].gameClubLastMonth).toBeNull();
+  });
+
+  it('does not project a side without entries this month', () => {
+    const forecast = buildMonthForecast('2026-11-03', ledgers);
+    expect(forecast.gameClub).toMatchObject({ daysCounted: 0, projectedIncome: null, projectedProfit: null, lastMonthIncome: 195_000 });
+    expect(forecast.days.every((row) => row.gameClubActual === null && row.gameClubProjected === null)).toBe(true);
+  });
+});
+
+describe('buildYearOverYear', () => {
+  it('puts each year’s money in under its calendar month', () => {
+    const rows = [
+      { month: '2025-12-01', gameClubIncome: 10, gameClubLeft: 1, barSales: 5, barLeft: 1 },
+      { month: '2026-01-01', gameClubIncome: 20, gameClubLeft: 2, barSales: 6, barLeft: 1 },
+      { month: '2026-12-01', gameClubIncome: 30, gameClubLeft: 3, barSales: 7, barLeft: 1 },
+    ];
+    const result = buildYearOverYear(rows, 'gameClub');
+    expect(result.years).toEqual(['2025', '2026']);
+    expect(result.rows[0]).toEqual({ month: 1, 2026: 20 });
+    expect(result.rows[11]).toEqual({ month: 12, 2025: 10, 2026: 30 });
+    expect(buildYearOverYear(rows, 'bar').rows[11]).toEqual({ month: 12, 2025: 5, 2026: 7 });
+  });
+});
+
+describe('buildCalendarHeatmap', () => {
+  it('lays days out by week and weekday, starting at the first week with history', () => {
+    const heatmap = buildCalendarHeatmap(range, ledgers, 'gameClub');
+    expect(heatmap.weeks.map((week) => week.start)).toEqual(['2026-09-28', '2026-10-05']);
+    expect(heatmap.weeks[0].days[0]).toMatchObject({ date: '2026-09-28', value: 170_000 });
+    expect(heatmap.weeks[0].days[1]).toMatchObject({ value: 0, level: 0 });
+    // Days after the range end are not drawn as zero.
+    expect(heatmap.weeks[1].days[2]).toMatchObject({ date: '2026-10-07', value: null });
+    expect(heatmap.max).toBe(170_000);
+    const levels = heatmap.weeks.flatMap((week) => week.days).filter((day) => day.value).map((day) => day.level);
+    expect(Math.max(...levels)).toBe(4);
+    expect(Math.min(...levels)).toBeGreaterThanOrEqual(1);
   });
 });
