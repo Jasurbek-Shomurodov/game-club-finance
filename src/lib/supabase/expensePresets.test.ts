@@ -19,8 +19,18 @@ describe('fetchExpensePresets', () => {
   it('reads the club presets with numeric amounts', async () => {
     const { chain, calls } = query({ data: [{ id: 'p1', name: 'iCafe', monthly_amount: '500000', archived_at: null }], error: null });
     const result = await fetchExpensePresets(clientWith(chain), 'club-1');
-    expect(result).toEqual({ available: true, presets: [{ id: 'p1', name: 'iCafe', monthly_amount: 500000, archived_at: null }] });
+    expect(result).toEqual({ available: true, presets: [{ id: 'p1', name: 'iCafe', monthly_amount: 500000, archived_at: null, payment_method: null }] });
+    expect(calls[0]).toEqual(['select', [expect.stringContaining('payment_method')]]);
     expect(calls).toContainEqual(['eq', ['club_id', 'club-1']]);
+  });
+
+  it('reads plans without a method before migration 094', async () => {
+    const missing = query({ data: null, error: { code: '42703', message: 'column expense_presets.payment_method does not exist' } });
+    const older = query({ data: [{ id: 'p1', name: 'iCafe', monthly_amount: 1, archived_at: null }], error: null });
+    const from = vi.fn().mockReturnValueOnce(missing.chain).mockReturnValueOnce(older.chain);
+    const result = await fetchExpensePresets({ from } as unknown as SupabaseClient, 'club-1');
+    expect(result.presets).toEqual([{ id: 'p1', name: 'iCafe', monthly_amount: 1, archived_at: null, payment_method: null }]);
+    expect(older.calls[0]).toEqual(['select', [expect.not.stringContaining('payment_method')]]);
   });
 
   it('reports the feature as unavailable before migration 091', async () => {

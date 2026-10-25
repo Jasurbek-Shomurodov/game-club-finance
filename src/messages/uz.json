@@ -287,7 +287,10 @@
     "deleteError": "Yozuvni o'chirib bo'lmadi. Qayta urinib ko'ring.",
     "deleteEntryConfirmDetailed": "{date} sanasidagi «{category}» ({type}, {amount}) o'chirilsinmi? Bu amalni qaytarib bo'lmaydi.",
     "gameClubExpenses": "Klub xarajatlari",
-    "gameClubLeft": "Klub qoldig‘i"
+    "gameClubLeft": "Klub qoldig‘i",
+    "dateUpdated": "Sana o'zgartirildi",
+    "dateUpdateError": "Sanani o'zgartirib bo'lmadi. Qayta urinib ko'ring.",
+    "addedAt": "{time} da qo'shilgan"
   },
   "dailyCash": {
     "title": "Kunlik kassa",
@@ -845,7 +848,9 @@
       "monthlyAmount": "Oylik reja",
       "monthlyAmountHelp": "Har oy to'lashni kutayotgan summangiz.",
       "perMonth": "oy",
-      "termsLocked": "Bu rejalashtirilgan xarajatga to'lovlar yozilgan, shuning uchun kategoriya va pul manbai o'zgarmaydi."
+      "termsLocked": "Bu rejalashtirilgan xarajatga to'lovlar yozilgan, shuning uchun kategoriya va pul manbai o'zgarmaydi.",
+      "paymentMethodAny": "Istalgan",
+      "paymentMethodHelp": "Bu reja tanlanganda xarajat formasida oldindan tanlanadi; u yerda o'zgartirish mumkin."
     }
   },
   "team": {

@@ -276,33 +276,42 @@ interface UpdateExpenseRequestBody {
   clubId?: unknown;
   expenseId?: unknown;
   paymentMethod?: unknown;
+  date?: unknown;
 }
 
-/** Owner correction of an expense's payment method; the group message is edited to match. */
+/** Owner correction of an expense's payment method and/or date; the group message is edited to match. */
 export async function PATCH(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return expenseErrorResponse('UNAUTHORIZED');
 
   const body = await request.json().catch(() => null) as UpdateExpenseRequestBody | null;
-  if (!body || !isId(body.clubId) || !isId(body.expenseId)
-    || !PAYMENT_METHODS.includes(body.paymentMethod as (typeof PAYMENT_METHODS)[number])) {
+  const hasMethod = body?.paymentMethod !== undefined;
+  const hasDate = body?.date !== undefined;
+  if (!body || !isId(body.clubId) || !isId(body.expenseId) || (!hasMethod && !hasDate)
+    || (hasMethod && !PAYMENT_METHODS.includes(body.paymentMethod as (typeof PAYMENT_METHODS)[number]))
+    || (hasDate && (typeof body.date !== 'string' || !isIsoDate(body.date)))) {
     return expenseErrorResponse('INVALID_REQUEST');
   }
   const clubId = body.clubId;
   const expenseId = body.expenseId;
-  const paymentMethod = body.paymentMethod as (typeof PAYMENT_METHODS)[number];
+  const paymentMethod = hasMethod ? body.paymentMethod as (typeof PAYMENT_METHODS)[number] : null;
+  const date = hasDate ? body.date as string : null;
   const context = { clubId, expenseId };
 
   const { data: club, error: clubError } = await supabase
     .from('clubs')
-    .select('enabled_payment_methods')
+    .select('enabled_payment_methods, business_day_start_hour')
     .eq('id', clubId)
     .maybeSingle();
   if (clubError) return failure('club lookup', context, clubError);
   if (!club) return expenseErrorResponse('FORBIDDEN');
-  if (!normalizePaymentMethods(club.enabled_payment_methods).includes(paymentMethod)) {
+  if (paymentMethod && !normalizePaymentMethods(club.enabled_payment_methods).includes(paymentMethod)) {
     return expenseErrorResponse('PAYMENT_METHOD_DISABLED');
+  }
+  // Not after the club's business today (also enforced by the 095 RPC).
+  if (date && date > serverTodayIso(new Date(), club.business_day_start_hour)) {
+    return expenseErrorResponse('INVALID_REQUEST');
   }
 
   const { data: expense, error: expenseError } = await supabase
@@ -313,18 +322,34 @@ export async function PATCH(request: Request) {
     .maybeSingle();
   if (expenseError) return failure('lookup', context, expenseError);
   if (!expense) return expenseErrorResponse('NOT_FOUND');
-  // Payroll payments keep the method recorded on their salary entry.
+  // Payroll payments keep the method and date recorded on their salary entry.
   if (expense.salary_entry_id) return expenseErrorResponse('SALARY_PAYMENT_IMMUTABLE');
-  if (expense.payment_method === paymentMethod) return Response.json({ expense });
+  const changeMethod = paymentMethod !== null && expense.payment_method !== paymentMethod;
+  const changeDate = date !== null && expense.date !== date;
+  if (!changeMethod && !changeDate) return Response.json({ expense });
 
-  // Owner check, enabled-method check and the write itself happen atomically in the RPC.
-  const { error: updateError } = await supabase.rpc('update_expense_payment_method', {
-    p_club_id: clubId,
-    p_expense_id: expenseId,
-    p_payment_method: paymentMethod,
-  });
-  if (updateError) return failure('payment method change', context, updateError);
-  const updated = { ...expense, payment_method: paymentMethod } as Expense;
+  // Owner check, the method/date rules and each write happen atomically in their RPC.
+  if (changeMethod) {
+    const { error } = await supabase.rpc('update_expense_payment_method', {
+      p_club_id: clubId,
+      p_expense_id: expenseId,
+      p_payment_method: paymentMethod,
+    });
+    if (error) return failure('payment method change', context, error);
+  }
+  if (changeDate) {
+    const { error } = await supabase.rpc('update_expense_date', {
+      p_club_id: clubId,
+      p_expense_id: expenseId,
+      p_date: date,
+    });
+    if (error) return failure('date change', context, error);
+  }
+  const updated = {
+    ...expense,
+    ...(changeMethod ? { payment_method: paymentMethod } : {}),
+    ...(changeDate ? { date } : {}),
+  } as Expense;
 
   // Best-effort, as for deletion: only the club's own group, and an edit
   // Telegram refuses (old message, lost access) never undoes the change.

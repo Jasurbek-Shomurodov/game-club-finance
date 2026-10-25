@@ -287,7 +287,10 @@
     "deleteError": "Could not delete the entry. Try again.",
     "deleteEntryConfirmDetailed": "Delete “{category}” ({type}, {amount}) from {date}? This cannot be undone.",
     "gameClubExpenses": "Game club expenses",
-    "gameClubLeft": "Game club left"
+    "gameClubLeft": "Game club left",
+    "dateUpdated": "Date changed",
+    "dateUpdateError": "Could not change the date. Try again.",
+    "addedAt": "Added at {time}"
   },
   "dailyCash": {
     "title": "Daily Cash Entry",
@@ -845,7 +848,9 @@
       "monthlyAmount": "Planned per month",
       "monthlyAmountHelp": "The amount you expect to pay each month.",
       "perMonth": "month",
-      "termsLocked": "Payments are already recorded against this planned expense, so its category and money source stay as they are."
+      "termsLocked": "Payments are already recorded against this planned expense, so its category and money source stay as they are.",
+      "paymentMethodAny": "Any",
+      "paymentMethodHelp": "Preselected in the expense form when this plan is picked; it can still be changed there."
     }
   },
   "team": {

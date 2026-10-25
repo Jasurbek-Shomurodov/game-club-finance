@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ArrowRightLeft, Banknote, CircleDollarSign, CreditCard, WalletCards } from 'lucide-react';
+import { ArrowRightLeft, CircleDollarSign, type LucideIcon } from 'lucide-react';
+import { PAYMENT_METHOD_ICONS } from '@/components/paymentMethodIcons';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
   Button,
@@ -36,12 +37,7 @@ const ERROR_KEYS: Record<string, string> = {
   NOT_AVAILABLE: 'notAvailable',
 };
 
-const METHOD_ICONS: Record<ExchangeMethod, typeof Banknote> = {
-  cash: Banknote,
-  terminal: CreditCard,
-  card: WalletCards,
-  usd: CircleDollarSign,
-};
+const METHOD_ICONS: Record<ExchangeMethod, LucideIcon> = { ...PAYMENT_METHOD_ICONS, usd: CircleDollarSign };
 
 /** Moves Game Club money between payment methods, or into and out of dollars at a typed rate. */
 export default function ExchangeForm({ onSaved }: ExchangeFormProps) {

@@ -124,6 +124,7 @@
     "src/components/layout/usePendingTeamCount.ts",
     "src/components/layout/useSignOut.ts",
     "src/components/money-details/MoneyDetailsPage.tsx",
+    "src/components/paymentMethodIcons.ts",
     "src/components/theme/AppThemeContext.tsx",
     "src/i18n.ts",
     "src/lib/assistant/loaders.ts",

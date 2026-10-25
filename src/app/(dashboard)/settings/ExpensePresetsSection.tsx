@@ -24,12 +24,19 @@ import type { ExpensePreset, ExpensePresetSource } from '@/lib/calculations/expe
 import { MANUAL_EXPENSE_CATEGORIES } from '@/lib/expenseCategories';
 import { formatCurrency, formatCurrencyInput, parseCurrencyInput } from '@/lib/formatters';
 import { useClub } from '@/components/layout/DashboardShell';
+import { PAYMENT_METHOD_ICONS } from '@/components/paymentMethodIcons';
+import { PAYMENT_METHODS, type EntryPaymentMethod } from '@/types';
 import { createClient } from '@/lib/supabase/client';
 import { fetchExpensePresets, type ExpensePresetsResult } from '@/lib/supabase/expensePresets';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { SettingsSection } from './SettingsSection';
 
 const SOURCES: ExpensePresetSource[] = ['game_club', 'bar'];
+
+function methodIcon(method: EntryPaymentMethod, size = 16) {
+  const Icon = PAYMENT_METHOD_ICONS[method];
+  return <Icon size={size} aria-hidden="true" />;
+}
 /** The features whose members may read planned expenses (the 091 read policy). */
 const READ_FEATURES = ['dashboard', 'expenses', 'reports', 'owner_profit'] as const;
 
@@ -40,10 +47,14 @@ interface PresetForm {
   name: string;
   category: string;
   payment_source: ExpensePresetSource;
+  /** '' when the plan has no usual payment method. */
+  payment_method: EntryPaymentMethod | '';
+  /** The method saved before this edit, so clearing it is written too. */
+  saved_payment_method: EntryPaymentMethod | null;
   monthly_amount: string;
 }
 
-const emptyForm: PresetForm = { id: null, termsLocked: false, name: '', category: '', payment_source: 'game_club', monthly_amount: '' };
+const emptyForm: PresetForm = { id: null, termsLocked: false, name: '', category: '', payment_source: 'game_club', payment_method: '', saved_payment_method: null, monthly_amount: '' };
 
 /** Owner-managed list of the club's recurring expenses and their monthly plan. */
 export function ExpensePresetsSection({ clubId, isOwner }: { clubId: string; isOwner: boolean }) {
@@ -56,6 +67,7 @@ function PresetList({ clubId, isOwner }: { clubId: string; isOwner: boolean }) {
   const t = useTranslations('settings.expensePresets');
   const tExpenses = useTranslations('expenses');
   const tc = useTranslations('common');
+  const { enabledPaymentMethods } = useClub();
   const { confirm, confirmDialog } = useConfirm();
   const { showToast, toastElement } = useToast();
   const [form, setForm] = useState<PresetForm | null>(null);
@@ -78,6 +90,8 @@ function PresetList({ clubId, isOwner }: { clubId: string; isOwner: boolean }) {
         name: preset.name,
         category: preset.category,
         payment_source: preset.payment_source,
+        payment_method: preset.payment_method ?? '',
+        saved_payment_method: preset.payment_method ?? null,
         monthly_amount: formatCurrencyInput(preset.monthly_amount),
       }
       : emptyForm);
@@ -118,6 +132,8 @@ function PresetList({ clubId, isOwner }: { clubId: string; isOwner: boolean }) {
       monthly_amount: parseCurrencyInput(form.monthly_amount),
       // Locked terms are left out, so the 093 guard never sees a change to them.
       ...(form.termsLocked ? {} : { category: form.category, payment_source: form.payment_source }),
+      // Sent only when set or cleared, so a database without 094 still saves plans.
+      ...(form.payment_method || form.saved_payment_method ? { payment_method: form.payment_method || null } : {}),
     };
     setSaving(true);
     setFormError('');
@@ -188,6 +204,11 @@ function PresetList({ clubId, isOwner }: { clubId: string; isOwner: boolean }) {
                   <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
                     <span>{tExpenses(`categories.${preset.category}` as Parameters<typeof tExpenses>[0])}</span>
                     <Badge size="sm" variant="outline">{tExpenses(`paymentSources.${preset.payment_source}`)}</Badge>
+                    {preset.payment_method && (
+                      <Badge size="sm" variant="outline" icon={methodIcon(preset.payment_method, 12)}>
+                        {tc(`paymentMethods.${preset.payment_method}`)}
+                      </Badge>
+                    )}
                   </p>
                 </div>
                 <p className="shrink-0 text-sm font-semibold tabular-nums text-gray-950">
@@ -252,6 +273,21 @@ function PresetList({ clubId, isOwner }: { clubId: string; isOwner: boolean }) {
                 disabled={form.termsLocked !== false}
                 onChange={(source) => setForm({ ...form, payment_source: source })}
                 options={SOURCES.map((source) => ({ value: source, label: tExpenses(`paymentSources.${source}`) }))}
+              />
+            </Field>
+            <Field label={tExpenses('paymentMethod')} hint={t('paymentMethodHelp')}>
+              <SegmentedControl
+                variant="chips"
+                label={tExpenses('paymentMethod')}
+                value={form.payment_method}
+                onChange={(method) => setForm({ ...form, payment_method: method })}
+                options={[
+                  { value: '' as const, label: t('paymentMethodAny') },
+                  // A method the club has since switched off stays visible while the plan still uses it.
+                  ...PAYMENT_METHODS
+                    .filter((method) => enabledPaymentMethods.includes(method) || method === form.saved_payment_method)
+                    .map((method) => ({ value: method, label: tc(`paymentMethods.${method}`), icon: methodIcon(method) })),
+                ]}
               />
             </Field>
             <Field label={t('monthlyAmount')} htmlFor="expense-preset-amount" hint={t('monthlyAmountHelp')}>

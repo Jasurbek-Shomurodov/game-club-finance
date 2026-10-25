@@ -1,3 +1,5 @@
+import type { EntryPaymentMethod } from '@/types';
+
 /**
  * Planned expenses (migration 091): a club's recurring costs with a monthly
  * planned amount, compared with the expenses linked to them. Each preset
@@ -12,6 +14,8 @@ export interface ExpensePreset {
   name: string;
   category: string;
   payment_source: ExpensePresetSource;
+  /** The usual payment method (094); null when the plan has none or before 094. */
+  payment_method?: EntryPaymentMethod | null;
   monthly_amount: number;
   sort_order: number;
   archived_at: string | null;

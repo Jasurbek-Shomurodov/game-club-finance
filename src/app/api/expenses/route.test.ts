@@ -406,4 +406,55 @@ describe('expense payment method route', () => {
     expect((await patch('terminal')).status).toBe(403);
     expect(mocks.editTelegramMessage).not.toHaveBeenCalled();
   });
+  describe('date', () => {
+    async function patchBody(body: Record<string, unknown>) {
+      const response = await PATCH(new Request('https://example.test/api/expenses', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ clubId: CLUB_ID, expenseId: EXPENSE_ID, ...body }),
+      }));
+      await Promise.all(mocks.afterTasks.splice(0));
+      return response;
+    }
+
+    beforeEach(() => {
+      // 2026-10-25 10:00 in Tashkent: business today is 2026-10-25.
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-10-25T05:00:00Z'));
+    });
+    afterEach(() => { vi.useRealTimers(); });
+
+    it('moves the expense through the date RPC and edits the group message', async () => {
+      const { rpc } = mockPatchSupabase(baseExpense);
+      const response = await patchBody({ date: '2026-10-20' });
+      expect(response.status).toBe(200);
+      expect((await response.json()).expense).toMatchObject({ date: '2026-10-20', payment_method: 'cash' });
+      expect(rpc).toHaveBeenCalledOnce();
+      expect(rpc).toHaveBeenCalledWith('update_expense_date', { p_club_id: CLUB_ID, p_expense_id: EXPENSE_ID, p_date: '2026-10-20' });
+      expect(mocks.editTelegramMessage).toHaveBeenCalledOnce();
+    });
+
+    it('changes the method and the date together, and skips unchanged values', async () => {
+      const both = mockPatchSupabase(baseExpense);
+      expect((await patchBody({ date: '2026-10-20', paymentMethod: 'terminal' })).status).toBe(200);
+      expect(both.rpc.mock.calls.map(([name]) => name)).toEqual(['update_expense_payment_method', 'update_expense_date']);
+      const same = mockPatchSupabase(baseExpense);
+      expect((await patchBody({ date: baseExpense.date })).status).toBe(200);
+      expect(same.rpc).not.toHaveBeenCalled();
+    });
+
+    it('rejects a future, impossible or missing change', async () => {
+      const { rpc } = mockPatchSupabase(baseExpense);
+      for (const body of [{ date: '2026-10-26' }, { date: '2026-02-30' }, { date: 20261020 }, {}]) {
+        expect((await patchBody(body)).status).toBe(400);
+      }
+      expect(rpc).not.toHaveBeenCalled();
+    });
+
+    it('leaves payroll payments to Salaries', async () => {
+      const { rpc } = mockPatchSupabase({ ...baseExpense, salary_entry_id: 'salary-entry' });
+      expect((await (await patchBody({ date: '2026-10-20' })).json()).code).toBe('SALARY_PAYMENT_IMMUTABLE');
+      expect(rpc).not.toHaveBeenCalled();
+    });
+  });
 });

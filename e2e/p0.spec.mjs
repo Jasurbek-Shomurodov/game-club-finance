@@ -92,11 +92,13 @@ test('EXP-008 a planned expense is set up in Settings, picked in the expense for
   const presetDialog = page.getByRole('dialog', { name: 'Add planned expense' });
   await presetDialog.locator('#expense-preset-name').fill('iCafe');
   await presetDialog.locator('#expense-preset-category').selectOption('equipment');
+  await presetDialog.getByRole('radio', { name: 'Cash' }).click();
   await presetDialog.locator('#expense-preset-amount').fill('500000');
   await expect(presetDialog.locator('#expense-preset-amount')).toHaveValue('500 000');
   await presetDialog.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByText('Planned expense saved')).toBeVisible();
   await expect(page.getByRole('list', { name: 'Planned expenses' }).getByText('iCafe')).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Planned expenses' }).getByText('Cash')).toBeVisible();
 
   await page.goto('/reports');
   await page.getByRole('button', { name: 'Register Expense' }).click();
@@ -104,6 +106,8 @@ test('EXP-008 a planned expense is set up in Settings, picked in the expense for
   await dialog.getByRole('radio', { name: 'iCafe' }).click();
   await expect(dialog.locator('#expense-category')).toHaveValue('equipment');
   await expect(dialog.locator('#expense-category')).toBeDisabled();
+  // The plan's usual method is preselected.
+  await expect(dialog.getByRole('radio', { name: 'Cash' })).toBeChecked();
   await expect(dialog.locator('#expense-amount')).toHaveAttribute('placeholder', uzs(500_000));
   await dialog.locator('#expense-amount').fill('650000');
   await dialog.getByRole('button', { name: 'Save Expense' }).click();
@@ -124,6 +128,24 @@ test('EXP-008 a planned expense is set up in Settings, picked in the expense for
   const editDialog = page.getByRole('dialog', { name: 'Edit planned expense' });
   await expect(editDialog.locator('#expense-preset-category')).toBeDisabled();
   await expect(editDialog.locator('#expense-preset-amount')).toBeEnabled();
+});
+
+test('EXP-009 an owner moves an expense to another date from Entry details', async ({ page }) => {
+  const [cleaning] = expenses;
+  // The 1st of this month, or of last month when today is the 1st; never after today.
+  const [year, month, day] = today.split('-').map(Number);
+  const target = day > 1 ? `${today.slice(0, 7)}-01` : new Date(Date.UTC(year, month - 2, 1)).toISOString().slice(0, 10);
+  const targetLabel = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${target}T00:00:00Z`));
+  await page.goto('/reports');
+  await page.getByText(cleaning.comment).click();
+  const details = page.getByRole('dialog', { name: 'Entry details' });
+  await details.getByRole('button', { name: 'Date', exact: true }).click();
+  const calendar = page.getByRole('dialog', { name: 'Select date' });
+  if (day === 1) await calendar.getByRole('button', { name: 'Previous month' }).click();
+  await calendar.getByRole('button', { name: targetLabel, exact: true }).click();
+  await expect(page.getByText('Date changed')).toBeVisible();
+  const [row] = await (await restAs(accounts.owner, 'GET', `expenses?select=date&id=eq.${cleaning.id}`)).json();
+  expect(row.date).toBe(target);
 });
 
 test('STOCK-001 STOCK-002 STOCK-003 a purchase and a closing count go through the atomic RPCs and agree with the stock math', async ({ page }) => {

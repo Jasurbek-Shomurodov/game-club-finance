@@ -20,7 +20,7 @@ migrations.
 | `owner_withdrawals` | Monthly/source withdrawals; Game Club rows may name a `payment_method` (066) | Insert through `withdraw_owner_money_for_month` or `withdraw_owner_game_club_money_by_method`. |
 | `owner_profit_carryovers` | Unwithdrawn profit moved from `from_month` to the next month (071) | Select only; write through `carry_owner_profit_to_next_month` and `delete_owner_profit_carryover`. |
 | `promotions` | Owner-managed bonus rules (078) | Owner writes; members with inventory/stock/report access read. |
-| `expense_presets` | Per-club planned (recurring) expenses with a monthly amount (091) | Owner inserts/updates, archived never deleted; expense readers read. `expenses.preset_id` links a payment; a trigger requires a live preset of the same club, category and `payment_source`. Once linked, a preset's category and source cannot change (093). |
+| `expense_presets` | Per-club planned (recurring) expenses with a monthly amount (091) | Owner inserts/updates, archived never deleted; expense readers read. `expenses.preset_id` links a payment; a trigger requires a live preset of the same club, category and `payment_source`. Once linked, a preset's category and source cannot change (093). An optional `payment_method` (094) is only preselected in the expense form. |
 | `money_exchanges` | Game Club money moved between payment methods or into/out of US dollars (092) | Select only; write through `record_money_exchange` (expenses feature, idempotent id) and `delete_money_exchange` (owner). |
 | `telegram_report_deliveries` | Service-only delivery state | Never expose to browser roles. |
 
@@ -96,6 +96,7 @@ visible to every club owner until requests are targeted at a club.
 | `reject_access_request` | Atomically reject an open access request (074). |
 | `get_owner_profit_snapshot_with_methods` | 050 owner-profit payload plus each withdrawal's `payment_method` (076). |
 | `record_salary_entry_with_status` | `record_salary_entry` that also reports whether it inserted (077). |
+| `update_expense_date` | Owner moves an ordinary expense to another date, never after the club business date (095); payroll-linked expenses refuse. |
 | `update_expense_payment_method` | Owner correction of an ordinary expense's payment method (090); payroll expenses refuse. |
 | `set_salary_record_telegram_message` | Save the club-group message that announced a salary entry or rate (090), so deletion removes it. |
 | `record_money_exchange` / `delete_money_exchange` | Record (idempotent) or owner-delete a money exchange (092). |

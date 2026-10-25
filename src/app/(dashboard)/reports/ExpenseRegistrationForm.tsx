@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Banknote, Building2, CreditCard, Save, WalletCards } from 'lucide-react';
+import { Building2, Save, WalletCards } from 'lucide-react';
+import { PAYMENT_METHOD_ICONS } from '@/components/paymentMethodIcons';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
   Button,
@@ -128,7 +129,16 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     requestId.current = null;
     const preset = presets.find((item) => item.id === presetId);
     setForm((current) => (preset
-      ? { ...current, preset_id: preset.id, category: preset.category, payment_source: preset.payment_source }
+      ? {
+        ...current,
+        preset_id: preset.id,
+        category: preset.category,
+        payment_source: preset.payment_source,
+        // The plan's usual method is a default the person can still change.
+        ...(preset.payment_method && enabledPaymentMethods.includes(preset.payment_method)
+          ? { payment_method: preset.payment_method }
+          : {}),
+      }
       : { ...current, preset_id: '' }));
   }
 
@@ -220,8 +230,10 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     if (saved) await onSaved?.();
   }
 
-  const methodIcon = (method: EntryPaymentMethod) =>
-    method === 'cash' ? <Banknote size={16} aria-hidden="true" /> : method === 'terminal' ? <CreditCard size={16} aria-hidden="true" /> : <WalletCards size={16} aria-hidden="true" />;
+  const methodIcon = (method: EntryPaymentMethod) => {
+    const Icon = PAYMENT_METHOD_ICONS[method];
+    return <Icon size={16} aria-hidden="true" />;
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">

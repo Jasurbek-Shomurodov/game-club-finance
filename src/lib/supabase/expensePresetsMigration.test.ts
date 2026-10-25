@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const migration = readFileSync(resolve(process.cwd(), 'migrations/091_expense_presets.sql'), 'utf8');
 const integrity = readFileSync(resolve(process.cwd(), 'migrations/093_expense_preset_integrity.sql'), 'utf8');
+const paymentMethod = readFileSync(resolve(process.cwd(), 'migrations/094_expense_preset_payment_method.sql'), 'utf8');
 const owner = '00000000-0000-0000-0000-000000000001';
 const admin = '00000000-0000-0000-0000-000000000002';
 const club = '10000000-0000-0000-0000-000000000001';
@@ -52,7 +53,7 @@ beforeAll(async () => {
     grant all on public.expenses to authenticated;
   `);
   // Both re-runnable.
-  for (const sql of [migration, migration, integrity, integrity]) await db.exec(sql);
+  for (const sql of [migration, migration, integrity, integrity, paymentMethod, paymentMethod]) await db.exec(sql);
   await db.exec(`
     insert into public.expense_presets (id, club_id, name, category, payment_source, monthly_amount) values
       ('${power}', '${club}', 'Electricity', 'electricity', 'game_club', 3000000),
@@ -129,5 +130,14 @@ describe('expense presets migration (091)', () => {
     await expect(asUser(owner, () => db.query(
       "update public.expense_presets set name = 'Power', monthly_amount = 3200000 where id = $1", [power],
     ))).resolves.toBeDefined();
+  });
+
+  it('stores an optional usual payment method the owner can change (094)', async () => {
+    await expect(asUser(owner, () => db.query("update public.expense_presets set payment_method = 'cash' where id = $1", [power])))
+      .resolves.toBeDefined();
+    await expect(asUser(owner, () => db.query('update public.expense_presets set payment_method = null where id = $1', [power])))
+      .resolves.toBeDefined();
+    await expect(db.query("update public.expense_presets set payment_method = 'playstation' where id = $1", [power]))
+      .rejects.toThrow(/expense_presets_payment_method_valid/);
   });
 });

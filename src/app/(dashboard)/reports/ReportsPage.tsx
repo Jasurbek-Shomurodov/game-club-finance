@@ -35,6 +35,7 @@ import {
   PageHeader,
   SectionHeading,
   Select,
+  DatePicker,
   TableSkeleton,
   toneForAmount,
   useConfirm,
@@ -504,10 +505,12 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     }
   }
 
-  /** Owners correct an ordinary expense's payment method; the club group message is edited server-side. */
-  async function handleChangePaymentMethod(activity: MoneyReportActivity, paymentMethod: string) {
+  /** Owners correct an ordinary expense's payment method or date; the club group message is edited server-side. */
+  async function handleUpdateExpense(activity: MoneyReportActivity, change: { paymentMethod: string } | { date: string }) {
     if (!isOwner || !selectedClubId || !activity.id || activity.source !== 'expense' || methodSaving) return;
-    if (paymentMethod === activity.paymentMethod) return;
+    if ('paymentMethod' in change && change.paymentMethod === activity.paymentMethod) return;
+    if ('date' in change && change.date === selectedEntry?.date) return;
+    const errorText = 'date' in change ? t('dateUpdateError') : t('paymentMethodUpdateError');
     const clubId = selectedClubId;
     setMethodSaving(true);
     setActionError('');
@@ -515,7 +518,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       const response = await mutateFinanceRequest('/api/expenses', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ clubId, expenseId: activity.id, paymentMethod }),
+        body: JSON.stringify({ clubId, expenseId: activity.id, ...change }),
       });
       if (currentClubId.current !== clubId) return;
       if (!response.ok) {
@@ -524,16 +527,18 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
           ? t('salaryPaymentMethodProtected')
           : response.status === 401 || response.status === 403
             ? tc('accessDeniedDescription')
-            : t('paymentMethodUpdateError'));
+            : errorText);
         return;
       }
       setSelectedEntry((current) => (current?.activity.id === activity.id
-        ? { ...current, activity: { ...current.activity, paymentMethod } }
+        ? 'date' in change
+          ? { ...current, date: change.date }
+          : { ...current, activity: { ...current.activity, paymentMethod: change.paymentMethod } }
         : current));
-      showToast(t('paymentMethodUpdated'));
+      showToast('date' in change ? t('dateUpdated') : t('paymentMethodUpdated'));
       await reloadReport({ silent: true });
     } catch {
-      if (currentClubId.current === clubId) setActionError(t('paymentMethodUpdateError'));
+      if (currentClubId.current === clubId) setActionError(errorText);
     } finally {
       setMethodSaving(false);
     }
@@ -548,8 +553,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     return activity.paymentSource === 'bar' ? `${t('bar')} · ${label}` : label;
   }
 
-  function canChangePaymentMethod(activity: MoneyReportActivity): boolean {
-    // Payroll payments take their method from the salary entry.
+  function canCorrectExpense(activity: MoneyReportActivity): boolean {
+    // Payroll payments take their method and date from the salary entry.
     return isOwner && activity.source === 'expense' && Boolean(activity.id) && activity.category !== 'salary';
   }
 
@@ -922,7 +927,23 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
               <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 py-3 text-sm">
                 <dt className="text-gray-500">{t('dateAndTime')}</dt>
                 <dd className="text-right font-semibold text-gray-900">
-                  {formatDateOnly(selectedEntry.date, locale)} · {formatTime(selectedEntry.activity.createdAt, locale)}
+                  {canCorrectExpense(selectedEntry.activity) ? (
+                    <div className="ml-auto flex max-w-60 flex-col items-end gap-1">
+                      <DatePicker
+                        ariaLabel={t('date')}
+                        value={selectedEntry.date}
+                        max={businessToday}
+                        disabled={methodSaving}
+                        className="w-full"
+                        onChange={(date) => void handleUpdateExpense(selectedEntry.activity, { date })}
+                      />
+                      <span className="text-xs font-normal text-gray-500">
+                        {t('addedAt', { time: formatTime(selectedEntry.activity.createdAt, locale) })}
+                      </span>
+                    </div>
+                  ) : (
+                    <>{formatDateOnly(selectedEntry.date, locale)} · {formatTime(selectedEntry.activity.createdAt, locale)}</>
+                  )}
                 </dd>
               </div>
               <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 py-3 text-sm">
@@ -957,10 +978,10 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                             </Badge>
                           ))}
                       </div>
-                    ) : canChangePaymentMethod(selectedEntry.activity) ? (
+                    ) : canCorrectExpense(selectedEntry.activity) ? (
                       <Select
                         value={selectedEntry.activity.paymentMethod ?? ''}
-                        onChange={(event) => void handleChangePaymentMethod(selectedEntry.activity, event.target.value)}
+                        onChange={(event) => void handleUpdateExpense(selectedEntry.activity, { paymentMethod: event.target.value })}
                         disabled={methodSaving}
                         aria-label={t('paymentMethod')}
                         className="ml-auto w-40"

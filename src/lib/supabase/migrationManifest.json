@@ -3252,5 +3252,29 @@
         "signature": "public.enforce_expense_preset_terms()"
       }
     ]
+  },
+  {
+    "file": "094_expense_preset_payment_method.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.expense_presets",
+        "column": "payment_method"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.expense_presets",
+        "name": "expense_presets_payment_method_valid"
+      }
+    ]
+  },
+  {
+    "file": "095_expense_date_correction.sql",
+    "probes": [
+      {
+        "kind": "function",
+        "signature": "public.update_expense_date(uuid,uuid,date)"
+      }
+    ]
   }
 ]

@@ -4,6 +4,8 @@ import { isMissingDatabaseColumn, isMissingDatabaseTable } from './errors';
 import { fetchAllRows } from './pagination';
 
 const PRESET_COLUMNS = 'id,name,category,payment_source,monthly_amount,sort_order,archived_at';
+/** The usual payment method arrives with migration 094. */
+const PRESET_COLUMNS_WITH_METHOD = `${PRESET_COLUMNS},payment_method`;
 
 export interface ExpensePresetsResult {
   presets: ExpensePreset[];
@@ -13,18 +15,22 @@ export interface ExpensePresetsResult {
 
 /** Every preset of the club, archived ones included (they label older expenses). */
 export async function fetchExpensePresets(supabase: SupabaseClient, clubId: string): Promise<ExpensePresetsResult> {
-  const { data, error } = await supabase
+  const read = (columns: string) => supabase
     .from('expense_presets')
-    .select(PRESET_COLUMNS)
+    .select(columns)
     .eq('club_id', clubId)
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true });
+  let { data, error } = await read(PRESET_COLUMNS_WITH_METHOD);
+  // Compatibility while migration 094 is being deployed: plans without a method.
+  if (isMissingDatabaseColumn(error, 'payment_method')) ({ data, error } = await read(PRESET_COLUMNS));
   if (error) {
     if (isMissingDatabaseTable(error, 'expense_presets')) return { presets: [], available: false };
     throw error;
   }
   return {
-    presets: (data ?? []).map((row) => ({ ...row, monthly_amount: Number(row.monthly_amount ?? 0) })) as ExpensePreset[],
+    presets: ((data ?? []) as unknown as Array<Omit<ExpensePreset, 'monthly_amount'> & { monthly_amount: unknown }>)
+      .map((row) => ({ ...row, payment_method: row.payment_method ?? null, monthly_amount: Number(row.monthly_amount ?? 0) })),
     available: true,
   };
 }
