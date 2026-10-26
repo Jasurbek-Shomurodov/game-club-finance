@@ -9,6 +9,7 @@ const specsMigration = readFileSync(resolve('migrations', '100_showcase_zone_spe
 const translationsMigration = readFileSync(resolve('migrations', '101_showcase_translations.sql'), 'utf8');
 const offersMigration = readFileSync(resolve('migrations', '102_showcase_offers.sql'), 'utf8');
 const accessMigration = readFileSync(resolve('migrations', '103_showcase_feature_access.sql'), 'utf8');
+const contactsMigration = readFileSync(resolve('migrations', '104_showcase_contacts_and_consoles.sql'), 'utf8');
 const club = '10000000-0000-0000-0000-000000000001';
 const otherClub = '10000000-0000-0000-0000-000000000002';
 const thirdClub = '10000000-0000-0000-0000-000000000003';
@@ -52,6 +53,7 @@ beforeAll(async () => {
   await db.exec(specsMigration);
   await db.exec(translationsMigration);
   await db.exec(offersMigration);
+  await db.exec(contactsMigration);
 }, 20000);
 
 afterAll(async () => { await db?.close(); });
@@ -70,6 +72,7 @@ describe('098 public showcase', () => {
     await db.exec(specsMigration);
     await db.exec(translationsMigration);
     await db.exec(offersMigration);
+    await db.exec(contactsMigration);
   });
 
   it('returns a published showcase to anonymous visitors in sort order', async () => {
@@ -190,5 +193,26 @@ describe('098 public showcase', () => {
     await expect(db.query(`insert into showcase_games(club_id, title) values ('${otherClub}','X')`)).rejects.toThrow(/row-level security/);
     await db.exec(`reset role; select set_config('test.features','',false);`);
     await expect(db.query(`update club_memberships set feature_access = array['showcase','nonsense']`)).rejects.toThrow(/feature_access_valid/);
+  });
+
+  it('104 publishes contact details and PlayStation zones', async () => {
+    await db.exec(`reset role;
+      update club_showcases set email = 'info@neon.uz', youtube_url = 'https://youtube.com/@neon';
+      insert into showcase_pc_zones(club_id, kind, name, pc_count, console, controllers) values ('${club}','playstation','PS5',3,'PlayStation 5',2);
+      insert into showcase_brands(owner_id, slug, name, is_published, phone, email, opening_hours) values ('${owner}','pixel-gaming','Pixel',true,'+998','hi@pixel.uz','24/7')
+        on conflict (owner_id) do update set phone = excluded.phone, email = excluded.email, opening_hours = excluded.opening_hours, is_published = true;`);
+    await asRole('anon');
+    const page = (await db.query<{ p: { email: string; youtube_url: string; zones: Array<{ kind: string; console: string | null; controllers: number | null }> } }>(
+      "select public.get_public_showcase('neon-arena') as p")).rows[0].p;
+    expect(page.email).toBe('info@neon.uz');
+    expect(page.youtube_url).toBe('https://youtube.com/@neon');
+    expect(page.zones.map((zone) => [zone.kind, zone.console, zone.controllers])).toContainEqual(['playstation', 'PlayStation 5', 2]);
+    expect(page.zones.some((zone) => zone.kind === 'pc')).toBe(true);
+    const brand = (await db.query<{ p: { phone: string; email: string; opening_hours: string } }>("select public.get_public_brand('pixel-gaming') as p")).rows[0].p;
+    expect(brand).toMatchObject({ phone: '+998', email: 'hi@pixel.uz', opening_hours: '24/7' });
+    await db.exec('reset role');
+    await expect(db.query(`update club_showcases set email = 'not-an-email'`)).rejects.toThrow(/email_format/);
+    await expect(db.query(`update showcase_pc_zones set kind = 'xbox'`)).rejects.toThrow(/kind_valid/);
+    await expect(db.query(`update showcase_pc_zones set controllers = 0`)).rejects.toThrow(/controllers_range/);
   });
 });

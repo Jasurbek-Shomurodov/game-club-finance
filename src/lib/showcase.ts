@@ -1,4 +1,4 @@
-import type { ClubShowcase, ShowcaseBrand, ShowcaseGame, ShowcaseOffer, ShowcasePcZone, ShowcaseTranslations } from '@/types';
+import type { ClubShowcase, ShowcaseBrand, ShowcaseGame, ShowcaseOffer, ShowcasePcZone, ShowcaseTranslations, ShowcaseZoneKind } from '@/types';
 import { formatCurrencyInput, parseCurrencyInput } from './formatters';
 
 /** Matches the club_showcases_slug_format check in migration 098. */
@@ -96,6 +96,23 @@ export function normalizeInstagramUrl(value: string | null | undefined): string 
   return normalizeExternalUrl(trimmed);
 }
 
+/** "@pixelgaming" → https://youtube.com/@pixelgaming. */
+export function normalizeYoutubeUrl(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('@')) return normalizeExternalUrl(`youtube.com/${trimmed}`);
+  return normalizeExternalUrl(trimmed);
+}
+
+/** Matches the *_email_format checks in migration 104. */
+const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+/** A trimmed, lower-cased email address, or null when blank or malformed. */
+export function normalizeEmail(value: string | null | undefined): string | null {
+  const trimmed = value?.trim().toLowerCase();
+  return trimmed && EMAIL_PATTERN.test(trimmed) ? trimmed : null;
+}
+
 /** Digits and a leading plus only, for a tel: link. */
 export function telHref(phone: string | null | undefined): string | null {
   const digits = phone?.replace(/[^\d+]/g, '').replace(/(?!^)\+/g, '');
@@ -110,12 +127,30 @@ export interface ShowcaseSettingsForm {
   hero_image_url: string;
   address: string;
   phone: string;
+  email: string;
   opening_hours: string;
   telegram_url: string;
   instagram_url: string;
+  youtube_url: string;
 }
 
-export type ShowcaseSettingsError = 'slug_invalid' | 'telegram_invalid' | 'instagram_invalid' | 'image_invalid';
+export type ShowcaseSettingsError =
+  | 'slug_invalid'
+  | 'telegram_invalid'
+  | 'instagram_invalid'
+  | 'youtube_invalid'
+  | 'email_invalid'
+  | 'image_invalid';
+
+/** Shared checks for the optional contact links of a club or brand page. */
+function validateContactLinks(form: { email: string; telegram_url: string; instagram_url: string; youtube_url: string; hero_image_url: string }): ShowcaseSettingsError | null {
+  if (form.telegram_url.trim() && !normalizeTelegramUrl(form.telegram_url)) return 'telegram_invalid';
+  if (form.instagram_url.trim() && !normalizeInstagramUrl(form.instagram_url)) return 'instagram_invalid';
+  if (form.youtube_url.trim() && !normalizeYoutubeUrl(form.youtube_url)) return 'youtube_invalid';
+  if (form.email.trim() && !normalizeEmail(form.email)) return 'email_invalid';
+  if (form.hero_image_url.trim() && !normalizeExternalUrl(form.hero_image_url)) return 'image_invalid';
+  return null;
+}
 
 export function showcaseSettingsForm(showcase: ClubShowcase | null, clubName: string): ShowcaseSettingsForm {
   return {
@@ -126,18 +161,17 @@ export function showcaseSettingsForm(showcase: ClubShowcase | null, clubName: st
     hero_image_url: showcase?.hero_image_url ?? '',
     address: showcase?.address ?? '',
     phone: showcase?.phone ?? '',
+    email: showcase?.email ?? '',
     opening_hours: showcase?.opening_hours ?? '',
     telegram_url: showcase?.telegram_url ?? '',
     instagram_url: showcase?.instagram_url ?? '',
+    youtube_url: showcase?.youtube_url ?? '',
   };
 }
 
 export function validateShowcaseSettings(form: ShowcaseSettingsForm): ShowcaseSettingsError | null {
   if (!SHOWCASE_SLUG_PATTERN.test(form.slug)) return 'slug_invalid';
-  if (form.telegram_url.trim() && !normalizeTelegramUrl(form.telegram_url)) return 'telegram_invalid';
-  if (form.instagram_url.trim() && !normalizeInstagramUrl(form.instagram_url)) return 'instagram_invalid';
-  if (form.hero_image_url.trim() && !normalizeExternalUrl(form.hero_image_url)) return 'image_invalid';
-  return null;
+  return validateContactLinks(form);
 }
 
 /** Validated form → club_showcases columns (club_id added by the caller). */
@@ -151,9 +185,11 @@ export function buildShowcaseSettingsPayload(form: ShowcaseSettingsForm) {
     hero_image_url: normalizeExternalUrl(form.hero_image_url),
     address: optionalText(form.address),
     phone: optionalText(form.phone),
+    email: normalizeEmail(form.email),
     opening_hours: optionalText(form.opening_hours),
     telegram_url: normalizeTelegramUrl(form.telegram_url),
     instagram_url: normalizeInstagramUrl(form.instagram_url),
+    youtube_url: normalizeYoutubeUrl(form.youtube_url),
   };
 }
 
@@ -168,6 +204,7 @@ export type ShowcaseItemError =
   | 'title_required'
   | 'name_required'
   | 'pc_count_invalid'
+  | 'controllers_invalid'
   | 'monitor_size_invalid'
   | 'monitor_refresh_invalid'
   | 'image_invalid'
@@ -201,8 +238,11 @@ export function buildShowcaseGamePayload(form: ShowcaseGameForm) {
 }
 
 export interface ShowcasePcZoneForm {
+  kind: ShowcaseZoneKind;
   name: string;
   pc_count: string;
+  console: string;
+  controllers: string;
   cpu: string;
   gpu: string;
   ram: string;
@@ -220,10 +260,13 @@ export interface ShowcasePcZoneForm {
   sort_order: string;
 }
 
-export function showcasePcZoneForm(zone: ShowcasePcZone | null, nextSortOrder: number): ShowcasePcZoneForm {
+export function showcasePcZoneForm(zone: ShowcasePcZone | null, nextSortOrder: number, kind: ShowcaseZoneKind = 'pc'): ShowcasePcZoneForm {
   return {
+    kind: zone?.kind ?? kind,
     name: zone?.name ?? '',
     pc_count: String(zone?.pc_count ?? 1),
+    console: zone?.console ?? '',
+    controllers: zone?.controllers == null ? '' : String(zone.controllers),
     cpu: zone?.cpu ?? '',
     gpu: zone?.gpu ?? '',
     ram: zone?.ram ?? '',
@@ -246,6 +289,10 @@ export function validateShowcasePcZone(form: ShowcasePcZoneForm): ShowcaseItemEr
   if (!form.name.trim()) return 'name_required';
   const count = Number(form.pc_count);
   if (!Number.isInteger(count) || count <= 0 || count > 1000) return 'pc_count_invalid';
+  if (form.kind === 'playstation' && form.controllers.trim()) {
+    const controllers = Number(form.controllers.trim());
+    if (!Number.isInteger(controllers) || controllers < 1 || controllers > 20) return 'controllers_invalid';
+  }
   if (form.monitor_size_inches.trim()) {
     const size = parseDecimalInput(form.monitor_size_inches);
     if (size === null || size < 10 || size > 100) return 'monitor_size_invalid';
@@ -259,19 +306,28 @@ export function validateShowcasePcZone(form: ShowcasePcZoneForm): ShowcaseItemEr
   return null;
 }
 
+/**
+ * Validated form → showcase_pc_zones columns. Fields the other kind uses are
+ * cleared, so switching a zone between PC and PlayStation leaves no stale specs.
+ */
 export function buildShowcasePcZonePayload(form: ShowcasePcZoneForm) {
+  const pc = form.kind === 'pc';
+  const pcOnly = (value: string) => (pc ? optionalText(value) : null);
   return {
+    kind: form.kind,
     name: form.name.trim(),
     pc_count: Number(form.pc_count),
-    cpu: optionalText(form.cpu),
-    gpu: optionalText(form.gpu),
-    ram: optionalText(form.ram),
-    storage: optionalText(form.storage),
+    console: pc ? null : optionalText(form.console),
+    controllers: !pc && form.controllers.trim() ? Number(form.controllers.trim()) : null,
+    cpu: pcOnly(form.cpu),
+    gpu: pcOnly(form.gpu),
+    ram: pcOnly(form.ram),
+    storage: pcOnly(form.storage),
     monitor: optionalText(form.monitor),
     monitor_size_inches: form.monitor_size_inches.trim() ? parseDecimalInput(form.monitor_size_inches) : null,
     monitor_refresh_hz: form.monitor_refresh_hz.trim() ? Number(form.monitor_refresh_hz.trim()) : null,
-    mouse: optionalText(form.mouse),
-    keyboard: optionalText(form.keyboard),
+    mouse: pcOnly(form.mouse),
+    keyboard: pcOnly(form.keyboard),
     headset: optionalText(form.headset),
     chair: optionalText(form.chair),
     peripherals: optionalText(form.peripherals),
@@ -302,8 +358,12 @@ export interface PublicShowcaseGame {
 
 export interface PublicShowcaseZone {
   id: string;
+  kind: ShowcaseZoneKind;
   name: string;
+  /** Computers, or consoles in a PlayStation zone. */
   pc_count: number;
+  console: string | null;
+  controllers: number | null;
   cpu: string | null;
   gpu: string | null;
   ram: string | null;
@@ -337,9 +397,11 @@ export interface PublicShowcase {
   hero_image_url: string | null;
   address: string | null;
   phone: string | null;
+  email: string | null;
   opening_hours: string | null;
   telegram_url: string | null;
   instagram_url: string | null;
+  youtube_url: string | null;
   games: PublicShowcaseGame[];
   zones: PublicShowcaseZone[];
   offers: PublicShowcaseOffer[];
@@ -380,9 +442,11 @@ export function parsePublicShowcase(raw: unknown, locale = 'ru'): PublicShowcase
     hero_image_url: safeUrl(data.hero_image_url),
     address: text(data.address),
     phone: text(data.phone),
+    email: typeof data.email === 'string' ? normalizeEmail(data.email) : null,
     opening_hours: text(data.opening_hours),
     telegram_url: safeUrl(data.telegram_url),
     instagram_url: safeUrl(data.instagram_url),
+    youtube_url: safeUrl(data.youtube_url),
     games: list(data.games).flatMap((game) => {
       const title = text(game.title);
       const id = text(game.id);
@@ -394,10 +458,14 @@ export function parsePublicShowcase(raw: unknown, locale = 'ru'): PublicShowcase
       if (!name || !id) return [];
       const count = finiteNumber(zone.pc_count);
       const price = finiteNumber(zone.price_per_hour);
+      const controllers = finiteNumber(zone.controllers);
       return [{
         id,
+        kind: zone.kind === 'playstation' ? 'playstation' as const : 'pc' as const,
         name,
         pc_count: count !== null && count > 0 ? Math.round(count) : 1,
+        console: text(zone.console),
+        controllers: controllers !== null && controllers > 0 ? Math.round(controllers) : null,
         cpu: text(zone.cpu),
         gpu: text(zone.gpu),
         ram: text(zone.ram),
@@ -432,9 +500,16 @@ export function parsePublicShowcase(raw: unknown, locale = 'ru'): PublicShowcase
   };
 }
 
-/** Total seats across every zone. */
-export function totalPcCount(zones: Array<{ pc_count: number }>): number {
-  return zones.reduce((sum, zone) => sum + zone.pc_count, 0);
+const isPc = (zone: { kind?: ShowcaseZoneKind }) => (zone.kind ?? 'pc') === 'pc';
+
+/** Computers across every PC zone; PlayStation zones count consoles instead. */
+export function totalPcCount(zones: Array<{ pc_count: number; kind?: ShowcaseZoneKind }>): number {
+  return zones.filter(isPc).reduce((sum, zone) => sum + zone.pc_count, 0);
+}
+
+/** Consoles across every PlayStation zone. */
+export function totalConsoleCount(zones: Array<{ pc_count: number; kind?: ShowcaseZoneKind }>): number {
+  return zones.filter((zone) => !isPc(zone)).reduce((sum, zone) => sum + zone.pc_count, 0);
 }
 
 /** Lowest hourly price among the zones that list one. */
@@ -454,8 +529,12 @@ export interface PublicBrand {
   name: string;
   tagline: string | null;
   hero_image_url: string | null;
+  phone: string | null;
+  email: string | null;
+  opening_hours: string | null;
   telegram_url: string | null;
   instagram_url: string | null;
+  youtube_url: string | null;
   clubs: PublicShowcase[];
 }
 
@@ -472,14 +551,19 @@ export function parsePublicBrand(raw: unknown, locale = 'ru'): PublicBrand | nul
     name,
     tagline: pickLocalized(translationsOf(data).tagline, locale, text(data.tagline)),
     hero_image_url: safeUrl(data.hero_image_url),
+    phone: text(data.phone),
+    email: typeof data.email === 'string' ? normalizeEmail(data.email) : null,
+    opening_hours: text(data.opening_hours),
     telegram_url: safeUrl(data.telegram_url),
     instagram_url: safeUrl(data.instagram_url),
+    youtube_url: safeUrl(data.youtube_url),
     clubs,
   };
 }
 
 export interface ClubInsights {
   pcCount: number;
+  consoleCount: number;
   zoneCount: number;
   gameCount: number;
   minPrice: number | null;
@@ -494,14 +578,16 @@ const REFRESH_PATTERN = /(\d{2,3})\s*(?:hz|гц|gs)/gi;
 
 export function clubInsights(club: Pick<PublicShowcase, 'zones' | 'games'>): ClubInsights {
   const prices = club.zones.map((zone) => zone.price_per_hour).filter((price): price is number => price !== null);
-  const withGpu = club.zones.filter((zone) => zone.gpu);
+  const pcZones = club.zones.filter(isPc);
+  const withGpu = pcZones.filter((zone) => zone.gpu);
   const topZone = [...withGpu].sort((a, b) => (b.price_per_hour ?? -1) - (a.price_per_hour ?? -1))[0];
   // The structured refresh rate wins; older zones only have it inside the monitor text.
-  const refreshRates = club.zones.flatMap((zone) => (zone.monitor_refresh_hz
+  const refreshRates = pcZones.flatMap((zone) => (zone.monitor_refresh_hz
     ? [zone.monitor_refresh_hz]
     : [...(zone.monitor ?? '').matchAll(REFRESH_PATTERN)].map((match) => Number(match[1]))));
   return {
     pcCount: totalPcCount(club.zones),
+    consoleCount: totalConsoleCount(club.zones),
     zoneCount: club.zones.length,
     gameCount: club.games.length,
     minPrice: prices.length ? Math.min(...prices) : null,
@@ -514,6 +600,7 @@ export function clubInsights(club: Pick<PublicShowcase, 'zones' | 'games'>): Clu
 export interface BrandInsights {
   clubCount: number;
   pcCount: number;
+  consoleCount: number;
   /** Distinct game titles across every club. */
   gameCount: number;
   minPrice: number | null;
@@ -524,6 +611,7 @@ export function brandInsights(brand: Pick<PublicBrand, 'clubs'>): BrandInsights 
   return {
     clubCount: brand.clubs.length,
     pcCount: brand.clubs.reduce((sum, club) => sum + totalPcCount(club.zones), 0),
+    consoleCount: brand.clubs.reduce((sum, club) => sum + totalConsoleCount(club.zones), 0),
     gameCount: titles.size,
     minPrice: lowestHourlyPrice(brand.clubs.flatMap((club) => club.zones)),
   };
@@ -534,8 +622,12 @@ export interface ShowcaseBrandForm {
   name: string;
   tagline: LocalizedText;
   hero_image_url: string;
+  phone: string;
+  email: string;
+  opening_hours: string;
   telegram_url: string;
   instagram_url: string;
+  youtube_url: string;
   is_published: boolean;
 }
 
@@ -547,8 +639,12 @@ export function showcaseBrandForm(brand: ShowcaseBrand | null): ShowcaseBrandFor
     name: brand?.name ?? '',
     tagline: localizedFromRow(brand?.translations, 'tagline', brand?.tagline),
     hero_image_url: brand?.hero_image_url ?? '',
+    phone: brand?.phone ?? '',
+    email: brand?.email ?? '',
+    opening_hours: brand?.opening_hours ?? '',
     telegram_url: brand?.telegram_url ?? '',
     instagram_url: brand?.instagram_url ?? '',
+    youtube_url: brand?.youtube_url ?? '',
     is_published: brand?.is_published ?? false,
   };
 }
@@ -556,10 +652,7 @@ export function showcaseBrandForm(brand: ShowcaseBrand | null): ShowcaseBrandFor
 export function validateShowcaseBrand(form: ShowcaseBrandForm): ShowcaseBrandError | null {
   if (!form.name.trim()) return 'brand_name_required';
   if (!SHOWCASE_SLUG_PATTERN.test(form.slug)) return 'slug_invalid';
-  if (form.telegram_url.trim() && !normalizeTelegramUrl(form.telegram_url)) return 'telegram_invalid';
-  if (form.instagram_url.trim() && !normalizeInstagramUrl(form.instagram_url)) return 'instagram_invalid';
-  if (form.hero_image_url.trim() && !normalizeExternalUrl(form.hero_image_url)) return 'image_invalid';
-  return null;
+  return validateContactLinks(form);
 }
 
 /** Validated form → showcase_brands columns (owner_id added by the caller). */
@@ -570,8 +663,12 @@ export function buildShowcaseBrandPayload(form: ShowcaseBrandForm) {
     tagline: primaryText(form.tagline),
     translations: { tagline: localizedPayload(form.tagline) },
     hero_image_url: normalizeExternalUrl(form.hero_image_url),
+    phone: optionalText(form.phone),
+    email: normalizeEmail(form.email),
+    opening_hours: optionalText(form.opening_hours),
     telegram_url: normalizeTelegramUrl(form.telegram_url),
     instagram_url: normalizeInstagramUrl(form.instagram_url),
+    youtube_url: normalizeYoutubeUrl(form.youtube_url),
     is_published: form.is_published,
   };
 }

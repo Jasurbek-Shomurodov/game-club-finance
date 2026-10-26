@@ -7,6 +7,7 @@ import { CountUp } from './CountUp';
 import { Reveal } from './Reveal';
 import { ShimmerImage } from './ShimmerImage';
 import { ContactButtons, ContactList, GameGrid, HeroBackdrop, Marquee, OfferGrid, SectionTitle, StatGrid, ZoneGrid, riseDelay, type Stat } from './ShowcaseParts';
+import { ShowcaseFooter } from './ShowcaseFooter';
 import { ShowcaseNav } from './ShowcaseNav';
 
 const CLUBS_ANCHOR = 'clubs';
@@ -22,6 +23,7 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
   const stats = ([
     { value: <CountUp value={totals.clubCount} />, label: t('statClubs') },
     totals.pcCount > 0 ? { value: <CountUp value={totals.pcCount} />, label: t('statPcs') } : null,
+    totals.consoleCount > 0 ? { value: <CountUp value={totals.consoleCount} />, label: t('statConsoles') } : null,
     totals.gameCount > 0 ? { value: <CountUp value={totals.gameCount} />, label: t('statGames') } : null,
     totals.minPrice !== null
       ? { value: <><CountUp value={totals.minPrice} format="grouped" /><span className="ml-1 text-xs font-semibold text-white/50 sm:text-base">{tc('currency')}</span></>, label: t('statFromPrice') }
@@ -81,7 +83,13 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
           <ul className={`grid gap-6 ${brand.clubs.length === 1 ? 'mx-auto max-w-xl' : brand.clubs.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-2 xl:grid-cols-3'}`}>
             {brand.clubs.map((club, index) => (
               <Reveal as="li" key={club.slug} delay={index * 0.1}>
-                <LocationCard club={club} openLabel={t('openClub')} pcsLabel={t('pcCount', { count: clubInsights(club).pcCount })} fromLabel={(price) => t('fromPrice', { price: money(price) })} />
+                <LocationCard
+                  club={club}
+                  openLabel={t('openClub')}
+                  pcsLabel={t('pcCount', { count: clubInsights(club).pcCount })}
+                  consolesLabel={t('consoleCount', { count: clubInsights(club).consoleCount })}
+                  fromLabel={(price) => t('fromPrice', { price: money(price) })}
+                />
               </Reveal>
             ))}
           </ul>
@@ -105,14 +113,30 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
         </div>
       </section>
 
-      <footer className="border-t border-white/5 px-4 py-8 text-center text-xs text-white/35">
-        © {new Date().getFullYear()} {brand.name}
-      </footer>
+      <ShowcaseFooter
+        name={brand.name}
+        description={brand.tagline}
+        hours={brand.opening_hours}
+        phone={brand.phone ?? brand.clubs.find((club) => club.phone)?.phone ?? null}
+        email={brand.email}
+        socials={{ telegram: brand.telegram_url, instagram: brand.instagram_url, youtube: brand.youtube_url }}
+        pages={[
+          { href: '#top', label: t('footerHome') },
+          { href: '#locations', label: t('navLocations') },
+          { href: `#${CLUBS_ANCHOR}`, label: t('navClubs') },
+        ]}
+        help={[
+          { href: '#locations', label: t('howToFind') },
+          ...(brand.telegram_url ? [{ href: brand.telegram_url, label: t('bookTelegram'), external: true }] : []),
+          { href: '/login', label: t('footerStaffLogin') },
+        ]}
+        locations={brand.clubs.flatMap((club) => (club.address ? [{ label: club.club_name, clubName: club.club_name, address: club.address }] : []))}
+      />
     </div>
   );
 }
 
-function LocationCard({ club, openLabel, pcsLabel, fromLabel }: { club: PublicShowcase; openLabel: string; pcsLabel: string; fromLabel: (price: number) => string }) {
+function LocationCard({ club, openLabel, pcsLabel, consolesLabel, fromLabel }: { club: PublicShowcase; openLabel: string; pcsLabel: string; consolesLabel: string; fromLabel: (price: number) => string }) {
   const insights = clubInsights(club);
   const image = club.hero_image_url ?? club.zones.find((zone) => zone.image_url)?.image_url ?? null;
   return (
@@ -139,6 +163,11 @@ function LocationCard({ club, openLabel, pcsLabel, fromLabel }: { club: PublicSh
         {insights.pcCount > 0 && (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-3 py-1 text-xs font-semibold text-white/80 ring-1 ring-white/10">
             <Monitor size={13} aria-hidden="true" /> {pcsLabel}
+          </span>
+        )}
+        {insights.consoleCount > 0 && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-3 py-1 text-xs font-semibold text-white/80 ring-1 ring-white/10">
+            <Gamepad2 size={13} aria-hidden="true" /> {consolesLabel}
           </span>
         )}
         {insights.minPrice !== null && (
@@ -217,6 +246,9 @@ async function ClubPanel({ club }: { club: PublicShowcase }) {
         </h4>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Insight icon={<Monitor size={18} aria-hidden="true" />} label={t('statPcs')} value={<CountUp value={insights.pcCount} />} />
+          {insights.consoleCount > 0 && (
+            <Insight icon={<Gamepad2 size={18} aria-hidden="true" />} label={t('statConsoles')} value={<CountUp value={insights.consoleCount} />} />
+          )}
           <Insight icon={<Layers size={18} aria-hidden="true" />} label={t('insightZones')} value={<CountUp value={insights.zoneCount} />} />
           <Insight icon={<Gamepad2 size={18} aria-hidden="true" />} label={t('statGames')} value={<CountUp value={insights.gameCount} />} />
           {priceRange && <Insight icon={<Wallet size={18} aria-hidden="true" />} label={t('insightPrice')} value={priceRange} />}
@@ -234,12 +266,21 @@ async function ClubPanel({ club }: { club: PublicShowcase }) {
         </div>
       )}
 
-      {club.zones.length > 0 && (
+      {club.zones.some((zone) => zone.kind === 'pc') && (
         <div>
           <h4 className="sc-display mb-6 flex items-center gap-2 text-xl font-bold text-white">
             <Monitor size={18} className="text-cyan-300" aria-hidden="true" /> {t('zonesTitle')}
           </h4>
-          <ZoneGrid zones={club.zones} />
+          <ZoneGrid zones={club.zones.filter((zone) => zone.kind === 'pc')} />
+        </div>
+      )}
+
+      {club.zones.some((zone) => zone.kind === 'playstation') && (
+        <div>
+          <h4 className="sc-display mb-6 flex items-center gap-2 text-xl font-bold text-white">
+            <Gamepad2 size={18} className="text-blue-300" aria-hidden="true" /> {t('playstationTitle')}
+          </h4>
+          <ZoneGrid zones={club.zones.filter((zone) => zone.kind === 'playstation')} />
         </div>
       )}
 

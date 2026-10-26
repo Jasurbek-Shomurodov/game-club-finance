@@ -153,6 +153,18 @@ export function BrandSettingsCard({ userId, clubId, onSaved }: BrandSettingsCard
               <Field label={t('instagram')} htmlFor="brand-instagram">
                 <Input id="brand-instagram" value={form.instagram_url} maxLength={200} placeholder="@pixelgaming" onChange={(e) => set('instagram_url', e.target.value)} />
               </Field>
+              <Field label={t('youtube')} htmlFor="brand-youtube">
+                <Input id="brand-youtube" value={form.youtube_url} maxLength={200} placeholder="@pixelgaming" onChange={(e) => set('youtube_url', e.target.value)} />
+              </Field>
+              <Field label={t('email')} htmlFor="brand-email">
+                <Input id="brand-email" type="email" inputMode="email" value={form.email} maxLength={120} placeholder="info@pixelgaming.uz" onChange={(e) => set('email', e.target.value)} />
+              </Field>
+              <Field label={t('phone')} htmlFor="brand-phone" hint={t('brandPhoneHint')}>
+                <Input id="brand-phone" type="tel" inputMode="tel" value={form.phone} maxLength={40} placeholder="+998 71 234 56 78" onChange={(e) => set('phone', e.target.value)} />
+              </Field>
+              <Field label={t('openingHours')} htmlFor="brand-hours">
+                <Input id="brand-hours" value={form.opening_hours} maxLength={80} placeholder={t('openingHoursPlaceholder')} onChange={(e) => set('opening_hours', e.target.value)} />
+              </Field>
             </div>
             <Checkbox
               id="brand-published"

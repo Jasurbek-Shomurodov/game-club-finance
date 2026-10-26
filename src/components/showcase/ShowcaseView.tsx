@@ -1,8 +1,9 @@
 import { getTranslations } from 'next-intl/server';
 import { ArrowDown, MonitorPlay, Phone, Send } from 'lucide-react';
-import { lowestHourlyPrice, telHref, totalPcCount, type PublicShowcase } from '@/lib/showcase';
+import { lowestHourlyPrice, telHref, totalConsoleCount, totalPcCount, type PublicShowcase } from '@/lib/showcase';
 import { CountUp } from './CountUp';
 import { ContactPanel, GameGrid, HeroBackdrop, Marquee, OfferGrid, SectionTitle, StatGrid, ZoneGrid, riseDelay, type Stat } from './ShowcaseParts';
+import { ShowcaseFooter } from './ShowcaseFooter';
 import { ShowcaseNav } from './ShowcaseNav';
 
 /** The public page of one club: /club/<slug>. */
@@ -10,6 +11,9 @@ export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
   const t = await getTranslations('publicShowcase');
   const tc = await getTranslations('common');
   const pcCount = totalPcCount(showcase.zones);
+  const consoleCount = totalConsoleCount(showcase.zones);
+  const pcZones = showcase.zones.filter((zone) => zone.kind === 'pc');
+  const playstationZones = showcase.zones.filter((zone) => zone.kind === 'playstation');
   const fromPrice = lowestHourlyPrice(showcase.zones);
   const phoneLink = telHref(showcase.phone);
   const primaryCta = showcase.telegram_url
@@ -18,13 +22,15 @@ export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
 
   const navLinks = [
     showcase.games.length > 0 ? { href: '#games', label: t('navGames') } : null,
-    showcase.zones.length > 0 ? { href: '#zones', label: t('navZones') } : null,
+    pcZones.length > 0 ? { href: '#zones', label: t('navZones') } : null,
+    playstationZones.length > 0 ? { href: '#playstation', label: t('navPlaystation') } : null,
     showcase.offers.length > 0 ? { href: '#offers', label: t('navOffers') } : null,
     { href: '#contacts', label: t('navContacts') },
   ].filter((link): link is { href: string; label: string } => link !== null);
 
   const stats = ([
     pcCount > 0 ? { value: <CountUp value={pcCount} />, label: t('statPcs') } : null,
+    consoleCount > 0 ? { value: <CountUp value={consoleCount} />, label: t('statConsoles') } : null,
     showcase.games.length > 0 ? { value: <CountUp value={showcase.games.length} />, label: t('statGames') } : null,
     fromPrice !== null
       ? { value: <><CountUp value={fromPrice} format="grouped" /><span className="ml-1 text-xs font-semibold text-white/50 sm:text-base">{tc('currency')}</span></>, label: t('statFromPrice') }
@@ -97,13 +103,23 @@ export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
         </section>
       )}
 
-      {showcase.zones.length > 0 && (
+      {pcZones.length > 0 && (
         <section id="zones" className="relative scroll-mt-16 px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
           <div className="pointer-events-none absolute right-0 top-1/3 h-96 w-96 rounded-full bg-cyan-500/10 blur-[120px]" aria-hidden="true" />
           <div className="pointer-events-none absolute bottom-0 left-0 h-96 w-96 rounded-full bg-fuchsia-600/10 blur-[120px]" aria-hidden="true" />
           <div className="relative mx-auto max-w-7xl">
             <SectionTitle eyebrow={t('zonesEyebrow')} title={t('zonesTitle')} description={t('zonesDescription', { count: pcCount })} />
-            <ZoneGrid zones={showcase.zones} />
+            <ZoneGrid zones={pcZones} />
+          </div>
+        </section>
+      )}
+
+      {playstationZones.length > 0 && (
+        <section id="playstation" className="relative scroll-mt-16 px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
+          <div className="pointer-events-none absolute left-0 top-1/4 h-96 w-96 rounded-full bg-blue-600/15 blur-[120px]" aria-hidden="true" />
+          <div className="relative mx-auto max-w-7xl">
+            <SectionTitle eyebrow={t('playstationEyebrow')} title={t('playstationTitle')} description={t('playstationDescription', { count: consoleCount })} />
+            <ZoneGrid zones={playstationZones} />
           </div>
         </section>
       )}
@@ -120,9 +136,21 @@ export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
 
       <ContactPanel club={showcase} id="contacts" />
 
-      <footer className="border-t border-white/5 px-4 py-8 text-center text-xs text-white/35">
-        © {new Date().getFullYear()} {showcase.club_name}
-      </footer>
+      <ShowcaseFooter
+        name={showcase.club_name}
+        description={showcase.tagline}
+        hours={showcase.opening_hours}
+        phone={showcase.phone}
+        email={showcase.email}
+        socials={{ telegram: showcase.telegram_url, instagram: showcase.instagram_url, youtube: showcase.youtube_url }}
+        pages={[{ href: '#top', label: t('footerHome') }, ...navLinks.filter((link) => link.href !== '#contacts'), { href: '/', label: t('footerAllClubs') }]}
+        help={[
+          { href: '#contacts', label: t('howToFind') },
+          ...(showcase.telegram_url ? [{ href: showcase.telegram_url, label: t('bookTelegram'), external: true }] : []),
+          { href: '/login', label: t('footerStaffLogin') },
+        ]}
+        locations={showcase.address ? [{ label: null, clubName: showcase.club_name, address: showcase.address }] : []}
+      />
     </div>
   );
 }

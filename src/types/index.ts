@@ -298,6 +298,8 @@ export interface ClubShowcase {
   opening_hours: string | null;
   telegram_url: string | null;
   instagram_url: string | null;
+  email?: string | null;
+  youtube_url?: string | null;
   updated_at: string;
 }
 
@@ -311,11 +313,17 @@ export interface ShowcaseGame {
   created_at: string;
 }
 
+/** A PC zone, or a PlayStation zone whose pc_count is its number of consoles (104). */
+export type ShowcaseZoneKind = 'pc' | 'playstation';
+
 export interface ShowcasePcZone {
   id: string;
   club_id: string;
+  kind?: ShowcaseZoneKind;
   name: string;
   pc_count: number;
+  console?: string | null;
+  controllers?: number | null;
   cpu: string | null;
   gpu: string | null;
   ram: string | null;
@@ -343,6 +351,10 @@ export interface ShowcaseBrand {
   hero_image_url: string | null;
   telegram_url: string | null;
   instagram_url: string | null;
+  phone?: string | null;
+  email?: string | null;
+  opening_hours?: string | null;
+  youtube_url?: string | null;
   is_published: boolean;
   updated_at: string;
 }

@@ -25,6 +25,7 @@ import {
   PageHeader,
   PageSkeleton,
   SectionHeading,
+  SegmentedControl,
   Textarea,
   buttonClassName,
   useConfirm,
@@ -54,7 +55,7 @@ import {
   type ShowcaseSettingsForm,
 } from '@/lib/showcase';
 import { useClubQuery } from '@/lib/useClubQuery';
-import type { ShowcaseGame, ShowcaseOffer, ShowcasePcZone } from '@/types';
+import type { ShowcaseGame, ShowcaseOffer, ShowcasePcZone, ShowcaseZoneKind } from '@/types';
 import { BrandSettingsCard } from './BrandSettingsCard';
 import { LocalizedTextField } from './LocalizedTextField';
 import { ShowcaseImageField } from './ShowcaseImageField';
@@ -143,9 +144,9 @@ export default function ShowcasePage() {
     setEditor({ kind: 'game', id: game?.id ?? null, form: showcaseGameForm(game, nextSortOrder(games)) });
   }
 
-  function openZone(zone: ShowcasePcZone | null) {
+  function openZone(zone: ShowcasePcZone | null, kind: ShowcaseZoneKind = 'pc') {
     setEditorError('');
-    setEditor({ kind: 'zone', id: zone?.id ?? null, form: showcasePcZoneForm(zone, nextSortOrder(zones)) });
+    setEditor({ kind: 'zone', id: zone?.id ?? null, form: showcasePcZoneForm(zone, nextSortOrder(zones), kind) });
   }
 
   function openOffer(offer: ShowcaseOffer | null) {
@@ -304,6 +305,12 @@ export default function ShowcasePage() {
                   <Field label={t('instagram')} htmlFor="showcase-instagram">
                     <Input id="showcase-instagram" value={settings.instagram_url} maxLength={200} placeholder="@gameclub" onChange={(e) => setField('instagram_url', e.target.value)} />
                   </Field>
+                  <Field label={t('youtube')} htmlFor="showcase-youtube">
+                    <Input id="showcase-youtube" value={settings.youtube_url} maxLength={200} placeholder="@gameclub" onChange={(e) => setField('youtube_url', e.target.value)} />
+                  </Field>
+                  <Field label={t('email')} htmlFor="showcase-email">
+                    <Input id="showcase-email" type="email" inputMode="email" value={settings.email} maxLength={120} placeholder="info@gameclub.uz" onChange={(e) => setField('email', e.target.value)} />
+                  </Field>
                 </div>
                 <Checkbox
                   id="showcase-published"
@@ -373,7 +380,12 @@ export default function ShowcasePage() {
                     title={t('zones')}
                     description={t('zonesDescription')}
                     icon={<Monitor size={18} aria-hidden="true" />}
-                    action={<Button size="sm" onClick={() => openZone(null)} icon={<Plus size={15} aria-hidden="true" />}>{t('addZone')}</Button>}
+                    action={(
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => openZone(null, 'playstation')} icon={<Gamepad2 size={15} aria-hidden="true" />}>{t('addPlaystationZone')}</Button>
+                        <Button size="sm" onClick={() => openZone(null)} icon={<Plus size={15} aria-hidden="true" />}>{t('addZone')}</Button>
+                      </>
+                    )}
                   />
                 </CardHeader>
                 <CardBody>
@@ -388,13 +400,17 @@ export default function ShowcasePage() {
                               // eslint-disable-next-line @next/next/no-img-element
                               <img src={zone.image_url} alt="" className="h-full w-full object-cover" />
                             ) : (
-                              <span className="flex h-full items-center justify-center text-gray-400"><Monitor size={20} aria-hidden="true" /></span>
+                              <span className="flex h-full items-center justify-center text-gray-400">
+                                {zone.kind === 'playstation' ? <Gamepad2 size={20} aria-hidden="true" /> : <Monitor size={20} aria-hidden="true" />}
+                              </span>
                             )}
                           </span>
                           <div className="min-w-0 flex-1">
                             <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-gray-900">
                               {zone.name}
-                              <Badge variant="neutral">{t('pcCountValue', { count: zone.pc_count })}</Badge>
+                              <Badge variant="neutral">
+                                {zone.kind === 'playstation' ? t('consoleCountValue', { count: zone.pc_count }) : t('pcCountValue', { count: zone.pc_count })}
+                              </Badge>
                               {zone.price_per_hour !== null && (
                                 <span className="text-xs font-medium text-gray-500">
                                   {t('pricePerHourValue', { price: formatCurrency(zone.price_per_hour), currency: tc('currency') })}
@@ -402,7 +418,9 @@ export default function ShowcasePage() {
                               )}
                             </p>
                             <p className="mt-0.5 text-xs leading-5 text-gray-500">
-                              {[zone.gpu, zone.cpu, zone.ram, monitorSummary(zone)].filter(Boolean).join(' · ') || t('noSpecs')}
+                              {(zone.kind === 'playstation'
+                                ? [zone.console, zone.controllers ? t('controllersValue', { count: zone.controllers }) : null, monitorSummary(zone)]
+                                : [zone.gpu, zone.cpu, zone.ram, monitorSummary(zone)]).filter(Boolean).join(' · ') || t('noSpecs')}
                             </p>
                           </div>
                           <IconButton
@@ -514,11 +532,27 @@ export default function ShowcasePage() {
               </>
             ) : editor.kind === 'zone' ? (
               <>
+                <SegmentedControl<ShowcaseZoneKind>
+                  label={t('zoneKind')}
+                  variant="soft"
+                  value={editor.form.kind}
+                  onChange={(kind) => setEditorField('kind', kind)}
+                  options={[
+                    { value: 'pc', label: t('zoneKindPc'), icon: <Monitor size={15} aria-hidden="true" /> },
+                    { value: 'playstation', label: t('zoneKindPlaystation'), icon: <Gamepad2 size={15} aria-hidden="true" /> },
+                  ]}
+                />
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <Field label={t('zoneName')} htmlFor="zone-name" required className="sm:col-span-2">
-                    <Input id="zone-name" value={editor.form.name} maxLength={60} placeholder={t('zoneNamePlaceholder')} onChange={(e) => setEditorField('name', e.target.value)} />
+                    <Input
+                      id="zone-name"
+                      value={editor.form.name}
+                      maxLength={60}
+                      placeholder={editor.form.kind === 'playstation' ? t('playstationZoneNamePlaceholder') : t('zoneNamePlaceholder')}
+                      onChange={(e) => setEditorField('name', e.target.value)}
+                    />
                   </Field>
-                  <Field label={t('pcCount')} htmlFor="zone-count" required>
+                  <Field label={editor.form.kind === 'playstation' ? t('consoleCount') : t('pcCount')} htmlFor="zone-count" required>
                     <Input id="zone-count" inputMode="numeric" value={editor.form.pc_count} onChange={(e) => setEditorField('pc_count', e.target.value.replace(/\D/g, ''))} />
                   </Field>
                   <Field label={t('pricePerHour')} htmlFor="zone-price" className="sm:col-span-2">
@@ -528,6 +562,19 @@ export default function ShowcasePage() {
                     <Input id="zone-sort" inputMode="numeric" value={editor.form.sort_order} onChange={(e) => setEditorField('sort_order', e.target.value.replace(/[^\d-]/g, ''))} />
                   </Field>
                 </div>
+                {editor.form.kind === 'playstation' ? (
+                  <Card tone="muted" padding="sm" className="space-y-3">
+                    <SectionHeading as="h3" size="sm" title={t('specsConsole')} icon={<Gamepad2 size={16} aria-hidden="true" />} />
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_10rem]">
+                      <Field label={t('console')} htmlFor="zone-console">
+                        <Input id="zone-console" value={editor.form.console} maxLength={80} placeholder="PlayStation 5 Pro" onChange={(e) => setEditorField('console', e.target.value)} />
+                      </Field>
+                      <Field label={t('controllers')} htmlFor="zone-controllers" hint={t('controllersHint')}>
+                        <Input id="zone-controllers" inputMode="numeric" value={editor.form.controllers} placeholder="2" onChange={(e) => setEditorField('controllers', e.target.value.replace(/\D/g, ''))} />
+                      </Field>
+                    </div>
+                  </Card>
+                ) : (
                 <Card tone="muted" padding="sm" className="space-y-3">
                   <SectionHeading as="h3" size="sm" title={t('specsComputer')} icon={<Cpu size={16} aria-hidden="true" />} />
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -545,11 +592,12 @@ export default function ShowcasePage() {
                     </Field>
                   </div>
                 </Card>
+                )}
                 <Card tone="muted" padding="sm" className="space-y-3">
-                  <SectionHeading as="h3" size="sm" title={t('specsMonitor')} icon={<Monitor size={16} aria-hidden="true" />} />
+                  <SectionHeading as="h3" size="sm" title={editor.form.kind === 'playstation' ? t('specsTv') : t('specsMonitor')} icon={<Monitor size={16} aria-hidden="true" />} />
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_8rem_8rem]">
-                    <Field label={t('monitorModel')} htmlFor="zone-monitor">
-                      <Input id="zone-monitor" value={editor.form.monitor} maxLength={80} placeholder="ASUS ROG Swift" onChange={(e) => setEditorField('monitor', e.target.value)} />
+                    <Field label={editor.form.kind === 'playstation' ? t('tvModel') : t('monitorModel')} htmlFor="zone-monitor">
+                      <Input id="zone-monitor" value={editor.form.monitor} maxLength={80} placeholder={editor.form.kind === 'playstation' ? 'Samsung QLED 4K' : 'ASUS ROG Swift'} onChange={(e) => setEditorField('monitor', e.target.value)} />
                     </Field>
                     <Field label={t('monitorSize')} htmlFor="zone-monitor-size">
                       <Input id="zone-monitor-size" inputMode="decimal" value={editor.form.monitor_size_inches} placeholder="27" trailingAddon={t('inchUnit')} onChange={(e) => setEditorField('monitor_size_inches', e.target.value.replace(/[^\d.,]/g, ''))} />
@@ -562,17 +610,21 @@ export default function ShowcasePage() {
                 <Card tone="muted" padding="sm" className="space-y-3">
                   <SectionHeading as="h3" size="sm" title={t('specsPeripherals')} icon={<Mouse size={16} aria-hidden="true" />} />
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <Field label={t('mouse')} htmlFor="zone-mouse">
-                      <Input id="zone-mouse" value={editor.form.mouse} maxLength={80} placeholder="Logitech G Pro X Superlight" onChange={(e) => setEditorField('mouse', e.target.value)} />
-                    </Field>
-                    <Field label={t('keyboard')} htmlFor="zone-keyboard">
-                      <Input id="zone-keyboard" value={editor.form.keyboard} maxLength={80} placeholder="SteelSeries Apex Pro" onChange={(e) => setEditorField('keyboard', e.target.value)} />
-                    </Field>
+                    {editor.form.kind === 'pc' && (
+                      <>
+                        <Field label={t('mouse')} htmlFor="zone-mouse">
+                          <Input id="zone-mouse" value={editor.form.mouse} maxLength={80} placeholder="Logitech G Pro X Superlight" onChange={(e) => setEditorField('mouse', e.target.value)} />
+                        </Field>
+                        <Field label={t('keyboard')} htmlFor="zone-keyboard">
+                          <Input id="zone-keyboard" value={editor.form.keyboard} maxLength={80} placeholder="SteelSeries Apex Pro" onChange={(e) => setEditorField('keyboard', e.target.value)} />
+                        </Field>
+                      </>
+                    )}
                     <Field label={t('headset')} htmlFor="zone-headset">
                       <Input id="zone-headset" value={editor.form.headset} maxLength={80} placeholder="HyperX Cloud II" onChange={(e) => setEditorField('headset', e.target.value)} />
                     </Field>
-                    <Field label={t('chair')} htmlFor="zone-chair">
-                      <Input id="zone-chair" value={editor.form.chair} maxLength={80} placeholder="DXRacer" onChange={(e) => setEditorField('chair', e.target.value)} />
+                    <Field label={editor.form.kind === 'playstation' ? t('seating') : t('chair')} htmlFor="zone-chair">
+                      <Input id="zone-chair" value={editor.form.chair} maxLength={80} placeholder={editor.form.kind === 'playstation' ? t('seatingPlaceholder') : 'DXRacer'} onChange={(e) => setEditorField('chair', e.target.value)} />
                     </Field>
                   </div>
                   <Field label={t('peripherals')} htmlFor="zone-peripherals">

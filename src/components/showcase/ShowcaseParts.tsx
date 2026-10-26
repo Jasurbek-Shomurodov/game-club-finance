@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { getTranslations } from 'next-intl/server';
-import { Armchair, BadgePercent, Clock, Cpu, Gamepad2, HardDrive, Headphones, Instagram, Keyboard, MapPin, MemoryStick, Monitor, MonitorPlay, Mouse, NotebookPen, Phone, Send, Sparkles, Zap } from 'lucide-react';
+import { Armchair, BadgePercent, Clock, Gamepad, Tv, Cpu, Gamepad2, HardDrive, Headphones, Instagram, Keyboard, MapPin, MemoryStick, Monitor, MonitorPlay, Mouse, NotebookPen, Phone, Send, Sparkles, Zap } from 'lucide-react';
 import { formatCurrency } from '@/lib/formatters';
 import { mapLinks, telHref, type PublicShowcase, type PublicShowcaseGame, type PublicShowcaseOffer, type PublicShowcaseZone } from '@/lib/showcase';
 import { MapChooser } from './MapChooser';
@@ -58,9 +58,11 @@ export interface Stat {
 /** Glass tiles of headline numbers. */
 export function StatGrid({ stats, className, style }: { stats: Stat[]; className?: string; style?: CSSProperties }) {
   if (stats.length === 0) return null;
-  const columns = stats.length >= 4 ? 'grid-cols-2 lg:grid-cols-4' : stats.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2';
+  const columns = stats.length >= 5
+    ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5'
+    : stats.length === 4 ? 'grid-cols-2 lg:grid-cols-4' : stats.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2';
   return (
-    <dl className={`grid gap-3 ${columns} ${className ?? ''}`} style={style}>
+    <dl className={`grid gap-3 ${columns} ${stats.length >= 5 ? 'max-w-5xl' : ''} ${className ?? ''}`} style={style}>
       {stats.map((stat) => (
         <div key={stat.label} className="sc-glass flex flex-col rounded-2xl px-4 py-5 text-center">
           <dt className="order-2 mt-1 text-xs font-medium uppercase tracking-wider text-white/50">{stat.label}</dt>
@@ -180,14 +182,16 @@ export async function ZoneGrid({ zones }: { zones: PublicShowcaseZone[] }) {
                   </span>
                 ) : (
                   <span className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_30%_20%,rgba(139,92,246,0.45),transparent_60%),radial-gradient(circle_at_80%_80%,rgba(34,211,238,0.35),transparent_55%)]">
-                    <Monitor size={56} className="text-white/50" aria-hidden="true" />
+                    {zone.kind === 'playstation'
+                      ? <Gamepad2 size={56} className="text-white/50" aria-hidden="true" />
+                      : <Monitor size={56} className="text-white/50" aria-hidden="true" />}
                   </span>
                 )}
                 <span className="absolute inset-0 bg-gradient-to-t from-[#0b0b16] via-[#0b0b16]/20 to-transparent" />
                 <span className="absolute left-4 top-4 flex flex-wrap gap-2">
                   <span className="sc-glass inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white">
-                    <Monitor size={13} aria-hidden="true" />
-                    {t('pcCount', { count: zone.pc_count })}
+                    {zone.kind === 'playstation' ? <Gamepad2 size={13} aria-hidden="true" /> : <Monitor size={13} aria-hidden="true" />}
+                    {zone.kind === 'playstation' ? t('consoleCount', { count: zone.pc_count }) : t('pcCount', { count: zone.pc_count })}
                   </span>
                   {zone.monitor_refresh_hz && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-fuchsia-600/80 to-cyan-500/80 px-3 py-1 text-xs font-bold text-white shadow-[0_0_20px_rgba(217,70,239,0.45)]">
@@ -206,19 +210,31 @@ export async function ZoneGrid({ zones }: { zones: PublicShowcaseZone[] }) {
                     </p>
                   )}
                 </div>
-                <ul className="mt-6 grid gap-4 sm:grid-cols-2">
-                  <Spec icon={<MonitorPlay size={16} aria-hidden="true" />} label={t('gpu')} value={zone.gpu} />
-                  <Spec icon={<Cpu size={16} aria-hidden="true" />} label={t('cpu')} value={zone.cpu} />
-                  <Spec icon={<MemoryStick size={16} aria-hidden="true" />} label={t('ram')} value={zone.ram} />
-                  <Spec icon={<HardDrive size={16} aria-hidden="true" />} label={t('storage')} value={zone.storage} />
-                  <Spec icon={<Monitor size={16} aria-hidden="true" />} label={t('monitor')} value={monitorText(zone)} />
-                </ul>
+                {zone.kind === 'playstation' ? (
+                  <ul className="mt-6 grid gap-4 sm:grid-cols-2">
+                    <Spec icon={<Gamepad2 size={16} aria-hidden="true" />} label={t('console')} value={zone.console} />
+                    <Spec
+                      icon={<Gamepad size={16} aria-hidden="true" />}
+                      label={t('controllers')}
+                      value={zone.controllers ? t('controllersPerConsole', { count: zone.controllers }) : null}
+                    />
+                    <Spec icon={<Tv size={16} aria-hidden="true" />} label={t('tv')} value={monitorText(zone)} />
+                  </ul>
+                ) : (
+                  <ul className="mt-6 grid gap-4 sm:grid-cols-2">
+                    <Spec icon={<MonitorPlay size={16} aria-hidden="true" />} label={t('gpu')} value={zone.gpu} />
+                    <Spec icon={<Cpu size={16} aria-hidden="true" />} label={t('cpu')} value={zone.cpu} />
+                    <Spec icon={<MemoryStick size={16} aria-hidden="true" />} label={t('ram')} value={zone.ram} />
+                    <Spec icon={<HardDrive size={16} aria-hidden="true" />} label={t('storage')} value={zone.storage} />
+                    <Spec icon={<Monitor size={16} aria-hidden="true" />} label={t('monitor')} value={monitorText(zone)} />
+                  </ul>
+                )}
                 {[zone.mouse, zone.keyboard, zone.headset, zone.chair].some(Boolean) && (
                   <ul className="mt-5 grid gap-4 border-t border-white/5 pt-5 sm:grid-cols-2">
                     <Spec icon={<Mouse size={16} aria-hidden="true" />} label={t('mouse')} value={zone.mouse} />
                     <Spec icon={<Keyboard size={16} aria-hidden="true" />} label={t('keyboard')} value={zone.keyboard} />
                     <Spec icon={<Headphones size={16} aria-hidden="true" />} label={t('headset')} value={zone.headset} />
-                    <Spec icon={<Armchair size={16} aria-hidden="true" />} label={t('chair')} value={zone.chair} />
+                    <Spec icon={<Armchair size={16} aria-hidden="true" />} label={zone.kind === 'playstation' ? t('seating') : t('chair')} value={zone.chair} />
                   </ul>
                 )}
                 {zone.peripherals && (

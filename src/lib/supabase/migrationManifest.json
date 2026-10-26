@@ -3737,11 +3737,6 @@
         "kind": "constraint",
         "table": "public.showcase_brands",
         "name": "showcase_brands_translations_object"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.get_public_brand(text)",
-        "md5": "c82fd8b06a53293c87448507e27d9e95"
       }
     ]
   },
@@ -3825,11 +3820,6 @@
       {
         "kind": "relation",
         "name": "public.idx_showcase_offers_club_order"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.public_showcase_payload(uuid)",
-        "md5": "aa55137ae79bdad6599fa6ba03e5f0ff"
       }
     ]
   },
@@ -3855,6 +3845,86 @@
         "kind": "policy",
         "table": "public.showcase_offers",
         "name": "club_showcase_editors_all_showcase_offers"
+      }
+    ]
+  },
+  {
+    "file": "104_showcase_contacts_and_consoles.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.showcase_brands",
+        "column": "phone"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_brands",
+        "column": "email"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_brands",
+        "column": "opening_hours"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_brands",
+        "column": "youtube_url"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_showcases",
+        "column": "email"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_showcases",
+        "column": "youtube_url"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "kind"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "console"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "controllers"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.showcase_pc_zones",
+        "name": "showcase_pc_zones_kind_valid"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.showcase_pc_zones",
+        "name": "showcase_pc_zones_controllers_range"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.showcase_brands",
+        "name": "showcase_brands_email_format"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.club_showcases",
+        "name": "club_showcases_email_format"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.public_showcase_payload(uuid)",
+        "md5": "7eeb6187445cd8639f890cd60ef2684a"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_public_brand(text)",
+        "md5": "876ff07d29053691b7211bf843c23320"
       }
     ]
   }

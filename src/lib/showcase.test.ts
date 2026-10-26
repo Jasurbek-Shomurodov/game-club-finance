@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   SHOWCASE_SLUG_PATTERN,
+  normalizeEmail,
+  normalizeYoutubeUrl,
+  totalConsoleCount,
   mapLinks,
   buildShowcaseOfferPayload,
   showcaseOfferForm,
@@ -151,12 +154,12 @@ describe('brand', () => {
   it('summarizes one club', () => {
     const club = parsePublicBrand(brandPayload)!.clubs[0];
     expect(clubInsights(club)).toEqual({
-      pcCount: 28, zoneCount: 2, gameCount: 2, minPrice: 12000, maxPrice: 25000, topGpu: 'RTX 4080', maxRefreshHz: 240,
+      pcCount: 28, consoleCount: 0, zoneCount: 2, gameCount: 2, minPrice: 12000, maxPrice: 25000, topGpu: 'RTX 4080', maxRefreshHz: 240,
     });
   });
 
   it('summarizes the whole brand with distinct game titles', () => {
-    expect(brandInsights(parsePublicBrand(brandPayload)!)).toEqual({ clubCount: 2, pcCount: 34, gameCount: 2, minPrice: 12000 });
+    expect(brandInsights(parsePublicBrand(brandPayload)!)).toEqual({ clubCount: 2, pcCount: 34, consoleCount: 0, gameCount: 2, minPrice: 12000 });
   });
 
   it('validates the brand form', () => {
@@ -251,5 +254,41 @@ describe('map links', () => {
       google: 'https://www.google.com/maps/search/?api=1&query=Pixel%20Gaming%2C%20Matbuotchilar%2017',
     });
     expect(mapLinks({ club_name: 'X', address: '  ' })).toBeNull();
+  });
+});
+
+describe('PlayStation zones', () => {
+  it('saves console fields only for PlayStation and PC fields only for PCs', () => {
+    const base = { ...showcasePcZoneForm(null, 10, 'playstation'), name: 'PS5 lounge', pc_count: '3', console: 'PlayStation 5', controllers: '2', cpu: 'stale', mouse: 'stale', headset: 'Pulse 3D' };
+    expect(base.kind).toBe('playstation');
+    expect(buildShowcasePcZonePayload(base)).toMatchObject({ kind: 'playstation', console: 'PlayStation 5', controllers: 2, cpu: null, mouse: null, headset: 'Pulse 3D' });
+    expect(buildShowcasePcZonePayload({ ...base, kind: 'pc', cpu: 'i5' })).toMatchObject({ kind: 'pc', console: null, controllers: null, cpu: 'i5' });
+    expect(validateShowcasePcZone({ ...base, controllers: '25' })).toBe('controllers_invalid');
+  });
+
+  it('counts consoles apart from computers and keeps TVs out of the monitor insight', () => {
+    const club = parsePublicShowcase({
+      club_name: 'X', slug: 'x', games: [],
+      zones: [
+        { id: 'z1', kind: 'pc', name: 'VIP', pc_count: 10, monitor_refresh_hz: 240 },
+        { id: 'z2', kind: 'playstation', name: 'PS5', pc_count: 3, console: 'PS5 Pro', controllers: 2, monitor_refresh_hz: 120, gpu: 'ignored' },
+        { id: 'z3', kind: 'nonsense', name: 'Old', pc_count: 4 },
+      ],
+    })!;
+    expect(club.zones.map((zone) => zone.kind)).toEqual(['pc', 'playstation', 'pc']);
+    expect(totalConsoleCount(club.zones)).toBe(3);
+    expect(clubInsights(club)).toMatchObject({ pcCount: 14, consoleCount: 3, maxRefreshHz: 240, topGpu: null });
+  });
+});
+
+describe('contact links', () => {
+  it('normalizes email and YouTube and rejects bad values', () => {
+    expect(normalizeEmail(' Info@Pixel.uz ')).toBe('info@pixel.uz');
+    expect(normalizeEmail('nope')).toBeNull();
+    expect(normalizeYoutubeUrl('@pixelgaming')).toBe('https://youtube.com/@pixelgaming');
+    const form = { ...showcaseSettingsForm(null, 'Neon'), email: 'bad', youtube_url: '' };
+    expect(validateShowcaseSettings(form)).toBe('email_invalid');
+    expect(validateShowcaseSettings({ ...form, email: '', youtube_url: 'javascript:x' })).toBe('youtube_invalid');
+    expect(buildShowcaseBrandPayload({ ...showcaseBrandForm(null), name: 'P', slug: 'pp-x', email: 'A@B.CO', phone: ' +998 ' })).toMatchObject({ email: 'a@b.co', phone: '+998' });
   });
 });

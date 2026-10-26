@@ -20,7 +20,8 @@ export function CountUp({ value, format }: { value: number; format?: 'plain' | '
       observer.disconnect();
       const start = performance.now();
       const tick = (now: number) => {
-        const progress = Math.min(1, (now - start) / DURATION_MS);
+        // A frame timestamp can predate `start`; clamp so the count never goes negative.
+        const progress = Math.min(1, Math.max(0, (now - start) / DURATION_MS));
         const eased = 1 - (1 - progress) ** 3;
         setShown(Math.round(value * eased));
         if (progress < 1) raf = requestAnimationFrame(tick);
