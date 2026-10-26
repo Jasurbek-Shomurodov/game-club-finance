@@ -45,14 +45,21 @@ function hourLabel(hour: number): string {
 }
 
 /** One setting inside a section card: label and help on the left, a compact control on the right. Stacks on phones. */
-function SettingRow({ id, title, help, children }: { id: string; title: string; help?: string; children: ReactNode }) {
+function SettingRow({ id, title, help, stacked = false, children }: {
+  id: string;
+  title: string;
+  help?: string;
+  /** Put a wide control under the label instead of beside it. */
+  stacked?: boolean;
+  children: ReactNode;
+}) {
   return (
-    <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+    <div className={cn('flex flex-col gap-3 px-5 py-4', !stacked && 'sm:flex-row sm:items-center sm:justify-between sm:gap-8')}>
       <div className="min-w-0">
         <h3 id={id} className="text-sm font-semibold text-gray-950">{title}</h3>
         {help && <p className="mt-0.5 max-w-md text-[13px] leading-5 text-gray-500">{help}</p>}
       </div>
-      <div className="shrink-0">{children}</div>
+      <div className={stacked ? 'min-w-0' : 'shrink-0'}>{children}</div>
     </div>
   );
 }
@@ -386,9 +393,9 @@ export function SettingsPageClient() {
 
       <SettingsSection title={selectedClub?.name ?? t('tabClub')}>
         <Card padding="none" className="divide-y divide-gray-100 overflow-hidden">
-          <SettingRow id="setting-club-details" title={t('clubDetails')} help={t('clubDetailsHelp')}>
+          <SettingRow id="setting-club-details" title={t('clubDetails')} help={t('clubDetailsHelp')} stacked>
             {selectedClub ? (
-              <form onSubmit={saveClubDetails} className="flex w-full flex-col gap-2 sm:w-80" aria-labelledby="setting-club-details">
+              <form onSubmit={saveClubDetails} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] sm:items-center" aria-labelledby="setting-club-details">
                 <Input
                   id="club-details-name"
                   aria-label={t('clubName')}
@@ -414,14 +421,14 @@ export function SettingsPageClient() {
                     loading={detailsSaving}
                     loadingLabel={tc('saving')}
                     disabled={clubDetailsUnchanged(details, selectedClub)}
-                    className="self-end"
+                    className="justify-self-end sm:min-h-11"
                   >
                     {tc('save')}
                   </Button>
                 )}
               </form>
             ) : (
-              <Skeleton className="h-24 w-80" />
+              <Skeleton className="h-11 w-full" />
             )}
           </SettingRow>
 
