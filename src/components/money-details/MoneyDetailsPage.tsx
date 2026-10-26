@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useClubQuery } from '@/lib/useClubQuery';
 import type { MoneyDetailCollectedKey, MoneyDetailLine, MoneyDetailRow } from '@/lib/calculations/moneyDetails';
+import { DASHBOARD_PATH } from '@/lib/routes';
 
 export type { MoneyDetailCollectedKey, MoneyDetailLine, MoneyDetailRow } from '@/lib/calculations/moneyDetails';
 
@@ -97,7 +98,7 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
   }
 
   // The dashboard always shows the current business month, so it takes no range.
-  const backHref = '/';
+  const backHref = DASHBOARD_PATH;
 
   const totals = rows.reduce(
     (sum, row) => ({

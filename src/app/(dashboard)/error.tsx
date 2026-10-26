@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button, ButtonLink, Card, EmptyState } from '@/components/PresentationFoundation';
+import { DASHBOARD_PATH } from '@/lib/routes';
 
 /** Route-level error boundary: keeps the shell and navigation usable. */
 export default function DashboardError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
@@ -22,7 +23,7 @@ export default function DashboardError({ error, reset }: { error: Error & { dige
         action={(
           <>
             <Button onClick={reset}>{tc('retry')}</Button>
-            <ButtonLink href="/" variant="outline">{tc('backToDashboard')}</ButtonLink>
+            <ButtonLink href={DASHBOARD_PATH} variant="outline">{tc('backToDashboard')}</ButtonLink>
           </>
         )}
       />

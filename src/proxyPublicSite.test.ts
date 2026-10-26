@@ -31,7 +31,13 @@ describe('public site host in the proxy', () => {
 
   it('keeps the admin host behind login', async () => {
     const proxy = await loadProxy();
-    const response = await proxy(request('https://admin.pixelgaming.uz/'));
+    const response = await proxy(request('https://admin.pixelgaming.uz/dashboard'));
     expect(response.headers.get('location')).toBe('https://admin.pixelgaming.uz/login');
+  });
+
+  it('shows the landing page at the admin host root too', async () => {
+    const proxy = await loadProxy();
+    const response = await proxy(request('https://admin.pixelgaming.uz/'));
+    expect(response.headers.get('location')).toBeNull();
   });
 });

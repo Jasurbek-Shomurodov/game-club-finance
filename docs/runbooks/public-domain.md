@@ -6,7 +6,7 @@ through `src/lib/publicSite.ts`:
 | Host | Shows |
 |---|---|
 | `pixelgaming.uz`, `www.pixelgaming.uz` | `/` is the brand page (`/brand/<PUBLIC_SITE_BRAND_SLUG>`); `/club/<slug>` and `/brand/<slug>` work; every other path redirects to `ADMIN_SITE_URL`. |
-| `admin.pixelgaming.uz` | The admin app with login, exactly as before. |
+| `admin.pixelgaming.uz` | The admin app. Its root also shows the landing page; the dashboard is `/dashboard`. |
 | `game-club-finance.vercel.app` | Also the admin app. Keep it attached: the Supabase daily-report cron (migrations 041/073) calls its `/api/cron/daily-finance-report`. |
 
 ## Setup after buying the domain

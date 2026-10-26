@@ -5,9 +5,17 @@
  * app, exactly as before.
  *
  *   PUBLIC_SITE_HOSTS       comma-separated public hostnames, e.g. "pixelgaming.uz,www.pixelgaming.uz"
- *   PUBLIC_SITE_BRAND_SLUG  brand page shown at the public root, e.g. "pixel-gaming"
+ *   PUBLIC_SITE_BRAND_SLUG  brand page shown at the site root on every host (default "pixel-gaming")
  *   ADMIN_SITE_URL          where admin paths on a public host are sent, e.g. "https://admin.pixelgaming.uz"
  */
+/** Brand shown at the site root when PUBLIC_SITE_BRAND_SLUG is not set. */
+export const DEFAULT_LANDING_BRAND_SLUG = 'pixel-gaming';
+
+/** The brand page the site root (/) shows on every host. */
+export function landingBrandSlug(config: PublicSiteConfig): string {
+  return config.brandSlug ?? DEFAULT_LANDING_BRAND_SLUG;
+}
+
 export interface PublicSiteConfig {
   hosts: string[];
   brandSlug: string | null;

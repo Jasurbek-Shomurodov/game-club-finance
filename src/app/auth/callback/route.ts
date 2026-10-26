@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { LOGIN_NEXT_COOKIE, safeRedirectPath } from '@/lib/validation';
+import { DASHBOARD_PATH } from '@/lib/routes';
 
 function decodeCookieValue(value: string | undefined): string | undefined {
   if (!value || value.startsWith('/')) return value;
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
     return redirectToLogin(false);
   }
 
-  const response = NextResponse.redirect(new URL(next ?? '/', origin));
+  const response = NextResponse.redirect(new URL(next ?? DASHBOARD_PATH, origin));
   response.cookies.delete(LOGIN_NEXT_COOKIE);
 
   try {

@@ -1,7 +1,8 @@
 import type { UserRole } from '@/types';
+import { DASHBOARD_PATH } from '@/lib/routes';
 
 export const FEATURE_DEFINITIONS = [
-  { key: 'dashboard', paths: ['/'], labelKey: 'dashboard', descriptionKey: 'dashboardDescription' },
+  { key: 'dashboard', paths: [DASHBOARD_PATH], labelKey: 'dashboard', descriptionKey: 'dashboardDescription' },
   { key: 'daily_cash', paths: ['/daily-cash', '/income'], labelKey: 'dailyCash', descriptionKey: 'dailyCashDescription' },
   { key: 'closing_stock', paths: ['/closing-stock', '/promotions'], labelKey: 'closingStock', descriptionKey: 'closingStockDescription' },
   { key: 'stock_purchase', paths: ['/stock-purchase'], labelKey: 'stockPurchase', descriptionKey: 'stockPurchaseDescription' },
@@ -74,7 +75,7 @@ export function featureForPath(pathname: string): FeatureKey | null {
   if (normalizedPath === '/test-checklist' || normalizedPath === '/showcase') return 'team';
 
   return FEATURE_DEFINITIONS.find((feature) =>
-    feature.paths.some((path) => normalizedPath === path || (path !== '/' && normalizedPath.startsWith(`${path}/`))),
+    feature.paths.some((path) => normalizedPath === path || normalizedPath.startsWith(`${path}/`)),
   )?.key ?? null;
 }
 

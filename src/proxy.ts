@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { safeRedirectPath } from './lib/validation';
 import { readPublicSiteConfig, routePublicSite } from './lib/publicSite';
+import { DASHBOARD_PATH } from '@/lib/routes';
 
 const publicSite = readPublicSiteConfig(process.env);
 
@@ -15,7 +16,7 @@ function hasSupabaseAuthCookie(request: NextRequest) {
 function redirectToLogin(request: NextRequest) {
   const loginUrl = new URL('/login', request.url);
   const next = safeRedirectPath(`${request.nextUrl.pathname}${request.nextUrl.search}`);
-  if (next && next !== '/') loginUrl.searchParams.set('next', next);
+  if (next && next !== '/' && next !== DASHBOARD_PATH) loginUrl.searchParams.set('next', next);
   return NextResponse.redirect(loginUrl);
 }
 
@@ -30,8 +31,13 @@ export async function proxy(request: NextRequest) {
   if (publicRoute?.kind === 'pass') return NextResponse.next({ request });
   if (publicRoute?.kind === 'redirect') return NextResponse.redirect(new URL(publicRoute.url, request.url));
 
-  // Published club and brand pages are public; they read only get_public_showcase / get_public_brand.
-  if (request.nextUrl.pathname.startsWith('/club/') || request.nextUrl.pathname.startsWith('/brand/')) {
+  // The landing page (/) and published club and brand pages are public; they
+  // read only get_public_showcase / get_public_brand.
+  if (
+    request.nextUrl.pathname === '/'
+    || request.nextUrl.pathname.startsWith('/club/')
+    || request.nextUrl.pathname.startsWith('/brand/')
+  ) {
     return NextResponse.next({ request });
   }
 
@@ -91,7 +97,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (user && isLoginPage) {
-    const next = safeRedirectPath(request.nextUrl.searchParams.get('next')) ?? '/';
+    const next = safeRedirectPath(request.nextUrl.searchParams.get('next')) ?? DASHBOARD_PATH;
     return NextResponse.redirect(new URL(next, request.url));
   }
 

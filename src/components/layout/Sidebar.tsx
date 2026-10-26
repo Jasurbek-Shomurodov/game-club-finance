@@ -32,6 +32,7 @@ import {
 import type { Club, UserRole } from '@/types';
 import { canAccessFeature, featureForPath, type FeatureKey } from '@/lib/permissions';
 import { Avatar, ClubLogo, Drawer, IconButton, LanguageSwitcher } from '@/components/PresentationFoundation';
+import { DASHBOARD_PATH } from '@/lib/routes';
 
 interface SidebarClubOption {
   club: Club;
@@ -100,7 +101,7 @@ function NavLink({
       // Other routes are fully prefetched by the Sidebar effect below. The
       // dashboard embeds live totals in its server response, so it is only
       // prefetched on intent to avoid retaining totals from before an edit.
-      prefetch={href === '/' ? prefetchOnIntent : true}
+      prefetch={href === DASHBOARD_PATH ? prefetchOnIntent : true}
       onClick={handleClick}
       onMouseEnter={() => setPrefetchOnIntent(true)}
       onFocus={() => setPrefetchOnIntent(true)}
@@ -160,7 +161,7 @@ export function Sidebar({
   const allGroups: Array<{ label?: string; items: NavItem[] }> = [
     {
       items: [
-        { href: '/', icon: LayoutDashboard, label: t('dashboard'), feature: 'dashboard' },
+        { href: DASHBOARD_PATH, icon: LayoutDashboard, label: t('dashboard'), feature: 'dashboard' },
         { href: '/financial-analysis', icon: ChartPie, label: t('financialAnalysis'), feature: 'dashboard' },
         { href: '/assistant', icon: Sparkles, label: t('assistant'), feature: 'assistant' },
       ],
@@ -202,7 +203,7 @@ export function Sidebar({
   // page switched and its data could start loading. These pages are client
   // components that load their own data, so their full server response holds
   // nothing stale; prefetch it up front and a tap swaps pages with no request.
-  // The dashboard ('/') embeds live totals, so it keeps the skeleton-only
+  // The dashboard embeds live totals, so it keeps the skeleton-only
   // prefetch, and only once the drawer opens.
   const router = useRouter();
   const navHrefs = groups.flatMap((group) => group.items.map((item) => item.href));
@@ -210,7 +211,7 @@ export function Sidebar({
   const navHrefKey = navHrefs.join('|');
   useEffect(() => {
     for (const href of navHrefKey.split('|')) {
-      if (href === '/') {
+      if (href === DASHBOARD_PATH) {
         if (mobileOpen) router.prefetch(href);
       } else if (href) {
         router.prefetch(href, { kind: PrefetchKind.FULL });
@@ -223,7 +224,7 @@ export function Sidebar({
     // Both dashboard-feature routes share a feature; tell them apart by path.
     const onAnalysis = pathname === '/financial-analysis' || pathname.startsWith('/financial-analysis/');
     if (item.href === '/financial-analysis') return onAnalysis;
-    if (item.href === '/') return activeFeature === 'dashboard' && !onAnalysis;
+    if (item.href === DASHBOARD_PATH) return activeFeature === 'dashboard' && !onAnalysis;
     // Promotions share the closing-stock feature; tell them apart by path.
     const onPromotions = pathname === '/promotions' || pathname.startsWith('/promotions/');
     if (item.href === '/promotions') return onPromotions;

@@ -22,6 +22,16 @@ request
 the protected dashboard layout performs the authoritative validation. Do not
 move authorization entirely into cookie presence.
 
+## Public pages
+
+The site root (`/`) is the public landing page for every visitor: the brand
+page named by `PUBLIC_SITE_BRAND_SLUG` (default `pixel-gaming`), or a redirect
+to `/login` while that brand is unpublished. Its header Login button opens
+`/login`; sign-in and every "back to the app" link go to `DASHBOARD_PATH`
+(`/dashboard`, `src/lib/routes.ts`). `/club/<slug>` and `/brand/<slug>` are
+public too. The proxy lets these through without Auth; they read only the
+anonymous showcase RPCs.
+
 ## Supabase clients
 
 | Module | Use |
@@ -60,7 +70,7 @@ Sidebar routes use intent-based full prefetching. Do not eagerly prefetch every
 dynamic route on mount: that would execute protected server work for pages the
 user may never visit. During an uncached navigation the current page remains
 visible with a slim progress indicator instead of a full-page loading skeleton.
-The dashboard root does not prefetch because its server response embeds live
+The dashboard (`/dashboard`) does not prefetch because its server response embeds live
 financial totals that can change while the user edits another screen.
 The dashboard keeps only headline totals and the income trend; its chart
 starts only when the intersection observer enables it. Detailed breakdowns

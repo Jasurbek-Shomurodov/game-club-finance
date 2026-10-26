@@ -21,6 +21,7 @@ import {
 } from '@/lib/permissions';
 import { cn, normalizeBusinessDayStartHour } from '@/lib/utils';
 import { useLatestRef } from '@/components/i18n/useLatestRef';
+import { DASHBOARD_PATH } from '@/lib/routes';
 
 interface DashboardShellProps {
   initialUserId?: string;
@@ -278,7 +279,7 @@ export function DashboardShell({
     // Server-rendered pages (diagnostics) read the club from the cookie;
     // re-render them for the newly selected club. The dashboard refetches its
     // snapshot on the client, so refreshing there would run the RPC twice.
-    if (changed && pathname !== '/') router.refresh();
+    if (changed && pathname !== DASHBOARD_PATH) router.refresh();
   }, [pathname, router, selectedClubIdRef]);
 
   const loadClubs = useCallback(async (supabase: ReturnType<typeof createClient>, firstLoad: boolean) => {

@@ -40,7 +40,7 @@ describe('auth routing latency', () => {
     mocks.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } } });
     const response = await proxy(request('/login', true));
     expect(mocks.getUser).toHaveBeenCalledOnce();
-    expect(response.headers.get('location')).toBe('http://localhost:3000/');
+    expect(response.headers.get('location')).toBe('http://localhost:3000/dashboard');
   });
 
   it('does not redirect auth callbacks away before exchanging their code', async () => {
@@ -56,8 +56,14 @@ describe('auth routing latency', () => {
     expect(location.searchParams.get('next')).toBe('/reports?month=2026-09&tab=owner');
   });
 
-  it('does not add next for the dashboard root', async () => {
+  it('serves the landing page at the root without login or an Auth call', async () => {
     const response = await proxy(request('/'));
+    expect(response.headers.get('location')).toBeNull();
+    expect(mocks.createClient).not.toHaveBeenCalled();
+  });
+
+  it('does not add next for the dashboard itself', async () => {
+    const response = await proxy(request('/dashboard'));
     expect(response.headers.get('location')).toBe('http://localhost:3000/login');
   });
 
@@ -79,12 +85,12 @@ describe('auth routing latency', () => {
   it('ignores an external next for a signed-in user on login', async () => {
     mocks.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } } });
     const response = await proxy(request('/login?next=https%3A%2F%2Fevil.example', true));
-    expect(response.headers.get('location')).toBe('http://localhost:3000/');
+    expect(response.headers.get('location')).toBe('http://localhost:3000/dashboard');
   });
 
   it('rejects a protocol-relative next for a signed-in user on login', async () => {
     mocks.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } } });
     const response = await proxy(request('/login?next=%2F%2Fevil.example', true));
-    expect(response.headers.get('location')).toBe('http://localhost:3000/');
+    expect(response.headers.get('location')).toBe('http://localhost:3000/dashboard');
   });
 });

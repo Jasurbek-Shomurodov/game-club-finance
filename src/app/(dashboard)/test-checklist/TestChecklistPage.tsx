@@ -12,6 +12,7 @@ import { Badge, ButtonLink, Card, EmptyState, InlineAlert, PageHeader } from '@/
 import { calculateFinancialReportTotals, calculateManualIncome, type DailyCashEntry } from '@/lib/calculations/dailyReport';
 import { normalizeBusinessDayStartHour, serverTodayIso } from '@/lib/utils';
 import { formatNumber } from '@/lib/formatters';
+import { DASHBOARD_PATH } from '@/lib/routes';
 
 interface CheckResult {
   name: string;
@@ -44,7 +45,7 @@ export default async function TestChecklistPage() {
     ?? ownerMemberships[0];
 
   if (!membership) {
-    redirect('/');
+    redirect(DASHBOARD_PATH);
   }
 
   const clubId = membership.club_id;

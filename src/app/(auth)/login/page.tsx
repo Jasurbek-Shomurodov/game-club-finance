@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl';
 import { Button, Field, InlineAlert, Input, Skeleton } from '@/components/PresentationFoundation';
 import { LOGIN_NEXT_COOKIE, safeRedirectPath } from '@/lib/validation';
 import { AuthLayout } from '../AuthLayout';
+import { DASHBOARD_PATH } from '@/lib/routes';
 
 function GoogleIcon() {
   return (
@@ -49,7 +50,7 @@ function LoginForm() {
       }
 
       // Keep the button busy while the dashboard loads.
-      router.replace(next ?? '/');
+      router.replace(next ?? DASHBOARD_PATH);
       router.refresh();
     } catch {
       setError(t('networkError'));

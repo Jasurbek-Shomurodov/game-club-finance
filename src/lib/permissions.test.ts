@@ -57,6 +57,8 @@ describe('feature permissions', () => {
     expect(canAccessPath('admin', ['team'], '/team')).toBe(false);
     expect(canAccessPath('admin', ['team'], '/showcase')).toBe(false);
     expect(canAccessPath('owner', [], '/showcase')).toBe(true);
+    expect(canAccessPath('viewer', null, '/dashboard')).toBe(true);
+    expect(canAccessPath('admin', ['reports'], '/dashboard')).toBe(false);
     expect(canAccessPath('owner', [], '/salaries')).toBe(true);
     expect(canAccessPath('admin', [], '/salaries')).toBe(true);
     expect(canAccessPath('viewer', [], '/salaries')).toBe(true);
