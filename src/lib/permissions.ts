@@ -15,6 +15,8 @@ export const FEATURE_DEFINITIONS = [
   { key: 'assistant', paths: ['/assistant'], labelKey: 'assistant', descriptionKey: 'assistantDescription' },
   // Ticks a date in Reports as collected; it has no page of its own.
   { key: 'collection', paths: [], labelKey: 'collection', descriptionKey: 'collectionDescription' },
+  // Edits the public club page (/club/<slug>); owners grant it explicitly.
+  { key: 'showcase', paths: ['/showcase'], labelKey: 'showcase', descriptionKey: 'showcaseDescription' },
   { key: 'team', paths: ['/team'], labelKey: 'team', descriptionKey: 'teamDescription', ownerOnly: true },
   { key: 'settings', paths: ['/settings'], labelKey: 'settings', descriptionKey: 'settingsDescription' },
 ] as const;
@@ -71,8 +73,7 @@ export function featureForPath(pathname: string): FeatureKey | null {
   ) {
     return 'dashboard';
   }
-  // The public showcase editor is owner-only, like team management.
-  if (normalizedPath === '/test-checklist' || normalizedPath === '/showcase') return 'team';
+  if (normalizedPath === '/test-checklist') return 'team';
 
   return FEATURE_DEFINITIONS.find((feature) =>
     feature.paths.some((path) => normalizedPath === path || normalizedPath.startsWith(`${path}/`)),

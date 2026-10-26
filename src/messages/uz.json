@@ -1065,6 +1065,8 @@
       "debtsDescription": "Mijoz qarzlari va to'lovlarini boshqarish",
       "inventory": "Inventar",
       "inventoryDescription": "Mahsulotlar katalogini ko'rish va boshqarish",
+      "showcase": "Ommaviy sahifa",
+      "showcaseDescription": "Klubning ommaviy sahifasini tahrirlash: matnlar, rasmlar, o‘yinlar, kompyuterlar va aksiyalar. Brend sahifasi egasida qoladi.",
       "team": "Jamoa",
       "teamDescription": "Faqat owner uchun jamoa va huquqlar boshqaruvi",
       "settings": "Sozlamalar",
@@ -1656,7 +1658,7 @@
   },
   "showcase": {
     "title": "Ommaviy sahifa",
-    "ownerOnly": "Ommaviy sahifani faqat klub egasi tahrirlay oladi.",
+    "ownerOnly": "Sizda ommaviy sahifaga ruxsat yo‘q. Klub egasidan uni «Jamoa» bo‘limida berishini so‘rang.",
     "loadFailed": "Ommaviy sahifa sozlamalarini yuklab bo‘lmadi.",
     "migrationMissing": "Ma’lumotlar bazasida 098-migratsiya yo‘q. Ommaviy sahifani tahrirlash uchun uni qo‘llang.",
     "pageSettings": "Sahifa sozlamalari",

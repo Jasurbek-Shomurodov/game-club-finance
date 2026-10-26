@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { BadgePercent, Cpu, ExternalLink, Gamepad2, Monitor, Mouse, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useClub } from '@/components/layout/DashboardShell';
+import { canAccessFeature } from '@/lib/permissions';
 import {
   Badge,
   Button,
@@ -72,10 +73,12 @@ const EDIT_TITLE = { game: ['addGame', 'editGame'], zone: ['addZone', 'editZone'
 export default function ShowcasePage() {
   const t = useTranslations('showcase');
   const tc = useTranslations('common');
-  const { selectedClubId, selectedClub, role, account } = useClub();
+  const { selectedClubId, selectedClub, role, featureAccess, account } = useClub();
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
   const isOwner = role === 'owner';
+  // Owners, and members an owner granted the Public page on Team.
+  const canEdit = canAccessFeature(role, featureAccess, 'showcase');
 
   const load = useCallback(async () => {
     if (!selectedClubId) return EMPTY;
@@ -115,7 +118,7 @@ export default function ShowcasePage() {
 
   async function saveSettings(event: React.FormEvent) {
     event.preventDefault();
-    if (!isOwner || !selectedClubId) return;
+    if (!canEdit || !selectedClubId) return;
     const validation = validateShowcaseSettings(settings);
     if (validation) {
       setSettingsError(t(`error_${validation}`));
@@ -156,7 +159,7 @@ export default function ShowcasePage() {
 
   async function saveItem(event: React.FormEvent) {
     event.preventDefault();
-    if (!editor || !isOwner || !selectedClubId) return;
+    if (!editor || !canEdit || !selectedClubId) return;
     const validation = editor.kind === 'game'
       ? validateShowcaseGame(editor.form)
       : editor.kind === 'zone' ? validateShowcasePcZone(editor.form) : validateShowcaseOffer(editor.form);
@@ -186,7 +189,7 @@ export default function ShowcasePage() {
   }
 
   async function deleteItem() {
-    if (!editor?.id || !isOwner || !selectedClubId) return;
+    if (!editor?.id || !canEdit || !selectedClubId) return;
     const confirmed = await confirm({
       title: t(DELETE_LABEL[editor.kind]),
       description: t('deleteConfirm'),
@@ -211,7 +214,7 @@ export default function ShowcasePage() {
     await query.reload({ silent: true });
   }
 
-  if (!isOwner) {
+  if (!canEdit) {
     return (
       <Card>
         <EmptyState icon={Gamepad2} title={t('ownerOnly')} />
@@ -238,7 +241,8 @@ export default function ShowcasePage() {
         <InlineAlert variant="warning">{t('migrationMissing')}</InlineAlert>
       ) : (
         <>
-          <BrandSettingsCard userId={account.userId} clubId={selectedClubId} onSaved={showToast} />
+          {/* The brand page belongs to the owner's account, not to the club. */}
+          {isOwner && <BrandSettingsCard userId={account.userId} clubId={selectedClubId} onSaved={showToast} />}
 
           <Card padding="none">
             <CardHeader>

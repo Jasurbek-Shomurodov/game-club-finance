@@ -3576,21 +3576,6 @@
         "name": "trg_touch_club_showcase"
       },
       {
-        "kind": "policy",
-        "table": "public.club_showcases",
-        "name": "club_owner_all_club_showcases"
-      },
-      {
-        "kind": "policy",
-        "table": "public.showcase_games",
-        "name": "club_owner_all_showcase_games"
-      },
-      {
-        "kind": "policy",
-        "table": "public.showcase_pc_zones",
-        "name": "club_owner_all_showcase_pc_zones"
-      },
-      {
         "kind": "function",
         "signature": "public.touch_club_showcase()"
       }
@@ -3842,14 +3827,34 @@
         "name": "public.idx_showcase_offers_club_order"
       },
       {
-        "kind": "policy",
-        "table": "public.showcase_offers",
-        "name": "club_owner_all_showcase_offers"
-      },
-      {
         "kind": "functionBody",
         "signature": "public.public_showcase_payload(uuid)",
         "md5": "aa55137ae79bdad6599fa6ba03e5f0ff"
+      }
+    ]
+  },
+  {
+    "file": "103_showcase_feature_access.sql",
+    "probes": [
+      {
+        "kind": "policy",
+        "table": "public.club_showcases",
+        "name": "club_showcase_editors_all_club_showcases"
+      },
+      {
+        "kind": "policy",
+        "table": "public.showcase_games",
+        "name": "club_showcase_editors_all_showcase_games"
+      },
+      {
+        "kind": "policy",
+        "table": "public.showcase_pc_zones",
+        "name": "club_showcase_editors_all_showcase_pc_zones"
+      },
+      {
+        "kind": "policy",
+        "table": "public.showcase_offers",
+        "name": "club_showcase_editors_all_showcase_offers"
       }
     ]
   }

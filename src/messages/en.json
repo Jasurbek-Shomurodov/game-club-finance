@@ -1065,6 +1065,8 @@
       "debtsDescription": "Manage customer debts and payments",
       "inventory": "Inventory",
       "inventoryDescription": "View and manage the product catalog",
+      "showcase": "Public page",
+      "showcaseDescription": "Edit the public club page: texts, photos, games, computers and offers. The brand page stays with the owner.",
       "team": "Team",
       "teamDescription": "Owner-only team and access management",
       "settings": "Settings",
@@ -1656,7 +1658,7 @@
   },
   "showcase": {
     "title": "Public page",
-    "ownerOnly": "Only club owners can edit the public page.",
+    "ownerOnly": "You do not have access to the public page. Ask a club owner to grant it on Team.",
     "loadFailed": "Could not load the public page settings.",
     "migrationMissing": "The database is missing migration 098. Apply it to start editing the public page.",
     "pageSettings": "Page settings",

@@ -8,6 +8,7 @@ const brandMigration = readFileSync(resolve('migrations', '099_showcase_brands.s
 const specsMigration = readFileSync(resolve('migrations', '100_showcase_zone_specs.sql'), 'utf8');
 const translationsMigration = readFileSync(resolve('migrations', '101_showcase_translations.sql'), 'utf8');
 const offersMigration = readFileSync(resolve('migrations', '102_showcase_offers.sql'), 'utf8');
+const accessMigration = readFileSync(resolve('migrations', '103_showcase_feature_access.sql'), 'utf8');
 const club = '10000000-0000-0000-0000-000000000001';
 const otherClub = '10000000-0000-0000-0000-000000000002';
 const thirdClub = '10000000-0000-0000-0000-000000000003';
@@ -40,6 +41,10 @@ beforeAll(async () => {
     insert into public.club_memberships values ('${club}','${owner}','owner'),('${thirdClub}','${owner}','owner'),('${otherClub}','${stranger}','owner');
     create function public.current_user_club_role(id uuid) returns text language sql as $$
       select case when id='${club}' and auth.uid()='${owner}' then current_setting('test.role',true) end $$;
+    create function public.current_user_can_access_club_feature(id uuid, feature text) returns boolean language sql as $$
+      select coalesce(public.current_user_club_role(id) = 'owner'
+        or (public.current_user_club_role(id) is not null and feature = any(string_to_array(current_setting('test.features', true), ','))), false) $$;
+    select set_config('test.features','',false);
     grant usage on schema public, auth to authenticated, anon;
   `);
   await db.exec(migration);
@@ -170,5 +175,20 @@ describe('098 public showcase', () => {
     await expect(db.query(`insert into showcase_offers(club_id, title) values ('${club}','X')`)).rejects.toThrow(/row-level security/);
     await db.exec('reset role');
     await expect(db.query(`insert into showcase_offers(club_id, title, price) values ('${club}','X',-1)`)).rejects.toThrow(/price_non_negative/);
+  });
+
+  it('103 lets a member with the Public page grant edit, and nobody else', async () => {
+    await db.exec(`reset role; alter table club_memberships add column if not exists feature_access text[];`);
+    await db.exec(accessMigration);
+    await db.exec(accessMigration);
+    await asRole('authenticated', owner, 'admin');
+    await expect(db.query(`insert into showcase_games(club_id, title) values ('${club}','Denied')`)).rejects.toThrow(/row-level security/);
+    await db.exec(`reset role; select set_config('test.features','showcase',false);`);
+    await asRole('authenticated', owner, 'admin');
+    await db.query(`insert into showcase_games(club_id, title) values ('${club}','Granted')`);
+    await db.query(`insert into showcase_offers(club_id, title) values ('${club}','Granted')`);
+    await expect(db.query(`insert into showcase_games(club_id, title) values ('${otherClub}','X')`)).rejects.toThrow(/row-level security/);
+    await db.exec(`reset role; select set_config('test.features','',false);`);
+    await expect(db.query(`update club_memberships set feature_access = array['showcase','nonsense']`)).rejects.toThrow(/feature_access_valid/);
   });
 });
