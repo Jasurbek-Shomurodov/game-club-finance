@@ -125,7 +125,18 @@ function activityKindVariant(kind: MoneyReportActivity['kind']): BadgeVariant {
 
 /** The closeout table lists a subtle day header row followed by that day's entries. */
 type CloseoutRow =
-  | { kind: 'day'; key: string; date: string; income: number; gameClubExpenses: number; barExpenses: number; total: number; count: number }
+  | {
+    kind: 'day';
+    key: string;
+    date: string;
+    income: number;
+    gameClubExpenses: number;
+    barExpenses: number;
+    total: number;
+    /** Game-club money left on the day in each payment method. */
+    left: Record<'cash' | 'terminal' | 'card' | 'playstation', number>;
+    count: number;
+  }
   | { kind: 'activity'; key: string; date: string; activity: MoneyReportActivity };
 
 function SummaryCard({
@@ -739,6 +750,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       gameClubExpenses: day.gameClubExpenses,
       barExpenses: day.barExpenses,
       total: day.total,
+      left: { cash: day.cash, terminal: day.terminal, card: day.card, playstation: day.playstation },
       count: day.activities.length,
     },
     ...day.activities.map((activity, index) => ({
@@ -836,7 +848,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       header: t('descriptionLabel'),
       className: 'min-w-[240px]',
       render: (row) => (row.kind === 'day' ? (
-        <span className="text-xs text-gray-500">
+        <span className="block text-xs text-gray-500">
           {/* Income minus these game-club expenses is the day total; bar-paid
               expenses come out of bar cash, so they are listed separately. */}
           {t('income')}: <Money amount={row.income} currency={null} className="text-gray-700" />
@@ -847,6 +859,18 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
               {' · '}
               {t('bar')} · {t('expenses')}: <Money amount={row.barExpenses} currency={null} className="text-gray-700" />
             </>
+          )}
+          {paymentCards.some((card) => row.left[card.method] !== 0) && (
+            <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span>{t('left')}:</span>
+              {paymentCards.filter((card) => row.left[card.method] !== 0).map(({ method, icon: Icon, label }) => (
+                <span key={method} className="inline-flex items-center gap-1 whitespace-nowrap" title={label}>
+                  <Icon size={13} className="shrink-0 text-gray-400" aria-hidden="true" />
+                  {label}
+                  <Money amount={row.left[method]} currency={null} className={cn('font-medium', amountToneClassName(row.left[method]))} />
+                </span>
+              ))}
+            </span>
           )}
         </span>
       ) : (

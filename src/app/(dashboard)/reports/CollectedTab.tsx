@@ -108,6 +108,16 @@ export default function CollectedTab({
           loading={loading}
           label={t('collectedTakenTotal')}
           value={<Money amount={summary.taken.total} currencyClassName="text-sm font-medium tracking-normal text-gray-500" />}
+          helper={methods.some((method) => summary.taken[method] !== 0) ? (
+            <span className="flex flex-wrap gap-x-3 gap-y-0.5">
+              {methods.filter((method) => summary.taken[method] !== 0).map((method) => (
+                <span key={method} className="whitespace-nowrap">
+                  {methodLabel(method)}{' '}
+                  <Money amount={summary.taken[method]} currency={null} className={cn('font-medium', summary.taken[method] < 0 ? 'text-danger-600' : 'text-gray-700')} />
+                </span>
+              ))}
+            </span>
+          ) : undefined}
           tone="success"
           icon={WalletCards}
         />
