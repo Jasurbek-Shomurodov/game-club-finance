@@ -3356,5 +3356,248 @@
         "signature": "public.prevent_collected_day_changes()"
       }
     ]
+  },
+  {
+    "file": "098_public_showcase.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.club_showcases"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_showcases",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_showcases",
+        "column": "slug"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_showcases",
+        "column": "is_published"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_showcases",
+        "column": "headline"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_showcases",
+        "column": "tagline"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_showcases",
+        "column": "hero_image_url"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_showcases",
+        "column": "address"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_showcases",
+        "column": "phone"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_showcases",
+        "column": "opening_hours"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_showcases",
+        "column": "telegram_url"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_showcases",
+        "column": "instagram_url"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_showcases",
+        "column": "updated_at"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.club_showcases",
+        "name": "club_showcases_slug_format"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.club_showcases",
+        "name": "club_showcases_slug_key"
+      },
+      {
+        "kind": "relation",
+        "name": "public.showcase_games"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_games",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_games",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_games",
+        "column": "title"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_games",
+        "column": "genre"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_games",
+        "column": "image_url"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_games",
+        "column": "sort_order"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_games",
+        "column": "created_at"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.showcase_games",
+        "name": "showcase_games_title_not_blank"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_showcase_games_club_order"
+      },
+      {
+        "kind": "relation",
+        "name": "public.showcase_pc_zones"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "name"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "pc_count"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "cpu"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "gpu"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "ram"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "monitor"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "peripherals"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "price_per_hour"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "image_url"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "sort_order"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "created_at"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.showcase_pc_zones",
+        "name": "showcase_pc_zones_name_not_blank"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.showcase_pc_zones",
+        "name": "showcase_pc_zones_pc_count_positive"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.showcase_pc_zones",
+        "name": "showcase_pc_zones_price_non_negative"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_showcase_pc_zones_club_order"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.club_showcases",
+        "name": "trg_touch_club_showcase"
+      },
+      {
+        "kind": "policy",
+        "table": "public.club_showcases",
+        "name": "club_owner_all_club_showcases"
+      },
+      {
+        "kind": "policy",
+        "table": "public.showcase_games",
+        "name": "club_owner_all_showcase_games"
+      },
+      {
+        "kind": "policy",
+        "table": "public.showcase_pc_zones",
+        "name": "club_owner_all_showcase_pc_zones"
+      },
+      {
+        "kind": "function",
+        "signature": "public.touch_club_showcase()"
+      },
+      {
+        "kind": "function",
+        "signature": "public.get_public_showcase(text)"
+      }
+    ]
   }
 ]

@@ -23,6 +23,7 @@ migrations.
 | `expense_presets` | Per-club planned (recurring) expenses with a monthly amount (091) | Owner inserts/updates, archived never deleted; expense readers read. `expenses.preset_id` links a payment; a trigger requires a live preset of the same club, category and `payment_source`. Once linked, a preset's category and source cannot change (093). An optional `payment_method` (094) is only preselected in the expense form. |
 | `money_exchanges` | Game Club money moved between payment methods or into/out of US dollars (092) | Select only; write through `record_money_exchange` (expenses feature, idempotent id) and `delete_money_exchange` (owner). |
 | `daily_cash_collections` | Business dates a collector ticked as collected (096) | Select only; write through `mark_daily_cash_collected` (`collection` feature) and owner-only `unmark_daily_cash_collected`. A ticked date is closed (097): `lock_collected_day` triggers refuse every insert, update and delete dated on it in `daily_cash_entries`, `expenses`, `debt_payments` and `money_exchanges`, and new `new_debts`, for every role and RPC (SQLSTATE 55000, hint `day_collected`, `isDayCollectedError`). Updates that change only Telegram message columns pass. Removing the tick reopens the day. |
+| `club_showcases`, `showcase_games`, `showcase_pc_zones` | Public club page at `/club/<slug>`: settings, games and computer zones (098) | Owner-only for every operation. Anonymous visitors read only published, presentation-safe fields through `get_public_showcase`; no finance table is reachable. Images go to the public `showcase` storage bucket under `<club_id>/`, writable only by that club's owners. |
 | `telegram_report_deliveries` | Service-only delivery state | Never expose to browser roles. |
 
 Retired read-only ledgers: `income_transactions`, `expense_transactions`, and
@@ -102,6 +103,7 @@ visible to every club owner until requests are targeted at a club.
 | `set_salary_record_telegram_message` | Save the club-group message that announced a salary entry or rate (090), so deletion removes it. |
 | `mark_daily_cash_collected` / `unmark_daily_cash_collected` | Collector ticks a business date as collected; only an owner removes a tick (096). |
 | `record_money_exchange` / `delete_money_exchange` | Record (idempotent) or owner-delete a money exchange (092). |
+| `get_public_showcase` | Anonymous read of one published club showcase by slug; null when unpublished or unknown (098). |
 
 PostgreSQL functions execute as `PUBLIC` unless restricted. Security-definer
 functions must set a safe `search_path`, validate actor/club access, and have

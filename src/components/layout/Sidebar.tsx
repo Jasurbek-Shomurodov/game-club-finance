@@ -25,6 +25,7 @@ import {
   BarChart3,
   HandCoins,
   ChartPie,
+  Gamepad2,
   PanelLeft,
   Sparkles,
 } from 'lucide-react';
@@ -186,6 +187,7 @@ export function Sidebar({
       label: t('groupManage'),
       items: [
         { href: '/products', icon: Package, label: t('products'), feature: 'inventory' },
+        { href: '/showcase', icon: Gamepad2, label: t('showcase'), feature: 'team' },
         { href: '/team', icon: Shield, label: t('team'), feature: 'team', badge: pendingCount },
       ],
     },
@@ -226,6 +228,10 @@ export function Sidebar({
     const onPromotions = pathname === '/promotions' || pathname.startsWith('/promotions/');
     if (item.href === '/promotions') return onPromotions;
     if (item.href === '/closing-stock') return activeFeature === 'closing_stock' && !onPromotions;
+    // The showcase editor shares the owner-only team feature; tell them apart by path.
+    const onShowcase = pathname === '/showcase' || pathname.startsWith('/showcase/');
+    if (item.href === '/showcase') return onShowcase;
+    if (item.href === '/team') return activeFeature === 'team' && !onShowcase;
     return activeFeature === item.feature;
   }
 

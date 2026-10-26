@@ -17,6 +17,11 @@ function redirectToLogin(request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
+  // Published club showcases are public; they read only get_public_showcase.
+  if (request.nextUrl.pathname.startsWith('/club/')) {
+    return NextResponse.next({ request });
+  }
+
   const isLoginPage = request.nextUrl.pathname.startsWith('/login');
   // Password reset is requested while signed out; /update-password (the
   // second step) needs the session the recovery link creates, so it stays protected.

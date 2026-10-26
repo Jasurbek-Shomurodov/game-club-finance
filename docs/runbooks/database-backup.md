@@ -99,6 +99,7 @@ migration applied restored all tables, functions, policies, grants, and the
   repository activity. The workflow's `keepalive` job re-enables itself on every
   run to reset that timer. If the Actions tab ever shows the workflow disabled,
   enable it there and run it once manually.
-- Storage buckets are not included; the app does not use Supabase Storage.
+- Storage buckets are not included. Only the public `showcase` bucket (098) holds
+  files: the club page's cover images, which owners can upload again.
 - Rotating the age key does not re-encrypt old dumps; keep old private keys.
 - Dumps made before 2026-10-01 omitted grants; do not restore those.

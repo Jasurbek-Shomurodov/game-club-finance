@@ -281,3 +281,44 @@ export interface OwnerProfitCarryover {
   created_by: string;
   created_at: string;
 }
+
+export interface ClubShowcase {
+  club_id: string;
+  slug: string;
+  is_published: boolean;
+  headline: string | null;
+  tagline: string | null;
+  hero_image_url: string | null;
+  address: string | null;
+  phone: string | null;
+  opening_hours: string | null;
+  telegram_url: string | null;
+  instagram_url: string | null;
+  updated_at: string;
+}
+
+export interface ShowcaseGame {
+  id: string;
+  club_id: string;
+  title: string;
+  genre: string | null;
+  image_url: string | null;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface ShowcasePcZone {
+  id: string;
+  club_id: string;
+  name: string;
+  pc_count: number;
+  cpu: string | null;
+  gpu: string | null;
+  ram: string | null;
+  monitor: string | null;
+  peripherals: string | null;
+  price_per_hour: number | null;
+  image_url: string | null;
+  sort_order: number;
+  created_at: string;
+}

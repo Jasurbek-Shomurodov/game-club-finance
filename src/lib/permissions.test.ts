@@ -55,6 +55,8 @@ describe('feature permissions', () => {
   it('always gives owners full access and keeps Team owner-only', () => {
     expect(canAccessPath('owner', [], '/expenses')).toBe(true);
     expect(canAccessPath('admin', ['team'], '/team')).toBe(false);
+    expect(canAccessPath('admin', ['team'], '/showcase')).toBe(false);
+    expect(canAccessPath('owner', [], '/showcase')).toBe(true);
     expect(canAccessPath('owner', [], '/salaries')).toBe(true);
     expect(canAccessPath('admin', [], '/salaries')).toBe(true);
     expect(canAccessPath('viewer', [], '/salaries')).toBe(true);

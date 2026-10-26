@@ -1,0 +1,427 @@
+/*
+ * Public club showcase (/club/<slug>). A self-contained dark "neon" look that
+ * does not follow the dashboard theme: visitors always see the same page.
+ * Every class is prefixed `sc-` so nothing leaks into the dashboard.
+ */
+
+:root:has(.sc-root) body {
+  background: #05050b;
+}
+
+.sc-root {
+  --sc-bg: #05050b;
+  --sc-violet: #8b5cf6;
+  --sc-fuchsia: #e879f9;
+  --sc-cyan: #22d3ee;
+  --sc-lime: #a3e635;
+  --sc-gradient: linear-gradient(100deg, #a78bfa 0%, #f0abfc 30%, #67e8f9 60%, #a78bfa 100%);
+  background: var(--sc-bg);
+  color: #f5f5fa;
+  font-family: var(--font-display-body, var(--font-sans)), ui-sans-serif, system-ui, sans-serif;
+  overflow-x: clip;
+  -webkit-font-smoothing: antialiased;
+}
+
+.sc-display {
+  font-family: var(--font-display), var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* ---------- Aurora background ---------- */
+
+.sc-aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.sc-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.55;
+  mix-blend-mode: screen;
+  will-change: transform;
+}
+
+.sc-blob-1 {
+  width: 46rem;
+  height: 46rem;
+  left: -14rem;
+  top: -16rem;
+  background: radial-gradient(circle, #7c3aed 0%, transparent 65%);
+  animation: sc-drift-1 18s ease-in-out infinite alternate;
+}
+
+.sc-blob-2 {
+  width: 38rem;
+  height: 38rem;
+  right: -12rem;
+  top: 4rem;
+  background: radial-gradient(circle, #db2777 0%, transparent 65%);
+  animation: sc-drift-2 22s ease-in-out infinite alternate;
+}
+
+.sc-blob-3 {
+  width: 40rem;
+  height: 40rem;
+  left: 30%;
+  bottom: -22rem;
+  background: radial-gradient(circle, #0891b2 0%, transparent 65%);
+  animation: sc-drift-3 26s ease-in-out infinite alternate;
+}
+
+@keyframes sc-drift-1 {
+  to { transform: translate3d(14rem, 8rem, 0) scale(1.15); }
+}
+@keyframes sc-drift-2 {
+  to { transform: translate3d(-12rem, 10rem, 0) scale(0.9); }
+}
+@keyframes sc-drift-3 {
+  to { transform: translate3d(-8rem, -10rem, 0) scale(1.2); }
+}
+
+/* Perspective grid floor that scrolls towards the viewer. */
+.sc-grid {
+  position: absolute;
+  left: -50%;
+  right: -50%;
+  bottom: -10%;
+  height: 60%;
+  background-image:
+    linear-gradient(rgba(167, 139, 250, 0.35) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(167, 139, 250, 0.35) 1px, transparent 1px);
+  background-size: 64px 64px;
+  transform: perspective(520px) rotateX(62deg);
+  transform-origin: center top;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 35%, black 60%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 35%, black 60%, transparent 100%);
+  animation: sc-grid-move 3.5s linear infinite;
+  opacity: 0.55;
+}
+
+@keyframes sc-grid-move {
+  to { background-position: 0 64px, 0 0; }
+}
+
+.sc-noise {
+  position: absolute;
+  inset: 0;
+  opacity: 0.06;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* Floating sparks. Positions come from inline custom properties. */
+.sc-spark {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 0 10px 2px rgba(240, 171, 252, 0.8);
+  opacity: 0;
+  animation: sc-spark var(--d, 9s) linear var(--delay, 0s) infinite;
+}
+
+@keyframes sc-spark {
+  0% { transform: translate3d(0, 0, 0); opacity: 0; }
+  15% { opacity: 0.9; }
+  85% { opacity: 0.6; }
+  100% { transform: translate3d(var(--x, 20px), -60vh, 0); opacity: 0; }
+}
+
+/* ---------- Text effects ---------- */
+
+.sc-gradient-text {
+  background: var(--sc-gradient);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: sc-gradient-pan 7s ease-in-out infinite alternate;
+}
+
+@keyframes sc-gradient-pan {
+  from { background-position: 0% 50%; }
+  to { background-position: 100% 50%; }
+}
+
+/* A light sweep that passes over text every few seconds. */
+.sc-shine-text {
+  position: relative;
+  /* The overlay copy must wrap exactly like the text it covers. */
+  display: inline-block;
+}
+.sc-shine-text::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.95) 50%, transparent 65%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: sc-text-shine 5.5s ease-in-out 1.6s infinite;
+  pointer-events: none;
+}
+
+@keyframes sc-text-shine {
+  0% { background-position: 150% 0; }
+  45%, 100% { background-position: -100% 0; }
+}
+
+/* ---------- Entrance ---------- */
+
+.sc-rise {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0);
+  filter: blur(8px);
+  animation: sc-rise 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) var(--delay, 0s) forwards;
+}
+
+@keyframes sc-rise {
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+.sc-reveal {
+  opacity: 0;
+  transform: translate3d(0, 36px, 0) scale(0.98);
+  transition:
+    opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) var(--delay, 0s),
+    transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) var(--delay, 0s);
+}
+.sc-reveal[data-visible='true'] {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---------- Surfaces ---------- */
+
+.sc-glass {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+.sc-nav {
+  transition: background-color 0.3s, border-color 0.3s, backdrop-filter 0.3s;
+  border-bottom: 1px solid transparent;
+}
+.sc-nav[data-scrolled='true'] {
+  background: rgba(5, 5, 11, 0.7);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* Primary call to action: gradient fill with a periodic shimmer sweep. */
+.sc-cta {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(100deg, #7c3aed, #c026d3 55%, #0891b2);
+  background-size: 200% 100%;
+  box-shadow: 0 10px 40px -10px rgba(192, 38, 211, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transition: transform 0.2s, box-shadow 0.3s, background-position 0.6s;
+}
+.sc-cta:hover {
+  transform: translateY(-2px);
+  background-position: 100% 0;
+  box-shadow: 0 16px 50px -10px rgba(34, 211, 238, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.sc-cta::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.45) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: sc-sweep 3.6s ease-in-out 1.2s infinite;
+}
+
+@keyframes sc-sweep {
+  0% { transform: translateX(-120%); }
+  40%, 100% { transform: translateX(120%); }
+}
+
+.sc-pulse-dot {
+  position: relative;
+}
+.sc-pulse-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: inherit;
+  animation: sc-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes sc-ping {
+  75%, 100% { transform: scale(2.6); opacity: 0; }
+}
+
+/* ---------- Loading shimmer ---------- */
+
+.sc-shimmer {
+  background: linear-gradient(110deg, #12121f 8%, #232340 18%, #12121f 33%);
+  background-size: 200% 100%;
+  animation: sc-shimmer 1.4s linear infinite;
+}
+
+@keyframes sc-shimmer {
+  to { background-position: -200% 0; }
+}
+
+.sc-img {
+  opacity: 0;
+  transform: scale(1.06);
+  transition: opacity 0.6s ease, transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.sc-img[data-loaded='true'] {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ---------- Game cards ---------- */
+
+.sc-game {
+  transform-style: preserve-3d;
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 0.25s ease-out, box-shadow 0.4s;
+}
+.sc-game:hover {
+  box-shadow: 0 30px 60px -20px rgba(139, 92, 246, 0.55), 0 0 0 1px rgba(240, 171, 252, 0.35);
+}
+.sc-game .sc-game-media {
+  transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.sc-game:hover .sc-game-media {
+  transform: scale(1.08);
+}
+/* Spotlight that follows the pointer (set by the tilt handler). */
+.sc-game::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, 0.16), transparent 45%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.sc-game:hover::before {
+  opacity: 1;
+}
+/* Diagonal shine that crosses the card on hover. */
+.sc-game::after {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  z-index: 3;
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.22) 50%, transparent 60%);
+  transform: translateX(-60%);
+  transition: transform 0.9s ease;
+  pointer-events: none;
+}
+.sc-game:hover::after {
+  transform: translateX(60%);
+}
+
+/* ---------- Zone cards: rotating conic border ---------- */
+
+@property --sc-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.sc-zone {
+  position: relative;
+  isolation: isolate;
+}
+.sc-zone::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from var(--sc-angle), rgba(139, 92, 246, 0.15), #a78bfa, #f0abfc, #67e8f9, rgba(139, 92, 246, 0.15) 40%, rgba(139, 92, 246, 0.15));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: sc-spin 6s linear infinite;
+}
+.sc-zone::after {
+  content: '';
+  position: absolute;
+  inset: 20% 10% -10%;
+  z-index: -2;
+  border-radius: inherit;
+  background: radial-gradient(closest-side, rgba(139, 92, 246, 0.35), transparent);
+  filter: blur(40px);
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+.sc-zone:hover::after {
+  opacity: 1;
+}
+
+@keyframes sc-spin {
+  to { --sc-angle: 360deg; }
+}
+
+/* ---------- Marquee ---------- */
+
+.sc-marquee {
+  mask-image: linear-gradient(90deg, transparent, black 10%, black 90%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 10%, black 90%, transparent);
+}
+.sc-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: sc-marquee var(--duration, 40s) linear infinite;
+}
+.sc-marquee-track[data-reverse='true'] {
+  animation-direction: reverse;
+}
+.sc-marquee:hover .sc-marquee-track {
+  animation-play-state: paused;
+}
+
+@keyframes sc-marquee {
+  to { transform: translateX(-50%); }
+}
+
+.sc-scroll-cue {
+  animation: sc-bob 2.2s ease-in-out infinite;
+}
+
+@keyframes sc-bob {
+  50% { transform: translateY(8px); opacity: 0.5; }
+}
+
+/* ---------- Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-root *,
+  .sc-root *::before,
+  .sc-root *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .sc-rise,
+  .sc-reveal {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+  .sc-spark {
+    display: none;
+  }
+}

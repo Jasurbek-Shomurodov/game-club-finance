@@ -70,7 +70,8 @@ export function featureForPath(pathname: string): FeatureKey | null {
   ) {
     return 'dashboard';
   }
-  if (normalizedPath === '/test-checklist') return 'team';
+  // The public showcase editor is owner-only, like team management.
+  if (normalizedPath === '/test-checklist' || normalizedPath === '/showcase') return 'team';
 
   return FEATURE_DEFINITIONS.find((feature) =>
     feature.paths.some((path) => normalizedPath === path || (path !== '/' && normalizedPath.startsWith(`${path}/`))),
