@@ -227,7 +227,7 @@ export default function ShowcasePage() {
   ) : undefined;
 
   return (
-    <div className="space-y-5">
+    <div className="w-full max-w-5xl space-y-5">
       <PageHeader title={t('title')} action={openPublicLink} />
 
       {query.loading ? (
