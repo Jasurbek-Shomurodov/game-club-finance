@@ -1,11 +1,12 @@
 import { getRequestConfig } from 'next-intl/server';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
+import { resolveRequestLocale } from '@/lib/locale';
 
 export default getRequestConfig(async () => {
-  const cookieStore = await cookies();
-  // Russian is the default; an unknown or missing cookie never selects another language.
-  const requested = cookieStore.get('locale')?.value;
-  const locale = requested === 'uz' || requested === 'en' || requested === 'ru' ? requested : 'ru';
+  const [cookieStore, headerStore] = await Promise.all([cookies(), headers()]);
+  // A language picked with the switcher (locale cookie) wins; otherwise the
+  // device language from Accept-Language, see src/lib/locale.ts.
+  const locale = resolveRequestLocale(cookieStore.get('locale')?.value, headerStore.get('accept-language'));
   return {
     locale,
     timeZone: 'Asia/Tashkent',
