@@ -10,6 +10,7 @@ import { canAccessFeature } from '@/lib/permissions';
 import {
   Badge,
   Button,
+  ButtonLink,
   Card,
   CardBody,
   CardHeader,
@@ -341,7 +342,7 @@ export default function ShowcasePage() {
                     title={t('games')}
                     description={t('gamesDescription')}
                     icon={<Gamepad2 size={18} aria-hidden="true" />}
-                    action={<Button size="sm" onClick={() => openGame(null)} icon={<Plus size={15} aria-hidden="true" />}>{t('addGame')}</Button>}
+                    action={<ButtonLink href="/showcase/games" variant="primary" size="sm" icon={<Plus size={15} aria-hidden="true" />}>{t('addGame')}</ButtonLink>}
                   />
                 </CardHeader>
                 <CardBody>

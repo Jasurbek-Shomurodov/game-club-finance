@@ -2,6 +2,7 @@ import { createClient as createSupabaseClient, type SupabaseClient } from '@supa
 import type { ClubShowcase, ShowcaseBrand, ShowcaseGame, ShowcaseOffer, ShowcasePcZone } from '@/types';
 import { parsePublicBrand, parsePublicShowcase, showcaseImagePath, type PublicBrand, type PublicShowcase } from '@/lib/showcase';
 import { isMissingDatabaseTable } from './errors';
+import { fetchAllRows } from './pagination';
 
 export const SHOWCASE_BUCKET = 'showcase';
 
@@ -100,4 +101,19 @@ export async function fetchOwnShowcaseBrand(supabase: SupabaseClient, userId: st
   if (missing(error, 'showcase_brands')) return { brand: null, missing: true };
   if (error) throw new Error('Brand load failed');
   return { brand: data ?? null, missing: false };
+}
+
+/**
+ * Every showcase game of the given clubs, for the game library. RLS returns
+ * only clubs the user may edit; callers pass those clubs' ids anyway.
+ */
+export async function fetchShowcaseGamesForClubs(supabase: SupabaseClient, clubIds: string[]) {
+  if (clubIds.length === 0) return { data: [] as ShowcaseGame[], error: null };
+  return fetchAllRows<ShowcaseGame>(() => supabase
+    .from('showcase_games')
+    .select('*')
+    .in('club_id', clubIds)
+    .order('club_id', { ascending: true })
+    .order('sort_order', { ascending: true })
+    .order('id', { ascending: true }));
 }
