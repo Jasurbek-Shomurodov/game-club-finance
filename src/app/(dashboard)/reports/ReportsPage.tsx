@@ -956,29 +956,6 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
               className="sm:w-80"
               onChange={setRange}
             />
-            {view === 'closeout' && (
-              <Select
-                value={categoryFilter}
-                onChange={(event) => setCategoryFilter(event.target.value as MoneyReportCategoryFilter)}
-                aria-label={t('filterByCategory')}
-                className="sm:w-60"
-              >
-                <option value="all">{t('allCategories')}</option>
-                <optgroup label={t('incomeCategories')}>
-                  <option value="income">{t('dailyClubIncome')}</option>
-                  <option value="debt_payment">{t('debtPayment')}</option>
-                </optgroup>
-                <option value="exchange">{t('exchanges')}</option>
-                <optgroup label={t('expenseCategories')}>
-                  <option value="expense">{t('allExpenses')}</option>
-                  {EXPENSE_CATEGORIES.map((category) => (
-                    <option key={category} value={`expense:${category}`}>
-                      {te(category)}
-                    </option>
-                  ))}
-                </optgroup>
-              </Select>
-            )}
           </>
         ) : undefined}
       />
@@ -1070,18 +1047,41 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                 title={t('dailyCloseout')}
                 description={t('dailyCloseoutDescription')}
                 action={(
-                  <SegmentedControl
-                    variant="chips"
-                    size="sm"
-                    label={t('collectionFilter')}
-                    value={collectionFilter}
-                    onChange={setCollectionFilter}
-                    options={[
-                      { value: 'all', label: t('collectionFilterAll', { count: filteredReport.days.length }) },
-                      { value: 'pending', label: t('collectionFilterPending', { count: filteredReport.days.length - collectedDayCount }) },
-                      { value: 'collected', label: t('collectionFilterCollected', { count: collectedDayCount }) },
-                    ]}
-                  />
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                    <SegmentedControl
+                      variant="chips"
+                      size="sm"
+                      label={t('collectionFilter')}
+                      value={collectionFilter}
+                      onChange={setCollectionFilter}
+                      options={[
+                        { value: 'all', label: t('collectionFilterAll', { count: filteredReport.days.length }) },
+                        { value: 'pending', label: t('collectionFilterPending', { count: filteredReport.days.length - collectedDayCount }) },
+                        { value: 'collected', label: t('collectionFilterCollected', { count: collectedDayCount }) },
+                      ]}
+                    />
+                    <Select
+                      value={categoryFilter}
+                      onChange={(event) => setCategoryFilter(event.target.value as MoneyReportCategoryFilter)}
+                      aria-label={t('filterByCategory')}
+                      className="sm:w-56"
+                    >
+                      <option value="all">{t('allCategories')}</option>
+                      <optgroup label={t('incomeCategories')}>
+                        <option value="income">{t('dailyClubIncome')}</option>
+                        <option value="debt_payment">{t('debtPayment')}</option>
+                      </optgroup>
+                      <option value="exchange">{t('exchanges')}</option>
+                      <optgroup label={t('expenseCategories')}>
+                        <option value="expense">{t('allExpenses')}</option>
+                        {EXPENSE_CATEGORIES.map((category) => (
+                          <option key={category} value={`expense:${category}`}>
+                            {te(category)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    </Select>
+                  </div>
                 )}
               />
             </CardHeader>
