@@ -76,6 +76,8 @@
     "incomeVsExpenses": "Income vs Expenses",
     "incomeByPaymentMethod": "Income by Payment Method",
     "incomeTrend": "Income Trend",
+    "gameClubDailyAverage": "Game club daily average",
+    "barDailyAverage": "Bar daily average",
     "incomeByCategory": "Income by Category",
     "expensesByCategory": "Expenses by Category",
     "noExpensesForPeriod": "No expenses for this period",

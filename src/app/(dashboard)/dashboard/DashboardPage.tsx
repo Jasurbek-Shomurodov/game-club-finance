@@ -36,6 +36,7 @@ import {
   calculateAverageDailyIncome,
   countDashboardRangeDaysThroughDate,
   percentChange,
+  withRunningDailyAverages,
 } from '@/lib/calculations/dashboardMetrics';
 import {
   buildDashboardDataFromSnapshot,
@@ -233,11 +234,14 @@ export default function DashboardPage({
 
   const trend = useMemo(
     // Days after today have no data yet; drawing them only adds an empty tail.
-    () => data.trend.filter((row, index) => index === 0 || row.date <= businessToday).map((row) => ({
+    () => withRunningDailyAverages(
+      data.trend.filter((row, index) => index === 0 || row.date <= businessToday),
+      { gameClub: data.latestDailyCashEntryDate, bar: data.latestBarEntryDate },
+    ).map((row) => ({
       ...row,
       date: formatDateShort(row.date, locale),
     })),
-    [data.trend, businessToday, locale],
+    [data.trend, data.latestDailyCashEntryDate, data.latestBarEntryDate, businessToday, locale],
   );
   const averageBarDayCount = countDashboardRangeDaysThroughDate(range, data.latestBarEntryDate);
   const averageGameClubDayCount = countDashboardRangeDaysThroughDate(range, data.latestDailyCashEntryDate);
@@ -329,7 +333,7 @@ export default function DashboardPage({
         </div>
       ) : (
         <MoneyFlowSankeys
-          className="grid items-start gap-3 2xl:grid-cols-2"
+          className="grid gap-3 2xl:grid-cols-2"
           ledgers={ledgers}
           range={range}
           periodLabel={periodLabel}

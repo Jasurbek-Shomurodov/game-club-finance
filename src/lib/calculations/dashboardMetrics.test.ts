@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  withRunningDailyAverages,
   buildPeriodTrend,
   calculateAverageDailyIncome,
   calculateDashboardInventoryValue,
@@ -518,5 +519,30 @@ describe('dashboard metrics', () => {
     })).toEqual({ gameClub: 5, bar: 2 });
     // Without entries in the range, the whole range counts.
     expect(getAverageIncomeDayCounts(range, { cashRows: [], stockRows: [] })).toEqual({ gameClub: 31, bar: 31 });
+  });
+});
+
+describe('withRunningDailyAverages', () => {
+  const rows = [
+    { date: '2026-10-01', gameClubIncome: 300, barSales: 30 },
+    { date: '2026-10-02', gameClubIncome: 100, barSales: 0 },
+    { date: '2026-10-03', gameClubIncome: 200, barSales: 60 },
+  ];
+
+  it('averages each side from the first day through every day', () => {
+    const result = withRunningDailyAverages(rows, { gameClub: '2026-10-03', bar: '2026-10-03' });
+    expect(result.map((row) => row.gameClubAverage)).toEqual([300, 200, 200]);
+    expect(result.map((row) => row.barAverage)).toEqual([30, 15, 30]);
+  });
+
+  it('ends each line at that side\'s latest entry', () => {
+    const result = withRunningDailyAverages(rows, { gameClub: '2026-10-03', bar: '2026-10-01' });
+    expect(result.map((row) => row.barAverage)).toEqual([30, null, null]);
+    expect(result[2].gameClubAverage).toBe(200);
+  });
+
+  it('draws every day when a side has no entries', () => {
+    const result = withRunningDailyAverages(rows, { gameClub: null, bar: null });
+    expect(result.every((row) => row.gameClubAverage !== null && row.barAverage !== null)).toBe(true);
   });
 });

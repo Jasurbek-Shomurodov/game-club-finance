@@ -334,6 +334,31 @@ export function calculateAverageDailyIncome(total: number, days: number): number
   return Math.round(total / Math.max(1, days));
 }
 
+/**
+ * Adds each side's running average daily income to a per-day trend: the side's
+ * income from the first row through that day, divided by the days so far. Days
+ * after a side's latest entry are null, so the line ends where the
+ * "average daily income" figure is measured and its last point equals it.
+ */
+export function withRunningDailyAverages<T extends { date: string; gameClubIncome: number; barSales: number }>(
+  rows: readonly T[],
+  latestEntry: { gameClub?: string | null; bar?: string | null },
+): Array<T & { gameClubAverage: number | null; barAverage: number | null }> {
+  let gameClubTotal = 0;
+  let barTotal = 0;
+  return rows.map((row, index) => {
+    gameClubTotal += row.gameClubIncome;
+    barTotal += row.barSales;
+    const days = index + 1;
+    const through = (latest: string | null | undefined) => !latest || row.date <= latest;
+    return {
+      ...row,
+      gameClubAverage: through(latestEntry.gameClub) ? calculateAverageDailyIncome(gameClubTotal, days) : null,
+      barAverage: through(latestEntry.bar) ? calculateAverageDailyIncome(barTotal, days) : null,
+    };
+  });
+}
+
 export function sumGameClubRows(rows: DailyCashRow[]): Pick<
   DashboardTotals,
   | 'cashIncome'

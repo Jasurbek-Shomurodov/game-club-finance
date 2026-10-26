@@ -112,12 +112,15 @@ export function MoneyFlowSankeys({
   const gameClubSankey = useMemo(() => buildDrillSankey({ kind: 'gameClub' }, ledgers), [ledgers]);
   const barSankey = useMemo(() => buildDrillSankey({ kind: 'bar' }, ledgers), [ledgers]);
 
+  // Both charts take the taller one's height, so the cards and their footers line up.
+  const rows = Math.max(...[gameClubSankey, barSankey].map((s) => Math.max(s.sources.length, s.targets.length)));
+
   const flowCard = (card: MoneyFlowCard, sankey: DrillSankey, hubLabel: string) => {
     const sources = new Map(sankey.sources.map((node, index) => [node.key, { node, index }]));
     const targets = new Map(sankey.targets.map((node, index) => [node.key, { node, index }]));
     return (
       <ChartCard title={card.title} description={card.description} action={card.action}>
-        <div className="mt-4">
+        <div className="mt-4 flex-1">
           {sankey.total > 0 ? (
             <SankeyFlowChart
               sankey={sankey}
@@ -133,6 +136,7 @@ export function MoneyFlowSankeys({
               onTargetClick={(key) => openDrill(targets.get(key)?.node)}
               isTargetClickable={(key) => Boolean(targets.get(key)?.node.open)}
               openLabel={(name) => t('openFlow', { name })}
+              minRows={rows}
             />
           ) : (
             <ChartEmpty title={t('empty')} />

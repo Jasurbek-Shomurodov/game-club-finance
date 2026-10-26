@@ -60,6 +60,8 @@ export interface SankeyFlowChartProps {
   isSourceClickable?: (key: string) => boolean;
   /** Accessible name of a node that opens, e.g. "Open Bar sales". */
   openLabel?: (name: string) => string;
+  /** Draw at least this many node rows tall, so side-by-side charts share one height. */
+  minRows?: number;
 }
 
 /** Three-column flow: income sources → total income → where it went (costs, categories, profit). */
@@ -77,6 +79,7 @@ export function SankeyFlowChart({
   onSourceClick,
   isSourceClickable = () => true,
   openLabel = (name) => name,
+  minRows = 0,
 }: SankeyFlowChartProps) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [wrapRef, measuredWidth] = useElementWidth();
@@ -95,7 +98,7 @@ export function SankeyFlowChart({
   const middle = longest([hubText]);
   // The hub label is centred above the hub, so each half of the middle needs half of it.
   const width = Math.max(marginLeft + marginRight + 2 * Math.max(perColumn, middle / 2 + 16), measuredWidth);
-  const height = Math.max(minHeight, (Math.max(sankey.sources.length, sankey.targets.length) + 2) * perNode);
+  const height = Math.max(minHeight, (Math.max(sankey.sources.length, sankey.targets.length, minRows) + 2) * perNode);
 
   const { hubTop, hubHeight, sources, targets } = layoutSankey(sankey, { height, nodePadding, padY, hubLabelSpace });
   const leftX = marginLeft;
@@ -132,7 +135,8 @@ export function SankeyFlowChart({
     // once its width is known; the server renders a same-height placeholder.
     <div ref={wrapRef} className="-mx-1 overflow-x-auto px-1" style={measuredWidth ? undefined : { height }}>
       {measuredWidth > 0 && (
-        <svg width={width} height={height} className="block" role={onSourceClick || onTargetClick ? 'group' : 'img'} aria-label={hubLabel}>
+        // Proportional digits, as the canvas measures them; the body's tabular digits are wider and clip labels.
+        <svg width={width} height={height} className="block [font-variant-numeric:normal]" role={onSourceClick || onTargetClick ? 'group' : 'img'} aria-label={hubLabel}>
           {sources.map((node) => (
             <path
               key={`ls-${node.key}`}

@@ -76,6 +76,8 @@
     "incomeVsExpenses": "Daromad va xarajatlar",
     "incomeByPaymentMethod": "To'lov usuli bo'yicha daromad",
     "incomeTrend": "Daromad dinamikasi",
+    "gameClubDailyAverage": "Klubning kunlik o'rtachasi",
+    "barDailyAverage": "Barning kunlik o'rtachasi",
     "incomeByCategory": "Kategoriya bo'yicha daromad",
     "expensesByCategory": "Kategoriya bo'yicha xarajatlar",
     "noExpensesForPeriod": "Bu davr uchun xarajatlar yo'q",
