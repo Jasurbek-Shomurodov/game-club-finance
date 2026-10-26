@@ -7,7 +7,6 @@ import { useTranslations } from 'next-intl';
 import { Check, CheckCheck, Gamepad2, Plus, X } from 'lucide-react';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
-  Badge,
   Button,
   Card,
   EmptyState,
@@ -41,7 +40,7 @@ const ALL_GENRES = '__all__';
 export default function GameLibraryPage() {
   const t = useTranslations('showcase');
   const tc = useTranslations('common');
-  const { selectedClubId, selectedClub, memberships, role, featureAccess } = useClub();
+  const { selectedClubId, memberships, role, featureAccess } = useClub();
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
   const canEdit = canAccessFeature(role, featureAccess, 'showcase');
@@ -171,11 +170,10 @@ export default function GameLibraryPage() {
   }
 
   return (
-    <div className="w-full max-w-5xl space-y-5 pb-24">
+    <div className="w-full space-y-5 pb-24">
       <PageHeader
         title={t('title')}
         tabs={<ShowcaseTabs current="/showcase/games" />}
-        meta={selectedClub ? <Badge variant="neutral">{selectedClub.name}</Badge> : undefined}
         action={<Button variant="outline" onClick={() => setNewGameOpen(true)} icon={<Plus size={16} aria-hidden="true" />}>{t('libraryNewGame')}</Button>}
       />
 
@@ -233,7 +231,7 @@ export default function GameLibraryPage() {
             {visible.length === 0 ? (
               <EmptyState compact icon={Gamepad2} title={t('libraryNoMatches')} />
             ) : (
-              <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+              <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10">
                 {visible.map((game) => {
                   const isSelected = selected.has(game.key);
                   const change = isSelected !== savedKeys.has(game.key);
