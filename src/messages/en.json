@@ -1840,6 +1840,9 @@
     "offersEyebrow": "Deals",
     "offersTitle": "Packages & offers",
     "offersDescription": "Play more for less: bundles, night packages and deals for your squad.",
-    "login": "Log in"
+    "login": "Log in",
+    "mapChooserTitle": "Open in",
+    "mapYandex": "Yandex Maps",
+    "mapGoogle": "Google Maps"
   }
 }

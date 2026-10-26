@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   SHOWCASE_SLUG_PATTERN,
+  mapLinks,
   buildShowcaseOfferPayload,
   showcaseOfferForm,
   validateShowcaseOffer,
@@ -240,5 +241,15 @@ describe('offers', () => {
       ],
     }, 'en')!;
     expect(club.offers).toEqual([{ id: 'o1', title: 'Night', description: 'Всю ночь', badge: 'NIGHT', price: 60000, time_window: '22:00 – 08:00' }]);
+  });
+});
+
+describe('map links', () => {
+  it('searches the club name and address in both maps', () => {
+    expect(mapLinks({ club_name: 'Pixel Gaming', address: 'Matbuotchilar 17' })).toEqual({
+      yandex: 'https://yandex.uz/maps/?text=Pixel%20Gaming%2C%20Matbuotchilar%2017',
+      google: 'https://www.google.com/maps/search/?api=1&query=Pixel%20Gaming%2C%20Matbuotchilar%2017',
+    });
+    expect(mapLinks({ club_name: 'X', address: '  ' })).toBeNull();
   });
 });

@@ -619,3 +619,19 @@ export function buildShowcaseOfferPayload(form: ShowcaseOfferForm) {
     is_active: form.is_active,
   };
 }
+
+export interface MapLinks {
+  yandex: string;
+  google: string;
+}
+
+/** Search links for a club's address in Yandex Maps and Google Maps; null without an address. */
+export function mapLinks(club: Pick<PublicShowcase, 'club_name' | 'address'>): MapLinks | null {
+  const address = club.address?.trim();
+  if (!address) return null;
+  const query = encodeURIComponent(`${club.club_name}, ${address}`);
+  return {
+    yandex: `https://yandex.uz/maps/?text=${query}`,
+    google: `https://www.google.com/maps/search/?api=1&query=${query}`,
+  };
+}

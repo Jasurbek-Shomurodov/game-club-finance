@@ -2,7 +2,8 @@ import type { CSSProperties, ReactNode } from 'react';
 import { getTranslations } from 'next-intl/server';
 import { Armchair, BadgePercent, Clock, Cpu, Gamepad2, HardDrive, Headphones, Instagram, Keyboard, MapPin, MemoryStick, Monitor, MonitorPlay, Mouse, NotebookPen, Phone, Send, Sparkles, Zap } from 'lucide-react';
 import { formatCurrency } from '@/lib/formatters';
-import { telHref, type PublicShowcase, type PublicShowcaseGame, type PublicShowcaseOffer, type PublicShowcaseZone } from '@/lib/showcase';
+import { mapLinks, telHref, type PublicShowcase, type PublicShowcaseGame, type PublicShowcaseOffer, type PublicShowcaseZone } from '@/lib/showcase';
+import { MapChooser } from './MapChooser';
 import { Reveal } from './Reveal';
 import { ShimmerImage } from './ShimmerImage';
 import { TiltCard } from './TiltCard';
@@ -249,10 +250,6 @@ function ContactRow({ icon, label, children }: { icon: ReactNode; label: string;
   );
 }
 
-export function mapLinkFor(club: Pick<PublicShowcase, 'club_name' | 'address'>): string | null {
-  return club.address ? `https://yandex.uz/maps/?text=${encodeURIComponent(`${club.club_name}, ${club.address}`)}` : null;
-}
-
 /** Social and call buttons for one club. */
 export async function ContactButtons({ club, compact = false }: { club: PublicShowcase; compact?: boolean }) {
   const t = await getTranslations('publicShowcase');
@@ -283,15 +280,17 @@ export async function ContactButtons({ club, compact = false }: { club: PublicSh
 export async function ContactList({ club }: { club: PublicShowcase }) {
   const t = await getTranslations('publicShowcase');
   const phoneLink = telHref(club.phone);
-  const mapLink = mapLinkFor(club);
+  const maps = mapLinks(club);
   return (
     <ul className="space-y-3">
       {club.address && (
         <ContactRow icon={<MapPin size={18} aria-hidden="true" />} label={t('address')}>
-          {mapLink ? (
-            <a href={mapLink} target="_blank" rel="noopener noreferrer" className="underline decoration-white/20 underline-offset-4 hover:decoration-white">
-              {club.address}
-            </a>
+          {maps ? (
+            <MapChooser
+              address={club.address}
+              links={maps}
+              labels={{ title: t('mapChooserTitle'), yandex: t('mapYandex'), google: t('mapGoogle') }}
+            />
           ) : club.address}
         </ContactRow>
       )}
