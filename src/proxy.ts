@@ -1,6 +1,9 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { safeRedirectPath } from './lib/validation';
+import { readPublicSiteConfig, routePublicSite } from './lib/publicSite';
+
+const publicSite = readPublicSiteConfig(process.env);
 
 function hasSupabaseAuthCookie(request: NextRequest) {
   return request.cookies
@@ -17,6 +20,16 @@ function redirectToLogin(request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
+  // The public domain shows the brand and club pages only; see src/lib/publicSite.ts.
+  const publicRoute = routePublicSite(request.headers.get('host') ?? request.nextUrl.host, request.nextUrl.pathname, request.nextUrl.search, publicSite);
+  if (publicRoute?.kind === 'rewrite') {
+    const url = request.nextUrl.clone();
+    url.pathname = publicRoute.pathname;
+    return NextResponse.rewrite(url);
+  }
+  if (publicRoute?.kind === 'pass') return NextResponse.next({ request });
+  if (publicRoute?.kind === 'redirect') return NextResponse.redirect(new URL(publicRoute.url, request.url));
+
   // Published club and brand pages are public; they read only get_public_showcase / get_public_brand.
   if (request.nextUrl.pathname.startsWith('/club/') || request.nextUrl.pathname.startsWith('/brand/')) {
     return NextResponse.next({ request });
