@@ -1,8 +1,15 @@
 #!/bin/sh
-# Runs the fast quality checks before every commit. `npm run build` is left to
-# the push/deploy step because it takes minutes. Skip in an emergency with
+# Runs CI's fast checks on exactly what is being committed: typecheck, lint,
+# and the tests under coverage with the floor in scripts/coverage-floor.json
+# (about a minute). The staged files are checked in a temporary copy, so other
+# uncommitted work in the tree does not affect the result. The audit and the
+# browser suite run in pre-push. Skip in an emergency with
 # `git commit --no-verify`.
 set -e
+. "$(dirname "$0")/snapshot.sh"
+
+snapshot_index
+cd "$SNAPSHOT"
 
 echo "pre-commit: typecheck"
 npm run --silent typecheck
@@ -10,5 +17,5 @@ npm run --silent typecheck
 echo "pre-commit: lint"
 npm run --silent lint
 
-echo "pre-commit: tests"
-npm test --silent
+echo "pre-commit: tests and coverage floor"
+npm run --silent test:coverage

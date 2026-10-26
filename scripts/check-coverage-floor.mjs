@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // Compares coverage/lcov.info (written by `npm run test:coverage`) with
 // scripts/coverage-floor.json and fails when coverage drops. The floor can
-// only rise: a lower percentage, or a source file that no test runs and that
-// is not on the `untested` list, fails the run. When the measured coverage is
+// only rise: a lower percentage, or a file under src/lib that no test runs and
+// that is not on the `untested` list, fails the run. The percentages cover all
+// of src; the per-file rule covers only src/lib, where AGENTS.md puts business
+// logic, so a new page or view component does not need a list entry. When the measured coverage is
 // above the floor, or a listed file is now tested, the script says so, so the
 // floor and the list can be tightened in the same change as the new tests.
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -14,6 +16,8 @@ const SOURCE_ROOTS = ['src'];
 const SOURCE_FILE = /\.(ts|tsx)$/;
 const NOT_SOURCE = /(\.test\.(ts|tsx)|\.d\.ts)$/;
 const SKIP_DIRS = new Set(['node_modules', '__tests__']);
+// Files the per-file rule (and the `untested` list) applies to.
+const PER_FILE_ROOT = 'src/lib/';
 
 const root = resolve(process.cwd());
 const floorPath = 'scripts/coverage-floor.json';
@@ -65,12 +69,13 @@ const percent = ({ total: all, covered }) => (all === 0 ? 100 : (covered / all) 
 
 const sources = SOURCE_ROOTS.flatMap(walk).sort();
 const untested = sources.filter((file) => (measured.get(file)?.lines.covered ?? 0) === 0);
+const untestedLib = untested.filter((file) => file.startsWith(PER_FILE_ROOT));
 const allowed = new Set(floor.untested);
-const newlyUntested = untested.filter((file) => !allowed.has(file));
-const nowTested = floor.untested.filter((file) => !untested.includes(file));
+const newlyUntested = untestedLib.filter((file) => !allowed.has(file));
+const nowTested = floor.untested.filter((file) => !untestedLib.includes(file));
 
 const summary = ['lines', 'branches', 'functions'].map((key) => `${percent(total[key]).toFixed(2)}% ${key}`).join(', ');
-console.log(`\nCoverage: ${summary}; ${sources.length - untested.length} source files run by tests, ${untested.length} untested (listed in ${floorPath}).`);
+console.log(`\nCoverage: ${summary}; ${sources.length - untested.length} source files run by tests, ${untested.length} untested, ${untestedLib.length} of them in ${PER_FILE_ROOT} (listed in ${floorPath}).`);
 
 if (nowTested.length) {
   console.log(`\nNow tested, remove from "untested" in ${floorPath}:\n  ${nowTested.join('\n  ')}`);

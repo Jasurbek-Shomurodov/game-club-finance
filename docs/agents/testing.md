@@ -21,10 +21,21 @@ npm run test:coverage
 `npm test` runs Vitest in the Node environment. Tests are colocated as
 `*.test.ts` or `*.test.tsx` near the behavior they protect.
 
-`npm install` sets `core.hooksPath` to `.githooks`, whose `pre-commit` hook runs
-typecheck, lint, and tests (about 40 seconds). It skips `npm run build`, so run
-the build yourself before pushing risky changes. `git commit --no-verify` bypasses
-the hook only in an emergency.
+`npm install` sets `core.hooksPath` to `.githooks`. Both hooks check a temporary
+copy of exactly what is committed or pushed (`.githooks/snapshot.sh`), so other
+uncommitted work in the tree neither fails nor passes them:
+
+- `pre-commit`: typecheck, lint, and `npm run test:coverage` with the coverage
+  floor (about a minute).
+- `pre-push`: `npm audit --omit=dev --audit-level=high`, then
+  `npm run test:e2e:full` on the pushed commit when the push changes `src/`,
+  `migrations/`, `e2e/` or the build setup (about two minutes; docs- and
+  scripts-only pushes skip it).
+
+Together they cover every CI step. `--no-verify` bypasses them only in an
+emergency. After a push, `npm run ci:watch` waits for that commit's
+"Project checks" run and prints the failed steps if it goes red; fix a red run
+before anything else.
 
 ## CI and the coverage floor
 
@@ -35,8 +46,10 @@ second job, `e2e`, runs the browser P0 suite described below.
 `test:coverage` runs the whole suite under v8 coverage (the PGlite tests need no
 system package) and then `scripts/check-coverage-floor.mjs` compares
 `coverage/lcov.info` with `scripts/coverage-floor.json`: the job fails when line,
-branch or function coverage drops below the recorded floor, or when a `src` file
-that no test runs is missing from the `untested` list. The floor only rises:
+branch or function coverage drops below the recorded floor, or when a
+`src/lib` file that no test runs is missing from the `untested` list. The
+percentages measure all of `src`; the per-file list covers only `src/lib`,
+where business logic belongs, so new pages and view components need no entry. The floor only rises:
 when the script reports that coverage is above the floor or that a listed file
 is now tested, raise the numbers or shorten the list in the same change as the
 new tests. A high or critical audit finding in a shipped dependency also fails

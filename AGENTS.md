@@ -122,3 +122,14 @@ npm run build
 Financial, authorization, migration, configuration, or cross-route changes
 normally require the full four quality checks. See `docs/agents/testing.md` for
 the change-to-test matrix and manual checks.
+
+The git hooks run CI's checks locally on exactly what is committed or pushed:
+`pre-commit` runs typecheck, lint and `test:coverage`; `pre-push` runs the
+dependency audit and, when app code changes, `test:e2e:full`. Do not skip them
+with `--no-verify` unless the user agrees. Changing a route, redirect, sign-in
+flow or a page the browser suite visits means updating `e2e/` in the same
+commit.
+
+After every push, run `npm run ci:watch` and wait for the result. A red
+"Project checks" run on `main` is fixed before any other work, never left for
+later pushes to pile onto.

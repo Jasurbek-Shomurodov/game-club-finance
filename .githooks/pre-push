@@ -1,0 +1,40 @@
+#!/bin/sh
+# Runs CI's slower checks before a push, on the commit being pushed rather than
+# the working tree: the dependency audit every time, and the browser P0 suite
+# (a production build plus Playwright, about two minutes) when the push changes
+# app code, migrations, the suite or the build setup. A docs- or scripts-only
+# push skips the suite. Skip everything with `git push --no-verify`.
+set -e
+. "$(dirname "$0")/snapshot.sh"
+
+zero=0000000000000000000000000000000000000000
+app_paths='^(src/|migrations/|e2e/|playwright\.config|next\.config|tsconfig\.json|package(-lock)?\.json)'
+
+tip=""
+run_e2e=""
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue # deleting a remote branch
+  tip=$local_sha
+  base=$remote_sha
+  if [ "$base" = "$zero" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+    base=$(git merge-base "$local_sha" origin/main 2>/dev/null || true)
+  fi
+  if [ -z "$base" ] || git diff --name-only "$base" "$local_sha" | grep -Eq "$app_paths"; then
+    run_e2e=1
+  fi
+done
+[ -z "$tip" ] && exit 0
+
+echo "pre-push: npm audit"
+npm audit --omit=dev --audit-level=high
+
+if [ -z "$run_e2e" ]; then
+  echo "pre-push: no app change, skipping the browser suite"
+  exit 0
+fi
+
+short=$(git rev-parse --short "$tip")
+snapshot_commit "$tip"
+cd "$SNAPSHOT"
+echo "pre-push: browser P0 suite on $short"
+npm run --silent test:e2e:full
