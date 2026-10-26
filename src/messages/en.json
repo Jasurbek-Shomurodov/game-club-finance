@@ -1824,7 +1824,8 @@
     "libraryRemoveDescription": "They disappear from this club’s public page. Other clubs keep them.",
     "libraryDuplicate": "This game is already in the library. Tick it there instead.",
     "libraryEmpty": "No games yet",
-    "libraryEmptyDescription": "Add the first game; every club can then pick it from here."
+    "libraryEmptyDescription": "Add the first game; every club can then pick it from here.",
+    "tabPage": "Page"
   },
   "publicShowcase": {
     "navGames": "Games",

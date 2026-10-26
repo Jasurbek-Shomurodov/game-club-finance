@@ -60,6 +60,7 @@ import type { ShowcaseGame, ShowcaseOffer, ShowcasePcZone, ShowcaseZoneKind } fr
 import { BrandSettingsCard } from './BrandSettingsCard';
 import { LocalizedTextField } from './LocalizedTextField';
 import { ShowcaseImageField } from './ShowcaseImageField';
+import { ShowcaseTabs } from './ShowcaseTabs';
 
 const EMPTY: ShowcaseAdminData & { missing: boolean } = { showcase: null, games: [], zones: [], offers: [], offersMissing: false, missing: false };
 
@@ -233,7 +234,7 @@ export default function ShowcasePage() {
 
   return (
     <div className="w-full max-w-5xl space-y-5">
-      <PageHeader title={t('title')} action={openPublicLink} />
+      <PageHeader title={t('title')} tabs={<ShowcaseTabs current="/showcase" />} action={openPublicLink} />
 
       {query.loading ? (
         <PageSkeleton />

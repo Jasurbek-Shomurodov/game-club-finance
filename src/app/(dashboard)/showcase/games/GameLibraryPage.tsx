@@ -28,6 +28,7 @@ import { fetchShowcaseGamesForClubs } from '@/lib/supabase/showcase';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { cn } from '@/lib/utils';
 import type { ShowcaseGame } from '@/types';
+import { ShowcaseTabs } from '../ShowcaseTabs';
 import { NewGameModal } from './NewGameModal';
 
 interface LibraryData {
@@ -172,9 +173,8 @@ export default function GameLibraryPage() {
   return (
     <div className="w-full max-w-5xl space-y-5 pb-24">
       <PageHeader
-        title={t('libraryTitle')}
-        back="/showcase"
-        backLabel={t('title')}
+        title={t('title')}
+        tabs={<ShowcaseTabs current="/showcase/games" />}
         meta={selectedClub ? <Badge variant="neutral">{selectedClub.name}</Badge> : undefined}
         action={<Button variant="outline" onClick={() => setNewGameOpen(true)} icon={<Plus size={16} aria-hidden="true" />}>{t('libraryNewGame')}</Button>}
       />

@@ -1824,7 +1824,8 @@
     "libraryRemoveDescription": "Ular shu klubning ommaviy sahifasidan yo‘qoladi. Boshqa klublarda qoladi.",
     "libraryDuplicate": "Bu o‘yin kutubxonada allaqachon bor. Uni o‘sha yerda belgilang.",
     "libraryEmpty": "Hali o‘yinlar yo‘q",
-    "libraryEmptyDescription": "Birinchi o‘yinni qo‘shing — keyin istalgan klub uni shu yerdan tanlay oladi."
+    "libraryEmptyDescription": "Birinchi o‘yinni qo‘shing — keyin istalgan klub uni shu yerdan tanlay oladi.",
+    "tabPage": "Sahifa"
   },
   "publicShowcase": {
     "navGames": "O‘yinlar",
