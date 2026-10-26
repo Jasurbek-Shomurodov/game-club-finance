@@ -4,6 +4,11 @@
  * Every class is prefixed `sc-` so nothing leaks into the dashboard.
  */
 
+/* Menu and card links (#locations, #clubs, #club-…) glide to their section. */
+:root:has(.sc-root) {
+  scroll-behavior: smooth;
+}
+
 :root:has(.sc-root) body {
   background: #05050b;
 }
@@ -408,6 +413,9 @@
 /* ---------- Reduced motion ---------- */
 
 @media (prefers-reduced-motion: reduce) {
+  :root:has(.sc-root) {
+    scroll-behavior: auto;
+  }
   .sc-root *,
   .sc-root *::before,
   .sc-root *::after {

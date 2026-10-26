@@ -138,6 +138,7 @@ export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
 
       <ShowcaseFooter
         name={showcase.club_name}
+        logoUrl={showcase.logo_url}
         description={showcase.tagline}
         hours={showcase.opening_hours}
         phone={showcase.phone}

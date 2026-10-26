@@ -99,6 +99,7 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
 
       <ShowcaseFooter
         name={brand.name}
+        logoUrl={brand.clubs.find((club) => club.logo_url)?.logo_url ?? null}
         description={brand.tagline}
         hours={brand.opening_hours}
         phone={brand.phone ?? brand.clubs.find((club) => club.phone)?.phone ?? null}

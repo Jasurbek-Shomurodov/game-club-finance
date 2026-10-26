@@ -19,6 +19,8 @@ export interface FooterLocation {
 
 interface ShowcaseFooterProps {
   name: string;
+  /** Club logo shown before the name; the gamepad badge when absent. */
+  logoUrl?: string | null;
   description: string | null;
   hours: string | null;
   phone: string | null;
@@ -30,13 +32,19 @@ interface ShowcaseFooterProps {
 }
 
 /** "Pixel Gaming" → PIXEL + gradient GAMING, like a wordmark. */
-function Wordmark({ name }: { name: string }) {
+function Wordmark({ name, logoUrl }: { name: string; logoUrl?: string | null }) {
   const [first, ...rest] = name.trim().split(/\s+/);
   return (
     <span className="sc-display flex items-center gap-3 text-xl font-black uppercase tracking-tight text-white">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-[0_8px_24px_-8px_rgba(192,38,211,0.8)]">
-        <Gamepad2 size={20} aria-hidden="true" />
-      </span>
+      {logoUrl ? (
+        // Owner-supplied links may point at any host, so next/image's allow-list does not fit.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logoUrl} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-white/15" />
+      ) : (
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-[0_8px_24px_-8px_rgba(192,38,211,0.8)]">
+          <Gamepad2 size={20} aria-hidden="true" />
+        </span>
+      )}
       <span className="min-w-0 break-words">
         {first}
         {rest.length > 0 && <span className="sc-gradient-text"> {rest.join(' ')}</span>}
@@ -91,7 +99,7 @@ function ContactItem({ icon, children }: { icon: ReactNode; children: ReactNode 
 }
 
 /** Four-column site footer: brand and socials, pages, help, and contact details. */
-export async function ShowcaseFooter({ name, description, hours, phone, email, socials, pages, help, locations }: ShowcaseFooterProps) {
+export async function ShowcaseFooter({ name, logoUrl, description, hours, phone, email, socials, pages, help, locations }: ShowcaseFooterProps) {
   const t = await getTranslations('publicShowcase');
   const phoneLink = telHref(phone);
   const mapLabels = { title: t('mapChooserTitle'), yandex: t('mapYandex'), google: t('mapGoogle') };
@@ -102,7 +110,7 @@ export async function ShowcaseFooter({ name, description, hours, phone, email, s
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-500/60 to-transparent" aria-hidden="true" />
       <div className="mx-auto grid max-w-7xl gap-12 px-4 py-14 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.4fr] lg:px-8">
         <div>
-          <Wordmark name={name} />
+          <Wordmark name={name} logoUrl={logoUrl} />
           {description && <p className="mt-5 max-w-sm text-sm leading-6 text-white/60">{description}</p>}
           {hours && <p className="mt-2 text-sm text-white/60">{t('footerOpen', { hours })}</p>}
           {(socials.telegram || socials.instagram || socials.youtube) && (
