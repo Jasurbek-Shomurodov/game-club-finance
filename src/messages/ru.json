@@ -1004,12 +1004,19 @@
       "paymentMethodAny": "Любой",
       "paymentMethodHelp": "Выбирается в форме расхода при выборе этого плана; там его можно изменить."
     },
-    "clubDetails": "Название и адрес",
-    "clubDetailsHelp": "Показываются в выборе клуба, отчётах в Telegram и на публичной странице.",
+    "clubDetails": "Логотип, название и адрес",
+    "clubDetailsHelp": "Показываются в выборе клуба, отчётах в Telegram и на публичной странице. Нажмите на логотип, чтобы сменить его.",
     "clubDetailsSaved": "Название и адрес клуба сохранены",
     "clubDetailsError_name_required": "Укажите название клуба",
     "clubDetailsError_name_too_long": "Название клуба — не более 80 символов",
-    "clubDetailsError_address_too_long": "Адрес — не более 160 символов"
+    "clubDetailsError_address_too_long": "Адрес — не более 160 символов",
+    "clubLogoUpload": "Загрузить логотип клуба",
+    "clubLogoChange": "Сменить логотип клуба",
+    "clubLogoRemove": "Убрать логотип",
+    "clubLogoTypeInvalid": "Выберите файл изображения для логотипа.",
+    "clubLogoTooLarge": "Логотип больше 2 МБ.",
+    "clubLogoUploadFailed": "Не удалось загрузить логотип. Попробуйте ещё раз.",
+    "clubDetailsError_logo_invalid": "Логотип должен быть ссылкой http(s) на изображение."
   },
   "team": {
     "title": "Команда",
@@ -1911,6 +1918,10 @@
     "navPlaystation": "PlayStation",
     "playstationEyebrow": "Консоли",
     "playstationTitle": "PlayStation",
-    "playstationDescription": "{count, plural, one {# консоль} few {# консоли} many {# консолей} other {# консоли}} на больших экранах — для игры вдвоём и вечеров FIFA."
+    "playstationDescription": "{count, plural, one {# консоль} few {# консоли} many {# консолей} other {# консоли}} на больших экранах — для игры вдвоём и вечеров FIFA.",
+    "openNow": "Открыто сейчас",
+    "closedNow": "Сейчас закрыто",
+    "route": "Маршрут",
+    "details": "Подробнее"
   }
 }

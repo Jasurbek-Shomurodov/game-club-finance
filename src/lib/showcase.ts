@@ -1,5 +1,6 @@
 import type { ClubShowcase, ShowcaseBrand, ShowcaseGame, ShowcaseOffer, ShowcasePcZone, ShowcaseTranslations, ShowcaseZoneKind } from '@/types';
 import { formatCurrencyInput, parseCurrencyInput } from './formatters';
+import { APP_TIME_ZONE } from './utils';
 
 /** Matches the club_showcases_slug_format check in migration 098. */
 export const SHOWCASE_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/;
@@ -397,6 +398,7 @@ export interface PublicShowcaseOffer {
 
 export interface PublicShowcase {
   club_name: string;
+  logo_url: string | null;
   slug: string;
   headline: string | null;
   tagline: string | null;
@@ -442,6 +444,7 @@ export function parsePublicShowcase(raw: unknown, locale = 'ru'): PublicShowcase
 
   return {
     club_name: clubName,
+    logo_url: safeUrl(data.logo_url),
     slug,
     headline: pickLocalized(translationsOf(data).headline, locale, text(data.headline)),
     tagline: pickLocalized(translationsOf(data).tagline, locale, text(data.tagline)),
@@ -525,7 +528,7 @@ export function lowestHourlyPrice(zones: Array<{ price_per_hour: number | null }
 }
 
 /** Storage object path for an uploaded image: "<club_id>/<kind>-<random>.<ext>". */
-export function showcaseImagePath(clubId: string, kind: 'game' | 'zone' | 'hero', fileName: string, random: string): string {
+export function showcaseImagePath(clubId: string, kind: 'game' | 'zone' | 'hero' | 'logo', fileName: string, random: string): string {
   const extension = /\.([a-z0-9]{2,5})$/i.exec(fileName)?.[1]?.toLowerCase() ?? 'jpg';
   return `${clubId}/${kind}-${random}.${extension}`;
 }
@@ -737,4 +740,36 @@ export function mapLinks(club: Pick<PublicShowcase, 'club_name' | 'address'>): M
     yandex: `https://yandex.uz/maps/?text=${query}`,
     google: `https://www.google.com/maps/search/?api=1&query=${query}`,
   };
+}
+
+export type OpenStatus = 'open' | 'closed';
+
+const HOURS_RANGE = /(\d{1,2})[:.](\d{2})\s*[-–—]\s*(\d{1,2})[:.](\d{2})/;
+
+/** Minutes since midnight in the club's time zone. */
+function minutesInTashkent(now: Date): number {
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: APP_TIME_ZONE, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(now);
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
+  return value('hour') * 60 + value('minute');
+}
+
+/**
+ * Whether a club is open now from its free-text hours: "24/7" or a daily
+ * range like "10:00 – 02:00" (past midnight allowed). Null when the text
+ * cannot be read, so no badge is shown rather than a wrong one.
+ */
+export function openStatus(hours: string | null | undefined, now: Date): OpenStatus | null {
+  const text = hours?.trim();
+  if (!text) return null;
+  if (/24\s*\/\s*7|круглосуточно|kun-u tun|24 soat|24 hours/i.test(text)) return 'open';
+  const match = HOURS_RANGE.exec(text);
+  if (!match) return null;
+  const [opensH, opensM, closesH, closesM] = match.slice(1).map(Number);
+  if (opensH > 24 || closesH > 24 || opensM > 59 || closesM > 59) return null;
+  const opens = opensH * 60 + opensM;
+  const closes = (closesH % 24) * 60 + closesM;
+  if (opens === closes) return 'open';
+  const current = minutesInTashkent(now);
+  const open = opens < closes ? current >= opens && current < closes : current >= opens || current < closes;
+  return open ? 'open' : 'closed';
 }

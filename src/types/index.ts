@@ -93,6 +93,8 @@ export interface Club {
   id: string;
   name: string;
   address: string | null;
+  /** Club logo image (107); null shows the default badge. */
+  logo_url?: string | null;
   business_day_start_hour?: number | null;
   enabled_payment_methods?: EntryPaymentMethod[] | null;
   /** Day of the month (1-31) the internet bill is due; read by Settings and the Telegram report (087). */

@@ -1,12 +1,12 @@
 import { getTranslations } from 'next-intl/server';
-import { ArrowDown, ArrowUpRight, BadgePercent, Clock, Cpu, Gamepad2, Layers, MapPin, Monitor, MonitorPlay, Send, Wallet, Zap } from 'lucide-react';
+import { ArrowUpRight, BadgePercent, Clock, Cpu, Gamepad2, Layers, MapPin, Monitor, MonitorPlay, Navigation, Phone, Wallet, Zap } from 'lucide-react';
 import { formatCurrency } from '@/lib/formatters';
-import { brandInsights, clubInsights, type PublicBrand, type PublicShowcase } from '@/lib/showcase';
+import { brandInsights, clubInsights, mapLinks, openStatus, telHref, type PublicBrand, type PublicShowcase } from '@/lib/showcase';
 import { ClubTabs } from './ClubTabs';
 import { CountUp } from './CountUp';
-import { Reveal } from './Reveal';
+import { MapChooser } from './MapChooser';
 import { ShimmerImage } from './ShimmerImage';
-import { ContactButtons, ContactList, GameGrid, HeroBackdrop, Marquee, OfferGrid, SectionTitle, StatGrid, ZoneGrid, riseDelay, type Stat } from './ShowcaseParts';
+import { ContactButtons, ContactList, GameGrid, HeroBackdrop, Marquee, OfferGrid, SectionTitle, ZoneGrid, riseDelay, type Stat } from './ShowcaseParts';
 import { ShowcaseFooter } from './ShowcaseFooter';
 import { ShowcaseNav } from './ShowcaseNav';
 
@@ -17,7 +17,6 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
   const t = await getTranslations('publicShowcase');
   const tc = await getTranslations('common');
   const totals = brandInsights(brand);
-  const money = (amount: number) => `${formatCurrency(amount)} ${tc('currency')}`;
   const allTitles = [...new Map(brand.clubs.flatMap((club) => club.games).map((game) => [game.title.trim().toLowerCase(), game.title])).values()];
 
   const stats = ([
@@ -35,66 +34,51 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
     { href: `#${CLUBS_ANCHOR}`, label: t('navClubs') },
   ];
   const cta = brand.telegram_url ? { href: brand.telegram_url, label: t('bookTelegram') } : null;
+  // Rendered per request, so "open now" reflects the visit.
+  const now = new Date();
 
   return (
     <div id="top" className="sc-root relative min-h-screen">
       <ShowcaseNav clubName={brand.name} links={navLinks} cta={cta} loginLabel={t('login')} />
 
-      {/* ---------- Overall experience ---------- */}
-      <section className="relative isolate flex min-h-[100svh] items-center overflow-hidden pb-20 pt-28">
+      {/* ---------- First screen: who we are, then every club with what visitors need ---------- */}
+      <section className="relative isolate overflow-hidden pb-14 pt-24 sm:pt-28">
         <HeroBackdrop imageUrl={brand.hero_image_url ?? brand.clubs.find((club) => club.hero_image_url)?.hero_image_url ?? null} />
-        <div className="mx-auto w-full max-w-7xl px-4 text-center sm:px-6 lg:px-8">
-          <p className="sc-rise sc-glass mb-6 inline-flex items-center gap-2.5 rounded-full px-4 py-1.5 text-sm font-medium text-white/80" style={riseDelay(0.05)}>
-            <span className="sc-pulse-dot h-2 w-2 rounded-full bg-lime-400" aria-hidden="true" />
-            {t('clubsAcrossCity', { count: totals.clubCount })}
-          </p>
-          <h1 className="sc-rise sc-display mx-auto max-w-5xl text-[2.6rem] font-black leading-[1.02] text-white sm:text-7xl lg:text-8xl" style={riseDelay(0.15)}>
-            <span className="sc-shine-text sc-gradient-text" data-text={brand.name}>{brand.name}</span>
-          </h1>
-          <p className="sc-rise mx-auto mt-6 max-w-2xl text-base leading-7 text-white/70 sm:text-lg sm:leading-8" style={riseDelay(0.3)}>
-            {brand.tagline ?? t('defaultTagline')}
-          </p>
-          <div className="sc-rise mt-10 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center" style={riseDelay(0.42)}>
-            <a href="#locations" className="sc-cta inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-base font-semibold text-white">
-              <MapPin size={18} aria-hidden="true" />
-              {t('chooseClub')}
-            </a>
-            {brand.telegram_url && (
-              <a href={brand.telegram_url} target="_blank" rel="noopener noreferrer" className="sc-glass inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-base font-semibold text-white transition-colors hover:bg-white/10">
-                <Send size={18} aria-hidden="true" />
-                {t('bookTelegram')}
-              </a>
-            )}
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0">
+              <p className="sc-rise sc-glass mb-4 inline-flex items-center gap-2.5 rounded-full px-4 py-1.5 text-sm font-medium text-white/80" style={riseDelay(0.05)}>
+                <span className="sc-pulse-dot h-2 w-2 rounded-full bg-lime-400" aria-hidden="true" />
+                {t('clubsAcrossCity', { count: totals.clubCount })}
+              </p>
+              <h1 className="sc-rise sc-display text-[2.4rem] font-black leading-[1.02] text-white sm:text-6xl lg:text-7xl" style={riseDelay(0.12)}>
+                <span className="sc-shine-text sc-gradient-text" data-text={brand.name}>{brand.name}</span>
+              </h1>
+              <p className="sc-rise mt-4 line-clamp-3 max-w-2xl text-base leading-7 text-white/70 sm:line-clamp-none" style={riseDelay(0.22)}>
+                {brand.tagline ?? t('defaultTagline')}
+              </p>
+            </div>
+            <dl className="sc-rise -mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 lg:max-w-md lg:justify-end" style={riseDelay(0.3)}>
+              {stats.map((stat) => (
+                <div key={stat.label} className="sc-glass flex shrink-0 flex-col rounded-2xl px-4 py-2.5">
+                  <dt className="order-2 text-[10px] font-semibold uppercase tracking-wider text-white/50">{stat.label}</dt>
+                  <dd className="sc-display order-1 whitespace-nowrap text-lg font-bold text-white">{stat.value}</dd>
+                </div>
+              ))}
+            </dl>
           </div>
-          <StatGrid stats={stats} className="sc-rise mx-auto mt-14 max-w-4xl" style={riseDelay(0.55)} />
-        </div>
-        <a href="#locations" className="sc-scroll-cue absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full p-2 text-white/50 hover:text-white" aria-label={t('scrollDown')}>
-          <ArrowDown size={22} aria-hidden="true" />
-        </a>
-      </section>
 
-      <Marquee items={allTitles} />
-
-      {/* ---------- Locations ---------- */}
-      <section id="locations" className="relative scroll-mt-16 px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
-        <div className="pointer-events-none absolute left-1/2 top-24 h-72 w-[40rem] max-w-full -translate-x-1/2 rounded-full bg-violet-600/20 blur-[120px]" aria-hidden="true" />
-        <div className="relative mx-auto max-w-7xl">
-          <SectionTitle eyebrow={t('locationsEyebrow')} title={t('locationsTitle')} description={t('locationsDescription')} />
-          <ul className={`grid gap-6 ${brand.clubs.length === 1 ? 'mx-auto max-w-xl' : brand.clubs.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-2 xl:grid-cols-3'}`}>
+          <ul id="locations" className={`mt-8 grid scroll-mt-20 gap-4 ${brand.clubs.length === 1 ? 'max-w-xl' : brand.clubs.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-2 xl:grid-cols-3'}`}>
             {brand.clubs.map((club, index) => (
-              <Reveal as="li" key={club.slug} delay={index * 0.1}>
-                <LocationCard
-                  club={club}
-                  openLabel={t('openClub')}
-                  pcsLabel={t('pcCount', { count: clubInsights(club).pcCount })}
-                  consolesLabel={t('consoleCount', { count: clubInsights(club).consoleCount })}
-                  fromLabel={(price) => t('fromPrice', { price: money(price) })}
-                />
-              </Reveal>
+              <li key={club.slug} className="sc-rise" style={riseDelay(0.38 + index * 0.08)}>
+                <QuickClubCard club={club} now={now} />
+              </li>
             ))}
           </ul>
         </div>
       </section>
+
+      <Marquee items={allTitles} />
 
       {/* ---------- One club at a time ---------- */}
       <section id={CLUBS_ANCHOR} className="relative scroll-mt-16 px-4 pb-24 pt-8 sm:px-6 lg:px-8">
@@ -136,55 +120,87 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
   );
 }
 
-function LocationCard({ club, openLabel, pcsLabel, consolesLabel, fromLabel }: { club: PublicShowcase; openLabel: string; pcsLabel: string; consolesLabel: string; fromLabel: (price: number) => string }) {
+async function QuickClubCard({ club, now }: { club: PublicShowcase; now: Date }) {
+  const t = await getTranslations('publicShowcase');
+  const tc = await getTranslations('common');
   const insights = clubInsights(club);
+  const status = openStatus(club.opening_hours, now);
+  const maps = mapLinks(club);
+  const phone = telHref(club.phone);
   const image = club.hero_image_url ?? club.zones.find((zone) => zone.image_url)?.image_url ?? null;
+  const chip = 'inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-2.5 py-1 text-xs font-semibold text-white/80 ring-1 ring-white/10';
+  const action = 'sc-glass inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300';
+
   return (
-    <a href={`#club-${club.slug}`} className="sc-location group block h-full overflow-hidden rounded-3xl bg-[#0b0b16] ring-1 ring-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300">
-      <span className="relative block aspect-[16/10] overflow-hidden">
+    <article className="sc-location flex h-full flex-col overflow-hidden rounded-3xl bg-[#0b0b16]/90 ring-1 ring-white/10 backdrop-blur">
+      <div className="relative h-32 overflow-hidden sm:h-40">
         <span className="sc-location-media absolute inset-0 block">
           {image ? (
-            <ShimmerImage src={image} alt="" />
+            <ShimmerImage src={image} alt="" priority />
           ) : (
             <span className="absolute inset-0 block bg-[radial-gradient(circle_at_25%_25%,rgba(139,92,246,0.55),transparent_60%),radial-gradient(circle_at_80%_75%,rgba(34,211,238,0.4),transparent_55%)]" />
           )}
         </span>
         <span className="absolute inset-0 bg-gradient-to-t from-[#0b0b16] via-[#0b0b16]/30 to-transparent" />
-        <span className="absolute inset-x-5 bottom-4 block">
-          <span className="sc-display block text-2xl font-bold text-white">{club.club_name}</span>
+        {club.logo_url && (
+          // Owner-supplied links may point at any host, so next/image's allow-list does not fit.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={club.logo_url} alt="" className="absolute bottom-3 left-4 h-12 w-12 rounded-full object-cover ring-2 ring-white/20" />
+        )}
+        {status && (
+          <span className={`absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold backdrop-blur ${status === 'open' ? 'bg-lime-400/15 text-lime-200 ring-1 ring-lime-300/40' : 'bg-black/40 text-white/70 ring-1 ring-white/15'}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${status === 'open' ? 'sc-pulse-dot bg-lime-400' : 'bg-white/50'}`} aria-hidden="true" />
+            {status === 'open' ? t('openNow') : t('closedNow')}
+          </span>
+        )}
+      </div>
+      <div className="flex flex-1 flex-col gap-3 p-5 pt-3">
+        <h2 className="sc-display text-xl font-bold text-white sm:text-2xl">{club.club_name}</h2>
+        <div className="space-y-1.5 text-sm text-white/75">
           {club.address && (
-            <span className="mt-1 flex items-center gap-1.5 text-sm text-white/70">
-              <MapPin size={14} aria-hidden="true" /> <span className="truncate">{club.address}</span>
+            <p className="flex items-start gap-2">
+              <MapPin size={15} className="mt-0.5 shrink-0 text-fuchsia-300" aria-hidden="true" />
+              {maps ? (
+                <MapChooser address={club.address} links={maps} labels={{ title: t('mapChooserTitle'), yandex: t('mapYandex'), google: t('mapGoogle') }} />
+              ) : club.address}
+            </p>
+          )}
+          {club.opening_hours && (
+            <p className="flex items-center gap-2">
+              <Clock size={15} className="shrink-0 text-cyan-300" aria-hidden="true" /> {club.opening_hours}
+            </p>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {insights.minPrice !== null && (
+            <span className={chip}><Wallet size={13} aria-hidden="true" /> {t('fromPrice', { price: `${formatCurrency(insights.minPrice)} ${tc('currency')}` })}</span>
+          )}
+          {insights.pcCount > 0 && <span className={chip}><Monitor size={13} aria-hidden="true" /> {t('pcCount', { count: insights.pcCount })}</span>}
+          {insights.consoleCount > 0 && <span className={chip}><Gamepad2 size={13} aria-hidden="true" /> {t('consoleCount', { count: insights.consoleCount })}</span>}
+        </div>
+        <div className="mt-auto flex gap-2 pt-2">
+          <a href={`#club-${club.slug}`} className="sc-cta inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-white">
+            {t('details')} <ArrowUpRight size={15} aria-hidden="true" />
+          </a>
+          {club.address && maps && (
+            <span className="flex flex-1">
+              <MapChooser
+                address={club.address}
+                links={maps}
+                labels={{ title: t('mapChooserTitle'), yandex: t('mapYandex'), google: t('mapGoogle') }}
+                triggerClassName={`${action} w-full`}
+                trigger={<><Navigation size={15} aria-hidden="true" /> {t('route')}</>}
+              />
             </span>
           )}
-        </span>
-      </span>
-      <span className="flex flex-wrap items-center gap-2 p-5">
-        {insights.pcCount > 0 && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-3 py-1 text-xs font-semibold text-white/80 ring-1 ring-white/10">
-            <Monitor size={13} aria-hidden="true" /> {pcsLabel}
-          </span>
-        )}
-        {insights.consoleCount > 0 && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-3 py-1 text-xs font-semibold text-white/80 ring-1 ring-white/10">
-            <Gamepad2 size={13} aria-hidden="true" /> {consolesLabel}
-          </span>
-        )}
-        {insights.minPrice !== null && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-3 py-1 text-xs font-semibold text-white/80 ring-1 ring-white/10">
-            <Wallet size={13} aria-hidden="true" /> {fromLabel(insights.minPrice)}
-          </span>
-        )}
-        {club.opening_hours && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-3 py-1 text-xs font-semibold text-white/80 ring-1 ring-white/10">
-            <Clock size={13} aria-hidden="true" /> {club.opening_hours}
-          </span>
-        )}
-        <span className="ml-auto inline-flex items-center gap-1 text-sm font-semibold text-fuchsia-200 transition-transform group-hover:translate-x-0.5">
-          {openLabel} <ArrowUpRight size={16} aria-hidden="true" />
-        </span>
-      </span>
-    </a>
+          {phone && (
+            <a href={phone} className={action} aria-label={`${t('call')}: ${club.phone}`}>
+              <Phone size={15} aria-hidden="true" /> <span className="hidden sm:inline">{t('call')}</span>
+            </a>
+          )}
+        </div>
+      </div>
+    </article>
   );
 }
 

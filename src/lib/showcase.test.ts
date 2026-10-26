@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   SHOWCASE_SLUG_PATTERN,
+  openStatus,
   normalizeEmail,
   normalizeYoutubeUrl,
   totalConsoleCount,
@@ -315,5 +316,26 @@ describe('zone names per language', () => {
 
   it('opens an old zone with its single name under Russian', () => {
     expect(showcasePcZoneForm({ id: 'z', club_id: 'c', name: 'Кабинка', pc_count: 5 } as never, 10).name).toEqual({ ru: 'Кабинка', uz: '', en: '' });
+  });
+});
+
+describe('openStatus', () => {
+  // 2026-10-26 18:30 in Tashkent (UTC+5).
+  const evening = new Date('2026-10-26T13:30:00Z');
+  // 03:00 in Tashkent.
+  const night = new Date('2026-10-26T22:00:00Z');
+
+  it('reads 24/7 and daily ranges, including past midnight', () => {
+    expect(openStatus('24/7', night)).toBe('open');
+    expect(openStatus('10:00 – 02:00', evening)).toBe('open');
+    expect(openStatus('10:00 – 02:00', night)).toBe('closed');
+    expect(openStatus('09:00-18:00', evening)).toBe('closed');
+    expect(openStatus('10.00—04.00', night)).toBe('open');
+  });
+
+  it('shows nothing for text it cannot read', () => {
+    expect(openStatus('Every day', evening)).toBeNull();
+    expect(openStatus(null, evening)).toBeNull();
+    expect(openStatus('25:00 - 99:00', evening)).toBeNull();
   });
 });

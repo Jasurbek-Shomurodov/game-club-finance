@@ -8,7 +8,7 @@ migrations.
 | Table | Purpose | Important behavior |
 |---|---|---|
 | `profiles` | Global user identity/profile | Global role is not a substitute for club membership. |
-| `clubs` | Club configuration | Holds business-day start and enabled payment methods. |
+| `clubs` | Club configuration | Holds business-day start, enabled payment methods and `logo_url` (107, http(s) only; uploads go to the `showcase` bucket). |
 | `club_memberships` | Per-club role/access | Holds role and optional `feature_access`. |
 | `products` | Catalog/live balance | Soft deletion preserves ledger history. |
 | `stock_purchases` | Inventory purchase ledger | Write through inventory RPCs. |

@@ -13,7 +13,7 @@ export function relatedClub(relation: ClubMembership['clubs']): Club | null {
 
 // Newer columns, newest first: older databases may not have them yet.
 const OPTIONAL_MEMBERSHIP_COLUMNS = ['feature_access'] as const;
-const OPTIONAL_CLUB_COLUMNS = ['enabled_payment_methods'] as const;
+const OPTIONAL_CLUB_COLUMNS = ['logo_url', 'enabled_payment_methods'] as const;
 type OptionalColumn = (typeof OPTIONAL_MEMBERSHIP_COLUMNS)[number] | (typeof OPTIONAL_CLUB_COLUMNS)[number];
 const OPTIONAL_COLUMNS: OptionalColumn[] = [...OPTIONAL_MEMBERSHIP_COLUMNS, ...OPTIONAL_CLUB_COLUMNS];
 

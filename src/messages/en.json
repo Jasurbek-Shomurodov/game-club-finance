@@ -1004,12 +1004,19 @@
       "paymentMethodAny": "Any",
       "paymentMethodHelp": "Preselected in the expense form when this plan is picked; it can still be changed there."
     },
-    "clubDetails": "Name and address",
-    "clubDetailsHelp": "Shown in the club picker, Telegram reports and on the public page.",
+    "clubDetails": "Logo, name and address",
+    "clubDetailsHelp": "Shown in the club picker, Telegram reports and on the public page. Click the logo to change it.",
     "clubDetailsSaved": "Club name and address saved",
     "clubDetailsError_name_required": "Club name is required",
     "clubDetailsError_name_too_long": "Club name can be at most 80 characters",
-    "clubDetailsError_address_too_long": "Address can be at most 160 characters"
+    "clubDetailsError_address_too_long": "Address can be at most 160 characters",
+    "clubLogoUpload": "Upload club logo",
+    "clubLogoChange": "Change club logo",
+    "clubLogoRemove": "Remove logo",
+    "clubLogoTypeInvalid": "Choose an image file for the logo.",
+    "clubLogoTooLarge": "The logo is larger than 2 MB.",
+    "clubLogoUploadFailed": "Could not upload the logo. Try again.",
+    "clubDetailsError_logo_invalid": "The logo must be an http(s) image link."
   },
   "team": {
     "title": "Team",
@@ -1911,6 +1918,10 @@
     "navPlaystation": "PlayStation",
     "playstationEyebrow": "Consoles",
     "playstationTitle": "PlayStation",
-    "playstationDescription": "{count, plural, one {# console} other {# consoles}} on big screens for couch co-op and FIFA nights."
+    "playstationDescription": "{count, plural, one {# console} other {# consoles}} on big screens for couch co-op and FIFA nights.",
+    "openNow": "Open now",
+    "closedNow": "Closed now",
+    "route": "Route",
+    "details": "Details"
   }
 }

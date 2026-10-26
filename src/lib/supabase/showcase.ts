@@ -54,7 +54,7 @@ export async function fetchShowcaseAdminData(
 export async function uploadShowcaseImage(
   supabase: SupabaseClient,
   clubId: string,
-  kind: 'game' | 'zone' | 'hero',
+  kind: 'game' | 'zone' | 'hero' | 'logo',
   file: File,
 ): Promise<string> {
   const path = showcaseImagePath(clubId, kind, file.name, crypto.randomUUID());

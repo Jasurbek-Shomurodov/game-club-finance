@@ -6,6 +6,7 @@ import { Check, LogOut, Plus } from 'lucide-react';
 import { ExpensePresetsSection } from './ExpensePresetsSection';
 import { MigrationHealthPanel } from './MigrationHealthPanel';
 import { SettingsSection } from './SettingsSection';
+import { ClubLogoField } from './ClubLogoField';
 import {
   Avatar,
   Badge,
@@ -76,7 +77,8 @@ export function SettingsPageClient() {
   const [clubSaving, setClubSaving] = useState(false);
   const [clubError, setClubError] = useState('');
   const [createClubOpen, setCreateClubOpen] = useState(false);
-  const [details, setDetails] = useState({ name: '', address: '' });
+  const [details, setDetails] = useState({ name: '', address: '', logo_url: '' });
+  const [logoUploading, setLogoUploading] = useState(false);
   const [detailsSaving, setDetailsSaving] = useState(false);
   const [detailsError, setDetailsError] = useState('');
   const [businessDayStartHour, setBusinessDayStartHour] = useState(0);
@@ -99,9 +101,9 @@ export function SettingsPageClient() {
   }
 
   useEffect(() => {
-    setDetails({ name: selectedClub?.name ?? '', address: selectedClub?.address ?? '' });
+    setDetails({ name: selectedClub?.name ?? '', address: selectedClub?.address ?? '', logo_url: selectedClub?.logo_url ?? '' });
     setDetailsError('');
-  }, [selectedClub?.id, selectedClub?.name, selectedClub?.address]);
+  }, [selectedClub?.id, selectedClub?.name, selectedClub?.address, selectedClub?.logo_url]);
 
   useEffect(() => {
     setBusinessDayStartHour(normalizeBusinessDayStartHour(selectedClub?.business_day_start_hour));
@@ -395,7 +397,15 @@ export function SettingsPageClient() {
         <Card padding="none" className="divide-y divide-gray-100 overflow-hidden">
           <SettingRow id="setting-club-details" title={t('clubDetails')} help={t('clubDetailsHelp')} stacked>
             {selectedClub ? (
-              <form onSubmit={saveClubDetails} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] sm:items-center" aria-labelledby="setting-club-details">
+              <form onSubmit={saveClubDetails} className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.4fr)_auto] sm:items-center" aria-labelledby="setting-club-details">
+                <ClubLogoField
+                  clubId={selectedClub.id}
+                  value={details.logo_url}
+                  disabled={!isOwner || detailsSaving}
+                  onChange={(url) => { setDetailsError(''); setDetails((prev) => ({ ...prev, logo_url: url })); }}
+                  onError={setDetailsError}
+                  onUploadingChange={setLogoUploading}
+                />
                 <Input
                   id="club-details-name"
                   aria-label={t('clubName')}
@@ -407,6 +417,7 @@ export function SettingsPageClient() {
                 />
                 <Input
                   id="club-details-address"
+                  className="col-span-2 sm:col-span-1"
                   aria-label={t('clubAddress')}
                   placeholder={t('clubAddress')}
                   maxLength={CLUB_ADDRESS_MAX_LENGTH}
@@ -420,8 +431,8 @@ export function SettingsPageClient() {
                     size="sm"
                     loading={detailsSaving}
                     loadingLabel={tc('saving')}
-                    disabled={clubDetailsUnchanged(details, selectedClub)}
-                    className="justify-self-end sm:min-h-11"
+                    disabled={logoUploading || clubDetailsUnchanged(details, selectedClub)}
+                    className="col-span-2 justify-self-end sm:col-span-1 sm:min-h-11"
                   >
                     {tc('save')}
                   </Button>
@@ -527,7 +538,7 @@ export function SettingsPageClient() {
                     selected ? 'border-primary-600 ring-1 ring-primary-600' : 'hover:border-gray-300',
                   )}
                 >
-                  <ClubLogo size={36} className="shrink-0 rounded-lg" />
+                  <ClubLogo src={membership.club.logo_url} size={36} className="shrink-0 rounded-lg" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold text-gray-950">{membership.club.name}</span>
                     <span className="block truncate text-xs text-gray-500">{membership.club.address || '\u00a0'}</span>

@@ -1973,12 +1973,7 @@
   },
   {
     "file": "048_dashboard_bootstrap_snapshot.sql",
-    "probes": [
-      {
-        "kind": "function",
-        "signature": "public.get_dashboard_bootstrap()"
-      }
-    ]
+    "probes": []
   },
   {
     "file": "049_finance_report_snapshot.sql",
@@ -3945,11 +3940,31 @@
         "kind": "constraint",
         "table": "public.showcase_pc_zones",
         "name": "showcase_pc_zones_translations_object"
+      }
+    ]
+  },
+  {
+    "file": "107_club_logos.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.clubs",
+        "column": "logo_url"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.clubs",
+        "name": "clubs_logo_url_http"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_dashboard_bootstrap()",
+        "md5": "d83924abb7a0e2374aeb6547c624e134"
       },
       {
         "kind": "functionBody",
         "signature": "public.public_showcase_payload(uuid)",
-        "md5": "cfe814562e32bd5885545476d90b3f92"
+        "md5": "a2c5769d53c07ec93ed116edcb527843"
       }
     ]
   }

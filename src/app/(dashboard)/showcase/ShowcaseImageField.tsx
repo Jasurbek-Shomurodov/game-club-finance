@@ -12,11 +12,11 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 interface ShowcaseImageFieldProps {
   label: string;
   clubId: string;
-  kind: 'game' | 'zone' | 'hero';
+  kind: 'game' | 'zone' | 'hero' | 'logo';
   value: string;
   onChange: (url: string) => void;
   onUploadingChange?: (uploading: boolean) => void;
-  aspect?: 'cover' | 'wide';
+  aspect?: 'cover' | 'wide' | 'square';
 }
 
 /** Image preview with an upload button (to the club's storage folder) or a pasted link. */
@@ -55,7 +55,7 @@ export function ShowcaseImageField({ label, clubId, kind, value, onChange, onUpl
     <Field label={label} htmlFor={inputId} hint={t('imageHint')} error={error || undefined}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
         <div
-          className={`relative shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-100 ${aspect === 'cover' ? 'aspect-[3/4] w-28' : 'aspect-video w-44'}`}
+          className={`relative shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-100 ${aspect === 'cover' ? 'aspect-[3/4] w-28' : aspect === 'square' ? 'aspect-square w-20' : 'aspect-video w-44'}`}
         >
           {value ? (
             // Owner-supplied links may point at any host, so next/image's allow-list does not fit.

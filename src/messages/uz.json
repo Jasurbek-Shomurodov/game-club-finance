@@ -1004,12 +1004,19 @@
       "paymentMethodAny": "Istalgan",
       "paymentMethodHelp": "Bu reja tanlanganda xarajat formasida oldindan tanlanadi; u yerda o'zgartirish mumkin."
     },
-    "clubDetails": "Nomi va manzili",
-    "clubDetailsHelp": "Klub tanlovida, Telegram hisobotlarida va ommaviy sahifada ko‘rinadi.",
+    "clubDetails": "Logotip, nomi va manzili",
+    "clubDetailsHelp": "Klub tanlovida, Telegram hisobotlarida va ommaviy sahifada ko‘rinadi. Almashtirish uchun logotipni bosing.",
     "clubDetailsSaved": "Klub nomi va manzili saqlandi",
     "clubDetailsError_name_required": "Klub nomini kiriting",
     "clubDetailsError_name_too_long": "Klub nomi ko‘pi bilan 80 belgi",
-    "clubDetailsError_address_too_long": "Manzil ko‘pi bilan 160 belgi"
+    "clubDetailsError_address_too_long": "Manzil ko‘pi bilan 160 belgi",
+    "clubLogoUpload": "Klub logotipini yuklash",
+    "clubLogoChange": "Klub logotipini almashtirish",
+    "clubLogoRemove": "Logotipni olib tashlash",
+    "clubLogoTypeInvalid": "Logotip uchun rasm faylini tanlang.",
+    "clubLogoTooLarge": "Logotip 2 MB dan katta.",
+    "clubLogoUploadFailed": "Logotipni yuklab bo‘lmadi. Qayta urinib ko‘ring.",
+    "clubDetailsError_logo_invalid": "Logotip http(s) rasm havolasi bo‘lishi kerak."
   },
   "team": {
     "title": "Jamoa",
@@ -1911,6 +1918,10 @@
     "navPlaystation": "PlayStation",
     "playstationEyebrow": "Konsollar",
     "playstationTitle": "PlayStation",
-    "playstationDescription": "{count, plural, other {# ta konsol}} katta ekranlarda — birga o‘ynash va FIFA kechalari uchun."
+    "playstationDescription": "{count, plural, other {# ta konsol}} katta ekranlarda — birga o‘ynash va FIFA kechalari uchun.",
+    "openNow": "Hozir ochiq",
+    "closedNow": "Hozir yopiq",
+    "route": "Yo‘nalish",
+    "details": "Batafsil"
   }
 }

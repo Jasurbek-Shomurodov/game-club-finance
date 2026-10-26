@@ -247,7 +247,7 @@ export function Sidebar({
       <div className="flex items-center gap-2 px-3 pb-2 pt-3">
         {memberships.length > 0 ? (
           <label className="relative flex min-h-12 min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-xl border border-gray-200 bg-surface px-2.5 transition hover:border-gray-300 focus-within:ring-2 focus-within:ring-primary-500">
-            <ClubLogo />
+            <ClubLogo src={selectedClub?.logo_url} />
             <span className="min-w-0 flex-1 leading-tight">
               <span className="block truncate text-sm font-semibold text-gray-950">{selectedClub?.name ?? t('appName')}</span>
               <span className="block truncate text-[11px] text-gray-500">{tTeam(`roles.${role}`)}</span>

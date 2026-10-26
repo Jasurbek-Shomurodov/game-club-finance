@@ -1,12 +1,15 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ExternalLink, MapPinned } from 'lucide-react';
 import type { MapLinks } from '@/lib/showcase';
 
 interface MapChooserProps {
   address: string;
+  /** Replaces the underlined address, e.g. a "Route" button. */
+  trigger?: ReactNode;
+  triggerClassName?: string;
   links: MapLinks;
   labels: { title: string; yandex: string; google: string };
 }
@@ -29,7 +32,7 @@ function menuPosition(button: HTMLElement): CSSProperties {
  * is portalled to <body> so the rounded, clipped cards around the address
  * never cut it off.
  */
-export function MapChooser({ address, links, labels }: MapChooserProps) {
+export function MapChooser({ address, trigger, triggerClassName, links, labels }: MapChooserProps) {
   const [position, setPosition] = useState<CSSProperties | null>(null);
   const open = position !== null;
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -77,9 +80,10 @@ export function MapChooser({ address, links, labels }: MapChooserProps) {
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         onClick={(event) => setPosition(open ? null : menuPosition(event.currentTarget))}
-        className="text-left underline decoration-white/20 underline-offset-4 transition-colors hover:decoration-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300"
+        aria-label={trigger ? `${labels.title}: ${address}` : undefined}
+        className={triggerClassName ?? 'text-left underline decoration-white/20 underline-offset-4 transition-colors hover:decoration-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300'}
       >
-        {address}
+        {trigger ?? address}
       </button>
       {position && createPortal(
         <div
