@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { getTranslations } from 'next-intl/server';
-import { Clock, Cpu, Gamepad2, Instagram, Keyboard, MapPin, MemoryStick, Monitor, MonitorPlay, Phone, Send, Sparkles, Zap } from 'lucide-react';
+import { Armchair, Clock, Cpu, Gamepad2, HardDrive, Headphones, Instagram, Keyboard, MapPin, MemoryStick, Monitor, MonitorPlay, Mouse, NotebookPen, Phone, Send, Sparkles, Zap } from 'lucide-react';
 import { formatCurrency } from '@/lib/formatters';
 import { telHref, type PublicShowcase, type PublicShowcaseGame, type PublicShowcaseZone } from '@/lib/showcase';
 import { Reveal } from './Reveal';
@@ -157,6 +157,14 @@ function Spec({ icon, label, value }: { icon: ReactNode; label: string; value: s
 export async function ZoneGrid({ zones }: { zones: PublicShowcaseZone[] }) {
   const t = await getTranslations('publicShowcase');
   const tc = await getTranslations('common');
+  // "27″ · 240 Hz" with the model below it; older zones only have the model text.
+  const monitorText = (zone: PublicShowcaseZone) => {
+    const size = [
+      zone.monitor_size_inches ? `${zone.monitor_size_inches}″` : null,
+      zone.monitor_refresh_hz ? t('hertz', { value: zone.monitor_refresh_hz }) : null,
+    ].filter(Boolean).join(' · ');
+    return [size, zone.monitor].filter(Boolean).join(' — ') || null;
+  };
   const columns = zones.length === 1 ? 'mx-auto max-w-xl' : zones.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-2 xl:grid-cols-3';
   return (
     <ul className={`grid gap-6 ${columns}`}>
@@ -175,9 +183,17 @@ export async function ZoneGrid({ zones }: { zones: PublicShowcaseZone[] }) {
                   </span>
                 )}
                 <span className="absolute inset-0 bg-gradient-to-t from-[#0b0b16] via-[#0b0b16]/20 to-transparent" />
-                <span className="sc-glass absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white">
-                  <Monitor size={13} aria-hidden="true" />
-                  {t('pcCount', { count: zone.pc_count })}
+                <span className="absolute left-4 top-4 flex flex-wrap gap-2">
+                  <span className="sc-glass inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white">
+                    <Monitor size={13} aria-hidden="true" />
+                    {t('pcCount', { count: zone.pc_count })}
+                  </span>
+                  {zone.monitor_refresh_hz && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-fuchsia-600/80 to-cyan-500/80 px-3 py-1 text-xs font-bold text-white shadow-[0_0_20px_rgba(217,70,239,0.45)]">
+                      <Zap size={12} aria-hidden="true" />
+                      {t('hertz', { value: zone.monitor_refresh_hz })}
+                    </span>
+                  )}
                 </span>
               </div>
               <div className="flex flex-1 flex-col p-6">
@@ -193,11 +209,20 @@ export async function ZoneGrid({ zones }: { zones: PublicShowcaseZone[] }) {
                   <Spec icon={<MonitorPlay size={16} aria-hidden="true" />} label={t('gpu')} value={zone.gpu} />
                   <Spec icon={<Cpu size={16} aria-hidden="true" />} label={t('cpu')} value={zone.cpu} />
                   <Spec icon={<MemoryStick size={16} aria-hidden="true" />} label={t('ram')} value={zone.ram} />
-                  <Spec icon={<Monitor size={16} aria-hidden="true" />} label={t('monitor')} value={zone.monitor} />
+                  <Spec icon={<HardDrive size={16} aria-hidden="true" />} label={t('storage')} value={zone.storage} />
+                  <Spec icon={<Monitor size={16} aria-hidden="true" />} label={t('monitor')} value={monitorText(zone)} />
                 </ul>
+                {[zone.mouse, zone.keyboard, zone.headset, zone.chair].some(Boolean) && (
+                  <ul className="mt-5 grid gap-4 border-t border-white/5 pt-5 sm:grid-cols-2">
+                    <Spec icon={<Mouse size={16} aria-hidden="true" />} label={t('mouse')} value={zone.mouse} />
+                    <Spec icon={<Keyboard size={16} aria-hidden="true" />} label={t('keyboard')} value={zone.keyboard} />
+                    <Spec icon={<Headphones size={16} aria-hidden="true" />} label={t('headset')} value={zone.headset} />
+                    <Spec icon={<Armchair size={16} aria-hidden="true" />} label={t('chair')} value={zone.chair} />
+                  </ul>
+                )}
                 {zone.peripherals && (
                   <p className="mt-5 flex items-start gap-2 border-t border-white/5 pt-5 text-sm leading-6 text-white/60">
-                    <Keyboard size={16} className="mt-1 shrink-0 text-fuchsia-300" aria-hidden="true" />
+                    <NotebookPen size={16} className="mt-1 shrink-0 text-fuchsia-300" aria-hidden="true" />
                     {zone.peripherals}
                   </p>
                 )}

@@ -1699,8 +1699,8 @@
     "ram": "Xotira",
     "monitor": "Monitor",
     "monitorPlaceholder": "27\" 240 Gs",
-    "peripherals": "Periferiya",
-    "peripheralsPlaceholder": "Logitech G Pro sichqoncha, HyperX quloqchin, mexanik klaviatura",
+    "peripherals": "Boshqa jihozlar va izohlar",
+    "peripheralsPlaceholder": "Gilamcha, veb-kamera, dam olish zonasida PS5…",
     "pricePerHour": "Soatlik narx",
     "pricePerHourValue": "{price} {currency} / soat",
     "zoneImage": "Zona surati",
@@ -1732,7 +1732,22 @@
     "openBrandPage": "Brend sahifasini ochish",
     "publishBrand": "Brend sahifasini e’lon qilish",
     "publishBrandDescription": "Havolaga ega har kim brendingiz va e’lon qilingan barcha klub sahifalarini ko‘radi. Moliyaviy ma’lumotlar hech qachon ko‘rsatilmaydi.",
-    "error_brand_name_required": "Brend nomini kiriting."
+    "error_brand_name_required": "Brend nomini kiriting.",
+    "specsComputer": "Kompyuter",
+    "specsMonitor": "Monitor",
+    "specsPeripherals": "Periferiya",
+    "storage": "Xotira qurilmasi",
+    "monitorModel": "Monitor modeli",
+    "monitorSize": "Diagonal",
+    "monitorRefresh": "Chastota",
+    "inchUnit": "″",
+    "hzUnit": "Gs",
+    "mouse": "Sichqoncha",
+    "keyboard": "Klaviatura",
+    "headset": "Quloqchin",
+    "chair": "Kreslo",
+    "error_monitor_size_invalid": "Diagonalni dyuymda kiriting, 10 dan 100 gacha.",
+    "error_monitor_refresh_invalid": "Chastotani butun son bilan Gs da kiriting, 30 dan 1000 gacha."
   },
   "publicShowcase": {
     "navGames": "O‘yinlar",
@@ -1786,6 +1801,11 @@
     "insightPrice": "Soatlik narx",
     "insightTopGpu": "Eng kuchli videokarta",
     "insightRefresh": "Eng tez monitor",
-    "hertz": "{value} Gs"
+    "hertz": "{value} Gs",
+    "storage": "Xotira qurilmasi",
+    "mouse": "Sichqoncha",
+    "keyboard": "Klaviatura",
+    "headset": "Quloqchin",
+    "chair": "Kreslo"
   }
 }

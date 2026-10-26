@@ -5,6 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 const migration = readFileSync(resolve('migrations', '098_public_showcase.sql'), 'utf8');
 const brandMigration = readFileSync(resolve('migrations', '099_showcase_brands.sql'), 'utf8');
+const specsMigration = readFileSync(resolve('migrations', '100_showcase_zone_specs.sql'), 'utf8');
 const club = '10000000-0000-0000-0000-000000000001';
 const otherClub = '10000000-0000-0000-0000-000000000002';
 const thirdClub = '10000000-0000-0000-0000-000000000003';
@@ -41,6 +42,7 @@ beforeAll(async () => {
   `);
   await db.exec(migration);
   await db.exec(brandMigration);
+  await db.exec(specsMigration);
 }, 20000);
 
 afterAll(async () => { await db?.close(); });
@@ -56,6 +58,7 @@ describe('098 public showcase', () => {
   it('re-runs cleanly', async () => {
     await db.exec(migration);
     await db.exec(brandMigration);
+    await db.exec(specsMigration);
   });
 
   it('returns a published showcase to anonymous visitors in sort order', async () => {
@@ -125,5 +128,15 @@ describe('098 public showcase', () => {
     await expect(db.query(`insert into showcase_brands(owner_id, slug, name) values ('${owner}','stolen','X')`)).rejects.toThrow(/row-level security/);
     await asRole('anon');
     await expect(db.query('select public.public_showcase_payload($1)', [club])).rejects.toThrow(/permission denied/);
+  });
+
+  it('publishes the structured zone specs and checks their ranges', async () => {
+    await db.exec(`update showcase_pc_zones set monitor_size_inches = 27, monitor_refresh_hz = 240, mouse = 'G Pro', keyboard = 'Apex Pro'`);
+    await asRole('anon');
+    const { rows } = await db.query<{ zone: Record<string, unknown> }>("select public.get_public_showcase('neon-arena')->'zones'->0 as zone");
+    expect(rows[0].zone).toMatchObject({ monitor_size_inches: 27, monitor_refresh_hz: 240, mouse: 'G Pro', keyboard: 'Apex Pro', headset: null });
+    await db.exec('reset role');
+    await expect(db.query('update showcase_pc_zones set monitor_refresh_hz = 5')).rejects.toThrow(/monitor_refresh_range/);
+    await expect(db.query('update showcase_pc_zones set monitor_size_inches = 500')).rejects.toThrow(/monitor_size_range/);
   });
 });

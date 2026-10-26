@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ExternalLink, Gamepad2, Monitor, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Cpu, ExternalLink, Gamepad2, Monitor, Mouse, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
   Badge,
@@ -90,6 +90,14 @@ export default function ShowcasePage() {
   useEffect(() => setEditor(null), [selectedClubId]);
 
   const publicPath = showcase ? `/club/${showcase.slug}` : null;
+
+  function monitorSummary(zone: ShowcasePcZone) {
+    const parts = [
+      zone.monitor_size_inches ? `${zone.monitor_size_inches}${t('inchUnit')}` : null,
+      zone.monitor_refresh_hz ? `${zone.monitor_refresh_hz} ${t('hzUnit')}` : null,
+    ].filter(Boolean);
+    return parts.length ? parts.join(' ') : zone.monitor;
+  }
 
   function setField<K extends keyof ShowcaseSettingsForm>(field: K, value: ShowcaseSettingsForm[K]) {
     setSettings((prev) => ({ ...prev, [field]: value }));
@@ -359,7 +367,7 @@ export default function ShowcasePage() {
                               )}
                             </p>
                             <p className="mt-0.5 text-xs leading-5 text-gray-500">
-                              {[zone.cpu, zone.gpu, zone.ram, zone.monitor].filter(Boolean).join(' · ') || t('noSpecs')}
+                              {[zone.gpu, zone.cpu, zone.ram, monitorSummary(zone)].filter(Boolean).join(' · ') || t('noSpecs')}
                             </p>
                           </div>
                           <IconButton
@@ -433,28 +441,64 @@ export default function ShowcasePage() {
                   <Field label={t('pcCount')} htmlFor="zone-count" required>
                     <Input id="zone-count" inputMode="numeric" value={editor.form.pc_count} onChange={(e) => setEditorField('pc_count', e.target.value.replace(/\D/g, ''))} />
                   </Field>
-                  <Field label={t('cpu')} htmlFor="zone-cpu">
-                    <Input id="zone-cpu" value={editor.form.cpu} maxLength={80} placeholder="Intel Core i7-14700K" onChange={(e) => setEditorField('cpu', e.target.value)} />
-                  </Field>
-                  <Field label={t('gpu')} htmlFor="zone-gpu">
-                    <Input id="zone-gpu" value={editor.form.gpu} maxLength={80} placeholder="RTX 4070 Super" onChange={(e) => setEditorField('gpu', e.target.value)} />
-                  </Field>
-                  <Field label={t('ram')} htmlFor="zone-ram">
-                    <Input id="zone-ram" value={editor.form.ram} maxLength={80} placeholder="32 GB DDR5" onChange={(e) => setEditorField('ram', e.target.value)} />
-                  </Field>
-                  <Field label={t('monitor')} htmlFor="zone-monitor">
-                    <Input id="zone-monitor" value={editor.form.monitor} maxLength={80} placeholder={t('monitorPlaceholder')} onChange={(e) => setEditorField('monitor', e.target.value)} />
-                  </Field>
-                  <Field label={t('pricePerHour')} htmlFor="zone-price">
+                  <Field label={t('pricePerHour')} htmlFor="zone-price" className="sm:col-span-2">
                     <CurrencyInput id="zone-price" value={editor.form.price_per_hour} onValueChange={(value) => setEditorField('price_per_hour', value)} trailingAddon={tc('currency')} />
                   </Field>
                   <Field label={t('sortOrder')} htmlFor="zone-sort">
                     <Input id="zone-sort" inputMode="numeric" value={editor.form.sort_order} onChange={(e) => setEditorField('sort_order', e.target.value.replace(/[^\d-]/g, ''))} />
                   </Field>
                 </div>
-                <Field label={t('peripherals')} htmlFor="zone-peripherals">
-                  <Textarea id="zone-peripherals" rows={2} maxLength={240} value={editor.form.peripherals} placeholder={t('peripheralsPlaceholder')} onChange={(e) => setEditorField('peripherals', e.target.value)} />
-                </Field>
+                <Card tone="muted" padding="sm" className="space-y-3">
+                  <SectionHeading as="h3" size="sm" title={t('specsComputer')} icon={<Cpu size={16} aria-hidden="true" />} />
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <Field label={t('cpu')} htmlFor="zone-cpu">
+                      <Input id="zone-cpu" value={editor.form.cpu} maxLength={80} placeholder="Intel Core i7-14700K" onChange={(e) => setEditorField('cpu', e.target.value)} />
+                    </Field>
+                    <Field label={t('gpu')} htmlFor="zone-gpu">
+                      <Input id="zone-gpu" value={editor.form.gpu} maxLength={80} placeholder="RTX 4070 Super" onChange={(e) => setEditorField('gpu', e.target.value)} />
+                    </Field>
+                    <Field label={t('ram')} htmlFor="zone-ram">
+                      <Input id="zone-ram" value={editor.form.ram} maxLength={80} placeholder="32 GB DDR5" onChange={(e) => setEditorField('ram', e.target.value)} />
+                    </Field>
+                    <Field label={t('storage')} htmlFor="zone-storage">
+                      <Input id="zone-storage" value={editor.form.storage} maxLength={80} placeholder="1 TB NVMe SSD" onChange={(e) => setEditorField('storage', e.target.value)} />
+                    </Field>
+                  </div>
+                </Card>
+                <Card tone="muted" padding="sm" className="space-y-3">
+                  <SectionHeading as="h3" size="sm" title={t('specsMonitor')} icon={<Monitor size={16} aria-hidden="true" />} />
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_8rem_8rem]">
+                    <Field label={t('monitorModel')} htmlFor="zone-monitor">
+                      <Input id="zone-monitor" value={editor.form.monitor} maxLength={80} placeholder="ASUS ROG Swift" onChange={(e) => setEditorField('monitor', e.target.value)} />
+                    </Field>
+                    <Field label={t('monitorSize')} htmlFor="zone-monitor-size">
+                      <Input id="zone-monitor-size" inputMode="decimal" value={editor.form.monitor_size_inches} placeholder="27" trailingAddon={t('inchUnit')} onChange={(e) => setEditorField('monitor_size_inches', e.target.value.replace(/[^\d.,]/g, ''))} />
+                    </Field>
+                    <Field label={t('monitorRefresh')} htmlFor="zone-monitor-hz">
+                      <Input id="zone-monitor-hz" inputMode="numeric" value={editor.form.monitor_refresh_hz} placeholder="240" trailingAddon={t('hzUnit')} onChange={(e) => setEditorField('monitor_refresh_hz', e.target.value.replace(/\D/g, ''))} />
+                    </Field>
+                  </div>
+                </Card>
+                <Card tone="muted" padding="sm" className="space-y-3">
+                  <SectionHeading as="h3" size="sm" title={t('specsPeripherals')} icon={<Mouse size={16} aria-hidden="true" />} />
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <Field label={t('mouse')} htmlFor="zone-mouse">
+                      <Input id="zone-mouse" value={editor.form.mouse} maxLength={80} placeholder="Logitech G Pro X Superlight" onChange={(e) => setEditorField('mouse', e.target.value)} />
+                    </Field>
+                    <Field label={t('keyboard')} htmlFor="zone-keyboard">
+                      <Input id="zone-keyboard" value={editor.form.keyboard} maxLength={80} placeholder="SteelSeries Apex Pro" onChange={(e) => setEditorField('keyboard', e.target.value)} />
+                    </Field>
+                    <Field label={t('headset')} htmlFor="zone-headset">
+                      <Input id="zone-headset" value={editor.form.headset} maxLength={80} placeholder="HyperX Cloud II" onChange={(e) => setEditorField('headset', e.target.value)} />
+                    </Field>
+                    <Field label={t('chair')} htmlFor="zone-chair">
+                      <Input id="zone-chair" value={editor.form.chair} maxLength={80} placeholder="DXRacer" onChange={(e) => setEditorField('chair', e.target.value)} />
+                    </Field>
+                  </div>
+                  <Field label={t('peripherals')} htmlFor="zone-peripherals">
+                    <Textarea id="zone-peripherals" rows={2} maxLength={240} value={editor.form.peripherals} placeholder={t('peripheralsPlaceholder')} onChange={(e) => setEditorField('peripherals', e.target.value)} />
+                  </Field>
+                </Card>
                 <ShowcaseImageField
                   label={t('zoneImage')}
                   clubId={selectedClubId}

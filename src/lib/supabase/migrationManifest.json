@@ -3680,11 +3680,62 @@
       },
       {
         "kind": "function",
-        "signature": "public.public_showcase_payload(uuid)"
+        "signature": "public.get_public_brand(text)"
+      }
+    ]
+  },
+  {
+    "file": "100_showcase_zone_specs.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "monitor_size_inches"
       },
       {
-        "kind": "function",
-        "signature": "public.get_public_brand(text)"
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "monitor_refresh_hz"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "mouse"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "keyboard"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "headset"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "chair"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "storage"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.showcase_pc_zones",
+        "name": "showcase_pc_zones_monitor_size_range"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.showcase_pc_zones",
+        "name": "showcase_pc_zones_monitor_refresh_range"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.public_showcase_payload(uuid)",
+        "md5": "674ffed4bc2b102e274854aa49e22196"
       }
     ]
   }

@@ -315,7 +315,14 @@ export interface ShowcasePcZone {
   cpu: string | null;
   gpu: string | null;
   ram: string | null;
+  storage: string | null;
   monitor: string | null;
+  monitor_size_inches: number | null;
+  monitor_refresh_hz: number | null;
+  mouse: string | null;
+  keyboard: string | null;
+  headset: string | null;
+  chair: string | null;
   peripherals: string | null;
   price_per_hour: number | null;
   image_url: string | null;

@@ -1699,8 +1699,8 @@
     "ram": "Память",
     "monitor": "Монитор",
     "monitorPlaceholder": "27\" 240 Гц",
-    "peripherals": "Периферия",
-    "peripheralsPlaceholder": "Мышь Logitech G Pro, гарнитура HyperX, механическая клавиатура",
+    "peripherals": "Другое оборудование и заметки",
+    "peripheralsPlaceholder": "Коврик, веб-камера, PS5 в зоне отдыха…",
     "pricePerHour": "Цена за час",
     "pricePerHourValue": "{price} {currency} / час",
     "zoneImage": "Фото зоны",
@@ -1732,7 +1732,22 @@
     "openBrandPage": "Открыть страницу бренда",
     "publishBrand": "Опубликовать страницу бренда",
     "publishBrandDescription": "Любой по ссылке увидит бренд и все опубликованные страницы клубов. Финансовые данные никогда не показываются.",
-    "error_brand_name_required": "Введите название бренда."
+    "error_brand_name_required": "Введите название бренда.",
+    "specsComputer": "Компьютер",
+    "specsMonitor": "Монитор",
+    "specsPeripherals": "Периферия",
+    "storage": "Накопитель",
+    "monitorModel": "Модель монитора",
+    "monitorSize": "Диагональ",
+    "monitorRefresh": "Частота",
+    "inchUnit": "″",
+    "hzUnit": "Гц",
+    "mouse": "Мышь",
+    "keyboard": "Клавиатура",
+    "headset": "Наушники",
+    "chair": "Кресло",
+    "error_monitor_size_invalid": "Укажите диагональ в дюймах, от 10 до 100.",
+    "error_monitor_refresh_invalid": "Укажите частоту целым числом Гц, от 30 до 1000."
   },
   "publicShowcase": {
     "navGames": "Игры",
@@ -1786,6 +1801,11 @@
     "insightPrice": "Цена за час",
     "insightTopGpu": "Лучшая видеокарта",
     "insightRefresh": "Самый быстрый монитор",
-    "hertz": "{value} Гц"
+    "hertz": "{value} Гц",
+    "storage": "Накопитель",
+    "mouse": "Мышь",
+    "keyboard": "Клавиатура",
+    "headset": "Наушники",
+    "chair": "Кресло"
   }
 }

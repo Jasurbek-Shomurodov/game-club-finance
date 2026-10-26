@@ -159,3 +159,29 @@ describe('brand', () => {
     expect(buildShowcaseBrandPayload({ ...form, name: ' Pixel ', telegram_url: '@pixel' })).toMatchObject({ name: 'Pixel', telegram_url: 'https://t.me/pixel' });
   });
 });
+
+describe('structured PC specs', () => {
+  const zone = { ...showcasePcZoneForm(null, 10), name: 'VIP' };
+
+  it('validates monitor size in inches and refresh rate', () => {
+    expect(validateShowcasePcZone({ ...zone, monitor_size_inches: '27,5', monitor_refresh_hz: '240' })).toBeNull();
+    expect(validateShowcasePcZone({ ...zone, monitor_size_inches: '5' })).toBe('monitor_size_invalid');
+    expect(validateShowcasePcZone({ ...zone, monitor_size_inches: 'big' })).toBe('monitor_size_invalid');
+    expect(validateShowcasePcZone({ ...zone, monitor_refresh_hz: '144.5' })).toBe('monitor_refresh_invalid');
+  });
+
+  it('saves numbers and blank equipment as null', () => {
+    const payload = buildShowcasePcZonePayload({ ...zone, monitor_size_inches: '27,5', monitor_refresh_hz: '240', mouse: ' Logitech G Pro ', keyboard: '' });
+    expect(payload).toMatchObject({ monitor_size_inches: 27.5, monitor_refresh_hz: 240, mouse: 'Logitech G Pro', keyboard: null });
+    expect(buildShowcasePcZonePayload(zone)).toMatchObject({ monitor_size_inches: null, monitor_refresh_hz: null });
+  });
+
+  it('prefers the structured refresh rate for insights', () => {
+    const club = parsePublicShowcase({
+      club_name: 'X', slug: 'x', games: [],
+      zones: [{ id: 'z', name: 'VIP', pc_count: 5, monitor: '24" 144 Hz', monitor_refresh_hz: 360, monitor_size_inches: '27', mouse: 'G Pro' }],
+    })!;
+    expect(club.zones[0]).toMatchObject({ monitor_size_inches: 27, monitor_refresh_hz: 360, mouse: 'G Pro', keyboard: null });
+    expect(clubInsights(club).maxRefreshHz).toBe(360);
+  });
+});

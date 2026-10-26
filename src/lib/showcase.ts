@@ -124,7 +124,14 @@ export interface ShowcaseGameForm {
   sort_order: string;
 }
 
-export type ShowcaseItemError = 'title_required' | 'name_required' | 'pc_count_invalid' | 'image_invalid' | 'sort_order_invalid';
+export type ShowcaseItemError =
+  | 'title_required'
+  | 'name_required'
+  | 'pc_count_invalid'
+  | 'monitor_size_invalid'
+  | 'monitor_refresh_invalid'
+  | 'image_invalid'
+  | 'sort_order_invalid';
 
 export function showcaseGameForm(game: ShowcaseGame | null, nextSortOrder: number): ShowcaseGameForm {
   return {
@@ -159,7 +166,14 @@ export interface ShowcasePcZoneForm {
   cpu: string;
   gpu: string;
   ram: string;
+  storage: string;
   monitor: string;
+  monitor_size_inches: string;
+  monitor_refresh_hz: string;
+  mouse: string;
+  keyboard: string;
+  headset: string;
+  chair: string;
   peripherals: string;
   price_per_hour: string;
   image_url: string;
@@ -173,7 +187,14 @@ export function showcasePcZoneForm(zone: ShowcasePcZone | null, nextSortOrder: n
     cpu: zone?.cpu ?? '',
     gpu: zone?.gpu ?? '',
     ram: zone?.ram ?? '',
+    storage: zone?.storage ?? '',
     monitor: zone?.monitor ?? '',
+    monitor_size_inches: zone?.monitor_size_inches == null ? '' : String(zone.monitor_size_inches),
+    monitor_refresh_hz: zone?.monitor_refresh_hz == null ? '' : String(zone.monitor_refresh_hz),
+    mouse: zone?.mouse ?? '',
+    keyboard: zone?.keyboard ?? '',
+    headset: zone?.headset ?? '',
+    chair: zone?.chair ?? '',
     peripherals: zone?.peripherals ?? '',
     price_per_hour: zone?.price_per_hour == null ? '' : formatCurrencyInput(zone.price_per_hour),
     image_url: zone?.image_url ?? '',
@@ -185,6 +206,14 @@ export function validateShowcasePcZone(form: ShowcasePcZoneForm): ShowcaseItemEr
   if (!form.name.trim()) return 'name_required';
   const count = Number(form.pc_count);
   if (!Number.isInteger(count) || count <= 0 || count > 1000) return 'pc_count_invalid';
+  if (form.monitor_size_inches.trim()) {
+    const size = parseDecimalInput(form.monitor_size_inches);
+    if (size === null || size < 10 || size > 100) return 'monitor_size_invalid';
+  }
+  if (form.monitor_refresh_hz.trim()) {
+    const hz = Number(form.monitor_refresh_hz.trim());
+    if (!Number.isInteger(hz) || hz < 30 || hz > 1000) return 'monitor_refresh_invalid';
+  }
   if (form.image_url.trim() && !normalizeExternalUrl(form.image_url)) return 'image_invalid';
   if (!isSortOrder(form.sort_order)) return 'sort_order_invalid';
   return null;
@@ -197,12 +226,26 @@ export function buildShowcasePcZonePayload(form: ShowcasePcZoneForm) {
     cpu: optionalText(form.cpu),
     gpu: optionalText(form.gpu),
     ram: optionalText(form.ram),
+    storage: optionalText(form.storage),
     monitor: optionalText(form.monitor),
+    monitor_size_inches: form.monitor_size_inches.trim() ? parseDecimalInput(form.monitor_size_inches) : null,
+    monitor_refresh_hz: form.monitor_refresh_hz.trim() ? Number(form.monitor_refresh_hz.trim()) : null,
+    mouse: optionalText(form.mouse),
+    keyboard: optionalText(form.keyboard),
+    headset: optionalText(form.headset),
+    chair: optionalText(form.chair),
     peripherals: optionalText(form.peripherals),
     price_per_hour: form.price_per_hour.trim() ? parseCurrencyInput(form.price_per_hour) : null,
     image_url: normalizeExternalUrl(form.image_url),
     sort_order: Number(form.sort_order.trim()),
   };
+}
+
+/** "27", "27.5" or "27,5" → 27.5; anything else → null. */
+export function parseDecimalInput(value: string): number | null {
+  const trimmed = value.trim().replace(',', '.');
+  if (!/^\d+(?:\.\d+)?$/.test(trimmed)) return null;
+  return Number(trimmed);
 }
 
 /** The next sort position after every existing item. */
@@ -224,7 +267,14 @@ export interface PublicShowcaseZone {
   cpu: string | null;
   gpu: string | null;
   ram: string | null;
+  storage: string | null;
   monitor: string | null;
+  monitor_size_inches: number | null;
+  monitor_refresh_hz: number | null;
+  mouse: string | null;
+  keyboard: string | null;
+  headset: string | null;
+  chair: string | null;
   peripherals: string | null;
   price_per_hour: number | null;
   image_url: string | null;
@@ -247,6 +297,7 @@ export interface PublicShowcase {
 
 const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null);
 const safeUrl = (value: unknown) => (typeof value === 'string' ? normalizeExternalUrl(value) : null);
+const positive = (value: number | null) => (value !== null && value > 0 ? value : null);
 const finiteNumber = (value: unknown) => {
   const parsed = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : NaN;
   return Number.isFinite(parsed) ? parsed : null;
@@ -294,7 +345,14 @@ export function parsePublicShowcase(raw: unknown): PublicShowcase | null {
         cpu: text(zone.cpu),
         gpu: text(zone.gpu),
         ram: text(zone.ram),
+        storage: text(zone.storage),
         monitor: text(zone.monitor),
+        monitor_size_inches: positive(finiteNumber(zone.monitor_size_inches)),
+        monitor_refresh_hz: positive(finiteNumber(zone.monitor_refresh_hz)),
+        mouse: text(zone.mouse),
+        keyboard: text(zone.keyboard),
+        headset: text(zone.headset),
+        chair: text(zone.chair),
         peripherals: text(zone.peripherals),
         price_per_hour: price !== null && price >= 0 ? price : null,
         image_url: safeUrl(zone.image_url),
@@ -367,7 +425,10 @@ export function clubInsights(club: Pick<PublicShowcase, 'zones' | 'games'>): Clu
   const prices = club.zones.map((zone) => zone.price_per_hour).filter((price): price is number => price !== null);
   const withGpu = club.zones.filter((zone) => zone.gpu);
   const topZone = [...withGpu].sort((a, b) => (b.price_per_hour ?? -1) - (a.price_per_hour ?? -1))[0];
-  const refreshRates = club.zones.flatMap((zone) => [...(zone.monitor ?? '').matchAll(REFRESH_PATTERN)].map((match) => Number(match[1])));
+  // The structured refresh rate wins; older zones only have it inside the monitor text.
+  const refreshRates = club.zones.flatMap((zone) => (zone.monitor_refresh_hz
+    ? [zone.monitor_refresh_hz]
+    : [...(zone.monitor ?? '').matchAll(REFRESH_PATTERN)].map((match) => Number(match[1]))));
   return {
     pcCount: totalPcCount(club.zones),
     zoneCount: club.zones.length,

@@ -1699,8 +1699,8 @@
     "ram": "Memory",
     "monitor": "Monitor",
     "monitorPlaceholder": "27\" 240 Hz",
-    "peripherals": "Peripherals",
-    "peripheralsPlaceholder": "Logitech G Pro mouse, HyperX headset, mechanical keyboard",
+    "peripherals": "Other equipment and notes",
+    "peripheralsPlaceholder": "Mouse pad, webcam, PS5 in the lounge…",
     "pricePerHour": "Price per hour",
     "pricePerHourValue": "{price} {currency} / hour",
     "zoneImage": "Zone photo",
@@ -1732,7 +1732,22 @@
     "openBrandPage": "Open brand page",
     "publishBrand": "Publish the brand page",
     "publishBrandDescription": "Anyone with the link sees your brand and every published club page. No finance data is ever shown.",
-    "error_brand_name_required": "Enter the brand name."
+    "error_brand_name_required": "Enter the brand name.",
+    "specsComputer": "Computer",
+    "specsMonitor": "Monitor",
+    "specsPeripherals": "Peripherals",
+    "storage": "Storage",
+    "monitorModel": "Monitor model",
+    "monitorSize": "Size",
+    "monitorRefresh": "Refresh rate",
+    "inchUnit": "″",
+    "hzUnit": "Hz",
+    "mouse": "Mouse",
+    "keyboard": "Keyboard",
+    "headset": "Headset",
+    "chair": "Chair",
+    "error_monitor_size_invalid": "Enter the monitor size in inches, from 10 to 100.",
+    "error_monitor_refresh_invalid": "Enter the refresh rate as a whole number of Hz, from 30 to 1000."
   },
   "publicShowcase": {
     "navGames": "Games",
@@ -1786,6 +1801,11 @@
     "insightPrice": "Price per hour",
     "insightTopGpu": "Top graphics",
     "insightRefresh": "Fastest monitor",
-    "hertz": "{value} Hz"
+    "hertz": "{value} Hz",
+    "storage": "Storage",
+    "mouse": "Mouse",
+    "keyboard": "Keyboard",
+    "headset": "Headset",
+    "chair": "Chair"
   }
 }
