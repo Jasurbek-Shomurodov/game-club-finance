@@ -33,7 +33,8 @@ export function LocalizedTextField({ id, label, value, onChange, multiline = fal
     <div className="min-w-0">
       <div className="mb-1.5 flex items-center justify-between gap-3">
         <label htmlFor={controlId} className={cn(labelClassName, 'mb-0')}>{label}</label>
-        <div role="group" aria-label={t('languageSwitch')} className="inline-flex gap-0.5 rounded-lg bg-gray-100 p-0.5">
+        {/* Negative margin keeps this row as tall as a plain field label, so inputs beside it line up. */}
+        <div role="group" aria-label={t('languageSwitch')} className="-my-1.5 inline-flex gap-0.5 rounded-lg bg-gray-100 p-0.5">
           {SHOWCASE_LANGUAGES.map((code) => {
             const selected = code === language;
             const empty = anyFilled && !value[code].trim();
