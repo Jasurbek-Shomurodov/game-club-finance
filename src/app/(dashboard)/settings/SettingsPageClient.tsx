@@ -27,6 +27,13 @@ import { useClub } from '@/components/layout/DashboardShell';
 import { useSignOut } from '@/components/layout/useSignOut';
 import { normalizePaymentMethods } from '@/lib/paymentMethods';
 import { normalizeBusinessDayStartHour } from '@/lib/utils';
+import {
+  CLUB_ADDRESS_MAX_LENGTH,
+  CLUB_NAME_MAX_LENGTH,
+  buildClubDetailsUpdate,
+  clubDetailsUnchanged,
+  validateClubDetails,
+} from '@/lib/clubDetails';
 import { cn } from '@/lib/utils';
 import { PAYMENT_METHODS, type EntryPaymentMethod, type UserRole } from '@/types';
 
@@ -62,6 +69,9 @@ export function SettingsPageClient() {
   const [clubSaving, setClubSaving] = useState(false);
   const [clubError, setClubError] = useState('');
   const [createClubOpen, setCreateClubOpen] = useState(false);
+  const [details, setDetails] = useState({ name: '', address: '' });
+  const [detailsSaving, setDetailsSaving] = useState(false);
+  const [detailsError, setDetailsError] = useState('');
   const [businessDayStartHour, setBusinessDayStartHour] = useState(0);
   const [businessDaySaving, setBusinessDaySaving] = useState(false);
   const [businessDayError, setBusinessDayError] = useState('');
@@ -80,6 +90,11 @@ export function SettingsPageClient() {
   function roleLabel(role: string | null | undefined): string {
     return role === 'owner' || role === 'admin' || role === 'viewer' ? tRoles(role as UserRole) : (role ?? '');
   }
+
+  useEffect(() => {
+    setDetails({ name: selectedClub?.name ?? '', address: selectedClub?.address ?? '' });
+    setDetailsError('');
+  }, [selectedClub?.id, selectedClub?.name, selectedClub?.address]);
 
   useEffect(() => {
     setBusinessDayStartHour(normalizeBusinessDayStartHour(selectedClub?.business_day_start_hour));
@@ -168,6 +183,39 @@ export function SettingsPageClient() {
       setClubError(t('saveError'));
     } finally {
       setClubSaving(false);
+    }
+  }
+
+  async function saveClubDetails(event: React.FormEvent) {
+    event.preventDefault();
+    if (!selectedClub || !isOwner) return;
+    const validation = validateClubDetails(details);
+    if (validation) {
+      setDetailsError(t(`clubDetailsError_${validation}`));
+      return;
+    }
+
+    setDetailsSaving(true);
+    setDetailsError('');
+
+    try {
+      const { data, error } = await createClient()
+        .from('clubs')
+        .update({ ...buildClubDetailsUpdate(details), updated_at: new Date().toISOString() })
+        .eq('id', selectedClub.id)
+        .select('id');
+
+      if (error) throw error;
+      // RLS silently matches no row when the owner role was revoked meanwhile.
+      if (!data?.length) throw new Error('club update matched no row');
+
+      showToast(t('clubDetailsSaved'));
+      await refreshClubs();
+    } catch (saveError) {
+      console.error('Failed to save club details', saveError);
+      setDetailsError(t('saveError'));
+    } finally {
+      setDetailsSaving(false);
     }
   }
 
@@ -305,7 +353,7 @@ export function SettingsPageClient() {
     setClubError('');
   }
 
-  const clubSettingsSaving = businessDaySaving || paymentMethodsSaving || internetPaymentDaySaving;
+  const clubSettingsSaving = detailsSaving || businessDaySaving || paymentMethodsSaving || internetPaymentDaySaving;
   const clubSettingsDisabled = !selectedClub || !isOwner || clubSettingsSaving;
 
   return (
@@ -338,6 +386,45 @@ export function SettingsPageClient() {
 
       <SettingsSection title={selectedClub?.name ?? t('tabClub')}>
         <Card padding="none" className="divide-y divide-gray-100 overflow-hidden">
+          <SettingRow id="setting-club-details" title={t('clubDetails')} help={t('clubDetailsHelp')}>
+            {selectedClub ? (
+              <form onSubmit={saveClubDetails} className="flex w-full flex-col gap-2 sm:w-80" aria-labelledby="setting-club-details">
+                <Input
+                  id="club-details-name"
+                  aria-label={t('clubName')}
+                  placeholder={t('clubName')}
+                  maxLength={CLUB_NAME_MAX_LENGTH}
+                  value={details.name}
+                  disabled={!isOwner || detailsSaving}
+                  onChange={(event) => { setDetailsError(''); setDetails((prev) => ({ ...prev, name: event.target.value })); }}
+                />
+                <Input
+                  id="club-details-address"
+                  aria-label={t('clubAddress')}
+                  placeholder={t('clubAddress')}
+                  maxLength={CLUB_ADDRESS_MAX_LENGTH}
+                  value={details.address}
+                  disabled={!isOwner || detailsSaving}
+                  onChange={(event) => { setDetailsError(''); setDetails((prev) => ({ ...prev, address: event.target.value })); }}
+                />
+                {isOwner && (
+                  <Button
+                    type="submit"
+                    size="sm"
+                    loading={detailsSaving}
+                    loadingLabel={tc('saving')}
+                    disabled={clubDetailsUnchanged(details, selectedClub)}
+                    className="self-end"
+                  >
+                    {tc('save')}
+                  </Button>
+                )}
+              </form>
+            ) : (
+              <Skeleton className="h-24 w-80" />
+            )}
+          </SettingRow>
+
           <SettingRow id="setting-business-day" title={t('businessDay')} help={t('businessDayHelp')}>
             {selectedClub ? (
               <Select
@@ -405,8 +492,9 @@ export function SettingsPageClient() {
             )}
           </SettingRow>
 
-          {(businessDayError || paymentMethodsError || internetPaymentDayError || !isOwner) && (
+          {(detailsError || businessDayError || paymentMethodsError || internetPaymentDayError || !isOwner) && (
             <div className="space-y-2 bg-gray-50/60 px-5 py-3">
+              {detailsError && <InlineAlert variant="danger" hideIcon className="py-2">{detailsError}</InlineAlert>}
               {businessDayError && <InlineAlert variant="danger" hideIcon className="py-2">{businessDayError}</InlineAlert>}
               {paymentMethodsError && <InlineAlert variant="danger" hideIcon className="py-2">{paymentMethodsError}</InlineAlert>}
               {internetPaymentDayError && <InlineAlert variant="danger" hideIcon className="py-2">{internetPaymentDayError}</InlineAlert>}

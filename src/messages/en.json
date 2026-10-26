@@ -1003,7 +1003,13 @@
       "termsLocked": "Payments are already recorded against this planned expense, so its category and money source stay as they are.",
       "paymentMethodAny": "Any",
       "paymentMethodHelp": "Preselected in the expense form when this plan is picked; it can still be changed there."
-    }
+    },
+    "clubDetails": "Name and address",
+    "clubDetailsHelp": "Shown in the club picker, Telegram reports and on the public page.",
+    "clubDetailsSaved": "Club name and address saved",
+    "clubDetailsError_name_required": "Club name is required",
+    "clubDetailsError_name_too_long": "Club name can be at most 80 characters",
+    "clubDetailsError_address_too_long": "Address can be at most 160 characters"
   },
   "team": {
     "title": "Team",

@@ -1003,7 +1003,13 @@
       "termsLocked": "По этому плановому расходу уже есть платежи, поэтому категорию и источник денег изменить нельзя.",
       "paymentMethodAny": "Любой",
       "paymentMethodHelp": "Выбирается в форме расхода при выборе этого плана; там его можно изменить."
-    }
+    },
+    "clubDetails": "Название и адрес",
+    "clubDetailsHelp": "Показываются в выборе клуба, отчётах в Telegram и на публичной странице.",
+    "clubDetailsSaved": "Название и адрес клуба сохранены",
+    "clubDetailsError_name_required": "Укажите название клуба",
+    "clubDetailsError_name_too_long": "Название клуба — не более 80 символов",
+    "clubDetailsError_address_too_long": "Адрес — не более 160 символов"
   },
   "team": {
     "title": "Команда",

@@ -1003,7 +1003,13 @@
       "termsLocked": "Bu rejalashtirilgan xarajatga to'lovlar yozilgan, shuning uchun kategoriya va pul manbai o'zgarmaydi.",
       "paymentMethodAny": "Istalgan",
       "paymentMethodHelp": "Bu reja tanlanganda xarajat formasida oldindan tanlanadi; u yerda o'zgartirish mumkin."
-    }
+    },
+    "clubDetails": "Nomi va manzili",
+    "clubDetailsHelp": "Klub tanlovida, Telegram hisobotlarida va ommaviy sahifada ko‘rinadi.",
+    "clubDetailsSaved": "Klub nomi va manzili saqlandi",
+    "clubDetailsError_name_required": "Klub nomini kiriting",
+    "clubDetailsError_name_too_long": "Klub nomi ko‘pi bilan 80 belgi",
+    "clubDetailsError_address_too_long": "Manzil ko‘pi bilan 160 belgi"
   },
   "team": {
     "title": "Jamoa",
