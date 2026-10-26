@@ -436,7 +436,11 @@
     "collectedDays": "Days collected",
     "notCollectedYet": "Not collected yet",
     "notCollectedDays": "{count, plural, one {# day with money left} other {# days with money left}}",
-    "collectedEmpty": "No date in this period has been marked as collected."
+    "collectedEmpty": "No date in this period has been marked as collected.",
+    "collectionFilter": "Filter by collection",
+    "collectionFilterAll": "All ({count})",
+    "collectionFilterPending": "Not collected ({count})",
+    "collectionFilterCollected": "Collected ({count})"
   },
   "dailyCash": {
     "title": "Daily Cash Entry",

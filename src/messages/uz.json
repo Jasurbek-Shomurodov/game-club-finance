@@ -436,7 +436,11 @@
     "collectedDays": "Yig‘ilgan kunlar",
     "notCollectedYet": "Hali yig‘ilmagan",
     "notCollectedDays": "{count, plural, other {pul qolgan # kun}}",
-    "collectedEmpty": "Bu davrda hech bir sana yig‘ilgan deb belgilanmagan."
+    "collectedEmpty": "Bu davrda hech bir sana yig‘ilgan deb belgilanmagan.",
+    "collectionFilter": "Yig‘ish bo‘yicha filtr",
+    "collectionFilterAll": "Barchasi ({count})",
+    "collectionFilterPending": "Yig‘ilmagan ({count})",
+    "collectionFilterCollected": "Yig‘ilgan ({count})"
   },
   "dailyCash": {
     "title": "Kunlik kassa",

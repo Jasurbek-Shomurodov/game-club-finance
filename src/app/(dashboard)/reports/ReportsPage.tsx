@@ -277,6 +277,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   useEffect(() => {
     setCategoryFilter(requestedCategoryFilter(requestedCategory));
   }, [requestedCategory]);
+  /** Narrows the closeout table to dates ticked as collected, or to the ones still waiting. */
+  const [collectionFilter, setCollectionFilter] = useState<'all' | 'pending' | 'collected'>('all');
   const [view, setView] = useState<ReportsView>(requestedView === 'collected' ? 'collected' : 'closeout');
   // Keep the tab shareable without dropping the rest of the link.
   useEffect(() => {
@@ -741,7 +743,10 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     );
   }
 
-  const closeoutRows = useMemo<CloseoutRow[]>(() => filteredReport.days.flatMap((day) => [
+  const collectedDayCount = filteredReport.days.filter((day) => collectionsByDate.has(day.date)).length;
+  const closeoutRows = useMemo<CloseoutRow[]>(() => filteredReport.days.filter((day) => (
+    collectionFilter === 'all' || collectionsByDate.has(day.date) === (collectionFilter === 'collected')
+  )).flatMap((day) => [
     {
       kind: 'day' as const,
       key: `day:${day.date}`,
@@ -759,7 +764,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       date: day.date,
       activity,
     })),
-  ]), [filteredReport.days]);
+  ]), [collectionFilter, collectionsByDate, filteredReport.days]);
 
   // Owners delete entries and undo ticks; collectors tick dates.
   const showActions = isOwner || canCollect;
@@ -1061,7 +1066,24 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
 
           <Card as="section" padding="none" className="overflow-hidden">
             <CardHeader>
-              <SectionHeading title={t('dailyCloseout')} description={t('dailyCloseoutDescription')} />
+              <SectionHeading
+                title={t('dailyCloseout')}
+                description={t('dailyCloseoutDescription')}
+                action={(
+                  <SegmentedControl
+                    variant="chips"
+                    size="sm"
+                    label={t('collectionFilter')}
+                    value={collectionFilter}
+                    onChange={setCollectionFilter}
+                    options={[
+                      { value: 'all', label: t('collectionFilterAll', { count: filteredReport.days.length }) },
+                      { value: 'pending', label: t('collectionFilterPending', { count: filteredReport.days.length - collectedDayCount }) },
+                      { value: 'collected', label: t('collectionFilterCollected', { count: collectedDayCount }) },
+                    ]}
+                  />
+                )}
+              />
             </CardHeader>
             {loading ? (
               <TableSkeleton rows={6} columns={showActions ? 7 : 6} className="rounded-none border-0 shadow-none" />

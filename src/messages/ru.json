@@ -436,7 +436,11 @@
     "collectedDays": "Собрано дней",
     "notCollectedYet": "Ещё не собрано",
     "notCollectedDays": "{count, plural, one {# день с остатком} few {# дня с остатком} many {# дней с остатком} other {# дня с остатком}}",
-    "collectedEmpty": "За этот период ни одна дата не отмечена как собранная."
+    "collectedEmpty": "За этот период ни одна дата не отмечена как собранная.",
+    "collectionFilter": "Фильтр по сбору",
+    "collectionFilterAll": "Все ({count})",
+    "collectionFilterPending": "Не собрано ({count})",
+    "collectionFilterCollected": "Собрано ({count})"
   },
   "dailyCash": {
     "title": "Касса дня",
