@@ -3755,13 +3755,101 @@
       },
       {
         "kind": "functionBody",
-        "signature": "public.public_showcase_payload(uuid)",
-        "md5": "982f9f09d824288c671f90d4210e0218"
+        "signature": "public.get_public_brand(text)",
+        "md5": "c82fd8b06a53293c87448507e27d9e95"
+      }
+    ]
+  },
+  {
+    "file": "102_showcase_offers.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.showcase_offers"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_offers",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_offers",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_offers",
+        "column": "title"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_offers",
+        "column": "description"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_offers",
+        "column": "translations"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_offers",
+        "column": "badge"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_offers",
+        "column": "price"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_offers",
+        "column": "time_window"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_offers",
+        "column": "sort_order"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_offers",
+        "column": "is_active"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_offers",
+        "column": "created_at"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.showcase_offers",
+        "name": "showcase_offers_title_not_blank"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.showcase_offers",
+        "name": "showcase_offers_price_non_negative"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.showcase_offers",
+        "name": "showcase_offers_translations_object"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_showcase_offers_club_order"
+      },
+      {
+        "kind": "policy",
+        "table": "public.showcase_offers",
+        "name": "club_owner_all_showcase_offers"
       },
       {
         "kind": "functionBody",
-        "signature": "public.get_public_brand(text)",
-        "md5": "c82fd8b06a53293c87448507e27d9e95"
+        "signature": "public.public_showcase_payload(uuid)",
+        "md5": "aa55137ae79bdad6599fa6ba03e5f0ff"
       }
     ]
   }

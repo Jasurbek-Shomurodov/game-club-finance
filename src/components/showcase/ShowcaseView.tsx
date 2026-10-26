@@ -2,7 +2,7 @@ import { getTranslations } from 'next-intl/server';
 import { ArrowDown, MonitorPlay, Phone, Send } from 'lucide-react';
 import { lowestHourlyPrice, telHref, totalPcCount, type PublicShowcase } from '@/lib/showcase';
 import { CountUp } from './CountUp';
-import { ContactPanel, GameGrid, HeroBackdrop, Marquee, SectionTitle, StatGrid, ZoneGrid, riseDelay, type Stat } from './ShowcaseParts';
+import { ContactPanel, GameGrid, HeroBackdrop, Marquee, OfferGrid, SectionTitle, StatGrid, ZoneGrid, riseDelay, type Stat } from './ShowcaseParts';
 import { ShowcaseNav } from './ShowcaseNav';
 
 /** The public page of one club: /club/<slug>. */
@@ -19,6 +19,7 @@ export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
   const navLinks = [
     showcase.games.length > 0 ? { href: '#games', label: t('navGames') } : null,
     showcase.zones.length > 0 ? { href: '#zones', label: t('navZones') } : null,
+    showcase.offers.length > 0 ? { href: '#offers', label: t('navOffers') } : null,
     { href: '#contacts', label: t('navContacts') },
   ].filter((link): link is { href: string; label: string } => link !== null);
 
@@ -103,6 +104,16 @@ export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
           <div className="relative mx-auto max-w-7xl">
             <SectionTitle eyebrow={t('zonesEyebrow')} title={t('zonesTitle')} description={t('zonesDescription', { count: pcCount })} />
             <ZoneGrid zones={showcase.zones} />
+          </div>
+        </section>
+      )}
+
+      {showcase.offers.length > 0 && (
+        <section id="offers" className="relative scroll-mt-16 px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
+          <div className="pointer-events-none absolute left-1/2 top-24 h-72 w-[40rem] max-w-full -translate-x-1/2 rounded-full bg-fuchsia-600/15 blur-[120px]" aria-hidden="true" />
+          <div className="relative mx-auto max-w-7xl">
+            <SectionTitle eyebrow={t('offersEyebrow')} title={t('offersTitle')} description={t('offersDescription')} />
+            <OfferGrid offers={showcase.offers} />
           </div>
         </section>
       )}

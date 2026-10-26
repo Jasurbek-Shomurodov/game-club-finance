@@ -466,3 +466,47 @@
 .sc-location:hover .sc-location-media {
   transform: scale(1.08);
 }
+
+/* ---------- Offer tickets ---------- */
+
+.sc-offer {
+  background: linear-gradient(140deg, rgba(167, 139, 250, 0.7), rgba(240, 171, 252, 0.35) 40%, rgba(103, 232, 249, 0.6));
+  transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.35s;
+}
+.sc-offer:hover {
+  transform: translateY(-6px) rotate(-0.4deg);
+  box-shadow: 0 30px 60px -25px rgba(192, 38, 211, 0.6);
+}
+/* A light sweep that crosses the ticket every few seconds. */
+.sc-offer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.12) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: sc-sweep 4.5s ease-in-out 1.5s infinite;
+  pointer-events: none;
+}
+
+/* Perforated tear line with half-circle notches on both edges. */
+.sc-offer-cut {
+  position: relative;
+  height: 1px;
+  margin-left: -1.5rem;
+  margin-right: -1.5rem;
+  background-image: linear-gradient(90deg, rgba(255, 255, 255, 0.18) 50%, transparent 50%);
+  background-size: 10px 1px;
+}
+.sc-offer-cut::before,
+.sc-offer-cut::after {
+  content: '';
+  position: absolute;
+  top: -10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: #05050b;
+}
+.sc-offer-cut::before { left: -10px; }
+.sc-offer-cut::after { right: -10px; }

@@ -1,12 +1,12 @@
 import { getTranslations } from 'next-intl/server';
-import { ArrowDown, ArrowUpRight, Clock, Cpu, Gamepad2, Layers, MapPin, Monitor, MonitorPlay, Send, Wallet, Zap } from 'lucide-react';
+import { ArrowDown, ArrowUpRight, BadgePercent, Clock, Cpu, Gamepad2, Layers, MapPin, Monitor, MonitorPlay, Send, Wallet, Zap } from 'lucide-react';
 import { formatCurrency } from '@/lib/formatters';
 import { brandInsights, clubInsights, type PublicBrand, type PublicShowcase } from '@/lib/showcase';
 import { ClubTabs } from './ClubTabs';
 import { CountUp } from './CountUp';
 import { Reveal } from './Reveal';
 import { ShimmerImage } from './ShimmerImage';
-import { ContactButtons, ContactList, GameGrid, HeroBackdrop, Marquee, SectionTitle, StatGrid, ZoneGrid, riseDelay, type Stat } from './ShowcaseParts';
+import { ContactButtons, ContactList, GameGrid, HeroBackdrop, Marquee, OfferGrid, SectionTitle, StatGrid, ZoneGrid, riseDelay, type Stat } from './ShowcaseParts';
 import { ShowcaseNav } from './ShowcaseNav';
 
 const CLUBS_ANCHOR = 'clubs';
@@ -224,6 +224,15 @@ async function ClubPanel({ club }: { club: PublicShowcase }) {
           {insights.maxRefreshHz && <Insight icon={<Cpu size={18} aria-hidden="true" />} label={t('insightRefresh')} value={t('hertz', { value: insights.maxRefreshHz })} />}
         </div>
       </div>
+
+      {club.offers.length > 0 && (
+        <div>
+          <h4 className="sc-display mb-6 flex items-center gap-2 text-xl font-bold text-white">
+            <BadgePercent size={18} className="text-lime-300" aria-hidden="true" /> {t('offersTitle')}
+          </h4>
+          <OfferGrid offers={club.offers} />
+        </div>
+      )}
 
       {club.zones.length > 0 && (
         <div>

@@ -282,8 +282,8 @@ export interface OwnerProfitCarryover {
   created_at: string;
 }
 
-/** Per-language headline and description of a public page (101). */
-export type ShowcaseTranslations = Partial<Record<'headline' | 'tagline', Partial<Record<'ru' | 'uz' | 'en', string>>>>;
+/** Per-language texts of a public page (101) or offer (102). */
+export type ShowcaseTranslations = Partial<Record<'headline' | 'tagline' | 'title' | 'description', Partial<Record<'ru' | 'uz' | 'en', string>>>>;
 
 export interface ClubShowcase {
   club_id: string;
@@ -345,4 +345,18 @@ export interface ShowcaseBrand {
   instagram_url: string | null;
   is_published: boolean;
   updated_at: string;
+}
+
+export interface ShowcaseOffer {
+  id: string;
+  club_id: string;
+  title: string;
+  description: string | null;
+  translations?: ShowcaseTranslations;
+  badge: string | null;
+  price: number | null;
+  time_window: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
 }

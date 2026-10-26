@@ -1751,7 +1751,26 @@
     "languageSwitch": "Language of this text",
     "languageMissing": "{language}: not filled in",
     "languagesMissingHint": "Not filled in: {languages}. Visitors in those languages see the first filled language.",
-    "taglineHint": "Fill in all three languages; visitors see the one they picked."
+    "taglineHint": "Fill in all three languages; visitors see the one they picked.",
+    "offers": "Packages & offers",
+    "offersDescription": "Deals shown on the public page: 2+1 hours, night packages, team bundles.",
+    "addOffer": "Add offer",
+    "editOffer": "Edit offer",
+    "deleteOffer": "Delete offer",
+    "noOffers": "No offers yet",
+    "offerTitle": "Offer name",
+    "offerTitlePlaceholder": "Night package",
+    "offerDescription": "What is included",
+    "offerDescriptionPlaceholder": "Play all night from 22:00 to 08:00 at a fixed price.",
+    "offerBadge": "Badge",
+    "offerBadgeHint": "Short and big on the card: 2+1, -20%, NIGHT.",
+    "offerTimeWindow": "When it applies",
+    "offerTimeWindowHint": "Optional, e.g. 22:00 – 08:00 or Weekdays.",
+    "offerPrice": "Price",
+    "offerActive": "Show on the public page",
+    "offerHidden": "Hidden",
+    "offersMigrationMissing": "The database is missing migration 102. Apply it to add packages and offers.",
+    "error_offer_title_required": "Enter the offer name in at least one language."
   },
   "publicShowcase": {
     "navGames": "Games",
@@ -1810,6 +1829,10 @@
     "mouse": "Mouse",
     "keyboard": "Keyboard",
     "headset": "Headset",
-    "chair": "Chair"
+    "chair": "Chair",
+    "navOffers": "Offers",
+    "offersEyebrow": "Deals",
+    "offersTitle": "Packages & offers",
+    "offersDescription": "Play more for less: bundles, night packages and deals for your squad."
   }
 }

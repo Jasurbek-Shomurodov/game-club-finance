@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   SHOWCASE_SLUG_PATTERN,
+  buildShowcaseOfferPayload,
+  showcaseOfferForm,
+  validateShowcaseOffer,
   localizedFromRow,
   missingLanguages,
   pickLocalized,
@@ -213,5 +216,29 @@ describe('languages', () => {
     const brand = parsePublicBrand({ slug: 'b', name: 'B', translations: { tagline: { uz: 'Salom' } }, clubs: [raw] }, 'uz');
     expect(brand?.tagline).toBe('Salom');
     expect(brand?.clubs[0].tagline).toBe('Привет');
+  });
+});
+
+describe('offers', () => {
+  it('needs a name in at least one language and saves the price and badge', () => {
+    const form = showcaseOfferForm(null, 10);
+    expect(validateShowcaseOffer(form)).toBe('offer_title_required');
+    const filled = { ...form, title: { ru: '', uz: 'Tungi paket', en: 'Night package' }, badge: ' 2+1 ', price: '50 000', time_window: '22:00 – 08:00' };
+    expect(validateShowcaseOffer(filled)).toBeNull();
+    expect(buildShowcaseOfferPayload(filled)).toMatchObject({
+      title: 'Tungi paket', badge: '2+1', price: 50000, time_window: '22:00 – 08:00', is_active: true,
+      translations: { title: { uz: 'Tungi paket', en: 'Night package' }, description: {} },
+    });
+  });
+
+  it('shows visitors each offer in their language and drops nameless ones', () => {
+    const club = parsePublicShowcase({
+      club_name: 'X', slug: 'x', games: [], zones: [],
+      offers: [
+        { id: 'o1', title: 'Ночной', translations: { title: { en: 'Night' }, description: { ru: 'Всю ночь' } }, badge: 'NIGHT', price: '60000', time_window: '22:00 – 08:00' },
+        { id: 'o2', title: '' },
+      ],
+    }, 'en')!;
+    expect(club.offers).toEqual([{ id: 'o1', title: 'Night', description: 'Всю ночь', badge: 'NIGHT', price: 60000, time_window: '22:00 – 08:00' }]);
   });
 });

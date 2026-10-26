@@ -1751,7 +1751,26 @@
     "languageSwitch": "Язык текста",
     "languageMissing": "{language}: не заполнено",
     "languagesMissingHint": "Не заполнено: {languages}. Посетители на этих языках увидят первый заполненный язык.",
-    "taglineHint": "Заполните все три языка — посетитель увидит выбранный."
+    "taglineHint": "Заполните все три языка — посетитель увидит выбранный.",
+    "offers": "Пакеты и акции",
+    "offersDescription": "Предложения на публичной странице: 2+1 часа, ночные пакеты, пакеты для команды.",
+    "addOffer": "Добавить акцию",
+    "editOffer": "Изменить акцию",
+    "deleteOffer": "Удалить акцию",
+    "noOffers": "Акций пока нет",
+    "offerTitle": "Название",
+    "offerTitlePlaceholder": "Ночной пакет",
+    "offerDescription": "Что входит",
+    "offerDescriptionPlaceholder": "Играй всю ночь с 22:00 до 08:00 по фиксированной цене.",
+    "offerBadge": "Значок",
+    "offerBadgeHint": "Коротко и крупно на карточке: 2+1, -20%, NIGHT.",
+    "offerTimeWindow": "Когда действует",
+    "offerTimeWindowHint": "Необязательно, например 22:00 – 08:00 или Будни.",
+    "offerPrice": "Цена",
+    "offerActive": "Показывать на публичной странице",
+    "offerHidden": "Скрыта",
+    "offersMigrationMissing": "В базе данных нет миграции 102. Примените её, чтобы добавлять пакеты и акции.",
+    "error_offer_title_required": "Введите название хотя бы на одном языке."
   },
   "publicShowcase": {
     "navGames": "Игры",
@@ -1810,6 +1829,10 @@
     "mouse": "Мышь",
     "keyboard": "Клавиатура",
     "headset": "Наушники",
-    "chair": "Кресло"
+    "chair": "Кресло",
+    "navOffers": "Акции",
+    "offersEyebrow": "Выгодно",
+    "offersTitle": "Пакеты и акции",
+    "offersDescription": "Играй больше — плати меньше: пакеты часов, ночные пакеты и предложения для команды."
   }
 }

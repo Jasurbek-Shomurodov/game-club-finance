@@ -1751,7 +1751,26 @@
     "languageSwitch": "Matn tili",
     "languageMissing": "{language}: to‘ldirilmagan",
     "languagesMissingHint": "To‘ldirilmagan: {languages}. Bu tillardagi tashrif buyuruvchilar birinchi to‘ldirilgan tilni ko‘radi.",
-    "taglineHint": "Uchala tilni to‘ldiring — tashrif buyuruvchi tanlagan tilni ko‘radi."
+    "taglineHint": "Uchala tilni to‘ldiring — tashrif buyuruvchi tanlagan tilni ko‘radi.",
+    "offers": "Paketlar va aksiyalar",
+    "offersDescription": "Ommaviy sahifadagi takliflar: 2+1 soat, tungi paketlar, jamoa paketlari.",
+    "addOffer": "Aksiya qo‘shish",
+    "editOffer": "Aksiyani tahrirlash",
+    "deleteOffer": "Aksiyani o‘chirish",
+    "noOffers": "Hali aksiyalar yo‘q",
+    "offerTitle": "Nomi",
+    "offerTitlePlaceholder": "Tungi paket",
+    "offerDescription": "Nimalar kiradi",
+    "offerDescriptionPlaceholder": "22:00 dan 08:00 gacha qat’iy narxda tun bo‘yi o‘yna.",
+    "offerBadge": "Belgi",
+    "offerBadgeHint": "Kartada qisqa va katta: 2+1, -20%, NIGHT.",
+    "offerTimeWindow": "Qachon amal qiladi",
+    "offerTimeWindowHint": "Ixtiyoriy, masalan 22:00 – 08:00 yoki Ish kunlari.",
+    "offerPrice": "Narx",
+    "offerActive": "Ommaviy sahifada ko‘rsatish",
+    "offerHidden": "Yashirilgan",
+    "offersMigrationMissing": "Ma’lumotlar bazasida 102-migratsiya yo‘q. Paket va aksiyalar qo‘shish uchun uni qo‘llang.",
+    "error_offer_title_required": "Nomini kamida bitta tilda kiriting."
   },
   "publicShowcase": {
     "navGames": "O‘yinlar",
@@ -1810,6 +1829,10 @@
     "mouse": "Sichqoncha",
     "keyboard": "Klaviatura",
     "headset": "Quloqchin",
-    "chair": "Kreslo"
+    "chair": "Kreslo",
+    "navOffers": "Aksiyalar",
+    "offersEyebrow": "Foydali",
+    "offersTitle": "Paketlar va aksiyalar",
+    "offersDescription": "Ko‘proq o‘yna, kamroq to‘la: soat paketlari, tungi paketlar va jamoa uchun takliflar."
   }
 }

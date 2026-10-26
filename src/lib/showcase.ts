@@ -1,4 +1,4 @@
-import type { ClubShowcase, ShowcaseBrand, ShowcaseGame, ShowcasePcZone, ShowcaseTranslations } from '@/types';
+import type { ClubShowcase, ShowcaseBrand, ShowcaseGame, ShowcaseOffer, ShowcasePcZone, ShowcaseTranslations } from '@/types';
 import { formatCurrencyInput, parseCurrencyInput } from './formatters';
 
 /** Matches the club_showcases_slug_format check in migration 098. */
@@ -320,6 +320,15 @@ export interface PublicShowcaseZone {
   image_url: string | null;
 }
 
+export interface PublicShowcaseOffer {
+  id: string;
+  title: string;
+  description: string | null;
+  badge: string | null;
+  price: number | null;
+  time_window: string | null;
+}
+
 export interface PublicShowcase {
   club_name: string;
   slug: string;
@@ -333,6 +342,7 @@ export interface PublicShowcase {
   instagram_url: string | null;
   games: PublicShowcaseGame[];
   zones: PublicShowcaseZone[];
+  offers: PublicShowcaseOffer[];
 }
 
 const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null);
@@ -341,7 +351,7 @@ const translationsOf = (data: Record<string, unknown>) => {
   const value = data.translations;
   const record = value && typeof value === 'object' ? value as Record<string, unknown> : {};
   const field = (name: string) => (record[name] && typeof record[name] === 'object' ? record[name] as Record<string, unknown> : {});
-  return { headline: field('headline'), tagline: field('tagline') };
+  return { headline: field('headline'), tagline: field('tagline'), title: field('title'), description: field('description') };
 };
 const positive = (value: number | null) => (value !== null && value > 0 ? value : null);
 const finiteNumber = (value: unknown) => {
@@ -402,6 +412,21 @@ export function parsePublicShowcase(raw: unknown, locale = 'ru'): PublicShowcase
         peripherals: text(zone.peripherals),
         price_per_hour: price !== null && price >= 0 ? price : null,
         image_url: safeUrl(zone.image_url),
+      }];
+    }),
+    offers: list(data.offers).flatMap((offer) => {
+      const id = text(offer.id);
+      const translations = translationsOf(offer);
+      const title = pickLocalized(translations.title, locale, text(offer.title));
+      if (!id || !title) return [];
+      const price = finiteNumber(offer.price);
+      return [{
+        id,
+        title,
+        description: pickLocalized(translations.description, locale, text(offer.description)),
+        badge: text(offer.badge),
+        price: price !== null && price >= 0 ? price : null,
+        time_window: text(offer.time_window),
       }];
     }),
   };
@@ -548,5 +573,49 @@ export function buildShowcaseBrandPayload(form: ShowcaseBrandForm) {
     telegram_url: normalizeTelegramUrl(form.telegram_url),
     instagram_url: normalizeInstagramUrl(form.instagram_url),
     is_published: form.is_published,
+  };
+}
+
+export interface ShowcaseOfferForm {
+  title: LocalizedText;
+  description: LocalizedText;
+  badge: string;
+  price: string;
+  time_window: string;
+  sort_order: string;
+  is_active: boolean;
+}
+
+export type ShowcaseOfferError = 'offer_title_required' | 'sort_order_invalid';
+
+export function showcaseOfferForm(offer: ShowcaseOffer | null, nextSortOrder: number): ShowcaseOfferForm {
+  return {
+    title: localizedFromRow(offer?.translations, 'title', offer?.title),
+    description: localizedFromRow(offer?.translations, 'description', offer?.description),
+    badge: offer?.badge ?? '',
+    price: offer?.price == null ? '' : formatCurrencyInput(offer.price),
+    time_window: offer?.time_window ?? '',
+    sort_order: String(offer?.sort_order ?? nextSortOrder),
+    is_active: offer?.is_active ?? true,
+  };
+}
+
+export function validateShowcaseOffer(form: ShowcaseOfferForm): ShowcaseOfferError | null {
+  if (!primaryText(form.title)) return 'offer_title_required';
+  if (!isSortOrder(form.sort_order)) return 'sort_order_invalid';
+  return null;
+}
+
+/** Validated form → showcase_offers columns (club_id added by the caller). */
+export function buildShowcaseOfferPayload(form: ShowcaseOfferForm) {
+  return {
+    title: primaryText(form.title) ?? '',
+    description: primaryText(form.description),
+    translations: { title: localizedPayload(form.title), description: localizedPayload(form.description) },
+    badge: optionalText(form.badge),
+    price: form.price.trim() ? parseCurrencyInput(form.price) : null,
+    time_window: optionalText(form.time_window),
+    sort_order: Number(form.sort_order.trim()),
+    is_active: form.is_active,
   };
 }

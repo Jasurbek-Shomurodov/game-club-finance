@@ -1,8 +1,8 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { getTranslations } from 'next-intl/server';
-import { Armchair, Clock, Cpu, Gamepad2, HardDrive, Headphones, Instagram, Keyboard, MapPin, MemoryStick, Monitor, MonitorPlay, Mouse, NotebookPen, Phone, Send, Sparkles, Zap } from 'lucide-react';
+import { Armchair, BadgePercent, Clock, Cpu, Gamepad2, HardDrive, Headphones, Instagram, Keyboard, MapPin, MemoryStick, Monitor, MonitorPlay, Mouse, NotebookPen, Phone, Send, Sparkles, Zap } from 'lucide-react';
 import { formatCurrency } from '@/lib/formatters';
-import { telHref, type PublicShowcase, type PublicShowcaseGame, type PublicShowcaseZone } from '@/lib/showcase';
+import { telHref, type PublicShowcase, type PublicShowcaseGame, type PublicShowcaseOffer, type PublicShowcaseZone } from '@/lib/showcase';
 import { Reveal } from './Reveal';
 import { ShimmerImage } from './ShimmerImage';
 import { TiltCard } from './TiltCard';
@@ -332,5 +332,44 @@ export async function ContactPanel({ club, id }: { club: PublicShowcase; id?: st
         </div>
       </Reveal>
     </section>
+  );
+}
+
+/** Ticket-style cards for packages and offers ("2+1", night packages). */
+export async function OfferGrid({ offers }: { offers: PublicShowcaseOffer[] }) {
+  const tc = await getTranslations('common');
+  const columns = offers.length === 1 ? 'mx-auto max-w-xl' : offers.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-2 xl:grid-cols-3';
+  return (
+    <ul className={`grid gap-6 ${columns}`}>
+      {offers.map((offer, index) => (
+        <Reveal as="li" key={offer.id} delay={index * 0.08}>
+          <article className="sc-offer group relative h-full overflow-hidden rounded-3xl p-[1px]">
+            <div className="relative flex h-full flex-col overflow-hidden rounded-[calc(1.5rem-1px)] bg-[#0b0b16] p-6">
+              <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-fuchsia-600/25 blur-[60px] transition-opacity duration-500 group-hover:opacity-100" aria-hidden="true" />
+              <div className="relative flex flex-wrap items-start justify-between gap-3">
+                <span className={`sc-display sc-gradient-text min-w-0 break-all font-black leading-none ${(offer.badge?.length ?? 0) > 4 ? 'text-4xl sm:text-5xl' : 'text-5xl sm:text-6xl'}`}>
+                  {offer.badge ?? <BadgePercent size={48} className="text-fuchsia-300" aria-hidden="true" />}
+                </span>
+                {offer.time_window && (
+                  <span className="sc-glass ml-auto inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white/85">
+                    <Clock size={13} className="shrink-0" aria-hidden="true" /> <span className="truncate">{offer.time_window}</span>
+                  </span>
+                )}
+              </div>
+              <h3 className="sc-display relative mt-5 text-xl font-bold text-white">{offer.title}</h3>
+              {offer.description && <p className="relative mt-2 text-sm leading-6 text-white/60">{offer.description}</p>}
+              {offer.price !== null && (
+                <div className="relative mt-auto pt-6">
+                  <div className="sc-offer-cut mb-5" aria-hidden="true" />
+                  <p className="sc-display text-2xl font-bold text-white">
+                    {formatCurrency(offer.price)} <span className="text-sm font-semibold text-white/50">{tc('currency')}</span>
+                  </p>
+                </div>
+              )}
+            </div>
+          </article>
+        </Reveal>
+      ))}
+    </ul>
   );
 }

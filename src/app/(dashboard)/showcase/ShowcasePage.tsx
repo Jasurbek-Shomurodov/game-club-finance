@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Cpu, ExternalLink, Gamepad2, Monitor, Mouse, Pencil, Plus, Trash2 } from 'lucide-react';
+import { BadgePercent, Cpu, ExternalLink, Gamepad2, Monitor, Mouse, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
   Badge,
@@ -34,31 +34,40 @@ import { fetchShowcaseAdminData, type ShowcaseAdminData } from '@/lib/supabase/s
 import { formatCurrency } from '@/lib/formatters';
 import {
   buildShowcaseGamePayload,
+  buildShowcaseOfferPayload,
   buildShowcasePcZonePayload,
   buildShowcaseSettingsPayload,
   nextSortOrder,
   normalizeSlugInput,
   showcaseGameForm,
+  showcaseOfferForm,
   showcasePcZoneForm,
   showcaseSettingsForm,
   validateShowcaseGame,
+  validateShowcaseOffer,
   validateShowcasePcZone,
   validateShowcaseSettings,
   type ShowcaseGameForm,
+  type ShowcaseOfferForm,
   type ShowcasePcZoneForm,
   type ShowcaseSettingsForm,
 } from '@/lib/showcase';
 import { useClubQuery } from '@/lib/useClubQuery';
-import type { ShowcaseGame, ShowcasePcZone } from '@/types';
+import type { ShowcaseGame, ShowcaseOffer, ShowcasePcZone } from '@/types';
 import { BrandSettingsCard } from './BrandSettingsCard';
 import { LocalizedTextField } from './LocalizedTextField';
 import { ShowcaseImageField } from './ShowcaseImageField';
 
-const EMPTY: ShowcaseAdminData & { missing: boolean } = { showcase: null, games: [], zones: [], missing: false };
+const EMPTY: ShowcaseAdminData & { missing: boolean } = { showcase: null, games: [], zones: [], offers: [], offersMissing: false, missing: false };
 
 type Editor =
   | { kind: 'game'; id: string | null; form: ShowcaseGameForm }
-  | { kind: 'zone'; id: string | null; form: ShowcasePcZoneForm };
+  | { kind: 'zone'; id: string | null; form: ShowcasePcZoneForm }
+  | { kind: 'offer'; id: string | null; form: ShowcaseOfferForm };
+
+const EDITOR_TABLE = { game: 'showcase_games', zone: 'showcase_pc_zones', offer: 'showcase_offers' } as const;
+const DELETE_LABEL = { game: 'deleteGame', zone: 'deleteZone', offer: 'deleteOffer' } as const;
+const EDIT_TITLE = { game: ['addGame', 'editGame'], zone: ['addZone', 'editZone'], offer: ['addOffer', 'editOffer'] } as const;
 
 export default function ShowcasePage() {
   const t = useTranslations('showcase');
@@ -73,7 +82,7 @@ export default function ShowcasePage() {
     return fetchShowcaseAdminData(createClient(), selectedClubId);
   }, [selectedClubId]);
   const query = useClubQuery(load, EMPTY);
-  const { showcase, games, zones, missing } = query.data;
+  const { showcase, games, zones, offers, offersMissing, missing } = query.data;
 
   const [settings, setSettings] = useState<ShowcaseSettingsForm>(() => showcaseSettingsForm(null, ''));
   const [settingsError, setSettingsError] = useState('');
@@ -136,20 +145,29 @@ export default function ShowcasePage() {
     setEditor({ kind: 'zone', id: zone?.id ?? null, form: showcasePcZoneForm(zone, nextSortOrder(zones)) });
   }
 
-  function setEditorField(field: string, value: string) {
+  function openOffer(offer: ShowcaseOffer | null) {
+    setEditorError('');
+    setEditor({ kind: 'offer', id: offer?.id ?? null, form: showcaseOfferForm(offer, nextSortOrder(offers)) });
+  }
+
+  function setEditorField(field: string, value: unknown) {
     setEditor((prev) => (prev ? { ...prev, form: { ...prev.form, [field]: value } } as Editor : prev));
   }
 
   async function saveItem(event: React.FormEvent) {
     event.preventDefault();
     if (!editor || !isOwner || !selectedClubId) return;
-    const validation = editor.kind === 'game' ? validateShowcaseGame(editor.form) : validateShowcasePcZone(editor.form);
+    const validation = editor.kind === 'game'
+      ? validateShowcaseGame(editor.form)
+      : editor.kind === 'zone' ? validateShowcasePcZone(editor.form) : validateShowcaseOffer(editor.form);
     if (validation) {
       setEditorError(t(`error_${validation}`));
       return;
     }
-    const table = editor.kind === 'game' ? 'showcase_games' : 'showcase_pc_zones';
-    const payload = editor.kind === 'game' ? buildShowcaseGamePayload(editor.form) : buildShowcasePcZonePayload(editor.form);
+    const table = EDITOR_TABLE[editor.kind];
+    const payload = editor.kind === 'game'
+      ? buildShowcaseGamePayload(editor.form)
+      : editor.kind === 'zone' ? buildShowcasePcZonePayload(editor.form) : buildShowcaseOfferPayload(editor.form);
     setSavingItem(true);
     setEditorError('');
     const supabase = createClient();
@@ -170,7 +188,7 @@ export default function ShowcasePage() {
   async function deleteItem() {
     if (!editor?.id || !isOwner || !selectedClubId) return;
     const confirmed = await confirm({
-      title: editor.kind === 'game' ? t('deleteGame') : t('deleteZone'),
+      title: t(DELETE_LABEL[editor.kind]),
       description: t('deleteConfirm'),
       confirmLabel: tc('delete'),
       tone: 'danger',
@@ -178,7 +196,7 @@ export default function ShowcasePage() {
     if (!confirmed) return;
     setSavingItem(true);
     const { data, error } = await createClient()
-      .from(editor.kind === 'game' ? 'showcase_games' : 'showcase_pc_zones')
+      .from(EDITOR_TABLE[editor.kind])
       .delete()
       .eq('club_id', selectedClubId)
       .eq('id', editor.id)
@@ -396,6 +414,53 @@ export default function ShowcasePage() {
                   )}
                 </CardBody>
               </Card>
+
+              <Card padding="none">
+                <CardHeader>
+                  <SectionHeading
+                    title={t('offers')}
+                    description={t('offersDescription')}
+                    icon={<BadgePercent size={18} aria-hidden="true" />}
+                    action={offersMissing ? undefined : <Button size="sm" onClick={() => openOffer(null)} icon={<Plus size={15} aria-hidden="true" />}>{t('addOffer')}</Button>}
+                  />
+                </CardHeader>
+                <CardBody>
+                  {offersMissing ? (
+                    <InlineAlert variant="warning">{t('offersMigrationMissing')}</InlineAlert>
+                  ) : offers.length === 0 ? (
+                    <EmptyState compact icon={BadgePercent} title={t('noOffers')} />
+                  ) : (
+                    <ul className="divide-y divide-gray-100">
+                      {offers.map((offer) => (
+                        <li key={offer.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                          <span className="flex h-11 min-w-11 shrink-0 items-center justify-center rounded-xl bg-primary-50 px-2 text-sm font-bold text-primary-700">
+                            {offer.badge || <BadgePercent size={18} aria-hidden="true" />}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-gray-900">
+                              {offer.title}
+                              {!offer.is_active && <Badge variant="neutral">{t('offerHidden')}</Badge>}
+                              {offer.price !== null && (
+                                <span className="text-xs font-medium text-gray-500">{formatCurrency(offer.price)} {tc('currency')}</span>
+                              )}
+                            </p>
+                            <p className="mt-0.5 text-xs leading-5 text-gray-500">
+                              {[offer.time_window, offer.description].filter(Boolean).join(' · ')}
+                            </p>
+                          </div>
+                          <IconButton
+                            variant="ghost"
+                            size="sm"
+                            label={`${tc('edit')}: ${offer.title}`}
+                            icon={<Pencil size={15} aria-hidden="true" />}
+                            onClick={() => openOffer(offer)}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </CardBody>
+              </Card>
             </>
           )}
         </>
@@ -406,14 +471,12 @@ export default function ShowcasePage() {
         onClose={() => setEditor(null)}
         size="lg"
         locked={savingItem || uploading}
-        title={editor?.kind === 'game'
-          ? (editor.id ? t('editGame') : t('addGame'))
-          : (editor?.id ? t('editZone') : t('addZone'))}
+        title={editor ? t(EDIT_TITLE[editor.kind][editor.id ? 1 : 0]) : undefined}
         footer={(
           <>
             {editor?.id && (
               <Button variant="dangerOutline" onClick={deleteItem} disabled={savingItem || uploading} className="sm:mr-auto" icon={<Trash2 size={16} aria-hidden="true" />}>
-                {editor.kind === 'game' ? t('deleteGame') : t('deleteZone')}
+                {t(DELETE_LABEL[editor.kind])}
               </Button>
             )}
             <Button variant="outline" onClick={() => setEditor(null)} disabled={savingItem || uploading}>{tc('cancel')}</Button>
@@ -445,7 +508,7 @@ export default function ShowcasePage() {
                   onUploadingChange={setUploading}
                 />
               </>
-            ) : (
+            ) : editor.kind === 'zone' ? (
               <>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <Field label={t('zoneName')} htmlFor="zone-name" required className="sm:col-span-2">
@@ -521,6 +584,41 @@ export default function ShowcasePage() {
                   onChange={(url) => setEditorField('image_url', url)}
                   onUploadingChange={setUploading}
                 />
+              </>
+            ) : (
+              <>
+                <LocalizedTextField
+                  id="offer-title"
+                  label={t('offerTitle')}
+                  maxLength={80}
+                  placeholder={t('offerTitlePlaceholder')}
+                  value={editor.form.title}
+                  onChange={(value) => setEditorField('title', value)}
+                />
+                <LocalizedTextField
+                  id="offer-description"
+                  label={t('offerDescription')}
+                  multiline
+                  maxLength={240}
+                  placeholder={t('offerDescriptionPlaceholder')}
+                  value={editor.form.description}
+                  onChange={(value) => setEditorField('description', value)}
+                />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Field label={t('offerBadge')} htmlFor="offer-badge" hint={t('offerBadgeHint')}>
+                    <Input id="offer-badge" value={editor.form.badge} maxLength={12} placeholder="2+1" onChange={(e) => setEditorField('badge', e.target.value)} />
+                  </Field>
+                  <Field label={t('offerTimeWindow')} htmlFor="offer-time" hint={t('offerTimeWindowHint')}>
+                    <Input id="offer-time" value={editor.form.time_window} maxLength={40} placeholder="22:00 – 08:00" onChange={(e) => setEditorField('time_window', e.target.value)} />
+                  </Field>
+                  <Field label={t('offerPrice')} htmlFor="offer-price">
+                    <CurrencyInput id="offer-price" value={editor.form.price} onValueChange={(value) => setEditorField('price', value)} trailingAddon={tc('currency')} />
+                  </Field>
+                  <Field label={t('sortOrder')} htmlFor="offer-sort">
+                    <Input id="offer-sort" inputMode="numeric" value={editor.form.sort_order} onChange={(e) => setEditorField('sort_order', e.target.value.replace(/[^\d-]/g, ''))} />
+                  </Field>
+                </div>
+                <Checkbox id="offer-active" checked={editor.form.is_active} onChange={(e) => setEditorField('is_active', e.target.checked)} label={t('offerActive')} />
               </>
             )}
             {editorError && <InlineAlert variant="danger">{editorError}</InlineAlert>}

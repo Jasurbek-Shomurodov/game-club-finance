@@ -7,6 +7,7 @@ const migration = readFileSync(resolve('migrations', '098_public_showcase.sql'),
 const brandMigration = readFileSync(resolve('migrations', '099_showcase_brands.sql'), 'utf8');
 const specsMigration = readFileSync(resolve('migrations', '100_showcase_zone_specs.sql'), 'utf8');
 const translationsMigration = readFileSync(resolve('migrations', '101_showcase_translations.sql'), 'utf8');
+const offersMigration = readFileSync(resolve('migrations', '102_showcase_offers.sql'), 'utf8');
 const club = '10000000-0000-0000-0000-000000000001';
 const otherClub = '10000000-0000-0000-0000-000000000002';
 const thirdClub = '10000000-0000-0000-0000-000000000003';
@@ -45,12 +46,13 @@ beforeAll(async () => {
   await db.exec(brandMigration);
   await db.exec(specsMigration);
   await db.exec(translationsMigration);
+  await db.exec(offersMigration);
 }, 20000);
 
 afterAll(async () => { await db?.close(); });
 
 beforeEach(async () => {
-  await db.exec(`reset role; truncate club_showcases, showcase_games, showcase_pc_zones, showcase_brands;
+  await db.exec(`reset role; truncate club_showcases, showcase_games, showcase_pc_zones, showcase_brands, showcase_offers;
     insert into club_showcases(club_id, slug, is_published, tagline) values ('${club}','neon-arena',true,'Play');
     insert into showcase_games(club_id, title, sort_order) values ('${club}','Dota 2',20),('${club}','CS2',10);
     insert into showcase_pc_zones(club_id, name, pc_count, gpu, price_per_hour) values ('${club}','VIP',5,'RTX 4080',25000);`);
@@ -62,6 +64,7 @@ describe('098 public showcase', () => {
     await db.exec(brandMigration);
     await db.exec(specsMigration);
     await db.exec(translationsMigration);
+    await db.exec(offersMigration);
   });
 
   it('returns a published showcase to anonymous visitors in sort order', async () => {
@@ -154,5 +157,18 @@ describe('098 public showcase', () => {
     expect(brand).toEqual({ tagline: { en: 'Chain' } });
     await db.exec('reset role');
     await expect(db.query(`update club_showcases set translations = '[]'`)).rejects.toThrow(/translations_object/);
+  });
+
+  it('publishes only active offers and keeps them owner-only', async () => {
+    await db.exec(`insert into showcase_offers(club_id, title, badge, price, sort_order, is_active) values
+      ('${club}','Night','NIGHT',60000,20,true),('${club}','2+1','2+1',null,10,true),('${club}','Old','X',1,30,false)`);
+    await asRole('anon');
+    const offers = (await db.query<{ o: Array<{ title: string }> }>("select public.get_public_showcase('neon-arena')->'offers' as o")).rows[0].o;
+    expect(offers.map((offer) => offer.title)).toEqual(['2+1', 'Night']);
+    await expect(db.query('select * from showcase_offers')).rejects.toThrow(/permission denied/);
+    await asRole('authenticated', owner, 'admin');
+    await expect(db.query(`insert into showcase_offers(club_id, title) values ('${club}','X')`)).rejects.toThrow(/row-level security/);
+    await db.exec('reset role');
+    await expect(db.query(`insert into showcase_offers(club_id, title, price) values ('${club}','X',-1)`)).rejects.toThrow(/price_non_negative/);
   });
 });
