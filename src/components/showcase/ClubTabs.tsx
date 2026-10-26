@@ -42,9 +42,25 @@ export function ClubTabs({ tabs, children, anchorId }: ClubTabsProps) {
     };
     fromHash(false);
     const onHashChange = () => fromHash(true);
+    // Clicking a "#club-<slug>" link that matches the current hash fires no
+    // hashchange, so handle the click itself: open and scroll every time.
+    const onClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = (event.target as Element | null)?.closest?.('a[href^="#club-"]');
+      if (!link) return;
+      const id = link.getAttribute('href')!.slice(HASH_PREFIX.length);
+      if (!tabs.some((tab) => tab.id === id)) return;
+      event.preventDefault();
+      window.history.replaceState(null, '', `${HASH_PREFIX}${id}`);
+      open(id, true);
+    };
     window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
-  }, [open]);
+    document.addEventListener('click', onClick);
+    return () => {
+      window.removeEventListener('hashchange', onHashChange);
+      document.removeEventListener('click', onClick);
+    };
+  }, [open, tabs]);
 
   useIsomorphicLayoutEffect(() => {
     const measure = () => {
