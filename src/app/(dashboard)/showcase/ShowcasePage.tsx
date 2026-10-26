@@ -233,7 +233,7 @@ export default function ShowcasePage() {
   ) : undefined;
 
   return (
-    <div className="w-full max-w-5xl space-y-5">
+    <div className="w-full space-y-5">
       <PageHeader title={t('title')} tabs={<ShowcaseTabs current="/showcase" />} action={openPublicLink} />
 
       {query.loading ? (
@@ -259,23 +259,23 @@ export default function ShowcasePage() {
             </CardHeader>
             <CardBody>
               <form onSubmit={saveSettings} className="space-y-4">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_16rem]">
                   <Field label={t('slug')} htmlFor="showcase-slug" required hint={t('slugHint', { path: `/club/${settings.slug || '…'}` })}>
                     <Input id="showcase-slug" value={settings.slug} maxLength={40} onChange={(e) => setField('slug', normalizeSlugInput(e.target.value))} />
                   </Field>
-                  <LocalizedTextField
-                    id="showcase-headline"
-                    label={t('headline')}
-                    hint={t('headlineHint')}
-                    maxLength={80}
-                    placeholder={selectedClub?.name}
-                    value={settings.headline}
-                    onChange={(value) => setField('headline', value)}
-                  />
+                  <Field label={t('brandOrder')} htmlFor="showcase-order" hint={t('brandOrderHint')}>
+                    <Input id="showcase-order" inputMode="numeric" value={settings.sort_order} onChange={(e) => setField('sort_order', e.target.value.replace(/[^\d-]/g, ''))} />
+                  </Field>
                 </div>
-                <Field label={t('brandOrder')} htmlFor="showcase-order" hint={t('brandOrderHint')} className="sm:max-w-xs">
-                  <Input id="showcase-order" inputMode="numeric" value={settings.sort_order} onChange={(e) => setField('sort_order', e.target.value.replace(/[^\d-]/g, ''))} />
-                </Field>
+                <LocalizedTextField
+                  id="showcase-headline"
+                  label={t('headline')}
+                  hint={t('headlineHint')}
+                  maxLength={80}
+                  placeholder={selectedClub?.name}
+                  value={settings.headline}
+                  onChange={(value) => setField('headline', value)}
+                />
                 <LocalizedTextField
                   id="showcase-tagline"
                   label={t('tagline')}
@@ -294,7 +294,7 @@ export default function ShowcasePage() {
                   onChange={(url) => setField('hero_image_url', url)}
                   onUploadingChange={setUploading}
                 />
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   <Field label={t('address')} htmlFor="showcase-address">
                     <Input id="showcase-address" value={settings.address} maxLength={160} placeholder={selectedClub?.address ?? undefined} onChange={(e) => setField('address', e.target.value)} />
                   </Field>
@@ -350,7 +350,7 @@ export default function ShowcasePage() {
                   {games.length === 0 ? (
                     <EmptyState compact icon={Gamepad2} title={t('noGames')} />
                   ) : (
-                    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+                    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10">
                       {games.map((game) => (
                         <li key={game.id}>
                           <button

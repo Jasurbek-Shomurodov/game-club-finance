@@ -146,7 +146,7 @@ export function BrandSettingsCard({ userId, clubId, onSaved }: BrandSettingsCard
               onChange={(url) => set('hero_image_url', url)}
               onUploadingChange={setUploading}
             />
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <Field label={t('telegram')} htmlFor="brand-telegram">
                 <Input id="brand-telegram" value={form.telegram_url} maxLength={200} placeholder="@pixelgaming" onChange={(e) => set('telegram_url', e.target.value)} />
               </Field>
