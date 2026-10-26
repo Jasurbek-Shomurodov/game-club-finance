@@ -84,11 +84,11 @@ describe('items', () => {
     expect(validateShowcaseGame({ title: 'CS2', genre: '', image_url: '', sort_order: 'x' })).toBe('sort_order_invalid');
     const zone = showcasePcZoneForm(null, 10);
     expect(validateShowcasePcZone(zone)).toBe('name_required');
-    expect(validateShowcasePcZone({ ...zone, name: 'VIP', pc_count: '0' })).toBe('pc_count_invalid');
+    expect(validateShowcasePcZone({ ...zone, name: { ru: '', uz: '', en: 'VIP' }, pc_count: '0' })).toBe('pc_count_invalid');
   });
 
   it('parses the formatted hourly price and keeps a blank price null', () => {
-    const zone = { ...showcasePcZoneForm(null, 10), name: 'VIP', price_per_hour: '15 000' };
+    const zone = { ...showcasePcZoneForm(null, 10), name: { ru: 'VIP', uz: '', en: '' }, price_per_hour: '15 000' };
     expect(buildShowcasePcZonePayload(zone).price_per_hour).toBe(15000);
     expect(buildShowcasePcZonePayload({ ...zone, price_per_hour: '' }).price_per_hour).toBeNull();
   });
@@ -171,7 +171,7 @@ describe('brand', () => {
 });
 
 describe('structured PC specs', () => {
-  const zone = { ...showcasePcZoneForm(null, 10), name: 'VIP' };
+  const zone = { ...showcasePcZoneForm(null, 10), name: { ru: 'VIP', uz: '', en: '' } };
 
   it('validates monitor size in inches and refresh rate', () => {
     expect(validateShowcasePcZone({ ...zone, monitor_size_inches: '27,5', monitor_refresh_hz: '240' })).toBeNull();
@@ -259,7 +259,7 @@ describe('map links', () => {
 
 describe('PlayStation zones', () => {
   it('saves console fields only for PlayStation and PC fields only for PCs', () => {
-    const base = { ...showcasePcZoneForm(null, 10, 'playstation'), name: 'PS5 lounge', pc_count: '3', console: 'PlayStation 5', controllers: '2', cpu: 'stale', mouse: 'stale', headset: 'Pulse 3D' };
+    const base = { ...showcasePcZoneForm(null, 10, 'playstation'), name: { ru: 'PS5 lounge', uz: '', en: '' }, pc_count: '3', console: 'PlayStation 5', controllers: '2', cpu: 'stale', mouse: 'stale', headset: 'Pulse 3D' };
     expect(base.kind).toBe('playstation');
     expect(buildShowcasePcZonePayload(base)).toMatchObject({ kind: 'playstation', console: 'PlayStation 5', controllers: 2, cpu: null, mouse: null, headset: 'Pulse 3D' });
     expect(buildShowcasePcZonePayload({ ...base, kind: 'pc', cpu: 'i5' })).toMatchObject({ kind: 'pc', console: null, controllers: null, cpu: 'i5' });
@@ -300,5 +300,20 @@ describe('club order on the brand page', () => {
     expect(buildShowcaseSettingsPayload(form).sort_order).toBe(1);
     expect(validateShowcaseSettings({ ...form, sort_order: 'first' })).toBe('sort_order_invalid');
     expect(showcaseSettingsForm(null, 'Pixel').sort_order).toBe('0');
+  });
+});
+
+describe('zone names per language', () => {
+  it('saves every language and shows visitors their own', () => {
+    const form = { ...showcasePcZoneForm(null, 10), name: { ru: 'Общий зал', uz: 'Umumiy zal', en: ' Main hall ' } };
+    expect(buildShowcasePcZonePayload(form)).toMatchObject({ name: 'Общий зал', translations: { name: { ru: 'Общий зал', uz: 'Umumiy zal', en: 'Main hall' } } });
+    const raw = { club_name: 'X', slug: 'x', games: [], zones: [{ id: 'z', name: 'Общий зал', pc_count: 20, translations: { name: { en: 'Main hall', uz: 'Umumiy zal' } } }] };
+    expect(parsePublicShowcase(raw, 'en')?.zones[0].name).toBe('Main hall');
+    expect(parsePublicShowcase(raw, 'uz')?.zones[0].name).toBe('Umumiy zal');
+    expect(parsePublicShowcase({ ...raw, zones: [{ id: 'z', name: 'Общий зал', pc_count: 20 }] }, 'en')?.zones[0].name).toBe('Общий зал');
+  });
+
+  it('opens an old zone with its single name under Russian', () => {
+    expect(showcasePcZoneForm({ id: 'z', club_id: 'c', name: 'Кабинка', pc_count: 5 } as never, 10).name).toEqual({ ru: 'Кабинка', uz: '', en: '' });
   });
 });

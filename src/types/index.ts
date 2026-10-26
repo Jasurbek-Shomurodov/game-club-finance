@@ -283,7 +283,7 @@ export interface OwnerProfitCarryover {
 }
 
 /** Per-language texts of a public page (101) or offer (102). */
-export type ShowcaseTranslations = Partial<Record<'headline' | 'tagline' | 'title' | 'description', Partial<Record<'ru' | 'uz' | 'en', string>>>>;
+export type ShowcaseTranslations = Partial<Record<'headline' | 'tagline' | 'title' | 'description' | 'name', Partial<Record<'ru' | 'uz' | 'en', string>>>>;
 
 export interface ClubShowcase {
   club_id: string;
@@ -323,6 +323,8 @@ export interface ShowcasePcZone {
   club_id: string;
   kind?: ShowcaseZoneKind;
   name: string;
+  /** Zone name per language (106). */
+  translations?: ShowcaseTranslations;
   pc_count: number;
   console?: string | null;
   controllers?: number | null;

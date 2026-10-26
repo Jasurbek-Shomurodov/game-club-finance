@@ -548,15 +548,16 @@ export default function ShowcasePage() {
                   ]}
                 />
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <Field label={t('zoneName')} htmlFor="zone-name" required className="sm:col-span-2">
-                    <Input
+                  <div className="sm:col-span-2">
+                    <LocalizedTextField
                       id="zone-name"
-                      value={editor.form.name}
+                      label={t('zoneName')}
                       maxLength={60}
                       placeholder={editor.form.kind === 'playstation' ? t('playstationZoneNamePlaceholder') : t('zoneNamePlaceholder')}
-                      onChange={(e) => setEditorField('name', e.target.value)}
+                      value={editor.form.name}
+                      onChange={(value) => setEditorField('name', value)}
                     />
-                  </Field>
+                  </div>
                   <Field label={editor.form.kind === 'playstation' ? t('consoleCount') : t('pcCount')} htmlFor="zone-count" required>
                     <Input id="zone-count" inputMode="numeric" value={editor.form.pc_count} onChange={(e) => setEditorField('pc_count', e.target.value.replace(/\D/g, ''))} />
                   </Field>

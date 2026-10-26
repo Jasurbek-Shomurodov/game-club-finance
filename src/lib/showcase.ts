@@ -244,7 +244,7 @@ export function buildShowcaseGamePayload(form: ShowcaseGameForm) {
 
 export interface ShowcasePcZoneForm {
   kind: ShowcaseZoneKind;
-  name: string;
+  name: LocalizedText;
   pc_count: string;
   console: string;
   controllers: string;
@@ -268,7 +268,7 @@ export interface ShowcasePcZoneForm {
 export function showcasePcZoneForm(zone: ShowcasePcZone | null, nextSortOrder: number, kind: ShowcaseZoneKind = 'pc'): ShowcasePcZoneForm {
   return {
     kind: zone?.kind ?? kind,
-    name: zone?.name ?? '',
+    name: localizedFromRow(zone?.translations, 'name', zone?.name),
     pc_count: String(zone?.pc_count ?? 1),
     console: zone?.console ?? '',
     controllers: zone?.controllers == null ? '' : String(zone.controllers),
@@ -291,7 +291,7 @@ export function showcasePcZoneForm(zone: ShowcasePcZone | null, nextSortOrder: n
 }
 
 export function validateShowcasePcZone(form: ShowcasePcZoneForm): ShowcaseItemError | null {
-  if (!form.name.trim()) return 'name_required';
+  if (!primaryText(form.name)) return 'name_required';
   const count = Number(form.pc_count);
   if (!Number.isInteger(count) || count <= 0 || count > 1000) return 'pc_count_invalid';
   if (form.kind === 'playstation' && form.controllers.trim()) {
@@ -320,7 +320,8 @@ export function buildShowcasePcZonePayload(form: ShowcasePcZoneForm) {
   const pcOnly = (value: string) => (pc ? optionalText(value) : null);
   return {
     kind: form.kind,
-    name: form.name.trim(),
+    name: primaryText(form.name) ?? '',
+    translations: { name: localizedPayload(form.name) },
     pc_count: Number(form.pc_count),
     console: pc ? null : optionalText(form.console),
     controllers: !pc && form.controllers.trim() ? Number(form.controllers.trim()) : null,
@@ -418,7 +419,7 @@ const translationsOf = (data: Record<string, unknown>) => {
   const value = data.translations;
   const record = value && typeof value === 'object' ? value as Record<string, unknown> : {};
   const field = (name: string) => (record[name] && typeof record[name] === 'object' ? record[name] as Record<string, unknown> : {});
-  return { headline: field('headline'), tagline: field('tagline'), title: field('title'), description: field('description') };
+  return { headline: field('headline'), tagline: field('tagline'), title: field('title'), description: field('description'), name: field('name') };
 };
 const positive = (value: number | null) => (value !== null && value > 0 ? value : null);
 const finiteNumber = (value: unknown) => {
@@ -458,7 +459,7 @@ export function parsePublicShowcase(raw: unknown, locale = 'ru'): PublicShowcase
       return title && id ? [{ id, title, genre: text(game.genre), image_url: safeUrl(game.image_url) }] : [];
     }),
     zones: list(data.zones).flatMap((zone) => {
-      const name = text(zone.name);
+      const name = pickLocalized(translationsOf(zone).name, locale, text(zone.name));
       const id = text(zone.id);
       if (!name || !id) return [];
       const count = finiteNumber(zone.pc_count);

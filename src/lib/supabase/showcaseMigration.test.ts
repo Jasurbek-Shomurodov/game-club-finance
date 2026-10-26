@@ -10,6 +10,7 @@ const translationsMigration = readFileSync(resolve('migrations', '101_showcase_t
 const offersMigration = readFileSync(resolve('migrations', '102_showcase_offers.sql'), 'utf8');
 const accessMigration = readFileSync(resolve('migrations', '103_showcase_feature_access.sql'), 'utf8');
 const contactsMigration = readFileSync(resolve('migrations', '104_showcase_contacts_and_consoles.sql'), 'utf8');
+const zoneTranslationsMigration = readFileSync(resolve('migrations', '106_showcase_zone_translations.sql'), 'utf8');
 const orderMigration = readFileSync(resolve('migrations', '105_showcase_club_order.sql'), 'utf8');
 const club = '10000000-0000-0000-0000-000000000001';
 const otherClub = '10000000-0000-0000-0000-000000000002';
@@ -223,5 +224,16 @@ describe('098 public showcase', () => {
     await expect(db.query(`update club_showcases set email = 'not-an-email'`)).rejects.toThrow(/email_format/);
     await expect(db.query(`update showcase_pc_zones set kind = 'xbox'`)).rejects.toThrow(/kind_valid/);
     await expect(db.query(`update showcase_pc_zones set controllers = 0`)).rejects.toThrow(/controllers_range/);
+  });
+
+  it('106 publishes zone names per language', async () => {
+    await db.exec(zoneTranslationsMigration);
+    await db.exec(zoneTranslationsMigration);
+    await db.exec(`reset role; update showcase_pc_zones set translations = '{"name":{"uz":"Umumiy zal","en":"Main hall"}}' where name = 'VIP'`);
+    await asRole('anon');
+    const zones = (await db.query<{ z: Array<{ name: string; translations: unknown }> }>("select public.get_public_showcase('neon-arena')->'zones' as z")).rows[0].z;
+    expect(zones.find((zone) => zone.name === 'VIP')?.translations).toEqual({ name: { uz: 'Umumiy zal', en: 'Main hall' } });
+    await db.exec('reset role');
+    await expect(db.query(`update showcase_pc_zones set translations = '[]'`)).rejects.toThrow(/translations_object/);
   });
 });

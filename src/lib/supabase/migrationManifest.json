@@ -3915,11 +3915,6 @@
         "kind": "constraint",
         "table": "public.club_showcases",
         "name": "club_showcases_email_format"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.public_showcase_payload(uuid)",
-        "md5": "7eeb6187445cd8639f890cd60ef2684a"
       }
     ]
   },
@@ -3935,6 +3930,26 @@
         "kind": "functionBody",
         "signature": "public.get_public_brand(text)",
         "md5": "cc55b564cda98bd580f97aa5a5106a19"
+      }
+    ]
+  },
+  {
+    "file": "106_showcase_zone_translations.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.showcase_pc_zones",
+        "column": "translations"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.showcase_pc_zones",
+        "name": "showcase_pc_zones_translations_object"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.public_showcase_payload(uuid)",
+        "md5": "cfe814562e32bd5885545476d90b3f92"
       }
     ]
   }
