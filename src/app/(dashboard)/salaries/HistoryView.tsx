@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import { Users } from 'lucide-react';
 import {
   Badge,
+  type BadgeVariant,
   Button,
   Card,
   DataTable,
@@ -17,6 +18,8 @@ import { canDeleteSalaryRate, type SalaryEmployee, type SalaryEntry, type Salary
 import { formatCurrency, formatDateOnly, formatDateTime, formatYearMonth } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { useSalaryText, type DeletionTarget } from './shared';
+
+const ENTRY_BADGE: Record<SalaryEntry['kind'], BadgeVariant> = { payment: 'info', bonus: 'success', fine: 'danger' };
 
 export interface HistoryViewProps {
   /** Requested employee id from the route; without it the history covers the whole club. */
@@ -81,21 +84,26 @@ export function HistoryView({
           <SectionHeading size="sm" title={t('transactions')} className="mb-3" />
           <div className="space-y-2">
             {historyEntries.map((entry) => (
-              <div key={entry.id} className={`flex flex-wrap items-start justify-between gap-4 rounded-xl border border-gray-200 p-3 text-sm ${entry.deleted_at ? 'opacity-60' : ''}`}>
-                <div className="min-w-0">
-                  <p className="font-semibold text-gray-900">{employeePrefix(entry.employee_id)}{t(entry.kind)} · {formatDateOnly(entry.date, locale)}</p>
+              <div key={entry.id} className={cn('flex items-start gap-3 rounded-xl border border-gray-200 p-3 text-sm', entry.deleted_at && 'opacity-60')}>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={ENTRY_BADGE[entry.kind]} size="sm">{t(entry.kind)}</Badge>
+                    <span className="font-semibold text-gray-900">{employeePrefix(entry.employee_id)}{formatDateOnly(entry.date, locale)}</span>
+                  </div>
                   {entry.payment_method && <p className="mt-1 text-xs text-gray-500">{tc(`paymentMethods.${entry.payment_method}`)} · {tp(`paymentSources.${entry.payment_source}`)}</p>}
-                  {entry.comment && <p className="mt-1 break-words text-gray-500">{entry.comment}</p>}
-                  {entry.delete_reason && <p className="mt-1 break-words text-gray-500">{t('deleteReason')}: {entry.delete_reason}</p>}
+                  {entry.comment && <p className="mt-1.5 whitespace-pre-line break-words text-gray-600">{entry.comment}</p>}
+                  {entry.delete_reason && <p className="mt-1 break-words text-xs text-gray-500">{t('deleteReason')}: {entry.delete_reason}</p>}
                 </div>
-                <strong className={cn('tabular-nums', entry.kind === 'bonus' ? 'text-success-600' : entry.kind === 'fine' ? 'text-danger-600' : 'text-gray-900')}>{entry.kind === 'bonus' ? '+' : '−'}{currency(Number(entry.amount))}</strong>
-                {entry.deleted_at ? (
-                  <Badge variant="neutral" size="sm">{t('deleted')} · {formatDateTime(entry.deleted_at, locale)}</Badge>
-                ) : canEdit && (
-                  <Button variant="dangerOutline" size="sm" disabled={saving} onClick={() => onDelete({ id: entry.id, employeeId: entry.employee_id, kind: 'entry', label: `${employeePrefix(entry.employee_id)}${t(entry.kind)} · ${formatDateOnly(entry.date, locale)} · ${currency(Number(entry.amount))}` })}>
-                    {t('delete')}
-                  </Button>
-                )}
+                <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
+                  <strong className={cn('whitespace-nowrap tabular-nums', entry.kind === 'bonus' ? 'text-success-600' : entry.kind === 'fine' ? 'text-danger-600' : 'text-gray-900')}>{entry.kind === 'bonus' ? '+' : '−'}{currency(Number(entry.amount))}</strong>
+                  {entry.deleted_at ? (
+                    <Badge variant="neutral" size="sm">{t('deleted')} · {formatDateTime(entry.deleted_at, locale)}</Badge>
+                  ) : canEdit && (
+                    <Button variant="dangerOutline" size="sm" disabled={saving} onClick={() => onDelete({ id: entry.id, employeeId: entry.employee_id, kind: 'entry', label: `${employeePrefix(entry.employee_id)}${t(entry.kind)} · ${formatDateOnly(entry.date, locale)} · ${currency(Number(entry.amount))}` })}>
+                      {t('delete')}
+                    </Button>
+                  )}
+                </div>
               </div>
             ))}
             {historyEntries.length === 0 && <EmptyState compact bordered title={t('noTransactions')} />}
@@ -104,37 +112,40 @@ export function HistoryView({
         <div>
           <SectionHeading size="sm" title={t('rateHistory')} className="mb-3" />
           {historyRates.length === 0 && <EmptyState compact bordered title={t('noRates')} />}
-          <ul className="divide-y divide-gray-100">
+          <div className="space-y-2">
             {historyRates.map((rate) => {
               const deletable = canDeleteSalaryRate(rates, rate);
               return (
-                <li className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm text-gray-600" key={rate.id}>
-                  <div className="min-w-0">
-                    <p className={rate.deleted_at ? 'line-through opacity-60' : ''}>
-                      {employeePrefix(rate.employee_id)}{formatDateOnly(rate.effective_date, locale)} · {t(rate.salary_type)} · {currency(Number(rate.amount))} · {t('kpi')}: {Number(rate.kpi_percent)}% ({kpiSummary(rate)}) · {t(rate.active ? 'active' : 'inactive')}
+                <div className="flex items-start gap-3 rounded-xl border border-gray-200 p-3 text-sm" key={rate.id}>
+                  <div className={cn('min-w-0 flex-1', rate.deleted_at && 'opacity-60')}>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={cn('font-semibold text-gray-900', rate.deleted_at && 'line-through')}>{employeePrefix(rate.employee_id)}{formatDateOnly(rate.effective_date, locale)}</span>
+                      <Badge variant={rate.active ? 'success' : 'neutral'} size="sm">{t(rate.active ? 'active' : 'inactive')}</Badge>
+                    </div>
+                    <p className="mt-1 text-gray-600">
+                      {t(rate.salary_type)} · <span className="tabular-nums">{currency(Number(rate.amount))}</span>
                     </p>
-                    {rate.delete_reason && <p className="mt-1 break-words text-gray-500 opacity-60">{t('deleteReason')}: {rate.delete_reason}</p>}
+                    <p className="mt-0.5 text-xs text-gray-500">{t('kpi')}: {Number(rate.kpi_percent)}% ({kpiSummary(rate)})</p>
+                    {rate.delete_reason && <p className="mt-1 break-words text-xs text-gray-500">{t('deleteReason')}: {rate.delete_reason}</p>}
+                    {!rate.deleted_at && isOwner && !deletable && <p className="mt-1.5 text-xs text-gray-400">{t('lastRateHelp')}</p>}
                   </div>
                   {rate.deleted_at ? (
-                    <Badge variant="neutral" size="sm">{t('deleted')} · {formatDateTime(rate.deleted_at, locale)}</Badge>
-                  ) : isOwner && (
-                    <div className="flex flex-col items-end gap-1">
-                      <Button
-                        variant="dangerOutline"
-                        size="sm"
-                        disabled={saving || !deletable}
-                        aria-describedby={!deletable ? `rate-delete-hint-${rate.id}` : undefined}
-                        onClick={() => onDelete({ id: rate.id, employeeId: rate.employee_id, kind: 'rate', label: `${employeePrefix(rate.employee_id)}${formatDateOnly(rate.effective_date, locale)} · ${currency(Number(rate.amount))} · ${Number(rate.kpi_percent)}%` })}
-                      >
-                        {t('delete')}
-                      </Button>
-                      {!deletable && <p id={`rate-delete-hint-${rate.id}`} className="max-w-xs text-right text-xs text-gray-500">{t('lastRateHelp')}</p>}
-                    </div>
+                    <Badge variant="neutral" size="sm" className="shrink-0">{t('deleted')} · {formatDateTime(rate.deleted_at, locale)}</Badge>
+                  ) : isOwner && deletable && (
+                    <Button
+                      variant="dangerOutline"
+                      size="sm"
+                      className="shrink-0"
+                      disabled={saving}
+                      onClick={() => onDelete({ id: rate.id, employeeId: rate.employee_id, kind: 'rate', label: `${employeePrefix(rate.employee_id)}${formatDateOnly(rate.effective_date, locale)} · ${currency(Number(rate.amount))} · ${Number(rate.kpi_percent)}%` })}
+                    >
+                      {t('delete')}
+                    </Button>
                   )}
-                </li>
+                </div>
               );
             })}
-          </ul>
+          </div>
         </div>
       </div>
     </Card>
