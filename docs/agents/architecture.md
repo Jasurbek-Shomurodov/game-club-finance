@@ -26,8 +26,8 @@ move authorization entirely into cookie presence.
 
 The site root (`/`) is the public landing page for every visitor: the brand
 page named by `PUBLIC_SITE_BRAND_SLUG` (default `pixel-gaming`), or a redirect
-to `/login` while that brand is unpublished. Staff reach `/login` through the
-footer's "Staff login" link; sign-in and every "back to the app" link go to `DASHBOARD_PATH`
+to `/login` while that brand is unpublished. Its header Login button opens
+`/login`; sign-in and every "back to the app" link go to `DASHBOARD_PATH`
 (`/dashboard`, `src/lib/routes.ts`). `/club/<slug>` and `/brand/<slug>` are
 public too. The proxy lets these through without Auth; they read only the
 anonymous showcase RPCs.

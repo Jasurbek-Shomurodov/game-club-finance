@@ -39,7 +39,7 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
 
   return (
     <div id="top" className="sc-root relative min-h-screen">
-      <ShowcaseNav clubName={brand.name} links={navLinks} cta={cta} />
+      <ShowcaseNav clubName={brand.name} links={navLinks} cta={cta} loginLabel={t('login')} />
 
       {/* ---------- First screen: who we are, then every club with what visitors need ---------- */}
       <section className="relative isolate overflow-hidden pb-14 pt-24 sm:pt-28">

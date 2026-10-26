@@ -1,16 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { LogIn } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/PresentationFoundation';
 
 interface ShowcaseNavProps {
   clubName: string;
   links: Array<{ href: string; label: string }>;
   cta?: { href: string; label: string } | null;
+  /** Opens the staff sign-in flow; a signed-in user lands on the dashboard. */
+  loginLabel: string;
 }
 
 /** Transparent over the hero, frosted glass once the page scrolls. */
-export function ShowcaseNav({ clubName, links, cta }: ShowcaseNavProps) {
+export function ShowcaseNav({ clubName, links, cta, loginLabel }: ShowcaseNavProps) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -34,6 +37,13 @@ export function ShowcaseNav({ clubName, links, cta }: ShowcaseNavProps) {
           ))}
         </div>
         <LanguageSwitcher variant="dark" className="ml-auto bg-white/10 md:ml-2" />
+        <a
+          href="/login"
+          className="sc-glass inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-white transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300"
+        >
+          <LogIn size={16} aria-hidden="true" />
+          {loginLabel}
+        </a>
         {cta && (
           <a href={cta.href} target="_blank" rel="noopener noreferrer" className="sc-cta hidden rounded-xl px-4 py-2 text-sm font-semibold text-white sm:inline-flex">
             {cta.label}

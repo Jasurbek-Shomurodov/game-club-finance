@@ -26,7 +26,7 @@ test.describe('signed out', () => {
     await expect(page).toHaveURL(/\/login\?next=%2Fdebts$/);
     expect(await page.content()).not.toContain('E2E Alibek');
     await signIn(page, accounts.owner);
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/dashboard$/);
     expect(leaked).toEqual([]);
     expect(errors).toEqual([]);
   });
