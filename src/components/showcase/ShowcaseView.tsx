@@ -42,7 +42,7 @@ export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
 
   return (
     <div id="top" className="sc-root relative min-h-screen">
-      <ShowcaseNav clubName={showcase.club_name} links={navLinks} cta={primaryCta} loginLabel={t('login')} />
+      <ShowcaseNav clubName={showcase.club_name} links={navLinks} cta={primaryCta} />
 
       <section className="relative isolate flex min-h-[100svh] items-center overflow-hidden pb-20 pt-28">
         <HeroBackdrop imageUrl={showcase.hero_image_url} />

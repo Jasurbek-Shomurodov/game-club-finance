@@ -1,6 +1,6 @@
-// Route: / — the public landing page for everyone, signed in or not. The
-// header's Login button opens /login, which sends a signed-in user straight
-// to the dashboard.
+// Route: / — the public landing page for everyone, signed in or not. Staff
+// sign in through the footer's "Staff login" link to /login, which sends a
+// signed-in user straight to the dashboard.
 
 import type { Metadata } from 'next';
 import { cache } from 'react';
