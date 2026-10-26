@@ -1725,7 +1725,14 @@
     "error_title_required": "Введите название игры.",
     "error_name_required": "Введите название зоны.",
     "error_pc_count_invalid": "Укажите количество ПК от 1 до 1000.",
-    "error_sort_order_invalid": "Порядок должен быть целым числом."
+    "error_sort_order_invalid": "Порядок должен быть целым числом.",
+    "brandTitle": "Страница бренда",
+    "brandDescription": "Одна страница для всех ваших клубов: общее впечатление и вкладка для каждого клуба. Показываются только клубы с опубликованной страницей.",
+    "brandName": "Название бренда",
+    "openBrandPage": "Открыть страницу бренда",
+    "publishBrand": "Опубликовать страницу бренда",
+    "publishBrandDescription": "Любой по ссылке увидит бренд и все опубликованные страницы клубов. Финансовые данные никогда не показываются.",
+    "error_brand_name_required": "Введите название бренда."
   },
   "publicShowcase": {
     "navGames": "Игры",
@@ -1759,6 +1766,26 @@
     "contactsDescription": "Заходи, пиши, чтобы забронировать место, или приводи всю команду на турнирный вечер.",
     "address": "Адрес",
     "hours": "Часы работы",
-    "phone": "Телефон"
+    "phone": "Телефон",
+    "navLocations": "Адреса",
+    "navClubs": "Клубы",
+    "statClubs": "Клубов",
+    "clubsAcrossCity": "{count, plural, one {# клуб} few {# клуба} many {# клубов} other {# клуба}} · одно комьюнити",
+    "chooseClub": "Выбрать клуб",
+    "locationsEyebrow": "Адреса",
+    "locationsTitle": "Найди клуб рядом",
+    "locationsDescription": "Та же атмосфера и тот же уровень железа. Выбери ближайший.",
+    "openClub": "Смотреть",
+    "fromPrice": "от {price}/ч",
+    "clubsEyebrow": "Внутри клубов",
+    "clubsTitle": "Выбери клуб и смотри всё",
+    "clubsDescription": "Компьютеры, характеристики, цены и игры в каждом клубе.",
+    "fullPage": "Отдельная страница",
+    "insightsTitle": "Коротко",
+    "insightZones": "Зон",
+    "insightPrice": "Цена за час",
+    "insightTopGpu": "Лучшая видеокарта",
+    "insightRefresh": "Самый быстрый монитор",
+    "hertz": "{value} Гц"
   }
 }

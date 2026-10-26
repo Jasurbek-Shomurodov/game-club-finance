@@ -1,6 +1,6 @@
 import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { ClubShowcase, ShowcaseGame, ShowcasePcZone } from '@/types';
-import { parsePublicShowcase, showcaseImagePath, type PublicShowcase } from '@/lib/showcase';
+import type { ClubShowcase, ShowcaseBrand, ShowcaseGame, ShowcasePcZone } from '@/types';
+import { parsePublicBrand, parsePublicShowcase, showcaseImagePath, type PublicBrand, type PublicShowcase } from '@/lib/showcase';
 import { isMissingDatabaseTable } from './errors';
 
 export const SHOWCASE_BUCKET = 'showcase';
@@ -52,15 +52,37 @@ export async function uploadShowcaseImage(
 }
 
 /**
- * Anonymous read for the public page. Uses the anon key without cookies, so
+ * Anonymous client for the public pages. Uses the anon key without cookies, so
  * a visitor's session never changes what the page shows.
  */
-export async function fetchPublicShowcase(slug: string): Promise<PublicShowcase | null> {
+function anonymousClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return null;
-  const supabase = createSupabaseClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  return createSupabaseClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+}
+
+export async function fetchPublicShowcase(slug: string): Promise<PublicShowcase | null> {
+  const supabase = anonymousClient();
+  if (!supabase) return null;
   const { data, error } = await supabase.rpc('get_public_showcase', { p_slug: slug });
-  if (error) return null;
-  return parsePublicShowcase(data);
+  return error ? null : parsePublicShowcase(data);
+}
+
+export async function fetchPublicBrand(slug: string): Promise<PublicBrand | null> {
+  const supabase = anonymousClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('get_public_brand', { p_slug: slug });
+  return error ? null : parsePublicBrand(data);
+}
+
+/**
+ * The signed-in user's own brand page settings. Databases before migration
+ * 099 have no brand table; that reads as no brand with `missing` set.
+ */
+export async function fetchOwnShowcaseBrand(supabase: SupabaseClient, userId: string) {
+  const { data, error } = await supabase.from('showcase_brands').select('*').eq('owner_id', userId).maybeSingle<ShowcaseBrand>();
+  if (missing(error, 'showcase_brands')) return { brand: null, missing: true };
+  if (error) throw new Error('Brand load failed');
+  return { brand: data ?? null, missing: false };
 }

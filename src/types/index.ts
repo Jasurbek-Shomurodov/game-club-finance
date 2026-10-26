@@ -322,3 +322,15 @@ export interface ShowcasePcZone {
   sort_order: number;
   created_at: string;
 }
+
+export interface ShowcaseBrand {
+  owner_id: string;
+  slug: string;
+  name: string;
+  tagline: string | null;
+  hero_image_url: string | null;
+  telegram_url: string | null;
+  instagram_url: string | null;
+  is_published: boolean;
+  updated_at: string;
+}

@@ -50,6 +50,7 @@ import {
 } from '@/lib/showcase';
 import { useClubQuery } from '@/lib/useClubQuery';
 import type { ShowcaseGame, ShowcasePcZone } from '@/types';
+import { BrandSettingsCard } from './BrandSettingsCard';
 import { ShowcaseImageField } from './ShowcaseImageField';
 
 const EMPTY: ShowcaseAdminData & { missing: boolean } = { showcase: null, games: [], zones: [], missing: false };
@@ -61,7 +62,7 @@ type Editor =
 export default function ShowcasePage() {
   const t = useTranslations('showcase');
   const tc = useTranslations('common');
-  const { selectedClubId, selectedClub, role } = useClub();
+  const { selectedClubId, selectedClub, role, account } = useClub();
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
   const isOwner = role === 'owner';
@@ -210,6 +211,8 @@ export default function ShowcasePage() {
         <InlineAlert variant="warning">{t('migrationMissing')}</InlineAlert>
       ) : (
         <>
+          <BrandSettingsCard userId={account.userId} clubId={selectedClubId} onSaved={showToast} />
+
           <Card padding="none">
             <CardHeader>
               <SectionHeading

@@ -1725,7 +1725,14 @@
     "error_title_required": "Enter the game title.",
     "error_name_required": "Enter the zone name.",
     "error_pc_count_invalid": "Enter a number of PCs from 1 to 1000.",
-    "error_sort_order_invalid": "The order must be a whole number."
+    "error_sort_order_invalid": "The order must be a whole number.",
+    "brandTitle": "Brand page",
+    "brandDescription": "One page for all your clubs: the overall experience with a tab for each club. Only clubs whose own page is published appear.",
+    "brandName": "Brand name",
+    "openBrandPage": "Open brand page",
+    "publishBrand": "Publish the brand page",
+    "publishBrandDescription": "Anyone with the link sees your brand and every published club page. No finance data is ever shown.",
+    "error_brand_name_required": "Enter the brand name."
   },
   "publicShowcase": {
     "navGames": "Games",
@@ -1759,6 +1766,26 @@
     "contactsDescription": "Drop by, message us to book a seat, or bring your whole team for a tournament night.",
     "address": "Address",
     "hours": "Opening hours",
-    "phone": "Phone"
+    "phone": "Phone",
+    "navLocations": "Locations",
+    "navClubs": "Clubs",
+    "statClubs": "Clubs",
+    "clubsAcrossCity": "{count, plural, one {# club} other {# clubs}} · one community",
+    "chooseClub": "Choose your club",
+    "locationsEyebrow": "Locations",
+    "locationsTitle": "Find a club near you",
+    "locationsDescription": "Same atmosphere, same hardware standard. Pick the closest one.",
+    "openClub": "Explore",
+    "fromPrice": "from {price}/h",
+    "clubsEyebrow": "Inside the clubs",
+    "clubsTitle": "Pick a club, see everything",
+    "clubsDescription": "Computers, specs, prices and the games installed at each location.",
+    "fullPage": "Full page",
+    "insightsTitle": "At a glance",
+    "insightZones": "Zones",
+    "insightPrice": "Price per hour",
+    "insightTopGpu": "Top graphics",
+    "insightRefresh": "Fastest monitor",
+    "hertz": "{value} Hz"
   }
 }

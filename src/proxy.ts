@@ -17,8 +17,8 @@ function redirectToLogin(request: NextRequest) {
 }
 
 export async function proxy(request: NextRequest) {
-  // Published club showcases are public; they read only get_public_showcase.
-  if (request.nextUrl.pathname.startsWith('/club/')) {
+  // Published club and brand pages are public; they read only get_public_showcase / get_public_brand.
+  if (request.nextUrl.pathname.startsWith('/club/') || request.nextUrl.pathname.startsWith('/brand/')) {
     return NextResponse.next({ request });
   }
 

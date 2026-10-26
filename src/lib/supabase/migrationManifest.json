@@ -3593,10 +3593,98 @@
       {
         "kind": "function",
         "signature": "public.touch_club_showcase()"
+      }
+    ]
+  },
+  {
+    "file": "099_showcase_brands.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.showcase_brands"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_brands",
+        "column": "owner_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_brands",
+        "column": "slug"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_brands",
+        "column": "name"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_brands",
+        "column": "tagline"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_brands",
+        "column": "hero_image_url"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_brands",
+        "column": "telegram_url"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_brands",
+        "column": "instagram_url"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_brands",
+        "column": "is_published"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_brands",
+        "column": "updated_at"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.showcase_brands",
+        "name": "showcase_brands_slug_format"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.showcase_brands",
+        "name": "showcase_brands_slug_key"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.showcase_brands",
+        "name": "showcase_brands_name_not_blank"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.showcase_brands",
+        "name": "trg_touch_showcase_brand"
+      },
+      {
+        "kind": "policy",
+        "table": "public.showcase_brands",
+        "name": "own_showcase_brand"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_public_showcase(text)",
+        "md5": "a33dcb22401a0d73c78e4369095488bf"
       },
       {
         "kind": "function",
-        "signature": "public.get_public_showcase(text)"
+        "signature": "public.public_showcase_payload(uuid)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.get_public_brand(text)"
       }
     ]
   }

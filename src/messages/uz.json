@@ -1725,7 +1725,14 @@
     "error_title_required": "O‘yin nomini kiriting.",
     "error_name_required": "Zona nomini kiriting.",
     "error_pc_count_invalid": "Kompyuterlar sonini 1 dan 1000 gacha kiriting.",
-    "error_sort_order_invalid": "Tartib butun son bo‘lishi kerak."
+    "error_sort_order_invalid": "Tartib butun son bo‘lishi kerak.",
+    "brandTitle": "Brend sahifasi",
+    "brandDescription": "Barcha klublaringiz uchun bitta sahifa: umumiy taassurot va har bir klub uchun alohida tab. Faqat sahifasi e’lon qilingan klublar ko‘rinadi.",
+    "brandName": "Brend nomi",
+    "openBrandPage": "Brend sahifasini ochish",
+    "publishBrand": "Brend sahifasini e’lon qilish",
+    "publishBrandDescription": "Havolaga ega har kim brendingiz va e’lon qilingan barcha klub sahifalarini ko‘radi. Moliyaviy ma’lumotlar hech qachon ko‘rsatilmaydi.",
+    "error_brand_name_required": "Brend nomini kiriting."
   },
   "publicShowcase": {
     "navGames": "O‘yinlar",
@@ -1759,6 +1766,26 @@
     "contactsDescription": "Kirib keling, joy band qilish uchun yozing yoki butun jamoangiz bilan turnir kechasiga keling.",
     "address": "Manzil",
     "hours": "Ish vaqti",
-    "phone": "Telefon"
+    "phone": "Telefon",
+    "navLocations": "Manzillar",
+    "navClubs": "Klublar",
+    "statClubs": "Klub",
+    "clubsAcrossCity": "{count, plural, other {# ta klub}} · bitta jamoa",
+    "chooseClub": "Klubni tanlash",
+    "locationsEyebrow": "Manzillar",
+    "locationsTitle": "Yaqiningizdagi klubni toping",
+    "locationsDescription": "Bir xil muhit, bir xil texnika darajasi. Eng yaqinini tanlang.",
+    "openClub": "Ko‘rish",
+    "fromPrice": "{price}/soat dan",
+    "clubsEyebrow": "Klublar ichida",
+    "clubsTitle": "Klubni tanlang va hammasini ko‘ring",
+    "clubsDescription": "Har bir klubdagi kompyuterlar, xususiyatlar, narxlar va o‘yinlar.",
+    "fullPage": "Alohida sahifa",
+    "insightsTitle": "Qisqacha",
+    "insightZones": "Zonalar",
+    "insightPrice": "Soatlik narx",
+    "insightTopGpu": "Eng kuchli videokarta",
+    "insightRefresh": "Eng tez monitor",
+    "hertz": "{value} Gs"
   }
 }

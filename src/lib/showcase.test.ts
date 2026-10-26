@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   SHOWCASE_SLUG_PATTERN,
+  brandInsights,
+  buildShowcaseBrandPayload,
+  clubInsights,
+  parsePublicBrand,
+  showcaseBrandForm,
+  validateShowcaseBrand,
   buildShowcasePcZonePayload,
   buildShowcaseSettingsPayload,
   lowestHourlyPrice,
@@ -106,5 +112,50 @@ describe('parsePublicShowcase', () => {
   it('returns null for an unpublished or unknown page', () => {
     expect(parsePublicShowcase(null)).toBeNull();
     expect(parsePublicShowcase({ slug: 'x' })).toBeNull();
+  });
+});
+
+describe('brand', () => {
+  const brandPayload = {
+    slug: 'pixel-gaming',
+    name: 'Pixel Gaming',
+    instagram_url: 'javascript:x',
+    clubs: [
+      {
+        club_name: 'Pixel Chilonzor', slug: 'chilonzor',
+        games: [{ id: 'g1', title: 'CS2' }, { id: 'g2', title: 'Dota 2' }],
+        zones: [
+          { id: 'z1', name: 'Standard', pc_count: 20, gpu: 'RTX 4060', monitor: '24" 165 Hz', price_per_hour: 12000 },
+          { id: 'z2', name: 'VIP', pc_count: 8, gpu: 'RTX 4080', monitor: '27" 240 Гц', price_per_hour: 25000 },
+        ],
+      },
+      { club_name: 'Pixel Yunusobod', slug: 'yunusobod', games: [{ id: 'g3', title: 'cs2 ' }], zones: [{ id: 'z3', name: 'Pro', pc_count: 6, price_per_hour: 15000 }] },
+      { slug: 'broken' },
+    ],
+  };
+
+  it('parses clubs and drops unsafe links and broken clubs', () => {
+    const brand = parsePublicBrand(brandPayload);
+    expect(brand?.instagram_url).toBeNull();
+    expect(brand?.clubs.map((club) => club.slug)).toEqual(['chilonzor', 'yunusobod']);
+    expect(parsePublicBrand({ slug: 'x' })).toBeNull();
+  });
+
+  it('summarizes one club', () => {
+    const club = parsePublicBrand(brandPayload)!.clubs[0];
+    expect(clubInsights(club)).toEqual({
+      pcCount: 28, zoneCount: 2, gameCount: 2, minPrice: 12000, maxPrice: 25000, topGpu: 'RTX 4080', maxRefreshHz: 240,
+    });
+  });
+
+  it('summarizes the whole brand with distinct game titles', () => {
+    expect(brandInsights(parsePublicBrand(brandPayload)!)).toEqual({ clubCount: 2, pcCount: 34, gameCount: 2, minPrice: 12000 });
+  });
+
+  it('validates the brand form', () => {
+    const form = { ...showcaseBrandForm(null), slug: 'pixel-gaming' };
+    expect(validateShowcaseBrand(form)).toBe('brand_name_required');
+    expect(validateShowcaseBrand({ ...form, name: 'Pixel Gaming' })).toBeNull();
+    expect(buildShowcaseBrandPayload({ ...form, name: ' Pixel ', telegram_url: '@pixel' })).toMatchObject({ name: 'Pixel', telegram_url: 'https://t.me/pixel' });
   });
 });

@@ -1,4 +1,4 @@
-import type { ClubShowcase, ShowcaseGame, ShowcasePcZone } from '@/types';
+import type { ClubShowcase, ShowcaseBrand, ShowcaseGame, ShowcasePcZone } from '@/types';
 import { formatCurrencyInput, parseCurrencyInput } from './formatters';
 
 /** Matches the club_showcases_slug_format check in migration 098. */
@@ -318,4 +318,127 @@ export function lowestHourlyPrice(zones: Array<{ price_per_hour: number | null }
 export function showcaseImagePath(clubId: string, kind: 'game' | 'zone' | 'hero', fileName: string, random: string): string {
   const extension = /\.([a-z0-9]{2,5})$/i.exec(fileName)?.[1]?.toLowerCase() ?? 'jpg';
   return `${clubId}/${kind}-${random}.${extension}`;
+}
+
+export interface PublicBrand {
+  slug: string;
+  name: string;
+  tagline: string | null;
+  hero_image_url: string | null;
+  telegram_url: string | null;
+  instagram_url: string | null;
+  clubs: PublicShowcase[];
+}
+
+/** The get_public_brand payload; clubs that fail to parse are dropped. */
+export function parsePublicBrand(raw: unknown): PublicBrand | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const data = raw as Record<string, unknown>;
+  const slug = text(data.slug);
+  const name = text(data.name);
+  if (!slug || !name) return null;
+  const clubs = Array.isArray(data.clubs) ? data.clubs.map(parsePublicShowcase).filter((club): club is PublicShowcase => club !== null) : [];
+  return {
+    slug,
+    name,
+    tagline: text(data.tagline),
+    hero_image_url: safeUrl(data.hero_image_url),
+    telegram_url: safeUrl(data.telegram_url),
+    instagram_url: safeUrl(data.instagram_url),
+    clubs,
+  };
+}
+
+export interface ClubInsights {
+  pcCount: number;
+  zoneCount: number;
+  gameCount: number;
+  minPrice: number | null;
+  maxPrice: number | null;
+  /** The graphics card of the most expensive zone that lists one, else of the first zone that does. */
+  topGpu: string | null;
+  /** The fastest refresh rate found in any monitor description ("27\" 240 Hz" → 240). */
+  maxRefreshHz: number | null;
+}
+
+const REFRESH_PATTERN = /(\d{2,3})\s*(?:hz|гц|gs)/gi;
+
+export function clubInsights(club: Pick<PublicShowcase, 'zones' | 'games'>): ClubInsights {
+  const prices = club.zones.map((zone) => zone.price_per_hour).filter((price): price is number => price !== null);
+  const withGpu = club.zones.filter((zone) => zone.gpu);
+  const topZone = [...withGpu].sort((a, b) => (b.price_per_hour ?? -1) - (a.price_per_hour ?? -1))[0];
+  const refreshRates = club.zones.flatMap((zone) => [...(zone.monitor ?? '').matchAll(REFRESH_PATTERN)].map((match) => Number(match[1])));
+  return {
+    pcCount: totalPcCount(club.zones),
+    zoneCount: club.zones.length,
+    gameCount: club.games.length,
+    minPrice: prices.length ? Math.min(...prices) : null,
+    maxPrice: prices.length ? Math.max(...prices) : null,
+    topGpu: topZone?.gpu ?? null,
+    maxRefreshHz: refreshRates.length ? Math.max(...refreshRates) : null,
+  };
+}
+
+export interface BrandInsights {
+  clubCount: number;
+  pcCount: number;
+  /** Distinct game titles across every club. */
+  gameCount: number;
+  minPrice: number | null;
+}
+
+export function brandInsights(brand: Pick<PublicBrand, 'clubs'>): BrandInsights {
+  const titles = new Set(brand.clubs.flatMap((club) => club.games.map((game) => game.title.trim().toLowerCase())));
+  return {
+    clubCount: brand.clubs.length,
+    pcCount: brand.clubs.reduce((sum, club) => sum + totalPcCount(club.zones), 0),
+    gameCount: titles.size,
+    minPrice: lowestHourlyPrice(brand.clubs.flatMap((club) => club.zones)),
+  };
+}
+
+export interface ShowcaseBrandForm {
+  slug: string;
+  name: string;
+  tagline: string;
+  hero_image_url: string;
+  telegram_url: string;
+  instagram_url: string;
+  is_published: boolean;
+}
+
+export type ShowcaseBrandError = 'brand_name_required' | ShowcaseSettingsError;
+
+export function showcaseBrandForm(brand: ShowcaseBrand | null): ShowcaseBrandForm {
+  return {
+    slug: brand?.slug ?? '',
+    name: brand?.name ?? '',
+    tagline: brand?.tagline ?? '',
+    hero_image_url: brand?.hero_image_url ?? '',
+    telegram_url: brand?.telegram_url ?? '',
+    instagram_url: brand?.instagram_url ?? '',
+    is_published: brand?.is_published ?? false,
+  };
+}
+
+export function validateShowcaseBrand(form: ShowcaseBrandForm): ShowcaseBrandError | null {
+  if (!form.name.trim()) return 'brand_name_required';
+  if (!SHOWCASE_SLUG_PATTERN.test(form.slug)) return 'slug_invalid';
+  if (form.telegram_url.trim() && !normalizeTelegramUrl(form.telegram_url)) return 'telegram_invalid';
+  if (form.instagram_url.trim() && !normalizeInstagramUrl(form.instagram_url)) return 'instagram_invalid';
+  if (form.hero_image_url.trim() && !normalizeExternalUrl(form.hero_image_url)) return 'image_invalid';
+  return null;
+}
+
+/** Validated form → showcase_brands columns (owner_id added by the caller). */
+export function buildShowcaseBrandPayload(form: ShowcaseBrandForm) {
+  return {
+    slug: form.slug,
+    name: form.name.trim(),
+    tagline: optionalText(form.tagline),
+    hero_image_url: normalizeExternalUrl(form.hero_image_url),
+    telegram_url: normalizeTelegramUrl(form.telegram_url),
+    instagram_url: normalizeInstagramUrl(form.instagram_url),
+    is_published: form.is_published,
+  };
 }
