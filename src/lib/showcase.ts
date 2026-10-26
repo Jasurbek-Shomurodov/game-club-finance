@@ -132,10 +132,12 @@ export interface ShowcaseSettingsForm {
   telegram_url: string;
   instagram_url: string;
   youtube_url: string;
+  sort_order: string;
 }
 
 export type ShowcaseSettingsError =
   | 'slug_invalid'
+  | 'sort_order_invalid'
   | 'telegram_invalid'
   | 'instagram_invalid'
   | 'youtube_invalid'
@@ -166,11 +168,13 @@ export function showcaseSettingsForm(showcase: ClubShowcase | null, clubName: st
     telegram_url: showcase?.telegram_url ?? '',
     instagram_url: showcase?.instagram_url ?? '',
     youtube_url: showcase?.youtube_url ?? '',
+    sort_order: String(showcase?.sort_order ?? 0),
   };
 }
 
 export function validateShowcaseSettings(form: ShowcaseSettingsForm): ShowcaseSettingsError | null {
   if (!SHOWCASE_SLUG_PATTERN.test(form.slug)) return 'slug_invalid';
+  if (!isSortOrder(form.sort_order)) return 'sort_order_invalid';
   return validateContactLinks(form);
 }
 
@@ -190,6 +194,7 @@ export function buildShowcaseSettingsPayload(form: ShowcaseSettingsForm) {
     telegram_url: normalizeTelegramUrl(form.telegram_url),
     instagram_url: normalizeInstagramUrl(form.instagram_url),
     youtube_url: normalizeYoutubeUrl(form.youtube_url),
+    sort_order: Number(form.sort_order.trim()),
   };
 }
 

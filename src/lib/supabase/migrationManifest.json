@@ -3920,11 +3920,21 @@
         "kind": "functionBody",
         "signature": "public.public_showcase_payload(uuid)",
         "md5": "7eeb6187445cd8639f890cd60ef2684a"
+      }
+    ]
+  },
+  {
+    "file": "105_showcase_club_order.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.club_showcases",
+        "column": "sort_order"
       },
       {
         "kind": "functionBody",
         "signature": "public.get_public_brand(text)",
-        "md5": "876ff07d29053691b7211bf843c23320"
+        "md5": "cc55b564cda98bd580f97aa5a5106a19"
       }
     ]
   }

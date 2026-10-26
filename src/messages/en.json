@@ -1800,7 +1800,9 @@
     "seatingPlaceholder": "Sofa for 4",
     "consoleCountValue": "{count, plural, one {# console} other {# consoles}}",
     "controllersValue": "{count, plural, one {# controller} other {# controllers}}",
-    "error_controllers_invalid": "Enter 1 to 20 controllers per console."
+    "error_controllers_invalid": "Enter 1 to 20 controllers per console.",
+    "brandOrder": "Position on the brand page",
+    "brandOrderHint": "Clubs with a lower number come first, e.g. 1 for your main club."
   },
   "publicShowcase": {
     "navGames": "Games",

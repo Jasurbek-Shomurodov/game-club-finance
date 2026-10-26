@@ -10,6 +10,7 @@ const translationsMigration = readFileSync(resolve('migrations', '101_showcase_t
 const offersMigration = readFileSync(resolve('migrations', '102_showcase_offers.sql'), 'utf8');
 const accessMigration = readFileSync(resolve('migrations', '103_showcase_feature_access.sql'), 'utf8');
 const contactsMigration = readFileSync(resolve('migrations', '104_showcase_contacts_and_consoles.sql'), 'utf8');
+const orderMigration = readFileSync(resolve('migrations', '105_showcase_club_order.sql'), 'utf8');
 const club = '10000000-0000-0000-0000-000000000001';
 const otherClub = '10000000-0000-0000-0000-000000000002';
 const thirdClub = '10000000-0000-0000-0000-000000000003';
@@ -54,6 +55,7 @@ beforeAll(async () => {
   await db.exec(translationsMigration);
   await db.exec(offersMigration);
   await db.exec(contactsMigration);
+  await db.exec(orderMigration);
 }, 20000);
 
 afterAll(async () => { await db?.close(); });
@@ -73,6 +75,7 @@ describe('098 public showcase', () => {
     await db.exec(translationsMigration);
     await db.exec(offersMigration);
     await db.exec(contactsMigration);
+    await db.exec(orderMigration);
   });
 
   it('returns a published showcase to anonymous visitors in sort order', async () => {
@@ -128,6 +131,12 @@ describe('098 public showcase', () => {
     await db.exec(`reset role; update club_showcases set is_published = true where club_id = '${thirdClub}'`);
     await asRole('anon');
     expect((await brand())?.clubs.map((item) => item.slug)).toEqual(['neon-arena', 'second-arena']);
+
+    // 105: the owner's chosen position wins over club age.
+    await db.exec(`reset role; update club_showcases set sort_order = 1 where club_id = '${thirdClub}';
+      update club_showcases set sort_order = 2 where club_id = '${club}';`);
+    await asRole('anon');
+    expect((await brand())?.clubs.map((item) => item.slug)).toEqual(['second-arena', 'neon-arena']);
 
     await db.exec(`reset role; update showcase_brands set is_published = false`);
     await asRole('anon');

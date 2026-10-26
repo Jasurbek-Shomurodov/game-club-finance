@@ -300,6 +300,8 @@ export interface ClubShowcase {
   instagram_url: string | null;
   email?: string | null;
   youtube_url?: string | null;
+  /** Position among the owner's clubs on the brand page, lowest first (105). */
+  sort_order?: number;
   updated_at: string;
 }
 

@@ -292,3 +292,13 @@ describe('contact links', () => {
     expect(buildShowcaseBrandPayload({ ...showcaseBrandForm(null), name: 'P', slug: 'pp-x', email: 'A@B.CO', phone: ' +998 ' })).toMatchObject({ email: 'a@b.co', phone: '+998' });
   });
 });
+
+describe('club order on the brand page', () => {
+  it('saves a whole-number position and refuses anything else', () => {
+    const form = { ...showcaseSettingsForm(null, 'Pixel'), sort_order: '1' };
+    expect(validateShowcaseSettings(form)).toBeNull();
+    expect(buildShowcaseSettingsPayload(form).sort_order).toBe(1);
+    expect(validateShowcaseSettings({ ...form, sort_order: 'first' })).toBe('sort_order_invalid');
+    expect(showcaseSettingsForm(null, 'Pixel').sort_order).toBe('0');
+  });
+});

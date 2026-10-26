@@ -271,6 +271,9 @@ export default function ShowcasePage() {
                     onChange={(value) => setField('headline', value)}
                   />
                 </div>
+                <Field label={t('brandOrder')} htmlFor="showcase-order" hint={t('brandOrderHint')} className="sm:max-w-xs">
+                  <Input id="showcase-order" inputMode="numeric" value={settings.sort_order} onChange={(e) => setField('sort_order', e.target.value.replace(/[^\d-]/g, ''))} />
+                </Field>
                 <LocalizedTextField
                   id="showcase-tagline"
                   label={t('tagline')}

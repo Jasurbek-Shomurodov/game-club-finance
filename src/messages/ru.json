@@ -1800,7 +1800,9 @@
     "seatingPlaceholder": "Диван на 4 человека",
     "consoleCountValue": "{count, plural, one {# консоль} few {# консоли} many {# консолей} other {# консоли}}",
     "controllersValue": "{count, plural, one {# джойстик} few {# джойстика} many {# джойстиков} other {# джойстика}}",
-    "error_controllers_invalid": "Укажите от 1 до 20 джойстиков на консоль."
+    "error_controllers_invalid": "Укажите от 1 до 20 джойстиков на консоль.",
+    "brandOrder": "Место на странице бренда",
+    "brandOrderHint": "Клубы с меньшим числом показываются первыми, например 1 для главного клуба."
   },
   "publicShowcase": {
     "navGames": "Игры",
