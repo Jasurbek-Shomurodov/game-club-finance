@@ -16,9 +16,9 @@ import {
   Field,
   FormSkeleton,
   IconButton,
-  Input,
   LoadErrorAlert,
   MonthPicker,
+  NoteField,
   PageHeader,
   SectionHeading,
   SegmentedControl,
@@ -27,6 +27,7 @@ import {
   metricToneClassName,
   toneForAmount,
   useConfirm,
+  useEntryNoteGuard,
   useToast,
   type DataTableColumn,
   type DataTableGroup,
@@ -40,6 +41,7 @@ import {
   gameClubWithdrawalsByMethod,
   withdrawnBySourceForMonth,
 } from '@/lib/calculations/ownerProfitSnapshot';
+import { isNoteRequiredError } from '@/lib/entryNote';
 import { clampWithdrawalInput } from '@/lib/withdrawalInput';
 import { isMissingDatabaseFunction } from '@/lib/supabase/errors';
 import { emptyMoneyLeftByPaymentMethod } from '@/lib/calculations/dashboardMetrics';
@@ -104,6 +106,7 @@ export default function MoneyTakenPage() {
   const { selectedClubId, role, businessDayStartHour, enabledPaymentMethods } = useClub();
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
+  const note = useEntryNoteGuard();
   const businessToday = useBusinessToday(businessDayStartHour);
   const currentMonth = businessToday.slice(0, 7);
   const [saving, setSaving] = useState<'withdraw' | 'carry' | null>(null);
@@ -253,6 +256,7 @@ export default function MoneyTakenPage() {
       showToast(t('exceedsAvailable'), 'error');
       return;
     }
+    if (!note.check(form.comment)) return;
 
     const operationLoad = currentLoad.current;
     mutationPending.current = true;
@@ -278,6 +282,10 @@ export default function MoneyTakenPage() {
 
       if (operationLoad !== currentLoad.current) return;
       if (insertError) {
+        if (isNoteRequiredError(insertError)) {
+          note.reject(form.comment);
+          return;
+        }
         showToast(isMissingDatabaseFunction(insertError, rpcName)
           ? t(usesPaymentMethod ? 'methodMigrationRequired' : 'migrationRequired')
           : insertError.code === '23514' ? t('exceedsAvailable') : t('saveError'), 'error');
@@ -286,6 +294,7 @@ export default function MoneyTakenPage() {
       }
 
       setForm((current) => ({ ...current, comment: '', amount: '' }));
+      note.reset();
       showToast(t('saved'), 'success');
       await loadData({ silent: true });
     } catch {
@@ -853,16 +862,15 @@ export default function MoneyTakenPage() {
                   />
                 </Field>
 
-                <Field label={t('comment')} htmlFor="withdrawal-comment">
-                  <Input
-                    id="withdrawal-comment"
-                    type="text"
-                    value={form.comment}
-                    onChange={(event) => setField('comment', event.target.value)}
-                    placeholder={t('commentPlaceholder')}
-                    maxLength={250}
-                  />
-                </Field>
+                <NoteField
+                  guard={note}
+                  id="withdrawal-comment"
+                  label={t('comment')}
+                  value={form.comment}
+                  onChange={(value) => setField('comment', value)}
+                  placeholder={t('commentPlaceholder')}
+                  maxLength={250}
+                />
 
                 <div className="space-y-2">
                   <Button
@@ -922,6 +930,7 @@ export default function MoneyTakenPage() {
 
       {toastElement}
       {confirmDialog}
+      {note.dialog}
     </div>
   );
 }

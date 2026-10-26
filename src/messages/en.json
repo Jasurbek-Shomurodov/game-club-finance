@@ -782,7 +782,7 @@
     "paginationPage": "Page {page} of {total}",
     "previousPage": "Previous",
     "nextPage": "Next",
-    "commentPlaceholder": "What was this expense for? (optional)",
+    "commentPlaceholder": "What was this money spent on? For example: bought water and bread for the bar",
     "filterByCategory": "Filter by category",
     "allCategories": "All categories",
     "selectCategory": "Select a category",
@@ -863,7 +863,9 @@
     "acceptPayment": "Accept payment",
     "outstandingTotal": "Outstanding",
     "debtorsCount": "Debtors",
-    "paidTotal": "Paid · all time"
+    "paidTotal": "Paid · all time",
+    "commentPlaceholder": "What is this debt for? For example: played four hours, will pay tomorrow",
+    "paymentCommentPlaceholder": "Who paid and how? For example: Aziz paid the rest in cash"
   },
   "dailyReport": {
     "title": "Daily Report",
@@ -1200,7 +1202,7 @@
     "availableForSource": "Available profit for selected month",
     "month": "Month",
     "comment": "Comment",
-    "commentPlaceholder": "Optional note about this withdrawal",
+    "commentPlaceholder": "What is this money taken for? For example: paid the supplier for new chairs",
     "recordButton": "Withdraw entered amount",
     "ownerOnly": "Only the club owner can record profit withdrawals.",
     "exceedsAvailable": "Enter a positive amount no greater than the available profit for this source and month.",
@@ -1331,7 +1333,17 @@
       "system": "System"
     },
     "dayClosed": "The money for this day was collected, so the day is closed. No income or expense can be added, changed or deleted. Only an owner can reopen it in Reports.",
-    "aboutSection": "About {title}"
+    "aboutSection": "About {title}",
+    "entryNote": {
+      "hint": "At least {required} words about what the money was for ({words} of {required})",
+      "enough": "{words, plural, one {# word} other {# words}}, thank you",
+      "error": "Write at least {required} words ({words} of {required})",
+      "dialogTitle": "Please add a note",
+      "dialogBody": "Describe in at least {required} words what this money was for, so the owner can understand it later.",
+      "progress": "So far: {words} of {required} words.",
+      "example": "For example: “Bought 12 bottles of water for the bar”.",
+      "dialogButton": "Write the note"
+    }
   },
   "salaries": {
     "title": "Salaries",
@@ -1644,7 +1656,7 @@
     "receive": "You receive",
     "date": "Date",
     "comment": "Comment",
-    "commentPlaceholder": "Optional note",
+    "commentPlaceholder": "Why is the money being exchanged? For example: changed cash to dollars for rent",
     "submit": "Save exchange",
     "sameMethod": "Choose two different methods.",
     "rateRequired": "Enter the exchange rate.",

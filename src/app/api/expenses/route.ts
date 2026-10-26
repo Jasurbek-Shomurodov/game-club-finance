@@ -1,5 +1,6 @@
 import { after } from 'next/server';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import { validateEntryNote } from '@/lib/entryNote';
 import { isManualExpenseCategory } from '@/lib/expenseCategories';
 import { normalizePaymentMethods } from '@/lib/paymentMethods';
 import { createClient } from '@/lib/supabase/server';
@@ -133,6 +134,8 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null) as ExpenseRequestBody | null;
   if (!body || !isValidBody(body)) return expenseErrorResponse('INVALID_REQUEST');
+  // Every manual expense says what the money was for (also enforced by 108).
+  if (!validateEntryNote(body.comment).valid) return expenseErrorResponse('NOTE_REQUIRED');
   const context = { clubId: body.clubId, expenseId: body.id ?? null };
 
   // Only the club's configured methods are accepted; RLS scopes the read to the caller's clubs.

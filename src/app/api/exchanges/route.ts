@@ -1,6 +1,7 @@
 import { after } from 'next/server';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { isExchangeMethod, type ExchangeMethod } from '@/lib/calculations/moneyExchanges';
+import { validateEntryNote } from '@/lib/entryNote';
 import { createClient } from '@/lib/supabase/server';
 import { actorName } from '@/lib/telegram/actorName';
 import { targetChatId } from '@/lib/telegram/clubChat';
@@ -88,6 +89,8 @@ export async function POST(request: Request) {
     || (body.comment != null && (typeof body.comment !== 'string' || body.comment.length > 300))) {
     return exchangeErrorResponse('INVALID_REQUEST');
   }
+  // Every exchange says why the money moved (also enforced by 108).
+  if (!validateEntryNote(body.comment).valid) return exchangeErrorResponse('NOTE_REQUIRED');
   const context = { clubId: body.clubId, exchangeId: body.id };
 
   // Access, the club's enabled methods, the business date and the converted

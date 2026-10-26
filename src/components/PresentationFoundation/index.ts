@@ -6,7 +6,7 @@
  *
  * Layout & surfaces: Card, CardHeader, CardBody, CardFooter, SectionHeading, PageHeader, TopBarSlotProvider
  * Actions:           Button, ButtonLink, IconButton, Stepper
- * Forms:             Field, Input, CurrencyInput, Textarea, Select, Checkbox, SearchInput,
+ * Forms:             Field, Input, CurrencyInput, Textarea, Select, Checkbox, SearchInput, NoteField/useEntryNoteGuard,
  *                    SegmentedControl, DatePicker, DateRangePicker, MonthPicker
  * Feedback:          InlineAlert, LoadErrorAlert, Toast/useToast, Modal, Drawer, ConfirmDialog/useConfirm, EmptyState, Disclosure, HelpButton,
  *                    Badge, Spinner, skeletons
@@ -42,6 +42,7 @@ export { LoadErrorAlert, type LoadErrorAlertProps } from './LoadErrorAlert';
 export { ThemeToggle } from './ThemeToggle';
 export { AmountCard, MetricCard, MetricMoney, StatTile, metricToneClassName, toneForAmount, type MetricTone } from './MetricCard';
 export { Modal } from './Modal';
+export { NoteField, useEntryNoteGuard, type EntryNoteGuard, type NoteFieldProps } from './NoteField';
 export { PageHeader } from './PageHeader';
 export { TopBarSlotProvider, useTopBarSlot } from './TopBarSlot';
 export { SearchInput } from './SearchInput';

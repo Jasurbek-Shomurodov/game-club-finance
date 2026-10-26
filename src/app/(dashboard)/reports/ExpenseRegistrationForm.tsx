@@ -11,10 +11,11 @@ import {
   DatePicker,
   Field,
   InlineAlert,
+  NoteField,
   SegmentedControl,
   Skeleton,
   Select,
-  Textarea,
+  useEntryNoteGuard,
 } from '@/components/PresentationFoundation';
 import { formatCurrency, parseCurrencyInput } from '@/lib/formatters';
 import { MANUAL_EXPENSE_CATEGORIES } from '@/lib/expenseCategories';
@@ -56,6 +57,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
   const businessToday = useBusinessToday(businessDayStartHour);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const note = useEntryNoteGuard();
   // Blocks a second submit before the `saving` state re-renders the button.
   const submitPending = useRef(false);
   // One id per expense being entered: a retry after a lost response reuses it,
@@ -180,6 +182,10 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
       setError(tc('dayClosed'));
       return;
     }
+    if (!note.check(form.comment)) {
+      setError('');
+      return;
+    }
 
     submitPending.current = true;
     setSaving(true);
@@ -206,6 +212,10 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
       if (!response.ok) {
         const body = await response.json().catch(() => null) as { code?: unknown } | null;
         const code = typeof body?.code === 'string' ? body.code : null;
+        if (code === 'NOTE_REQUIRED') {
+          note.reject(form.comment);
+          return;
+        }
         setError(expenseErrorMessage(code));
         // The plan was archived or changed meanwhile: drop it and show the current list.
         if (code === 'PRESET_UNAVAILABLE') {
@@ -218,6 +228,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
 
       saved = true;
       requestId.current = null;
+      note.reset();
       // The inline form stays mounted between expenses; keep its plan list current.
       void presetQuery.reload({ silent: true });
       setForm({
@@ -334,20 +345,20 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
         />
       </Field>
 
-      <Field label={t('comment')} htmlFor="expense-comment">
-        <Textarea
-          id="expense-comment"
-          value={form.comment}
-          onChange={(event) => set('comment', event.target.value)}
-          placeholder={t('commentPlaceholder')}
-          maxLength={300}
-          showCount
-        />
-      </Field>
+      <NoteField
+        guard={note}
+        id="expense-comment"
+        label={t('comment')}
+        value={form.comment}
+        onChange={(value) => set('comment', value)}
+        placeholder={t('commentPlaceholder')}
+        maxLength={300}
+      />
 
       <Button type="submit" size="lg" fullWidth disabled={enabledPaymentMethods.length === 0 || dayClosed} loading={saving} loadingLabel={tc('saving')} icon={<Save size={18} aria-hidden="true" />}>
         {t('submit')}
       </Button>
+      {note.dialog}
     </form>
   );
 }

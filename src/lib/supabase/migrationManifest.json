@@ -3967,5 +3967,43 @@
         "md5": "a2c5769d53c07ec93ed116edcb527843"
       }
     ]
+  },
+  {
+    "file": "108_required_entry_notes.sql",
+    "probes": [
+      {
+        "kind": "trigger",
+        "table": "public.expenses",
+        "name": "require_entry_note"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.money_exchanges",
+        "name": "require_entry_note"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.new_debts",
+        "name": "require_entry_note"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.debt_payments",
+        "name": "require_entry_note"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.owner_withdrawals",
+        "name": "require_entry_note"
+      },
+      {
+        "kind": "function",
+        "signature": "public.entry_note_word_count(text)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.require_entry_note()"
+      }
+    ]
   }
 ]

@@ -197,9 +197,9 @@ async function seed() {
   // 5. Expenses
   console.log('💸 Inserting expenses...');
   const { error: expensesError } = await supabase.from('expenses').insert([
-    { club_id: clubId, date: today, amount: 300000, category: 'salary', payment_method: 'cash', comment: '[TEST DATA] Staff salary' },
-    { club_id: clubId, date: today, amount: 120000, category: 'cleaning', payment_method: 'cash', comment: '[TEST DATA] Cleaning service' },
-    { club_id: clubId, date: today, amount: 80000, category: 'electricity', payment_method: 'card', comment: '[TEST DATA] Electricity bill' },
+    { club_id: clubId, date: today, amount: 300000, category: 'salary', payment_method: 'cash', comment: '[TEST DATA] Staff salary for the week' },
+    { club_id: clubId, date: today, amount: 120000, category: 'cleaning', payment_method: 'cash', comment: '[TEST DATA] Cleaning service for both halls' },
+    { club_id: clubId, date: today, amount: 80000, category: 'electricity', payment_method: 'card', comment: '[TEST DATA] Electricity bill for this month' },
   ]);
   if (expensesError) { console.error('❌ Expenses error:', expensesError.message); process.exit(1); }
   console.log('   ✅ 3 expenses inserted (total: 500,000 UZS)');
@@ -209,8 +209,8 @@ async function seed() {
   const { data: insertedDebts, error: debtsError } = await supabase
     .from('new_debts')
     .insert([
-      { club_id: clubId, person_name: '[TEST] Alibek Karimov', amount: 500000, remaining_amount: 500000, paid_amount: 0, date: today, category: 'other', status: 'unpaid', comment: '[TEST DATA]' },
-      { club_id: clubId, person_name: '[TEST] Sardor Yusupov', amount: 300000, remaining_amount: 300000, paid_amount: 0, date: today, category: 'other', status: 'unpaid', comment: '[TEST DATA]' },
+      { club_id: clubId, person_name: '[TEST] Alibek Karimov', amount: 500000, remaining_amount: 500000, paid_amount: 0, date: today, category: 'other', status: 'unpaid', comment: '[TEST DATA] Played games, will pay later' },
+      { club_id: clubId, person_name: '[TEST] Sardor Yusupov', amount: 300000, remaining_amount: 300000, paid_amount: 0, date: today, category: 'other', status: 'unpaid', comment: '[TEST DATA] Played games, will pay later' },
     ])
     .select('id, person_name, remaining_amount');
   if (debtsError) { console.error('❌ Debts error:', debtsError.message); process.exit(1); }
@@ -225,7 +225,7 @@ async function seed() {
     amount: 200000,
     payment_method: 'cash',
     date: today,
-    comment: '[TEST DATA] Partial payment',
+    comment: '[TEST DATA] Partial payment in cash today',
   });
   if (paymentError) { console.error('❌ Debt payment error:', paymentError.message); process.exit(1); }
   console.log(`   ✅ Partial payment 200,000 for ${firstDebt.person_name}`);

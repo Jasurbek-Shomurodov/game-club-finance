@@ -22,7 +22,7 @@ async function asUser<T>(userId: string, work: () => Promise<T>): Promise<T> {
 }
 
 const record = (n: number, from: string, to: string, amount: number, rate: number | null, userId = admin, date = '2024-08-05') => asUser(userId, () => db.query<{ exchange_id: string; created: boolean }>(
-  'select * from record_money_exchange($1,$2,$3,$4,$5,$6,$7,$8)', [id(n), club, date, from, to, amount, rate, ' note '],
+  'select * from record_money_exchange($1,$2,$3,$4,$5,$6,$7,$8)', [id(n), club, date, from, to, amount, rate, ' changed money for the rent '],
 ));
 
 beforeAll(async () => {
@@ -63,9 +63,9 @@ describe('money exchanges (092)', () => {
     await record(3, 'terminal', 'card', 300_000, null);
     const rows = (await db.query('select from_method, to_method, from_amount, to_amount, rate, comment from money_exchanges order by id')).rows;
     expect(rows).toEqual([
-      { from_method: 'cash', to_method: 'usd', from_amount: '1265000.00', to_amount: '100.00', rate: '12650.00', comment: 'note' },
-      { from_method: 'usd', to_method: 'terminal', from_amount: '10.50', to_amount: '133350.00', rate: '12700.00', comment: 'note' },
-      { from_method: 'terminal', to_method: 'card', from_amount: '300000.00', to_amount: '300000.00', rate: null, comment: 'note' },
+      { from_method: 'cash', to_method: 'usd', from_amount: '1265000.00', to_amount: '100.00', rate: '12650.00', comment: 'changed money for the rent' },
+      { from_method: 'usd', to_method: 'terminal', from_amount: '10.50', to_amount: '133350.00', rate: '12700.00', comment: 'changed money for the rent' },
+      { from_method: 'terminal', to_method: 'card', from_amount: '300000.00', to_amount: '300000.00', rate: null, comment: 'changed money for the rent' },
     ]);
   });
 
@@ -113,7 +113,7 @@ describe('money exchanges (092)', () => {
   it('lets only owners change an ordinary expense\'s payment method (090)', async () => {
     const expense = id(50);
     await db.query(
-      `insert into expenses (id, club_id, date, amount, category, payment_method, payment_source, created_by) values ($1,$2,'2024-08-05',5000,'repair','cash','game_club',$3)`,
+      `insert into expenses (id, club_id, date, amount, category, payment_method, payment_source, comment, created_by) values ($1,$2,'2024-08-05',5000,'repair','cash','game_club','fixed the broken front door',$3)`,
       [expense, club, owner],
     );
     const change = (method: string, userId = owner) => asUser(userId, () => db.query('select update_expense_payment_method($1,$2,$3)', [club, expense, method]));

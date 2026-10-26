@@ -782,7 +782,7 @@
     "paginationPage": "{page}/{total} sahifa",
     "previousPage": "Oldingi",
     "nextPage": "Keyingi",
-    "commentPlaceholder": "Bu xarajat nima uchun edi? (ixtiyoriy)",
+    "commentPlaceholder": "Pul nimaga sarflandi? Masalan: bar uchun suv va non oldik",
     "filterByCategory": "Kategoriya bo'yicha filtrlash",
     "allCategories": "Barcha kategoriyalar",
     "selectCategory": "Kategoriyani tanlang",
@@ -863,7 +863,9 @@
     "acceptPayment": "To'lovni qabul qilish",
     "outstandingTotal": "Qarzlar qoldig'i",
     "debtorsCount": "Qarzdorlar",
-    "paidTotal": "To'langan · jami"
+    "paidTotal": "To'langan · jami",
+    "commentPlaceholder": "Qarz nima uchun? Masalan: to‘rt soat o‘ynadi, ertaga to‘laydi",
+    "paymentCommentPlaceholder": "Kim va qanday to‘ladi? Masalan: Aziz qolganini naqd to‘ladi"
   },
   "dailyReport": {
     "title": "Kunlik hisobot",
@@ -1200,7 +1202,7 @@
     "availableForSource": "Tanlangan oy uchun mavjud foyda",
     "month": "Oy",
     "comment": "Izoh",
-    "commentPlaceholder": "Olingan pul haqida ixtiyoriy izoh",
+    "commentPlaceholder": "Pul nima uchun olinmoqda? Masalan: yangi kreslolar uchun yetkazib beruvchiga to‘ladik",
     "recordButton": "Kiritilgan summani olish",
     "ownerOnly": "Foyda olinganini faqat klub egasi yozishi mumkin.",
     "exceedsAvailable": "Tanlangan oy va manbadagi mavjud foydadan oshmaydigan musbat summani kiriting.",
@@ -1331,7 +1333,17 @@
       "system": "Tizimdagidek"
     },
     "dayClosed": "Bu kunning puli olindi, kun yopilgan. Daromad yoki xarajat qo‘shib, o‘zgartirib yoki o‘chirib bo‘lmaydi. Kunni faqat egasi Hisobotlarda qayta ochishi mumkin.",
-    "aboutSection": "Batafsil: {title}"
+    "aboutSection": "Batafsil: {title}",
+    "entryNote": {
+      "hint": "Pul nimaga sarflanganini kamida {required} so‘z bilan yozing ({words} / {required})",
+      "enough": "{words} ta so‘z, rahmat",
+      "error": "Kamida {required} ta so‘z yozing ({words} / {required})",
+      "dialogTitle": "Izoh qo‘shing",
+      "dialogBody": "Bu pul nimaga ishlatilganini kamida {required} ta so‘z bilan yozing, egasi keyin tushunishi uchun.",
+      "progress": "Hozircha: {words} / {required} so‘z.",
+      "example": "Masalan: «Bar uchun 12 ta suv sotib oldik».",
+      "dialogButton": "Izoh yozish"
+    }
   },
   "salaries": {
     "title": "Ish haqi",
@@ -1644,7 +1656,7 @@
     "receive": "Olasiz",
     "date": "Sana",
     "comment": "Izoh",
-    "commentPlaceholder": "Ixtiyoriy izoh",
+    "commentPlaceholder": "Pul nima uchun almashtirilmoqda? Masalan: ijara uchun naqdni dollarga almashtirdik",
     "submit": "Almashtirishni saqlash",
     "sameMethod": "Ikki xil usulni tanlang.",
     "rateRequired": "Kursni kiriting.",

@@ -202,8 +202,8 @@ describe('expense deletion route', () => {
 });
 
 describe('expense creation route', () => {
-  const body = { clubId: CLUB_ID, date: '2026-10-01', amount: 50000, category: 'repair', paymentMethod: 'cash', paymentSource: 'game_club', comment: ' Door ' };
-  const saved = { id: EXPENSE_ID, club_id: CLUB_ID, date: '2026-10-01', amount: 50000, category: 'repair', payment_method: 'cash', payment_source: 'game_club', comment: 'Door' };
+  const body = { clubId: CLUB_ID, date: '2026-10-01', amount: 50000, category: 'repair', paymentMethod: 'cash', paymentSource: 'game_club', comment: ' Fixed the  broken front door ' };
+  const saved = { id: EXPENSE_ID, club_id: CLUB_ID, date: '2026-10-01', amount: 50000, category: 'repair', payment_method: 'cash', payment_source: 'game_club', comment: 'Fixed the  broken front door' };
 
   function mockCreate({ methods = ['cash', 'terminal'], upserted = saved as unknown, existing = null as unknown, insertError = null as { message: string; code?: string } | null } = {}) {
     const clubQuery = queryResult({ enabled_payment_methods: methods, business_day_start_hour: 6 });
@@ -289,7 +289,7 @@ describe('expense creation route', () => {
     const { writeQuery } = mockCreate();
     const response = await create({ ...body, id: EXPENSE_ID });
     expect(response.status).toBe(201);
-    expect(writeQuery.upsert).toHaveBeenCalledWith(expect.objectContaining({ id: EXPENSE_ID, comment: 'Door' }), { onConflict: 'id', ignoreDuplicates: true });
+    expect(writeQuery.upsert).toHaveBeenCalledWith(expect.objectContaining({ id: EXPENSE_ID, comment: 'Fixed the  broken front door' }), { onConflict: 'id', ignoreDuplicates: true });
     expect(mocks.sendTelegramMessage).toHaveBeenCalledOnce();
   });
 
@@ -325,6 +325,25 @@ describe('expense creation route', () => {
     const { writeQuery } = mockCreate();
     expect((await create(body)).status).toBe(201);
     expect(writeQuery.insert).toHaveBeenCalledOnce();
+  });
+
+  it('requires a note of at least five words before the database', async () => {
+    const { writeQuery } = mockCreate();
+    for (const comment of [undefined, null, '', '   ', 'non', 'suv for the bar']) {
+      const response = await create({ ...body, comment });
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: 'The note must have at least 5 words', code: 'NOTE_REQUIRED' });
+    }
+    expect(writeQuery.insert).not.toHaveBeenCalled();
+    expect(writeQuery.upsert).not.toHaveBeenCalled();
+  });
+
+  it('reports the database note rule with its own code', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockCreate({ upserted: null, insertError: { message: 'The note must have at least 5 words.', code: '23514' } });
+    const response = await create(body);
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe('NOTE_REQUIRED');
   });
 
   it('hides database text behind a stable code', async () => {

@@ -52,7 +52,7 @@ async function call(handler: typeof POST, body: unknown) {
   return response;
 }
 
-const purchase = { id: EXCHANGE, clubId: CLUB, date: '2026-10-24', from: 'cash', to: 'usd', amount: 1_265_000, rate: 12_650, comment: null };
+const purchase = { id: EXCHANGE, clubId: CLUB, date: '2026-10-24', from: 'cash', to: 'usd', amount: 1_265_000, rate: 12_650, comment: 'Changed cash to dollars for rent' };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -70,7 +70,7 @@ describe('POST /api/exchanges', () => {
     expect(response.status).toBe(201);
     expect(rpc).toHaveBeenCalledWith('record_money_exchange', {
       p_id: EXCHANGE, p_club_id: CLUB, p_date: '2026-10-24', p_from_method: 'cash', p_to_method: 'usd',
-      p_from_amount: 1_265_000, p_rate: 12_650, p_comment: '',
+      p_from_amount: 1_265_000, p_rate: 12_650, p_comment: 'Changed cash to dollars for rent',
     });
     expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({ chatId: '-1001', text: expect.stringContaining('Курс: 1 $ = 12 650 сум') }));
     expect(rpc).toHaveBeenCalledWith('set_money_exchange_telegram_message', { p_club_id: CLUB, p_id: EXCHANGE, p_chat_id: '-1001', p_message_id: 7 });
@@ -92,6 +92,16 @@ describe('POST /api/exchanges', () => {
       { ...purchase, amount: -5 },
       { ...purchase, date: '2026-02-30' },
     ]) expect((await call(POST, body)).status).toBe(400);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('requires a note of at least five words', async () => {
+    const { rpc } = mockSupabase();
+    for (const comment of [null, '', 'rent', 'dollars for the rent']) {
+      const response = await call(POST, { ...purchase, comment });
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({ code: 'NOTE_REQUIRED' });
+    }
     expect(rpc).not.toHaveBeenCalled();
   });
 

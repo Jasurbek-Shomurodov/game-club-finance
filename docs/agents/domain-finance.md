@@ -141,6 +141,17 @@ Once a payment links to a preset, its category and money source are fixed
 The preset category check must list every manual expense category;
 `migrationReplay.test.ts` fails when it drifts from `expenses_category_allowed`.
 
+## Required notes
+
+Every new manual spending entry carries a note of at least 5 words (`MIN_NOTE_WORDS`
+in `src/lib/entryNote.ts`): expenses, money exchanges, new debts, debt payments
+and owner withdrawals. Forms use `NoteField` + `useEntryNoteGuard` (a popup and
+a live "2 of 5" count), `/api/expenses` and `/api/exchanges` answer
+`NOTE_REQUIRED` (400), and migration 108's `require_entry_note` insert trigger
+refuses the rest (SQLSTATE 23514, hint `note_required`, `isNoteRequiredError`).
+Payroll expenses (`salary_entry_id`), daily income, stock purchases and profit
+carryovers are exempt. Existing rows with short notes stay valid.
+
 ## Money exchanges
 
 `money_exchanges` (migration 092) moves Game Club money between cash,

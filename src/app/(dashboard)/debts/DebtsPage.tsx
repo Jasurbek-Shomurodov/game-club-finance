@@ -24,13 +24,16 @@ import {
   MetricCard,
   Modal,
   Money,
+  NoteField,
   PageHeader,
   SectionHeading,
   SegmentedControl,
   Skeleton,
+  useEntryNoteGuard,
   useToast,
   MetricMoney,
 } from '@/components/PresentationFoundation';
+import { isNoteRequiredError } from '@/lib/entryNote';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { cn } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
@@ -70,6 +73,8 @@ function remainingFor(debt: Pick<NewDebt, 'amount' | 'paid_amount'>): number {
 export default function DebtsPage() {
   const t = useTranslations('debts');
   const tc = useTranslations('common');
+  const addNote = useEntryNoteGuard();
+  const payNote = useEntryNoteGuard();
   const { selectedClubId, businessDayStartHour, enabledPaymentMethods, role } = useClub();
   const { locale } = useAppLocale();
   const { showToast, toastElement } = useToast();
@@ -216,6 +221,7 @@ export default function DebtsPage() {
     setPayDebtId(debtId);
     setFormClubId(selectedClubId);
     setPayForm({ amount: '', payment_method: defaultPaymentMethod(enabledPaymentMethods), date: businessToday, comment: '' });
+    payNote.reset();
     setError('');
     // Never show the previously opened debt's history while this one loads.
     setPayments([]);
@@ -236,6 +242,7 @@ export default function DebtsPage() {
       category: 'other',
       comment: '',
     });
+    addNote.reset();
     setError('');
     setFormClubId(selectedClubId || null);
     setAddOpen(true);
@@ -250,6 +257,7 @@ export default function DebtsPage() {
     if (!addForm.person_name.trim()) { setError(tc('required')); return; }
     const dateIssue = getDebtDateIssue({ date: addForm.date, businessDate: businessToday });
     if (dateIssue) { setError(dateIssue === 'future' ? t('futureDateError') : tc('error')); return; }
+    if (!addNote.check(addForm.comment)) { setError(''); return; }
     setSaving(true);
     setError('');
 
@@ -279,6 +287,7 @@ export default function DebtsPage() {
       // 23505 on our own id: an earlier attempt of this submit was already saved.
       if (err && err.code !== '23505') {
         console.error('Failed to save debt', err);
+        if (isNoteRequiredError(err)) { addNote.reject(addForm.comment); return; }
         setError(isDayCollectedError(err) ? tc('dayClosed') : t('saveError'));
         return;
       }
@@ -324,6 +333,7 @@ export default function DebtsPage() {
       remainingDebt: remainingFor(debt),
     });
     if (!paymentValidation.valid) { setError(t('paymentExceedsRemaining')); return; }
+    if (!payNote.check(payForm.comment)) { setError(''); return; }
     setSaving(true);
     setError('');
 
@@ -342,6 +352,7 @@ export default function DebtsPage() {
       // 23505 on our own id: an earlier attempt of this submit was already saved.
       if (err && err.code !== '23505') {
         console.error('Failed to save debt payment', err);
+        if (isNoteRequiredError(err)) { payNote.reject(payForm.comment); return; }
         const issue = classifyDebtPaymentInsertError(err);
         setError(
           isDayCollectedError(err)
@@ -563,16 +574,17 @@ export default function DebtsPage() {
               max={businessToday}
             />
           </Field>
-          <Field label={t('comment')} htmlFor="debt-comment">
-            <Input
-              id="debt-comment"
-              type="text"
-              maxLength={250}
-              value={addForm.comment}
-              onChange={(e) => setAddForm((p) => ({ ...p, comment: e.target.value }))}
-            />
-          </Field>
+          <NoteField
+            guard={addNote}
+            id="debt-comment"
+            label={t('comment')}
+            maxLength={250}
+            placeholder={t('commentPlaceholder')}
+            value={addForm.comment}
+            onChange={(value) => setAddForm((p) => ({ ...p, comment: value }))}
+          />
           {error && <InlineAlert variant="danger">{error}</InlineAlert>}
+          {addNote.dialog}
         </form>
       </Modal>
 
@@ -652,16 +664,17 @@ export default function DebtsPage() {
                 max={businessToday}
               />
             </Field>
-            <Field label={t('comment')} htmlFor="payment-comment">
-              <Input
-                id="payment-comment"
-                type="text"
-                maxLength={250}
-                value={payForm.comment}
-                onChange={(e) => setPayForm((p) => ({ ...p, comment: e.target.value }))}
-              />
-            </Field>
+            <NoteField
+              guard={payNote}
+              id="payment-comment"
+              label={t('comment')}
+              maxLength={250}
+              placeholder={t('paymentCommentPlaceholder')}
+              value={payForm.comment}
+              onChange={(value) => setPayForm((p) => ({ ...p, comment: value }))}
+            />
             {error && <InlineAlert variant="danger">{error}</InlineAlert>}
+            {payNote.dialog}
           </form>
         )}
       </Modal>

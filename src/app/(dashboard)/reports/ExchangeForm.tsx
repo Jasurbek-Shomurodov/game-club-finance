@@ -11,8 +11,9 @@ import {
   DatePicker,
   Field,
   InlineAlert,
+  NoteField,
   SegmentedControl,
-  Textarea,
+  useEntryNoteGuard,
 } from '@/components/PresentationFoundation';
 import { formatCurrency, formatUnitCurrency, parseCurrencyInput } from '@/lib/formatters';
 import {
@@ -60,6 +61,7 @@ export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
   const dayClosed = useCollectedDay(selectedClubId, form.date);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const note = useEntryNoteGuard();
   const submitPending = useRef(false);
   // One id per exchange being entered, so a retried submit is stored once.
   const requestId = useRef<string | null>(null);
@@ -130,6 +132,10 @@ export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
       setError(tc('dayClosed'));
       return;
     }
+    if (!note.check(form.comment)) {
+      setError('');
+      return;
+    }
 
     submitPending.current = true;
     setSaving(true);
@@ -156,12 +162,17 @@ export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
           setError(tc('dayClosed'));
           return;
         }
+        if (body?.code === 'NOTE_REQUIRED') {
+          note.reject(form.comment);
+          return;
+        }
         const key = typeof body?.code === 'string' ? ERROR_KEYS[body.code] : undefined;
         setError(key ? t(`errors.${key}`) : t('saveError'));
         return;
       }
       saved = true;
       requestId.current = null;
+      note.reset();
       setForm(emptyForm());
     } catch {
       setError(t('saveError'));
@@ -220,20 +231,20 @@ export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
         <DatePicker ariaLabel={t('date')} value={form.date} max={businessToday} onChange={(value) => set('date', value)} />
       </Field>
 
-      <Field label={t('comment')} htmlFor="exchange-comment">
-        <Textarea
-          id="exchange-comment"
-          value={form.comment}
-          onChange={(event) => set('comment', event.target.value)}
-          placeholder={t('commentPlaceholder')}
-          maxLength={300}
-          showCount
-        />
-      </Field>
+      <NoteField
+        guard={note}
+        id="exchange-comment"
+        label={t('comment')}
+        value={form.comment}
+        onChange={(value) => set('comment', value)}
+        placeholder={t('commentPlaceholder')}
+        maxLength={300}
+      />
 
       <Button type="submit" size="lg" fullWidth disabled={dayClosed} loading={saving} loadingLabel={tc('saving')} icon={<ArrowRightLeft size={18} aria-hidden="true" />}>
         {t('submit')}
       </Button>
+      {note.dialog}
     </form>
   );
 }

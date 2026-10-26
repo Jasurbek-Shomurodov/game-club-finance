@@ -16,6 +16,7 @@ import { Button, Card, Field, Input, InlineAlert, PageHeader } from '@/component
 | White panel / section | `Card` (+ `SectionHeading`, `CardHeader`, `CardBody`, `CardFooter`) |
 | Any clickable action | `Button` (`variant`: primary, outline, secondary, ghost, danger, dangerOutline, success), `ButtonLink` for navigation, `IconButton` for icon-only |
 | Text / money / select / textarea | `Field` + `Input` / `CurrencyInput` / `Select` / `Textarea` / `Checkbox` |
+| Required note on a spending entry (5+ words) | `useEntryNoteGuard` + `NoteField`; call `guard.check(note)` before saving and render `guard.dialog` |
 | Multi-select option tiles (payment methods, page access) | `Checkbox variant="card"` |
 | Person or product initials | `Avatar` (`tone`: primary for people, neutral for products) |
 | Search box | `SearchInput` |
