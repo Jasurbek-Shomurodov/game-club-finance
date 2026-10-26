@@ -27,8 +27,8 @@ export const dailyCash = {
 export const purchase = { product: 'cola', quantity: 24, cost_price: 4500, payment_method: 'cash' };
 export const closing = { cola: { closing_stock: 62, sold_quantity: 12 }, snickers: { closing_stock: 18, sold_quantity: 12 } };
 export const expenses = [
-  { id: id(20), amount: 120_000, category: 'cleaning', payment_method: 'cash', payment_source: 'game_club', comment: 'E2E cleaning' },
-  { id: id(21), amount: 80_000, category: 'electricity', payment_method: 'card', payment_source: 'game_club', comment: 'E2E electricity' },
+  { id: id(20), amount: 120_000, category: 'cleaning', payment_method: 'cash', payment_source: 'game_club', comment: 'E2E cleaning of both game halls' },
+  { id: id(21), amount: 80_000, category: 'electricity', payment_method: 'card', payment_source: 'game_club', comment: 'E2E electricity bill for this month' },
 ];
 export const debts = [
   { id: id(30), person_name: 'E2E Alibek', amount: 500_000, payment: { id: id(31), amount: 200_000, payment_method: 'cash' } },
@@ -90,9 +90,9 @@ export async function seed(fake) {
   }
   for (const debt of debts) {
     await q(`insert into public.new_debts (id, club_id, person_name, amount, remaining_amount, date, category, status, comment, created_by)
-      values ($1, $2, $3, $4, $4, $5, 'other', 'unpaid', 'E2E fixture', $6)`, [debt.id, clubs.arcade.id, debt.person_name, debt.amount, today, owner.id]);
+      values ($1, $2, $3, $4, $4, $5, 'other', 'unpaid', 'E2E fixture debt for played hours', $6)`, [debt.id, clubs.arcade.id, debt.person_name, debt.amount, today, owner.id]);
     // The payment's trigger updates the parent debt: the ledger is append-only.
-    if (debt.payment) await q(`insert into public.debt_payments (id, club_id, debt_id, amount, payment_method, date, comment) values ($1, $2, $3, $4, $5, $6, 'E2E fixture')`,
+    if (debt.payment) await q(`insert into public.debt_payments (id, club_id, debt_id, amount, payment_method, date, comment) values ($1, $2, $3, $4, $5, $6, 'E2E fixture payment made in cash')`,
       [debt.payment.id, clubs.arcade.id, debt.id, debt.payment.amount, debt.payment.payment_method, today]);
   }
   // Through the atomic RPCs as the owner, exactly as the Stock Purchase and Closing Stock pages save.

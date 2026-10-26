@@ -75,6 +75,15 @@ test('EXP-001 XAPP-001 an expense saves once and lowers net profit by its amount
   await dialog.locator('#expense-category').selectOption('cleaning');
   const posts = [];
   page.on('request', request => { if (request.method() === 'POST' && request.url().endsWith('/api/expenses')) posts.push(request.url()); });
+  // A note of fewer than 5 words is refused with a popup, before any request.
+  await dialog.locator('#expense-comment').fill('cleaning');
+  await dialog.getByRole('button', { name: 'Save Expense' }).click();
+  const notePopup = page.getByRole('dialog', { name: 'Please add a note' });
+  await expect(notePopup).toContainText('So far: 1 of 5 words.');
+  await notePopup.getByRole('button', { name: 'Write the note' }).click();
+  await expect(dialog.getByText('Write at least 5 words (1 of 5)')).toBeVisible();
+  expect(posts).toHaveLength(0);
+  await dialog.locator('#expense-comment').fill('Cleaning service for both halls');
   await dialog.getByRole('button', { name: 'Save Expense' }).click();
   await expect(page.getByText('Expense registered successfully.')).toBeVisible();
   await expect(dialog).toBeHidden();
@@ -113,6 +122,7 @@ test('EXP-008 a planned expense is set up in Settings, picked in the expense for
   await expect(dialog.getByRole('radio', { name: 'Cash' })).toBeChecked();
   await expect(dialog.locator('#expense-amount')).toHaveAttribute('placeholder', uzs(500_000));
   await dialog.locator('#expense-amount').fill('650000');
+  await dialog.locator('#expense-comment').fill('New iCafe licence for all computers');
   await dialog.getByRole('button', { name: 'Save Expense' }).click();
   await expect(page.getByText('Expense registered successfully.')).toBeVisible();
   const [linked] = await (await restAs(accounts.owner, 'GET', `expenses?select=amount,category,preset_id&club_id=eq.${clubs.arcade.id}&preset_id=not.is.null`)).json();
@@ -193,6 +203,7 @@ test('DEBT-001 DEBT-002 a debt and a payment on it update the balance through th
   const dialog = page.getByRole('dialog', { name: 'Add Debt' });
   await dialog.locator('#debt-person').fill('E2E Debtor');
   await dialog.locator('#debt-amount').fill('100000');
+  await dialog.locator('#debt-comment').fill('Played four hours, pays tomorrow');
   await dialog.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('Debt saved')).toBeVisible();
   const row = page.getByRole('listitem').filter({ hasText: 'E2E Debtor' });
@@ -200,6 +211,7 @@ test('DEBT-001 DEBT-002 a debt and a payment on it update the balance through th
   await row.getByRole('button', { name: 'Accept payment' }).click();
   const payment = page.getByRole('dialog', { name: 'Partial Payment' });
   await payment.locator('#payment-amount').fill('40000');
+  await payment.locator('#payment-comment').fill('Paid part of it in cash');
   await payment.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('Payment recorded')).toBeVisible();
   await expect(row).toContainText(uzs(60_000));
@@ -293,10 +305,10 @@ test.describe('as a viewer', () => {
     await expect(page.locator('#main-content')).toContainText('E2E Alibek');
     await expect(page.getByRole('button', { name: 'Accept payment' })).toHaveCount(0);
     // The expense route runs as the viewer: RLS refuses the insert.
-    const response = await page.request.post('/api/expenses', { data: { clubId: clubs.arcade.id, date: today, amount: 1000, category: 'cleaning', paymentMethod: 'cash', paymentSource: 'game_club' } });
+    const response = await page.request.post('/api/expenses', { data: { clubId: clubs.arcade.id, date: today, amount: 1000, category: 'cleaning', paymentMethod: 'cash', paymentSource: 'game_club', comment: 'Cleaning service for both halls' } });
     expect(response.status()).toBe(403);
     // Straight to the database API with the viewer's own token: RLS, not the UI, is the boundary.
-    expect((await restAs(accounts.viewer, 'POST', 'new_debts', { club_id: clubs.arcade.id, person_name: 'E2E Intruder', amount: 1, remaining_amount: 1, date: today, category: 'other', status: 'unpaid', created_by: accounts.viewer.id })).status).toBe(403);
+    expect((await restAs(accounts.viewer, 'POST', 'new_debts', { club_id: clubs.arcade.id, person_name: 'E2E Intruder', amount: 1, remaining_amount: 1, date: today, category: 'other', status: 'unpaid', comment: 'Played four hours, pays tomorrow', created_by: accounts.viewer.id })).status).toBe(403);
     expect((await restAs(accounts.viewer, 'POST', 'rpc/record_stock_purchase', { p_club_id: clubs.arcade.id, p_date: today, p_product_id: products.cola.id, p_quantity: 1, p_cost_price: 1 })).status).toBe(403);
     // A member of E2E Arcade only: the other club's ledgers are invisible, not just empty on screen.
     expect(await (await restAs(accounts.viewer, 'GET', `products?select=id&club_id=eq.${clubs.bunker.id}`)).json()).toEqual([]);
