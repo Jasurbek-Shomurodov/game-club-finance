@@ -51,6 +51,7 @@ import {
 import { useClubQuery } from '@/lib/useClubQuery';
 import type { ShowcaseGame, ShowcasePcZone } from '@/types';
 import { BrandSettingsCard } from './BrandSettingsCard';
+import { LocalizedTextField } from './LocalizedTextField';
 import { ShowcaseImageField } from './ShowcaseImageField';
 
 const EMPTY: ShowcaseAdminData & { missing: boolean } = { showcase: null, games: [], zones: [], missing: false };
@@ -237,13 +238,25 @@ export default function ShowcasePage() {
                   <Field label={t('slug')} htmlFor="showcase-slug" required hint={t('slugHint', { path: `/club/${settings.slug || '…'}` })}>
                     <Input id="showcase-slug" value={settings.slug} maxLength={40} onChange={(e) => setField('slug', normalizeSlugInput(e.target.value))} />
                   </Field>
-                  <Field label={t('headline')} htmlFor="showcase-headline" hint={t('headlineHint')}>
-                    <Input id="showcase-headline" value={settings.headline} maxLength={80} placeholder={selectedClub?.name} onChange={(e) => setField('headline', e.target.value)} />
-                  </Field>
+                  <LocalizedTextField
+                    id="showcase-headline"
+                    label={t('headline')}
+                    hint={t('headlineHint')}
+                    maxLength={80}
+                    placeholder={selectedClub?.name}
+                    value={settings.headline}
+                    onChange={(value) => setField('headline', value)}
+                  />
                 </div>
-                <Field label={t('tagline')} htmlFor="showcase-tagline">
-                  <Textarea id="showcase-tagline" rows={2} maxLength={240} value={settings.tagline} onChange={(e) => setField('tagline', e.target.value)} />
-                </Field>
+                <LocalizedTextField
+                  id="showcase-tagline"
+                  label={t('tagline')}
+                  hint={t('taglineHint')}
+                  multiline
+                  maxLength={240}
+                  value={settings.tagline}
+                  onChange={(value) => setField('tagline', value)}
+                />
                 <ShowcaseImageField
                   label={t('heroImage')}
                   clubId={selectedClubId}

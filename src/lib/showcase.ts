@@ -1,4 +1,4 @@
-import type { ClubShowcase, ShowcaseBrand, ShowcaseGame, ShowcasePcZone } from '@/types';
+import type { ClubShowcase, ShowcaseBrand, ShowcaseGame, ShowcasePcZone, ShowcaseTranslations } from '@/types';
 import { formatCurrencyInput, parseCurrencyInput } from './formatters';
 
 /** Matches the club_showcases_slug_format check in migration 098. */
@@ -27,6 +27,45 @@ export function normalizeSlugInput(value: string): string {
 }
 
 const optionalText = (value: string) => value.trim() || null;
+
+/** Every app language, in the order the editor shows them; Russian is the default. */
+export const SHOWCASE_LANGUAGES = ['ru', 'uz', 'en'] as const;
+export type ShowcaseLanguage = (typeof SHOWCASE_LANGUAGES)[number];
+export type LocalizedText = Record<ShowcaseLanguage, string>;
+type LocalizedField = keyof ShowcaseTranslations;
+
+/** One field's text per language for the editor; a page saved before 101 shows its single text under Russian. */
+export function localizedFromRow(translations: ShowcaseTranslations | null | undefined, field: LocalizedField, legacy: string | null | undefined): LocalizedText {
+  const stored = translations?.[field] ?? {};
+  const value = Object.fromEntries(SHOWCASE_LANGUAGES.map((language) => [language, stored[language] ?? ''])) as LocalizedText;
+  if (SHOWCASE_LANGUAGES.every((language) => !value[language].trim()) && legacy) value.ru = legacy;
+  return value;
+}
+
+/** Trimmed, non-empty languages only. */
+function localizedPayload(value: LocalizedText): Partial<LocalizedText> {
+  return Object.fromEntries(SHOWCASE_LANGUAGES.flatMap((language) => (value[language].trim() ? [[language, value[language].trim()]] : [])));
+}
+
+/** The single-language fallback column: the first filled language in default order. */
+function primaryText(value: LocalizedText): string | null {
+  return SHOWCASE_LANGUAGES.map((language) => value[language].trim()).find(Boolean) ?? null;
+}
+
+/** The visitor's language, then the other languages in default order, then the single-language column. */
+export function pickLocalized(value: Partial<Record<string, unknown>> | null | undefined, locale: string, fallback: string | null): string | null {
+  const order = [locale, ...SHOWCASE_LANGUAGES.filter((language) => language !== locale)];
+  for (const language of order) {
+    const candidate = value?.[language];
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+  }
+  return fallback;
+}
+
+/** The languages of a localized field that have no text yet. */
+export function missingLanguages(value: LocalizedText): ShowcaseLanguage[] {
+  return SHOWCASE_LANGUAGES.filter((language) => !value[language].trim());
+}
 
 /** An absolute http(s) URL, or null for a blank or unusable value. */
 export function normalizeExternalUrl(value: string | null | undefined): string | null {
@@ -66,8 +105,8 @@ export function telHref(phone: string | null | undefined): string | null {
 export interface ShowcaseSettingsForm {
   slug: string;
   is_published: boolean;
-  headline: string;
-  tagline: string;
+  headline: LocalizedText;
+  tagline: LocalizedText;
   hero_image_url: string;
   address: string;
   phone: string;
@@ -82,8 +121,8 @@ export function showcaseSettingsForm(showcase: ClubShowcase | null, clubName: st
   return {
     slug: showcase?.slug ?? slugifyClubName(clubName),
     is_published: showcase?.is_published ?? false,
-    headline: showcase?.headline ?? '',
-    tagline: showcase?.tagline ?? '',
+    headline: localizedFromRow(showcase?.translations, 'headline', showcase?.headline),
+    tagline: localizedFromRow(showcase?.translations, 'tagline', showcase?.tagline),
     hero_image_url: showcase?.hero_image_url ?? '',
     address: showcase?.address ?? '',
     phone: showcase?.phone ?? '',
@@ -106,8 +145,9 @@ export function buildShowcaseSettingsPayload(form: ShowcaseSettingsForm) {
   return {
     slug: form.slug,
     is_published: form.is_published,
-    headline: optionalText(form.headline),
-    tagline: optionalText(form.tagline),
+    headline: primaryText(form.headline),
+    tagline: primaryText(form.tagline),
+    translations: { headline: localizedPayload(form.headline), tagline: localizedPayload(form.tagline) },
     hero_image_url: normalizeExternalUrl(form.hero_image_url),
     address: optionalText(form.address),
     phone: optionalText(form.phone),
@@ -297,6 +337,12 @@ export interface PublicShowcase {
 
 const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null);
 const safeUrl = (value: unknown) => (typeof value === 'string' ? normalizeExternalUrl(value) : null);
+const translationsOf = (data: Record<string, unknown>) => {
+  const value = data.translations;
+  const record = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const field = (name: string) => (record[name] && typeof record[name] === 'object' ? record[name] as Record<string, unknown> : {});
+  return { headline: field('headline'), tagline: field('tagline') };
+};
 const positive = (value: number | null) => (value !== null && value > 0 ? value : null);
 const finiteNumber = (value: unknown) => {
   const parsed = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : NaN;
@@ -308,7 +354,7 @@ const finiteNumber = (value: unknown) => {
  * malformed becomes null, and only http(s) image and social links survive so
  * a stored javascript: URL can never reach an href or src.
  */
-export function parsePublicShowcase(raw: unknown): PublicShowcase | null {
+export function parsePublicShowcase(raw: unknown, locale = 'ru'): PublicShowcase | null {
   if (!raw || typeof raw !== 'object') return null;
   const data = raw as Record<string, unknown>;
   const clubName = text(data.club_name);
@@ -319,8 +365,8 @@ export function parsePublicShowcase(raw: unknown): PublicShowcase | null {
   return {
     club_name: clubName,
     slug,
-    headline: text(data.headline),
-    tagline: text(data.tagline),
+    headline: pickLocalized(translationsOf(data).headline, locale, text(data.headline)),
+    tagline: pickLocalized(translationsOf(data).tagline, locale, text(data.tagline)),
     hero_image_url: safeUrl(data.hero_image_url),
     address: text(data.address),
     phone: text(data.phone),
@@ -389,17 +435,17 @@ export interface PublicBrand {
 }
 
 /** The get_public_brand payload; clubs that fail to parse are dropped. */
-export function parsePublicBrand(raw: unknown): PublicBrand | null {
+export function parsePublicBrand(raw: unknown, locale = 'ru'): PublicBrand | null {
   if (!raw || typeof raw !== 'object') return null;
   const data = raw as Record<string, unknown>;
   const slug = text(data.slug);
   const name = text(data.name);
   if (!slug || !name) return null;
-  const clubs = Array.isArray(data.clubs) ? data.clubs.map(parsePublicShowcase).filter((club): club is PublicShowcase => club !== null) : [];
+  const clubs = Array.isArray(data.clubs) ? data.clubs.map((club) => parsePublicShowcase(club, locale)).filter((club): club is PublicShowcase => club !== null) : [];
   return {
     slug,
     name,
-    tagline: text(data.tagline),
+    tagline: pickLocalized(translationsOf(data).tagline, locale, text(data.tagline)),
     hero_image_url: safeUrl(data.hero_image_url),
     telegram_url: safeUrl(data.telegram_url),
     instagram_url: safeUrl(data.instagram_url),
@@ -461,7 +507,7 @@ export function brandInsights(brand: Pick<PublicBrand, 'clubs'>): BrandInsights 
 export interface ShowcaseBrandForm {
   slug: string;
   name: string;
-  tagline: string;
+  tagline: LocalizedText;
   hero_image_url: string;
   telegram_url: string;
   instagram_url: string;
@@ -474,7 +520,7 @@ export function showcaseBrandForm(brand: ShowcaseBrand | null): ShowcaseBrandFor
   return {
     slug: brand?.slug ?? '',
     name: brand?.name ?? '',
-    tagline: brand?.tagline ?? '',
+    tagline: localizedFromRow(brand?.translations, 'tagline', brand?.tagline),
     hero_image_url: brand?.hero_image_url ?? '',
     telegram_url: brand?.telegram_url ?? '',
     instagram_url: brand?.instagram_url ?? '',
@@ -496,7 +542,8 @@ export function buildShowcaseBrandPayload(form: ShowcaseBrandForm) {
   return {
     slug: form.slug,
     name: form.name.trim(),
-    tagline: optionalText(form.tagline),
+    tagline: primaryText(form.tagline),
+    translations: { tagline: localizedPayload(form.tagline) },
     hero_image_url: normalizeExternalUrl(form.hero_image_url),
     telegram_url: normalizeTelegramUrl(form.telegram_url),
     instagram_url: normalizeInstagramUrl(form.instagram_url),

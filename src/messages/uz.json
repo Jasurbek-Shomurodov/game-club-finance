@@ -1747,7 +1747,11 @@
     "headset": "Quloqchin",
     "chair": "Kreslo",
     "error_monitor_size_invalid": "Diagonalni dyuymda kiriting, 10 dan 100 gacha.",
-    "error_monitor_refresh_invalid": "Chastotani butun son bilan Gs da kiriting, 30 dan 1000 gacha."
+    "error_monitor_refresh_invalid": "Chastotani butun son bilan Gs da kiriting, 30 dan 1000 gacha.",
+    "languageSwitch": "Matn tili",
+    "languageMissing": "{language}: to‘ldirilmagan",
+    "languagesMissingHint": "To‘ldirilmagan: {languages}. Bu tillardagi tashrif buyuruvchilar birinchi to‘ldirilgan tilni ko‘radi.",
+    "taglineHint": "Uchala tilni to‘ldiring — tashrif buyuruvchi tanlagan tilni ko‘radi."
   },
   "publicShowcase": {
     "navGames": "O‘yinlar",

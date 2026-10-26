@@ -1747,7 +1747,11 @@
     "headset": "Наушники",
     "chair": "Кресло",
     "error_monitor_size_invalid": "Укажите диагональ в дюймах, от 10 до 100.",
-    "error_monitor_refresh_invalid": "Укажите частоту целым числом Гц, от 30 до 1000."
+    "error_monitor_refresh_invalid": "Укажите частоту целым числом Гц, от 30 до 1000.",
+    "languageSwitch": "Язык текста",
+    "languageMissing": "{language}: не заполнено",
+    "languagesMissingHint": "Не заполнено: {languages}. Посетители на этих языках увидят первый заполненный язык.",
+    "taglineHint": "Заполните все три языка — посетитель увидит выбранный."
   },
   "publicShowcase": {
     "navGames": "Игры",

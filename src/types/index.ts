@@ -282,12 +282,16 @@ export interface OwnerProfitCarryover {
   created_at: string;
 }
 
+/** Per-language headline and description of a public page (101). */
+export type ShowcaseTranslations = Partial<Record<'headline' | 'tagline', Partial<Record<'ru' | 'uz' | 'en', string>>>>;
+
 export interface ClubShowcase {
   club_id: string;
   slug: string;
   is_published: boolean;
   headline: string | null;
   tagline: string | null;
+  translations?: ShowcaseTranslations;
   hero_image_url: string | null;
   address: string | null;
   phone: string | null;
@@ -335,6 +339,7 @@ export interface ShowcaseBrand {
   slug: string;
   name: string;
   tagline: string | null;
+  translations?: ShowcaseTranslations;
   hero_image_url: string | null;
   telegram_url: string | null;
   instagram_url: string | null;

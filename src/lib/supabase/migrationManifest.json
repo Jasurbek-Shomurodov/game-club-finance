@@ -3677,10 +3677,6 @@
         "kind": "functionBody",
         "signature": "public.get_public_showcase(text)",
         "md5": "a33dcb22401a0d73c78e4369095488bf"
-      },
-      {
-        "kind": "function",
-        "signature": "public.get_public_brand(text)"
       }
     ]
   },
@@ -3731,11 +3727,41 @@
         "kind": "constraint",
         "table": "public.showcase_pc_zones",
         "name": "showcase_pc_zones_monitor_refresh_range"
+      }
+    ]
+  },
+  {
+    "file": "101_showcase_translations.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.club_showcases",
+        "column": "translations"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_brands",
+        "column": "translations"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.club_showcases",
+        "name": "club_showcases_translations_object"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.showcase_brands",
+        "name": "showcase_brands_translations_object"
       },
       {
         "kind": "functionBody",
         "signature": "public.public_showcase_payload(uuid)",
-        "md5": "674ffed4bc2b102e274854aa49e22196"
+        "md5": "982f9f09d824288c671f90d4210e0218"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_public_brand(text)",
+        "md5": "c82fd8b06a53293c87448507e27d9e95"
       }
     ]
   }

@@ -6,6 +6,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 const migration = readFileSync(resolve('migrations', '098_public_showcase.sql'), 'utf8');
 const brandMigration = readFileSync(resolve('migrations', '099_showcase_brands.sql'), 'utf8');
 const specsMigration = readFileSync(resolve('migrations', '100_showcase_zone_specs.sql'), 'utf8');
+const translationsMigration = readFileSync(resolve('migrations', '101_showcase_translations.sql'), 'utf8');
 const club = '10000000-0000-0000-0000-000000000001';
 const otherClub = '10000000-0000-0000-0000-000000000002';
 const thirdClub = '10000000-0000-0000-0000-000000000003';
@@ -43,6 +44,7 @@ beforeAll(async () => {
   await db.exec(migration);
   await db.exec(brandMigration);
   await db.exec(specsMigration);
+  await db.exec(translationsMigration);
 }, 20000);
 
 afterAll(async () => { await db?.close(); });
@@ -59,6 +61,7 @@ describe('098 public showcase', () => {
     await db.exec(migration);
     await db.exec(brandMigration);
     await db.exec(specsMigration);
+    await db.exec(translationsMigration);
   });
 
   it('returns a published showcase to anonymous visitors in sort order', async () => {
@@ -138,5 +141,18 @@ describe('098 public showcase', () => {
     await db.exec('reset role');
     await expect(db.query('update showcase_pc_zones set monitor_refresh_hz = 5')).rejects.toThrow(/monitor_refresh_range/);
     await expect(db.query('update showcase_pc_zones set monitor_size_inches = 500')).rejects.toThrow(/monitor_size_range/);
+  });
+
+  it('publishes headline and description in every language', async () => {
+    await db.exec(`update club_showcases set translations = '{"tagline":{"ru":"Играй","uz":"O‘yna","en":"Play"}}';
+      insert into showcase_brands(owner_id, slug, name, is_published, translations)
+      values ('${owner}','pixel-gaming','Pixel Gaming',true,'{"tagline":{"en":"Chain"}}');`);
+    await asRole('anon');
+    const club = (await db.query<{ t: unknown }>("select public.get_public_showcase('neon-arena')->'translations' as t")).rows[0].t;
+    expect(club).toEqual({ tagline: { ru: 'Играй', uz: 'O‘yna', en: 'Play' } });
+    const brand = (await db.query<{ t: unknown }>("select public.get_public_brand('pixel-gaming')->'translations' as t")).rows[0].t;
+    expect(brand).toEqual({ tagline: { en: 'Chain' } });
+    await db.exec('reset role');
+    await expect(db.query(`update club_showcases set translations = '[]'`)).rejects.toThrow(/translations_object/);
   });
 });

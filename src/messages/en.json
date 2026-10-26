@@ -1747,7 +1747,11 @@
     "headset": "Headset",
     "chair": "Chair",
     "error_monitor_size_invalid": "Enter the monitor size in inches, from 10 to 100.",
-    "error_monitor_refresh_invalid": "Enter the refresh rate as a whole number of Hz, from 30 to 1000."
+    "error_monitor_refresh_invalid": "Enter the refresh rate as a whole number of Hz, from 30 to 1000.",
+    "languageSwitch": "Language of this text",
+    "languageMissing": "{language}: not filled in",
+    "languagesMissingHint": "Not filled in: {languages}. Visitors in those languages see the first filled language.",
+    "taglineHint": "Fill in all three languages; visitors see the one they picked."
   },
   "publicShowcase": {
     "navGames": "Games",

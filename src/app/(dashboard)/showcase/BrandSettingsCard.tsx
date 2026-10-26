@@ -15,7 +15,6 @@ import {
   Input,
   SectionHeading,
   Skeleton,
-  Textarea,
   buttonClassName,
 } from '@/components/PresentationFoundation';
 import { createClient } from '@/lib/supabase/client';
@@ -28,6 +27,7 @@ import {
   type ShowcaseBrandForm,
 } from '@/lib/showcase';
 import type { ShowcaseBrand } from '@/types';
+import { LocalizedTextField } from './LocalizedTextField';
 import { ShowcaseImageField } from './ShowcaseImageField';
 
 interface BrandSettingsCardProps {
@@ -128,9 +128,15 @@ export function BrandSettingsCard({ userId, clubId, onSaved }: BrandSettingsCard
                 <Input id="brand-slug" value={form.slug} maxLength={40} placeholder="pixel-gaming" onChange={(e) => set('slug', normalizeSlugInput(e.target.value))} />
               </Field>
             </div>
-            <Field label={t('tagline')} htmlFor="brand-tagline">
-              <Textarea id="brand-tagline" rows={2} maxLength={240} value={form.tagline} onChange={(e) => set('tagline', e.target.value)} />
-            </Field>
+            <LocalizedTextField
+              id="brand-tagline"
+              label={t('tagline')}
+              hint={t('taglineHint')}
+              multiline
+              maxLength={240}
+              value={form.tagline}
+              onChange={(value) => set('tagline', value)}
+            />
             <ShowcaseImageField
               label={t('heroImage')}
               clubId={clubId}

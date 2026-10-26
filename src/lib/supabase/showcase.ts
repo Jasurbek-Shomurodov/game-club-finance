@@ -62,18 +62,18 @@ function anonymousClient() {
   return createSupabaseClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
-export async function fetchPublicShowcase(slug: string): Promise<PublicShowcase | null> {
+export async function fetchPublicShowcase(slug: string, locale: string): Promise<PublicShowcase | null> {
   const supabase = anonymousClient();
   if (!supabase) return null;
   const { data, error } = await supabase.rpc('get_public_showcase', { p_slug: slug });
-  return error ? null : parsePublicShowcase(data);
+  return error ? null : parsePublicShowcase(data, locale);
 }
 
-export async function fetchPublicBrand(slug: string): Promise<PublicBrand | null> {
+export async function fetchPublicBrand(slug: string, locale: string): Promise<PublicBrand | null> {
   const supabase = anonymousClient();
   if (!supabase) return null;
   const { data, error } = await supabase.rpc('get_public_brand', { p_slug: slug });
-  return error ? null : parsePublicBrand(data);
+  return error ? null : parsePublicBrand(data, locale);
 }
 
 /**

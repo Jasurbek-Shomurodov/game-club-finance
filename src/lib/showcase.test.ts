@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   SHOWCASE_SLUG_PATTERN,
+  localizedFromRow,
+  missingLanguages,
+  pickLocalized,
   brandInsights,
   buildShowcaseBrandPayload,
   clubInsights,
@@ -62,7 +65,7 @@ describe('settings form', () => {
   });
 
   it('writes blanks as null and normalizes links', () => {
-    const payload = buildShowcaseSettingsPayload({ ...showcaseSettingsForm(null, 'Neon'), telegram_url: '@neon', tagline: ' ' });
+    const payload = buildShowcaseSettingsPayload({ ...showcaseSettingsForm(null, 'Neon'), telegram_url: '@neon', tagline: { ru: ' ', uz: '', en: '' } });
     expect(payload.telegram_url).toBe('https://t.me/neon');
     expect(payload.tagline).toBeNull();
   });
@@ -183,5 +186,32 @@ describe('structured PC specs', () => {
     })!;
     expect(club.zones[0]).toMatchObject({ monitor_size_inches: 27, monitor_refresh_hz: 360, mouse: 'G Pro', keyboard: null });
     expect(clubInsights(club).maxRefreshHz).toBe(360);
+  });
+});
+
+describe('languages', () => {
+  it('stores each filled language and keeps the first as the fallback column', () => {
+    const form = { ...showcaseSettingsForm(null, 'Neon'), tagline: { ru: '', uz: ' Zo‘r klub ', en: 'Great club' } };
+    expect(buildShowcaseSettingsPayload(form)).toMatchObject({
+      tagline: 'Zo‘r klub',
+      translations: { tagline: { uz: 'Zo‘r klub', en: 'Great club' }, headline: {} },
+    });
+    expect(missingLanguages(form.tagline)).toEqual(['ru']);
+  });
+
+  it('opens a page saved before translations with its text under Russian', () => {
+    expect(localizedFromRow(undefined, 'tagline', 'Старый текст')).toEqual({ ru: 'Старый текст', uz: '', en: '' });
+    expect(localizedFromRow({ tagline: { en: 'Hi' } }, 'tagline', 'Старый')).toEqual({ ru: '', uz: '', en: 'Hi' });
+  });
+
+  it('shows visitors their language, then the next filled one, then the old column', () => {
+    const raw = { club_name: 'X', slug: 'x', tagline: 'legacy', translations: { tagline: { ru: 'Привет', en: 'Hello' } }, games: [], zones: [] };
+    expect(parsePublicShowcase(raw, 'en')?.tagline).toBe('Hello');
+    expect(parsePublicShowcase(raw, 'uz')?.tagline).toBe('Привет');
+    expect(parsePublicShowcase({ ...raw, translations: {} }, 'uz')?.tagline).toBe('legacy');
+    expect(pickLocalized({ ru: 5 }, 'ru', null)).toBeNull();
+    const brand = parsePublicBrand({ slug: 'b', name: 'B', translations: { tagline: { uz: 'Salom' } }, clubs: [raw] }, 'uz');
+    expect(brand?.tagline).toBe('Salom');
+    expect(brand?.clubs[0].tagline).toBe('Привет');
   });
 });

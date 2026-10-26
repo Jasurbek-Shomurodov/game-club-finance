@@ -3,10 +3,12 @@
 import type { Metadata } from 'next';
 import { cache } from 'react';
 import { notFound } from 'next/navigation';
+import { getLocale } from 'next-intl/server';
 import { ShowcaseView } from '@/components/showcase/ShowcaseView';
 import { fetchPublicShowcase } from '@/lib/supabase/showcase';
 
-const loadShowcase = cache((slug: string) => fetchPublicShowcase(decodeURIComponent(slug)));
+// The visitor's language picks the headline and description; cached per request.
+const loadShowcase = cache(async (slug: string) => fetchPublicShowcase(decodeURIComponent(slug), await getLocale()));
 
 interface PageProps {
   params: Promise<{ slug: string }>;
