@@ -43,6 +43,7 @@ Telegram group if one is set up.
 | DASH-006 | S1 | Chart has no future days | View this month mid-month | Series ends at the business today |
 | DASH-007 | S1 | Business-day boundary | Before `businessDayStartHour`, open the dashboard | "Today" is the previous business date in every card |
 | DASH-008 | S2 | Loading shows skeletons | Throttle the network and reload | Content-shaped skeletons, no layout jump when data arrives |
+| DASH-009 | S1 | A money-flow payment opens its details | Open a category from a money-flow Sankey; tap a payment in Payments, then a comment's flow in the chart | Each opens that payment's details (amount, date, category, paid from, method, comment) in the dialog, with Back to the category |
 
 ## INC — income
 

@@ -10,10 +10,12 @@ import {
   buildDrillSankey,
   drillDetailsHref,
   drillExpenseRows,
+  paymentTarget,
   type DrillNode,
   type DrillTarget,
 } from '@/lib/calculations/sankeyDrill';
 import { SankeyFlowChart } from './SankeyFlowChart';
+import { PaymentDetails } from './PaymentDetails';
 import { PaymentList } from './PaymentList';
 
 export interface SankeyDrillModalProps {
@@ -36,7 +38,8 @@ export interface SankeyDrillModalProps {
 /**
  * The Sankey behind a tapped node of the money flow, in a dialog over the page.
  * A node or flow in it that leads further opens its own Sankey in the same
- * dialog; Back returns to the one before. A category lists its payments below.
+ * dialog; Back returns to the one before. A category lists its payments below,
+ * and a payment, in the list or the chart, opens its details in the same way.
  */
 export function SankeyDrillModal({
   open,
@@ -102,7 +105,14 @@ export function SankeyDrillModal({
               {td('details')}
             </ButtonLink>
           </div>
-          {sankey.total > 0 ? (
+          {current.kind === 'payment' ? (
+            <PaymentDetails
+              row={ledgers.expenseRows.find((row) => row.id === current.id)}
+              labelFor={labelFor}
+              locale={locale}
+              currency={currency}
+            />
+          ) : sankey.total > 0 ? (
             <SankeyFlowChart
               // A new drill-down draws afresh rather than keeping the last one's hover.
               key={trail.length}
@@ -132,6 +142,7 @@ export function SankeyDrillModal({
                 labelFor={labelFor}
                 locale={locale}
                 currency={currency}
+                onOpen={(row) => onTrailChange([...trail, paymentTarget(row)])}
               />
             </section>
           )}

@@ -9,9 +9,11 @@ import {
   NO_COMMENT,
   PAID_FROM_BAR,
   PAID_FROM_GAME_CLUB,
+  PAYMENT_PREFIX,
   buildDrillSankey,
   drillDetailsHref,
   drillExpenseRows,
+  type DrillTarget,
 } from './sankeyDrill';
 
 function expense(id: string, date: string, amount: number, category: string, extra: Partial<ExpenseRow> = {}): ExpenseRow {
@@ -98,7 +100,34 @@ describe('sankey drill-downs', () => {
     const rows = Array.from({ length: 9 }, (_, index) => expense(`n${index}`, '2026-09-01', 1_000 * (index + 1), 'repairs', { comment: `Fix ${index}` }));
     const sankey = buildDrillSankey({ kind: 'category', category: 'repairs' }, { ...ledgers, expenseRows: rows });
     expect(sankey.targets).toHaveLength(8);
-    expect(sankey.targets.at(-1)).toEqual({ key: MORE_PAYMENTS, amount: 1_000 + 2_000 });
+    expect(sankey.targets.at(-1)).toMatchObject({ key: MORE_PAYMENTS, amount: 1_000 + 2_000 });
+    // The folded rest opens its own payments, one by one, each opening its details.
+    const more = sankey.targets.at(-1)?.open;
+    expect(more).toEqual({ kind: 'category', category: 'repairs', notes: [`${NOTE_PREFIX}Fix 1`, `${NOTE_PREFIX}Fix 0`] });
+    const payments = buildDrillSankey(more!, { ...ledgers, expenseRows: rows });
+    expect(amounts(payments.targets)).toEqual({ [`${PAYMENT_PREFIX}n1`]: 2_000, [`${PAYMENT_PREFIX}n0`]: 1_000 });
+    expect(payments.targets.find((node) => node.key === `${PAYMENT_PREFIX}n1`)?.open).toEqual({ kind: 'payment', id: 'n1', date: '2026-09-01', category: 'repairs', source: 'game_club' });
+  });
+
+  it('opens a comment on one payment as that payment, and a shared one as its payments', () => {
+    const rows = [
+      expense('a', '2026-09-01', 5_000, 'repairs', { comment: 'Mouse' }),
+      expense('b', '2026-09-02', 3_000, 'repairs'),
+      expense('c', '2026-09-03', 2_000, 'repairs', { payment_source: 'bar' }),
+    ];
+    const sankey = buildDrillSankey({ kind: 'category', category: 'repairs' }, { ...ledgers, expenseRows: rows });
+    const open = (key: string) => sankey.targets.find((node) => node.key === key)?.open;
+    expect(open(`${NOTE_PREFIX}Mouse`)).toEqual({ kind: 'payment', id: 'a', date: '2026-09-01', category: 'repairs', source: 'game_club' });
+    const shared = open(NO_COMMENT);
+    expect(shared).toEqual({ kind: 'category', category: 'repairs', notes: [NO_COMMENT] });
+    expect(drillExpenseRows(shared as Extract<DrillTarget, { kind: 'category' }>, rows).map((row) => row.id)).toEqual(['c', 'b']);
+    // The money that paid a category opens that side's own flow.
+    expect(sankey.sources.find((node) => node.key === PAID_FROM_GAME_CLUB)?.open).toEqual({ kind: 'gameClub' });
+    expect(sankey.sources.find((node) => node.key === PAID_FROM_BAR)?.open).toEqual({ kind: 'bar' });
+
+    const payment = buildDrillSankey({ kind: 'payment', id: 'c', date: '2026-09-03', category: 'repairs', source: 'bar' }, { ...ledgers, expenseRows: rows });
+    expect(amounts(payment.sources)).toEqual({ [PAID_FROM_BAR]: 2_000 });
+    expect(amounts(payment.targets)).toEqual({ [`${PAYMENT_PREFIX}c`]: 2_000 });
   });
 
   it('opens the folded category as the categories it holds', () => {
@@ -123,6 +152,11 @@ describe('drillDetailsHref', () => {
       .toBe('/reports?from=2026-10-01&to=2026-10-31&category=expense%3Acorrection&source=game_club');
     expect(drillDetailsHref({ kind: 'category', category: 'utilities', source: 'bar' }, range))
       .toBe('/reports?from=2026-10-01&to=2026-10-31&category=expense%3Autilities&source=bar');
+  });
+
+  it('opens a payment in reports on its own day, category and money', () => {
+    expect(drillDetailsHref({ kind: 'payment', id: 'p', date: '2026-10-17', category: 'repairs', source: 'game_club' }, range))
+      .toBe('/reports?from=2026-10-17&to=2026-10-17&category=expense%3Arepairs&source=game_club');
   });
 
   it('opens every expense for the folded other category', () => {

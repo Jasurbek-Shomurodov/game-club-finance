@@ -161,6 +161,23 @@ test('EXP-009 an owner moves an expense to another date from Entry details', asy
   expect(row.date).toBe(target);
 });
 
+test('DASH-009 a payment in a money-flow category opens its details, from the list and from the chart', async ({ page }) => {
+  const [cleaning] = expenses;
+  await page.goto('/dashboard');
+  await page.getByRole('button', { name: 'Open Cleaning' }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Cleaning' });
+  // From the Payments list: the payment's details, then Back to the category.
+  await dialog.getByRole('listitem').getByRole('button', { name: new RegExp(cleaning.comment) }).click();
+  await expect(dialog.getByText('Date and time')).toBeVisible();
+  await expect(dialog.getByText(cleaning.comment)).toBeVisible();
+  await expect(dialog.getByText(uzs(cleaning.amount))).toBeVisible();
+  await dialog.getByRole('button', { name: 'Back' }).click();
+  await expect(dialog.getByText('Payments')).toBeVisible();
+  // From the chart: the comment's flow opens the same details.
+  await dialog.getByRole('button', { name: `Open ${cleaning.comment}` }).click();
+  await expect(dialog.getByText('Date and time')).toBeVisible();
+});
+
 test('STOCK-001 STOCK-002 STOCK-003 a purchase and a closing count go through the atomic RPCs and agree with the stock math', async ({ page }) => {
   // E2E Bunker's product has no closing yet today, so a purchase dated today is allowed.
   await page.goto('/stock-purchase');

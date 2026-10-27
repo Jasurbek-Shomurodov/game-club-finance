@@ -17,12 +17,14 @@ import {
   NOTE_PREFIX,
   NO_COMMENT,
   PAID_FROM_BAR,
+  PAYMENT_PREFIX,
   PAID_FROM_GAME_CLUB,
   buildDrillSankey,
   type DrillNode,
   type DrillSankey,
   type DrillTarget,
 } from '@/lib/calculations/sankeyDrill';
+import { formatDateShort } from '@/lib/formatters';
 import { categoryColors, drillNodeColor } from './analysisFormat';
 import { SankeyDrillModal } from './SankeyDrillModal';
 import { SankeyFlowChart } from './SankeyFlowChart';
@@ -92,15 +94,23 @@ export function MoneyFlowSankeys({
     [NO_COMMENT]: t('drawerNoComment'),
     [MORE_PAYMENTS]: t('drill.morePayments'),
   };
-  const nodeName = (key: string) => {
+  const nodeName = (key: string): string => {
     if (key in drillNames) return drillNames[key];
     if (key.startsWith(NOTE_PREFIX)) return key.slice(NOTE_PREFIX.length);
+    // One payment reads as what it was for and its day.
+    if (key.startsWith(PAYMENT_PREFIX)) {
+      const row = ledgers.expenseRows.find((item) => item.id === key.slice(PAYMENT_PREFIX.length));
+      return row ? `${row.comment?.trim() || t('drawerNoComment')} · ${formatDateShort(row.date, locale)}` : '';
+    }
     if (t.has(`sources.${key}`)) return t(`sources.${key as IncomeSourceKey}`);
     return categoryName(key);
   };
   const drillTitle = (target: DrillTarget) => {
     if (target.kind === 'gameClub') return td('gameClub');
     if (target.kind === 'bar') return td('bar');
+    if (target.kind === 'payment') return categoryName(target.category);
+    // A group of a category's payments is named by its comment, or as the folded rest.
+    if (target.notes) return `${categoryName(target.category)} · ${target.notes.length === 1 ? nodeName(target.notes[0]) : t('drill.morePayments')}`;
     return categoryName(target.category);
   };
   const openDrill = (node: DrillNode | undefined) => {

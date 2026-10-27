@@ -1,11 +1,14 @@
 'use client';
 
+import { useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { Badge, Drawer, StatTile } from '@/components/PresentationFoundation';
+import { Badge, Button, Drawer, StatTile } from '@/components/PresentationFoundation';
 import { chartColors } from '@/components/dashboard/ChartCard';
 import { formatCurrency } from '@/lib/formatters';
 import { OTHER_CATEGORY, type CategoryDetail } from '@/lib/calculations/financialAnalysis';
 import { formatShare } from './analysisFormat';
+import { PaymentDetails } from './PaymentDetails';
 import { PaymentList } from './PaymentList';
 
 export interface CategoryDrawerProps {
@@ -21,17 +24,21 @@ export interface CategoryDrawerProps {
   showPrevious?: boolean;
 }
 
-/** Slide-in panel with every payment behind one expense category of the period. */
+/** Slide-in panel with every payment behind one expense category of the period; a payment opens its details in the panel. */
 export function CategoryDrawer({ open, onClose, detail, color, labelFor, periodLabel, locale, currency, showPrevious = true }: CategoryDrawerProps) {
   const t = useTranslations('financialAnalysis');
   const td = useTranslations('dashboard');
+  const tc = useTranslations('common');
+  // The opened payment, kept per category so another category opens on its list.
+  const [opened, setOpened] = useState<{ category: string; id: string } | null>(null);
+  const payment = detail && opened?.category === detail.category ? detail.rows.find((row) => row.id === opened.id) : undefined;
   const money = (amount: number) => `${formatCurrency(amount)} ${currency}`;
   const up = (detail?.changePct ?? 0) > 0;
 
   return (
     <Drawer
       open={open}
-      onClose={onClose}
+      onClose={() => { setOpened(null); onClose(); }}
       title={detail ? (
         <span className="inline-flex items-center gap-2">
           <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: color }} aria-hidden="true" />
@@ -45,7 +52,15 @@ export function CategoryDrawer({ open, onClose, detail, color, labelFor, periodL
         </>
       )}
     >
-      {detail && (
+      {detail && payment && (
+        <div className="space-y-4">
+          <Button type="button" variant="ghost" size="sm" className="-ml-2" icon={<ArrowLeft size={16} aria-hidden="true" />} onClick={() => setOpened(null)}>
+            {tc('back')}
+          </Button>
+          <PaymentDetails row={payment} labelFor={labelFor} locale={locale} currency={currency} />
+        </div>
+      )}
+      {detail && !payment && (
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-2">
             <StatTile variant="soft" size="sm" label={t('drawerTotal')} value={formatCurrency(detail.total)} unit={currency} />
@@ -89,7 +104,9 @@ export function CategoryDrawer({ open, onClose, detail, color, labelFor, periodL
 
           <section>
             <h3 className="mb-1 text-sm font-semibold text-gray-950">{t('drawerPayments')}</h3>
-            <PaymentList rows={detail.rows} showCategory={detail.category === OTHER_CATEGORY} labelFor={labelFor} locale={locale} currency={currency} />
+            <PaymentList rows={detail.rows} showCategory={detail.category === OTHER_CATEGORY} labelFor={labelFor} locale={locale} currency={currency}
+              onOpen={(row) => setOpened({ category: detail.category, id: row.id })}
+            />
           </section>
         </div>
       )}
