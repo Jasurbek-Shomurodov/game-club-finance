@@ -215,7 +215,8 @@ Each salary rate carries a KPI basis (migration 070) and the pools it draws from
 
 - `overall_profit` (default for all older rates): the Owner Profit **earned** cash
   of the ticked pools before owner withdrawals, calculated live every day. Add
-  back linked salary payments paid from those pools, then deduct the group's
+  back linked salary payments and `investments` expenses paid from those pools
+  (migration 109: KPI profit is net of every expense except investments), then deduct the group's
   fixed pay (base + bonus - fine). With `P` as that remainder and `r` as the sum
   of weighted KPI fractions of the group, remaining profit is
   `max(0, P) / (1 + r)`; each employee receives their fraction of it.

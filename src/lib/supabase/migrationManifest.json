@@ -2413,11 +2413,6 @@
         "name": "salary_rates_kpi_pool_check"
       },
       {
-        "kind": "functionBody",
-        "signature": "public.get_salary_profit_snapshot(uuid,date)",
-        "md5": "96ecf1af11b64d576ab22ada7a930d47"
-      },
-      {
         "kind": "function",
         "signature": "public.save_salary_employee(uuid,uuid,text,text,date,text,numeric,numeric,boolean,text,boolean,boolean)"
       },
@@ -4003,6 +3998,16 @@
       {
         "kind": "function",
         "signature": "public.require_entry_note()"
+      }
+    ]
+  },
+  {
+    "file": "109_salary_kpi_excludes_investments.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.get_salary_profit_snapshot(uuid,date)",
+        "md5": "60d4a90c947a15765183e374bf85fa54"
       }
     ]
   }

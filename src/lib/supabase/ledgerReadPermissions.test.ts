@@ -230,6 +230,12 @@ it('returns identical payroll earned-cash inputs despite restricted ledger acces
       expect(await snapshot()).toEqual(expected);
     }
   }
+  // 109: investment expenses come back per pool so payroll KPI can leave them out.
+  await db.exec(`alter table expenses add category text;
+    update expenses set category='investments' where club_id='${clubId}' and date='2026-09-08';`);
+  await db.exec(readMigration('109_salary_kpi_excludes_investments.sql'));
+  await configure('viewer',['salaries']);
+  expect(await snapshot()).toMatchObject({monthlyBalances:[{period_month:'2026-09-01',game_club_earned:900,game_club_investments:100,bar_investments:0}]});
   await configure('viewer',['salaries']);
   expect((await visibleRows()).daily_cash_entries).toEqual([]);
   await withActor(async()=>{

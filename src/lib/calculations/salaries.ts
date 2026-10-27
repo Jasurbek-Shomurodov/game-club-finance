@@ -2,6 +2,12 @@ import { differenceInCalendarDays, eachMonthOfInterval, format, parseISO } from 
 import { monthRange } from '../utils';
 import type { OwnerProfitMonthlyBalanceRow } from '@/lib/calculations/ownerProfitSnapshot';
 
+/** A payroll profit month: Owner Profit cash plus investment expenses per pool (migration 109). */
+export interface SalaryProfitMonth extends OwnerProfitMonthlyBalanceRow {
+  game_club_investments?: number;
+  bar_investments?: number;
+}
+
 export interface SalaryEmployee {
   id: string;
   club_id: string;
@@ -69,7 +75,8 @@ const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 10
  * Each salary rate chooses a KPI basis and the profit pools (Game Club, Bar) it
  * is taken from. Employees sharing a basis + pools form a group:
  *  - overall_profit: earned cash of the ticked pools before withdrawals, plus
- *    linked salary payments paid from those pools, minus the group's fixed pay
+ *    linked salary payments and investment expenses paid from those pools (every
+ *    other expense still counts), minus the group's fixed pay
  *    (base + bonus - fine): residual = max(0, profit - fixed) / (1 + sum(shares)).
  *    Payment timing therefore cannot change KPI or deduct salary twice.
  *  - owner_profit: the amount the owner withdrew from the ticked pools in the
@@ -81,7 +88,7 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, th
   employees: SalaryEmployee[];
   rates: SalaryRate[];
   entries: SalaryEntry[];
-  monthlyProfit: OwnerProfitMonthlyBalanceRow[];
+  monthlyProfit: SalaryProfitMonth[];
   throughDate: string;
 }): Record<string, SalaryMonth[]> {
   const result: Record<string, SalaryMonth[]> = Object.fromEntries(employees.map((e) => [e.id, []]));
@@ -143,8 +150,8 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, th
         group.base = (group.gameClub ? Number(profitRow?.game_club_withdrawn ?? 0) : 0) + (group.bar ? Number(profitRow?.bar_withdrawn ?? 0) : 0);
         continue;
       }
-      const beforePayroll = (group.gameClub ? Number(profitRow?.game_club_earned ?? 0) + paidFrom('game_club') : 0)
-        + (group.bar ? Number(profitRow?.bar_earned ?? 0) + paidFrom('bar') : 0);
+      const beforePayroll = (group.gameClub ? Number(profitRow?.game_club_earned ?? 0) + Number(profitRow?.game_club_investments ?? 0) + paidFrom('game_club') : 0)
+        + (group.bar ? Number(profitRow?.bar_earned ?? 0) + Number(profitRow?.bar_investments ?? 0) + paidFrom('bar') : 0);
       group.base = Math.max(0, beforePayroll - group.fixed) / (1 + group.share);
     }
 
@@ -234,10 +241,10 @@ export function employeeStatus(employee: SalaryEmployee, rate: SalaryRate | unde
  * of reloading the whole profit snapshot. Other finance edits still need a reload.
  */
 export function applySalaryPaymentChanges(
-  monthlyProfit: OwnerProfitMonthlyBalanceRow[],
+  monthlyProfit: SalaryProfitMonth[],
   previousEntries: SalaryEntry[],
   nextEntries: SalaryEntry[],
-): OwnerProfitMonthlyBalanceRow[] {
+): SalaryProfitMonth[] {
   const livePayments = (entries: SalaryEntry[]) => new Map(entries
     .filter((e) => !e.deleted_at && e.kind === 'payment' && (e.payment_source === 'game_club' || e.payment_source === 'bar'))
     .map((e) => [e.id, e]));

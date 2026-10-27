@@ -119,6 +119,14 @@ describe('KPI basis and profit pools', () => {
     const gameClub = calculate({ rates: [{ ...rate, kpi_bar: false }], entries: [payment], monthlyProfit: [profit(12000)] }).one[0];
     expect(gameClub.kpi).toBe(1000);
   });
+  it('does not deduct investment expenses from overall-profit KPI, only every other expense', () => {
+    // 12000 earned already has 3000 of investments (game club) and 500 (bar) taken off.
+    const invested = { ...mixed, game_club_investments: 3000, bar_investments: 500 };
+    expect(calculate({ rates: [{ ...rate, kpi_bar: false }], monthlyProfit: [invested] }).one[0]).toMatchObject({ kpi: 1272.73, kpiProfit: 12727.27 });
+    expect(calculate({ rates: [{ ...rate, kpi_game_club: false }], monthlyProfit: [invested] }).one[0]).toMatchObject({ kpi: 500, kpiProfit: 5000 });
+    expect(calculate({ rates: [{ ...rate, kpi_basis: 'owner_profit' }], monthlyProfit: [invested] }).one[0].kpi).toBe(500);
+    expect(applySalaryPaymentChanges([invested], [], [entry('payment', 500)])[0]).toMatchObject({ game_club_earned: 11500, game_club_investments: 3000 });
+  });
   it('owner profit basis is a percentage of what the owner withdrew from the ticked pools', () => {
     const base = { ...rate, kpi_basis: 'owner_profit' as const };
     expect(calculate({ rates: [base], monthlyProfit: [mixed] }).one[0]).toMatchObject({ kpi: 500, kpiProfit: 5000 });
