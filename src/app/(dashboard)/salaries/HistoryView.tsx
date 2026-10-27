@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Users } from 'lucide-react';
 import {
@@ -14,9 +15,11 @@ import {
   TableSkeleton,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
+import { buildSalaryCalendar, shiftYearMonth } from '@/lib/calculations/salaryCalendar';
 import { canDeleteSalaryRate, type SalaryEmployee, type SalaryEntry, type SalaryMonth, type SalaryRate } from '@/lib/calculations/salaries';
 import { formatCurrency, formatDateOnly, formatDateTime, formatYearMonth } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
+import { SalaryCalendar } from './SalaryCalendar';
 import { useSalaryText, type DeletionTarget } from './shared';
 
 const ENTRY_BADGE: Record<SalaryEntry['kind'], BadgeVariant> = { payment: 'info', bonus: 'success', fine: 'danger' };
@@ -34,25 +37,31 @@ export interface HistoryViewProps {
   canEdit: boolean;
   isOwner: boolean;
   saving: boolean;
+  /** The club's business date; the calendar opens on its month. */
+  today: string;
   onDelete: (target: DeletionTarget) => void;
 }
 
 /** Monthly breakdown, transactions and rate history for one employee or the whole club. */
 export function HistoryView({
-  employeeId, historyEmployee, employees, rates, entries, months, loading, loadError, canEdit, isOwner, saving, onDelete,
+  employeeId, historyEmployee, employees, rates, entries, months, loading, loadError, canEdit, isOwner, saving, today, onDelete,
 }: HistoryViewProps) {
   const t = useTranslations('salaries');
   const tc = useTranslations('common');
   const tp = useTranslations('expenses');
   const { locale } = useAppLocale();
   const { kpiSummary, currency } = useSalaryText();
+  const [calendarMonth, setCalendarMonth] = useState(() => today.slice(0, 7));
+  const [selectedDate, setSelectedDate] = useState('');
+  const historyEntries = useMemo(() => entries.filter((e) => !historyEmployee || e.employee_id === historyEmployee.id)
+    .sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at)), [entries, historyEmployee]);
+  const calendarDays = useMemo(() => buildSalaryCalendar(calendarMonth, historyEntries, today), [calendarMonth, historyEntries, today]);
 
   if (loading) return <TableSkeleton rows={6} columns={7} />;
   if (employeeId && !loadError && !historyEmployee) return <Card><EmptyState icon={Users} title={t('employeeNotFound')} /></Card>;
   if (!historyEmployee && (employeeId || loadError)) return null;
 
-  const historyEntries = entries.filter((e) => !historyEmployee || e.employee_id === historyEmployee.id)
-    .sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at));
+  const visibleEntries = historyEntries.filter((e) => (selectedDate ? e.date === selectedDate : e.date.startsWith(calendarMonth)));
   const historyRates = rates.filter((r) => !historyEmployee || r.employee_id === historyEmployee.id)
     .sort((a, b) => b.effective_date.localeCompare(a.effective_date));
   // In the club-wide history each row names its employee.
@@ -81,9 +90,24 @@ export function HistoryView({
           />
         </div>
         <div>
-          <SectionHeading size="sm" title={t('transactions')} className="mb-3" />
+          <SalaryCalendar
+            month={calendarMonth}
+            days={calendarDays}
+            selectedDate={selectedDate}
+            onMonthChange={(delta) => { setCalendarMonth((month) => shiftYearMonth(month, delta)); setSelectedDate(''); }}
+            onSelectDate={setSelectedDate}
+          />
+        </div>
+        <div>
+          <SectionHeading
+            size="sm"
+            title={t('transactions')}
+            description={selectedDate ? formatDateOnly(selectedDate, locale) : formatYearMonth(calendarMonth, locale)}
+            action={selectedDate ? <Button variant="secondary" size="sm" onClick={() => setSelectedDate('')}>{t('calendarWholeMonth')}</Button> : undefined}
+            className="mb-3"
+          />
           <div className="space-y-2">
-            {historyEntries.map((entry) => (
+            {visibleEntries.map((entry) => (
               <div key={entry.id} className={cn('flex items-start gap-3 rounded-xl border border-gray-200 p-3 text-sm', entry.deleted_at && 'opacity-60')}>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -106,7 +130,7 @@ export function HistoryView({
                 </div>
               </div>
             ))}
-            {historyEntries.length === 0 && <EmptyState compact bordered title={t('noTransactions')} />}
+            {visibleEntries.length === 0 && <EmptyState compact bordered title={t('noTransactions')} />}
           </div>
         </div>
         <div>

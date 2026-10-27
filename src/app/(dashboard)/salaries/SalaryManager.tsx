@@ -433,6 +433,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
           canEdit={canEdit}
           isOwner={isOwner}
           saving={saving}
+          today={today}
           onDelete={(target) => { setDeleteError(''); setDeleteReason(''); setDeletion(target); }}
         />
       )}
