@@ -1,6 +1,6 @@
 {
-  "lines": 39,
-  "branches": 33,
+  "lines": 40,
+  "branches": 34,
   "functions": 36,
   "untested": [
     "src/lib/assistant/loaders.ts",

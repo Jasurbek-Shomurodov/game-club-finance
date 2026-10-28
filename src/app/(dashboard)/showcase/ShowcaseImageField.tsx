@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { ImagePlus, Trash2 } from 'lucide-react';
 import { Button, Field, IconButton, Input } from '@/components/PresentationFoundation';
 import { createClient } from '@/lib/supabase/client';
+import type { ShowcaseImageKind } from '@/lib/showcase';
 import { uploadShowcaseImage } from '@/lib/supabase/showcase';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -12,7 +13,7 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 interface ShowcaseImageFieldProps {
   label: string;
   clubId: string;
-  kind: 'game' | 'zone' | 'hero' | 'logo';
+  kind: ShowcaseImageKind;
   value: string;
   onChange: (url: string) => void;
   onUploadingChange?: (uploading: boolean) => void;

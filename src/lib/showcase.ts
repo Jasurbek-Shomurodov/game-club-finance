@@ -528,7 +528,10 @@ export function lowestHourlyPrice(zones: Array<{ price_per_hour: number | null }
 }
 
 /** Storage object path for an uploaded image: "<club_id>/<kind>-<random>.<ext>". */
-export function showcaseImagePath(clubId: string, kind: 'game' | 'zone' | 'hero' | 'logo', fileName: string, random: string): string {
+/** `google` images are Business Profile posts and photos; Google downloads them from the public bucket. */
+export type ShowcaseImageKind = 'game' | 'zone' | 'hero' | 'logo' | 'google';
+
+export function showcaseImagePath(clubId: string, kind: ShowcaseImageKind, fileName: string, random: string): string {
   const extension = /\.([a-z0-9]{2,5})$/i.exec(fileName)?.[1]?.toLowerCase() ?? 'jpg';
   return `${clubId}/${kind}-${random}.${extension}`;
 }

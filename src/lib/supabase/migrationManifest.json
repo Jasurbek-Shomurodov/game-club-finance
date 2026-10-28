@@ -4093,5 +4093,74 @@
         "signature": "public.record_entry_audit()"
       }
     ]
+  },
+  {
+    "file": "112_google_business_profile.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.google_business_connections"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_business_connections",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_business_connections",
+        "column": "google_email"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_business_connections",
+        "column": "refresh_token_encrypted"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_business_connections",
+        "column": "account_name"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_business_connections",
+        "column": "location_name"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_business_connections",
+        "column": "location_title"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_business_connections",
+        "column": "connected_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_business_connections",
+        "column": "connected_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_business_connections",
+        "column": "updated_at"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.google_business_connections",
+        "name": "google_business_connections_account_name_format"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.google_business_connections",
+        "name": "google_business_connections_location_name_format"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.google_business_connections",
+        "name": "google_business_connections_location_needs_account"
+      }
+    ]
   }
 ]

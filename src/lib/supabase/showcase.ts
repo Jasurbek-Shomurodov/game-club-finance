@@ -1,6 +1,6 @@
 import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { ClubShowcase, ShowcaseBrand, ShowcaseGame, ShowcaseOffer, ShowcasePcZone } from '@/types';
-import { parsePublicBrand, parsePublicShowcase, showcaseImagePath, type PublicBrand, type PublicShowcase } from '@/lib/showcase';
+import { parsePublicBrand, parsePublicShowcase, showcaseImagePath, type PublicBrand, type ShowcaseImageKind, type PublicShowcase } from '@/lib/showcase';
 import { isMissingDatabaseTable } from './errors';
 import { fetchAllRows } from './pagination';
 
@@ -54,7 +54,7 @@ export async function fetchShowcaseAdminData(
 export async function uploadShowcaseImage(
   supabase: SupabaseClient,
   clubId: string,
-  kind: 'game' | 'zone' | 'hero' | 'logo',
+  kind: ShowcaseImageKind,
   file: File,
 ): Promise<string> {
   const path = showcaseImagePath(clubId, kind, file.name, crypto.randomUUID());

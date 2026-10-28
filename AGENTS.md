@@ -30,6 +30,7 @@ guide relevant to the task; do not load every document or migration by default.
 | Telegram reports, cron, retries, or deployment | `docs/runbooks/telegram-report.md` |
 | Database backups or restore | `docs/runbooks/database-backup.md` |
 | Public site domain and admin subdomain | `docs/runbooks/public-domain.md` |
+| Google Maps (Business Profile) posting | `docs/runbooks/google-business-profile.md` |
 
 ## Non-negotiable invariants
 
@@ -58,8 +59,9 @@ guide relevant to the task; do not load every document or migration by default.
    order; `001_initial_schema.sql` is not a complete schema by itself.
 10. When visible copy changes, update `en.json`, `ru.json`, and `uz.json`
     together and preserve matching message shapes.
-11. Never expose `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, Telegram tokens, or
-    private environment values to client code, logs, fixtures, or documentation.
+11. Never expose `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, Telegram tokens,
+    Google OAuth secrets or refresh tokens, or private environment values to
+    client code, logs, fixtures, or documentation.
 
 ## Implementation conventions
 
