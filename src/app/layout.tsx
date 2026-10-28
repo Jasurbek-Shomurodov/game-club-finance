@@ -16,6 +16,8 @@ const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL
 export const metadata: Metadata = {
   title: 'Game Club Finance',
   description: 'Finance & Accounting for Game Club',
+  // Public pages replace this with the club's own logo.
+  icons: { icon: '/default-club.svg' },
 };
 
 export const viewport: Viewport = {
