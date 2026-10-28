@@ -212,14 +212,29 @@
 }
 
 .sc-nav {
-  transition: background-color 0.3s, border-color 0.3s, backdrop-filter 0.3s;
+  transition: border-color 0.3s;
   border-bottom: 1px solid transparent;
 }
-.sc-nav[data-scrolled='true'] {
+/* The frosted layer keeps its backdrop-filter from the first paint and only
+   fades in. WebKit (iOS Safari, Telegram's in-app browser) often skips a
+   backdrop-filter that is added later, so toggling it left the bar unblurred. */
+.sc-nav::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
   background: rgba(5, 5, 11, 0.7);
-  border-bottom-color: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.sc-nav[data-scrolled='true'] {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+.sc-nav[data-scrolled='true']::before {
+  opacity: 1;
 }
 
 /* Primary call to action: gradient fill with a periodic shimmer sweep. */
