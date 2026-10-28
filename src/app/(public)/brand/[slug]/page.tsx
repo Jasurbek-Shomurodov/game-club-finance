@@ -5,6 +5,7 @@ import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { BrandView } from '@/components/showcase/BrandView';
+import { brandLogoUrl, logoIcons } from '@/lib/showcase';
 import { fetchPublicBrand } from '@/lib/supabase/showcase';
 
 // The visitor's language picks the headline and description; cached per request.
@@ -22,6 +23,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: brand.name,
     description: brand.tagline ?? undefined,
     openGraph: { title: brand.name, description: brand.tagline ?? undefined, images: image ? [image] : undefined, type: 'website' },
+    icons: logoIcons(brandLogoUrl(brand)),
   };
 }
 

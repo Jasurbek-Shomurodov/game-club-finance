@@ -8,6 +8,7 @@ import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { BrandView } from '@/components/showcase/BrandView';
 import { landingBrandSlug, readPublicSiteConfig } from '@/lib/publicSite';
+import { brandLogoUrl, logoIcons } from '@/lib/showcase';
 import { fetchPublicBrand } from '@/lib/supabase/showcase';
 
 const loadLandingBrand = cache(async () => fetchPublicBrand(landingBrandSlug(readPublicSiteConfig(process.env)), await getLocale()));
@@ -20,6 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: brand.name,
     description: brand.tagline ?? undefined,
     openGraph: { title: brand.name, description: brand.tagline ?? undefined, images: image ? [image] : undefined, type: 'website' },
+    icons: logoIcons(brandLogoUrl(brand)),
   };
 }
 

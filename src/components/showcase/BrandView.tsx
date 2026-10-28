@@ -1,7 +1,7 @@
 import { getTranslations } from 'next-intl/server';
 import { ArrowUpRight, BadgePercent, Clock, Cpu, Gamepad2, Layers, MapPin, Monitor, MonitorPlay, Navigation, Phone, Wallet, Zap } from 'lucide-react';
 import { formatCurrency } from '@/lib/formatters';
-import { brandInsights, clubInsights, mapLinks, openStatus, telHref, type PublicBrand, type PublicShowcase } from '@/lib/showcase';
+import { brandInsights, brandLogoUrl, clubInsights, mapLinks, openStatus, telHref, type PublicBrand, type PublicShowcase } from '@/lib/showcase';
 import { ClubTabs } from './ClubTabs';
 import { CountUp } from './CountUp';
 import { MapChooser } from './MapChooser';
@@ -99,7 +99,7 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
 
       <ShowcaseFooter
         name={brand.name}
-        logoUrl={brand.clubs.find((club) => club.logo_url)?.logo_url ?? null}
+        logoUrl={brandLogoUrl(brand)}
         description={brand.tagline}
         hours={brand.opening_hours}
         phone={brand.phone ?? brand.clubs.find((club) => club.phone)?.phone ?? null}

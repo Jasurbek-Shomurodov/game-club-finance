@@ -5,6 +5,7 @@ import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { ShowcaseView } from '@/components/showcase/ShowcaseView';
+import { logoIcons } from '@/lib/showcase';
 import { fetchPublicShowcase } from '@/lib/supabase/showcase';
 
 // The visitor's language picks the headline and description; cached per request.
@@ -23,6 +24,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title,
     description: showcase.tagline ?? undefined,
     openGraph: { title, description: showcase.tagline ?? undefined, images: image ? [image] : undefined, type: 'website' },
+    icons: logoIcons(showcase.logo_url),
   };
 }
 

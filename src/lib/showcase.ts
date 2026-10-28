@@ -547,6 +547,16 @@ export interface PublicBrand {
   clubs: PublicShowcase[];
 }
 
+/** The brand's logo: the first club that has one. */
+export function brandLogoUrl(brand: Pick<PublicBrand, 'clubs'>): string | null {
+  return brand.clubs.find((club) => club.logo_url)?.logo_url ?? null;
+}
+
+/** Browser-tab and home-screen icon of a public page; none without a logo. */
+export function logoIcons(logoUrl: string | null): { icon: string; apple: string } | undefined {
+  return logoUrl ? { icon: logoUrl, apple: logoUrl } : undefined;
+}
+
 /** The get_public_brand payload; clubs that fail to parse are dropped. */
 export function parsePublicBrand(raw: unknown, locale = 'ru'): PublicBrand | null {
   if (!raw || typeof raw !== 'object') return null;

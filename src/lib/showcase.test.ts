@@ -16,6 +16,8 @@ import {
   buildShowcaseBrandPayload,
   clubInsights,
   parsePublicBrand,
+  brandLogoUrl,
+  logoIcons,
   showcaseBrandForm,
   validateShowcaseBrand,
   buildShowcasePcZonePayload,
@@ -150,6 +152,17 @@ describe('brand', () => {
     expect(brand?.instagram_url).toBeNull();
     expect(brand?.clubs.map((club) => club.slug)).toEqual(['chilonzor', 'yunusobod']);
     expect(parsePublicBrand({ slug: 'x' })).toBeNull();
+  });
+
+  it('uses the first club logo as the brand logo and tab icon', () => {
+    const brand = parsePublicBrand({
+      ...brandPayload,
+      clubs: [brandPayload.clubs[0], { ...brandPayload.clubs[1], logo_url: 'https://cdn.example/logo.jpg' }],
+    })!;
+    expect(brandLogoUrl(brand)).toBe('https://cdn.example/logo.jpg');
+    expect(logoIcons(brandLogoUrl(brand))).toEqual({ icon: 'https://cdn.example/logo.jpg', apple: 'https://cdn.example/logo.jpg' });
+    expect(brandLogoUrl(parsePublicBrand(brandPayload)!)).toBeNull();
+    expect(logoIcons(null)).toBeUndefined();
   });
 
   it('summarizes one club', () => {
