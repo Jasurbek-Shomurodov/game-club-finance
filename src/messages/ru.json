@@ -1925,6 +1925,7 @@
     "footerOpen": "Работаем {hours}.",
     "footerRights": "Все права защищены.",
     "consoleCount": "{count, plural, one {# консоль} few {# консоли} many {# консолей} other {# консоли}}",
+    "gameCount": "{count, plural, one {# игра} few {# игры} many {# игр} other {# игры}}",
     "console": "Консоль",
     "controllers": "Джойстики",
     "controllersPerConsole": "{count, plural, one {# на консоль} few {# на консоль} many {# на консоль} other {# на консоль}}",

@@ -1925,6 +1925,7 @@
     "footerOpen": "Open {hours}.",
     "footerRights": "All rights reserved.",
     "consoleCount": "{count, plural, one {# console} other {# consoles}}",
+    "gameCount": "{count, plural, one {# game} other {# games}}",
     "console": "Console",
     "controllers": "Controllers",
     "controllersPerConsole": "{count, plural, one {# per console} other {# per console}}",

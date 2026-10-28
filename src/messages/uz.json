@@ -1925,6 +1925,7 @@
     "footerOpen": "Ish vaqti: {hours}.",
     "footerRights": "Barcha huquqlar himoyalangan.",
     "consoleCount": "{count, plural, other {# ta konsol}}",
+    "gameCount": "{count, plural, one {# ta o‘yin} other {# ta o‘yin}}",
     "console": "Konsol",
     "controllers": "Joystiklar",
     "controllersPerConsole": "{count, plural, other {har konsolga # ta}}",

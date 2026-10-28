@@ -177,21 +177,22 @@ async function QuickClubCard({ club, now }: { club: PublicShowcase; now: Date })
           )}
           {insights.pcCount > 0 && <span className={chip}><Monitor size={13} aria-hidden="true" /> {t('pcCount', { count: insights.pcCount })}</span>}
           {insights.consoleCount > 0 && <span className={chip}><Gamepad2 size={13} aria-hidden="true" /> {t('consoleCount', { count: insights.consoleCount })}</span>}
+          {insights.gameCount > 0 && <span className={chip}><Layers size={13} aria-hidden="true" /> {t('gameCount', { count: insights.gameCount })}</span>}
+          {insights.topGpu && <span className={chip}><MonitorPlay size={13} aria-hidden="true" /> {insights.topGpu}</span>}
+          {insights.maxRefreshHz && <span className={chip}><Zap size={13} aria-hidden="true" /> {t('hertz', { value: insights.maxRefreshHz })}</span>}
         </div>
-        <div className="mt-auto flex gap-2 pt-2">
-          <a href={`#club-${club.slug}`} className="sc-cta inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-white">
+        <div className="mt-auto grid auto-cols-fr grid-flow-col gap-2 pt-2">
+          <a href={`#club-${club.slug}`} className="sc-cta inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-white">
             {t('details')} <ArrowUpRight size={15} aria-hidden="true" />
           </a>
           {club.address && maps && (
-            <span className="flex flex-1">
-              <MapChooser
-                address={club.address}
-                links={maps}
-                labels={{ title: t('mapChooserTitle'), yandex: t('mapYandex'), google: t('mapGoogle') }}
-                triggerClassName={`${action} w-full`}
-                trigger={<><Navigation size={15} aria-hidden="true" /> {t('route')}</>}
-              />
-            </span>
+            <MapChooser
+              address={club.address}
+              links={maps}
+              labels={{ title: t('mapChooserTitle'), yandex: t('mapYandex'), google: t('mapGoogle') }}
+              triggerClassName={`${action} w-full`}
+              trigger={<><Navigation size={15} aria-hidden="true" /> {t('route')}</>}
+            />
           )}
           {phone && (
             <a href={phone} className={action} aria-label={`${t('call')}: ${club.phone}`}>
