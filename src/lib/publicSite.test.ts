@@ -29,8 +29,14 @@ describe('public site routing', () => {
     expect(routePublicSite('pixelgaming.uz', '/login', '', { ...config, adminUrl: null })).toEqual({ kind: 'redirect', url: '/' });
   });
 
+  it('opens the dashboard at the admin host root', () => {
+    expect(routePublicSite('Admin.pixelgaming.uz:443', '/', '', config)).toEqual({ kind: 'redirect', url: '/dashboard' });
+    expect(routePublicSite('admin.pixelgaming.uz', '/', '', { ...config, adminUrl: null })).toBeNull();
+  });
+
   it('leaves every other host to the admin app', () => {
-    expect(routePublicSite('admin.pixelgaming.uz', '/', '', config)).toBeNull();
+    expect(routePublicSite('admin.pixelgaming.uz', '/login', '', config)).toBeNull();
+    expect(routePublicSite('game-club-finance.vercel.app', '/', '', config)).toBeNull();
     expect(routePublicSite('game-club-finance.vercel.app', '/reports', '', config)).toBeNull();
     expect(routePublicSite('pixelgaming.uz', '/', '', readPublicSiteConfig({}))).toBeNull();
   });

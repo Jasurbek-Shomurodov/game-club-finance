@@ -39,7 +39,7 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
 
   return (
     <div id="top" className="sc-root relative min-h-screen">
-      <ShowcaseNav clubName={brand.name} links={navLinks} cta={cta} loginLabel={t('login')} />
+      <ShowcaseNav clubName={brand.name} links={navLinks} cta={cta} />
 
       {/* ---------- First screen: who we are, then every club with what visitors need ---------- */}
       <section className="relative isolate overflow-hidden pb-14 pt-24 sm:pt-28">
@@ -113,7 +113,6 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
         help={[
           { href: '#locations', label: t('howToFind') },
           ...(brand.telegram_url ? [{ href: brand.telegram_url, label: t('bookTelegram'), external: true }] : []),
-          { href: '/login', label: t('footerStaffLogin') },
         ]}
         locations={brand.clubs.flatMap((club) => (club.address ? [{ label: club.club_name, clubName: club.club_name, address: club.address }] : []))}
       />

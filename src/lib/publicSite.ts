@@ -5,9 +5,11 @@
  * app, exactly as before.
  *
  *   PUBLIC_SITE_HOSTS       comma-separated public hostnames, e.g. "pixelgaming.uz,www.pixelgaming.uz"
- *   PUBLIC_SITE_BRAND_SLUG  brand page shown at the site root on every host (default "pixel-gaming")
+ *   PUBLIC_SITE_BRAND_SLUG  brand page shown at the site root of every host but the admin one (default "pixel-gaming")
  *   ADMIN_SITE_URL          where admin paths on a public host are sent, e.g. "https://admin.pixelgaming.uz"
  */
+import { DASHBOARD_PATH } from '@/lib/routes';
+
 /** Brand shown at the site root when PUBLIC_SITE_BRAND_SLUG is not set. */
 export const DEFAULT_LANDING_BRAND_SLUG = 'pixel-gaming';
 
@@ -53,10 +55,15 @@ const PUBLIC_PREFIXES = ['/club/', '/brand/'];
 /**
  * What a public host does with a path: the root shows the brand page, club and
  * brand pages pass through, and every admin path goes to the admin host (or
- * the public root when no admin host is configured). Null for any other host.
+ * the public root when no admin host is configured). The admin host's root
+ * opens the dashboard, since the public pages carry no sign-in link. Null for
+ * any other host and path.
  */
 export function routePublicSite(host: string, pathname: string, search: string, config: PublicSiteConfig): PublicSiteRoute | null {
-  if (!config.hosts.includes(normalizeHost(host))) return null;
+  if (!config.hosts.includes(normalizeHost(host))) {
+    const isAdminHost = config.adminUrl !== null && normalizeHost(host) === normalizeHost(new URL(config.adminUrl).host);
+    return isAdminHost && pathname === '/' ? { kind: 'redirect', url: DASHBOARD_PATH } : null;
+  }
   if (pathname === '/' && config.brandSlug) return { kind: 'rewrite', pathname: `/brand/${config.brandSlug}` };
   if (PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return { kind: 'pass' };
   if (pathname === '/') return { kind: 'pass' };

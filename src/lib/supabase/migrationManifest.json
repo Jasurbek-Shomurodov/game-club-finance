@@ -1924,10 +1924,6 @@
       {
         "kind": "function",
         "signature": "public.sync_telegram_report_delivery_audit()"
-      },
-      {
-        "kind": "function",
-        "signature": "public.invoke_game_club_daily_finance_report()"
       }
     ]
   },
@@ -4008,6 +4004,16 @@
         "kind": "functionBody",
         "signature": "public.get_salary_profit_snapshot(uuid,date)",
         "md5": "60d4a90c947a15765183e374bf85fa54"
+      }
+    ]
+  },
+  {
+    "file": "110_daily_report_cron_admin_domain.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.invoke_game_club_daily_finance_report()",
+        "md5": "7f979bc3fca50f797ac19f257c18c67c"
       }
     ]
   }

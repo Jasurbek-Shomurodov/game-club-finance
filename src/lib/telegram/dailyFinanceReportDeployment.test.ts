@@ -6,6 +6,10 @@ const migration = readFileSync(
   resolve(process.cwd(), 'migrations/041_supabase_daily_report_cron_and_delivery_audit.sql'),
   'utf8',
 );
+const adminDomainMigration = readFileSync(
+  resolve(process.cwd(), 'migrations/110_daily_report_cron_admin_domain.sql'),
+  'utf8',
+);
 const senderSource = readFileSync(
   resolve(process.cwd(), 'src/lib/telegram/sendDailyFinanceReport.ts'),
   'utf8',
@@ -45,14 +49,24 @@ describe('Supabase daily finance report cron', () => {
       .toContain("'0 3 * * *'");
   });
 
-  it('loads the Bearer secret from Vault and invokes only production', () => {
-    expect(migration).toContain('from vault.decrypted_secrets');
-    expect(migration).toContain("name = 'game_club_daily_report_cron_secret'");
-    expect(migration).toContain("'Authorization', 'Bearer ' || cron_secret");
-    expect(migration).toContain(
-      "url := 'https://game-club-finance.vercel.app/api/cron/daily-finance-report'",
+  it.each([
+    ['041', migration],
+    ['110', adminDomainMigration],
+  ])('%s loads the Bearer secret from Vault', (_version, sql) => {
+    expect(sql).toContain('from vault.decrypted_secrets');
+    expect(sql).toContain("name = 'game_club_daily_report_cron_secret'");
+    expect(sql).toContain("'Authorization', 'Bearer ' || cron_secret");
+    expect(sql).not.toMatch(/CRON_SECRET\s*=/);
+  });
+
+  it('invokes production on the admin domain, not game-club-finance.vercel.app', () => {
+    expect(adminDomainMigration).toContain(
+      "url := 'https://admin.pixelgaming.uz/api/cron/daily-finance-report'",
     );
-    expect(migration).not.toMatch(/CRON_SECRET\s*=/);
+    expect(adminDomainMigration).not.toMatch(/url := '[^']*vercel\.app/);
+    expect(adminDomainMigration).toMatch(
+      /revoke all on function public\.invoke_game_club_daily_finance_report\(\)[\s\S]*from public, anon, authenticated;/,
+    );
   });
 
   it('keeps invocation private and replaces the named job idempotently', () => {
