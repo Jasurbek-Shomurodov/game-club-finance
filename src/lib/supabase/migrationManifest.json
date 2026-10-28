@@ -4016,5 +4016,82 @@
         "md5": "7f979bc3fca50f797ac19f257c18c67c"
       }
     ]
+  },
+  {
+    "file": "111_entry_audit_log.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.entry_audit_logs"
+      },
+      {
+        "kind": "column",
+        "table": "public.entry_audit_logs",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.entry_audit_logs",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.entry_audit_logs",
+        "column": "table_name"
+      },
+      {
+        "kind": "column",
+        "table": "public.entry_audit_logs",
+        "column": "row_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.entry_audit_logs",
+        "column": "action"
+      },
+      {
+        "kind": "column",
+        "table": "public.entry_audit_logs",
+        "column": "old_row"
+      },
+      {
+        "kind": "column",
+        "table": "public.entry_audit_logs",
+        "column": "new_row"
+      },
+      {
+        "kind": "column",
+        "table": "public.entry_audit_logs",
+        "column": "changed_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.entry_audit_logs",
+        "column": "changed_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.entry_audit_logs",
+        "column": "changed_on"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.entry_audit_logs",
+        "name": "entry_audit_logs_new_row_matches_action"
+      },
+      {
+        "kind": "relation",
+        "name": "public.entry_audit_logs_club_changed_idx"
+      },
+      {
+        "kind": "policy",
+        "table": "public.entry_audit_logs",
+        "name": "entry_audit_logs_owner_read"
+      },
+      {
+        "kind": "function",
+        "signature": "public.record_entry_audit()"
+      }
+    ]
   }
 ]

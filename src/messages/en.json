@@ -31,7 +31,8 @@
     "financialAnalysis": "Financial Analysis",
     "promotions": "Promotions",
     "assistant": "AI Assistant",
-    "showcase": "Public page"
+    "showcase": "Public page",
+    "history": "Edit history"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -1940,5 +1941,72 @@
     "closedNow": "Closed now",
     "route": "Route",
     "details": "Details"
+  },
+  "history": {
+    "title": "Edit history",
+    "filterTable": "Entry type",
+    "filterAction": "Change",
+    "allTables": "All entries",
+    "allActions": "Edits and deletions",
+    "edited": "Edited",
+    "deleted": "Deleted",
+    "changedBy": "{name} · {time}",
+    "enteredBy": "entered by {name}",
+    "changedTo": "changed to",
+    "system": "Automatic",
+    "removedUser": "Removed user",
+    "unknownProduct": "Deleted product",
+    "loadError": "Could not load the edit history.",
+    "notInstalled": "Edit history is not set up in this database yet. Apply migration 111 to start recording edits and deletions.",
+    "emptyTitle": "No edits or deletions this month",
+    "emptyDescription": "When someone corrects or deletes an entry, it appears here with what it was before.",
+    "tables": {
+      "daily_cash_entries": "Daily income",
+      "expenses": "Expense",
+      "money_exchanges": "Money exchange",
+      "stock_purchases": "Stock purchase",
+      "owner_withdrawals": "Owner withdrawal",
+      "owner_profit_carryovers": "Profit carryover",
+      "new_debts": "Debt",
+      "debt_payments": "Debt payment",
+      "daily_cash_collections": "Collected day"
+    },
+    "fields": {
+      "date": "Date",
+      "period_month": "Month",
+      "from_month": "From month",
+      "to_month": "To month",
+      "amount": "Amount",
+      "cash_income": "Cash",
+      "terminal_income": "Terminal",
+      "card_income": "Card",
+      "playstation_income": "PlayStation",
+      "from_amount": "Amount given",
+      "to_amount": "Amount received",
+      "rate": "Dollar rate",
+      "cost_price": "Cost price",
+      "sale_price": "Sale price",
+      "quantity": "Quantity",
+      "product_id": "Product",
+      "payment_method": "Payment method",
+      "from_method": "From",
+      "to_method": "To",
+      "payment_source": "Paid from",
+      "source": "Source",
+      "category": "Category",
+      "comment": "Note",
+      "person_name": "Person"
+    },
+    "methods": {
+      "cash": "Cash",
+      "terminal": "Terminal",
+      "card": "Card",
+      "playstation": "PlayStation",
+      "usd": "US dollars"
+    },
+    "sources": {
+      "bar": "Bar",
+      "game_club": "Game Club"
+    }
   }
 }

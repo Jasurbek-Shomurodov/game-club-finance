@@ -31,7 +31,8 @@
     "financialAnalysis": "Moliyaviy tahlil",
     "promotions": "Aksiyalar",
     "assistant": "AI yordamchi",
-    "showcase": "Ommaviy sahifa"
+    "showcase": "Ommaviy sahifa",
+    "history": "Tahrirlar tarixi"
   },
   "dashboard": {
     "title": "Boshqaruv paneli",
@@ -1940,5 +1941,72 @@
     "closedNow": "Hozir yopiq",
     "route": "Yo‘nalish",
     "details": "Batafsil"
+  },
+  "history": {
+    "title": "Tahrirlar tarixi",
+    "filterTable": "Yozuv turi",
+    "filterAction": "O'zgarish",
+    "allTables": "Barcha yozuvlar",
+    "allActions": "Tahrirlar va o'chirishlar",
+    "edited": "Tahrirlangan",
+    "deleted": "O'chirilgan",
+    "changedBy": "{name} · {time}",
+    "enteredBy": "kiritgan: {name}",
+    "changedTo": "o'zgartirildi:",
+    "system": "Avtomatik",
+    "removedUser": "O'chirilgan foydalanuvchi",
+    "unknownProduct": "O'chirilgan mahsulot",
+    "loadError": "Tahrirlar tarixini yuklab bo'lmadi.",
+    "notInstalled": "Bu ma'lumotlar bazasida tahrirlar tarixi hali sozlanmagan. Tahrir va o'chirishlarni yozib borish uchun 111-migratsiyani qo'llang.",
+    "emptyTitle": "Bu oyda tahrir yoki o'chirish yo'q",
+    "emptyDescription": "Kimdir yozuvni tuzatsa yoki o'chirsa, u avvalgi qiymatlari bilan shu yerda ko'rinadi.",
+    "tables": {
+      "daily_cash_entries": "Kunlik daromad",
+      "expenses": "Xarajat",
+      "money_exchanges": "Pul almashinuvi",
+      "stock_purchases": "Mahsulot xaridi",
+      "owner_withdrawals": "Egasining yechib olishi",
+      "owner_profit_carryovers": "Foydani o'tkazish",
+      "new_debts": "Qarz",
+      "debt_payments": "Qarz to'lovi",
+      "daily_cash_collections": "Yig'ilgan kun"
+    },
+    "fields": {
+      "date": "Sana",
+      "period_month": "Oy",
+      "from_month": "Qaysi oydan",
+      "to_month": "Qaysi oyga",
+      "amount": "Summa",
+      "cash_income": "Naqd",
+      "terminal_income": "Terminal",
+      "card_income": "Karta",
+      "playstation_income": "PlayStation",
+      "from_amount": "Berilgan",
+      "to_amount": "Olingan",
+      "rate": "Dollar kursi",
+      "cost_price": "Tannarx",
+      "sale_price": "Sotuv narxi",
+      "quantity": "Miqdor",
+      "product_id": "Mahsulot",
+      "payment_method": "To'lov usuli",
+      "from_method": "Qayerdan",
+      "to_method": "Qayerga",
+      "payment_source": "Qayerdan to'langan",
+      "source": "Manba",
+      "category": "Kategoriya",
+      "comment": "Izoh",
+      "person_name": "Shaxs"
+    },
+    "methods": {
+      "cash": "Naqd",
+      "terminal": "Terminal",
+      "card": "Karta",
+      "playstation": "PlayStation",
+      "usd": "AQSh dollari"
+    },
+    "sources": {
+      "bar": "Bar",
+      "game_club": "Klub"
+    }
   }
 }

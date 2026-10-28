@@ -1,7 +1,7 @@
 ---
 name: qa
-description: Thorough functional QA of a feature, page, request or recent change in Game Club Finance. Tests the real app end to end (logic, totals, forms, permissions, locales, themes, edge cases) and reports pass/fail with evidence. Arguments: empty or "full", "diff", a feature, page or request text, a commit, a PR, "smoke", "retest", or an area code (AUTH, DASH, INC, EXP, STOCK, DEBT, OWN, SAL, REP, CASH, SET, I18N, UI, NET, TG, XAPP). Use when the user types /qa.
-argument-hint: "[empty = full | diff | feature, page or request text | commit | PR | smoke | retest | area code (AUTH, DASH, INC, EXP, STOCK, DEBT, OWN, SAL, REP, CASH, SET, I18N, UI, NET, TG, XAPP)] [fix]"
+description: Thorough functional QA of a feature, page, request or recent change in Game Club Finance. Tests the real app end to end (logic, totals, forms, permissions, locales, themes, edge cases) and reports pass/fail with evidence. Arguments: empty or "full", "diff", a feature, page or request text, a commit, a PR, "smoke", "retest", or an area code (AUTH, DASH, INC, EXP, STOCK, DEBT, OWN, SAL, REP, CASH, SET, HIST, I18N, UI, NET, TG, XAPP). Use when the user types /qa.
+argument-hint: "[empty = full | diff | feature, page or request text | commit | PR | smoke | retest | area code (AUTH, DASH, INC, EXP, STOCK, DEBT, OWN, SAL, REP, CASH, SET, HIST, I18N, UI, NET, TG, XAPP)] [fix]"
 disable-model-invocation: true
 ---
 

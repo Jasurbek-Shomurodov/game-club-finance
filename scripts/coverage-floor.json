@@ -1,7 +1,7 @@
 {
   "lines": 39,
   "branches": 33,
-  "functions": 35,
+  "functions": 36,
   "untested": [
     "src/lib/assistant/loaders.ts",
     "src/lib/collectionsApi.ts",

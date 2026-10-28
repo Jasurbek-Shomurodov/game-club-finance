@@ -31,7 +31,8 @@
     "financialAnalysis": "Финансовый анализ",
     "promotions": "Акции",
     "assistant": "ИИ-ассистент",
-    "showcase": "Публичная страница"
+    "showcase": "Публичная страница",
+    "history": "История правок"
   },
   "dashboard": {
     "title": "Панель управления",
@@ -1940,5 +1941,72 @@
     "closedNow": "Сейчас закрыто",
     "route": "Маршрут",
     "details": "Подробнее"
+  },
+  "history": {
+    "title": "История правок",
+    "filterTable": "Тип записи",
+    "filterAction": "Изменение",
+    "allTables": "Все записи",
+    "allActions": "Правки и удаления",
+    "edited": "Изменено",
+    "deleted": "Удалено",
+    "changedBy": "{name} · {time}",
+    "enteredBy": "внёс(ла) {name}",
+    "changedTo": "изменено на",
+    "system": "Автоматически",
+    "removedUser": "Удалённый пользователь",
+    "unknownProduct": "Удалённый товар",
+    "loadError": "Не удалось загрузить историю правок.",
+    "notInstalled": "История правок ещё не настроена в этой базе данных. Примените миграцию 111, чтобы начать записывать правки и удаления.",
+    "emptyTitle": "В этом месяце правок и удалений нет",
+    "emptyDescription": "Когда кто-то исправит или удалит запись, она появится здесь вместе с прежними значениями.",
+    "tables": {
+      "daily_cash_entries": "Дневной доход",
+      "expenses": "Расход",
+      "money_exchanges": "Обмен денег",
+      "stock_purchases": "Закупка товара",
+      "owner_withdrawals": "Снятие владельца",
+      "owner_profit_carryovers": "Перенос прибыли",
+      "new_debts": "Долг",
+      "debt_payments": "Оплата долга",
+      "daily_cash_collections": "Собранный день"
+    },
+    "fields": {
+      "date": "Дата",
+      "period_month": "Месяц",
+      "from_month": "Из месяца",
+      "to_month": "В месяц",
+      "amount": "Сумма",
+      "cash_income": "Наличные",
+      "terminal_income": "Терминал",
+      "card_income": "Карта",
+      "playstation_income": "PlayStation",
+      "from_amount": "Отдано",
+      "to_amount": "Получено",
+      "rate": "Курс доллара",
+      "cost_price": "Себестоимость",
+      "sale_price": "Цена продажи",
+      "quantity": "Количество",
+      "product_id": "Товар",
+      "payment_method": "Способ оплаты",
+      "from_method": "Откуда",
+      "to_method": "Куда",
+      "payment_source": "Оплачено из",
+      "source": "Источник",
+      "category": "Категория",
+      "comment": "Заметка",
+      "person_name": "Человек"
+    },
+    "methods": {
+      "cash": "Наличные",
+      "terminal": "Терминал",
+      "card": "Карта",
+      "playstation": "PlayStation",
+      "usd": "Доллары США"
+    },
+    "sources": {
+      "bar": "Бар",
+      "game_club": "Клуб"
+    }
   }
 }

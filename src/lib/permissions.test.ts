@@ -37,6 +37,13 @@ describe('feature permissions', () => {
     expect(featureForPath('/income')).toBe('daily_cash');
   });
 
+  it('keeps the entry history owner-only, even with every feature granted', () => {
+    expect(featureForPath('/history')).toBe('team');
+    expect(canAccessPath('owner', null, '/history')).toBe(true);
+    expect(canAccessPath('admin', ['team', 'reports', 'expenses'], '/history')).toBe(false);
+    expect(canAccessPath('viewer', null, '/history')).toBe(false);
+  });
+
   it('guards paths and picks the first allowed destination', () => {
     expect(canAccessPath('admin', ['reports'], '/expenses')).toBe(false);
     expect(canAccessPath('admin', ['reports'], '/reports')).toBe(true);

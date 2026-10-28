@@ -161,6 +161,22 @@ test('EXP-009 an owner moves an expense to another date from Entry details', asy
   expect(row.date).toBe(target);
 });
 
+test('HIST-001 a deleted expense stays readable in the owner\'s edit history', async ({ page }) => {
+  const [cleaning] = expenses;
+  const deleted = await restAs(accounts.owner, 'DELETE', `expenses?id=eq.${cleaning.id}&club_id=eq.${clubs.arcade.id}`);
+  expect(await deleted.json()).toHaveLength(1);
+  await page.goto('/history');
+  await expect(page.getByRole('heading', { name: 'Edit history', level: 1 })).toBeVisible();
+  const entry = page.getByRole('listitem').filter({ hasText: cleaning.comment });
+  await expect(entry).toContainText('Deleted');
+  await expect(entry).toContainText('Expense');
+  await expect(entry).toContainText(uzs(cleaning.amount));
+  await expect(entry).toContainText(accounts.owner.name);
+  // The history is append-only: not even the owner can erase it through the API.
+  await restAs(accounts.owner, 'DELETE', `entry_audit_logs?club_id=eq.${clubs.arcade.id}`);
+  expect(await (await restAs(accounts.owner, 'GET', `entry_audit_logs?select=id&club_id=eq.${clubs.arcade.id}`)).json()).toHaveLength(1);
+});
+
 test('DASH-009 a payment in a money-flow category opens its details, from the list and from the chart', async ({ page }) => {
   const [cleaning] = expenses;
   await page.goto('/dashboard');
@@ -332,6 +348,9 @@ test.describe('as a viewer', () => {
     const rows = await (await restAs(accounts.owner, 'GET', `expenses?select=id&club_id=eq.${clubs.arcade.id}`)).json();
     // The owner-only health check is refused to a member, not reported as missing migrations.
     expect((await restAs(accounts.viewer, 'POST', 'rpc/get_migration_health', { p_club_id: clubs.arcade.id })).status).toBe(403);
+    // The edit history is owner-only: no nav link, and RLS returns no rows to a member.
+    await expect(page.getByRole('navigation').getByRole('link', { name: 'Edit history', exact: true })).toHaveCount(0);
+    expect(await (await restAs(accounts.viewer, 'GET', `entry_audit_logs?select=id&club_id=eq.${clubs.arcade.id}`)).json()).toEqual([]);
     expect(rows).toHaveLength(expenses.length);
   });
 });
@@ -355,7 +374,7 @@ test.describe('on a phone', () => {
   test('UI-001 every core page fits 375 px with no horizontal scroll', async ({ page }) => {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    for (const [path, heading] of [['/', 'Dashboard'], ['/daily-cash', 'Daily Cash Entry'], ['/closing-stock', 'Closing Stock'], ['/stock-purchase', 'Stock Purchase'], ['/reports', 'Reports'], ['/debts', 'Debts']]) {
+    for (const [path, heading] of [['/', 'Dashboard'], ['/daily-cash', 'Daily Cash Entry'], ['/closing-stock', 'Closing Stock'], ['/stock-purchase', 'Stock Purchase'], ['/reports', 'Reports'], ['/debts', 'Debts'], ['/history', 'Edit history']]) {
       await page.goto(path);
       await expect(page.getByRole('heading', { name: heading, level: 1 })).toBeVisible();
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), { message: `${path} overflows` }).toBe(0);

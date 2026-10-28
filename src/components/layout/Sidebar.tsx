@@ -26,6 +26,7 @@ import {
   HandCoins,
   ChartPie,
   Gamepad2,
+  History,
   PanelLeft,
   Sparkles,
 } from 'lucide-react';
@@ -190,6 +191,7 @@ export function Sidebar({
         { href: '/products', icon: Package, label: t('products'), feature: 'inventory' },
         { href: '/showcase', icon: Gamepad2, label: t('showcase'), feature: 'showcase' },
         { href: '/team', icon: Shield, label: t('team'), feature: 'team', badge: pendingCount },
+        { href: '/history', icon: History, label: t('history'), feature: 'team' },
       ],
     },
   ];
@@ -229,6 +231,10 @@ export function Sidebar({
     const onPromotions = pathname === '/promotions' || pathname.startsWith('/promotions/');
     if (item.href === '/promotions') return onPromotions;
     if (item.href === '/closing-stock') return activeFeature === 'closing_stock' && !onPromotions;
+    // Entry history shares the owner-only team feature.
+    const onHistory = pathname === '/history' || pathname.startsWith('/history/');
+    if (item.href === '/history') return onHistory;
+    if (item.href === '/team') return activeFeature === 'team' && !onHistory;
     return activeFeature === item.feature;
   }
 

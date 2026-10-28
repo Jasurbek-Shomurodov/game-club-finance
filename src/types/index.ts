@@ -284,6 +284,36 @@ export interface OwnerProfitCarryover {
   created_at: string;
 }
 
+/** Ledgers whose edits and deletes are kept in the entry history (migration 111). */
+export type AuditedTable =
+  | 'daily_cash_entries'
+  | 'expenses'
+  | 'money_exchanges'
+  | 'stock_purchases'
+  | 'owner_withdrawals'
+  | 'owner_profit_carryovers'
+  | 'new_debts'
+  | 'debt_payments'
+  | 'daily_cash_collections';
+
+/** One edit or delete of a finance entry (migration 111); owners read it, nobody writes it. */
+export interface EntryAuditLog {
+  id: number;
+  club_id: string;
+  table_name: AuditedTable;
+  /** The entry's id; null for collected ticks, keyed by club and date. */
+  row_id: string | null;
+  action: 'update' | 'delete';
+  old_row: Record<string, unknown>;
+  /** The row after an update; null for a delete. */
+  new_row: Record<string, unknown> | null;
+  /** Null when a server job made the change or the user was removed. */
+  changed_by: string | null;
+  changed_at: string;
+  /** Club business date of the change. */
+  changed_on: string;
+}
+
 /** Per-language texts of a public page (101) or offer (102). */
 export type ShowcaseTranslations = Partial<Record<'headline' | 'tagline' | 'title' | 'description' | 'name', Partial<Record<'ru' | 'uz' | 'en', string>>>>;
 

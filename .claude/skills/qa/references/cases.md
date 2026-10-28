@@ -147,6 +147,14 @@ Telegram group if one is set up.
 | SET-004 | S1 | Promotions are club scoped | Add a `QA promo` (approved); switch club | Absent in the other club |
 | SET-005 | S2 | Club logo upload states | Upload a PNG (approved) | Preview, then saved; error shown for a 10 MB file |
 
+## HIST — edit history
+
+| ID | Sev | Case | Check | Expect |
+|---|---|---|---|---|
+| HIST-001 | S0 | A deleted or edited entry stays readable `[e2e]` | Delete or correct a `QA` entry (approved); open `/history` | The entry with its old values, who changed it and when; the history cannot be deleted through the API |
+| HIST-002 | S0 | The history is owner-only | Sign in as an admin or viewer | No Edit history link; `/history` redirects; `entry_audit_logs` returns no rows |
+| HIST-003 | S2 | Telegram and debt-total updates add no rows | Pay part of a debt; post an expense to Telegram | Only the payment's own entry changes, no history row for the debt or the message id |
+
 ## I18N — languages and formats
 
 | ID | Sev | Case | Check | Expect |
