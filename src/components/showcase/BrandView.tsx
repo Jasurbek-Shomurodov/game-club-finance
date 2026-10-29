@@ -1,6 +1,6 @@
 import { getTranslations } from 'next-intl/server';
-import { ArrowUpRight, BadgePercent, Clock, Cpu, Gamepad2, Layers, MapPin, Monitor, MonitorPlay, Navigation, Phone, Wallet, Zap } from 'lucide-react';
-import { formatCurrency } from '@/lib/formatters';
+import { ArrowUpRight, BadgePercent, Clock, Cpu, Gamepad2, Layers, MapPin, Monitor, MonitorPlay, Navigation, Phone, Send, Wallet, Zap } from 'lucide-react';
+import { formatCurrency, formatPhone } from '@/lib/formatters';
 import { brandInsights, brandLogoUrl, clubInsights, mapLinks, openStatus, telHref, type PublicBrand, type PublicShowcase } from '@/lib/showcase';
 import { ClubTabs } from './ClubTabs';
 import { CountUp } from './CountUp';
@@ -33,7 +33,11 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
     { href: '#locations', label: t('navLocations') },
     { href: `#${CLUBS_ANCHOR}`, label: t('navClubs') },
   ];
-  const cta = brand.telegram_url ? { href: brand.telegram_url, label: t('bookTelegram') } : null;
+  // Each club books through its own Telegram, so the brand's button leads to the club cards.
+  const bookable = brand.clubs.filter((club) => club.telegram_url);
+  const cta = bookable.length === 1
+    ? { href: bookable[0].telegram_url as string, label: t('bookTelegram') }
+    : bookable.length > 1 ? { href: '#locations', label: t('bookTelegram') } : null;
   // Rendered per request, so "open now" reflects the visit.
   const now = new Date();
 
@@ -101,10 +105,10 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
         name={brand.name}
         logoUrl={brandLogoUrl(brand)}
         description={brand.tagline}
-        hours={brand.opening_hours}
-        phone={brand.phone ?? brand.clubs.find((club) => club.phone)?.phone ?? null}
+        hours={null}
+        phone={null}
         email={brand.email}
-        socials={{ telegram: brand.telegram_url, instagram: brand.instagram_url, youtube: brand.youtube_url }}
+        socials={{ telegram: null, instagram: brand.instagram_url, youtube: brand.youtube_url }}
         pages={[
           { href: '#top', label: t('footerHome') },
           { href: '#locations', label: t('navLocations') },
@@ -112,9 +116,11 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
         ]}
         help={[
           { href: '#locations', label: t('howToFind') },
-          ...(brand.telegram_url ? [{ href: brand.telegram_url, label: t('bookTelegram'), external: true }] : []),
+          ...bookable.map((club) => ({ href: club.telegram_url as string, label: t('bookTelegramClub', { club: club.club_name }), external: true })),
         ]}
-        locations={brand.clubs.flatMap((club) => (club.address ? [{ label: club.club_name, clubName: club.club_name, address: club.address }] : []))}
+        locations={brand.clubs.flatMap((club) => (club.address
+          ? [{ label: club.club_name, clubName: club.club_name, address: club.address, phone: club.phone, hours: club.opening_hours }]
+          : []))}
       />
     </div>
   );
@@ -194,8 +200,13 @@ async function QuickClubCard({ club, now }: { club: PublicShowcase; now: Date })
               trigger={<><Navigation size={15} aria-hidden="true" /> {t('route')}</>}
             />
           )}
+          {club.telegram_url && (
+            <a href={club.telegram_url} target="_blank" rel="noopener noreferrer" className={action} aria-label={`${t('bookTelegram')}: ${club.club_name}`}>
+              <Send size={15} aria-hidden="true" /> <span className="hidden sm:inline">Telegram</span>
+            </a>
+          )}
           {phone && (
-            <a href={phone} className={action} aria-label={`${t('call')}: ${club.phone}`}>
+            <a href={phone} className={action} aria-label={`${t('call')}: ${formatPhone(club.phone)}`}>
               <Phone size={15} aria-hidden="true" /> <span className="hidden sm:inline">{t('call')}</span>
             </a>
           )}

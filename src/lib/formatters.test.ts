@@ -3,6 +3,8 @@ import {
   capitalizeFirst,
   extractCurrencyDigits,
   formatCurrency,
+  formatPhone,
+  normalizePhone,
   formatCurrencyInput,
   formatDate,
   formatDateOnly,
@@ -237,5 +239,24 @@ describe('capitalizeFirst', () => {
     expect(capitalizeFirst('sentabr 2026', 'uz')).toBe('Sentabr 2026');
     expect(capitalizeFirst('September 2026', 'en')).toBe('September 2026');
     expect(capitalizeFirst('', 'ru')).toBe('');
+  });
+});
+
+describe('formatPhone', () => {
+  it('groups Uzbek numbers as they are typed and stored', () => {
+    expect(formatPhone('+998914071228')).toBe('+998 91 407 12 28');
+    expect(formatPhone('998 91 407-12-28')).toBe('+998 91 407 12 28');
+    expect(formatPhone('+9989140')).toBe('+998 91 40');
+    expect(formatPhone('914071228')).toBe('91 407 12 28');
+    expect(formatPhone('+')).toBe('+');
+    expect(formatPhone('')).toBe('');
+    expect(formatPhone('+7 (912) 345-67-89')).toBe('+79123456789');
+  });
+
+  it('stores a complete local number with the country code', () => {
+    expect(normalizePhone('91 407 12 28')).toBe('+998 91 407 12 28');
+    expect(normalizePhone(' ')).toBeNull();
+    expect(normalizePhone('+')).toBeNull();
+    expect(normalizePhone('+998914071228')).toBe('+998 91 407 12 28');
   });
 });

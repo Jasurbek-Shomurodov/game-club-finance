@@ -28,6 +28,7 @@ import {
   type ListingInfoForm,
   type WeekDay,
 } from '@/lib/googleBusiness/listing';
+import { formatPhone } from '@/lib/formatters';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { errorMessageKey, googleBusinessApi } from './googleBusinessApi';
 
@@ -127,7 +128,7 @@ export function GoogleListingCard({ clubId, isOwner, onSaved }: GoogleListingCar
                     inputMode="tel"
                     placeholder="+998 90 123 45 67"
                     value={form.phone}
-                    onChange={(event) => setField('phone', event.target.value)}
+                    onChange={(event) => setField('phone', formatPhone(event.target.value))}
                   />
                 </Field>
                 <Field label={t('listingWebsite')} htmlFor="google-listing-website">

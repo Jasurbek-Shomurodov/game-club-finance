@@ -36,7 +36,7 @@ describe('fromGoogleLocation', () => {
         ],
       },
     });
-    expect(info).toMatchObject({ title: 'Pixel Gaming', description: 'PCs and consoles', phone: '+998901234567', splitHours: false });
+    expect(info).toMatchObject({ title: 'Pixel Gaming', description: 'PCs and consoles', phone: '+998 90 123 45 67', splitHours: false });
     expect(info.hours.MONDAY).toEqual({ closed: false, allDay: false, open: '10:00', close: '02:30' });
     expect(info.hours.SATURDAY).toMatchObject({ closed: false, allDay: true });
     expect(info.hours.SUNDAY).toEqual({ closed: false, allDay: false, open: '12:00', close: '00:00' });

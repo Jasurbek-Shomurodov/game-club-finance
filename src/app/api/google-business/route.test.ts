@@ -276,7 +276,7 @@ describe('listing info', () => {
     google = listingGoogle;
     mockUser({ role: 'admin', showcase: true });
     const body = await (await getListing(new Request(`${ORIGIN}/api/google-business/listing?clubId=${CLUB}`))).json();
-    expect(body.listing).toMatchObject({ title: 'Pixel Gaming', description: 'Old text', phone: '+998901112233' });
+    expect(body.listing).toMatchObject({ title: 'Pixel Gaming', description: 'Old text', phone: '+998 90 111 22 33' });
     expect(body.listing.hours.MONDAY).toEqual({ closed: false, allDay: false, open: '10:00', close: '02:00' });
   });
 

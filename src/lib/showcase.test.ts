@@ -180,7 +180,10 @@ describe('brand', () => {
     const form = { ...showcaseBrandForm(null), slug: 'pixel-gaming' };
     expect(validateShowcaseBrand(form)).toBe('brand_name_required');
     expect(validateShowcaseBrand({ ...form, name: 'Pixel Gaming' })).toBeNull();
-    expect(buildShowcaseBrandPayload({ ...form, name: ' Pixel ', telegram_url: '@pixel' })).toMatchObject({ name: 'Pixel', telegram_url: 'https://t.me/pixel' });
+    // Phone, hours and Telegram are per club; saving the brand clears the old brand-wide values.
+    expect(buildShowcaseBrandPayload({ ...form, name: ' Pixel ', instagram_url: '@pixel' })).toMatchObject({
+      name: 'Pixel', instagram_url: 'https://instagram.com/pixel', telegram_url: null, phone: null, opening_hours: null,
+    });
   });
 });
 
@@ -303,7 +306,9 @@ describe('contact links', () => {
     const form = { ...showcaseSettingsForm(null, 'Neon'), email: 'bad', youtube_url: '' };
     expect(validateShowcaseSettings(form)).toBe('email_invalid');
     expect(validateShowcaseSettings({ ...form, email: '', youtube_url: 'javascript:x' })).toBe('youtube_invalid');
-    expect(buildShowcaseBrandPayload({ ...showcaseBrandForm(null), name: 'P', slug: 'pp-x', email: 'A@B.CO', phone: ' +998 ' })).toMatchObject({ email: 'a@b.co', phone: '+998' });
+    expect(buildShowcaseBrandPayload({ ...showcaseBrandForm(null), name: 'P', slug: 'pp-x', email: 'A@B.CO' })).toMatchObject({ email: 'a@b.co' });
+    expect(buildShowcaseSettingsPayload({ ...showcaseSettingsForm(null, 'Neon'), phone: '91 407 12 28' }).phone).toBe('+998 91 407 12 28');
+    expect(showcaseSettingsForm({ phone: '+998914071228' } as Parameters<typeof showcaseSettingsForm>[0], 'Neon').phone).toBe('+998 91 407 12 28');
   });
 });
 

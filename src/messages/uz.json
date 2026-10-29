@@ -1807,7 +1807,6 @@
     "error_offer_title_required": "Nomini kamida bitta tilda kiriting.",
     "youtube": "YouTube",
     "email": "Elektron pochta",
-    "brandPhoneHint": "Pastki qismda ko‘rinadi; bo‘sh bo‘lsa — birinchi klub telefoni.",
     "error_youtube_invalid": "YouTube havolasi yoki @kanal kiriting.",
     "error_email_invalid": "To‘g‘ri elektron pochta manzilini kiriting.",
     "addPlaystationZone": "PlayStation qo‘shish",
@@ -1852,7 +1851,8 @@
     "libraryEmpty": "Hali o‘yinlar yo‘q",
     "libraryEmptyDescription": "Birinchi o‘yinni qo‘shing — keyin istalgan klub uni shu yerdan tanlay oladi.",
     "tabPage": "Sahifa",
-    "tabGoogle": "Google Xaritalar"
+    "tabGoogle": "Google Xaritalar",
+    "brandContactsHint": "Telefon, ish vaqti va Telegram quyida har bir klub uchun alohida kiritiladi, shunda har bir filial o‘zinikini ko‘rsatadi."
   },
   "publicShowcase": {
     "navGames": "O‘yinlar",
@@ -1942,7 +1942,8 @@
     "openNow": "Hozir ochiq",
     "closedNow": "Hozir yopiq",
     "route": "Yo‘nalish",
-    "details": "Batafsil"
+    "details": "Batafsil",
+    "bookTelegramClub": "Band qilish: {club}"
   },
   "history": {
     "title": "Tahrirlar tarixi",

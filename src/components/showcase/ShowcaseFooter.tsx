@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { getTranslations } from 'next-intl/server';
 import { Clock, Gamepad2, Instagram, Mail, MapPin, Phone, Send, Youtube } from 'lucide-react';
+import { formatPhone } from '@/lib/formatters';
 import { mapLinks, telHref } from '@/lib/showcase';
 import { MapChooser } from './MapChooser';
 
@@ -15,6 +16,9 @@ export interface FooterLocation {
   label: string | null;
   clubName: string;
   address: string;
+  /** A chain lists each club's own phone and hours under its address. */
+  phone?: string | null;
+  hours?: string | null;
 }
 
 interface ShowcaseFooterProps {
@@ -98,6 +102,26 @@ function ContactItem({ icon, children }: { icon: ReactNode; children: ReactNode 
   );
 }
 
+function LocationDetails({ phone, hours }: { phone: string | null; hours: string | null }) {
+  const phoneLink = telHref(phone);
+  if (!phone && !hours) return null;
+  return (
+    <span className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-white/55">
+      {phone && (
+        <span className="inline-flex items-center gap-1.5">
+          <Phone size={13} aria-hidden="true" />
+          {phoneLink ? <a href={phoneLink} className="transition-colors hover:text-white">{formatPhone(phone)}</a> : phone}
+        </span>
+      )}
+      {hours && (
+        <span className="inline-flex items-center gap-1.5">
+          <Clock size={13} aria-hidden="true" /> {hours}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /** Four-column site footer: brand and socials, pages, help, and contact details. */
 export async function ShowcaseFooter({ name, logoUrl, description, hours, phone, email, socials, pages, help, locations }: ShowcaseFooterProps) {
   const t = await getTranslations('publicShowcase');
@@ -135,12 +159,13 @@ export async function ShowcaseFooter({ name, logoUrl, description, hours, phone,
                   <ContactItem key={`${location.clubName}-${location.address}`} icon={<MapPin size={16} aria-hidden="true" />}>
                     {location.label && <span className="block text-xs font-semibold uppercase tracking-wider text-white/40">{location.label}</span>}
                     {links ? <MapChooser address={location.address} links={links} labels={mapLabels} /> : location.address}
+                    <LocationDetails phone={location.phone ?? null} hours={location.hours ?? null} />
                   </ContactItem>
                 );
               })}
               {phone && (
                 <ContactItem icon={<Phone size={16} aria-hidden="true" />}>
-                  {phoneLink ? <a href={phoneLink} className="transition-colors hover:text-white">{phone}</a> : phone}
+                  {phoneLink ? <a href={phoneLink} className="transition-colors hover:text-white">{formatPhone(phone)}</a> : phone}
                 </ContactItem>
               )}
               {email && (

@@ -1,5 +1,5 @@
 import type { ClubShowcase, ShowcaseBrand, ShowcaseGame, ShowcaseOffer, ShowcasePcZone, ShowcaseTranslations, ShowcaseZoneKind } from '@/types';
-import { formatCurrencyInput, parseCurrencyInput } from './formatters';
+import { formatCurrencyInput, formatPhone, normalizePhone, parseCurrencyInput } from './formatters';
 import { APP_TIME_ZONE } from './utils';
 
 /** Matches the club_showcases_slug_format check in migration 098. */
@@ -145,9 +145,9 @@ export type ShowcaseSettingsError =
   | 'email_invalid'
   | 'image_invalid';
 
-/** Shared checks for the optional contact links of a club or brand page. */
-function validateContactLinks(form: { email: string; telegram_url: string; instagram_url: string; youtube_url: string; hero_image_url: string }): ShowcaseSettingsError | null {
-  if (form.telegram_url.trim() && !normalizeTelegramUrl(form.telegram_url)) return 'telegram_invalid';
+/** Shared checks for the optional contact links of a club or brand page; only clubs have Telegram. */
+function validateContactLinks(form: { email: string; telegram_url?: string; instagram_url: string; youtube_url: string; hero_image_url: string }): ShowcaseSettingsError | null {
+  if (form.telegram_url?.trim() && !normalizeTelegramUrl(form.telegram_url)) return 'telegram_invalid';
   if (form.instagram_url.trim() && !normalizeInstagramUrl(form.instagram_url)) return 'instagram_invalid';
   if (form.youtube_url.trim() && !normalizeYoutubeUrl(form.youtube_url)) return 'youtube_invalid';
   if (form.email.trim() && !normalizeEmail(form.email)) return 'email_invalid';
@@ -163,7 +163,7 @@ export function showcaseSettingsForm(showcase: ClubShowcase | null, clubName: st
     tagline: localizedFromRow(showcase?.translations, 'tagline', showcase?.tagline),
     hero_image_url: showcase?.hero_image_url ?? '',
     address: showcase?.address ?? '',
-    phone: showcase?.phone ?? '',
+    phone: formatPhone(showcase?.phone),
     email: showcase?.email ?? '',
     opening_hours: showcase?.opening_hours ?? '',
     telegram_url: showcase?.telegram_url ?? '',
@@ -189,7 +189,7 @@ export function buildShowcaseSettingsPayload(form: ShowcaseSettingsForm) {
     translations: { headline: localizedPayload(form.headline), tagline: localizedPayload(form.tagline) },
     hero_image_url: normalizeExternalUrl(form.hero_image_url),
     address: optionalText(form.address),
-    phone: optionalText(form.phone),
+    phone: normalizePhone(form.phone),
     email: normalizeEmail(form.email),
     opening_hours: optionalText(form.opening_hours),
     telegram_url: normalizeTelegramUrl(form.telegram_url),
@@ -644,10 +644,7 @@ export interface ShowcaseBrandForm {
   name: string;
   tagline: LocalizedText;
   hero_image_url: string;
-  phone: string;
   email: string;
-  opening_hours: string;
-  telegram_url: string;
   instagram_url: string;
   youtube_url: string;
   is_published: boolean;
@@ -661,10 +658,7 @@ export function showcaseBrandForm(brand: ShowcaseBrand | null): ShowcaseBrandFor
     name: brand?.name ?? '',
     tagline: localizedFromRow(brand?.translations, 'tagline', brand?.tagline),
     hero_image_url: brand?.hero_image_url ?? '',
-    phone: brand?.phone ?? '',
     email: brand?.email ?? '',
-    opening_hours: brand?.opening_hours ?? '',
-    telegram_url: brand?.telegram_url ?? '',
     instagram_url: brand?.instagram_url ?? '',
     youtube_url: brand?.youtube_url ?? '',
     is_published: brand?.is_published ?? false,
@@ -677,7 +671,11 @@ export function validateShowcaseBrand(form: ShowcaseBrandForm): ShowcaseBrandErr
   return validateContactLinks(form);
 }
 
-/** Validated form → showcase_brands columns (owner_id added by the caller). */
+/**
+ * Validated form → showcase_brands columns (owner_id added by the caller).
+ * Phone, hours and Telegram belong to each club now, so saving clears the
+ * brand-wide values that older versions stored.
+ */
 export function buildShowcaseBrandPayload(form: ShowcaseBrandForm) {
   return {
     slug: form.slug,
@@ -685,10 +683,10 @@ export function buildShowcaseBrandPayload(form: ShowcaseBrandForm) {
     tagline: primaryText(form.tagline),
     translations: { tagline: localizedPayload(form.tagline) },
     hero_image_url: normalizeExternalUrl(form.hero_image_url),
-    phone: optionalText(form.phone),
+    phone: null,
     email: normalizeEmail(form.email),
-    opening_hours: optionalText(form.opening_hours),
-    telegram_url: normalizeTelegramUrl(form.telegram_url),
+    opening_hours: null,
+    telegram_url: null,
     instagram_url: normalizeInstagramUrl(form.instagram_url),
     youtube_url: normalizeYoutubeUrl(form.youtube_url),
     is_published: form.is_published,

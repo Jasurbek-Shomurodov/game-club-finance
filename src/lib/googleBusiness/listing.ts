@@ -2,6 +2,8 @@
 // description, phone, website and opening hours. Shared by the listing form
 // and the /api/google-business/listing route.
 
+import { formatPhone } from '@/lib/formatters';
+
 export const WEEK_DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] as const;
 export type WeekDay = (typeof WEEK_DAYS)[number];
 
@@ -90,7 +92,7 @@ export function fromGoogleLocation(location: GoogleLocationInfo): ListingInfo {
   return {
     title: location.title ?? '',
     description: location.profile?.description ?? '',
-    phone: location.phoneNumbers?.primaryPhone ?? '',
+    phone: formatPhone(location.phoneNumbers?.primaryPhone),
     website: location.websiteUri ?? '',
     hours,
     splitHours,

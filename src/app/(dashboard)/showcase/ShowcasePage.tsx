@@ -34,7 +34,7 @@ import {
 } from '@/components/PresentationFoundation';
 import { createClient } from '@/lib/supabase/client';
 import { fetchShowcaseAdminData, type ShowcaseAdminData } from '@/lib/supabase/showcase';
-import { formatCurrency } from '@/lib/formatters';
+import { formatCurrency, formatPhone } from '@/lib/formatters';
 import {
   buildShowcaseGamePayload,
   buildShowcaseOfferPayload,
@@ -302,7 +302,7 @@ export default function ShowcasePage() {
                     <Input id="showcase-hours" value={settings.opening_hours} maxLength={80} placeholder={t('openingHoursPlaceholder')} onChange={(e) => setField('opening_hours', e.target.value)} />
                   </Field>
                   <Field label={t('phone')} htmlFor="showcase-phone">
-                    <Input id="showcase-phone" type="tel" inputMode="tel" value={settings.phone} maxLength={40} placeholder="+998 90 123 45 67" onChange={(e) => setField('phone', e.target.value)} />
+                    <Input id="showcase-phone" type="tel" inputMode="tel" value={settings.phone} maxLength={40} placeholder="+998 90 123 45 67" onChange={(e) => setField('phone', formatPhone(e.target.value))} />
                   </Field>
                   <Field label={t('telegram')} htmlFor="showcase-telegram">
                     <Input id="showcase-telegram" value={settings.telegram_url} maxLength={200} placeholder="@gameclub" onChange={(e) => setField('telegram_url', e.target.value)} />

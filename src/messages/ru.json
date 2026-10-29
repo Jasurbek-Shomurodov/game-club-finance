@@ -1807,7 +1807,6 @@
     "error_offer_title_required": "Введите название хотя бы на одном языке.",
     "youtube": "YouTube",
     "email": "Эл. почта",
-    "brandPhoneHint": "Показывается в подвале; если пусто — телефон первого клуба.",
     "error_youtube_invalid": "Введите ссылку YouTube или @канал.",
     "error_email_invalid": "Введите корректный адрес эл. почты.",
     "addPlaystationZone": "Добавить PlayStation",
@@ -1852,7 +1851,8 @@
     "libraryEmpty": "Игр пока нет",
     "libraryEmptyDescription": "Добавьте первую игру — потом любой клуб сможет выбрать её здесь.",
     "tabPage": "Страница",
-    "tabGoogle": "Google Карты"
+    "tabGoogle": "Google Карты",
+    "brandContactsHint": "Телефон, часы работы и Telegram задаются для каждого клуба ниже, чтобы у каждого филиала были свои."
   },
   "publicShowcase": {
     "navGames": "Игры",
@@ -1942,7 +1942,8 @@
     "openNow": "Открыто сейчас",
     "closedNow": "Сейчас закрыто",
     "route": "Маршрут",
-    "details": "Подробнее"
+    "details": "Подробнее",
+    "bookTelegramClub": "Забронировать: {club}"
   },
   "history": {
     "title": "История правок",

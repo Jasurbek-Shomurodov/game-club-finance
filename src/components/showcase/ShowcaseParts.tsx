@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { getTranslations } from 'next-intl/server';
 import { Armchair, BadgePercent, Clock, Gamepad, Tv, Cpu, Gamepad2, HardDrive, Headphones, Instagram, Keyboard, MapPin, MemoryStick, Monitor, MonitorPlay, Mouse, NotebookPen, Phone, Send, Sparkles, Zap } from 'lucide-react';
-import { formatCurrency } from '@/lib/formatters';
+import { formatCurrency, formatPhone } from '@/lib/formatters';
 import { mapLinks, telHref, type PublicShowcase, type PublicShowcaseGame, type PublicShowcaseOffer, type PublicShowcaseZone } from '@/lib/showcase';
 import { MapChooser } from './MapChooser';
 import { Reveal } from './Reveal';
@@ -315,7 +315,7 @@ export async function ContactList({ club }: { club: PublicShowcase }) {
       )}
       {club.phone && (
         <ContactRow icon={<Phone size={18} aria-hidden="true" />} label={t('phone')}>
-          {phoneLink ? <a href={phoneLink} className="hover:text-white">{club.phone}</a> : club.phone}
+          {phoneLink ? <a href={phoneLink} className="hover:text-white">{formatPhone(club.phone)}</a> : club.phone}
         </ContactRow>
       )}
     </ul>

@@ -314,3 +314,42 @@ export function formatCurrencyInput(value: string | number | null | undefined): 
   if (!digits) return '';
   return formatCurrency(Number(digits));
 }
+
+/** Uzbek numbers group as +998 XX XXX XX XX; the local part is nine digits. */
+const UZ_PHONE_GROUPS = [2, 3, 2, 2];
+
+function groupDigits(digits: string, sizes: number[]): string {
+  const parts: string[] = [];
+  let index = 0;
+  for (const size of sizes) {
+    if (index >= digits.length) break;
+    parts.push(digits.slice(index, index + size));
+    index += size;
+  }
+  return parts.join(' ');
+}
+
+/**
+ * A phone number as people read it, also while it is being typed:
+ * "+998914071228" → "+998 91 407 12 28", "914071228" → "91 407 12 28".
+ * A foreign number keeps its digits after the plus.
+ */
+export function formatPhone(value: string | null | undefined): string {
+  const trimmed = value?.trim() ?? '';
+  const digits = trimmed.replace(/\D/g, '');
+  if (!digits) return trimmed.startsWith('+') ? '+' : '';
+  if (digits.startsWith('998')) {
+    const local = groupDigits(digits.slice(3, 12), UZ_PHONE_GROUPS);
+    return local ? `+998 ${local}` : '+998';
+  }
+  if (!trimmed.startsWith('+') && digits.length <= 9) return groupDigits(digits, UZ_PHONE_GROUPS);
+  return `+${digits.slice(0, 15)}`;
+}
+
+/** The phone to store: formatted, with +998 added to a complete local Uzbek number; null when blank. */
+export function normalizePhone(value: string | null | undefined): string | null {
+  const formatted = formatPhone(value);
+  if (!formatted || formatted === '+') return null;
+  const digits = formatted.replace(/\D/g, '');
+  return !formatted.startsWith('+') && digits.length === 9 ? formatPhone(`998${digits}`) : formatted;
+}

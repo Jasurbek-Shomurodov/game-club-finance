@@ -1807,7 +1807,6 @@
     "error_offer_title_required": "Enter the offer name in at least one language.",
     "youtube": "YouTube",
     "email": "Email",
-    "brandPhoneHint": "Shown in the footer; the first club phone is used when empty.",
     "error_youtube_invalid": "Enter a YouTube link or @channel.",
     "error_email_invalid": "Enter a valid email address.",
     "addPlaystationZone": "Add PlayStation",
@@ -1852,7 +1851,8 @@
     "libraryEmpty": "No games yet",
     "libraryEmptyDescription": "Add the first game; every club can then pick it from here.",
     "tabPage": "Page",
-    "tabGoogle": "Google Maps"
+    "tabGoogle": "Google Maps",
+    "brandContactsHint": "Phone, opening hours and Telegram are set per club below, so each branch shows its own."
   },
   "publicShowcase": {
     "navGames": "Games",
@@ -1942,7 +1942,8 @@
     "openNow": "Open now",
     "closedNow": "Closed now",
     "route": "Route",
-    "details": "Details"
+    "details": "Details",
+    "bookTelegramClub": "Book at {club}"
   },
   "history": {
     "title": "Edit history",
