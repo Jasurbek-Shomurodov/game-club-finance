@@ -79,7 +79,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
   const { writeErrorMessage } = useSalaryText();
-  // Salary editors record payments, bonuses and fines; only owners change employees, salary, KPI or activation.
+  // Salary editors record payments, bonuses and fines; only owners change employees, salary, KPI or activation, or delete records.
   const canEdit = canAccessFeature(role, featureAccess, 'salaries');
   const isOwner = role === 'owner';
   const today = useBusinessToday(businessDayStartHour);
@@ -296,7 +296,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
 
   async function deleteRecord() {
     const reason = deleteReason.trim();
-    if (!deletion || !reason || !canEdit || (deletion.kind === 'rate' && !isOwner) || mutating.current) return;
+    if (!deletion || !reason || !isOwner || mutating.current) return;
     mutating.current = true;
     setSavingTarget('delete');
     setDeleteError('');
@@ -430,7 +430,6 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
           months={historyMonths}
           loading={loading}
           loadError={loadError}
-          canEdit={canEdit}
           isOwner={isOwner}
           saving={saving}
           today={today}
@@ -439,7 +438,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
       )}
 
       <ConfirmDialog
-        open={Boolean(deletion) && canEdit}
+        open={Boolean(deletion) && isOwner}
         tone="danger"
         title={t('deleteTitle')}
         description={(

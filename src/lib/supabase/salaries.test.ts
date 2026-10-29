@@ -44,6 +44,7 @@ beforeAll(async () => {
   await db.exec(readFileSync(resolve('migrations/070_salary_kpi_basis.sql'), 'utf8'));
   await db.exec(readFileSync(resolve('migrations/077_salary_entry_created_flag.sql'), 'utf8'));
   await db.exec(readFileSync(resolve('migrations/089_salary_deletion_reason.sql'), 'utf8'));
+  await db.exec(readFileSync(resolve('migrations/113_owner_only_salary_deletion.sql'), 'utf8'));
   await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub','${owner}',false);`);
   await save();
 }, 60_000);
@@ -139,7 +140,7 @@ describe('salary database authorization and ledger integrity', () => {
     ]);
   });
 
-  it('lets granted admins and viewers record payments, bonuses and fines but never change payroll terms', async () => {
+  it('lets granted admins and viewers record payments, bonuses and fines but never change payroll terms or delete', async () => {
     for (const [index, role] of ['admin','viewer'].entries()) {
       await db.exec(`reset role; update club_memberships set role='${role}',feature_access=array['salaries']; set role authenticated;`);
       await pay(`30000000-0000-0000-0000-00000000002${index}`, 'payment', 100);
@@ -153,6 +154,7 @@ describe('salary database authorization and ledger integrity', () => {
       await expect(db.query('select change_salary_employee_role($1,$2,$3)', [club,employee,'Cleaner'])).rejects.toThrow('club owner');
       const rate = (await db.query<{id:string}>('select id from salary_rates where employee_id=$1 and deleted_at is null limit 1',[employee])).rows[0];
       await expect(db.query('select delete_salary_record($1,$2,$3,$4)',[club,rate.id,'rate','Test reason'])).rejects.toThrow('club owner');
+      await expect(db.query('select delete_salary_record($1,$2,$3,$4)',[club,`30000000-0000-0000-0000-00000000002${index}`,'entry','Test reason'])).rejects.toThrow('club owner');
       await db.exec(`reset role; update club_memberships set feature_access=array[]::text[]; set role authenticated;`);
       await expect(pay()).rejects.toThrow('Salary editing access');
       await expect(db.query('update salary_rates set amount=0 where employee_id=$1',[employee])).rejects.toThrow();
@@ -184,13 +186,18 @@ describe('salary database authorization and ledger integrity', () => {
     expect(rows.filter(row=>row.deleted_at===null)).toHaveLength(1);
     await db.query('select change_salary_term($1,$2,$3,$4)',[club,employee,'kpi',4]);
   });
-  it('enforces deletion grants, club isolation and protects audit fields', async () => {
+  it('lets only the owner delete, keeps clubs apart and protects audit fields', async () => {
     const id='30000000-0000-0000-0000-000000000002';
-    await expect(db.query('select delete_salary_record($1,$2,$3,$4)',[other,id,'entry','Test reason'])).rejects.toThrow('Salary editing access');
-    await db.exec("reset role; update club_memberships set role='viewer',feature_access=array[]::text[]; set role authenticated;");
-    await expect(db.query('select delete_salary_record($1,$2,$3,$4)',[club,id,'entry','Test reason'])).rejects.toThrow('Salary editing access');
+    await expect(db.query('select delete_salary_record($1,$2,$3,$4)',[other,id,'entry','Test reason'])).rejects.toThrow('club owner');
+    for (const role of ['viewer','admin']) {
+      for (const grant of ["array[]::text[]","array['salaries']"]) {
+        await db.exec(`reset role; update club_memberships set role='${role}',feature_access=${grant}; set role authenticated;`);
+        await expect(db.query('select delete_salary_record($1,$2,$3,$4)',[club,id,'entry','Test reason'])).rejects.toThrow('club owner');
+      }
+    }
     await expect(db.query('update salary_entries set deleted_at=now() where id=$1',[id])).rejects.toThrow();
-    await db.exec("reset role; update club_memberships set feature_access=array['salaries']; set role authenticated;");
+    expect((await db.query<{deleted_at:string|null}>('select deleted_at from salary_entries where id=$1',[id])).rows[0].deleted_at).toBeNull();
+    await db.exec("reset role; update club_memberships set role='owner',feature_access=null; set role authenticated;");
     await db.query('select delete_salary_record($1,$2,$3,$4)',[club,id,'entry','Test reason']);
     expect((await db.query<{deleted_at:string|null}>('select deleted_at from salary_entries where id=$1',[id])).rows[0].deleted_at).not.toBeNull();
     await db.exec("reset role; update club_memberships set role='owner',feature_access=null; set role authenticated;");

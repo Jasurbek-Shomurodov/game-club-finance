@@ -34,7 +34,7 @@ export interface HistoryViewProps {
   months: SalaryMonth[];
   loading: boolean;
   loadError: boolean;
-  canEdit: boolean;
+  /** Only the owner deletes payments, bonuses, fines and rates (migration 113). */
   isOwner: boolean;
   saving: boolean;
   /** The club's business date; the calendar opens on its month. */
@@ -44,7 +44,7 @@ export interface HistoryViewProps {
 
 /** Monthly breakdown, transactions and rate history for one employee or the whole club. */
 export function HistoryView({
-  employeeId, historyEmployee, employees, rates, entries, months, loading, loadError, canEdit, isOwner, saving, today, onDelete,
+  employeeId, historyEmployee, employees, rates, entries, months, loading, loadError, isOwner, saving, today, onDelete,
 }: HistoryViewProps) {
   const t = useTranslations('salaries');
   const tc = useTranslations('common');
@@ -122,7 +122,7 @@ export function HistoryView({
                   <strong className={cn('whitespace-nowrap tabular-nums', entry.kind === 'bonus' ? 'text-success-600' : entry.kind === 'fine' ? 'text-danger-600' : 'text-gray-900')}>{entry.kind === 'bonus' ? '+' : '−'}{currency(Number(entry.amount))}</strong>
                   {entry.deleted_at ? (
                     <Badge variant="neutral" size="sm">{t('deleted')} · {formatDateTime(entry.deleted_at, locale)}</Badge>
-                  ) : canEdit && (
+                  ) : isOwner && (
                     <Button variant="dangerOutline" size="sm" disabled={saving} onClick={() => onDelete({ id: entry.id, employeeId: entry.employee_id, kind: 'entry', label: `${employeePrefix(entry.employee_id)}${t(entry.kind)} · ${formatDateOnly(entry.date, locale)} · ${currency(Number(entry.amount))}` })}>
                       {t('delete')}
                     </Button>

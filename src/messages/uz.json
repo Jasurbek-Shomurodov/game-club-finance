@@ -1450,7 +1450,7 @@
     "activateConfirm": "Bugundan boshlab {name} uchun maosh va KPI yana hisoblanadi. Oldingi tarix va to‘lanmagan qoldiq saqlanadi.",
     "deactivatedSection": "Faolsizlantirilgan xodimlar ({count})",
     "deactivatedDue": "· {amount} to‘lanishi kerak",
-    "ownerOnlySetupHelp": "Xodim qo‘shish hamda ish haqi, KPI, lavozim va faollikni faqat klub egasi o‘zgartira oladi. Siz to‘lov, mukofot va jarima kiritishingiz mumkin.",
+    "ownerOnlySetupHelp": "Xodim qo‘shish, ish haqi, KPI, lavozim va faollikni o‘zgartirish hamda yozuvlarni o‘chirishni faqat klub egasi qila oladi. Siz to‘lov, mukofot va jarima kiritishingiz mumkin.",
     "deactivated": "Xodim faolsizlantirildi. Tarix va to‘lanmagan qoldiq saqlandi.",
     "changeRole": "Lavozimni o‘zgartirish",
     "lastRateHelp": "Kamida bitta ish haqi stavkasi saqlanishi kerak. Xodim sozlamalarini o‘zgartiring yoki uni faolsizlantiring.",
@@ -1464,7 +1464,7 @@
     "errors": {
       "unauthorized": "Sessiya muddati tugadi. Qayta kiring va yana urinib ko‘ring.",
       "invalidRequest": "Forma maʼlumotlari to‘liq emas. Sahifani yangilab, qayta urinib ko‘ring.",
-      "ownerOnly": "Faqat klub egasi xodimlar, maosh, KPI yoki faollikni o‘zgartira oladi.",
+      "ownerOnly": "Faqat klub egasi xodimlar, maosh, KPI yoki faollikni o‘zgartira va maosh yozuvlarini o‘chira oladi.",
       "paymentMethodDisabled": "Bu to‘lov usuli klub uchun yoqilmagan. Boshqa usulni tanlang.",
       "requestConflict": "Bu forma boshqa yozuv uchun allaqachon ishlatilgan. Sahifani yangilab, qayta kiriting.",
       "invalidDate": "Bu sana ruxsat etilmaydi. Maosh o‘zgarishlari bugundan yoki kelajakdagi ishga kirish sanasidan boshlanadi; yozuvlar kelajakda yoki ishga kirishdan oldin bo‘lishi mumkin emas.",

@@ -1450,7 +1450,7 @@
     "activateConfirm": "{name} will start accruing salary and KPI again from today. Previous history and any unpaid balance are kept.",
     "deactivatedSection": "Deactivated employees ({count})",
     "deactivatedDue": "· {amount} due",
-    "ownerOnlySetupHelp": "Only a club owner can add employees or change salary, KPI, role and activation. You can record payments, bonuses and fines.",
+    "ownerOnlySetupHelp": "Only a club owner can add employees, change salary, KPI, role and activation, or delete records. You can record payments, bonuses and fines.",
     "deactivated": "Employee deactivated. Previous history and unpaid balance are preserved.",
     "changeRole": "Change role",
     "lastRateHelp": "Keep at least one salary rate. Edit the employee settings or deactivate the employee instead.",
@@ -1464,7 +1464,7 @@
     "errors": {
       "unauthorized": "Your session has expired. Sign in again and retry.",
       "invalidRequest": "The form data was incomplete. Refresh the page and try again.",
-      "ownerOnly": "Only a club owner can change employees, salary, KPI or activation.",
+      "ownerOnly": "Only a club owner can change employees, salary, KPI or activation, or delete salary records.",
       "paymentMethodDisabled": "This payment method is not enabled for the club. Choose another method.",
       "requestConflict": "This form was already used for a different entry. Refresh the page and enter it again.",
       "invalidDate": "This date is not allowed. Salary changes start today or on the future joining date; entries cannot be in the future or before the employee joined.",

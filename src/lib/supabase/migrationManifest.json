@@ -2934,10 +2934,6 @@
         "kind": "column",
         "table": "public.salary_rates",
         "column": "delete_reason"
-      },
-      {
-        "kind": "function",
-        "signature": "public.delete_salary_record(uuid,uuid,text,text)"
       }
     ]
   },
@@ -4160,6 +4156,16 @@
         "kind": "constraint",
         "table": "public.google_business_connections",
         "name": "google_business_connections_location_needs_account"
+      }
+    ]
+  },
+  {
+    "file": "113_owner_only_salary_deletion.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.delete_salary_record(uuid,uuid,text,text)",
+        "md5": "684d43edbfe9fb5250fd38f5b58187aa"
       }
     ]
   }
