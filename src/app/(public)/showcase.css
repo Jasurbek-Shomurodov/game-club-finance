@@ -425,6 +425,39 @@
   50% { transform: translateY(8px); opacity: 0.5; }
 }
 
+/* ---------- Phones and tablets ----------
+   Blurred, blended blobs, backdrop-filter panels and endlessly repainting
+   gradients cost more than a phone GPU can paint while scrolling: iOS Safari
+   showed blank screens mid-scroll. Touch devices get the same look with
+   static layers and no backdrop blur; only transform/opacity animations stay. */
+
+@media (hover: none), (max-width: 767px) {
+  .sc-blob {
+    filter: none;
+    mix-blend-mode: normal;
+    animation: none;
+    will-change: auto;
+  }
+  .sc-grid,
+  .sc-gradient-text,
+  .sc-zone::before {
+    animation: none;
+  }
+  .sc-noise,
+  .sc-spark,
+  .sc-shine-text::after {
+    display: none;
+  }
+  .sc-glass {
+    background-color: rgba(12, 12, 24, 0.72);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .sc-rise {
+    filter: none;
+  }
+}
+
 /* ---------- Reduced motion ---------- */
 
 @media (prefers-reduced-motion: reduce) {
