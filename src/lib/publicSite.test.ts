@@ -21,6 +21,8 @@ describe('public site routing', () => {
   it('serves club and brand pages on the public host', () => {
     expect(routePublicSite('pixelgaming.uz', '/club/chilonzor', '', config)).toEqual({ kind: 'pass' });
     expect(routePublicSite('pixelgaming.uz', '/brand/pixel-gaming', '', config)).toEqual({ kind: 'pass' });
+    expect(routePublicSite('pixelgaming.uz', '/privacy', '', config)).toEqual({ kind: 'pass' });
+    expect(routePublicSite('pixelgaming.uz', '/privacy-admin', '', config)).toMatchObject({ kind: 'redirect' });
   });
 
   it('sends admin paths on the public host to the admin host', () => {

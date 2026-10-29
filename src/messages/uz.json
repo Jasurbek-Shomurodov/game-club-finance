@@ -1926,6 +1926,7 @@
     "footerAllClubs": "Barcha klublar",
     "footerOpen": "Ish vaqti: {hours}.",
     "footerRights": "Barcha huquqlar himoyalangan.",
+    "footerPrivacy": "Maxfiylik siyosati",
     "consoleCount": "{count, plural, other {# ta konsol}}",
     "gameCount": "{count, plural, one {# ta o‘yin} other {# ta o‘yin}}",
     "console": "Konsol",
@@ -2112,5 +2113,38 @@
     "error_NOT_CONNECTED": "Bu klub uchun Google ulanmagan.",
     "error_NO_LOCATION": "Avval klub sahifasini tanlang.",
     "error_generic": "Google bilan xatolik yuz berdi. Qayta urinib ko‘ring."
+  },
+  "privacy": {
+    "metaTitle": "Maxfiylik siyosati – Pixel Gaming",
+    "title": "Maxfiylik siyosati",
+    "updated": "Yangilangan: {date}",
+    "back": "Pixel Gaming sahifasiga qaytish",
+    "intro": "Ushbu siyosat Pixel Gaming pixelgaming.uz sayti va admin.pixelgaming.uz xodimlar ilovasi orqali qanday ma’lumot to‘plashi va undan qanday foydalanishini tushuntiradi.",
+    "sections": {
+      "visitors": {
+        "title": "Sayt tashrifchilari",
+        "body": "Ochiq sayt klublarimiz haqidagi ma’lumotlarni ko‘rsatadi. Unda tashrifchilar uchun akkaunt yoki forma yo‘q va u shaxsiy ma’lumot so‘ramaydi. Xosting provayderimiz xavfsizlik va barqaror ishlash uchun standart texnik jurnallarni (masalan, IP-manzil va brauzer turi) yuritadi."
+      },
+      "admin": {
+        "title": "Xodimlar ilovasi",
+        "body": "Admin ilovasidan faqat Pixel Gaming egalari va xodimlari foydalanadi. Unda ularning kirish uchun email manzili va ismi hamda xodimlar kiritadigan klub ish yozuvlari saqlanadi."
+      },
+      "google": {
+        "title": "Google Biznes profili",
+        "body": "Ega klubning Google Biznes profilini ulashi mumkin. Uning ruxsati bilan biz Google akkauntining email manzilini va u boshqaradigan biznes kartalarini boshqarish huquqini olamiz. Bu huquqdan faqat xodimlar admin ilovasida yaratgan post va rasmlarni joylash hamda klubning so‘nggi postlarini ko‘rsatish uchun foydalanamiz. Boshqa Google ma’lumotlarini o‘qimaymiz, reklama uchun ishlatmaymiz, sotmaymiz va hech kimga bermaymiz. Google API orqali olingan ma’lumotlardan foydalanishimiz Google API xizmatlarining foydalanuvchi ma’lumotlari siyosatiga, jumladan cheklangan foydalanish (Limited Use) talablariga mos keladi."
+      },
+      "storage": {
+        "title": "Saqlash va himoya",
+        "body": "Ma’lumotlar xosting va ma’lumotlar bazasi provayderlarimiz — Vercel va Supabase’da kirish nazorati ostida saqlanadi. Google kirish tokenlari shifrlangan holda saqlanadi va ularni faqat serverimiz o‘qiy oladi."
+      },
+      "removal": {
+        "title": "Ruxsatni bekor qilish va ma’lumotlarni o‘chirish",
+        "body": "Ega istalgan vaqtda admin ilovasida Ommaviy sahifa → Google Xaritalar bo‘limida Google’ni uzishi mumkin; bunda ruxsat bekor qilinadi va saqlangan token o‘chiriladi. Ruxsatni myaccount.google.com/permissions sahifasida ham bekor qilish mumkin. Xodim akkaunti ma’lumotlarini o‘chirish uchun biz bilan bog‘laning."
+      },
+      "contact": {
+        "title": "Aloqa",
+        "body": "Ushbu siyosat bo‘yicha savollar uchun pixelgaming.uz saytida ko‘rsatilgan telefon, email yoki Telegram orqali bog‘laning."
+      }
+    }
   }
 }

@@ -1926,6 +1926,7 @@
     "footerAllClubs": "All clubs",
     "footerOpen": "Open {hours}.",
     "footerRights": "All rights reserved.",
+    "footerPrivacy": "Privacy policy",
     "consoleCount": "{count, plural, one {# console} other {# consoles}}",
     "gameCount": "{count, plural, one {# game} other {# games}}",
     "console": "Console",
@@ -2112,5 +2113,38 @@
     "error_NOT_CONNECTED": "Google is not connected for this club.",
     "error_NO_LOCATION": "Choose the club's listing first.",
     "error_generic": "Something went wrong with Google. Try again."
+  },
+  "privacy": {
+    "metaTitle": "Privacy policy – Pixel Gaming",
+    "title": "Privacy policy",
+    "updated": "Last updated: {date}",
+    "back": "Back to Pixel Gaming",
+    "intro": "This policy explains what information Pixel Gaming collects through the pixelgaming.uz website and the admin.pixelgaming.uz staff app, and how we use it.",
+    "sections": {
+      "visitors": {
+        "title": "Website visitors",
+        "body": "The public website shows information about our clubs. It has no visitor accounts or forms and does not ask you for personal information. Our hosting provider keeps standard technical logs, such as IP address and browser type, for security and reliability."
+      },
+      "admin": {
+        "title": "Staff app",
+        "body": "The admin app is used only by Pixel Gaming owners and staff. It stores their sign-in email address and name, and the club business records that staff enter."
+      },
+      "google": {
+        "title": "Google Business Profile",
+        "body": "An owner can connect the club's Google Business Profile. With their permission we receive the Google account's email address and access to manage the business listings it administers. We use this access only to publish the posts and photos staff create in the admin app and to show the club's recent posts. We do not read other Google data, do not use it for advertising, and do not sell or share it. Our use of information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements."
+      },
+      "storage": {
+        "title": "Storage and security",
+        "body": "Data is stored with our hosting and database providers, Vercel and Supabase, behind access controls. Google access tokens are stored encrypted and can be read only by our server."
+      },
+      "removal": {
+        "title": "Removing access and data",
+        "body": "An owner can disconnect Google at any time on Public page → Google Maps in the admin app; this revokes our access and deletes the stored token. You can also remove access at myaccount.google.com/permissions. To have staff account data deleted, contact us."
+      },
+      "contact": {
+        "title": "Contact",
+        "body": "For questions about this policy, use the phone, email or Telegram contacts shown on pixelgaming.uz."
+      }
+    }
   }
 }

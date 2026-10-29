@@ -51,6 +51,8 @@ export function normalizeHost(host: string | null | undefined): string {
 }
 
 const PUBLIC_PREFIXES = ['/club/', '/brand/'];
+/** Standalone public pages, matched exactly. */
+export const PUBLIC_PAGES = ['/privacy'];
 
 /**
  * What a public host does with a path: the root shows the brand page, club and
@@ -65,7 +67,7 @@ export function routePublicSite(host: string, pathname: string, search: string, 
     return isAdminHost && pathname === '/' ? { kind: 'redirect', url: DASHBOARD_PATH } : null;
   }
   if (pathname === '/' && config.brandSlug) return { kind: 'rewrite', pathname: `/brand/${config.brandSlug}` };
-  if (PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return { kind: 'pass' };
+  if (PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix)) || PUBLIC_PAGES.includes(pathname)) return { kind: 'pass' };
   if (pathname === '/') return { kind: 'pass' };
   return { kind: 'redirect', url: config.adminUrl ? `${config.adminUrl}${pathname}${search}` : '/' };
 }

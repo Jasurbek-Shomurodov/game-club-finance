@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { safeRedirectPath } from './lib/validation';
-import { readPublicSiteConfig, routePublicSite } from './lib/publicSite';
+import { PUBLIC_PAGES, readPublicSiteConfig, routePublicSite } from './lib/publicSite';
 import { DASHBOARD_PATH } from '@/lib/routes';
 
 const publicSite = readPublicSiteConfig(process.env);
@@ -31,12 +31,13 @@ export async function proxy(request: NextRequest) {
   if (publicRoute?.kind === 'pass') return NextResponse.next({ request });
   if (publicRoute?.kind === 'redirect') return NextResponse.redirect(new URL(publicRoute.url, request.url));
 
-  // The landing page (/) and published club and brand pages are public; they
-  // read only get_public_showcase / get_public_brand.
+  // The landing page (/), published club and brand pages and the privacy
+  // policy are public; they read only get_public_showcase / get_public_brand.
   if (
     request.nextUrl.pathname === '/'
     || request.nextUrl.pathname.startsWith('/club/')
     || request.nextUrl.pathname.startsWith('/brand/')
+    || PUBLIC_PAGES.includes(request.nextUrl.pathname)
   ) {
     return NextResponse.next({ request });
   }

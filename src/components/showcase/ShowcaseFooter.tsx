@@ -154,7 +154,8 @@ export async function ShowcaseFooter({ name, logoUrl, description, hours, phone,
         )}
       </div>
       <div className="border-t border-white/5 px-4 py-6 text-center text-xs text-white/35">
-        © {new Date().getFullYear()} {name}. {t('footerRights')}
+        © {new Date().getFullYear()} {name}. {t('footerRights')}{' '}
+        <a href="/privacy" className="underline-offset-4 transition-colors hover:text-white hover:underline">{t('footerPrivacy')}</a>
       </div>
     </footer>
   );
