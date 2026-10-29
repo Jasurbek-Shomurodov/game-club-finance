@@ -325,6 +325,38 @@ test('REP-008 each side has its own money flow, and a category in it opens its p
   expect(errors).toEqual([]);
 });
 
+test('SAL-007 an employee\'s history is its own page, and every salary tab has its own address', async ({ page, context }) => {
+  const employeeId = 'e2e00000-0000-4000-8000-00000000c0de';
+  await context.addCookies([englishCookie]);
+  await page.goto('/salaries/employees');
+  const salaries = await page.request.post('/api/salaries', { data: {
+    clubId: clubs.arcade.id, employeeId, action: 'save_employee', name: 'E2E Izzat', jobTitle: 'Admin',
+    date: `${today.slice(0, 7)}-01`, salaryType: 'daily', amount: 100_000, kpi: 0, active: true,
+  } });
+  expect(salaries.status()).toBe(200);
+
+  // The card's History opens the employee's own page: their name, a way back, no section tabs.
+  await page.reload();
+  await page.locator(`main a[href="/salaries/employees/${employeeId}"]`).click();
+  await expect(page).toHaveURL(new RegExp(`/salaries/employees/${employeeId}$`));
+  await expect(page.getByRole('heading', { name: 'E2E Izzat' })).toBeVisible();
+  await expect(page.getByText('Activity calendar')).toBeVisible();
+  await expect(page.getByRole('radiogroup')).toHaveCount(0);
+  await page.locator('main a[href="/salaries/employees"]').first().click();
+
+  // The club-wide tabs keep the address in step, so reload, Back and Forward land on the same tab.
+  await expect(page).toHaveURL(/\/salaries\/employees$/);
+  await page.getByRole('radio', { name: 'History' }).click();
+  await expect(page).toHaveURL(/\/salaries\/history$/);
+  await page.reload();
+  await expect(page.getByRole('radio', { name: 'History', checked: true })).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/salaries\/employees$/);
+  await expect(page.getByRole('radio', { name: 'Employees', checked: true })).toBeVisible();
+  await page.goForward();
+  await expect(page.getByRole('radio', { name: 'History', checked: true })).toBeVisible();
+});
+
 test.describe('as a viewer', () => {
   test.use({ storageState: storageStatePath('viewer') });
 

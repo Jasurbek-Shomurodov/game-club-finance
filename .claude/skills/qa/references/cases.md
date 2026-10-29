@@ -113,6 +113,8 @@ Telegram group if one is set up.
 | SAL-004 | S1 | Month switch changes the due list | Open last month | Last month's payments and due only |
 | SAL-005 | S1 | Salary API checks the club | POST `/api/salaries` with a foreign `club_id` | 403 or 404 |
 | SAL-006 | S2 | Team roles display translated | Switch to UZ on Team | Role names in Uzbek, no raw keys |
+| SAL-007 | S1 | Employee history is its own page [e2e] | Salaries → an employee card → History, then ← Employees; then the History tab, reload, Back | Employee page shows their name and status, ← Employees, no section tabs; each tab has its own address (`/salaries/employees`, `/salaries/operations`, `/salaries/history`) and survives reload and Back |
+| SAL-008 | S0 | Only the owner changes or deletes payroll | As an admin with the salaries grant, open an employee's history and Operations | Payments, bonuses and fines can be recorded; no Delete, pencil or Deactivate; a direct `delete_record` call is refused |
 
 ## REP — reports and analysis
 

@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { Banknote, Building2, Users, Wallet } from 'lucide-react';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
+  Badge,
   Card,
   ConfirmDialog,
   Disclosure,
@@ -56,6 +57,8 @@ import {
 } from './shared';
 
 const emptyData: Awaited<ReturnType<typeof loadSalaries>> = { employees: [], rates: [], entries: [], monthlyProfit: [] };
+
+const VIEW_PATHS: Record<SalaryView, string> = { employees: '/salaries/employees', operations: '/salaries/operations', history: '/salaries/history' };
 
 export default function SalariesPage({ view = 'employees', employeeId }: { view?: SalaryView; employeeId?: string }) {
   const t = useTranslations('salaries');
@@ -314,9 +317,16 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   const viewOptions: SegmentedOption<SalaryView>[] = [
     { value: 'employees', label: t('employees') },
     { value: 'operations', label: t('dailyOperations') },
-    { value: 'history', label: historyEmployee?.name ?? t('history') },
+    { value: 'history', label: t('history') },
   ];
-  const pageTitle = view === 'history' ? historyEmployee?.name ?? t('history') : t(view === 'employees' ? 'employees' : 'title');
+  // Switches in place (the loaded data is reused) but keeps the address in step,
+  // so a reload, a shared link or Back lands on the same tab.
+  const changeView = (next: SalaryView) => {
+    setView(next);
+    window.history.pushState(null, '', VIEW_PATHS[next]);
+  };
+  const historyStatus = historyEmployee && summaries.get(historyEmployee.id)?.status;
+  const pageTitle = employeeId ? historyEmployee?.name ?? t('history') : t(view === 'employees' ? 'employees' : view === 'history' ? 'history' : 'title');
   // Club-wide due keeps one employee's overpayment from hiding what another is owed.
   // One employee's negative balance is an advance, shown like on their card.
   const dueValue = view === 'history' && employeeId ? salaryBalance(historyMonths) : due;
@@ -324,17 +334,19 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
 
   return (
     <div className="space-y-5">
+      {/* One employee's history is a page of its own, reached from their card; the section tabs belong to the club-wide views. */}
       <PageHeader
-        back={view === 'history' && employeeId ? '/salaries/employees' : undefined}
+        back={employeeId ? '/salaries/employees' : undefined}
         backLabel={t('employees')}
         title={pageTitle}
-        tabs={(
+        meta={historyStatus && <Badge variant={historyStatus === 'upcoming' ? 'info' : historyStatus === 'active' ? 'success' : 'neutral'}>{t(historyStatus)}</Badge>}
+        tabs={employeeId ? undefined : (
           <SegmentedControl
             variant="tabs"
             label={t('viewSwitcher')}
             options={viewOptions}
             value={view}
-            onChange={setView}
+            onChange={changeView}
           />
         )}
       />
