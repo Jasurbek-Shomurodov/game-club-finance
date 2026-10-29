@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Onest } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 import { getLocale, getMessages } from 'next-intl/server';
 import { cookies } from 'next/headers';
@@ -50,6 +51,8 @@ export default async function RootLayout({
             {children}
           </AppIntlProvider>
         </AppThemeProvider>
+        {/* Vercel Web Analytics: cookieless page views. Its script is served only on Vercel, so other builds skip it. */}
+        {process.env.VERCEL ? <Analytics /> : null}
       </body>
     </html>
   );

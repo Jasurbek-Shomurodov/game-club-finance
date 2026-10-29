@@ -2123,7 +2123,7 @@
     "sections": {
       "visitors": {
         "title": "Website visitors",
-        "body": "The public website shows information about our clubs. It has no visitor accounts or forms and does not ask you for personal information. Our hosting provider keeps standard technical logs, such as IP address and browser type, for security and reliability."
+        "body": "The public website shows information about our clubs. It has no visitor accounts or forms and does not ask you for personal information. Our hosting provider keeps standard technical logs, such as IP address and browser type, for security and reliability, and counts anonymous page views without cookies so we can see which pages are visited."
       },
       "admin": {
         "title": "Staff app",

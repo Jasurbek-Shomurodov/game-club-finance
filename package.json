@@ -30,6 +30,7 @@
     "@opentelemetry/api": "^1.9.1",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
+    "@vercel/analytics": "^2.0.1",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "exceljs": "^4.4.0",

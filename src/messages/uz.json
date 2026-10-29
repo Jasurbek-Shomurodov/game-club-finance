@@ -2123,7 +2123,7 @@
     "sections": {
       "visitors": {
         "title": "Sayt tashrifchilari",
-        "body": "Ochiq sayt klublarimiz haqidagi ma’lumotlarni ko‘rsatadi. Unda tashrifchilar uchun akkaunt yoki forma yo‘q va u shaxsiy ma’lumot so‘ramaydi. Xosting provayderimiz xavfsizlik va barqaror ishlash uchun standart texnik jurnallarni (masalan, IP-manzil va brauzer turi) yuritadi."
+        "body": "Ochiq sayt klublarimiz haqidagi ma’lumotlarni ko‘rsatadi. Unda tashrifchilar uchun akkaunt yoki forma yo‘q va u shaxsiy ma’lumot so‘ramaydi. Xosting provayderimiz xavfsizlik va barqaror ishlash uchun standart texnik jurnallarni (masalan, IP-manzil va brauzer turi) yuritadi hamda qaysi sahifalar ko‘rilayotganini bilishimiz uchun cookie’siz anonim sahifa ko‘rishlarini hisoblaydi."
       },
       "admin": {
         "title": "Xodimlar ilovasi",
