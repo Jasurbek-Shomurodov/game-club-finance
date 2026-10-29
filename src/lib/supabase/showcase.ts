@@ -1,6 +1,6 @@
-import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ClubShowcase, ShowcaseBrand, ShowcaseGame, ShowcaseOffer, ShowcasePcZone } from '@/types';
-import { parsePublicBrand, parsePublicShowcase, showcaseImagePath, type PublicBrand, type ShowcaseImageKind, type PublicShowcase } from '@/lib/showcase';
+import { showcaseImagePath, type ShowcaseImageKind } from '@/lib/showcase';
 import { isMissingDatabaseTable } from './errors';
 import { fetchAllRows } from './pagination';
 
@@ -65,31 +65,6 @@ export async function uploadShowcaseImage(
   });
   if (error) throw error;
   return supabase.storage.from(SHOWCASE_BUCKET).getPublicUrl(path).data.publicUrl;
-}
-
-/**
- * Anonymous client for the public pages. Uses the anon key without cookies, so
- * a visitor's session never changes what the page shows.
- */
-function anonymousClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  return createSupabaseClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
-}
-
-export async function fetchPublicShowcase(slug: string, locale: string): Promise<PublicShowcase | null> {
-  const supabase = anonymousClient();
-  if (!supabase) return null;
-  const { data, error } = await supabase.rpc('get_public_showcase', { p_slug: slug });
-  return error ? null : parsePublicShowcase(data, locale);
-}
-
-export async function fetchPublicBrand(slug: string, locale: string): Promise<PublicBrand | null> {
-  const supabase = anonymousClient();
-  if (!supabase) return null;
-  const { data, error } = await supabase.rpc('get_public_brand', { p_slug: slug });
-  return error ? null : parsePublicBrand(data, locale);
 }
 
 /**

@@ -9,7 +9,7 @@ import { getLocale } from 'next-intl/server';
 import { BrandView } from '@/components/showcase/BrandView';
 import { landingBrandSlug, readPublicSiteConfig } from '@/lib/publicSite';
 import { brandLogoUrl, logoIcons } from '@/lib/showcase';
-import { fetchPublicBrand } from '@/lib/supabase/showcase';
+import { fetchPublicBrand } from '@/lib/supabase/publicShowcase';
 
 const loadLandingBrand = cache(async () => fetchPublicBrand(landingBrandSlug(readPublicSiteConfig(process.env)), await getLocale()));
 

@@ -23,6 +23,7 @@ import { canAccessFeature } from '@/lib/permissions';
 import { nextSortOrder } from '@/lib/showcase';
 import { buildGameLibrary, diffGameSelection, filterLibrary, gameKey, libraryGenres, type LibraryGame } from '@/lib/showcaseGameLibrary';
 import { createClient } from '@/lib/supabase/client';
+import { refreshPublicShowcase } from '@/lib/showcaseRefresh';
 import { fetchShowcaseGamesForClubs } from '@/lib/supabase/showcase';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { cn } from '@/lib/utils';
@@ -141,6 +142,7 @@ export default function GameLibraryPage() {
         // RLS silently skips rows this person may not delete.
         if ((data?.length ?? 0) !== diff.toRemove.length) throw new Error('Not every game was removed');
       }
+      refreshPublicShowcase();
       showToast(t('librarySaved', { added: diff.toAdd.length, removed: diff.toRemove.length }));
     } catch (saveError) {
       console.error('Failed to save game selection', saveError);
@@ -156,6 +158,7 @@ export default function GameLibraryPage() {
     if (library.some((item) => item.key === gameKey(game.title))) return t('libraryDuplicate');
     const { error: insertError } = await createClient().from('showcase_games').insert({ ...game, club_id: selectedClubId });
     if (insertError) return t('saveFailed');
+    refreshPublicShowcase();
     showToast(t('saved'));
     await query.reload({ silent: true });
     return null;

@@ -18,6 +18,7 @@ import {
   buttonClassName,
 } from '@/components/PresentationFoundation';
 import { createClient } from '@/lib/supabase/client';
+import { refreshPublicShowcase } from '@/lib/showcaseRefresh';
 import { fetchOwnShowcaseBrand } from '@/lib/supabase/showcase';
 import {
   buildShowcaseBrandPayload,
@@ -89,6 +90,7 @@ export function BrandSettingsCard({ userId, clubId, onSaved }: BrandSettingsCard
       setError(saveError.code === '23505' ? t('error_slug_taken') : t('saveFailed'));
       return;
     }
+    refreshPublicShowcase();
     onSaved(t('saved'));
     await load();
   }

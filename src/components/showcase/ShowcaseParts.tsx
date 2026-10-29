@@ -88,10 +88,14 @@ export function SectionTitle({ eyebrow, title, description }: { eyebrow: string;
   );
 }
 
+/** Titles in the scrolling strip; more only widen an already off-screen track. */
+const MARQUEE_LIMIT = 12;
+
 export function Marquee({ items, reverse = false }: { items: string[]; reverse?: boolean }) {
   if (items.length === 0) return null;
+  const shown = items.slice(0, MARQUEE_LIMIT);
   // The track holds two copies and slides by half its width, so the loop is seamless.
-  const repeated = Array.from({ length: Math.max(2, Math.ceil(12 / items.length)) }, () => items).flat();
+  const repeated = Array.from({ length: Math.ceil(MARQUEE_LIMIT / shown.length) }, () => shown).flat();
   return (
     <div className="relative border-y border-white/5 bg-white/[0.015] py-4">
       <div className="sc-marquee overflow-hidden py-2" aria-hidden="true">
@@ -99,9 +103,8 @@ export function Marquee({ items, reverse = false }: { items: string[]; reverse?:
           {[0, 1].map((copy) => (
             <div key={copy} className="flex shrink-0 items-center">
               {repeated.map((item, index) => (
-                <span key={`${copy}-${index}`} className="sc-display flex items-center whitespace-nowrap px-6 text-2xl font-bold text-white/15 sm:text-4xl">
+                <span key={`${copy}-${index}`} className="sc-display sc-marquee-item flex items-center whitespace-nowrap px-6 text-2xl font-bold text-white/15 sm:text-4xl">
                   {item}
-                  <Zap size={18} className="ml-12 text-fuchsia-400/40" />
                 </span>
               ))}
             </div>

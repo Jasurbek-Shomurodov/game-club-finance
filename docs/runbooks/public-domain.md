@@ -8,6 +8,23 @@ through `src/lib/publicSite.ts`:
 | `pixelgaming.uz`, `www.pixelgaming.uz` | `/` is the brand page (`/brand/<PUBLIC_SITE_BRAND_SLUG>`); `/club/<slug>` and `/brand/<slug>` work; every other path redirects to `ADMIN_SITE_URL`. The public pages show no sign-in link. |
 | `admin.pixelgaming.uz` | The admin app. Its root opens `/dashboard`, which sends a signed-out visitor to `/login`. The Supabase daily-report cron (migration 110) calls its `/api/cron/daily-finance-report`. |
 
+## Caching and phone performance
+
+The public pages render on every visit (language comes from the visitor's
+cookie), but the database read behind them is cached for 60 seconds per
+page address and shared by every visitor and language
+(`src/lib/supabase/publicShowcase.ts`). Saving on the admin Public page or
+in the game library calls `POST /api/showcase/refresh`, which clears that
+cache so the change shows on the next visit. Club name and logo changes made
+in Settings appear within the minute.
+
+On phones and tablets (`(hover: none), (max-width: 767px)` in
+`src/app/(public)/showcase.css`) the page drops live blurs, blend modes and
+animations that repaint every frame. iOS Safari showed blank screens while
+scrolling with them on. Write only the standard `backdrop-filter` in that
+file: the CSS build adds the `-webkit-` copy, and writing both made it keep
+only the prefixed one, which Chrome ignores.
+
 `game-club-finance.vercel.app` is detached from the project and must stay
 detached; nothing calls it any more.
 

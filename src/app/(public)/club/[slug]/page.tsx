@@ -6,7 +6,7 @@ import { notFound } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { ShowcaseView } from '@/components/showcase/ShowcaseView';
 import { logoIcons } from '@/lib/showcase';
-import { fetchPublicShowcase } from '@/lib/supabase/showcase';
+import { fetchPublicShowcase } from '@/lib/supabase/publicShowcase';
 
 // The visitor's language picks the headline and description; cached per request.
 const loadShowcase = cache(async (slug: string) => fetchPublicShowcase(decodeURIComponent(slug), await getLocale()));

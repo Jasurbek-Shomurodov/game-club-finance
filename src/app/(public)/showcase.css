@@ -208,7 +208,6 @@
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.02));
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
 }
 
 .sc-nav {
@@ -225,7 +224,6 @@
   z-index: -1;
   background: rgba(5, 5, 11, 0.7);
   backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   opacity: 0;
   transition: opacity 0.3s;
   pointer-events: none;
@@ -409,6 +407,17 @@
 .sc-marquee-track[data-reverse='true'] {
   animation-direction: reverse;
 }
+/* The lightning separator after each title, drawn once in CSS instead of an
+   inline SVG per title. Same path as lucide's Zap icon. */
+.sc-marquee-item::after {
+  content: '';
+  width: 18px;
+  height: 18px;
+  margin-left: 3rem;
+  background: rgba(232, 121, 249, 0.4);
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z'/></svg>") center / contain no-repeat;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z'/></svg>") center / contain no-repeat;
+}
 .sc-marquee:hover .sc-marquee-track {
   animation-play-state: paused;
 }
@@ -450,11 +459,24 @@
   }
   .sc-glass {
     background-color: rgba(12, 12, 24, 0.72);
+  }
+  .sc-glass,
+  .sc-root [class*='backdrop-blur'] {
     backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+  }
+  /* Decorative glows (Tailwind blur-[…]): a radial mask instead of a live blur. */
+  .sc-root [class*=' blur-['] {
+    filter: none;
+    mask-image: radial-gradient(closest-side, #000, transparent);
+    -webkit-mask-image: radial-gradient(closest-side, #000, transparent);
   }
   .sc-rise {
     filter: none;
+  }
+  /* A club panel is the tallest element on the page; blurring it in costs a frame drop. */
+  .sc-shimmer,
+  .sc-panel-in {
+    animation: none;
   }
 }
 

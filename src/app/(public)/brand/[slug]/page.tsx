@@ -6,7 +6,7 @@ import { notFound } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { BrandView } from '@/components/showcase/BrandView';
 import { brandLogoUrl, logoIcons } from '@/lib/showcase';
-import { fetchPublicBrand } from '@/lib/supabase/showcase';
+import { fetchPublicBrand } from '@/lib/supabase/publicShowcase';
 
 // The visitor's language picks the headline and description; cached per request.
 const loadBrand = cache(async (slug: string) => fetchPublicBrand(decodeURIComponent(slug), await getLocale()));

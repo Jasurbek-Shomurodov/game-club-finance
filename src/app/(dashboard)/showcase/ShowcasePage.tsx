@@ -55,6 +55,7 @@ import {
   type ShowcasePcZoneForm,
   type ShowcaseSettingsForm,
 } from '@/lib/showcase';
+import { refreshPublicShowcase } from '@/lib/showcaseRefresh';
 import { useClubQuery } from '@/lib/useClubQuery';
 import type { ShowcaseGame, ShowcaseOffer, ShowcasePcZone, ShowcaseZoneKind } from '@/types';
 import { BrandSettingsCard } from './BrandSettingsCard';
@@ -137,6 +138,7 @@ export default function ShowcasePage() {
       setSettingsError(error.code === '23505' ? t('error_slug_taken') : t('saveFailed'));
       return;
     }
+    refreshPublicShowcase();
     showToast(t('saved'));
     await query.reload({ silent: true });
   }
@@ -187,6 +189,7 @@ export default function ShowcasePage() {
       return;
     }
     setEditor(null);
+    refreshPublicShowcase();
     showToast(t('saved'));
     await query.reload({ silent: true });
   }
@@ -213,6 +216,7 @@ export default function ShowcasePage() {
       return;
     }
     setEditor(null);
+    refreshPublicShowcase();
     showToast(t('deleted'));
     await query.reload({ silent: true });
   }
