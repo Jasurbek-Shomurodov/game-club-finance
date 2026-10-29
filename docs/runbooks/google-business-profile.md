@@ -2,7 +2,8 @@
 
 **Public page → Google Maps** (`/showcase/google`) connects a club to its
 Google Business Profile listing. Once connected, the club can publish updates,
-events, offers and photos from the admin app. Google Maps has no "stories" for
+events, offers and photos from the admin app, and owners can edit the listing's
+description, phone, website and opening hours. Google Maps has no "stories" for
 businesses; posts and photos are the closest equivalent.
 
 ## How it works
@@ -19,6 +20,12 @@ post / photo -> /api/google-business/posts|photos (showcase feature check)
 - Connecting, choosing the listing and disconnecting are owner-only.
   Publishing posts and photos needs the `showcase` feature, which owners have
   and can grant to others on Team.
+- Listing info (`/api/google-business/listing`) uses the Business Information
+  API v1 `locations.patch` with an update mask of only the changed fields. The
+  name and address are not editable here: changing them makes Google verify the
+  listing again. Saving the phone keeps the listing's additional numbers. Hours
+  allow one range per day; a close earlier than the open is after midnight.
+  Reading needs the `showcase` feature; saving is owner-only.
 - Photos are uploaded first to the public `showcase` bucket (`<club_id>/google-*`).
   Google then downloads them from that URL.
 - Disconnecting revokes the token at Google (best effort) and deletes the row.

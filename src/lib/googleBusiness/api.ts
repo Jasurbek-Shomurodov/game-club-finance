@@ -1,6 +1,7 @@
 // Thin wrappers over the Google OAuth and Business Profile REST endpoints.
 // `fetchImpl` is injectable so the routes' tests never reach Google.
 
+import type { GoogleLocationInfo } from './listing';
 import type { GoogleOAuthConfig } from './oauth';
 import type { GoogleLocationOption, GooglePhotoCategory } from './posts';
 
@@ -132,6 +133,31 @@ export async function listLocations(accessToken: string, fetchImpl: Fetch = fetc
     }
   }
   return options;
+}
+
+const LOCATION_INFO_URL = 'https://mybusinessbusinessinformation.googleapis.com/v1';
+
+/** The listing's editable info; `locationName` is `locations/<id>`. */
+export async function getLocationInfo(accessToken: string, locationName: string, readMask: string, fetchImpl: Fetch = fetch) {
+  return googleJson<GoogleLocationInfo>(
+    fetchImpl,
+    `${LOCATION_INFO_URL}/${locationName}?readMask=${encodeURIComponent(readMask)}`,
+    { headers: bearer(accessToken) },
+  );
+}
+
+export async function updateLocationInfo(
+  accessToken: string,
+  locationName: string,
+  body: GoogleLocationInfo,
+  updateMask: string,
+  fetchImpl: Fetch = fetch,
+) {
+  return googleJson<GoogleLocationInfo>(fetchImpl, `${LOCATION_INFO_URL}/${locationName}?updateMask=${encodeURIComponent(updateMask)}`, {
+    method: 'PATCH',
+    headers: { ...bearer(accessToken), 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 }
 
 /** v4 resources live under `accounts/<id>/locations/<id>`. */

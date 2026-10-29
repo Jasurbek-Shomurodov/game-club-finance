@@ -30,6 +30,7 @@ import { canAccessFeature } from '@/lib/permissions';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { ShowcaseTabs } from '../ShowcaseTabs';
+import { GoogleListingCard } from './GoogleListingCard';
 import { GooglePhotoCard } from './GooglePhotoCard';
 import { GooglePostComposer } from './GooglePostComposer';
 import { errorMessageKey, googleBusinessApi, type GoogleConnectionStatus } from './googleBusinessApi';
@@ -225,6 +226,7 @@ export default function GoogleBusinessPage() {
 
           {ready && selectedClubId && (
             <>
+              <GoogleListingCard clubId={selectedClubId} isOwner={isOwner} onSaved={() => showToast(t('listingSaved'))} />
               <GooglePostComposer
                 clubId={selectedClubId}
                 defaultLanguage={locale}

@@ -107,19 +107,20 @@ export function googleErrorResponse(error: unknown, context: Record<string, unkn
 }
 
 /**
- * Shared prelude of the post and photo routes: a configured app, a user with
- * the showcase feature, and a connection with a chosen listing.
+ * Shared prelude of the post, photo and listing routes: a configured app, a
+ * user with the needed access (showcase feature by default), and a connection
+ * with a chosen listing.
  */
-export async function connectedLocation(clubId: unknown) {
+export async function connectedLocation(clubId: unknown, need: ClubAccess = 'showcase') {
   if (!isClubId(clubId)) return errorResponse('INVALID_REQUEST');
   const config = googleConfig();
   if (!config) return errorResponse('NOT_CONFIGURED');
-  const access = await authorizeClub(clubId, 'showcase');
+  const access = await authorizeClub(clubId, need);
   if (access instanceof Response) return access;
   const connection = await loadConnection(clubId);
   if (!connection) return errorResponse('NOT_CONNECTED');
   const path = locationPath(connection);
-  if (!path) return errorResponse('NO_LOCATION');
+  if (!path || !connection.location_name) return errorResponse('NO_LOCATION');
   const { accessToken } = await connectedAccessToken(config, connection);
-  return { clubId, accessToken, path };
+  return { clubId, accessToken, path, locationName: connection.location_name };
 }

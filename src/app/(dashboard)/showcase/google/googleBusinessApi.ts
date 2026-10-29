@@ -1,3 +1,4 @@
+import type { ListingError, ListingField, ListingInfo, ListingInfoForm } from '@/lib/googleBusiness/listing';
 import type { GoogleLocationOption, GooglePostError, GooglePostSummary } from '@/lib/googleBusiness/posts';
 
 export interface GoogleConnectionStatus {
@@ -13,7 +14,7 @@ export interface GoogleConnectionStatus {
 }
 
 export class GoogleRouteError extends Error {
-  constructor(readonly code: string, readonly validation?: GooglePostError) {
+  constructor(readonly code: string, readonly validation?: GooglePostError | ListingError) {
     super(code);
   }
 }
@@ -23,7 +24,7 @@ async function call<T>(url: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: init?.body ? { 'content-type': 'application/json' } : undefined,
   });
-  const body = await response.json().catch(() => ({})) as { code?: string; validation?: GooglePostError };
+  const body = await response.json().catch(() => ({})) as { code?: string; validation?: GooglePostError | ListingError };
   if (!response.ok) throw new GoogleRouteError(body.code ?? 'SERVER_ERROR', body.validation);
   return body as T;
 }
@@ -40,6 +41,9 @@ export const googleBusinessApi = {
     call<{ post: GooglePostSummary | null }>(`${BASE}/posts`, { method: 'POST', body: JSON.stringify({ clubId, post }) }),
   addPhoto: (clubId: string, photoUrl: string, category: string) =>
     call<{ photo: unknown }>(`${BASE}/photos`, { method: 'POST', body: JSON.stringify({ clubId, photoUrl, category }) }),
+  listing: (clubId: string) => call<{ listing: ListingInfo }>(`${BASE}/listing?clubId=${encodeURIComponent(clubId)}`),
+  saveListing: (clubId: string, form: ListingInfoForm, fields: ListingField[]) =>
+    call<{ listing: ListingInfo }>(`${BASE}/listing`, { method: 'PATCH', body: JSON.stringify({ clubId, form, fields }) }),
   connectUrl: (clubId: string) => `${BASE}/connect?clubId=${encodeURIComponent(clubId)}`,
 };
 
