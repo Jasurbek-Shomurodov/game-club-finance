@@ -15,7 +15,7 @@ export function knownEmployeeRole(value: string) {
 export type SetupMode = 'new' | 'salary' | 'kpi' | 'profile';
 export type SalaryView = 'operations' | 'employees' | 'history';
 export type EntryKind = SalaryEntry['kind'];
-export type SavingTarget = 'entry' | 'employee' | 'role' | 'deactivate' | 'delete';
+export type SavingTarget = 'entry' | 'employee' | 'deactivate' | 'delete';
 export type DeletionTarget = { id: string; employeeId: string; kind: 'entry' | 'rate'; label: string };
 
 /** Rate shown for an employee, the rate in force today, and the resulting status. */

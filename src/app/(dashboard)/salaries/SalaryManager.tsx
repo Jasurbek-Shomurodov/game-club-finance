@@ -41,6 +41,7 @@ import { canAccessFeature } from '@/lib/permissions';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
+import { EmployeeEditDialog, employeeEditChanges, employeeEditState, type EmployeeEditState } from './EmployeeEditDialog';
 import { EmployeesView } from './EmployeesView';
 import { HistoryView } from './HistoryView';
 import { OperationsForms, type EmployeeFormState, type EntryFormState, type FormDialog } from './OperationsForms';
@@ -87,8 +88,8 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   const isOwner = role === 'owner';
   const today = useBusinessToday(businessDayStartHour);
   const [deletion, setDeletion] = useState<DeletionTarget | null>(null);
-  const [roleEdit, setRoleEdit] = useState<{ id: string; role: string } | null>(null);
-  const [roleError, setRoleError] = useState('');
+  const [employeeEdit, setEmployeeEdit] = useState<EmployeeEditState | null>(null);
+  const [editError, setEditError] = useState('');
   const [savingTarget, setSavingTarget] = useState<SavingTarget | null>(null);
   const saving = savingTarget !== null;
   const [entryError, setEntryError] = useState('');
@@ -259,23 +260,53 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
     finally { mutating.current = false; setSavingTarget(null); }
   }
 
-  function changeRoleEdit(edit: { id: string; role: string } | null) {
-    if (!edit || edit.id !== roleEdit?.id) setRoleError('');
-    setRoleEdit(edit);
+  function openEmployeeEdit(employee: SalaryEmployee) {
+    if (!isOwner || saving) return;
+    setEditError('');
+    setEmployeeEdit(employeeEditState(employee, summaries.get(employee.id)?.display));
   }
 
-  async function saveEmployeeRole() {
-    if (!roleEdit || !isOwner || mutating.current) return;
+  // Role, salary and KPI are separate owner actions (each logged and announced
+  // on its own); only the parts that changed are sent, one after another, so a
+  // KPI change applies on top of a salary change saved a moment earlier.
+  async function saveEmployeeEdit() {
+    if (!employeeEdit || !isOwner || mutating.current) return;
+    const changes = employeeEditChanges(employeeEdit);
+    const amount = parseCurrencyInput(employeeEdit.amount);
+    const kpi = Number(employeeEdit.kpi);
+    if (changes.salary && (!Number.isFinite(amount) || amount < 0 || amount >= 100000000000000)) { setEditError(tc('invalidAmount')); return; }
+    if (changes.kpi && (!Number.isFinite(kpi) || kpi < 0 || kpi > 100)) { setEditError(tc('invalidAmount')); return; }
+    if (changes.kpi && !employeeEdit.kpi_game_club && !employeeEdit.kpi_bar) { setEditError(t('kpiPoolRequired')); return; }
+    const employeeId = employeeEdit.employee.id;
     mutating.current = true;
-    setSavingTarget('role');
-    setRoleError('');
+    setSavingTarget('employee');
+    setEditError('');
+    let wrote = false;
     try {
-      await postSalary(clubId, { action: 'change_role', employeeId: roleEdit.id, jobTitle: roleEdit.role });
-      setData((previous) => ({ ...previous, employees: previous.employees.map((employee) => employee.id === roleEdit.id ? { ...employee, job_title: roleEdit.role } : employee) }));
-      setRoleEdit(null);
+      if (changes.role) {
+        await postSalary(clubId, { action: 'change_role', employeeId, jobTitle: employeeEdit.role.trim() });
+        wrote = true;
+      }
+      if (changes.salary) {
+        await postSalary(clubId, { action: 'change_term', employeeId, kind: 'salary', amount, salaryType: employeeEdit.salary_type });
+        wrote = true;
+      }
+      if (changes.kpi) {
+        await postSalary(clubId, {
+          action: 'change_term', employeeId, kind: 'kpi', amount: kpi,
+          kpiBasis: employeeEdit.kpi_basis, kpiGameClub: employeeEdit.kpi_game_club, kpiBar: employeeEdit.kpi_bar,
+        });
+        wrote = true;
+      }
+      setEmployeeEdit(null);
       showToast(t('saved'));
-    } catch (error) { setRoleError(writeErrorMessage(error)); }
-    finally { mutating.current = false; setSavingTarget(null); }
+    } catch (error) { setEditError(writeErrorMessage(error)); }
+    finally {
+      mutating.current = false;
+      setSavingTarget(null);
+      // A partly saved edit still shows what did land.
+      if (wrote) void reload({ silent: true });
+    }
   }
 
   async function setEmployeeActive(employee: SalaryEmployee, active: boolean) {
@@ -424,10 +455,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
           loadError={loadError}
           isOwner={isOwner}
           savingTarget={savingTarget}
-          roleEdit={roleEdit}
-          roleError={roleError}
-          onRoleEditChange={changeRoleEdit}
-          onSaveRole={() => void saveEmployeeRole()}
+          onEdit={openEmployeeEdit}
           onSetActive={(employee, active) => void setEmployeeActive(employee, active)}
         />
       )}
@@ -468,6 +496,15 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
         error={deleteError || undefined}
         onConfirm={() => void deleteRecord()}
         onCancel={() => setDeletion(null)}
+      />
+
+      <EmployeeEditDialog
+        edit={isOwner ? employeeEdit : null}
+        saving={savingTarget === 'employee' && employeeEdit !== null}
+        error={editError}
+        onChange={setEmployeeEdit}
+        onClose={() => { if (!mutating.current) setEmployeeEdit(null); }}
+        onSave={() => void saveEmployeeEdit()}
       />
 
       {toastElement}

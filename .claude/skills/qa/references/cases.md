@@ -115,6 +115,7 @@ Telegram group if one is set up.
 | SAL-006 | S2 | Team roles display translated | Switch to UZ on Team | Role names in Uzbek, no raw keys |
 | SAL-007 | S1 | Employee history is its own page [e2e] | Salaries → an employee card → History, then ← Employees; then the History tab, reload, Back | Employee page shows their name and status, ← Employees, no section tabs; each tab has its own address (`/salaries/employees`, `/salaries/operations`, `/salaries/history`) and survives reload and Back |
 | SAL-008 | S0 | Only the owner changes or deletes payroll | As an admin with the salaries grant, open an employee's history and Operations | Payments, bonuses and fines can be recorded; no Delete, pencil or Deactivate; a direct `delete_record` call is refused |
+| SAL-009 | S1 | Owner edits an employee from the card [e2e] | Salaries → Employees → pencil beside the role; change role, salary and KPI; Save | One dialog holds role, salary type/amount and KPI %/basis/pools; Save is disabled until something changes; the card shows the new role, salary and KPI, applied from today |
 
 ## REP — reports and analysis
 

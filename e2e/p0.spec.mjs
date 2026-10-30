@@ -357,6 +357,33 @@ test('SAL-007 an employee\'s history is its own page, and every salary tab has i
   await expect(page.getByRole('radio', { name: 'History', checked: true })).toBeVisible();
 });
 
+test('SAL-009 the card\'s pencil edits role, salary and KPI in one dialog', async ({ page, context }) => {
+  const employeeId = 'e2e00000-0000-4000-8000-00000000c0df';
+  await context.addCookies([englishCookie]);
+  await page.goto('/salaries/employees');
+  const salaries = await page.request.post('/api/salaries', { data: {
+    clubId: clubs.arcade.id, employeeId, action: 'save_employee', name: 'E2E Nodir', jobTitle: 'Admin',
+    date: `${today.slice(0, 7)}-01`, salaryType: 'daily', amount: 100_000, kpi: 0, active: true,
+  } });
+  expect(salaries.status()).toBe(200);
+  await page.reload();
+
+  await page.getByRole('button', { name: 'Edit employee · E2E Nodir' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Edit employee · E2E Nodir' });
+  // Nothing changed yet, so there is nothing to save.
+  await expect(dialog.getByRole('button', { name: 'Save' })).toBeDisabled();
+  await dialog.getByLabel('Role').selectOption('Manager');
+  await dialog.getByLabel('Amount').fill('150000');
+  await dialog.getByLabel('KPI from owner profit (%)').fill('5');
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog).toBeHidden();
+
+  const card = page.locator('article').filter({ hasText: 'E2E Nodir' });
+  await expect(card.getByText('Manager')).toBeVisible();
+  await expect(card.getByText(`${uzs(150_000)} UZS`)).toBeVisible();
+  await expect(card.getByText('5%')).toBeVisible();
+});
+
 test.describe('as a viewer', () => {
   test.use({ storageState: storageStatePath('viewer') });
 

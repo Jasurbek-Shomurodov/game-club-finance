@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { Check, History, Pencil, Power, Users, X } from 'lucide-react';
+import { History, Pencil, Power, Users } from 'lucide-react';
 import {
   Avatar,
   Badge,
@@ -11,15 +11,13 @@ import {
   Disclosure,
   EmployeeCardGridSkeleton,
   EmptyState,
-  Field,
   IconButton,
-  Select,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { salaryBalance, type SalaryEmployee, type SalaryMonth } from '@/lib/calculations/salaries';
 import { formatCurrency, formatDateOnly } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
-import { employeeRoles, knownEmployeeRole, useSalaryText, type EmployeeRateSummary, type SavingTarget } from './shared';
+import { useSalaryText, type EmployeeRateSummary, type SavingTarget } from './shared';
 
 export interface EmployeesViewProps {
   employees: SalaryEmployee[];
@@ -29,10 +27,7 @@ export interface EmployeesViewProps {
   loadError: boolean;
   isOwner: boolean;
   savingTarget: SavingTarget | null;
-  roleEdit: { id: string; role: string } | null;
-  roleError: string;
-  onRoleEditChange: (edit: { id: string; role: string } | null) => void;
-  onSaveRole: () => void;
+  onEdit: (employee: SalaryEmployee) => void;
   onSetActive: (employee: SalaryEmployee, active: boolean) => void;
 }
 
@@ -74,7 +69,7 @@ export function EmployeesView({ employees, summaries, loading, loadError, ...car
 }
 
 function EmployeeCard({
-  employee, summary, balances, isOwner, savingTarget, roleEdit, roleError, onRoleEditChange, onSaveRole, onSetActive,
+  employee, summary, balances, isOwner, savingTarget, onEdit, onSetActive,
 }: Omit<EmployeesViewProps, 'employees' | 'summaries' | 'loading' | 'loadError'> & { employee: SalaryEmployee; summary: EmployeeRateSummary | undefined }) {
   const t = useTranslations('salaries');
   const tc = useTranslations('common');
@@ -94,34 +89,20 @@ function EmployeeCard({
           <h2 className="break-words text-base font-semibold text-gray-950">{employee.name}</h2>
           <div className="mt-0.5 flex items-center gap-1 text-sm text-gray-500">
             <span className="break-words">{roleLabel(employee.job_title)}</span>
-            {isOwner && roleEdit?.id !== employee.id && (
+            {isOwner && (
               <IconButton
                 variant="ghost"
                 size="sm"
-                label={`${t('changeRole')} · ${employee.name}`}
+                label={`${t('editEmployeeTitle')} · ${employee.name}`}
                 icon={<Pencil size={15} />}
                 disabled={saving}
-                onClick={() => onRoleEditChange({ id: employee.id, role: knownEmployeeRole(employee.job_title) ?? '' })}
+                onClick={() => onEdit(employee)}
               />
             )}
           </div>
         </div>
         <Badge variant={status === 'upcoming' ? 'info' : status === 'active' ? 'success' : 'neutral'}>{t(status)}</Badge>
       </div>
-      {isOwner && roleEdit?.id === employee.id && (
-        <Card as="form" tone="muted" padding="sm" className="mb-4" onSubmit={(event) => { event.preventDefault(); onSaveRole(); }}>
-          <Field label={t('role')} htmlFor={`employee-role-${employee.id}`} error={roleError || undefined}>
-            <div className="flex flex-wrap gap-2">
-              <Select id={`employee-role-${employee.id}`} className="min-w-0 flex-1" required disabled={saving} value={roleEdit.role} onChange={(event) => onRoleEditChange({ ...roleEdit, role: event.target.value })}>
-                <option value="">{t('selectRole')}</option>
-                {employeeRoles.map((option) => <option key={option} value={option}>{t(`roles.${option}`)}</option>)}
-              </Select>
-              <IconButton type="submit" variant="soft" label={tc('save')} icon={<Check size={18} />} loading={savingTarget === 'role'} disabled={!roleEdit.role || (saving && savingTarget !== 'role')} />
-              <IconButton label={tc('cancel')} icon={<X size={18} />} disabled={saving} onClick={() => onRoleEditChange(null)} />
-            </div>
-          </Field>
-        </Card>
-      )}
       <dl className="divide-y divide-gray-100 text-sm">
         {[
           [t(upcoming ? 'startsOn' : 'joined'), formatDateOnly(employee.joined_on, locale)],
