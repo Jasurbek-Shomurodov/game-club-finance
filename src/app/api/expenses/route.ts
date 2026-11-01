@@ -2,7 +2,7 @@ import { after } from 'next/server';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { validateEntryNote } from '@/lib/entryNote';
 import { isManualExpenseCategory } from '@/lib/expenseCategories';
-import { normalizePaymentMethods } from '@/lib/paymentMethods';
+import { expensePaymentMethods, normalizePaymentMethods } from '@/lib/paymentMethods';
 import { createClient } from '@/lib/supabase/server';
 import { actorName } from '@/lib/telegram/actorName';
 import { buildExpenseNotification } from '@/lib/telegram/expenseNotification';
@@ -12,7 +12,7 @@ import { editTelegramMessage } from '@/lib/telegram/editTelegramMessage';
 import { buildExpenseChangedNotice, buildExpenseDeletedNotice, sendClubNotice } from '@/lib/telegram/entryChangeNotification';
 import { isIsoDate, sendTelegramMessage } from '@/lib/telegram/sendDailyFinanceReport';
 import { serverTodayIso } from '@/lib/utils';
-import { PAYMENT_METHODS, type Expense } from '@/types';
+import { EXPENSE_PAYMENT_METHODS, type Expense, type ExpensePaymentMethod } from '@/types';
 import { expenseErrorCode, expenseErrorResponse } from './errors';
 
 const PAYMENT_SOURCES = ['game_club', 'bar'] as const;
@@ -41,7 +41,7 @@ interface ValidExpenseRequestBody {
   date: string;
   amount: number;
   category: string;
-  paymentMethod: (typeof PAYMENT_METHODS)[number];
+  paymentMethod: ExpensePaymentMethod;
   paymentSource: (typeof PAYMENT_SOURCES)[number];
   comment?: string | null;
   presetId?: string | null;
@@ -62,7 +62,7 @@ function isValidBody(body: ExpenseRequestBody): body is ValidExpenseRequestBody 
     && body.amount > 0
     && typeof body.category === 'string'
     && isManualExpenseCategory(body.category.trim())
-    && PAYMENT_METHODS.includes(body.paymentMethod as (typeof PAYMENT_METHODS)[number])
+    && EXPENSE_PAYMENT_METHODS.includes(body.paymentMethod as ExpensePaymentMethod)
     && PAYMENT_SOURCES.includes(body.paymentSource as (typeof PAYMENT_SOURCES)[number])
     && (body.comment === null || body.comment === undefined || (typeof body.comment === 'string' && body.comment.length <= 300))
     && (body.presetId === null || body.presetId === undefined || isId(body.presetId));
@@ -148,7 +148,7 @@ export async function POST(request: Request) {
   if (body.date > serverTodayIso(new Date(), club.business_day_start_hour)) {
     return expenseErrorResponse('INVALID_REQUEST');
   }
-  if (!normalizePaymentMethods(club.enabled_payment_methods).includes(body.paymentMethod)) {
+  if (!expensePaymentMethods(normalizePaymentMethods(club.enabled_payment_methods), body.paymentSource).includes(body.paymentMethod)) {
     return expenseErrorResponse('PAYMENT_METHOD_DISABLED');
   }
   // Every manual expense says what the money was for (also enforced by 108).
@@ -296,13 +296,13 @@ export async function PATCH(request: Request) {
   const hasMethod = body?.paymentMethod !== undefined;
   const hasDate = body?.date !== undefined;
   if (!body || !isId(body.clubId) || !isId(body.expenseId) || (!hasMethod && !hasDate)
-    || (hasMethod && !PAYMENT_METHODS.includes(body.paymentMethod as (typeof PAYMENT_METHODS)[number]))
+    || (hasMethod && !EXPENSE_PAYMENT_METHODS.includes(body.paymentMethod as ExpensePaymentMethod))
     || (hasDate && (typeof body.date !== 'string' || !isIsoDate(body.date)))) {
     return expenseErrorResponse('INVALID_REQUEST');
   }
   const clubId = body.clubId;
   const expenseId = body.expenseId;
-  const paymentMethod = hasMethod ? body.paymentMethod as (typeof PAYMENT_METHODS)[number] : null;
+  const paymentMethod = hasMethod ? body.paymentMethod as ExpensePaymentMethod : null;
   const date = hasDate ? body.date as string : null;
   const context = { clubId, expenseId };
 
@@ -313,9 +313,6 @@ export async function PATCH(request: Request) {
     .maybeSingle();
   if (clubError) return failure('club lookup', context, clubError);
   if (!club) return expenseErrorResponse('FORBIDDEN');
-  if (paymentMethod && !normalizePaymentMethods(club.enabled_payment_methods).includes(paymentMethod)) {
-    return expenseErrorResponse('PAYMENT_METHOD_DISABLED');
-  }
   // Not after the club's business today (also enforced by the 095 RPC).
   if (date && date > serverTodayIso(new Date(), club.business_day_start_hour)) {
     return expenseErrorResponse('INVALID_REQUEST');
@@ -331,6 +328,9 @@ export async function PATCH(request: Request) {
   if (!expense) return expenseErrorResponse('NOT_FOUND');
   // Payroll payments keep the method and date recorded on their salary entry.
   if (expense.salary_entry_id) return expenseErrorResponse('SALARY_PAYMENT_IMMUTABLE');
+  if (paymentMethod && !expensePaymentMethods(normalizePaymentMethods(club.enabled_payment_methods), expense.payment_source).includes(paymentMethod)) {
+    return expenseErrorResponse('PAYMENT_METHOD_DISABLED');
+  }
   const changeMethod = paymentMethod !== null && expense.payment_method !== paymentMethod;
   const changeDate = date !== null && expense.date !== date;
   if (!changeMethod && !changeDate) return Response.json({ expense });

@@ -77,6 +77,11 @@ Accounting profit and available cash answer different questions:
   change it.
 - An expense reduces the source selected by `payment_source`: `game_club` or
   `bar`.
+- A Game Club expense can also be paid from PlayStation money (`payment_method =
+  'playstation'`, migration 114, `expensePaymentMethods`). It is always offered,
+  not a configurable club method, and a Bar expense cannot name it. It reduces
+  the PlayStation balance, not card. Payroll payments and a plan's usual method
+  do not offer it.
 
 ```text
 barCashLeft = barSales - qualifyingStockPurchaseCost - barExpenses

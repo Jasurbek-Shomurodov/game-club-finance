@@ -26,8 +26,8 @@ import { useClubQuery } from '@/lib/useClubQuery';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { useCollectedDay } from '@/lib/useCollectedDay';
-import { defaultPaymentMethod } from '@/lib/paymentMethods';
-import type { EntryPaymentMethod } from '@/types';
+import { defaultPaymentMethod, expensePaymentMethods } from '@/lib/paymentMethods';
+import type { ExpensePaymentMethod } from '@/types';
 
 const PAYMENT_SOURCES = ['game_club', 'bar'] as const;
 type PaymentSource = (typeof PAYMENT_SOURCES)[number];
@@ -67,7 +67,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     date: businessToday,
     amount: '',
     category: '',
-    payment_method: defaultPaymentMethod(enabledPaymentMethods),
+    payment_method: defaultPaymentMethod(enabledPaymentMethods) as ExpensePaymentMethod,
     payment_source: 'game_club' as PaymentSource,
     comment: '',
     preset_id: '',
@@ -94,12 +94,15 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     setForm((current) => (current.date === previousToday ? { ...current, date: nextToday } : current));
   });
 
-  // A payment method the club no longer accepts falls back to its default.
+  // PlayStation money only pays Game Club expenses.
+  const paymentMethods = expensePaymentMethods(enabledPaymentMethods, form.payment_source);
+
+  // A payment method no longer on offer falls back to the club's default.
   useEffect(() => {
-    setForm((current) => (enabledPaymentMethods.some((method) => method === current.payment_method)
+    setForm((current) => (expensePaymentMethods(enabledPaymentMethods, current.payment_source).includes(current.payment_method)
       ? current
       : { ...current, payment_method: defaultPaymentMethod(enabledPaymentMethods) }));
-  }, [enabledPaymentMethods]);
+  }, [enabledPaymentMethods, form.payment_source]);
 
   // A half-filled form belongs to the club it was started for: clear it when
   // the user switches clubs so it cannot be saved into the new club.
@@ -170,7 +173,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
       setError(tc('required'));
       return;
     }
-    if (!enabledPaymentMethods.includes(form.payment_method)) {
+    if (!paymentMethods.includes(form.payment_method)) {
       setError(t('paymentMethodUnavailable'));
       return;
     }
@@ -249,7 +252,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     if (saved) await onSaved?.();
   }
 
-  const methodIcon = (method: EntryPaymentMethod) => {
+  const methodIcon = (method: ExpensePaymentMethod) => {
     const Icon = PAYMENT_METHOD_ICONS[method];
     return <Icon size={16} aria-hidden="true" />;
   };
@@ -337,7 +340,9 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
           label={t('paymentMethod')}
           value={form.payment_method}
           onChange={(method) => set('payment_method', method)}
-          options={enabledPaymentMethods.map((method) => ({
+          // Three or more labels do not fit one row on a phone.
+          columns={paymentMethods.length > 2 ? 2 : undefined}
+          options={paymentMethods.map((method) => ({
             value: method,
             label: tc(`paymentMethods.${method}`),
             icon: methodIcon(method),

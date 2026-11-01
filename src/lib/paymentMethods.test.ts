@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultPaymentMethod, normalizePaymentMethods } from './paymentMethods';
+import { defaultPaymentMethod, expensePaymentMethods, normalizePaymentMethods } from './paymentMethods';
 
 describe('payment method settings', () => {
   it('defaults legacy clubs to every supported method', () => {
@@ -13,5 +13,12 @@ describe('payment method settings', () => {
   it('never leaves a club without a usable method', () => {
     expect(normalizePaymentMethods([])).toEqual(['terminal', 'cash', 'card']);
     expect(defaultPaymentMethod(['card'])).toBe('card');
+  });
+});
+
+describe('expensePaymentMethods', () => {
+  it('adds PlayStation money to Game Club expenses only', () => {
+    expect(expensePaymentMethods(['cash'], 'game_club')).toEqual(['cash', 'playstation']);
+    expect(expensePaymentMethods(['cash'], 'bar')).toEqual(['cash']);
   });
 });

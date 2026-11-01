@@ -138,6 +138,7 @@ describe('buildFinancialAnalysis', () => {
       { method: 'cash', income: 180_000, expenses: 60_000, left: 120_000 },
       { method: 'terminal', income: 50_000, expenses: 30_000, left: 20_000 },
       { method: 'card', income: 35_000, expenses: 0, left: 35_000 },
+      { method: 'playstation', income: 20_000, expenses: 0, left: 20_000 },
     ]);
   });
 

@@ -388,9 +388,10 @@ export function isBarPaidExpense(row: Pick<ExpenseRow, 'payment_source'>): boole
   return row.payment_source === 'bar';
 }
 
-export function gameClubExpensePaymentBucket(method: string | null | undefined): 'cash' | 'terminal' | 'card' {
+export function gameClubExpensePaymentBucket(method: string | null | undefined): keyof MoneyLeftByPaymentMethod {
   if (method === 'cash') return 'cash';
   if (method === 'terminal') return 'terminal';
+  if (method === 'playstation') return 'playstation';
   return 'card';
 }
 
@@ -411,21 +412,21 @@ export function calculateGameClubMoneyLeftByPaymentMethod(
       acc[bucket] += Number(row.amount ?? 0);
       return acc;
     },
-    { cash: 0, terminal: 0, card: 0 },
+    { cash: 0, terminal: 0, card: 0, playstation: 0 },
   );
   const debtPaymentsByMethod = debtPaymentRows.reduce(
     (acc, row) => {
       acc[gameClubExpensePaymentBucket(row.payment_method)] += Number(row.amount ?? 0);
       return acc;
     },
-    { cash: 0, terminal: 0, card: 0 },
+    { cash: 0, terminal: 0, card: 0, playstation: 0 },
   );
 
   return {
     cash: gameClub.cashIncome + debtPaymentsByMethod.cash - expensesByPayment.cash + exchanged.cash,
     terminal: gameClub.terminalIncome + debtPaymentsByMethod.terminal - expensesByPayment.terminal + exchanged.terminal,
     card: gameClub.cardIncome + debtPaymentsByMethod.card - expensesByPayment.card + exchanged.card,
-    playstation: gameClub.playstationIncome,
+    playstation: gameClub.playstationIncome - expensesByPayment.playstation,
   };
 }
 

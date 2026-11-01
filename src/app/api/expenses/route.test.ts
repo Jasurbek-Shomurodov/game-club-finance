@@ -25,7 +25,7 @@ vi.mock('@/lib/telegram/sendDailyFinanceReport', async (importOriginal) => ({
   isIsoDate: (await importOriginal<typeof import('@/lib/telegram/sendDailyFinanceReport')>()).isIsoDate,
   sendTelegramMessage: mocks.sendTelegramMessage,
 }));
-vi.mock('@/types', () => ({ PAYMENT_METHODS: ['cash', 'terminal', 'card'] }));
+vi.mock('@/types', () => ({ PAYMENT_METHODS: ['cash', 'terminal', 'card'], EXPENSE_PAYMENT_METHODS: ['cash', 'terminal', 'card', 'playstation'] }));
 
 import { DELETE, PATCH, POST } from './route';
 
@@ -278,6 +278,20 @@ describe('expense creation route', () => {
     expect((await response.json()).code).toBe('INVALID_REQUEST');
   });
 
+  it('takes a Game Club expense from PlayStation money without it being an enabled method', async () => {
+    const { writeQuery } = mockCreate({ methods: ['terminal'], upserted: { ...saved, payment_method: 'playstation' } });
+    const response = await create({ ...body, id: EXPENSE_ID, paymentMethod: 'playstation' });
+    expect(response.status).toBe(201);
+    expect(writeQuery.upsert).toHaveBeenCalledWith(expect.objectContaining({ payment_method: 'playstation', payment_source: 'game_club' }), expect.anything());
+  });
+
+  it('refuses PlayStation money for a Bar expense', async () => {
+    mockCreate();
+    const response = await create({ ...body, paymentMethod: 'playstation', paymentSource: 'bar' });
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe('PAYMENT_METHOD_DISABLED');
+  });
+
   it('rejects a payment method the club has not enabled', async () => {
     mockCreate({ methods: ['terminal'] });
     const response = await create(body);
@@ -428,6 +442,21 @@ describe('expense payment method route', () => {
     const disabled = await patch('card');
     expect((await disabled.json()).code).toBe('PAYMENT_METHOD_DISABLED');
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('moves a Game Club expense to PlayStation money but not a Bar one', async () => {
+    const gameClub = mockPatchSupabase({ ...baseExpense, payment_source: 'game_club' });
+    expect((await patch('playstation')).status).toBe(200);
+    expect(gameClub.rpc).toHaveBeenCalledWith('update_expense_payment_method', {
+      p_club_id: CLUB_ID, p_expense_id: EXPENSE_ID, p_payment_method: 'playstation',
+    });
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({
+      text: expect.stringContaining('Способ оплаты: Наличные → PlayStation'),
+    }));
+
+    const bar = mockPatchSupabase(baseExpense);
+    expect((await (await patch('playstation')).json()).code).toBe('PAYMENT_METHOD_DISABLED');
+    expect(bar.rpc).not.toHaveBeenCalled();
   });
 
   it('leaves payroll payments to Salaries', async () => {

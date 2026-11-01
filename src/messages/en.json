@@ -1324,7 +1324,8 @@
       "card": "Card",
       "qr": "QR Code",
       "transfer": "Transfer",
-      "debt": "Debt"
+      "debt": "Debt",
+      "playstation": "PlayStation"
     },
     "theme": {
       "label": "Theme",

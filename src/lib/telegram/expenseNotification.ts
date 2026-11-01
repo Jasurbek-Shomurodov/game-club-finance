@@ -15,6 +15,7 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: 'Наличные',
   terminal: 'Терминал',
   card: 'Карта',
+  playstation: 'PlayStation',
 };
 
 export function buildExpenseNotification(input: ExpenseNotificationInput): string {

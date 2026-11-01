@@ -1324,7 +1324,8 @@
       "card": "Карта",
       "qr": "QR-код",
       "transfer": "Перевод",
-      "debt": "Долг"
+      "debt": "Долг",
+      "playstation": "PlayStation"
     },
     "theme": {
       "label": "Тема",

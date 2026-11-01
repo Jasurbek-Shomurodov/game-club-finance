@@ -98,6 +98,29 @@ test('EXP-001 XAPP-001 an expense saves once and lowers net profit by its amount
   await expectDashboardAmount(page, 'Game Club Income', expected.gameClubIncome);
 });
 
+test('EXP-010 a Game Club expense can be paid from PlayStation money, a Bar expense cannot', async ({ page }) => {
+  await page.goto('/reports');
+  await page.getByRole('button', { name: 'Register Expense' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Register Expense' });
+  await dialog.locator('#expense-amount').fill('25000');
+  await dialog.locator('#expense-category').selectOption('repair');
+  const playstation = dialog.getByRole('radio', { name: 'PlayStation' });
+  await playstation.click();
+  await expect(playstation).toHaveAttribute('aria-checked', 'true');
+  // Bar money has no PlayStation method, so the choice falls back to the club's default.
+  await dialog.getByRole('radio', { name: 'Bar Money' }).click();
+  await expect(playstation).toBeHidden();
+  await dialog.getByRole('radio', { name: 'Game Club Money' }).click();
+  await playstation.click();
+  await dialog.locator('#expense-comment').fill('New controller for the console');
+  await dialog.getByRole('button', { name: 'Save Expense' }).click();
+  await expect(page.getByText('Expense registered successfully.')).toBeVisible();
+  const rows = await (await restAs(accounts.owner, 'GET', `expenses?select=amount,payment_method,payment_source&club_id=eq.${clubs.arcade.id}&date=eq.${today}&order=created_at.asc`)).json();
+  expect(rows.at(-1)).toEqual({ amount: 25000, payment_method: 'playstation', payment_source: 'game_club' });
+  await open(page, 'Dashboard');
+  await expectGameClubExpenses(page, expected.gameClubExpenses + 25_000);
+});
+
 test('EXP-008 a planned expense is set up in Settings, picked in the expense form and compared in Financial analysis', async ({ page }) => {
   await page.goto('/settings');
   await page.getByRole('button', { name: 'Add planned expense' }).click();

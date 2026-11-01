@@ -1324,7 +1324,8 @@
       "card": "Karta",
       "qr": "QR-kod",
       "transfer": "O'tkazma",
-      "debt": "Qarz"
+      "debt": "Qarz",
+      "playstation": "PlayStation"
     },
     "theme": {
       "label": "Mavzu",

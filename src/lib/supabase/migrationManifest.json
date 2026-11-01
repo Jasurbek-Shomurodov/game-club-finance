@@ -1850,11 +1850,6 @@
     "probes": [
       {
         "kind": "constraint",
-        "table": "public.expenses",
-        "name": "expenses_payment_method_check"
-      },
-      {
-        "kind": "constraint",
         "table": "public.debt_payments",
         "name": "debt_payments_payment_method_check"
       },
@@ -2615,12 +2610,7 @@
   },
   {
     "file": "076_owner_profit_snapshot_withdrawal_methods.sql",
-    "probes": [
-      {
-        "kind": "function",
-        "signature": "public.get_owner_profit_snapshot_with_methods(uuid,date)"
-      }
-    ]
+    "probes": []
   },
   {
     "file": "077_salary_entry_created_flag.sql",
@@ -2973,10 +2963,6 @@
       {
         "kind": "function",
         "signature": "public.set_salary_record_telegram_message(uuid,text,uuid,text,bigint)"
-      },
-      {
-        "kind": "function",
-        "signature": "public.update_expense_payment_method(uuid,uuid,text)"
       }
     ]
   },
@@ -3201,11 +3187,6 @@
         "kind": "policy",
         "table": "public.money_exchanges",
         "name": "money_exchanges_member_read"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.owner_payment_method_earned_for_month(uuid,text,date)",
-        "md5": "b34082c7d23fde7dd23db756d48b297f"
       },
       {
         "kind": "function",
@@ -4166,6 +4147,31 @@
         "kind": "functionBody",
         "signature": "public.delete_salary_record(uuid,uuid,text,text)",
         "md5": "684d43edbfe9fb5250fd38f5b58187aa"
+      }
+    ]
+  },
+  {
+    "file": "114_playstation_expenses.sql",
+    "probes": [
+      {
+        "kind": "constraint",
+        "table": "public.expenses",
+        "name": "expenses_playstation_is_game_club"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.owner_payment_method_earned_for_month(uuid,text,date)",
+        "md5": "fa4c8fc8f8b29ad01e484745800750bc"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_owner_profit_snapshot_with_methods(uuid,date)",
+        "md5": "68c30113d1b98b4e708650be9841765d"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.update_expense_payment_method(uuid,uuid,text)",
+        "md5": "4a5d14e764713219eca662d97b7550f0"
       }
     ]
   }

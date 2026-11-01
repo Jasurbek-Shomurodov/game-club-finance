@@ -308,6 +308,18 @@ describe('dashboard metrics', () => {
     expect(totals.gameClubProfit).toBe(380_000);
   });
 
+  it('takes PlayStation expenses from PlayStation money, never from a card or the bar', () => {
+    const expense = (id: string, amount: number, payment_source: 'game_club' | 'bar') => ({
+      id, date: '2026-07-04', amount, category: 'repair', payment_method: 'playstation', payment_source, comment: null, created_at: '2026-07-04T10:00:00Z',
+    });
+    const breakdown = calculateGameClubMoneyLeftByPaymentMethod(
+      [{ date: '2026-07-04', cash_income: 500, terminal_income: 0, card_income: 100, playstation_income: 300 }],
+      [expense('game-club', 120, 'game_club'), expense('bar', 50, 'bar')],
+    );
+
+    expect(breakdown).toEqual({ cash: 500, terminal: 0, card: 100, playstation: 180 });
+  });
+
   it('breaks game club money left down by payment method', () => {
     const breakdown = calculateGameClubMoneyLeftByPaymentMethod(
       [

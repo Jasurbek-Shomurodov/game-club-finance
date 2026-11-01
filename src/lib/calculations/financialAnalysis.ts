@@ -1,5 +1,6 @@
 import {
   calculateDashboardTotals,
+  gameClubExpensePaymentBucket,
   getAverageIncomeDayCounts,
   percentChange,
   sumGameClubRows,
@@ -8,6 +9,7 @@ import {
   type DebtPaymentValueRow,
   type DebtValueRow,
   type ExpenseRow,
+  type MoneyLeftByPaymentMethod,
   type StockCountRow,
   type StockPurchaseCostRow,
 } from './dashboardMetrics';
@@ -75,7 +77,7 @@ export interface DailyAnalysisRow {
 }
 
 export interface PaymentMethodFlowRow {
-  method: 'cash' | 'terminal' | 'card';
+  method: keyof MoneyLeftByPaymentMethod;
   income: number;
   expenses: number;
   left: number;
@@ -253,22 +255,21 @@ export function buildDailyAnalysis(range: { from: string; to: string }, ledgers:
 
 /** Game Club money by payment method: collections and debt payments in, game-club-paid expenses out. */
 export function buildPaymentMethodFlow(ledgers: AnalysisLedgers): PaymentMethodFlowRow[] {
-  const bucket = (method: string | null | undefined): PaymentMethodFlowRow['method'] => (
-    method === 'cash' ? 'cash' : method === 'terminal' ? 'terminal' : 'card'
-  );
   const flow: Record<PaymentMethodFlowRow['method'], { income: number; expenses: number }> = {
     cash: { income: 0, expenses: 0 },
     terminal: { income: 0, expenses: 0 },
     card: { income: 0, expenses: 0 },
+    playstation: { income: 0, expenses: 0 },
   };
   const collected = sumGameClubRows(ledgers.cashRows);
   flow.cash.income += collected.cashIncome;
   flow.terminal.income += collected.terminalIncome;
   flow.card.income += collected.cardIncome;
-  for (const payment of ledgers.debtPaymentRows) flow[bucket(payment.payment_method)].income += amountOf(payment);
+  flow.playstation.income += collected.playstationIncome;
+  for (const payment of ledgers.debtPaymentRows) flow[gameClubExpensePaymentBucket(payment.payment_method)].income += amountOf(payment);
   for (const expense of ledgers.expenseRows) {
     if (expense.payment_source === 'bar') continue;
-    flow[bucket(expense.payment_method)].expenses += amountOf(expense);
+    flow[gameClubExpensePaymentBucket(expense.payment_method)].expenses += amountOf(expense);
   }
   return (Object.keys(flow) as PaymentMethodFlowRow['method'][]).map((method) => ({
     method,

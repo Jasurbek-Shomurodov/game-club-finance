@@ -21,7 +21,7 @@ export function PaymentList({ rows, showCategory = false, labelFor, locale, curr
   const t = useTranslations('financialAnalysis');
   const td = useTranslations('dashboard');
   const methodLabel = (method: string | null | undefined) => (
-    method === 'cash' || method === 'terminal' || method === 'card' ? td(method) : null
+    method === 'cash' || method === 'terminal' || method === 'card' || method === 'playstation' ? td(method) : null
   );
 
   if (rows.length === 0) return <EmptyState compact title={t('noExpenses')} />;

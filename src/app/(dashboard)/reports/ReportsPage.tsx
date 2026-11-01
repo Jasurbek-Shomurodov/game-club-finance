@@ -74,6 +74,7 @@ import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { canAccessFeature } from '@/lib/permissions';
+import { expensePaymentMethods } from '@/lib/paymentMethods';
 import ExpenseRegistrationForm from './ExpenseRegistrationForm';
 import ExchangeForm from './ExchangeForm';
 import CollectedTab from './CollectedTab';
@@ -694,9 +695,10 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       && !collectionsByDate.has(date);
   }
 
-  /** Enabled methods, plus the current one so a since-disabled method still displays. */
-  function paymentMethodOptions(current: string | null): string[] {
-    const methods: string[] = [...enabledPaymentMethods];
+  /** Methods this expense can use, plus the current one so a since-disabled method still displays. */
+  function paymentMethodOptions(activity: MoneyReportActivity): string[] {
+    const current = activity.paymentMethod;
+    const methods: string[] = expensePaymentMethods(enabledPaymentMethods, activity.paymentSource === 'bar' ? 'bar' : 'game_club');
     return current && !methods.includes(current) ? [current, ...methods] : methods;
   }
 
@@ -1244,7 +1246,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                         aria-label={t('paymentMethod')}
                         className="ml-auto w-40"
                       >
-                        {paymentMethodOptions(selectedEntry.activity.paymentMethod).map((method) => (
+                        {paymentMethodOptions(selectedEntry.activity).map((method) => (
                           <option key={method} value={method}>{paymentLabel(method)}</option>
                         ))}
                       </Select>
