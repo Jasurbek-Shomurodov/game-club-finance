@@ -1222,6 +1222,8 @@
     "paymentMethod": "Take from",
     "availableForMethod": "Available in {method}",
     "noMethodAvailable": "No payment method has Game Club profit left for this month.",
+    "dollars": "US dollars",
+    "dollarsHint": "Held: {held}. Shows the som moved into dollars this month, bought minus sold. Exchange back to som to withdraw.",
     "unassignedMethod": "No payment method",
     "unassignedMethodHint": "Recorded before methods were tracked. Delete and withdraw again to assign one.",
     "methodMigrationRequired": "Withdrawing by payment method requires database migration 066. Apply it before recording a withdrawal.",

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  dollarsForMonth,
   exchangeNetByMethod,
   exchangeReceivedAmount,
   withExchangesByMonth,
@@ -18,6 +19,22 @@ describe('money exchanges', () => {
     expect(exchangeReceivedAmount('cash', 'usd', 1_000_000, null)).toBeNull();
     expect(exchangeReceivedAmount('cash', 'cash', 1, null)).toBeNull();
     expect(exchangeReceivedAmount('cash', 'card', 0, null)).toBeNull();
+  });
+
+  it('reports the UZS moved into dollars in a month and the dollars still held', () => {
+    const rows = [
+      row({ date: '2026-09-05', from_method: 'cash', to_method: 'usd', from_amount: 12_000_000, to_amount: 1000, rate: 12_000 }),
+      row({ date: '2026-10-02', from_method: 'cash', to_method: 'usd', from_amount: '6000000', to_amount: '480', rate: '12500' }),
+      row({ date: '2026-10-20', from_method: 'usd', to_method: 'terminal', from_amount: 100, to_amount: 1_300_000, rate: 13_000 }),
+      row({ date: '2026-10-21', from_method: 'cash', to_method: 'card', from_amount: 999, to_amount: 999 }),
+      row({ date: '2026-11-01', from_method: 'cash', to_method: 'usd', from_amount: 1_300_000, to_amount: 100, rate: 13_000 }),
+    ];
+
+    expect(dollarsForMonth(rows, '2026-09')).toEqual({ usd: 1000, uzs: 12_000_000, heldUsd: 1000 });
+    expect(dollarsForMonth(rows, '2026-10')).toEqual({ usd: 380, uzs: 4_700_000, heldUsd: 1380 });
+    expect(dollarsForMonth(rows, '2026-08')).toEqual({ usd: 0, uzs: 0, heldUsd: 0 });
+    // A month with no exchanges still knows what earlier months left in dollars.
+    expect(dollarsForMonth(rows.slice(0, 1), '2026-12')).toEqual({ usd: 0, uzs: 0, heldUsd: 1000 });
   });
 
   it('nets each method, keeping dollars apart', () => {

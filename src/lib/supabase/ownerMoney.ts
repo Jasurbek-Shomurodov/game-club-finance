@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchAllRows } from './pagination';
 import { fetchMoneyExchanges } from './moneyExchanges';
 import { isMissingDatabaseColumn, isMissingDatabaseFunction, isMissingDatabaseTable } from './errors';
-import { withExchangesByMonth } from '@/lib/calculations/moneyExchanges';
+import { withExchangesByMonth, type MoneyExchangeRow } from '@/lib/calculations/moneyExchanges';
 import {
   calculateAvailableMoneyByMonth,
   type AvailableMoneyByMonth,
@@ -33,6 +33,7 @@ export interface OwnerMoneyData {
   paymentMethodBalancesByMonth: Record<string, MoneyLeftByPaymentMethod>;
   withdrawals: OwnerWithdrawal[];
   carryovers: OwnerProfitCarryover[];
+  exchangeRows: MoneyExchangeRow[];
   /** Migration 071 is applied: unwithdrawn profit can be moved to the next month. */
   carryoversSupported: boolean;
   /** Migration 066 is applied: Game Club withdrawals record a payment method. */
@@ -44,6 +45,7 @@ export const EMPTY_OWNER_MONEY: OwnerMoneyData = {
   paymentMethodBalancesByMonth: {},
   withdrawals: [],
   carryovers: [],
+  exchangeRows: [],
   carryoversSupported: false,
   methodsSupported: false,
 };
@@ -120,6 +122,7 @@ export async function fetchOwnerMoney(
       paymentMethodBalancesByMonth: withExchangesByMonth(snapshot.paymentMethodBalancesByMonth, exchangeRows),
       withdrawals: withMethods(snapshot.withdrawals),
       carryovers,
+      exchangeRows,
       ...supported,
     };
   }
@@ -200,6 +203,7 @@ export async function fetchOwnerMoney(
     ), exchangeRows),
     withdrawals: withMethods(withdrawalRows),
     carryovers,
+    exchangeRows,
     ...supported,
   };
 }

@@ -348,6 +348,30 @@ test('REP-008 each side has its own money flow, and a category in it opens its p
   expect(errors).toEqual([]);
 });
 
+test('OWN-006 unspent dollars show on Owner Profit, and the methods plus dollars equal Game Club profit', async ({ page }) => {
+  await page.goto('/money-taken');
+  const table = page.getByRole('table').first();
+  const row = name => table.getByRole('row').filter({ hasText: name });
+  await expect(row('Cash')).toContainText(uzs(1_280_000));
+  await expect(row('US dollars')).toHaveCount(0);
+
+  const bought = await restAs(accounts.owner, 'POST', 'rpc/record_money_exchange', {
+    p_id: crypto.randomUUID(), p_club_id: clubs.arcade.id, p_date: today, p_from_method: 'cash', p_to_method: 'usd',
+    p_from_amount: 1_000_000, p_rate: 12_500, p_comment: 'Cash moved into dollars for rent',
+  });
+  expect(bought.ok).toBe(true);
+  await page.reload();
+
+  // Game Club profit is unchanged; the million left cash and sits in the dollars row.
+  await expect(row('Game Club').first()).toContainText(uzs(expected.gameClubMoneyLeft));
+  await expect(row('Cash')).toContainText(uzs(280_000));
+  await expect(row('US dollars')).toContainText(uzs(1_000_000));
+  await expect(row('US dollars')).toContainText('Held: $80');
+  // Dollars cannot be withdrawn: the picker still offers only what is left in cash.
+  await expect(page.getByRole('radio', { name: /Cash/ })).toContainText(uzs(280_000));
+  await expect(page.getByRole('radio', { name: /US dollars/ })).toHaveCount(0);
+});
+
 test('SAL-007 an employee\'s history is its own page, and every salary tab has its own address', async ({ page, context }) => {
   const employeeId = 'e2e00000-0000-4000-8000-00000000c0de';
   await context.addCookies([englishCookie]);

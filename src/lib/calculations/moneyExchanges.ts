@@ -68,6 +68,40 @@ export function exchangeNetByMethod(rows: MoneyExchangeRow[]): ExchangeNetByMeth
   return net;
 }
 
+export interface DollarsForMonth {
+  /** Dollars bought minus sold in the month. */
+  usd: number;
+  /** UZS those purchases took out of the methods, minus what sales brought back. */
+  uzs: number;
+  /** Dollars still held after every exchange through the month. */
+  heldUsd: number;
+}
+
+/**
+ * Game Club money sitting in dollars for one `YYYY-MM` month. The `uzs` figure
+ * is what was actually exchanged, never a conversion at a current rate, so it
+ * is the part of the month's Game Club profit the methods no longer show.
+ */
+export function dollarsForMonth(rows: readonly MoneyExchangeRow[], month: string): DollarsForMonth {
+  const totals = { usd: 0, uzs: 0, heldUsd: 0 };
+  for (const row of rows) {
+    const rowMonth = row.date.slice(0, 7);
+    if (rowMonth > month) continue;
+    const bought = row.to_method === 'usd';
+    if (!bought && row.from_method !== 'usd') continue;
+    const usd = Number(bought ? row.to_amount : row.from_amount) * (bought ? 1 : -1);
+    totals.heldUsd += usd;
+    if (rowMonth !== month) continue;
+    totals.usd += usd;
+    totals.uzs += bought ? Number(row.from_amount) : -Number(row.to_amount);
+  }
+  return {
+    ...totals,
+    usd: Math.round(totals.usd * 100) / 100,
+    heldUsd: Math.round(totals.heldUsd * 100) / 100,
+  };
+}
+
 /**
  * Adds each month's exchanges (keyed `YYYY-MM`) to per-method balances that
  * were computed without them, such as the 050 owner profit snapshot. A month

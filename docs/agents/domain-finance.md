@@ -174,9 +174,12 @@ A rate gain or loss on dollars is not profit and is not counted.
 Owner per-method withdrawal limits follow exchanges: the 092 version of
 `owner_payment_method_earned_for_month` includes them, and Money Taken adds
 them to the 050 snapshot balances with `withExchangesByMonth`. Dollars cannot
-be withdrawn. Members with the expenses feature record exchanges through
-`record_money_exchange`; only owners delete (`delete_money_exchange`), which
-also removes the club-group Telegram message.
+be withdrawn. Game Club profit is unchanged by a dollar purchase, so Money Taken
+shows the difference as its own row under the methods (`dollarsForMonth`): the
+UZS actually moved in that month, plus the dollars still held. That figure is
+never a conversion at a current rate. Members with the expenses feature record
+exchanges through `record_money_exchange`; only owners delete
+(`delete_money_exchange`), which also removes the club-group Telegram message.
 
 ## Debts
 

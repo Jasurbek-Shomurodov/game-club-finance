@@ -45,9 +45,11 @@ import { isNoteRequiredError } from '@/lib/entryNote';
 import { clampWithdrawalInput } from '@/lib/withdrawalInput';
 import { isMissingDatabaseFunction } from '@/lib/supabase/errors';
 import { emptyMoneyLeftByPaymentMethod } from '@/lib/calculations/dashboardMetrics';
+import { dollarsForMonth } from '@/lib/calculations/moneyExchanges';
 import {
   capitalizeFirst,
   formatCurrency,
+  formatUnitCurrency,
   parseCurrencyInput,
   formatDateTime,
   formatYearMonth,
@@ -135,6 +137,7 @@ export default function MoneyTakenPage() {
     paymentMethodBalancesByMonth,
     withdrawals,
     carryovers,
+    exchangeRows,
     carryoversSupported,
     methodsSupported,
   } = ownerMoney.data;
@@ -183,6 +186,7 @@ export default function MoneyTakenPage() {
     () => gameClubWithdrawalsByMethod(paymentMethodBalances, withdrawals, form.month, carryovers),
     [paymentMethodBalances, withdrawals, form.month, carryovers],
   );
+  const monthDollars = useMemo(() => dollarsForMonth(exchangeRows, form.month), [exchangeRows, form.month]);
   const monthCarried = useMemo(() => carryoversForMonth(carryovers, form.month), [carryovers, form.month]);
   const monthHasCarryovers = carryovers.some((row) => (
     row.from_month.slice(0, 7) === form.month || row.to_month.slice(0, 7) === form.month
@@ -505,6 +509,19 @@ export default function MoneyTakenPage() {
       available: null,
       nested: true,
       hint: t('unassignedMethodHint'),
+    }] : []),
+    // Dollars stay inside Game Club profit but left the methods; they cannot be withdrawn.
+    ...(monthDollars.usd !== 0 || monthDollars.heldUsd !== 0 ? [{
+      key: 'method:usd',
+      label: t('dollars'),
+      earned: monthDollars.uzs,
+      carried: 0,
+      withdrawn: 0,
+      available: monthDollars.uzs,
+      nested: true,
+      hint: t('dollarsHint', {
+        held: `${monthDollars.heldUsd < 0 ? '−' : ''}$${formatUnitCurrency(Math.abs(monthDollars.heldUsd))}`,
+      }),
     }] : []),
     {
       key: 'bar',

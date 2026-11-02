@@ -102,6 +102,7 @@ Telegram group if one is set up.
 | OWN-003 | S1 | Withdrawal over available money is refused | Enter more than cash left | Validation error, no request |
 | OWN-004 | S1 | Owner profit snapshot matches the month report | Compare Money taken summary with the Monthly report profit | Equal for the same month |
 | OWN-005 | S2 | Notes field keeps line breaks | Enter two lines (approved) | Rendered on two lines |
+| OWN-006 | S1 | Unspent dollars are shown on Money taken | Exchange cash into dollars (approved), open Money taken | Dollars row under the methods shows the UZS moved and dollars held; methods plus dollars equal Game Club profit; dollars are not withdrawable |
 
 ## SAL — salaries and team
 

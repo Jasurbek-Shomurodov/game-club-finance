@@ -1222,6 +1222,8 @@
     "paymentMethod": "Qayerdan olinadi",
     "availableForMethod": "Mavjud: {method}",
     "noMethodAvailable": "Bu oy uchun hech bir to‘lov usulida o‘yin klubi foydasi qolmagan.",
+    "dollars": "AQSH dollari",
+    "dollarsHint": "Mavjud: {held}. Shu oyda dollarga o‘tkazilgan so‘m ko‘rsatilgan: sotib olingan minus sotilgan. Yechib olish uchun so‘mga qayta almashtiring.",
     "unassignedMethod": "To‘lov usulisiz",
     "unassignedMethodHint": "To‘lov usullari hisobga olinishidan oldin yozilgan. Usulni belgilash uchun o‘chirib, qayta yeching.",
     "methodMigrationRequired": "To‘lov usuli bo‘yicha pul yechish uchun ma’lumotlar bazasining 066 migratsiyasi talab qilinadi. Yechishni yozishdan oldin uni qo‘llang.",
