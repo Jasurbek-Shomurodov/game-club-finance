@@ -1472,6 +1472,8 @@
     "deactivationScheduled": "Faolsizlantirish rejalashtirildi. Shu sanagacha hisoblash davom etadi.",
     "deactivatesOn": "Faolsizlantirish sanasi",
     "deactivatedFrom": "Faolsizlantirilgan sana",
+    "earnedBase": "Hisoblangan oklad",
+    "earnedKpi": "Hisoblangan KPI",
     "deactivationCancelsRatesHelp": "Shu sanadan keyingi maosh o‘zgarishlari bekor qilinadi.",
     "noClubTitle": "Klub tanlanmagan",
     "noClubDescription": "Xodimlar va maoshlarni ko‘rish uchun klubni tanlang.",

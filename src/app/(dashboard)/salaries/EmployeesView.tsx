@@ -14,7 +14,7 @@ import {
   IconButton,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { salaryBalance, type SalaryEmployee, type SalaryMonth } from '@/lib/calculations/salaries';
+import { salaryBalance, salaryEarnings, type SalaryEmployee, type SalaryMonth } from '@/lib/calculations/salaries';
 import { formatCurrency, formatDateOnly } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { useSalaryText, type EmployeeRateSummary, type SavingTarget } from './shared';
@@ -81,6 +81,7 @@ function EmployeeCard({
   const status = summary?.status ?? 'inactive';
   const upcoming = status === 'upcoming';
   const balance = salaryBalance(balances[employee.id] ?? []);
+  const earnings = salaryEarnings(balances[employee.id] ?? []);
 
   return (
     <Card as="article" padding="lg">
@@ -112,6 +113,8 @@ function EmployeeCard({
           [t('kpiBasis'), kpiSummary(rate)],
           ...(summary?.deactivatesOn ? [[t('deactivatesOn'), formatDateOnly(summary.deactivatesOn, locale)]] : []),
           ...(summary?.deactivatedFrom ? [[t('deactivatedFrom'), formatDateOnly(summary.deactivatedFrom, locale)]] : []),
+          [t('earnedBase'), currency(earnings.base)],
+          [t('earnedKpi'), currency(earnings.kpi)],
         ].map(([label, value]) => (
           <div key={label} className="flex items-center justify-between gap-4 py-2">
             <dt className="text-gray-500">{label}</dt>

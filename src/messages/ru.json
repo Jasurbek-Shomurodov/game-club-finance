@@ -1472,6 +1472,8 @@
     "deactivationScheduled": "Деактивация запланирована. До этой даты начисления продолжатся.",
     "deactivatesOn": "Деактивация с",
     "deactivatedFrom": "Деактивирован с",
+    "earnedBase": "Начислено оклада",
+    "earnedKpi": "Начислено KPI",
     "deactivationCancelsRatesHelp": "Изменения ставки после этой даты будут отменены.",
     "noClubTitle": "Клуб не выбран",
     "noClubDescription": "Выберите клуб, чтобы увидеть сотрудников и зарплаты.",

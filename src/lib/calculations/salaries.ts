@@ -183,6 +183,14 @@ export function salaryBalance(months: SalaryMonth[]): number {
   return money(months.reduce((sum, month) => sum + month.balance, 0));
 }
 
+/** Fixed pay and KPI accrued across the given months, before bonuses, fines and payments. */
+export function salaryEarnings(months: SalaryMonth[]): { base: number; kpi: number } {
+  return {
+    base: money(months.reduce((sum, month) => sum + month.base, 0)),
+    kpi: money(months.reduce((sum, month) => sum + month.kpi, 0)),
+  };
+}
+
 /**
  * Every employee's months added together, oldest first, for the club-wide
  * history. KPI profit and percentage are per-employee figures, so they are 0.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applySalaryPaymentChanges, calculateSalaries, combineSalaryMonths, deactivatedFrom, deactivationCancelsRates, displayedRate, earliestDeactivationDate, employeeStatus, rateInForce, salaryBalance, scheduledDeactivation, canDeleteSalaryRate, type SalaryEmployee, type SalaryEntry, type SalaryRate } from './salaries';
+import { applySalaryPaymentChanges, calculateSalaries, combineSalaryMonths, deactivatedFrom, deactivationCancelsRates, displayedRate, earliestDeactivationDate, employeeStatus, rateInForce, salaryBalance, salaryEarnings, scheduledDeactivation, canDeleteSalaryRate, type SalaryEmployee, type SalaryEntry, type SalaryRate } from './salaries';
 
 const employee: SalaryEmployee = { id: 'one', club_id: 'club', name: 'Employee', job_title: '', joined_on: '2026-09-01' };
 const rate: SalaryRate = { id: 'rate', employee_id: 'one', effective_date: '2026-09-01', salary_type: 'daily', amount: 100, kpi_percent: 10, active: true };
@@ -213,6 +213,14 @@ describe('rate in force and employee status', () => {
     expect(employeeStatus(employee, displayedRate(rates, 'one', '2026-09-16'), '2026-09-16')).toBe('active');
     expect(employeeStatus(employee, displayedRate(rates, 'one', '2026-09-20'), '2026-09-20')).toBe('inactive');
     expect(employeeStatus(employee, undefined, '2026-09-20')).toBe('inactive');
+  });
+});
+
+describe('earnings split', () => {
+  it('adds fixed pay and KPI across months, leaving out bonuses, fines and payments', () => {
+    const month = { month: '2026-09', base: 100.5, bonus: 40, fine: 10, kpi: 20.25, paid: 50, earned: 150.75, balance: 100.75, kpiProfit: 0, effectiveKpiPercent: 0 };
+    expect(salaryEarnings([month, { ...month, month: '2026-10', base: 200 }])).toEqual({ base: 300.5, kpi: 40.5 });
+    expect(salaryEarnings([])).toEqual({ base: 0, kpi: 0 });
   });
 });
 

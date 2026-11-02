@@ -1472,6 +1472,8 @@
     "deactivationScheduled": "Deactivation scheduled. The employee keeps accruing until that date.",
     "deactivatesOn": "Deactivates on",
     "deactivatedFrom": "Deactivated from",
+    "earnedBase": "Base salary earned",
+    "earnedKpi": "KPI earned",
     "deactivationCancelsRatesHelp": "Salary changes dated after this date will be cancelled.",
     "noClubTitle": "No club selected",
     "noClubDescription": "Select a club to see its employees and salaries.",
