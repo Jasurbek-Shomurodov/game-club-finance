@@ -151,6 +151,7 @@ Telegram group if one is set up.
 | SET-004 | S1 | Promotions are club scoped | Add a `QA promo` (approved); switch club | Absent in the other club |
 | SET-005 | S2 | Club logo upload states | Upload a PNG (approved) | Preview, then saved; error shown for a 10 MB file |
 | SET-006 | S1 | Brand page has its own tab [e2e] | Public page → Brand page tab, as owner and as a member granted the Public page | Owner: the tab sits after Google Maps, opens /showcase/brand and survives a reload; the Page tab shows no brand form. Member: no tab, and a direct visit says only an owner can edit it |
+| SET-007 | S1 | PlayStation zone is a console choice with presets [e2e] | Public page → Add PlayStation; pick PS3, PS4, PS5; then edit a zone with its own name and photo | Only PS3/PS4/PS5 are offered; new zones open with name, 2 controllers and picture filled, and these follow the choice; the club's own name and photo are never replaced |
 
 ## HIST — edit history
 

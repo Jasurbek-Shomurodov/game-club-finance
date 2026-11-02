@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="PlayStation 4 console">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0b1020"/><stop offset="1" stop-color="#101a33"/></linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".55" r=".5"><stop offset="0" stop-color="#6366f1" stop-opacity=".55"/><stop offset="1" stop-color="#6366f1" stop-opacity="0"/></radialGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6366f1" stop-opacity=".22"/><stop offset="1" stop-color="#6366f1" stop-opacity="0"/></linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect width="1600" height="900" fill="url(#glow)"/>
+  <rect y="690" width="1600" height="210" fill="url(#floor)"/>
+  <ellipse cx="800" cy="695" rx="460" ry="20" fill="#000" opacity=".55"/>
+  <path d="M340 560 450 440h760L1260 560Z" fill="#1c2029"/>
+  <path d="M340 560 1260 560 1240 590H360Z" fill="#050608"/>
+  <path d="M360 590H1240L1160 685H440Z" fill="#14171e"/>
+  <path d="M800 440 750 685" stroke="#050608" stroke-width="10"/>
+  <path d="M348 575H1252" stroke="#818cf8" stroke-width="6"/>
+  <text x="890" y="650" font-family="Arial,Helvetica,sans-serif" font-size="46" font-weight="700" letter-spacing="10" fill="#aeb6c8">PS4</text>
+</svg>

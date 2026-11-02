@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="PlayStation 3 console">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0b1020"/><stop offset="1" stop-color="#101a33"/></linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".55" r=".5"><stop offset="0" stop-color="#3b82f6" stop-opacity=".55"/><stop offset="1" stop-color="#3b82f6" stop-opacity="0"/></radialGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b82f6" stop-opacity=".22"/><stop offset="1" stop-color="#3b82f6" stop-opacity="0"/></linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect width="1600" height="900" fill="url(#glow)"/>
+  <rect y="690" width="1600" height="210" fill="url(#floor)"/>
+  <ellipse cx="800" cy="695" rx="440" ry="20" fill="#000" opacity=".55"/>
+  <path d="M400 640c0-95 110-245 400-245s400 150 400 245q0 45-45 45H445q-45 0-45-45Z" fill="#14161c"/>
+  <path d="M400 640c0-95 110-245 400-245s400 150 400 245" fill="none" stroke="#5b6478" stroke-width="5"/>
+  <path d="M470 590h660" stroke="#3a4050" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="1090" cy="640" r="8" fill="#60a5fa"/>
+  <text x="520" y="648" font-family="Arial,Helvetica,sans-serif" font-size="46" font-weight="700" letter-spacing="10" fill="#aeb6c8">PS3</text>
+</svg>

@@ -37,6 +37,9 @@ import {
   validateShowcaseGame,
   validateShowcasePcZone,
   validateShowcaseSettings,
+  applyPlaystationModel,
+  playstationModel,
+  switchZoneKind,
 } from './showcase';
 
 describe('slugifyClubName', () => {
@@ -281,6 +284,44 @@ describe('PlayStation zones', () => {
     expect(buildShowcasePcZonePayload(base)).toMatchObject({ kind: 'playstation', console: 'PlayStation 5', controllers: 2, cpu: null, mouse: null, headset: 'Pulse 3D' });
     expect(buildShowcasePcZonePayload({ ...base, kind: 'pc', cpu: 'i5' })).toMatchObject({ kind: 'pc', console: null, controllers: null, cpu: 'i5' });
     expect(validateShowcasePcZone({ ...base, controllers: '25' })).toBe('controllers_invalid');
+  });
+
+  it('prefills a new PlayStation zone so only the count and price are left', () => {
+    expect(showcasePcZoneForm(null, 10, 'playstation')).toMatchObject({
+      console: 'PlayStation 5',
+      controllers: '2',
+      name: { ru: 'PlayStation 5', uz: 'PlayStation 5', en: 'PlayStation 5' },
+      image_url: '/playstation/ps5.svg',
+    });
+    expect(showcasePcZoneForm(null, 10, 'pc')).toMatchObject({ console: '', image_url: '' });
+  });
+
+  it('a chosen console replaces the prefilled name and picture but never the club\'s own', () => {
+    const prefilled = showcasePcZoneForm(null, 10, 'playstation');
+    expect(applyPlaystationModel(prefilled, 'ps3')).toMatchObject({ console: 'PlayStation 3', image_url: '/playstation/ps3.svg', name: { en: 'PlayStation 3' } });
+    const own = { ...prefilled, name: { ru: 'Общий зал', uz: '', en: '' }, image_url: 'https://cdn.example/hall.jpg', controllers: '4' };
+    expect(applyPlaystationModel(own, 'ps3')).toMatchObject({ console: 'PlayStation 3', controllers: '4', image_url: 'https://cdn.example/hall.jpg', name: { ru: 'Общий зал' } });
+  });
+
+  it('reads older free-text consoles and requires a model for the rest', () => {
+    expect(playstationModel('playstation 3')).toBe('ps3');
+    expect(playstationModel('PS5 Pro')).toBe('ps5');
+    expect(playstationModel('Xbox')).toBeNull();
+    const form = { ...showcasePcZoneForm(null, 10, 'playstation'), console: 'Xbox' };
+    expect(validateShowcasePcZone(form)).toBe('console_required');
+  });
+
+  it('switching zone type brings the preset in and takes it out again', () => {
+    const console5 = switchZoneKind(showcasePcZoneForm(null, 10, 'pc'), 'playstation');
+    expect(console5).toMatchObject({ kind: 'playstation', console: 'PlayStation 5', image_url: '/playstation/ps5.svg' });
+    expect(switchZoneKind(console5, 'pc')).toMatchObject({ kind: 'pc', image_url: '', name: { en: '' } });
+  });
+
+  it('saves the built-in console picture as a site path and still accepts external links', () => {
+    const form = { ...showcasePcZoneForm(null, 10, 'playstation'), pc_count: '2' };
+    expect(validateShowcasePcZone(form)).toBeNull();
+    expect(buildShowcasePcZonePayload(form).image_url).toBe('/playstation/ps5.svg');
+    expect(buildShowcasePcZonePayload({ ...form, image_url: 'cdn.example/a.jpg' }).image_url).toBe('https://cdn.example/a.jpg');
   });
 
   it('counts consoles apart from computers and keeps TVs out of the monitor insight', () => {

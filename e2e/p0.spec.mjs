@@ -446,6 +446,30 @@ test('SET-006 the brand page has its own tab after Google Maps, and the club pag
   await expect(page.getByRole('heading', { name: 'Page settings' })).toHaveCount(0);
 });
 
+test('SET-007 Add PlayStation opens prefilled, and PS3, PS4 or PS5 is the only console choice', async ({ page, context }) => {
+  await context.addCookies([englishCookie]);
+  await page.goto('/showcase');
+  const addPlaystation = page.getByRole('button', { name: 'Add PlayStation' });
+  await expect(page.getByRole('heading', { name: 'Page settings' })).toBeVisible();
+  // Zones appear once the club's page has been saved.
+  if (!await addPlaystation.isVisible()) await page.getByRole('button', { name: 'Save' }).first().click();
+  await addPlaystation.click();
+
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('radio', { name: 'PS5', checked: true })).toBeVisible();
+  await expect(dialog.getByRole('radio', { name: /^PS\d$/ })).toHaveCount(3);
+  await expect(dialog.getByLabel('Console model', { exact: true }).locator('input')).toHaveCount(0);
+  await expect(dialog.getByLabel('Controllers')).toHaveValue('2');
+  await expect(dialog.locator('img[src="/playstation/ps5.svg"]')).toBeVisible();
+
+  await dialog.getByRole('radio', { name: 'PS3' }).click();
+  await expect(dialog.locator('img[src="/playstation/ps3.svg"]')).toBeVisible();
+  await page.getByRole('button', { name: 'Save', exact: true }).last().click();
+  await expect(dialog).toBeHidden();
+  await expect(page.locator('main img[src="/playstation/ps3.svg"]')).toBeVisible();
+  await expect(page.locator('main').getByText('PlayStation 3').first()).toBeVisible();
+});
+
 test.describe('as a viewer', () => {
   test.use({ storageState: storageStatePath('viewer') });
 

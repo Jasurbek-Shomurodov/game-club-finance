@@ -36,20 +36,25 @@ import { createClient } from '@/lib/supabase/client';
 import { fetchShowcaseAdminData, type ShowcaseAdminData } from '@/lib/supabase/showcase';
 import { formatCurrency, formatPhone } from '@/lib/formatters';
 import {
+  PLAYSTATION_MODELS,
+  applyPlaystationModel,
   buildShowcaseGamePayload,
   buildShowcaseOfferPayload,
   buildShowcasePcZonePayload,
   buildShowcaseSettingsPayload,
   nextSortOrder,
   normalizeSlugInput,
+  playstationModel,
   showcaseGameForm,
   showcaseOfferForm,
   showcasePcZoneForm,
   showcaseSettingsForm,
+  switchZoneKind,
   validateShowcaseGame,
   validateShowcaseOffer,
   validateShowcasePcZone,
   validateShowcaseSettings,
+  type PlaystationModel,
   type ShowcaseGameForm,
   type ShowcaseOfferForm,
   type ShowcasePcZoneForm,
@@ -511,7 +516,7 @@ export default function ShowcasePage() {
         )}
       >
         {editor && (
-          <form id="showcase-item-form" onSubmit={saveItem} className="space-y-4">
+          <form id="showcase-item-form" noValidate onSubmit={saveItem} className="space-y-4">
             {editor.kind === 'game' ? (
               <>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_7rem]">
@@ -540,7 +545,7 @@ export default function ShowcasePage() {
                   label={t('zoneKind')}
                   variant="soft"
                   value={editor.form.kind}
-                  onChange={(kind) => setEditorField('kind', kind)}
+                  onChange={(kind) => setEditor({ ...editor, form: switchZoneKind(editor.form, kind) })}
                   options={[
                     { value: 'pc', label: t('zoneKindPc'), icon: <Monitor size={15} aria-hidden="true" /> },
                     { value: 'playstation', label: t('zoneKindPlaystation'), icon: <Gamepad2 size={15} aria-hidden="true" /> },
@@ -571,8 +576,14 @@ export default function ShowcasePage() {
                   <Card tone="muted" padding="sm" className="space-y-3">
                     <SectionHeading as="h3" size="sm" title={t('specsConsole')} icon={<Gamepad2 size={16} aria-hidden="true" />} />
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_10rem]">
-                      <Field label={t('console')} htmlFor="zone-console">
-                        <Input id="zone-console" value={editor.form.console} maxLength={80} placeholder="PlayStation 5 Pro" onChange={(e) => setEditorField('console', e.target.value)} />
+                      <Field label={t('console')} required>
+                        <SegmentedControl<PlaystationModel | ''>
+                          label={t('console')}
+                          variant="soft"
+                          value={playstationModel(editor.form.console) ?? ''}
+                          onChange={(model) => model && setEditor({ ...editor, form: applyPlaystationModel(editor.form, model) })}
+                          options={PLAYSTATION_MODELS.map((model) => ({ value: model, label: model.toUpperCase() }))}
+                        />
                       </Field>
                       <Field label={t('controllers')} htmlFor="zone-controllers" hint={t('controllersHint')}>
                         <Input id="zone-controllers" inputMode="numeric" value={editor.form.controllers} placeholder="2" onChange={(e) => setEditorField('controllers', e.target.value.replace(/\D/g, ''))} />

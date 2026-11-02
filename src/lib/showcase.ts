@@ -210,6 +210,7 @@ export type ShowcaseItemError =
   | 'title_required'
   | 'name_required'
   | 'pc_count_invalid'
+  | 'console_required'
   | 'controllers_invalid'
   | 'monitor_size_invalid'
   | 'monitor_refresh_invalid'
@@ -266,7 +267,72 @@ export interface ShowcasePcZoneForm {
   sort_order: string;
 }
 
+export const PLAYSTATION_MODELS = ['ps3', 'ps4', 'ps5'] as const;
+export type PlaystationModel = (typeof PLAYSTATION_MODELS)[number];
+
+const DEFAULT_PLAYSTATION_MODEL: PlaystationModel = 'ps5';
+const DEFAULT_CONTROLLERS = '2';
+const PLAYSTATION_PRESETS: Record<PlaystationModel, { console: string; image_url: string }> = {
+  ps3: { console: 'PlayStation 3', image_url: '/playstation/ps3.svg' },
+  ps4: { console: 'PlayStation 4', image_url: '/playstation/ps4.svg' },
+  ps5: { console: 'PlayStation 5', image_url: '/playstation/ps5.svg' },
+};
+const presets = Object.values(PLAYSTATION_PRESETS);
+
+/** The model behind a saved console name, including older free-text ones like "PS5 Pro". */
+export function playstationModel(consoleName: string): PlaystationModel | null {
+  const match = /(?:ps|playstation)\s*([345])/i.exec(consoleName);
+  return match ? (`ps${match[1]}` as PlaystationModel) : null;
+}
+
+/** A blank name or picture, or one a preset filled in, follows the model; the club's own never does. */
+function isUnsetName(name: LocalizedText) {
+  return SHOWCASE_LANGUAGES.every((language) => !name[language].trim() || presets.some((preset) => preset.console === name[language].trim()));
+}
+
+function isUnsetImage(url: string) {
+  return !url.trim() || presets.some((preset) => preset.image_url === url.trim());
+}
+
+/** Fills a zone from the chosen console, so an admin only needs the count and price. */
+export function applyPlaystationModel(form: ShowcasePcZoneForm, model: PlaystationModel): ShowcasePcZoneForm {
+  const preset = PLAYSTATION_PRESETS[model];
+  return {
+    ...form,
+    console: preset.console,
+    controllers: form.controllers.trim() || DEFAULT_CONTROLLERS,
+    name: isUnsetName(form.name) ? { ru: preset.console, uz: preset.console, en: preset.console } : form.name,
+    image_url: isUnsetImage(form.image_url) ? preset.image_url : form.image_url,
+  };
+}
+
+/** Switching a zone's type brings in the console preset, or drops it when going back to computers. */
+export function switchZoneKind(form: ShowcasePcZoneForm, kind: ShowcaseZoneKind): ShowcasePcZoneForm {
+  if (kind === 'playstation') {
+    return applyPlaystationModel({ ...form, kind }, playstationModel(form.console) ?? DEFAULT_PLAYSTATION_MODEL);
+  }
+  return {
+    ...form,
+    kind,
+    name: isUnsetName(form.name) ? { ru: '', uz: '', en: '' } : form.name,
+    image_url: isUnsetImage(form.image_url) ? '' : form.image_url,
+  };
+}
+
+/** Stored zone picture: one of the built-in console images, or an external link. */
+function zoneImageUrl(value: string): string | null {
+  const trimmed = value.trim();
+  return presets.some((preset) => preset.image_url === trimmed) ? trimmed : normalizeExternalUrl(trimmed);
+}
+
 export function showcasePcZoneForm(zone: ShowcasePcZone | null, nextSortOrder: number, kind: ShowcaseZoneKind = 'pc'): ShowcasePcZoneForm {
+  const form = emptyOrSavedZoneForm(zone, nextSortOrder, kind);
+  if (form.kind !== 'playstation') return form;
+  const model = zone ? playstationModel(form.console) : DEFAULT_PLAYSTATION_MODEL;
+  return model ? applyPlaystationModel(form, model) : form;
+}
+
+function emptyOrSavedZoneForm(zone: ShowcasePcZone | null, nextSortOrder: number, kind: ShowcaseZoneKind): ShowcasePcZoneForm {
   return {
     kind: zone?.kind ?? kind,
     name: localizedFromRow(zone?.translations, 'name', zone?.name),
@@ -295,6 +361,7 @@ export function validateShowcasePcZone(form: ShowcasePcZoneForm): ShowcaseItemEr
   if (!primaryText(form.name)) return 'name_required';
   const count = Number(form.pc_count);
   if (!Number.isInteger(count) || count <= 0 || count > 1000) return 'pc_count_invalid';
+  if (form.kind === 'playstation' && !playstationModel(form.console)) return 'console_required';
   if (form.kind === 'playstation' && form.controllers.trim()) {
     const controllers = Number(form.controllers.trim());
     if (!Number.isInteger(controllers) || controllers < 1 || controllers > 20) return 'controllers_invalid';
@@ -307,7 +374,7 @@ export function validateShowcasePcZone(form: ShowcasePcZoneForm): ShowcaseItemEr
     const hz = Number(form.monitor_refresh_hz.trim());
     if (!Number.isInteger(hz) || hz < 30 || hz > 1000) return 'monitor_refresh_invalid';
   }
-  if (form.image_url.trim() && !normalizeExternalUrl(form.image_url)) return 'image_invalid';
+  if (form.image_url.trim() && !zoneImageUrl(form.image_url)) return 'image_invalid';
   if (!isSortOrder(form.sort_order)) return 'sort_order_invalid';
   return null;
 }
@@ -339,7 +406,7 @@ export function buildShowcasePcZonePayload(form: ShowcasePcZoneForm) {
     chair: optionalText(form.chair),
     peripherals: optionalText(form.peripherals),
     price_per_hour: form.price_per_hour.trim() ? parseCurrencyInput(form.price_per_hour) : null,
-    image_url: normalizeExternalUrl(form.image_url),
+    image_url: zoneImageUrl(form.image_url),
     sort_order: Number(form.sort_order.trim()),
   };
 }

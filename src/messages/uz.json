@@ -1829,6 +1829,7 @@
     "seatingPlaceholder": "4 kishilik divan",
     "consoleCountValue": "{count, plural, other {# ta konsol}}",
     "controllersValue": "{count, plural, other {# ta joystik}}",
+    "error_console_required": "PS3, PS4 yoki PS5 ni tanlang.",
     "error_controllers_invalid": "Bitta konsolga 1 dan 20 gacha joystik kiriting.",
     "brandOrder": "Brend sahifasidagi o‘rni",
     "brandOrderHint": "Kichikroq raqamli klublar birinchi ko‘rsatiladi, masalan asosiy klub uchun 1.",
