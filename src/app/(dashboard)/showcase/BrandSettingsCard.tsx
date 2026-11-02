@@ -150,6 +150,12 @@ export function BrandSettingsCard({ userId, clubId, onSaved }: BrandSettingsCard
             />
             <p className="text-sm text-gray-500">{t('brandContactsHint')}</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <Field label={t('telegramChannel')} htmlFor="brand-telegram-channel">
+                <Input id="brand-telegram-channel" value={form.telegram_channel_url} maxLength={200} placeholder="@pixelgaming" onChange={(e) => set('telegram_channel_url', e.target.value)} />
+              </Field>
+              <Field label={t('telegramGroup')} htmlFor="brand-telegram-group">
+                <Input id="brand-telegram-group" value={form.telegram_group_url} maxLength={200} placeholder="@pixelgaming_chat" onChange={(e) => set('telegram_group_url', e.target.value)} />
+              </Field>
               <Field label={t('instagram')} htmlFor="brand-instagram">
                 <Input id="brand-instagram" value={form.instagram_url} maxLength={200} placeholder="@pixelgaming" onChange={(e) => set('instagram_url', e.target.value)} />
               </Field>

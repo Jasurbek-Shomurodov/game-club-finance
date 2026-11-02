@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { getTranslations } from 'next-intl/server';
-import { Clock, Gamepad2, Instagram, Mail, MapPin, Phone, Send, Youtube } from 'lucide-react';
+import { Clock, Gamepad2, Instagram, Mail, MapPin, Phone, Send, Users, Youtube } from 'lucide-react';
 import { formatPhone } from '@/lib/formatters';
 import { mapLinks, telHref } from '@/lib/showcase';
 import { MapChooser } from './MapChooser';
@@ -29,7 +29,13 @@ interface ShowcaseFooterProps {
   hours: string | null;
   phone: string | null;
   email: string | null;
-  socials: { telegram: string | null; instagram: string | null; youtube: string | null };
+  socials: {
+    telegram: string | null;
+    telegramChannel?: string | null;
+    telegramGroup?: string | null;
+    instagram: string | null;
+    youtube: string | null;
+  };
   pages: FooterLink[];
   help: FooterLink[];
   locations: FooterLocation[];
@@ -64,6 +70,7 @@ function SocialLink({ href, label, children }: { href: string; label: string; ch
       target="_blank"
       rel="noopener noreferrer"
       aria-label={label}
+      title={label}
       className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.07] text-white/80 ring-1 ring-white/10 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300"
     >
       {children}
@@ -137,9 +144,11 @@ export async function ShowcaseFooter({ name, logoUrl, description, hours, phone,
           <Wordmark name={name} logoUrl={logoUrl} />
           {description && <p className="mt-5 max-w-sm text-sm leading-6 text-white/60">{description}</p>}
           {hours && <p className="mt-2 text-sm text-white/60">{t('footerOpen', { hours })}</p>}
-          {(socials.telegram || socials.instagram || socials.youtube) && (
-            <div className="mt-6 flex gap-3">
+          {Object.values(socials).some(Boolean) && (
+            <div className="mt-6 flex flex-wrap gap-3">
               {socials.telegram && <SocialLink href={socials.telegram} label="Telegram"><Send size={17} aria-hidden="true" /></SocialLink>}
+              {socials.telegramChannel && <SocialLink href={socials.telegramChannel} label={t('telegramChannel')}><Send size={17} aria-hidden="true" /></SocialLink>}
+              {socials.telegramGroup && <SocialLink href={socials.telegramGroup} label={t('telegramGroup')}><Users size={17} aria-hidden="true" /></SocialLink>}
               {socials.instagram && <SocialLink href={socials.instagram} label="Instagram"><Instagram size={17} aria-hidden="true" /></SocialLink>}
               {socials.youtube && <SocialLink href={socials.youtube} label="YouTube"><Youtube size={17} aria-hidden="true" /></SocialLink>}
             </div>

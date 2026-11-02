@@ -3883,11 +3883,6 @@
         "kind": "column",
         "table": "public.club_showcases",
         "column": "sort_order"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.get_public_brand(text)",
-        "md5": "cc55b564cda98bd580f97aa5a5106a19"
       }
     ]
   },
@@ -4176,6 +4171,26 @@
       {
         "kind": "function",
         "signature": "public.deactivate_salary_employee(uuid,uuid,date)"
+      }
+    ]
+  },
+  {
+    "file": "116_brand_telegram_links.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.showcase_brands",
+        "column": "telegram_channel_url"
+      },
+      {
+        "kind": "column",
+        "table": "public.showcase_brands",
+        "column": "telegram_group_url"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_public_brand(text)",
+        "md5": "4ab3eac0c907d05f25f311342c8e53c1"
       }
     ]
   }

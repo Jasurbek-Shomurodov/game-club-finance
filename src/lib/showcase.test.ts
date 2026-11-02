@@ -153,6 +153,9 @@ describe('brand', () => {
   it('parses clubs and drops unsafe links and broken clubs', () => {
     const brand = parsePublicBrand(brandPayload);
     expect(brand?.instagram_url).toBeNull();
+    expect(parsePublicBrand({ ...brandPayload, telegram_channel_url: 'https://t.me/pixel', telegram_group_url: 'javascript:x' })).toMatchObject({
+      telegram_channel_url: 'https://t.me/pixel', telegram_group_url: null,
+    });
     expect(brand?.clubs.map((club) => club.slug)).toEqual(['chilonzor', 'yunusobod']);
     expect(parsePublicBrand({ slug: 'x' })).toBeNull();
   });
@@ -183,7 +186,12 @@ describe('brand', () => {
     const form = { ...showcaseBrandForm(null), slug: 'pixel-gaming' };
     expect(validateShowcaseBrand(form)).toBe('brand_name_required');
     expect(validateShowcaseBrand({ ...form, name: 'Pixel Gaming' })).toBeNull();
-    // Phone, hours and Telegram are per club; saving the brand clears the old brand-wide values.
+    expect(validateShowcaseBrand({ ...form, name: 'Pixel Gaming', telegram_channel_url: 'javascript:x' })).toBe('telegram_invalid');
+    expect(validateShowcaseBrand({ ...form, name: 'Pixel Gaming', telegram_group_url: 'javascript:x' })).toBe('telegram_invalid');
+    expect(buildShowcaseBrandPayload({ ...form, name: 'Pixel', telegram_channel_url: '@pixel', telegram_group_url: 'https://t.me/+invite' })).toMatchObject({
+      telegram_channel_url: 'https://t.me/pixel', telegram_group_url: 'https://t.me/+invite',
+    });
+    // Phone, hours and booking Telegram are per club; saving the brand clears the old brand-wide values.
     expect(buildShowcaseBrandPayload({ ...form, name: ' Pixel ', instagram_url: '@pixel' })).toMatchObject({
       name: 'Pixel', instagram_url: 'https://instagram.com/pixel', telegram_url: null, phone: null, opening_hours: null,
     });

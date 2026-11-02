@@ -12,6 +12,7 @@ const accessMigration = readFileSync(resolve('migrations', '103_showcase_feature
 const contactsMigration = readFileSync(resolve('migrations', '104_showcase_contacts_and_consoles.sql'), 'utf8');
 const zoneTranslationsMigration = readFileSync(resolve('migrations', '106_showcase_zone_translations.sql'), 'utf8');
 const orderMigration = readFileSync(resolve('migrations', '105_showcase_club_order.sql'), 'utf8');
+const brandTelegramMigration = readFileSync(resolve('migrations', '116_brand_telegram_links.sql'), 'utf8');
 const club = '10000000-0000-0000-0000-000000000001';
 const otherClub = '10000000-0000-0000-0000-000000000002';
 const thirdClub = '10000000-0000-0000-0000-000000000003';
@@ -224,6 +225,20 @@ describe('098 public showcase', () => {
     await expect(db.query(`update club_showcases set email = 'not-an-email'`)).rejects.toThrow(/email_format/);
     await expect(db.query(`update showcase_pc_zones set kind = 'xbox'`)).rejects.toThrow(/kind_valid/);
     await expect(db.query(`update showcase_pc_zones set controllers = 0`)).rejects.toThrow(/controllers_range/);
+  });
+
+  it('116 publishes the brand Telegram channel and group', async () => {
+    await db.exec(brandTelegramMigration);
+    await db.exec(brandTelegramMigration);
+    await db.exec(`reset role;
+      insert into showcase_brands(owner_id, slug, name, is_published, telegram_channel_url, telegram_group_url)
+        values ('${owner}','pixel-gaming','Pixel',true,'https://t.me/pixel','https://t.me/pixel_chat')
+        on conflict (owner_id) do update set telegram_channel_url = excluded.telegram_channel_url,
+          telegram_group_url = excluded.telegram_group_url, is_published = true;`);
+    await asRole('anon');
+    const brand = (await db.query<{ p: Record<string, unknown> }>("select public.get_public_brand('pixel-gaming') as p")).rows[0].p;
+    expect(brand).toMatchObject({ telegram_channel_url: 'https://t.me/pixel', telegram_group_url: 'https://t.me/pixel_chat' });
+    await db.exec('reset role');
   });
 
   it('106 publishes zone names per language', async () => {

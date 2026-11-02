@@ -108,7 +108,13 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
         hours={null}
         phone={null}
         email={brand.email}
-        socials={{ telegram: null, instagram: brand.instagram_url, youtube: brand.youtube_url }}
+        socials={{
+          telegram: null,
+          telegramChannel: brand.telegram_channel_url,
+          telegramGroup: brand.telegram_group_url,
+          instagram: brand.instagram_url,
+          youtube: brand.youtube_url,
+        }}
         pages={[
           { href: '#top', label: t('footerHome') },
           { href: '#locations', label: t('navLocations') },

@@ -394,6 +394,8 @@ export interface ShowcaseBrand {
   email?: string | null;
   opening_hours?: string | null;
   youtube_url?: string | null;
+  telegram_channel_url?: string | null;
+  telegram_group_url?: string | null;
   is_published: boolean;
   updated_at: string;
 }

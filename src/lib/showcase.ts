@@ -145,9 +145,9 @@ export type ShowcaseSettingsError =
   | 'email_invalid'
   | 'image_invalid';
 
-/** Shared checks for the optional contact links of a club or brand page; only clubs have Telegram. */
-function validateContactLinks(form: { email: string; telegram_url?: string; instagram_url: string; youtube_url: string; hero_image_url: string }): ShowcaseSettingsError | null {
-  if (form.telegram_url?.trim() && !normalizeTelegramUrl(form.telegram_url)) return 'telegram_invalid';
+/** Shared checks for the optional contact links of a club or brand page; clubs have one Telegram link, brands a channel and a group. */
+function validateContactLinks(form: { email: string; telegram_url?: string; telegram_channel_url?: string; telegram_group_url?: string; instagram_url: string; youtube_url: string; hero_image_url: string }): ShowcaseSettingsError | null {
+  if ([form.telegram_url, form.telegram_channel_url, form.telegram_group_url].some((link) => link?.trim() && !normalizeTelegramUrl(link))) return 'telegram_invalid';
   if (form.instagram_url.trim() && !normalizeInstagramUrl(form.instagram_url)) return 'instagram_invalid';
   if (form.youtube_url.trim() && !normalizeYoutubeUrl(form.youtube_url)) return 'youtube_invalid';
   if (form.email.trim() && !normalizeEmail(form.email)) return 'email_invalid';
@@ -607,6 +607,8 @@ export interface PublicBrand {
   email: string | null;
   opening_hours: string | null;
   telegram_url: string | null;
+  telegram_channel_url: string | null;
+  telegram_group_url: string | null;
   instagram_url: string | null;
   youtube_url: string | null;
   clubs: PublicShowcase[];
@@ -639,6 +641,8 @@ export function parsePublicBrand(raw: unknown, locale = 'ru'): PublicBrand | nul
     email: typeof data.email === 'string' ? normalizeEmail(data.email) : null,
     opening_hours: text(data.opening_hours),
     telegram_url: safeUrl(data.telegram_url),
+    telegram_channel_url: safeUrl(data.telegram_channel_url),
+    telegram_group_url: safeUrl(data.telegram_group_url),
     instagram_url: safeUrl(data.instagram_url),
     youtube_url: safeUrl(data.youtube_url),
     clubs,
@@ -707,6 +711,8 @@ export interface ShowcaseBrandForm {
   tagline: LocalizedText;
   hero_image_url: string;
   email: string;
+  telegram_channel_url: string;
+  telegram_group_url: string;
   instagram_url: string;
   youtube_url: string;
   is_published: boolean;
@@ -721,6 +727,8 @@ export function showcaseBrandForm(brand: ShowcaseBrand | null): ShowcaseBrandFor
     tagline: localizedFromRow(brand?.translations, 'tagline', brand?.tagline),
     hero_image_url: brand?.hero_image_url ?? '',
     email: brand?.email ?? '',
+    telegram_channel_url: brand?.telegram_channel_url ?? '',
+    telegram_group_url: brand?.telegram_group_url ?? '',
     instagram_url: brand?.instagram_url ?? '',
     youtube_url: brand?.youtube_url ?? '',
     is_published: brand?.is_published ?? false,
@@ -735,8 +743,8 @@ export function validateShowcaseBrand(form: ShowcaseBrandForm): ShowcaseBrandErr
 
 /**
  * Validated form → showcase_brands columns (owner_id added by the caller).
- * Phone, hours and Telegram belong to each club now, so saving clears the
- * brand-wide values that older versions stored.
+ * Phone, hours and booking Telegram belong to each club now, so saving clears
+ * the brand-wide values that older versions stored.
  */
 export function buildShowcaseBrandPayload(form: ShowcaseBrandForm) {
   return {
@@ -749,6 +757,8 @@ export function buildShowcaseBrandPayload(form: ShowcaseBrandForm) {
     email: normalizeEmail(form.email),
     opening_hours: null,
     telegram_url: null,
+    telegram_channel_url: normalizeTelegramUrl(form.telegram_channel_url),
+    telegram_group_url: normalizeTelegramUrl(form.telegram_group_url),
     instagram_url: normalizeInstagramUrl(form.instagram_url),
     youtube_url: normalizeYoutubeUrl(form.youtube_url),
     is_published: form.is_published,
