@@ -30,6 +30,7 @@ import {
   calculateSalaries,
   combineSalaryMonths,
   deactivatedFrom,
+  deactivationCancelsRates,
   displayedRate,
   earliestDeactivationDate,
   employeeStatus,
@@ -367,6 +368,14 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
     finally { mutating.current = false; setSavingTarget(null); }
   }
 
+  function deactivationHint(employeeId: string, date: string) {
+    const hints = [
+      date < today && t('deactivationBackdatedHelp'),
+      deactivationCancelsRates(data.rates, employeeId, date) && t('deactivationCancelsRatesHelp'),
+    ].filter(Boolean);
+    return hints.length > 0 ? hints.join(' ') : undefined;
+  }
+
   async function deactivateEmployee() {
     if (!deactivation || !isOwner || mutating.current) return;
     mutating.current = true;
@@ -565,7 +574,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
         description={deactivation && (
           <div className="space-y-3">
             <p>{t('deactivateConfirm', { name: deactivation.employee.name })}</p>
-            <Field label={t('deactivationDate')} hint={deactivation.date < today ? t('deactivationBackdatedHelp') : undefined}>
+            <Field label={t('deactivationDate')} hint={deactivationHint(deactivation.employee.id, deactivation.date)}>
               <DatePicker
                 value={deactivation.date}
                 min={deactivation.earliest}

@@ -254,11 +254,16 @@ export function deactivatedFrom(rates: SalaryRate[], employeeId: string, date: s
   return from;
 }
 
-/** Deactivation cannot predate joining, or the latest active rate, which would restart accrual after it. */
+/** Deactivation needs terms in force to copy, so it cannot predate joining or the first rate. */
 export function earliestDeactivationDate(employee: SalaryEmployee, rates: SalaryRate[]): string {
-  return liveRatesFor(rates, employee.id)
-    .filter((rate) => rate.active)
-    .reduce((earliest, rate) => (rate.effective_date > earliest ? rate.effective_date : earliest), employee.joined_on);
+  const first = liveRatesFor(rates, employee.id)
+    .reduce<string | undefined>((earliest, rate) => (!earliest || rate.effective_date < earliest ? rate.effective_date : earliest), undefined);
+  return first && first > employee.joined_on ? first : employee.joined_on;
+}
+
+/** Whether deactivating from `date` would cancel a salary change dated after it. */
+export function deactivationCancelsRates(rates: SalaryRate[], employeeId: string, date: string): boolean {
+  return liveRatesFor(rates, employeeId).some((rate) => rate.active && rate.effective_date > date);
 }
 
 export type SalaryEmployeeStatus = 'upcoming' | 'active' | 'inactive';

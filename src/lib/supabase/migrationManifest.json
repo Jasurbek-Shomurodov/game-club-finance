@@ -4148,12 +4148,7 @@
   },
   {
     "file": "115_salary_deactivation_date.sql",
-    "probes": [
-      {
-        "kind": "function",
-        "signature": "public.deactivate_salary_employee(uuid,uuid,date)"
-      }
-    ]
+    "probes": []
   },
   {
     "file": "116_brand_telegram_links.sql",
@@ -4231,6 +4226,16 @@
         "kind": "functionBody",
         "signature": "public.record_stock_purchase(uuid,uuid,date,uuid,numeric,numeric,numeric,text,text)",
         "md5": "6c6f507529d11844e0b83e6acc4cb24f"
+      }
+    ]
+  },
+  {
+    "file": "121_backdated_deactivation_replaces_later_rates.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.deactivate_salary_employee(uuid,uuid,date)",
+        "md5": "1710443c4b07ecd2a6efc1870be29394"
       }
     ]
   }
