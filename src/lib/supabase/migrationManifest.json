@@ -1528,10 +1528,6 @@
       },
       {
         "kind": "function",
-        "signature": "public.delete_stock_purchase(uuid,uuid)"
-      },
-      {
-        "kind": "function",
         "signature": "public.prevent_last_club_owner_removal()"
       }
     ]
@@ -4221,10 +4217,20 @@
   },
   {
     "file": "119_stock_purchase_request_id.sql",
+    "probes": []
+  },
+  {
+    "file": "120_open_day_purchase_after_closing.sql",
     "probes": [
       {
-        "kind": "function",
-        "signature": "public.record_stock_purchase(uuid,uuid,date,uuid,numeric,numeric,numeric,text,text)"
+        "kind": "functionBody",
+        "signature": "public.delete_stock_purchase(uuid,uuid)",
+        "md5": "87fd60c0e0f68eaa759305e4a1575baf"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.record_stock_purchase(uuid,uuid,date,uuid,numeric,numeric,numeric,text,text)",
+        "md5": "6c6f507529d11844e0b83e6acc4cb24f"
       }
     ]
   }

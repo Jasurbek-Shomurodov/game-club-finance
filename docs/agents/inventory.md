@@ -67,6 +67,14 @@ back to the 034 signature when the overload is missing (`recordStockPurchase`). 
 overload also refuses a zero sale price, which the purchase trigger would copy
 onto the catalog.
 
+A purchase on the open business day is accepted after that day's closing was saved
+(migration 120): the saved row's `added_today` and `closing_stock` move by its
+quantity, keeping recorded sales and bar amounts, and deleting it reverses that
+delta. If the count already included those units, re-saving the day's closing
+corrects it. Deletion is refused when the row no longer holds the quantity. Any
+earlier date with a saved count, or a date with a later count, stays closed (`55000`). Only
+the request-id overload has this rule; the 034 signature still refuses.
+
 Do not split an RPC into separate inserts/updates. The functions lock and
 validate related rows so concurrent writes cannot leave partial ledger state.
 

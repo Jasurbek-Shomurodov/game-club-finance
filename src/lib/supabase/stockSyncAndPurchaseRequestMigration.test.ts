@@ -24,7 +24,9 @@ const purchase = (date: string, quantity: number, id: string | null = null, cost
 );
 const businessDay = (date: string) => db.exec(`select set_config('test.date','${date}',false);`);
 const live = async () => Number((await db.query<{ current_stock: string }>('select current_stock from products where id=$1', [cola])).rows[0].current_stock);
-const counts = async () => (await db.query('select date::text,previous_stock::int,closing_stock::int,sold_quantity::int,bar_income::float8 from daily_stock_counts where product_id=$1 order by date', [cola])).rows;
+const request2 = '50000000-0000-0000-0000-000000000002';
+const removePurchase = (id: string) => db.query('select public.delete_stock_purchase($1,$2)', [club, id]);
+const counts = async () => (await db.query('select date::text,previous_stock::int,added_today::int,closing_stock::int,sold_quantity::int,bar_income::float8 from daily_stock_counts where product_id=$1 order by date', [cola])).rows;
 const purchases = async () => Number((await db.query<{ n: number }>('select count(*)::int as n from stock_purchases')).rows[0].n);
 
 beforeAll(async () => {
@@ -182,8 +184,6 @@ describe('migration 119: a purchase request is recorded once', () => {
   it('keeps the checks of the older function', async () => {
     await expect(purchase('2026-10-16', 5, request)).rejects.toThrow('future');
     await expect(purchase('2026-10-15', 1.5, request)).rejects.toThrow('whole number');
-    await save('2026-10-15', 7, 3);
-    await expect(purchase('2026-10-15', 5, request)).rejects.toThrow('saved stock closing');
     await db.exec(`select set_config('test.actor','',false);`);
     await expect(purchase('2026-10-14', 5, request)).rejects.toThrow('Not authorized');
   });
@@ -207,5 +207,94 @@ describe('migration 119: a purchase request is recorded once', () => {
 
   it('re-runs cleanly', async () => {
     await db.exec(migration('119_stock_purchase_request_id.sql'));
+  });
+});
+
+describe('migration 120: a purchase after the open day was closed', () => {
+  beforeAll(async () => {
+    await db.exec(migration('120_open_day_purchase_after_closing.sql'));
+  });
+
+  it('joins the saved row and keeps the recorded sales', async () => {
+    await save('2026-10-15', 7, 3);
+    await purchase('2026-10-15', 216, request);
+    expect(await counts()).toEqual([expect.objectContaining({
+      date: '2026-10-15', previous_stock: 10, added_today: 216, closing_stock: 223, sold_quantity: 3, bar_income: 45000,
+    })]);
+    expect(await live()).toBe(223);
+    expect(await purchases()).toBe(1);
+  });
+
+  it('applies a repeat of one request once', async () => {
+    await save('2026-10-15', 7, 3);
+    await purchase('2026-10-15', 5, request);
+    await purchase('2026-10-15', 5, request);
+    expect((await counts())[0]).toMatchObject({ added_today: 5, closing_stock: 12, sold_quantity: 3 });
+    expect(await live()).toBe(12);
+  });
+
+  it('adds to purchases already in the row and opens the next day on the new closing', async () => {
+    await purchase('2026-10-15', 5, request);
+    await save('2026-10-15', 12, 3);
+    await purchase('2026-10-15', 4, request2);
+    expect((await counts())[0]).toMatchObject({ added_today: 9, closing_stock: 16, sold_quantity: 3 });
+    await businessDay('2026-10-16');
+    await save('2026-10-16', 10, 6);
+    expect((await counts())[1]).toMatchObject({ previous_stock: 16, closing_stock: 10, sold_quantity: 6 });
+  });
+
+  it('lets the closing be saved again the same day', async () => {
+    await save('2026-10-15', 7, 3);
+    await purchase('2026-10-15', 5, request);
+    await save('2026-10-15', 11, 4);
+    expect((await counts())[0]).toMatchObject({ added_today: 5, closing_stock: 11, sold_quantity: 4 });
+    expect(await live()).toBe(11);
+  });
+
+  it('keeps past closings closed', async () => {
+    await businessDay('2026-10-14');
+    await save('2026-10-14', 7, 3);
+    await businessDay('2026-10-15');
+    const before = await counts();
+    await expect(purchase('2026-10-14', 5, request)).rejects.toMatchObject({ code: '55000' });
+    await expect(purchase('2026-10-13', 5, request)).rejects.toMatchObject({ code: '55000' });
+    expect(await counts()).toEqual(before);
+    expect(await purchases()).toBe(0);
+  });
+
+  it('refuses the open day when a later count exists', async () => {
+    await businessDay('2026-10-16');
+    await save('2026-10-16', 7, 3);
+    await businessDay('2026-10-15');
+    await expect(purchase('2026-10-15', 5, request)).rejects.toMatchObject({ code: '55000' });
+  });
+
+  it('deleting the purchase reverses it exactly', async () => {
+    await save('2026-10-15', 7, 3);
+    const before = await counts();
+    await purchase('2026-10-15', 5, request);
+    await removePurchase(request);
+    expect(await counts()).toEqual(before);
+    expect(await live()).toBe(7);
+    expect(await purchases()).toBe(0);
+  });
+
+  it('refuses to delete units the saved closing counted as sold', async () => {
+    await purchase('2026-10-15', 5, request);
+    await save('2026-10-15', 2, 13);
+    await expect(removePurchase(request)).rejects.toMatchObject({ code: '55000' });
+    expect(await purchases()).toBe(1);
+  });
+
+  it('keeps past purchases undeletable once closed', async () => {
+    await businessDay('2026-10-14');
+    await purchase('2026-10-14', 5, request);
+    await save('2026-10-14', 12, 3);
+    await businessDay('2026-10-15');
+    await expect(removePurchase(request)).rejects.toMatchObject({ code: '55000' });
+  });
+
+  it('re-runs cleanly', async () => {
+    await db.exec(migration('120_open_day_purchase_after_closing.sql'));
   });
 });
