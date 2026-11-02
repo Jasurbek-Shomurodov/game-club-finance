@@ -241,6 +241,19 @@ export function scheduledDeactivation(rates: SalaryRate[], employeeId: string, d
   return next && !next.active ? next.effective_date : undefined;
 }
 
+/** The first day of the inactive stretch in force on `date`, if the employee is inactive then. */
+export function deactivatedFrom(rates: SalaryRate[], employeeId: string, date: string): string | undefined {
+  let from: string | undefined;
+  const past = liveRatesFor(rates, employeeId)
+    .filter((rate) => rate.effective_date <= date)
+    .sort((a, b) => b.effective_date.localeCompare(a.effective_date));
+  for (const rate of past) {
+    if (rate.active) break;
+    from = rate.effective_date;
+  }
+  return from;
+}
+
 /** Deactivation cannot predate joining, or the latest active rate, which would restart accrual after it. */
 export function earliestDeactivationDate(employee: SalaryEmployee, rates: SalaryRate[]): string {
   return liveRatesFor(rates, employee.id)

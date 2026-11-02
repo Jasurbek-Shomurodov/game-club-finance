@@ -1468,6 +1468,7 @@
     "deactivationBackdatedHelp": "Salary and KPI already accrued from this date will be removed from the balance.",
     "deactivationScheduled": "Deactivation scheduled. The employee keeps accruing until that date.",
     "deactivatesOn": "Deactivates on",
+    "deactivatedFrom": "Deactivated from",
     "noClubTitle": "No club selected",
     "noClubDescription": "Select a club to see its employees and salaries.",
     "noRates": "No salary rates yet.",

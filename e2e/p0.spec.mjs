@@ -423,6 +423,7 @@ test('SAL-008 deactivating an employee asks for the date', async ({ page, contex
   await expect(dialog).toBeHidden();
   await page.getByText(/Deactivated employees/).click();
   await expect(card.getByRole('button', { name: 'Activate' })).toBeVisible();
+  await expect(card.getByText('Deactivated from')).toBeVisible();
 });
 
 test('SAL-009 the card\'s pencil edits role, salary and KPI in one dialog', async ({ page, context }) => {

@@ -29,6 +29,7 @@ import {
   applySalaryPaymentChanges,
   calculateSalaries,
   combineSalaryMonths,
+  deactivatedFrom,
   displayedRate,
   earliestDeactivationDate,
   employeeStatus,
@@ -38,7 +39,8 @@ import {
   type KpiBasis,
   type SalaryEmployee,
 } from '@/lib/calculations/salaries';
-import { formatCurrencyInput, parseCurrencyInput } from '@/lib/formatters';
+import { useAppLocale } from '@/components/i18n/AppLocaleContext';
+import { formatCurrencyInput, formatDateOnly, parseCurrencyInput } from '@/lib/formatters';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
 import { canAccessFeature } from '@/lib/permissions';
 import { useBusinessToday } from '@/lib/useBusinessToday';
@@ -80,6 +82,7 @@ export default function SalariesPage({ view = 'employees', employeeId }: { view?
 function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: string; view: SalaryView; employeeId?: string }) {
   const t = useTranslations('salaries');
   const tc = useTranslations('common');
+  const { locale } = useAppLocale();
   // The route decides the initial view; the segmented control switches views
   // in place so the loaded data is reused instead of refetched.
   const [view, setView] = useState<SalaryView>(initialView);
@@ -136,7 +139,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   // One pass per employee instead of re-filtering every rate on each lookup.
   const summaries = useMemo(() => new Map<string, EmployeeRateSummary>(data.employees.map((employee) => {
     const display = displayedRate(data.rates, employee.id, today);
-    return [employee.id, { current: rateInForce(data.rates, employee.id, today), display, status: employeeStatus(employee, display, today), deactivatesOn: scheduledDeactivation(data.rates, employee.id, today) }];
+    return [employee.id, { current: rateInForce(data.rates, employee.id, today), display, status: employeeStatus(employee, display, today), deactivatesOn: scheduledDeactivation(data.rates, employee.id, today), deactivatedFrom: deactivatedFrom(data.rates, employee.id, today) }];
   })), [data.employees, data.rates, today]);
   const historyEmployee = data.employees.find((employee) => employee.id === employeeId);
   const upcomingCount = data.employees.filter((e) => summaries.get(e.id)?.status === 'upcoming').length;
@@ -406,7 +409,10 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
     setView(next);
     window.history.pushState(null, '', VIEW_PATHS[next]);
   };
-  const historyStatus = historyEmployee && summaries.get(historyEmployee.id)?.status;
+  const historySummary = historyEmployee && summaries.get(historyEmployee.id);
+  const historyStatus = historySummary?.status;
+  const historyDeactivation = historySummary?.deactivatedFrom ? `${t('deactivatedFrom')} ${formatDateOnly(historySummary.deactivatedFrom, locale)}`
+    : historySummary?.deactivatesOn ? `${t('deactivatesOn')} ${formatDateOnly(historySummary.deactivatesOn, locale)}` : '';
   const pageTitle = employeeId ? historyEmployee?.name ?? t('history') : t(view === 'employees' ? 'employees' : view === 'history' ? 'history' : 'title');
   // Club-wide due keeps one employee's overpayment from hiding what another is owed.
   // One employee's negative balance is an advance, shown like on their card.
@@ -420,7 +426,12 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
         back={employeeId ? '/salaries/employees' : undefined}
         backLabel={t('employees')}
         title={pageTitle}
-        meta={historyStatus && <Badge variant={historyStatus === 'upcoming' ? 'info' : historyStatus === 'active' ? 'success' : 'neutral'}>{t(historyStatus)}</Badge>}
+        meta={historyStatus && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={historyStatus === 'upcoming' ? 'info' : historyStatus === 'active' ? 'success' : 'neutral'}>{t(historyStatus)}</Badge>
+            {historyDeactivation && <span className="text-sm text-gray-500">{historyDeactivation}</span>}
+          </div>
+        )}
         tabs={employeeId ? undefined : (
           <SegmentedControl
             variant="tabs"
