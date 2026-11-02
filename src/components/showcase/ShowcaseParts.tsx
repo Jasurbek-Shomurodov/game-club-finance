@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { getTranslations } from 'next-intl/server';
-import { Armchair, BadgePercent, Clock, Gamepad, Tv, Cpu, Gamepad2, HardDrive, Headphones, Instagram, Keyboard, MapPin, MemoryStick, Monitor, MonitorPlay, Mouse, NotebookPen, Phone, Send, Sparkles, Zap } from 'lucide-react';
+import { Armchair, BadgePercent, Clock, Gamepad, Tv, Cpu, Gamepad2, Headphones, Instagram, Keyboard, MapPin, MemoryStick, Monitor, MonitorPlay, Mouse, NotebookPen, Phone, Send, Sparkles, Zap } from 'lucide-react';
 import { formatCurrency, formatPhone } from '@/lib/formatters';
 import { mapLinks, telHref, type PublicShowcase, type PublicShowcaseGame, type PublicShowcaseOffer, type PublicShowcaseZone } from '@/lib/showcase';
 import { MapChooser } from './MapChooser';
@@ -228,7 +228,6 @@ export async function ZoneGrid({ zones }: { zones: PublicShowcaseZone[] }) {
                     <Spec icon={<MonitorPlay size={16} aria-hidden="true" />} label={t('gpu')} value={zone.gpu} />
                     <Spec icon={<Cpu size={16} aria-hidden="true" />} label={t('cpu')} value={zone.cpu} />
                     <Spec icon={<MemoryStick size={16} aria-hidden="true" />} label={t('ram')} value={zone.ram} />
-                    <Spec icon={<HardDrive size={16} aria-hidden="true" />} label={t('storage')} value={zone.storage} />
                     <Spec icon={<Monitor size={16} aria-hidden="true" />} label={t('monitor')} value={monitorText(zone)} />
                   </ul>
                 )}

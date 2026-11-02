@@ -600,11 +600,8 @@ export default function ShowcasePage() {
                     <Field label={t('gpu')} htmlFor="zone-gpu">
                       <Input id="zone-gpu" value={editor.form.gpu} maxLength={80} placeholder="RTX 4070 Super" onChange={(e) => setEditorField('gpu', e.target.value)} />
                     </Field>
-                    <Field label={t('ram')} htmlFor="zone-ram">
+                    <Field label={t('ram')} htmlFor="zone-ram" className="sm:col-span-2">
                       <Input id="zone-ram" value={editor.form.ram} maxLength={80} placeholder="32 GB DDR5" onChange={(e) => setEditorField('ram', e.target.value)} />
-                    </Field>
-                    <Field label={t('storage')} htmlFor="zone-storage">
-                      <Input id="zone-storage" value={editor.form.storage} maxLength={80} placeholder="1 TB NVMe SSD" onChange={(e) => setEditorField('storage', e.target.value)} />
                     </Field>
                   </div>
                 </Card>

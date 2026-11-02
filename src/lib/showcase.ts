@@ -253,7 +253,6 @@ export interface ShowcasePcZoneForm {
   cpu: string;
   gpu: string;
   ram: string;
-  storage: string;
   monitor: string;
   monitor_size_inches: string;
   monitor_refresh_hz: string;
@@ -342,7 +341,6 @@ function emptyOrSavedZoneForm(zone: ShowcasePcZone | null, nextSortOrder: number
     cpu: zone?.cpu ?? '',
     gpu: zone?.gpu ?? '',
     ram: zone?.ram ?? '',
-    storage: zone?.storage ?? '',
     monitor: zone?.monitor ?? '',
     monitor_size_inches: zone?.monitor_size_inches == null ? '' : String(zone.monitor_size_inches),
     monitor_refresh_hz: zone?.monitor_refresh_hz == null ? '' : String(zone.monitor_refresh_hz),
@@ -396,7 +394,6 @@ export function buildShowcasePcZonePayload(form: ShowcasePcZoneForm) {
     cpu: pcOnly(form.cpu),
     gpu: pcOnly(form.gpu),
     ram: pcOnly(form.ram),
-    storage: pcOnly(form.storage),
     monitor: optionalText(form.monitor),
     monitor_size_inches: form.monitor_size_inches.trim() ? parseDecimalInput(form.monitor_size_inches) : null,
     monitor_refresh_hz: form.monitor_refresh_hz.trim() ? Number(form.monitor_refresh_hz.trim()) : null,
@@ -441,7 +438,6 @@ export interface PublicShowcaseZone {
   cpu: string | null;
   gpu: string | null;
   ram: string | null;
-  storage: string | null;
   monitor: string | null;
   monitor_size_inches: number | null;
   monitor_refresh_hz: number | null;
@@ -545,7 +541,6 @@ export function parsePublicShowcase(raw: unknown, locale = 'ru'): PublicShowcase
         cpu: text(zone.cpu),
         gpu: text(zone.gpu),
         ram: text(zone.ram),
-        storage: text(zone.storage),
         monitor: text(zone.monitor),
         monitor_size_inches: positive(finiteNumber(zone.monitor_size_inches)),
         monitor_refresh_hz: positive(finiteNumber(zone.monitor_refresh_hz)),
