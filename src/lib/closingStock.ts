@@ -365,6 +365,49 @@ export function closingStockRowTotalsInput(
   };
 }
 
+/**
+ * An adjustment corrects available stock, not sales. When staff count closing
+ * stock, the count stands and sold quantity follows; when they enter sold
+ * quantities, sales stand and closing stock follows.
+ */
+export function applyStockAdjustment(
+  row: ClosingStockRowData,
+  value: string,
+  soldEntry: boolean,
+): ClosingStockRowData {
+  const next = { ...row, adjustmentQuantity: value };
+  const previousStock = normalizeStockCount(next.previousStock);
+  const addedToday = normalizeStockCount(next.addedToday);
+  const adjustmentQuantity = normalizeStockAdjustment(value);
+  const giveawayQuantity = normalizeStockCount(next.giveawayQuantity);
+
+  if (soldEntry) {
+    return {
+      ...next,
+      closingStock: formatStockValue(calculateClosingStockFromSold(
+        previousStock,
+        addedToday,
+        normalizeStockCount(next.soldQuantity),
+        adjustmentQuantity,
+        giveawayQuantity,
+      )),
+    };
+  }
+
+  return {
+    ...next,
+    soldQuantity: formatStockValue(calculateStockCountSummary({
+      previousStock,
+      addedToday,
+      adjustmentQuantity,
+      giveawayQuantity,
+      closingStock: normalizeStockCount(next.closingStock),
+      salePrice: next.product.sale_price,
+      costPrice: next.product.cost_price,
+    }).soldQuantity),
+  };
+}
+
 export function getBulkStockAvailableQuantity(row: ClosingStockRowData): number | null {
   return row.product.tracks_inventory === false
     ? null

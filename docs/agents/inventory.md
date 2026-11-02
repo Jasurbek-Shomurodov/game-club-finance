@@ -32,7 +32,9 @@ barProfit      = barIncome - barCost
 ```
 
 Closing stock cannot exceed available stock unless an owner records an explicit
-adjustment and reason through the supported flow.
+adjustment and reason through the supported flow. An adjustment never changes
+the staff-entered figure: closing-entry clubs keep the count and recompute sold,
+sold-entry clubs keep sold and recompute closing.
 
 Direct cost-price changes in the product catalog are owner-only. Owners and
 admins with Stock Purchase access can enter each receipt's actual cost through

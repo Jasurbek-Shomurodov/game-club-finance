@@ -52,6 +52,7 @@ import { classifyStockWriteError, type StockWriteErrorLike } from '@/lib/stockWr
 import {
   applyBulkStockOrder,
   applyClosingStockDraft,
+  applyStockAdjustment,
   BulkStockAvailabilityError,
   buildEditableClosingStockRows,
   buildClosingStockUpserts,
@@ -170,11 +171,6 @@ function derivedSoldQuantity(row: RowData): string {
 
 function withClosingStock(row: RowData, value: string): RowData {
   const nextRow = { ...row, closingStock: value };
-  return { ...nextRow, soldQuantity: derivedSoldQuantity(nextRow) };
-}
-
-function withAdjustment(row: RowData, value: string): RowData {
-  const nextRow = { ...row, adjustmentQuantity: value };
   return { ...nextRow, soldQuantity: derivedSoldQuantity(nextRow) };
 }
 
@@ -409,7 +405,7 @@ export default function ClosingStockPage() {
 
   function updateAdjustment(productId: string, value: string) {
     if (!isSignedWholeNumberInput(value)) return;
-    editRow(productId, (row) => withAdjustment(row, value));
+    editRow(productId, (row) => applyStockAdjustment(row, value, usesSoldEntry));
   }
 
   function updateAdjustmentReason(productId: string, value: string) {

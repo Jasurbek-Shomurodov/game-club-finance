@@ -17,6 +17,7 @@ import {
   normalizeStockCount,
   parseClosingStockImportRecords,
   parseClosingStockImportSheetRows,
+  applyStockAdjustment,
   readClosingStockDraft,
   saveClosingStockDraft,
   selectClosingStockImportRows,
@@ -1140,6 +1141,44 @@ describe('saved row prices and inactive products', () => {
     const { upserts } = buildClosingStockUpserts({ date: '2026-09-01', rows, createdBy: null });
     expect(upserts.map((upsert) => upsert.product_id)).toEqual(['cola']);
     expect(applyBulkStockOrder(rows, [{ productId: 'old', quantity: 1 }])[1]).toBe(rows[1]);
+  });
+});
+
+describe('applyStockAdjustment', () => {
+  const opening = { previousStock: '10', addedToday: '0', soldQuantity: '5', closingStock: '5' };
+
+  it('keeps entered sales and moves closing stock in sold-entry mode', () => {
+    const adjusted = applyStockAdjustment(row(opening), '-3', true);
+    expect(adjusted).toMatchObject({ adjustmentQuantity: '-3', soldQuantity: '5', closingStock: '2' });
+    expect(validateClosingStockRows([{ ...adjusted, adjustmentReason: 'Recount' }])).toBeNull();
+  });
+
+  it('keeps the count and moves sold quantity in closing-entry mode', () => {
+    const adjusted = applyStockAdjustment(row(opening), '-3', false);
+    expect(adjusted).toMatchObject({ adjustmentQuantity: '-3', soldQuantity: '2', closingStock: '5' });
+    expect(validateClosingStockRows([{ ...adjusted, adjustmentReason: 'Recount' }])).toBeNull();
+  });
+
+  it('adds found units to closing stock without inventing sales', () => {
+    expect(applyStockAdjustment(row(opening), '4', true))
+      .toMatchObject({ soldQuantity: '5', closingStock: '9' });
+  });
+
+  it('leaves giveaways out of closing stock in sold-entry mode', () => {
+    expect(applyStockAdjustment(row({ ...opening, giveawayQuantity: '1', closingStock: '4' }), '-3', true))
+      .toMatchObject({ soldQuantity: '5', closingStock: '1' });
+  });
+
+  it('treats a lone minus sign as no adjustment while the owner types', () => {
+    expect(applyStockAdjustment(row(opening), '-', true))
+      .toMatchObject({ adjustmentQuantity: '-', soldQuantity: '5', closingStock: '5' });
+  });
+
+  it('rejects an adjustment that leaves fewer units than were sold', () => {
+    const adjusted = applyStockAdjustment(row(opening), '-7', true);
+    expect(adjusted.closingStock).toBe('0');
+    expect(validateClosingStockRows([{ ...adjusted, adjustmentReason: 'Recount' }])?.code)
+      .toBe('sold_quantity_mismatch');
   });
 });
 
