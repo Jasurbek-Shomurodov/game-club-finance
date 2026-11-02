@@ -231,15 +231,15 @@ export async function ZoneGrid({ zones }: { zones: PublicShowcaseZone[] }) {
                     <Spec icon={<Monitor size={16} aria-hidden="true" />} label={t('monitor')} value={monitorText(zone)} />
                   </ul>
                 )}
-                {[zone.mouse, zone.keyboard, zone.headset, zone.chair].some(Boolean) && (
+                {zone.kind !== 'playstation' && [zone.mouse, zone.keyboard, zone.headset, zone.chair].some(Boolean) && (
                   <ul className="mt-5 grid gap-4 border-t border-white/5 pt-5 sm:grid-cols-2">
                     <Spec icon={<Mouse size={16} aria-hidden="true" />} label={t('mouse')} value={zone.mouse} />
                     <Spec icon={<Keyboard size={16} aria-hidden="true" />} label={t('keyboard')} value={zone.keyboard} />
                     <Spec icon={<Headphones size={16} aria-hidden="true" />} label={t('headset')} value={zone.headset} />
-                    <Spec icon={<Armchair size={16} aria-hidden="true" />} label={zone.kind === 'playstation' ? t('seating') : t('chair')} value={zone.chair} />
+                    <Spec icon={<Armchair size={16} aria-hidden="true" />} label={t('chair')} value={zone.chair} />
                   </ul>
                 )}
-                {zone.peripherals && (
+                {zone.kind !== 'playstation' && zone.peripherals && (
                   <p className="mt-5 flex items-start gap-2 border-t border-white/5 pt-5 text-sm leading-6 text-white/60">
                     <NotebookPen size={16} className="mt-1 shrink-0 text-fuchsia-300" aria-hidden="true" />
                     {zone.peripherals}

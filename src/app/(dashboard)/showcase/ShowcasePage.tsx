@@ -620,30 +620,28 @@ export default function ShowcasePage() {
                     </Field>
                   </div>
                 </Card>
-                <Card tone="muted" padding="sm" className="space-y-3">
-                  <SectionHeading as="h3" size="sm" title={t('specsPeripherals')} icon={<Mouse size={16} aria-hidden="true" />} />
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {editor.form.kind === 'pc' && (
-                      <>
-                        <Field label={t('mouse')} htmlFor="zone-mouse">
-                          <Input id="zone-mouse" value={editor.form.mouse} maxLength={80} placeholder="Logitech G Pro X Superlight" onChange={(e) => setEditorField('mouse', e.target.value)} />
-                        </Field>
-                        <Field label={t('keyboard')} htmlFor="zone-keyboard">
-                          <Input id="zone-keyboard" value={editor.form.keyboard} maxLength={80} placeholder="SteelSeries Apex Pro" onChange={(e) => setEditorField('keyboard', e.target.value)} />
-                        </Field>
-                      </>
-                    )}
-                    <Field label={t('headset')} htmlFor="zone-headset">
-                      <Input id="zone-headset" value={editor.form.headset} maxLength={80} placeholder="HyperX Cloud II" onChange={(e) => setEditorField('headset', e.target.value)} />
+                {editor.form.kind === 'pc' && (
+                  <Card tone="muted" padding="sm" className="space-y-3">
+                    <SectionHeading as="h3" size="sm" title={t('specsPeripherals')} icon={<Mouse size={16} aria-hidden="true" />} />
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <Field label={t('mouse')} htmlFor="zone-mouse">
+                        <Input id="zone-mouse" value={editor.form.mouse} maxLength={80} placeholder="Logitech G Pro X Superlight" onChange={(e) => setEditorField('mouse', e.target.value)} />
+                      </Field>
+                      <Field label={t('keyboard')} htmlFor="zone-keyboard">
+                        <Input id="zone-keyboard" value={editor.form.keyboard} maxLength={80} placeholder="SteelSeries Apex Pro" onChange={(e) => setEditorField('keyboard', e.target.value)} />
+                      </Field>
+                      <Field label={t('headset')} htmlFor="zone-headset">
+                        <Input id="zone-headset" value={editor.form.headset} maxLength={80} placeholder="HyperX Cloud II" onChange={(e) => setEditorField('headset', e.target.value)} />
+                      </Field>
+                      <Field label={t('chair')} htmlFor="zone-chair">
+                        <Input id="zone-chair" value={editor.form.chair} maxLength={80} placeholder="DXRacer" onChange={(e) => setEditorField('chair', e.target.value)} />
+                      </Field>
+                    </div>
+                    <Field label={t('peripherals')} htmlFor="zone-peripherals">
+                      <Textarea id="zone-peripherals" rows={2} maxLength={240} value={editor.form.peripherals} placeholder={t('peripheralsPlaceholder')} onChange={(e) => setEditorField('peripherals', e.target.value)} />
                     </Field>
-                    <Field label={editor.form.kind === 'playstation' ? t('seating') : t('chair')} htmlFor="zone-chair">
-                      <Input id="zone-chair" value={editor.form.chair} maxLength={80} placeholder={editor.form.kind === 'playstation' ? t('seatingPlaceholder') : 'DXRacer'} onChange={(e) => setEditorField('chair', e.target.value)} />
-                    </Field>
-                  </div>
-                  <Field label={t('peripherals')} htmlFor="zone-peripherals">
-                    <Textarea id="zone-peripherals" rows={2} maxLength={240} value={editor.form.peripherals} placeholder={t('peripheralsPlaceholder')} onChange={(e) => setEditorField('peripherals', e.target.value)} />
-                  </Field>
-                </Card>
+                  </Card>
+                )}
                 <ShowcaseImageField
                   label={t('zoneImage')}
                   clubId={selectedClubId}

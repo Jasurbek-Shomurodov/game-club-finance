@@ -281,7 +281,7 @@ describe('PlayStation zones', () => {
   it('saves console fields only for PlayStation and PC fields only for PCs', () => {
     const base = { ...showcasePcZoneForm(null, 10, 'playstation'), name: { ru: 'PS5 lounge', uz: '', en: '' }, pc_count: '3', console: 'PlayStation 5', controllers: '2', cpu: 'stale', mouse: 'stale', headset: 'Pulse 3D' };
     expect(base.kind).toBe('playstation');
-    expect(buildShowcasePcZonePayload(base)).toMatchObject({ kind: 'playstation', console: 'PlayStation 5', controllers: 2, cpu: null, mouse: null, headset: 'Pulse 3D' });
+    expect(buildShowcasePcZonePayload(base)).toMatchObject({ kind: 'playstation', console: 'PlayStation 5', controllers: 2, cpu: null, mouse: null, headset: null, chair: null, peripherals: null });
     expect(buildShowcasePcZonePayload({ ...base, kind: 'pc', cpu: 'i5' })).toMatchObject({ kind: 'pc', console: null, controllers: null, cpu: 'i5' });
     expect(validateShowcasePcZone({ ...base, controllers: '25' })).toBe('controllers_invalid');
   });
