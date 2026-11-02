@@ -1856,7 +1856,9 @@
     "libraryEmptyDescription": "Birinchi o‘yinni qo‘shing — keyin istalgan klub uni shu yerdan tanlay oladi.",
     "tabPage": "Sahifa",
     "tabGoogle": "Google Xaritalar",
-    "brandContactsHint": "Telefon, ish vaqti va Telegram quyida har bir klub uchun alohida kiritiladi, shunda har bir filial o‘zinikini ko‘rsatadi."
+    "brandContactsHint": "Telefon, ish vaqti va Telegram «Sahifa» bo‘limida har bir klub uchun alohida kiritiladi, shunda har bir filial o‘zinikini ko‘rsatadi.",
+    "brandOwnerOnly": "Brend sahifasini faqat klub egasi o‘zgartira oladi.",
+    "brandMigrationMissing": "Ma’lumotlar bazasida 099-migratsiya yo‘q. Brend sahifasini tahrirlash uchun uni qo‘llang."
   },
   "publicShowcase": {
     "navGames": "O‘yinlar",

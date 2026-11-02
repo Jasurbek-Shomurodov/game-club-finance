@@ -95,7 +95,7 @@ export function BrandSettingsCard({ userId, clubId, onSaved }: BrandSettingsCard
     await load();
   }
 
-  if (status === 'missing') return null;
+  if (status === 'missing') return <InlineAlert variant="warning">{t('brandMigrationMissing')}</InlineAlert>;
 
   return (
     <Card padding="none">

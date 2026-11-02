@@ -1856,7 +1856,9 @@
     "libraryEmptyDescription": "Add the first game; every club can then pick it from here.",
     "tabPage": "Page",
     "tabGoogle": "Google Maps",
-    "brandContactsHint": "Phone, opening hours and Telegram are set per club below, so each branch shows its own."
+    "brandContactsHint": "Phone, opening hours and Telegram are set per club on the Page tab, so each branch shows its own.",
+    "brandOwnerOnly": "Only a club owner can edit the brand page.",
+    "brandMigrationMissing": "The database is missing migration 099. Apply it to edit the brand page."
   },
   "publicShowcase": {
     "navGames": "Games",

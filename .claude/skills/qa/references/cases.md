@@ -150,6 +150,7 @@ Telegram group if one is set up.
 | SET-003 | S1 | Telegram settings never show the token | Open Settings | No bot token in the page or responses; chat id only |
 | SET-004 | S1 | Promotions are club scoped | Add a `QA promo` (approved); switch club | Absent in the other club |
 | SET-005 | S2 | Club logo upload states | Upload a PNG (approved) | Preview, then saved; error shown for a 10 MB file |
+| SET-006 | S1 | Brand page has its own tab [e2e] | Public page → Brand page tab, as owner and as a member granted the Public page | Owner: the tab sits after Google Maps, opens /showcase/brand and survives a reload; the Page tab shows no brand form. Member: no tab, and a direct visit says only an owner can edit it |
 
 ## HIST — edit history
 

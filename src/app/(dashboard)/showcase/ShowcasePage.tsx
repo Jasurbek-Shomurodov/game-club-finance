@@ -58,7 +58,6 @@ import {
 import { refreshPublicShowcase } from '@/lib/showcaseRefresh';
 import { useClubQuery } from '@/lib/useClubQuery';
 import type { ShowcaseGame, ShowcaseOffer, ShowcasePcZone, ShowcaseZoneKind } from '@/types';
-import { BrandSettingsCard } from './BrandSettingsCard';
 import { LocalizedTextField } from './LocalizedTextField';
 import { ShowcaseImageField } from './ShowcaseImageField';
 import { ShowcaseTabs } from './ShowcaseTabs';
@@ -77,10 +76,9 @@ const EDIT_TITLE = { game: ['addGame', 'editGame'], zone: ['addZone', 'editZone'
 export default function ShowcasePage() {
   const t = useTranslations('showcase');
   const tc = useTranslations('common');
-  const { selectedClubId, selectedClub, role, featureAccess, account } = useClub();
+  const { selectedClubId, selectedClub, role, featureAccess } = useClub();
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
-  const isOwner = role === 'owner';
   // Owners, and members an owner granted the Public page on Team.
   const canEdit = canAccessFeature(role, featureAccess, 'showcase');
 
@@ -248,9 +246,6 @@ export default function ShowcasePage() {
         <InlineAlert variant="warning">{t('migrationMissing')}</InlineAlert>
       ) : (
         <>
-          {/* The brand page belongs to the owner's account, not to the club. */}
-          {isOwner && <BrandSettingsCard userId={account.userId} clubId={selectedClubId} onSaved={showToast} />}
-
           <Card padding="none">
             <CardHeader>
               <SectionHeading

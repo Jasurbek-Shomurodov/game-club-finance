@@ -431,6 +431,21 @@ test('SAL-009 the card\'s pencil edits role, salary and KPI in one dialog', asyn
   await expect(card.getByText('5%')).toBeVisible();
 });
 
+test('SET-006 the brand page has its own tab after Google Maps, and the club page no longer carries it', async ({ page, context }) => {
+  await context.addCookies([englishCookie]);
+  await page.goto('/showcase');
+  await expect(page.getByRole('heading', { name: 'Page settings' })).toBeVisible();
+  await expect(page.getByLabel('Brand name')).toHaveCount(0);
+  await expect(page.getByRole('radio')).toHaveText(['Page', 'Game library', 'Google Maps', 'Brand page']);
+
+  await page.getByRole('radio', { name: 'Brand page' }).click();
+  await expect(page).toHaveURL(/\/showcase\/brand$/);
+  await expect(page.getByLabel('Brand name')).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('radio', { name: 'Brand page', checked: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Page settings' })).toHaveCount(0);
+});
+
 test.describe('as a viewer', () => {
   test.use({ storageState: storageStatePath('viewer') });
 
@@ -480,7 +495,7 @@ test.describe('on a phone', () => {
   test('UI-001 every core page fits 375 px with no horizontal scroll', async ({ page }) => {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    for (const [path, heading] of [['/', 'Dashboard'], ['/daily-cash', 'Daily Cash Entry'], ['/closing-stock', 'Closing Stock'], ['/stock-purchase', 'Stock Purchase'], ['/reports', 'Reports'], ['/debts', 'Debts'], ['/history', 'Edit history']]) {
+    for (const [path, heading] of [['/', 'Dashboard'], ['/showcase/brand', 'Public page'], ['/daily-cash', 'Daily Cash Entry'], ['/closing-stock', 'Closing Stock'], ['/stock-purchase', 'Stock Purchase'], ['/reports', 'Reports'], ['/debts', 'Debts'], ['/history', 'Edit history']]) {
       await page.goto(path);
       await expect(page.getByRole('heading', { name: heading, level: 1 })).toBeVisible();
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), { message: `${path} overflows` }).toBe(0);
