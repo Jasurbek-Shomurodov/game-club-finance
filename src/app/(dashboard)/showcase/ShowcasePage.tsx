@@ -344,48 +344,6 @@ export default function ShowcasePage() {
               <Card padding="none">
                 <CardHeader>
                   <SectionHeading
-                    title={t('games')}
-                    description={t('gamesDescription')}
-                    icon={<Gamepad2 size={18} aria-hidden="true" />}
-                    action={<ButtonLink href="/showcase/games" variant="primary" size="sm" icon={<Plus size={15} aria-hidden="true" />}>{t('addGame')}</ButtonLink>}
-                  />
-                </CardHeader>
-                <CardBody>
-                  {games.length === 0 ? (
-                    <EmptyState compact icon={Gamepad2} title={t('noGames')} />
-                  ) : (
-                    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10">
-                      {games.map((game) => (
-                        <li key={game.id}>
-                          <button
-                            type="button"
-                            onClick={() => openGame(game)}
-                            className="group block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-xl"
-                          >
-                            <span className="relative block aspect-[3/4] overflow-hidden rounded-xl bg-gray-100">
-                              {game.image_url ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={game.image_url} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                              ) : (
-                                <span className="flex h-full items-center justify-center text-gray-400"><Gamepad2 size={26} aria-hidden="true" /></span>
-                              )}
-                              <span className="absolute right-2 top-2 rounded-lg bg-surface/90 p-1.5 text-gray-700 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-                                <Pencil size={13} aria-hidden="true" />
-                              </span>
-                            </span>
-                            <span className="mt-1.5 block truncate text-sm font-semibold text-gray-900">{game.title}</span>
-                            {game.genre && <span className="block truncate text-xs text-gray-500">{game.genre}</span>}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </CardBody>
-              </Card>
-
-              <Card padding="none">
-                <CardHeader>
-                  <SectionHeading
                     title={t('zones')}
                     description={t('zonesDescription')}
                     icon={<Monitor size={18} aria-hidden="true" />}
@@ -486,6 +444,48 @@ export default function ShowcasePage() {
                             icon={<Pencil size={15} aria-hidden="true" />}
                             onClick={() => openOffer(offer)}
                           />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </CardBody>
+              </Card>
+
+              <Card padding="none">
+                <CardHeader>
+                  <SectionHeading
+                    title={t('games')}
+                    description={t('gamesDescription')}
+                    icon={<Gamepad2 size={18} aria-hidden="true" />}
+                    action={<ButtonLink href="/showcase/games" variant="primary" size="sm" icon={<Plus size={15} aria-hidden="true" />}>{t('addGame')}</ButtonLink>}
+                  />
+                </CardHeader>
+                <CardBody>
+                  {games.length === 0 ? (
+                    <EmptyState compact icon={Gamepad2} title={t('noGames')} />
+                  ) : (
+                    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10">
+                      {games.map((game) => (
+                        <li key={game.id}>
+                          <button
+                            type="button"
+                            onClick={() => openGame(game)}
+                            className="group block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-xl"
+                          >
+                            <span className="relative block aspect-[3/4] overflow-hidden rounded-xl bg-gray-100">
+                              {game.image_url ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={game.image_url} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                              ) : (
+                                <span className="flex h-full items-center justify-center text-gray-400"><Gamepad2 size={26} aria-hidden="true" /></span>
+                              )}
+                              <span className="absolute right-2 top-2 rounded-lg bg-surface/90 p-1.5 text-gray-700 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                                <Pencil size={13} aria-hidden="true" />
+                              </span>
+                            </span>
+                            <span className="mt-1.5 block truncate text-sm font-semibold text-gray-900">{game.title}</span>
+                            {game.genre && <span className="block truncate text-xs text-gray-500">{game.genre}</span>}
+                          </button>
                         </li>
                       ))}
                     </ul>
