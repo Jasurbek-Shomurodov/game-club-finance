@@ -29,7 +29,7 @@ import {
   type AuditLogFilter,
 } from '@/lib/entryHistory';
 import { isKnownExpenseCategory } from '@/lib/expenseCategories';
-import { formatCurrency, formatDateOnly, formatDateTime, formatNumber, formatYearMonth } from '@/lib/formatters';
+import { formatCurrency, formatDateOnly, formatDateTime, formatNumber, formatUnitCurrency, formatYearMonth } from '@/lib/formatters';
 import { fetchEntryHistory, type EntryHistory } from '@/lib/supabase/entryHistory';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useClubQuery } from '@/lib/useClubQuery';
@@ -70,6 +70,7 @@ export default function EntryHistoryPage() {
     const text = String(value);
     switch (auditFieldKind(field)) {
       case 'money': return Number.isFinite(Number(value)) ? formatCurrency(Number(value)) : text;
+      case 'unitMoney': return Number.isFinite(Number(value)) ? formatUnitCurrency(Number(value)) : text;
       case 'quantity': return Number.isFinite(Number(value)) ? formatNumber(Number(value)) : text;
       case 'date': return formatDateOnly(text.slice(0, 10), locale);
       case 'month': return formatYearMonth(text.slice(0, 7), locale);

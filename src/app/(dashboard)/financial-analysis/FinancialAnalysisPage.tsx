@@ -15,6 +15,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { fetchAnalysisLedgers } from '@/lib/supabase/analysisLedgers';
 import { fetchExpensePresets, fetchPresetExpenses } from '@/lib/supabase/expensePresets';
+import { fetchMoneyExchanges } from '@/lib/supabase/moneyExchanges';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
@@ -47,6 +48,7 @@ import {
   type PaymentMethodFlowRow,
 } from '@/lib/calculations/financialAnalysis';
 import { buildExpensePlanSummary, type ExpensePlanSummary } from '@/lib/calculations/expensePlans';
+import type { MoneyExchangeRow } from '@/lib/calculations/moneyExchanges';
 import { ExpensePlanPanel } from '@/components/financial-analysis/ExpensePlanPanel';
 import { MoneyFlowSankeys } from '@/components/financial-analysis/MoneyFlowSankeys';
 import {
@@ -224,15 +226,20 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
       from: previousRange.from < range.from ? previousRange.from : range.from,
       to: previousRange.to > range.to ? previousRange.to : range.to,
     };
-    const rows = await (containsRange(monthlyWindow, fetchRange)
-      ? loadMonthlyWindow(selectedClubId)
-      : fetchAnalysisLedgers(createClient(), selectedClubId, fetchRange));
-    return { clubId: selectedClubId, ledgers: rows };
+    const [rows, exchangeRows] = await Promise.all([
+      containsRange(monthlyWindow, fetchRange)
+        ? loadMonthlyWindow(selectedClubId)
+        : fetchAnalysisLedgers(createClient(), selectedClubId, fetchRange),
+      // Exchanges (092) only move money between the method rows of the selected month.
+      fetchMoneyExchanges(createClient(), selectedClubId, range.from, range.to),
+    ]);
+    return { clubId: selectedClubId, ledgers: rows, exchangeRows };
   }, [loadMonthlyWindow, monthlyWindow, previousRange.from, previousRange.to, range.from, range.to, selectedClubId]);
   // Ledgers remember their club, so another club's rows never render as current.
-  const ledgerQuery = useClubQuery<{ clubId: string; ledgers: AnalysisLedgers } | null>(loadLedgers, null);
-  const loadedLedgers = ledgerQuery.data;
-  const ledgers = loadedLedgers && loadedLedgers.clubId === selectedClubId ? loadedLedgers.ledgers : emptyLedgers;
+  const ledgerQuery = useClubQuery<{ clubId: string; ledgers: AnalysisLedgers; exchangeRows: MoneyExchangeRow[] } | null>(loadLedgers, null);
+  const loadedLedgers = ledgerQuery.data && ledgerQuery.data.clubId === selectedClubId ? ledgerQuery.data : null;
+  const ledgers = loadedLedgers?.ledgers ?? emptyLedgers;
+  const exchangeRows = loadedLedgers?.exchangeRows;
   const loading = ledgerQuery.loading;
   const error = ledgerQuery.error;
 
@@ -267,7 +274,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
   const current = useMemo(() => sliceLedgers(ledgers, range), [ledgers, range]);
   const previous = useMemo(() => sliceLedgers(ledgers, previousRange), [ledgers, previousRange]);
   // Average daily income follows the dashboard: each side through its latest entry in the range.
-  const analysis = useMemo(() => buildFinancialAnalysis(range, current), [current, range]);
+  const analysis = useMemo(() => buildFinancialAnalysis(range, current, { exchangeRows }), [current, exchangeRows, range]);
   // Days after today have no data yet; drawing them only adds an empty tail (as on the dashboard).
   const dailyRows = useMemo(
     () => analysis.daily.filter((row, index) => index === 0 || row.date <= businessToday),

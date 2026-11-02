@@ -41,6 +41,9 @@ describe('auditEntryDate', () => {
 describe('auditFieldKind', () => {
   it('knows money, dates, methods and falls back to text', () => {
     expect(auditFieldKind('cash_income')).toBe('money');
+    expect(auditFieldKind('from_amount')).toBe('unitMoney');
+    expect(auditFieldKind('to_amount')).toBe('unitMoney');
+    expect(auditFieldKind('rate')).toBe('unitMoney');
     expect(auditFieldKind('period_month')).toBe('month');
     expect(auditFieldKind('to_method')).toBe('method');
     expect(auditFieldKind('product_id')).toBe('product');

@@ -106,6 +106,9 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, th
       let base = 0;
       let weightedPercent = 0;
       let activeDays = 0;
+      // The group of the latest active terms started by this month's end; it
+      // carries bonuses and fines of a month the employee was never active in.
+      let lastGroup = null as string | null;
       const configs = new Map<string, { basis: KpiBasis; gameClub: boolean; bar: boolean; share: number; days: number }>();
       const terms = employeeRates.get(employee.id) ?? [];
       terms.forEach((rate, index) => {
@@ -122,6 +125,7 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, th
         const gameClub = rate.kpi_game_club ?? true;
         const bar = rate.kpi_bar ?? true;
         const key = `${basis}:${gameClub ? 1 : 0}${bar ? 1 : 0}`;
+        if (rate.effective_date <= end) lastGroup = key;
         const config = configs.get(key) ?? { basis, gameClub, bar, share: 0, days: 0 };
         config.share += share;
         config.days += days;
@@ -131,7 +135,7 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, th
       const sum = (kind: SalaryEntry['kind']) => money(employeeEntries.filter((e) => e.kind === kind).reduce((s, e) => s + Number(e.amount), 0));
       const bonus = sum('bonus');
       const fine = sum('fine');
-      return { employee, base: money(base), bonus, fine, paid: sum('payment'), weightedPercent, activeDays, configs, fixed: money(base) + bonus - fine };
+      return { employee, base: money(base), bonus, fine, paid: sum('payment'), weightedPercent, activeDays, configs, lastGroup, fixed: money(base) + bonus - fine };
     });
 
     const profitRow = profits.get(month);
@@ -141,7 +145,7 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, th
       for (const [key, config] of row.configs) {
         const group = groups.get(key) ?? { basis: config.basis, gameClub: config.gameClub, bar: config.bar, share: 0, fixed: 0, base: 0 };
         group.share += config.share / 100;
-        group.fixed += row.activeDays ? row.fixed * config.days / row.activeDays : 0;
+        group.fixed += row.activeDays ? row.fixed * config.days / row.activeDays : key === row.lastGroup ? row.fixed : 0;
         groups.set(key, group);
       }
     }

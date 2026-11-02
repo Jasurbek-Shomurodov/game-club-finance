@@ -9,13 +9,14 @@ import {
   Button,
   CurrencyInput,
   DatePicker,
+  DecimalInput,
   Field,
   InlineAlert,
   NoteField,
   SegmentedControl,
   useEntryNoteGuard,
 } from '@/components/PresentationFoundation';
-import { formatCurrency, formatUnitCurrency, parseCurrencyInput } from '@/lib/formatters';
+import { formatCurrency, formatCurrencyInput, formatUnitCurrency, parseCurrencyInput, parseDecimalInput } from '@/lib/formatters';
 import {
   exchangeNeedsRate,
   exchangeReceivedAmount,
@@ -67,6 +68,8 @@ export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
   const requestId = useRef<string | null>(null);
 
   useBusinessRollover(businessToday, (previousToday, nextToday) => {
+    // A moved date is a different exchange, not a retry of the last attempt.
+    if (form.date === previousToday) requestId.current = null;
     setForm((current) => (current.date === previousToday ? { ...current, date: nextToday } : current));
   });
 
@@ -89,13 +92,16 @@ export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
       // Picking the method on the other side swaps them instead of making both equal.
       if (field === 'from' && value === current.to) next.to = current.from;
       if (field === 'to' && value === current.from) next.from = current.to;
+      // Leaving dollars for som: som amounts are whole, so show what will be saved.
+      if (current.from === 'usd' && next.from !== 'usd') next.amount = formatCurrencyInput(current.amount);
       return next;
     });
   }
 
-  const amount = parseCurrencyInput(form.amount);
+  // Dollars keep cents and a rate can be fractional; som amounts are whole.
+  const amount = form.from === 'usd' ? parseDecimalInput(form.amount) : parseCurrencyInput(form.amount);
   const needsRate = exchangeNeedsRate(form.from, form.to);
-  const rate = needsRate ? parseCurrencyInput(form.rate) : null;
+  const rate = needsRate ? parseDecimalInput(form.rate) : null;
   const received = exchangeReceivedAmount(form.from, form.to, amount, rate);
   const formatAmount = (method: ExchangeMethod, value: number) => (
     method === 'usd' ? `$${formatUnitCurrency(value)}` : `${formatCurrency(value)} ${tc('currency')}`
@@ -196,19 +202,31 @@ export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label={t('amount')} htmlFor="exchange-amount" required>
-          <CurrencyInput
-            id="exchange-amount"
-            controlSize="lg"
-            autoFocus
-            required
-            value={form.amount}
-            onValueChange={(value) => set('amount', value)}
-            trailingAddon={form.from === 'usd' ? '$' : tc('currency')}
-          />
+          {form.from === 'usd' ? (
+            <DecimalInput
+              id="exchange-amount"
+              controlSize="lg"
+              autoFocus
+              required
+              value={form.amount}
+              onValueChange={(value) => set('amount', value)}
+              trailingAddon="$"
+            />
+          ) : (
+            <CurrencyInput
+              id="exchange-amount"
+              controlSize="lg"
+              autoFocus
+              required
+              value={form.amount}
+              onValueChange={(value) => set('amount', value)}
+              trailingAddon={tc('currency')}
+            />
+          )}
         </Field>
         {needsRate && (
           <Field label={t('rate')} htmlFor="exchange-rate" hint={t('rateHint')} required>
-            <CurrencyInput
+            <DecimalInput
               id="exchange-rate"
               controlSize="lg"
               required

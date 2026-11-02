@@ -1362,11 +1362,6 @@
         "kind": "functionBody",
         "signature": "public.update_stock_on_purchase()",
         "md5": "92aeedc2b8e4298e627e2b459e7565c6"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.update_stock_on_closing_count()",
-        "md5": "200fdc67ea01b26b1b4dc86b84b49691"
       }
     ]
   },
@@ -3612,11 +3607,6 @@
         "name": "trg_touch_showcase_brand"
       },
       {
-        "kind": "policy",
-        "table": "public.showcase_brands",
-        "name": "own_showcase_brand"
-      },
-      {
         "kind": "functionBody",
         "signature": "public.get_public_showcase(text)",
         "md5": "a33dcb22401a0d73c78e4369095488bf"
@@ -3918,11 +3908,6 @@
         "kind": "functionBody",
         "signature": "public.get_dashboard_bootstrap()",
         "md5": "d83924abb7a0e2374aeb6547c624e134"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.public_showcase_payload(uuid)",
-        "md5": "a2c5769d53c07ec93ed116edcb527843"
       }
     ]
   },
@@ -4191,6 +4176,55 @@
         "kind": "functionBody",
         "signature": "public.get_public_brand(text)",
         "md5": "4ab3eac0c907d05f25f311342c8e53c1"
+      }
+    ]
+  },
+  {
+    "file": "117_brand_owner_only_and_payload_cleanup.sql",
+    "probes": [
+      {
+        "kind": "policy",
+        "table": "public.showcase_brands",
+        "name": "showcase_brand_read_own"
+      },
+      {
+        "kind": "policy",
+        "table": "public.showcase_brands",
+        "name": "showcase_brand_delete_own"
+      },
+      {
+        "kind": "policy",
+        "table": "public.showcase_brands",
+        "name": "showcase_brand_insert_club_owner"
+      },
+      {
+        "kind": "policy",
+        "table": "public.showcase_brands",
+        "name": "showcase_brand_update_club_owner"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.public_showcase_payload(uuid)",
+        "md5": "e168db7d81247770fbf555113389c06c"
+      }
+    ]
+  },
+  {
+    "file": "118_latest_closing_syncs_live_stock.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.update_stock_on_closing_count()",
+        "md5": "cc644540c85d7933d13c312b1e318f61"
+      }
+    ]
+  },
+  {
+    "file": "119_stock_purchase_request_id.sql",
+    "probes": [
+      {
+        "kind": "function",
+        "signature": "public.record_stock_purchase(uuid,uuid,date,uuid,numeric,numeric,numeric,text,text)"
       }
     ]
   }

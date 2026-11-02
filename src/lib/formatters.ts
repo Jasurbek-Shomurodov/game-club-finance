@@ -315,6 +315,48 @@ export function formatCurrencyInput(value: string | number | null | undefined): 
   return formatCurrency(Number(digits));
 }
 
+const MAX_DECIMAL_WHOLE_DIGITS = 13;
+const MAX_DECIMAL_FRACTION_DIGITS = 2;
+
+/**
+ * Splits typed or pasted text at its decimal separator, either `.` or `,`.
+ * Separators followed by three digits group thousands only when another
+ * separator comes later or repeats them ("1,500.50", "1,500,000"). A lone
+ * separator is always the decimal one: "12,34" plus a typed 5 looks exactly
+ * like the thousands "12,345", and reading it so would multiply the value.
+ * Further fraction digits are ignored.
+ */
+function decimalParts(value: string | number | null | undefined): { whole: string; fraction: string | null } {
+  if (value === null || value === undefined) return { whole: '', fraction: null };
+  if (typeof value === 'number' && !Number.isFinite(value)) return { whole: '', fraction: null };
+  const text = String(typeof value === 'number' ? Math.max(0, value) : value).replace(/[^\d.,]/g, '');
+  const separators = Array.from(text.matchAll(/[.,]/g), (match) => match.index);
+  const decimalAt = separators.find((at, index) => {
+    const digitsAfter = (separators[index + 1] ?? text.length) - at - 1;
+    const isLast = index === separators.length - 1;
+    const repeats = index > 0 && text[separators[index - 1]] === text[at];
+    return !(digitsAfter === 3 && (!isLast || repeats));
+  });
+  const whole = (decimalAt === undefined ? text : text.slice(0, decimalAt)).replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+  return {
+    whole: whole.slice(0, MAX_DECIMAL_WHOLE_DIGITS),
+    fraction: decimalAt === undefined ? null : text.slice(decimalAt + 1).replace(/\D/g, '').slice(0, MAX_DECIMAL_FRACTION_DIGITS),
+  };
+}
+
+/** Amount with up to two decimals as typed so far: "40," stays open for its cents. */
+export function formatDecimalInput(value: string | number | null | undefined): string {
+  const { whole, fraction } = decimalParts(value);
+  if (!whole && fraction === null) return '';
+  const grouped = formatCurrency(Number(whole || '0'));
+  return fraction === null ? grouped : `${grouped},${fraction}`;
+}
+
+export function parseDecimalInput(value: string | number | null | undefined): number {
+  const { whole, fraction } = decimalParts(value);
+  return Number(`${whole || '0'}.${fraction || '0'}`);
+}
+
 /** Uzbek numbers group as +998 XX XXX XX XX; the local part is nine digits. */
 const UZ_PHONE_GROUPS = [2, 3, 2, 2];
 

@@ -47,6 +47,8 @@ export interface ProductWriteOptions {
    * neither rounded nor overwritten by a stale page copy.
    */
   loadedCostPrice?: PrefilledAmount | null;
+  /** Same for the sale price: an edit of another field never rewrites it. */
+  loadedSalePrice?: PrefilledAmount | null;
 }
 
 /** Blank or invalid input uses the default; an explicit 0 disables low-stock alerts. */
@@ -70,11 +72,21 @@ export function validateProductForm(form: ProductWriteForm): ProductFormValidati
   return null;
 }
 
+/**
+ * A purchase copies a sale price it sends onto the catalog, so it needs the same
+ * positive price as an active product. `null` means the price was left as it is.
+ */
+export function isInvalidPurchaseSalePrice(requestedSalePrice: number | null): boolean {
+  return requestedSalePrice !== null && requestedSalePrice <= 0;
+}
+
 export function buildProductUpdatePayload(form: ProductWriteForm, options: ProductWriteOptions) {
   return {
     name: form.name.trim(),
     category: form.category.trim() || null,
-    sale_price: parseCurrencyInput(form.sale_price),
+    ...(isPrefilledAmountEdited(form.sale_price, options.loadedSalePrice)
+      ? { sale_price: parseCurrencyInput(form.sale_price) }
+      : {}),
     ...(options.isOwner && isPrefilledAmountEdited(form.cost_price, options.loadedCostPrice)
       ? { cost_price: parseCurrencyInput(form.cost_price) }
       : {}),

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Promotion } from '@/types';
 import {
   buildPromotionPayload,
+  isArchivedProductWriteError,
   isPromotionActiveOn,
   promotionStatus,
   promotionsForProduct,
@@ -67,5 +68,17 @@ describe('promotion dates', () => {
     ];
     expect(promotionsForProduct(list, 'cola', '2026-10-15').map((item) => item.id)).toEqual(['a', 'b']);
     expect(promotionsForProduct(list, 'cola', '2026-01-01')).toEqual([]);
+  });
+});
+
+describe('isArchivedProductWriteError', () => {
+  it('recognises the archived-product refusal', () => {
+    expect(isArchivedProductWriteError({ code: '23514', message: 'Archived products cannot receive new stock operations.' })).toBe(true);
+  });
+
+  it('leaves other failures alone', () => {
+    expect(isArchivedProductWriteError({ code: '23514', message: 'Promotion name is required' })).toBe(false);
+    expect(isArchivedProductWriteError({ code: '42501', message: 'Archived products' })).toBe(false);
+    expect(isArchivedProductWriteError(null)).toBe(false);
   });
 });

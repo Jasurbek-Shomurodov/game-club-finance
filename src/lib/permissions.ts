@@ -113,6 +113,14 @@ export function defaultPathForAccess(role: UserRole, explicitAccess: unknown): s
   return '/salaries';
 }
 
+/** Mirrors the `club_read_stock_counts` read policy (migration 054); keep the two in step. */
+export const STOCK_COUNT_READ_FEATURES = ['dashboard', 'closing_stock', 'reports', 'owner_profit'] as const satisfies readonly FeatureKey[];
+
+/** Without one of these features RLS returns no stock counts: no rows, not zero sales. */
+export function canReadStockCounts(role: UserRole, explicitAccess: unknown): boolean {
+  return STOCK_COUNT_READ_FEATURES.some((key) => canAccessFeature(role, explicitAccess, key));
+}
+
 /** These feature unions grant reads of every input to accounting net profit. */
 export function canReadFinancialTotals(role: UserRole, explicitAccess: unknown): boolean {
   return (['dashboard', 'reports', 'owner_profit'] as const).some((key) => canAccessFeature(role, explicitAccess, key));

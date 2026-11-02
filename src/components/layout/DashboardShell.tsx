@@ -528,10 +528,12 @@ export function DashboardShell({
                 >
                   {shellError}
                 </InlineAlert>
-              ) : clubLoading || (!pathAllowed && Boolean(fallbackPath)) ? (
+              ) : clubLoading ? (
                 <PageSkeleton />
               ) : memberships.length === 0 ? (
                 <PendingApproval fullName={fullName} />
+              ) : !pathAllowed && fallbackPath ? (
+                <PageSkeleton />
               ) : !pathAllowed ? (
                 <Card className="mx-auto max-w-xl">
                   <EmptyState icon={ShieldCheck} title={tc('accessDeniedTitle')} description={tc('accessDeniedDescription')} compact />

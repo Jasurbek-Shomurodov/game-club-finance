@@ -145,6 +145,9 @@ export function safeRedirectPath(value: string | null | undefined): string | nul
     return null;
   }
   if (url.origin !== REDIRECT_PROBE_ORIGIN) return null;
+  // Dot segments normalize away: "/.//evil.com" parses to the path "//evil.com",
+  // which is protocol-relative again once it is returned.
+  if (url.pathname.startsWith('//')) return null;
   if (url.pathname === '/login' || url.pathname.startsWith('/login/') || url.pathname.startsWith('/auth/')) return null;
 
   return `${url.pathname}${url.search}${url.hash}`;

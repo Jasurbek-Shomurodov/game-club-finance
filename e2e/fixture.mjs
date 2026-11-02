@@ -3,7 +3,7 @@
 // and ledgers are seeded as the database superuser (triggers still run); the stock purchase and the closing stock
 // counts go through the app's own atomic RPCs as the owner, so product stock and cost basis are what production
 // would hold. Every test's expectations come from this file, never from the screen.
-import { accounts } from './settings.mjs';
+import { accounts, pendingAccount } from './settings.mjs';
 
 /** The clubs' business date (Asia/Tashkent, business day starting at midnight), as the app computes it. */
 export const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tashkent', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
@@ -66,7 +66,7 @@ export const expected = {
 
 /** Seeds the fixture into a fresh fake (e2e/fake-supabase.mjs). */
 export async function seed(fake) {
-  for (const account of Object.values(accounts)) await fake.addUser(account);
+  for (const account of [...Object.values(accounts), pendingAccount]) await fake.addUser(account);
   const { owner, admin, viewer } = accounts;
   const q = (sql, params) => fake.query(sql, params);
   // The owner owns both clubs globally and locally; the admin and viewer belong to E2E Arcade only.

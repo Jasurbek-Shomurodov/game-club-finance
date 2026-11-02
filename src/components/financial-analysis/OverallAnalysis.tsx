@@ -30,8 +30,8 @@ import {
   type DataTableColumn,
 } from '@/components/PresentationFoundation';
 import { ChartCard, ChartEmpty } from '@/components/dashboard/ChartCard';
-import { sumAvailableMoneyResults } from '@/lib/calculations/availableMoney';
 import { percentChange } from '@/lib/calculations/dashboardMetrics';
+import { sumOwnerBalances } from '@/lib/calculations/ownerProfitSnapshot';
 import {
   buildCalendarHeatmap,
   buildCategorySeries,
@@ -177,8 +177,11 @@ export function OverallAnalysis({ businessToday }: { businessToday: string }) {
     bar: buildProfitMonths(months, 'bar'),
   }), [months]);
 
-  const balancesByMonth = (ownerMoney ?? EMPTY_OWNER_MONEY).balancesByMonth;
-  const ownerTotals = useMemo(() => sumAvailableMoneyResults(Object.values(balancesByMonth)), [balancesByMonth]);
+  const { balancesByMonth, carryovers } = ownerMoney ?? EMPTY_OWNER_MONEY;
+  const ownerTotals = useMemo(
+    () => sumOwnerBalances(balancesByMonth, carryovers, businessToday.slice(0, 7)),
+    [balancesByMonth, businessToday, carryovers],
+  );
   const ownerMonths = useMemo(() => buildOwnerMonthSeries(balancesByMonth), [balancesByMonth]);
 
   const tableRows = useMemo<MonthTableRow[]>(() => months

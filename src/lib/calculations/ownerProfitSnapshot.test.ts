@@ -6,6 +6,7 @@ import {
   buildOwnerProfitSnapshot,
   gameClubMoneyLeftByPaymentMethodByMonth,
   gameClubWithdrawalsByMethod,
+  sumOwnerBalances,
   withdrawnBySourceForMonth,
 } from './ownerProfitSnapshot';
 import { calculateGameClubMoneyLeftByPaymentMethod, type ExpenseRow } from './dashboardMetrics';
@@ -177,6 +178,22 @@ describe('owner profit carryovers', () => {
     expect(applyOwnerProfitCarryovers(byMonth, rows)['2026-11'].gameClub).toEqual({ earned: 0, withdrawn: 0, available: 50, overdrawnBy: 0 });
     expect(applyOwnerProfitCarryovers(byMonth, rows, '2026-10')['2026-11']).toBeUndefined();
     expect(applyOwnerProfitCarryovers(byMonth, rows, '2026-10')['2026-10'].gameClub.available).toBe(150);
+  });
+
+  it('keeps money carried out of the current month in the all-time total', () => {
+    const rows = [
+      carryover({ from_month: '2026-10-01', to_month: '2026-11-01', amount: 50, source: 'game_club', payment_method: 'card' }),
+      carryover({ from_month: '2026-09-01', to_month: '2026-10-01', amount: 30 }),
+    ];
+    const before = sumOwnerBalances(byMonth, [], '2026-10');
+    const after = sumOwnerBalances(applyOwnerProfitCarryovers(byMonth, rows, '2026-10'), rows, '2026-10');
+
+    expect(after.gameClub.available).toBe(before.gameClub.available);
+    expect(after.bar.available).toBe(before.bar.available);
+    // Once the receiving month arrives it holds the money itself: nothing is counted twice.
+    const arrived = sumOwnerBalances(applyOwnerProfitCarryovers(byMonth, rows, '2026-11'), rows, '2026-11');
+    expect(arrived.gameClub.available).toBe(before.gameClub.available);
+    expect(arrived.bar.available).toBe(before.bar.available);
   });
 
   it('flags a month overdrawn by a carryover', () => {

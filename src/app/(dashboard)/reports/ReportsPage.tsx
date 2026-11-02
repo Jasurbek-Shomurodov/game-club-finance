@@ -510,7 +510,10 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
           body: JSON.stringify({ clubId, exchangeId: activity.id }),
         });
         if (!response.ok) {
-          deleteError = response.status === 401 || response.status === 403
+          const result = await response.json().catch(() => null) as { code?: string } | null;
+          deleteError = result?.code === 'DAY_COLLECTED'
+            ? tc('dayClosed')
+            : response.status === 401 || response.status === 403
             ? tc('accessDeniedDescription')
             : t('deleteError');
         }
@@ -533,7 +536,9 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       } else {
         const status = await requestDailyCashDeletion(clubId, activity.id);
         if (status !== 200) {
-          deleteError = status === 401 || status === 403 ? tc('accessDeniedDescription') : t('deleteError');
+          deleteError = status === 409
+            ? tc('dayClosed')
+            : status === 401 || status === 403 ? tc('accessDeniedDescription') : t('deleteError');
         }
       }
 
@@ -938,9 +943,10 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
             onChange={setView}
           />
         ) : undefined}
-        action={hasReportsAccess ? (
+        action={hasReportsAccess || canRegisterExpenses ? (
           <>
-            {canRegisterExpenses && (
+            {/* Without Reports access the expense form is inline, below. */}
+            {hasReportsAccess && canRegisterExpenses && (
               <Button variant="outline" onClick={() => setExpenseDialogOpen(true)} icon={<ReceiptText size={18} aria-hidden="true" />}>
                 {t('registerExpense')}
               </Button>
@@ -950,14 +956,16 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                 {t('exchangeMoney')}
               </Button>
             )}
-            <DateRangePicker
-              from={range.from}
-              to={range.to}
-              fromLabel={t('from')}
-              toLabel={t('to')}
-              className="sm:w-80"
-              onChange={setRange}
-            />
+            {hasReportsAccess && (
+              <DateRangePicker
+                from={range.from}
+                to={range.to}
+                fromLabel={t('from')}
+                toLabel={t('to')}
+                className="sm:w-80"
+                onChange={setRange}
+              />
+            )}
           </>
         ) : undefined}
       />
@@ -1133,7 +1141,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         </Modal>
       )}
 
-      {hasReportsAccess && canRegisterExpenses && (
+      {canRegisterExpenses && (
         <Modal
           open={exchangeDialogOpen}
           onClose={() => setExchangeDialogOpen(false)}

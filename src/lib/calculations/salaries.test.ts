@@ -59,6 +59,26 @@ describe('salary accrual and owner profit after all salary costs', () => {
     expect(rows[1]).toMatchObject({ base: 200, kpi: 0 });
     expect(salaryBalance(rows)).toBe(4200);
   });
+  it('charges a bonus or fine of a month without active days to the employee\'s last group', () => {
+    const left: SalaryEmployee = { ...employee, id: 'two', name: 'Left' };
+    const rates = [rate, { ...rate, id: 'left', employee_id: 'two', kpi_percent: 0 }, { ...rate, id: 'left-off', employee_id: 'two', effective_date: '2026-09-10', active: false }];
+    const october = { employees: [employee, left], rates, monthlyProfit: [profit(0), profit(12000, '2026-10')], throughDate: '2026-10-10' };
+    const baseline = calculateSalaries({ ...october, entries: [] }).one[1];
+    expect(baseline).toMatchObject({ base: 1000, kpi: 1000 });
+    const bonus = { ...entry('bonus', 1100, '2026-10-05'), employee_id: 'two' };
+    const withBonus = calculateSalaries({ ...october, entries: [bonus] });
+    expect(withBonus.one[1]).toMatchObject({ kpi: 900, kpiProfit: 9000 });
+    expect(withBonus.two[1]).toMatchObject({ base: 0, bonus: 1100, kpi: 0, balance: 1100 });
+    const withFine = calculateSalaries({ ...october, entries: [{ ...entry('fine', 1100, '2026-10-05'), employee_id: 'two' }] });
+    expect(withFine.one[1].kpi).toBe(1100);
+  });
+  it('leaves other groups alone when a month without active days has a bonus', () => {
+    const left: SalaryEmployee = { ...employee, id: 'two', name: 'Left' };
+    const rates = [rate, { ...rate, id: 'left', employee_id: 'two', kpi_percent: 0, kpi_game_club: false }, { ...rate, id: 'left-off', employee_id: 'two', effective_date: '2026-09-10', active: false, kpi_game_club: false }];
+    const october = { employees: [employee, left], rates, monthlyProfit: [profit(0), profit(12000, '2026-10')], throughDate: '2026-10-10' };
+    const bonus = { ...entry('bonus', 1100, '2026-10-05'), employee_id: 'two' };
+    expect(calculateSalaries({ ...october, entries: [bonus] }).one[1].kpi).toBe(calculateSalaries({ ...october, entries: [] }).one[1].kpi);
+  });
   it('handles no employees and no income', () => {
     expect(calculate({ employees: [], rates: [] })).toEqual({});
     expect(calculate({ monthlyProfit: [] }).one[0]).toMatchObject({ base: 1000, kpi: 0 });

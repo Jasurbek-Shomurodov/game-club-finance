@@ -11,6 +11,7 @@ const ERRORS = {
   UNAUTHORIZED: 401,
   INVALID_REQUEST: 400,
   NOT_FOUND: 404,
+  DAY_COLLECTED: 409,
   SERVER_ERROR: 500,
 } as const;
 
@@ -21,7 +22,8 @@ function errorResponse(code: keyof typeof ERRORS) {
 /**
  * Deletes a daily income entry and tells the club group. The delete runs as
  * the signed-in user, so RLS (owner only, migration 036) decides; a refused
- * or missing row is a 404 and sends nothing.
+ * or missing row is a 404, a collected day a 409 and a database fault a 500,
+ * and none of them sends anything.
  */
 export async function DELETE(request: Request) {
   const supabase = await createClient();
@@ -43,7 +45,15 @@ export async function DELETE(request: Request) {
     console.error('[daily-cash] lookup failed', { clubId, entryId, code: error.code, error: error.message });
     return errorResponse('SERVER_ERROR');
   }
-  if (!entry || !(await deleteDailyCashEntry(supabase, clubId, entryId))) return errorResponse('NOT_FOUND');
+  if (!entry) return errorResponse('NOT_FOUND');
+
+  const deletion = await deleteDailyCashEntry(supabase, clubId, entryId);
+  if (deletion === 'not_found') return errorResponse('NOT_FOUND');
+  if (deletion === 'day_closed') return errorResponse('DAY_COLLECTED');
+  if (deletion === 'failed') {
+    console.error('[daily-cash] deletion failed', { clubId, entryId });
+    return errorResponse('SERVER_ERROR');
+  }
 
   // A deletion is silent in Telegram, so the group gets its own notice.
   after(async () => sendClubNotice(

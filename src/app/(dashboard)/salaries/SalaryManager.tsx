@@ -44,7 +44,8 @@ import { canAccessFeature } from '@/lib/permissions';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
-import { EmployeeEditDialog, employeeEditChanges, employeeEditState, type EmployeeEditState } from './EmployeeEditDialog';
+import { mergeUntouchedFields } from '@/lib/formMerge';
+import { EmployeeEditDialog, employeeEditChanges, employeeEditState, withLandedEmployeeChange, type EmployeeEditState } from './EmployeeEditDialog';
 import { EmployeesView } from './EmployeesView';
 import { HistoryView } from './HistoryView';
 import { OperationsForms, type EmployeeFormState, type EntryFormState, type FormDialog } from './OperationsForms';
@@ -109,6 +110,8 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   const mutating = useRef(false);
   // Unsaved "new employee" draft, kept while the user looks at another setup mode.
   const newEmployeeDraft = useRef<EmployeeFormState | null>(null);
+  // What the setup form was last filled with for the selected employee.
+  const employeeFormBaseline = useRef<EmployeeFormState | null>(null);
   // Shared by full loads and the entries-only reload so only the latest lands.
   const generation = useRef(0);
   // The loader reads the day through a ref so a rollover does not make it a
@@ -165,7 +168,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
     }
   }, [clubId, reload, setData, today]);
 
-  function employeeFormFor(employee: SalaryEmployee | null): EmployeeFormState {
+  const employeeFormFor = useCallback((employee: SalaryEmployee | null): EmployeeFormState => {
     const rate = employee ? summaries.get(employee.id)?.display : undefined;
     return {
       id: employee?.id ?? crypto.randomUUID(),
@@ -180,14 +183,28 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
       kpi_bar: rate?.kpi_bar ?? true,
       active: rate?.active ?? true,
     };
-  }
+  }, [summaries, today]);
+
+  // The setup form outlives the tabs: a change made elsewhere (deactivating on
+  // Employees, a pencil edit, a deleted rate) must reach it, or its next save
+  // would write the old values back. Fields being typed in are kept.
+  useEffect(() => {
+    const employee = selectedEmployee && data.employees.find((row) => row.id === selectedEmployee.id);
+    if (!employee) return;
+    const fresh = employeeFormFor(employee);
+    const baseline = employeeFormBaseline.current ?? fresh;
+    employeeFormBaseline.current = fresh;
+    setEmployeeForm((form) => (form.id === fresh.id ? mergeUntouchedFields(form, baseline, fresh) : form));
+  }, [data.employees, employeeFormFor, selectedEmployee]);
 
   // Forms are rendered inline, so selecting an employee or switching a
   // segmented option never scrolls the page.
   function selectSetupEmployee(employee: SalaryEmployee | null) {
     if (savingTarget === 'employee' || !isOwner) return;
+    const fresh = employeeFormFor(employee);
+    employeeFormBaseline.current = fresh;
     setSelected(employee);
-    setEmployeeForm(employeeFormFor(employee));
+    setEmployeeForm(fresh);
     setEmployeeError('');
   }
 
@@ -287,21 +304,28 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
     setSavingTarget('employee');
     setEditError('');
     let wrote = false;
+    // Each landed part joins the baseline, so a retry after a failure sends only what is left.
+    let landed = employeeEdit;
+    const markLanded = (part: 'role' | 'salary' | 'kpi') => {
+      landed = withLandedEmployeeChange(landed, part);
+      setEmployeeEdit(landed);
+      wrote = true;
+    };
     try {
       if (changes.role) {
         await postSalary(clubId, { action: 'change_role', employeeId, jobTitle: employeeEdit.role.trim() });
-        wrote = true;
+        markLanded('role');
       }
       if (changes.salary) {
         await postSalary(clubId, { action: 'change_term', employeeId, kind: 'salary', amount, salaryType: employeeEdit.salary_type });
-        wrote = true;
+        markLanded('salary');
       }
       if (changes.kpi) {
         await postSalary(clubId, {
           action: 'change_term', employeeId, kind: 'kpi', amount: kpi,
           kpiBasis: employeeEdit.kpi_basis, kpiGameClub: employeeEdit.kpi_game_club, kpiBar: employeeEdit.kpi_bar,
         });
-        wrote = true;
+        markLanded('kpi');
       }
       setEmployeeEdit(null);
       showToast(t('saved'));

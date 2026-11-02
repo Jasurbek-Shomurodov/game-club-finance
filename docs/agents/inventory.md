@@ -60,6 +60,13 @@ Browser code must use these RPCs:
 | Delete a purchase and repair affected state | `delete_stock_purchase` |
 | Save closing counts and validate/cascade history | `save_closing_stock_counts` |
 
+`record_stock_purchase` has a request-id overload (migration 119): the id becomes
+the row id, a repeat returns the first result, and the same id on a different
+purchase is refused. The page reuses one id across retries of a submit and falls
+back to the 034 signature when the overload is missing (`recordStockPurchase`). The
+overload also refuses a zero sale price, which the purchase trigger would copy
+onto the catalog.
+
 Do not split an RPC into separate inserts/updates. The functions lock and
 validate related rows so concurrent writes cannot leave partial ledger state.
 
@@ -112,6 +119,10 @@ later rows keeps each row's saved giveaway. Rows saved before 078 have
 frontend: the older RPC ignores the giveaway and rejects the mismatching sold
 quantity.
 
+Deleting a promotion clears `promotion_id` on saved giveaways. Counts of an
+archived product accept no writes, so such a delete is refused; the page says so
+(`isArchivedProductWriteError`) and the owner turns the promotion off instead.
+
 ## Historical snapshot rule
 
 For an open business day, purchases are the live source of `added_today`. Once a
@@ -121,7 +132,16 @@ a mismatch, but must not silently rewrite that saved result.
 
 Owner edits to a past closing are handled atomically and may validate/recalculate
 the forward stock chain. Preserve the database behavior in migrations 034 and
-038 and the matching tests.
+038 and the matching tests. The chain runs for every product in the payload, so
+a past date that already has saved counts sends only the rows that differ from
+the loaded snapshot (`changedClosingStockRows`); with no difference nothing is
+saved. A past date with no saved counts is saved whole, because that page lists
+only saved rows afterwards.
+
+`products.current_stock` follows the product's latest count (migration 118): when
+the written row has no later count, live stock becomes its closing plus receipts
+dated after it. Saving an older date, or updating a past row without changing its
+closing, leaves live stock alone. This writes `products` only, never saved counts.
 
 ## Relevant files
 

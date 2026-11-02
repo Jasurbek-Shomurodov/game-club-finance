@@ -183,6 +183,12 @@ describe('safeRedirectPath', () => {
     expect(safeRedirectPath('/\tevil')).toBeNull();
     expect(safeRedirectPath('javascript:alert(1)')).toBeNull();
   });
+  it('rejects paths that normalize into a protocol-relative URL', () => {
+    expect(safeRedirectPath('/.//evil.com')).toBeNull();
+    expect(safeRedirectPath('/a/..//evil.com')).toBeNull();
+    expect(safeRedirectPath('/%2e//evil.com')).toBeNull();
+    expect(safeRedirectPath('/..//evil.com/x?y=1')).toBeNull();
+  });
   it('rejects control characters', () => {
     expect(safeRedirectPath('/\n/evil.example')).toBeNull();
     expect(safeRedirectPath('/\t/evil.example')).toBeNull();

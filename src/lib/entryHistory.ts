@@ -33,7 +33,7 @@ const HIDDEN_FIELDS = new Set([
   'promotion_id',
 ]);
 
-export type AuditFieldKind = 'money' | 'quantity' | 'date' | 'month' | 'method' | 'source' | 'category' | 'product' | 'text';
+export type AuditFieldKind = 'money' | 'unitMoney' | 'quantity' | 'date' | 'month' | 'method' | 'source' | 'category' | 'product' | 'text';
 
 const FIELD_KINDS: Record<string, AuditFieldKind> = {
   cash_income: 'money',
@@ -41,11 +41,12 @@ const FIELD_KINDS: Record<string, AuditFieldKind> = {
   card_income: 'money',
   playstation_income: 'money',
   amount: 'money',
-  from_amount: 'money',
-  to_amount: 'money',
+  // Dollars keep cents and a rate can be fractional; whole sums still show whole.
+  from_amount: 'unitMoney',
+  to_amount: 'unitMoney',
+  rate: 'unitMoney',
   cost_price: 'money',
   sale_price: 'money',
-  rate: 'money',
   quantity: 'quantity',
   date: 'date',
   period_month: 'month',

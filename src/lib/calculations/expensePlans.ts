@@ -1,3 +1,4 @@
+import { parseCurrencyInput } from '@/lib/formatters';
 import type { EntryPaymentMethod } from '@/types';
 
 /**
@@ -48,6 +49,14 @@ export interface ExpensePlanSide {
 export interface ExpensePlanSummary {
   gameClub: ExpensePlanSide;
   bar: ExpensePlanSide;
+}
+
+/**
+ * The amount a form saves: what was typed, or the plan's monthly amount when
+ * the field was left empty. A typed 0 stays 0, so the form can refuse it.
+ */
+export function expenseAmountFromInput(input: string, plannedAmount: number | null): number {
+  return input.trim() ? parseCurrencyInput(input) : plannedAmount ?? 0;
 }
 
 const DAY_MS = 86_400_000;

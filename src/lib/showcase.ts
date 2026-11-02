@@ -71,7 +71,8 @@ export function missingLanguages(value: LocalizedText): ShowcaseLanguage[] {
 /** An absolute http(s) URL, or null for a blank or unusable value. */
 export function normalizeExternalUrl(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
-  if (!trimmed) return null;
+  // "https:///a/b" would parse as the host "a", so a site path is never a link.
+  if (!trimmed || trimmed.startsWith('/')) return null;
   const candidate = /^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`;
   try {
     const url = new URL(candidate);
@@ -81,12 +82,16 @@ export function normalizeExternalUrl(value: string | null | undefined): string |
   }
 }
 
-/** "@gameclub" or "t.me/gameclub" → https://t.me/gameclub. */
+const TELEGRAM_HOSTS = new Set(['t.me', 'www.t.me', 'telegram.me', 'www.telegram.me']);
+
+/** "@gameclub" or "t.me/gameclub" → https://t.me/gameclub; a link to any other site → null. */
 export function normalizeTelegramUrl(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
   if (!trimmed) return null;
-  if (trimmed.startsWith('@')) return normalizeExternalUrl(`t.me/${trimmed.slice(1)}`);
-  return normalizeExternalUrl(trimmed);
+  const normalized = normalizeExternalUrl(trimmed.startsWith('@') ? `t.me/${trimmed.slice(1)}` : trimmed);
+  if (!normalized) return null;
+  const url = new URL(normalized);
+  return TELEGRAM_HOSTS.has(url.hostname) && url.pathname.length > 1 ? normalized : null;
 }
 
 /** "@gameclub" → https://instagram.com/gameclub. */
@@ -550,7 +555,8 @@ export function parsePublicShowcase(raw: unknown, locale = 'ru'): PublicShowcase
         chair: text(zone.chair),
         peripherals: text(zone.peripherals),
         price_per_hour: price !== null && price >= 0 ? price : null,
-        image_url: safeUrl(zone.image_url),
+        // Built-in console pictures are site paths, not external links.
+        image_url: typeof zone.image_url === 'string' ? zoneImageUrl(zone.image_url) : null,
       }];
     }),
     offers: list(data.offers).flatMap((offer) => {

@@ -35,6 +35,7 @@ import { fetchActiveProductsOrdered } from '@/lib/supabase/products';
 import { fetchPromotions } from '@/lib/supabase/promotions';
 import {
   buildPromotionPayload,
+  isArchivedProductWriteError,
   promotionStatus,
   validatePromotionForm,
   type PromotionForm,
@@ -189,7 +190,7 @@ export default function PromotionsPage() {
       .select('id');
     setDeleting(false);
     if (error || (data?.length ?? 0) === 0) {
-      setFormError(error ? t('saveFailed') : t('saveNoRows'));
+      setFormError(isArchivedProductWriteError(error) ? t('deleteBlockedArchived') : error ? t('saveFailed') : t('saveNoRows'));
       return;
     }
     setModalOpen(false);

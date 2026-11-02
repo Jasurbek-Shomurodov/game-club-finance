@@ -16,7 +16,7 @@ const CLUB = '290c5c33-9dfa-464a-a072-ef5a231f5308';
 const ENTRY = '40c05af5-5a59-45ae-a891-19a18228a721';
 const entry = { date: '2026-10-24', cash_income: 2_134_000, terminal_income: 0, card_income: 0, playstation_income: 0 };
 
-function mockSupabase({ found = entry as typeof entry | null, deleted = [{ id: ENTRY }], user = { id: 'u1', email: 'o@example.test', user_metadata: {} } as object | null } = {}) {
+function mockSupabase({ found = entry as typeof entry | null, deleted = [{ id: ENTRY }], deleteError = null as { message: string; hint?: string } | null, user = { id: 'u1', email: 'o@example.test', user_metadata: {} } as object | null } = {}) {
   const deleteSpy = vi.fn();
   const from = vi.fn((table: string) => {
     const builder: Record<string, unknown> = {};
@@ -25,7 +25,7 @@ function mockSupabase({ found = entry as typeof entry | null, deleted = [{ id: E
     builder.eq = () => builder;
     builder.delete = () => { deleting = true; deleteSpy(); return builder; };
     builder.maybeSingle = () => Promise.resolve({ data: table === 'profiles' ? { full_name: 'Alisher' } : found, error: null });
-    builder.then = (resolve: (value: unknown) => unknown) => Promise.resolve({ data: deleting ? deleted : null, error: null }).then(resolve);
+    builder.then = (resolve: (value: unknown) => unknown) => Promise.resolve({ data: deleting && !deleteError ? deleted : null, error: deleting ? deleteError : null }).then(resolve);
     return builder;
   });
   mocks.createClient.mockResolvedValue({ auth: { getUser: () => Promise.resolve({ data: { user } }) }, from });
@@ -64,6 +64,16 @@ describe('DELETE /api/daily-cash', () => {
     expect((await call({ clubId: CLUB, entryId: ENTRY })).status).toBe(404);
     mockSupabase({ found: null });
     expect((await call({ clubId: CLUB, entryId: ENTRY })).status).toBe(404);
+    expect(mocks.sendTelegramMessage).not.toHaveBeenCalled();
+  });
+
+  it('tells a closed day from a server fault and sends nothing for either', async () => {
+    mockSupabase({ deleteError: { message: 'this day is closed.', hint: 'day_collected' } });
+    expect((await call({ clubId: CLUB, entryId: ENTRY })).status).toBe(409);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockSupabase({ deleteError: { message: 'connection lost' } });
+    expect((await call({ clubId: CLUB, entryId: ENTRY })).status).toBe(500);
+    consoleError.mockRestore();
     expect(mocks.sendTelegramMessage).not.toHaveBeenCalled();
   });
 

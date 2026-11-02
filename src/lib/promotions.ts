@@ -31,6 +31,14 @@ export function validatePromotionForm(form: PromotionForm): PromotionFormError |
   return null;
 }
 
+/**
+ * Deleting a promotion clears its link on saved giveaways, and saved counts of
+ * an archived product accept no writes, so the database refuses the delete.
+ */
+export function isArchivedProductWriteError(error: { code?: string | null; message?: string | null } | null | undefined): boolean {
+  return error?.code === '23514' && (error.message ?? '').toLowerCase().includes('archived products');
+}
+
 /** Validated form → columns written to `promotions` (club_id/created_by added by the caller). */
 export function buildPromotionPayload(form: PromotionForm) {
   return {

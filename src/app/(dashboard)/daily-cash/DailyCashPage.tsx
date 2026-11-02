@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { calculateFinancialReportTotals, calculateManualIncome } from '@/lib/calculations/dailyReport';
-import { canAccessFeature, canReadFinancialTotals } from '@/lib/permissions';
+import { canAccessFeature, canReadFinancialTotals, canReadStockCounts } from '@/lib/permissions';
 import ExpenseRegistrationForm from '../reports/ExpenseRegistrationForm';
 import { loadDailyCashSummary, emptyDailyCashSummary, type DailyCashSummary } from '@/lib/supabase/dailyCashSummary';
 import { requestDailyCashDeletion } from '@/lib/dailyCashApi';
@@ -167,6 +167,7 @@ export default function DailyCashPage() {
   const [error, setError] = useState('');
   const [now, setNow] = useState(() => new Date());
   const canSeeNetProfit = canReadFinancialTotals(currentRole, featureAccess);
+  const canSeeBarSales = canReadStockCounts(currentRole, featureAccess);
   /** Bumped by every load that writes the day summary; only the latest may land. */
   const summarySequence = useRef(0);
   // An expense form filled in for one club must never be saved into another.
@@ -387,12 +388,12 @@ export default function DailyCashPage() {
 
     try {
       // Through the route, so the club group is told about the deletion.
-      const deleted = (await requestDailyCashDeletion(clubId, target.id)) === 200;
+      const status = await requestDailyCashDeletion(clubId, target.id);
 
       if (currentClubId.current !== clubId) return;
 
-      if (!deleted) {
-        setError(t('deleteError'));
+      if (status !== 200) {
+        setError(status === 409 ? tc('dayClosed') : t('deleteError'));
         return;
       }
 
@@ -515,22 +516,30 @@ export default function DailyCashPage() {
           ))}
         </div>
 
-        <div className="mt-6" aria-live="polite">
-          <p className="text-sm font-medium text-gray-500">{t('totalGameClubIncome')}</p>
-          <p className="mt-1 break-words text-3xl font-bold tracking-tight tabular-nums text-gray-950">
-            <Money amount={total} currencyClassName="text-sm font-medium text-gray-500" />
-          </p>
-        </div>
+        {/* After a failed load the figures are unknown, not zero: the alert above is all that shows. */}
+        {!loadFailed && (
+          <div className="mt-6" aria-live="polite">
+            <p className="text-sm font-medium text-gray-500">{t('totalGameClubIncome')}</p>
+            <p className="mt-1 break-words text-3xl font-bold tracking-tight tabular-nums text-gray-950">
+              <Money amount={total} currencyClassName="text-sm font-medium text-gray-500" />
+            </p>
+          </div>
+        )}
 
-        {summaryFailed ? (
-          <LoadErrorAlert className="mt-3" retrying={saving} onRetry={() => void refreshSummary(form.date)}>
-            {t('summaryLoadError')}
-          </LoadErrorAlert>
-        ) : (
+        {summaryFailed || loadFailed ? (
+          !loadFailed && canSeeBarSales && (
+            <LoadErrorAlert className="mt-3" retrying={saving} onRetry={() => void refreshSummary(form.date)}>
+              {t('summaryLoadError')}
+            </LoadErrorAlert>
+          )
+        ) : canSeeBarSales && (
           <Card tone="muted" padding="sm" className="mt-3">
-            <div className={`grid grid-cols-1 divide-y divide-gray-200 sm:divide-x sm:divide-y-0 ${canSeeNetProfit ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+            <div className={`grid grid-cols-1 divide-y divide-gray-200 sm:divide-x sm:divide-y-0 ${canSeeNetProfit ? 'sm:grid-cols-3' : ''}`}>
               <StatTile variant="flat" size="sm" className="py-2 sm:pr-4 sm:py-0" label={t('barSales')} value={formatCurrency(barSummary.sales)} unit={tc('currency')} />
-              <StatTile variant="flat" size="sm" className="py-2 sm:px-4 sm:py-0" label={t('barProfit')} value={formatCurrency(barSummary.profit)} unit={tc('currency')} tone={toneForAmount(barSummary.profit)} />
+              {/* Bar and game club profit need the expense and debt ledgers, read only for these members. */}
+              {canSeeNetProfit && (
+                <StatTile variant="flat" size="sm" className="py-2 sm:px-4 sm:py-0" label={t('barProfit')} value={formatCurrency(barSummary.profit)} unit={tc('currency')} tone={toneForAmount(barSummary.profit)} />
+              )}
               {canSeeNetProfit && financeSummary && (
                 <StatTile variant="flat" size="sm" className="py-2 sm:px-4 sm:py-0" label={t('gameClubProfit')} value={formatCurrency(gameClubProfit)} unit={tc('currency')} tone={toneForAmount(gameClubProfit)} />
               )}

@@ -11,12 +11,14 @@ import {
   formatDatePickerValue,
   formatDateShort,
   formatDateTime,
+  formatDecimalInput,
   formatMonthShort,
   formatNumber,
   formatUnitCurrency,
   formatYearMonth,
   intlLocaleFor,
   parseCurrencyInput,
+  parseDecimalInput,
   setFormatterLocale,
 } from './formatters';
 
@@ -184,6 +186,44 @@ describe('intlLocaleFor', () => {
 describe('formatCurrency', () => {
   it('uses the shared numeric currency format', () => {
     expect(formatCurrency(1234567)).toBe('1 234 567');
+  });
+});
+
+describe('decimal inputs', () => {
+  /** Types `text` one character at a time, as the input reformats after each. */
+  const typed = (text: string) => [...text].reduce((value, character) => formatDecimalInput(value + character), '');
+
+  it('keeps cents while typing, whichever separator is used', () => {
+    expect(typed('40.50')).toBe('40,50');
+    expect(typed('40,50')).toBe('40,50');
+    expect(typed('12045.33')).toBe('12 045,33');
+    expect(formatDecimalInput('40.')).toBe('40,');
+    expect(parseDecimalInput(typed('40.50'))).toBe(40.5);
+    expect(parseDecimalInput(typed('12045.33'))).toBe(12045.33);
+  });
+
+  it('ignores a third decimal instead of growing the value', () => {
+    expect(typed('12.345')).toBe('12,34');
+    expect(formatDecimalInput('1 234,5.')).toBe('1 234,5');
+    expect(parseDecimalInput('12,345')).toBe(12.34);
+  });
+
+  it('reads pasted thousands separators', () => {
+    expect(parseDecimalInput('1,500.50')).toBe(1500.5);
+    expect(parseDecimalInput('1.500,50')).toBe(1500.5);
+    expect(parseDecimalInput('1,500,000')).toBe(1500000);
+    expect(parseDecimalInput('12 650,5')).toBe(12650.5);
+  });
+
+  it('handles empty, zero and number values', () => {
+    expect(formatDecimalInput('')).toBe('');
+    expect(formatDecimalInput(null)).toBe('');
+    expect(formatDecimalInput('.')).toBe('0,');
+    expect(formatDecimalInput('007')).toBe('7');
+    expect(parseDecimalInput('')).toBe(0);
+    expect(parseDecimalInput('0')).toBe(0);
+    expect(parseDecimalInput(39.47)).toBe(39.47);
+    expect(parseDecimalInput(Number.NaN)).toBe(0);
   });
 });
 

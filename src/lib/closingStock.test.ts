@@ -9,6 +9,7 @@ import {
   buildClosingStockUpserts,
   calculateBulkStockOrderSummary,
   calculatePurchaseCostsByProduct,
+  changedClosingStockRows,
   clearClosingStockDraft,
   closingStockDraftKey,
   closingStockRowTotalsInput,
@@ -22,6 +23,9 @@ import {
   saveClosingStockDraft,
   selectClosingStockImportRows,
   validateClosingStockRows,
+  withClosingStock,
+  withGiveaway,
+  withSoldQuantity,
   type ClosingStockImportSheet,
   type ClosingStockRowData,
   usesSoldQuantityEntry,
@@ -1187,5 +1191,95 @@ describe('usesSoldQuantityEntry', () => {
     expect(usesSoldQuantityEntry({ name: 'PIXEL Game Club' })).toBe(true);
     expect(usesSoldQuantityEntry({ name: 'Arena' })).toBe(false);
     expect(usesSoldQuantityEntry(null)).toBe(false);
+  });
+});
+
+describe('closing stock row edits', () => {
+  const row = (overrides: Partial<ClosingStockRowData> = {}): ClosingStockRowData => ({
+    product: {
+      id: 'cola', club_id: 'club', name: 'Cola', category: null, sale_price: 15000, cost_price: 9000, current_stock: 10,
+      tracks_inventory: true, low_stock_threshold: null, sort_order: null, is_active: true, is_deleted: false, created_at: '', updated_at: '',
+    } as Product,
+    previousStock: '10',
+    addedToday: '0',
+    adjustmentQuantity: '0',
+    adjustmentReason: '',
+    giveawayQuantity: '0',
+    promotionId: null,
+    closingStock: '10',
+    soldQuantity: '0',
+    ...overrides,
+  });
+
+  it('keeps the typed sold quantity and moves closing stock on an adjustment in sold entry', () => {
+    const sold = withSoldQuantity(row(), '3');
+    expect(sold).toMatchObject({ soldQuantity: '3', closingStock: '7' });
+    const adjusted = applyStockAdjustment(sold, '-2', true);
+    expect(adjusted).toMatchObject({ soldQuantity: '3', closingStock: '5', adjustmentQuantity: '-2' });
+    expect(validateClosingStockRows([{ ...adjusted, adjustmentReason: 'Broken bottles' }])).toBeNull();
+    expect(applyStockAdjustment(sold, '5', true)).toMatchObject({ soldQuantity: '3', closingStock: '12' });
+  });
+
+  it('gives the same result whichever of sold and adjustment is entered first', () => {
+    const adjustedFirst = withSoldQuantity(applyStockAdjustment(row(), '-2', true), '3');
+    const soldFirst = applyStockAdjustment(withSoldQuantity(row(), '3'), '-2', true);
+    expect(adjustedFirst).toMatchObject({ soldQuantity: soldFirst.soldQuantity, closingStock: soldFirst.closingStock });
+  });
+
+  it('refuses a sold quantity the adjustment no longer leaves room for', () => {
+    const adjusted = applyStockAdjustment(withSoldQuantity(row(), '9'), '-2', true);
+    expect(adjusted).toMatchObject({ soldQuantity: '9', closingStock: '0' });
+    expect(validateClosingStockRows([{ ...adjusted, adjustmentReason: 'Broken bottles' }])?.code).toBe('sold_quantity_mismatch');
+  });
+
+  it('keeps the counted closing stock and derives sold on an adjustment in count entry', () => {
+    const counted = withClosingStock(row(), '7');
+    expect(counted).toMatchObject({ closingStock: '7', soldQuantity: '3' });
+    expect(applyStockAdjustment(counted, '-2', false)).toMatchObject({ closingStock: '7', soldQuantity: '1' });
+  });
+
+  it('takes giveaways out of closing stock in sold entry and out of sold in count entry', () => {
+    expect(withGiveaway(withSoldQuantity(row(), '3'), '2', true)).toMatchObject({ soldQuantity: '3', closingStock: '5' });
+    expect(withGiveaway(withClosingStock(row(), '7'), '2')).toMatchObject({ soldQuantity: '1', closingStock: '7' });
+  });
+
+  it('keeps made-to-order rows at zero stock', () => {
+    const madeToOrder = row({ product: { ...row().product, tracks_inventory: false }, previousStock: '0', closingStock: '0' });
+    expect(withSoldQuantity(madeToOrder, '4')).toMatchObject({ soldQuantity: '4', closingStock: '0', previousStock: '0' });
+    expect(withGiveaway(withSoldQuantity(madeToOrder, '4'), '1', true)).toMatchObject({ soldQuantity: '4', closingStock: '0', giveawayQuantity: '1' });
+  });
+
+  describe('changed rows against the loaded snapshot', () => {
+    const tea = row({ product: { ...row().product, id: 'tea', name: 'Tea' } });
+
+    it('finds no rows when nothing was edited', () => {
+      expect(changedClosingStockRows([row(), tea], [row(), tea])).toEqual([]);
+    });
+
+    it('returns only the edited rows', () => {
+      const edited = withClosingStock(row(), '8');
+      expect(changedClosingStockRows([edited, tea], [row(), tea])).toEqual([edited]);
+    });
+
+    it('counts a row edited back to its saved values as unchanged', () => {
+      expect(changedClosingStockRows([withClosingStock(withClosingStock(row(), '8'), '10')], [row()])).toEqual([]);
+    });
+
+    it('notices adjustments, reasons, giveaways and promotions, and a blank count', () => {
+      const saved = row({ giveawayQuantity: '1', promotionId: 'a', closingStock: '9' });
+      for (const edited of [
+        { adjustmentQuantity: '1' }, { adjustmentReason: 'Recount' }, { giveawayQuantity: '2' }, { promotionId: 'b' }, { closingStock: '' },
+      ]) {
+        expect(changedClosingStockRows([{ ...saved, ...edited }], [saved])).toHaveLength(1);
+      }
+    });
+
+    it('ignores a promotion label with no giveaway, which is never saved', () => {
+      expect(changedClosingStockRows([row({ promotionId: 'a' })], [row()])).toEqual([]);
+    });
+
+    it('treats a row missing from the snapshot as changed', () => {
+      expect(changedClosingStockRows([row()], [])).toHaveLength(1);
+    });
   });
 });

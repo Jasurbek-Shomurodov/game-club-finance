@@ -6,7 +6,7 @@
  *
  * Layout & surfaces: Card, CardHeader, CardBody, CardFooter, SectionHeading, PageHeader, TopBarSlotProvider
  * Actions:           Button, ButtonLink, IconButton, Stepper
- * Forms:             Field, Input, CurrencyInput, Textarea, Select, Checkbox, SearchInput, NoteField/useEntryNoteGuard,
+ * Forms:             Field, Input, CurrencyInput, DecimalInput, Textarea, Select, Checkbox, SearchInput, NoteField/useEntryNoteGuard,
  *                    SegmentedControl, DatePicker, DateRangePicker, MonthPicker
  * Feedback:          InlineAlert, LoadErrorAlert, Toast/useToast, Modal, Drawer, ConfirmDialog/useConfirm, EmptyState, Disclosure, HelpButton,
  *                    Badge, Spinner, skeletons
@@ -27,6 +27,7 @@ export { EmptyState } from './EmptyState';
 export {
   Checkbox,
   CurrencyInput,
+  DecimalInput,
   Field,
   Input,
   Select,

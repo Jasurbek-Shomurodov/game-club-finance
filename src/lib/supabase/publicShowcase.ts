@@ -43,7 +43,9 @@ export async function fetchPublicShowcase(slug: string, locale: string): Promise
   return parsePublicShowcase(data, locale);
 }
 
+/** A brand with no published club is not a page: it reads as not found (117). */
 export async function fetchPublicBrand(slug: string, locale: string): Promise<PublicBrand | null> {
   const data = await readPublicRpc('get_public_brand', slug).catch(() => null);
-  return parsePublicBrand(data, locale);
+  const brand = parsePublicBrand(data, locale);
+  return brand && brand.clubs.length > 0 ? brand : null;
 }

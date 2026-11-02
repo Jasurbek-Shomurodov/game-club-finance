@@ -740,209 +740,212 @@ export default function MoneyTakenPage() {
         </LoadErrorAlert>
       ) : null}
 
-      {/* What the owner can still take out this month, per business: never added together. */}
-      <Card as="section" padding="lg" aria-labelledby="owner-profit-headline">
-        <p id="owner-profit-headline" className="text-[13px] font-medium text-gray-500">
-          {t('monthlyRemaining')} · {formatYearMonth(form.month, locale)}
-        </p>
-        <div className="mt-3 grid gap-5 sm:grid-cols-2">
-          {headlineSources.map((side) => (
-            <div key={side.source} className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900">{t(`sources.${side.source}`)}</p>
-              {loading ? (
-                <div className="mt-3 space-y-2" role="status" aria-label={tc('loading')}>
-                  <Skeleton className="h-10 w-48 max-w-full" />
-                  <Skeleton className="h-3 w-40 bg-gray-100" />
-                </div>
-              ) : (
-                <>
-                  <p className={cn('mt-2 break-words text-3xl font-bold leading-none tracking-tight tabular-nums sm:text-4xl', metricToneClassName[toneForAmount(side.available)])}>
-                    {formatCurrency(side.available)}
-                    <span className="ml-2 text-base font-medium tracking-normal text-gray-500">{tc('currency')}</span>
-                  </p>
-                  <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
-                    <div className="flex items-baseline gap-2">
-                      <dt className="text-gray-500">{t('earnedBeforeWithdrawals')}</dt>
-                      <dd className="font-semibold tabular-nums text-gray-900">{formatCurrency(side.earned)}</dd>
+      {/* After a failed load the balances are unknown, not zero: show only the error. */}
+      {!error && (
+        <>
+          {/* What the owner can still take out this month, per business: never added together. */}
+          <Card as="section" padding="lg" aria-labelledby="owner-profit-headline">
+            <p id="owner-profit-headline" className="text-[13px] font-medium text-gray-500">
+              {t('monthlyRemaining')} · {formatYearMonth(form.month, locale)}
+            </p>
+            <div className="mt-3 grid gap-5 sm:grid-cols-2">
+              {headlineSources.map((side) => (
+                <div key={side.source} className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900">{t(`sources.${side.source}`)}</p>
+                  {loading ? (
+                    <div className="mt-3 space-y-2" role="status" aria-label={tc('loading')}>
+                      <Skeleton className="h-10 w-48 max-w-full" />
+                      <Skeleton className="h-3 w-40 bg-gray-100" />
                     </div>
-                    <div className="flex items-baseline gap-2">
-                      <dt className="text-gray-500">{t('monthlyWithdrawn')}</dt>
-                      <dd className={cn('font-semibold tabular-nums', side.withdrawn > 0 ? 'text-danger-600' : 'text-gray-900')}>{formatCurrency(side.withdrawn)}</dd>
-                    </div>
-                    {monthHasCarryovers ? (
-                      <div className="flex items-baseline gap-2">
-                        <dt className="text-gray-500">{t('carriedColumn')}</dt>
-                        <dd className="font-semibold">{carriedCell(side.carried)}</dd>
-                      </div>
-                    ) : null}
-                  </dl>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <Card as="section" padding="none" className="overflow-hidden">
-        <CardHeader>
-          <SectionHeading title={t('breakdownTitle')} description={t('clubMethodsBeforeWithdrawals')} />
-        </CardHeader>
-        {loading ? (
-          <TableSkeleton rows={6} columns={4} className="rounded-none border-0 shadow-none" />
-        ) : (
-          <DataTable
-            bare
-            dense
-            label={t('breakdownTitle')}
-            minWidth={640}
-            columns={breakdownColumns}
-            data={breakdownRows}
-            keyExtractor={(row) => row.key}
-            rowClassName={(row) => (row.nested ? 'bg-gray-50/40' : undefined)}
-          />
-        )}
-      </Card>
-
-      {loading ? (
-        <div className={`grid gap-5 ${isOwner ? 'xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]' : ''}`}>
-          {isOwner ? <FormSkeleton /> : null}
-          <TableSkeleton rows={5} columns={4} />
-        </div>
-      ) : (
-        <div className={`grid gap-5 ${isOwner ? 'xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]' : ''}`}>
-          {isOwner ? (
-            <Card as="form" onSubmit={handleSubmit} className="h-fit">
-              <SectionHeading
-                title={t('recordTitle')}
-                description={t('notAnExpense')}
-                className="mb-5"
-              />
-
-              <div className="space-y-4">
-                <Field
-                  label={t('source')}
-                  hint={usesPaymentMethod ? undefined : (
+                  ) : (
                     <>
-                      {t('availableForSource')}:{' '}
-                      <span className="font-semibold tabular-nums text-success-600">{currency(sourceAvailable)}</span>
+                      <p className={cn('mt-2 break-words text-3xl font-bold leading-none tracking-tight tabular-nums sm:text-4xl', metricToneClassName[toneForAmount(side.available)])}>
+                        {formatCurrency(side.available)}
+                        <span className="ml-2 text-base font-medium tracking-normal text-gray-500">{tc('currency')}</span>
+                      </p>
+                      <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                        <div className="flex items-baseline gap-2">
+                          <dt className="text-gray-500">{t('earnedBeforeWithdrawals')}</dt>
+                          <dd className="font-semibold tabular-nums text-gray-900">{formatCurrency(side.earned)}</dd>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                          <dt className="text-gray-500">{t('monthlyWithdrawn')}</dt>
+                          <dd className={cn('font-semibold tabular-nums', side.withdrawn > 0 ? 'text-danger-600' : 'text-gray-900')}>{formatCurrency(side.withdrawn)}</dd>
+                        </div>
+                        {monthHasCarryovers ? (
+                          <div className="flex items-baseline gap-2">
+                            <dt className="text-gray-500">{t('carriedColumn')}</dt>
+                            <dd className="font-semibold">{carriedCell(side.carried)}</dd>
+                          </div>
+                        ) : null}
+                      </dl>
                     </>
                   )}
-                >
-                  <SegmentedControl label={t('source')} options={sourceOptions} value={form.source} onChange={(source) => setField('source', source)} disabled={loading} />
-                </Field>
-
-                {usesPaymentMethod ? (
-                  <Field
-                    label={t('paymentMethod')}
-                    required
-                    hint={form.paymentMethod ? (
-                      <>
-                        {t('availableForMethod', { method: methodLabel(form.paymentMethod) })}:{' '}
-                        <span className="font-semibold tabular-nums text-success-600">{currency(withdrawable)}</span>
-                      </>
-                    ) : t('noMethodAvailable')}
-                  >
-                    <SegmentedControl
-                      label={t('paymentMethod')}
-                      columns="auto"
-                      className="grid-cols-2 sm:grid-cols-4"
-                      value={form.paymentMethod}
-                      onChange={(paymentMethod) => setField('paymentMethod', paymentMethod)}
-                      disabled={loading}
-                      options={pickerMethods.map((method) => ({
-                        value: method,
-                        disabled: methodWithdrawable[method] <= 0,
-                        label: (
-                          <span className="flex flex-col items-center py-1 leading-tight">
-                            <span>{methodLabel(method)}</span>
-                            <span className="mt-0.5 text-[11px] font-normal tabular-nums opacity-80">{formatCurrency(methodWithdrawable[method])}</span>
-                          </span>
-                        ),
-                      }))}
-                    />
-                  </Field>
-                ) : null}
-
-                <Field
-                  label={`${t('amount')} (${tc('currency')})`}
-                  htmlFor="withdrawal-amount"
-                  required
-                  hint={form.source === 'all' ? t(methodsSupported ? 'allAllocationUnassigned' : 'allAllocation') : undefined}
-                  error={form.amount && !amountValid ? t('exceedsAvailable') : undefined}
-                >
-                  <CurrencyInput
-                    id="withdrawal-amount"
-                    required
-                    value={form.amount}
-                    invalid={Boolean(form.amount) && !amountValid}
-                    onValueChange={(value) => setField('amount', clampWithdrawalInput(value, withdrawable))}
-                  />
-                </Field>
-
-                <NoteField
-                  guard={note}
-                  id="withdrawal-comment"
-                  label={t('comment')}
-                  value={form.comment}
-                  onChange={(value) => setField('comment', value)}
-                  placeholder={t('commentPlaceholder')}
-                  maxLength={250}
-                />
-
-                <div className="space-y-2">
-                  <Button
-                    type="submit"
-                    fullWidth
-                    disabled={loading || !!error || deletingId !== null || saving === 'carry' || !amountValid}
-                    loading={saving === 'withdraw'}
-                    loadingLabel={tc('saving')}
-                    icon={<ArrowDownToLine size={18} aria-hidden="true" />}
-                  >
-                    {t('recordButton')}
-                  </Button>
-                  {carryoversSupported ? (
-                    <>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        fullWidth
-                        disabled={loading || !!error || deletingId !== null || saving === 'withdraw' || !canCarry}
-                        loading={saving === 'carry'}
-                        loadingLabel={tc('saving')}
-                        icon={<CalendarArrowUp size={18} aria-hidden="true" />}
-                        onClick={() => void handleCarry()}
-                      >
-                        {t('carryButtonTo', { month: formatYearMonth(nextYearMonth(form.month), locale) })}
-                      </Button>
-                      <p className="text-xs leading-5 text-gray-500">
-                        {form.source === 'all' ? t('carryChooseSource') : t('carryHint')}
-                      </p>
-                    </>
-                  ) : null}
                 </div>
-              </div>
-            </Card>
-          ) : null}
+              ))}
+            </div>
+          </Card>
 
-          <Card as="section" padding="none" className="h-fit overflow-hidden">
+          <Card as="section" padding="none" className="overflow-hidden">
             <CardHeader>
-              <SectionHeading title={t('historyTitle')} description={t('historyDescription')} />
+              <SectionHeading title={t('breakdownTitle')} description={t('clubMethodsBeforeWithdrawals')} />
             </CardHeader>
-            {error && historyRows.length === 0 ? null : (
+            {loading ? (
+              <TableSkeleton rows={6} columns={4} className="rounded-none border-0 shadow-none" />
+            ) : (
               <DataTable
                 bare
                 dense
-                label={t('historyTitle')}
-                minWidth={isOwner ? 600 : 520}
-                columns={historyColumns}
-                data={historyRows}
-                groups={historyGroups}
-                keyExtractor={(row) => `${row.kind}:${row.id}`}
-                emptyState={<EmptyState compact title={t('noHistory')} />}
+                label={t('breakdownTitle')}
+                minWidth={640}
+                columns={breakdownColumns}
+                data={breakdownRows}
+                keyExtractor={(row) => row.key}
+                rowClassName={(row) => (row.nested ? 'bg-gray-50/40' : undefined)}
               />
             )}
           </Card>
-        </div>
+
+          {loading ? (
+            <div className={`grid gap-5 ${isOwner ? 'xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]' : ''}`}>
+              {isOwner ? <FormSkeleton /> : null}
+              <TableSkeleton rows={5} columns={4} />
+            </div>
+          ) : (
+            <div className={`grid gap-5 ${isOwner ? 'xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]' : ''}`}>
+              {isOwner ? (
+                <Card as="form" onSubmit={handleSubmit} className="h-fit">
+                  <SectionHeading
+                    title={t('recordTitle')}
+                    description={t('notAnExpense')}
+                    className="mb-5"
+                  />
+
+                  <div className="space-y-4">
+                    <Field
+                      label={t('source')}
+                      hint={usesPaymentMethod ? undefined : (
+                        <>
+                          {t('availableForSource')}:{' '}
+                          <span className="font-semibold tabular-nums text-success-600">{currency(sourceAvailable)}</span>
+                        </>
+                      )}
+                    >
+                      <SegmentedControl label={t('source')} options={sourceOptions} value={form.source} onChange={(source) => setField('source', source)} disabled={loading} />
+                    </Field>
+
+                    {usesPaymentMethod ? (
+                      <Field
+                        label={t('paymentMethod')}
+                        required
+                        hint={form.paymentMethod ? (
+                          <>
+                            {t('availableForMethod', { method: methodLabel(form.paymentMethod) })}:{' '}
+                            <span className="font-semibold tabular-nums text-success-600">{currency(withdrawable)}</span>
+                          </>
+                        ) : t('noMethodAvailable')}
+                      >
+                        <SegmentedControl
+                          label={t('paymentMethod')}
+                          columns="auto"
+                          className="grid-cols-2 sm:grid-cols-4"
+                          value={form.paymentMethod}
+                          onChange={(paymentMethod) => setField('paymentMethod', paymentMethod)}
+                          disabled={loading}
+                          options={pickerMethods.map((method) => ({
+                            value: method,
+                            disabled: methodWithdrawable[method] <= 0,
+                            label: (
+                              <span className="flex flex-col items-center py-1 leading-tight">
+                                <span>{methodLabel(method)}</span>
+                                <span className="mt-0.5 text-[11px] font-normal tabular-nums opacity-80">{formatCurrency(methodWithdrawable[method])}</span>
+                              </span>
+                            ),
+                          }))}
+                        />
+                      </Field>
+                    ) : null}
+
+                    <Field
+                      label={`${t('amount')} (${tc('currency')})`}
+                      htmlFor="withdrawal-amount"
+                      required
+                      hint={form.source === 'all' ? t(methodsSupported ? 'allAllocationUnassigned' : 'allAllocation') : undefined}
+                      error={form.amount && !amountValid ? t('exceedsAvailable') : undefined}
+                    >
+                      <CurrencyInput
+                        id="withdrawal-amount"
+                        required
+                        value={form.amount}
+                        invalid={Boolean(form.amount) && !amountValid}
+                        onValueChange={(value) => setField('amount', clampWithdrawalInput(value, withdrawable))}
+                      />
+                    </Field>
+
+                    <NoteField
+                      guard={note}
+                      id="withdrawal-comment"
+                      label={t('comment')}
+                      value={form.comment}
+                      onChange={(value) => setField('comment', value)}
+                      placeholder={t('commentPlaceholder')}
+                      maxLength={250}
+                    />
+
+                    <div className="space-y-2">
+                      <Button
+                        type="submit"
+                        fullWidth
+                        disabled={loading || !!error || deletingId !== null || saving === 'carry' || !amountValid}
+                        loading={saving === 'withdraw'}
+                        loadingLabel={tc('saving')}
+                        icon={<ArrowDownToLine size={18} aria-hidden="true" />}
+                      >
+                        {t('recordButton')}
+                      </Button>
+                      {carryoversSupported ? (
+                        <>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            fullWidth
+                            disabled={loading || !!error || deletingId !== null || saving === 'withdraw' || !canCarry}
+                            loading={saving === 'carry'}
+                            loadingLabel={tc('saving')}
+                            icon={<CalendarArrowUp size={18} aria-hidden="true" />}
+                            onClick={() => void handleCarry()}
+                          >
+                            {t('carryButtonTo', { month: formatYearMonth(nextYearMonth(form.month), locale) })}
+                          </Button>
+                          <p className="text-xs leading-5 text-gray-500">
+                            {form.source === 'all' ? t('carryChooseSource') : t('carryHint')}
+                          </p>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+                </Card>
+              ) : null}
+
+              <Card as="section" padding="none" className="h-fit overflow-hidden">
+                <CardHeader>
+                  <SectionHeading title={t('historyTitle')} description={t('historyDescription')} />
+                </CardHeader>
+                <DataTable
+                  bare
+                  dense
+                  label={t('historyTitle')}
+                  minWidth={isOwner ? 600 : 520}
+                  columns={historyColumns}
+                  data={historyRows}
+                  groups={historyGroups}
+                  keyExtractor={(row) => `${row.kind}:${row.id}`}
+                  emptyState={<EmptyState compact title={t('noHistory')} />}
+                />
+              </Card>
+            </div>
+          )}
+        </>
       )}
 
       {toastElement}

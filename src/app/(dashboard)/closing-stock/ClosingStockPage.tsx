@@ -42,12 +42,7 @@ import { calendarTodayIso, todayIso } from '@/lib/utils';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { formatCurrency, formatDateOnly, formatNumber, formatUnitCurrency } from '@/lib/formatters';
-import {
-  calculateClosingStockFromSold,
-  calculateStockCountSummary,
-  summarizeStockRow,
-  summarizeStockRows,
-} from '@/lib/calculations/stock';
+import { summarizeStockRow, summarizeStockRows } from '@/lib/calculations/stock';
 import { classifyStockWriteError, type StockWriteErrorLike } from '@/lib/stockWriteErrors';
 import {
   applyBulkStockOrder,
@@ -57,6 +52,7 @@ import {
   buildEditableClosingStockRows,
   buildClosingStockUpserts,
   calculatePurchaseCostsByProduct,
+  changedClosingStockRows,
   clearClosingStockDraft,
   closingStockRowTotalsInput,
   isReadOnlyClosingStockProduct,
@@ -68,6 +64,9 @@ import {
   saveClosingStockDraft,
   usesSoldQuantityEntry,
   validateClosingStockRows,
+  withClosingStock,
+  withGiveaway,
+  withSoldQuantity,
   type ClosingStockExistingCount,
   type ClosingStockPurchaseQuantity,
   type ClosingStockRowData,
@@ -155,58 +154,6 @@ const stickyProductHeaderCellClass = 'sticky left-12 top-0 z-30 border-b border-
 const stickyProductCellClass = 'sticky left-12 z-10 bg-surface px-4 py-4 shadow-[1px_0_0_0_rgb(var(--c-gray-200))] group-hover:bg-gray-50';
 const TABLE_COLUMN_COUNT = 12;
 const addedTodayHeaderCellClass = stickyHeaderCellClass;
-
-/** Sold quantity derived from the row's stock movement, including promo giveaways. */
-function derivedSoldQuantity(row: RowData): string {
-  return String(calculateStockCountSummary({
-    previousStock: parseNum(row.previousStock),
-    addedToday: parseNum(row.addedToday),
-    adjustmentQuantity: parseAdjustment(row.adjustmentQuantity),
-    giveawayQuantity: parseNum(row.giveawayQuantity),
-    closingStock: parseNum(row.closingStock),
-    salePrice: row.product.sale_price,
-    costPrice: row.product.cost_price,
-  }).soldQuantity);
-}
-
-function withClosingStock(row: RowData, value: string): RowData {
-  const nextRow = { ...row, closingStock: value };
-  return { ...nextRow, soldQuantity: derivedSoldQuantity(nextRow) };
-}
-
-function withSoldQuantity(row: RowData, value: string): RowData {
-  if (row.product.tracks_inventory === false) {
-    return {
-      ...row,
-      soldQuantity: value,
-      previousStock: '0',
-      addedToday: '0',
-      closingStock: '0',
-    };
-  }
-  return {
-    ...row,
-    soldQuantity: value,
-    closingStock: String(calculateClosingStockFromSold(
-      parseNum(row.previousStock),
-      parseNum(row.addedToday),
-      parseNum(value),
-      parseAdjustment(row.adjustmentQuantity),
-      parseNum(row.giveawayQuantity),
-    )),
-  };
-}
-
-/**
- * Free units leave stock unsold. When staff count closing stock, the sold
- * quantity shrinks; when they enter sold quantities, closing stock shrinks.
- */
-function withGiveaway(row: RowData, value: string, soldEntry: boolean): RowData {
-  const nextRow = { ...row, giveawayQuantity: value };
-  if (row.product.tracks_inventory === false) return nextRow;
-  if (soldEntry) return withSoldQuantity(nextRow, nextRow.soldQuantity);
-  return { ...nextRow, soldQuantity: derivedSoldQuantity(nextRow) };
-}
 
 function rowSummary(row: RowData) {
   return summarizeStockRow(closingStockRowTotalsInput(row));
@@ -551,6 +498,19 @@ export default function ClosingStockPage() {
     nextRows = nextRows.filter((row) => !isReadOnlyClosingStockProduct(row.product));
     if (nextRows.length === 0) return { ok: false, message: tc('noData') };
     if (!selectedClubId) return { ok: false, message: tc('error') };
+
+    // The RPC recalculates later days for every product it receives, so a saved
+    // past day sends only what the owner changed; other products' later
+    // snapshots stay untouched. A day with no saved counts is saved whole.
+    if (isHistoricalDate && hasSavedCounts) {
+      nextRows = changedClosingStockRows(nextRows, dayQuery.data.rows);
+      if (nextRows.length === 0) {
+        setError('');
+        setDirty(false);
+        showToast(t('noChanges'));
+        return { ok: true, message: null };
+      }
+    }
 
     const validationError = validateClosingStockRows(nextRows);
     if (validationError) {

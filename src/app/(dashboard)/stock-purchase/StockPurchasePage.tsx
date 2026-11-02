@@ -38,7 +38,9 @@ import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { fetchActiveProductsOrdered, fetchProductIdsByName } from '@/lib/supabase/products';
+import { recordStockPurchase } from '@/lib/supabase/stockPurchases';
 import {
+  isInvalidPurchaseSalePrice,
   isPrefilledAmountEdited,
   prefillAmount,
   resolvePrefilledAmount,
@@ -96,12 +98,14 @@ function paymentBadgeVariant(method: string): 'success' | 'primary' | 'purple' |
 }
 
 interface PurchasePage {
+  /** The club these rows belong to; another club's rows are never shown. */
+  clubId: string | null;
   rows: PurchaseWithProduct[];
   count: number;
 }
 
 const NO_PRODUCTS: Product[] = [];
-const EMPTY_PURCHASE_PAGE: PurchasePage = { rows: [], count: 0 };
+const EMPTY_PURCHASE_PAGE: PurchasePage = { clubId: null, rows: [], count: 0 };
 
 interface PurchaseForm {
   date: string;
@@ -138,6 +142,9 @@ export default function StockPurchasePage() {
   // An untouched form date follows the business day across midnight; a date
   // the user picked is never replaced.
   const dateTouched = useRef(false);
+  // Client id reused across retries of one submit, so a save whose response was
+  // lost is recorded once. Cleared on edit and on success.
+  const purchaseRequestId = useRef<string | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -151,6 +158,9 @@ export default function StockPurchasePage() {
     ...emptyItemFields,
     payment_method: defaultPaymentMethod(enabledPaymentMethods),
   }));
+
+  // Edited values are a different purchase, not a retry of the last attempt.
+  useEffect(() => { purchaseRequestId.current = null; }, [form]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -227,10 +237,11 @@ export default function StockPurchasePage() {
       },
     );
     if (error) throw new Error(error.message);
-    return { rows: (data as PurchaseWithProduct[]) ?? [], count: count ?? 0 };
+    return { clubId: selectedClubId, rows: (data as PurchaseWithProduct[]) ?? [], count: count ?? 0 };
   }, [debouncedQuery, purchasePage, selectedClubId]);
   const purchasesQuery = useClubQuery(fetchPurchases, EMPTY_PURCHASE_PAGE);
-  const { rows: purchases, count: purchaseCount } = purchasesQuery.data;
+  // A club switch clears the list at once; paging keeps the old rows dimmed.
+  const { rows: purchases, count: purchaseCount } = purchasesQuery.data.clubId === selectedClubId ? purchasesQuery.data : EMPTY_PURCHASE_PAGE;
   const { loading: purchasesLoading, error: purchasesError, reload: loadPurchases } = purchasesQuery;
 
   // A different club has different products: never carry a product, prices or
@@ -370,21 +381,27 @@ export default function StockPurchasePage() {
       return;
     }
 
+    if (isInvalidPurchaseSalePrice(requestedSalePrice)) {
+      setFormError(t('salePricePositive'));
+      return;
+    }
+
     setSaving(true);
     setFormError('');
 
     const supabase = createClient();
     let err: StockWriteErrorLike | null = null;
     try {
-      const result = await supabase.rpc('record_stock_purchase', {
-        p_club_id: selectedClubId,
-        p_date: form.date,
-        p_product_id: form.product_id,
-        p_quantity: quantity,
-        p_cost_price: costPrice,
-        p_sale_price: requestedSalePrice,
-        p_payment_method: form.payment_method,
-        p_comment: form.comment.trim() || null,
+      const result = await recordStockPurchase(supabase, {
+        requestId: (purchaseRequestId.current ??= crypto.randomUUID()),
+        clubId: selectedClubId,
+        date: form.date,
+        productId: form.product_id,
+        quantity,
+        costPrice,
+        salePrice: requestedSalePrice,
+        paymentMethod: form.payment_method,
+        comment: form.comment.trim() || null,
       });
       err = result.error;
     } catch {
@@ -399,6 +416,7 @@ export default function StockPurchasePage() {
       return;
     }
 
+    purchaseRequestId.current = null;
     clearItemFields();
     showToast(t('success'));
     await reloadAfterMutation(1);

@@ -38,6 +38,7 @@ import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { cn } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { isDayCollectedError } from '@/lib/supabase/dailyCashCollections';
+import { debtPaymentIsRecorded } from '@/lib/supabase/debtPayments';
 import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { fetchAllRows } from '@/lib/supabase/pagination';
@@ -339,8 +340,9 @@ export default function DebtsPage() {
 
     try {
       const supabase = createClient();
+      const paymentId = (payRequestId.current ??= crypto.randomUUID());
       const { error: err } = await supabase.from('debt_payments').insert({
-        id: (payRequestId.current ??= crypto.randomUUID()),
+        id: paymentId,
         club_id: selectedClubId,
         debt_id: payDebtId,
         amount,
@@ -350,10 +352,14 @@ export default function DebtsPage() {
       });
 
       // 23505 on our own id: an earlier attempt of this submit was already saved.
-      if (err && err.code !== '23505') {
+      // The overpayment trigger runs first, so a saved retry can also arrive as
+      // "exceeds remaining"; only then does the row itself settle it.
+      const issue = err ? classifyDebtPaymentInsertError(err) : null;
+      const alreadySaved = !err || err.code === '23505'
+        || (issue === 'exceeds_remaining' && await debtPaymentIsRecorded(supabase, selectedClubId, paymentId));
+      if (err && !alreadySaved) {
         console.error('Failed to save debt payment', err);
         if (isNoteRequiredError(err)) { payNote.reject(payForm.comment); return; }
-        const issue = classifyDebtPaymentInsertError(err);
         setError(
           isDayCollectedError(err)
             ? tc('dayClosed')

@@ -55,11 +55,23 @@ describe('links', () => {
     expect(normalizeExternalUrl('example.com/a')).toBe('https://example.com/a');
     expect(normalizeExternalUrl('javascript:alert(1)')).toBeNull();
     expect(normalizeExternalUrl('  ')).toBeNull();
+    expect(normalizeExternalUrl('/playstation/ps5.svg')).toBeNull();
   });
 
   it('expands social handles', () => {
     expect(normalizeTelegramUrl('@club')).toBe('https://t.me/club');
     expect(normalizeInstagramUrl('@club')).toBe('https://instagram.com/club');
+  });
+
+  it('accepts only Telegram hosts for Telegram links', () => {
+    expect(normalizeTelegramUrl('t.me/club')).toBe('https://t.me/club');
+    expect(normalizeTelegramUrl('https://t.me/+invite')).toBe('https://t.me/+invite');
+    expect(normalizeTelegramUrl('https://telegram.me/club')).toBe('https://telegram.me/club');
+    expect(normalizeTelegramUrl('example.com')).toBeNull();
+    expect(normalizeTelegramUrl('https://t.me.evil.example/club')).toBeNull();
+    expect(normalizeTelegramUrl('https://t.me@evil.example/club')).toBeNull();
+    expect(normalizeTelegramUrl('https://t.me/')).toBeNull();
+    expect(normalizeTelegramUrl('javascript:alert(1)')).toBeNull();
   });
 
   it('builds tel links only for real numbers', () => {
@@ -123,6 +135,19 @@ describe('parsePublicShowcase', () => {
     expect(parsed?.games).toEqual([{ id: 'g1', title: 'CS2', genre: null, image_url: 'https://cdn/x.jpg' }]);
     expect(totalPcCount(parsed!.zones)).toBe(8);
     expect(lowestHourlyPrice(parsed!.zones)).toBe(20000);
+  });
+
+  it('keeps built-in console pictures as site paths and drops other relative images', () => {
+    const parsed = parsePublicShowcase({
+      club_name: 'Neon',
+      slug: 'neon',
+      zones: [
+        { id: 'z1', name: 'PS5', kind: 'playstation', pc_count: 2, image_url: '/playstation/ps5.svg' },
+        { id: 'z2', name: 'VIP', pc_count: 2, image_url: '/secret/page' },
+        { id: 'z3', name: 'Pro', pc_count: 2, image_url: 'https://cdn.example/zone.jpg' },
+      ],
+    });
+    expect(parsed?.zones.map((zone) => zone.image_url)).toEqual(['/playstation/ps5.svg', null, 'https://cdn.example/zone.jpg']);
   });
 
   it('returns null for an unpublished or unknown page', () => {

@@ -4,6 +4,7 @@ import { createSupabaseQuotaStore } from 'hoggish-assistant/supabase';
 import { createServiceClient } from '@/lib/supabase/service';
 import { normalizeBusinessDayStartHour, serverTodayIso } from '@/lib/utils';
 import { authorizeAssistant, type AssistantAccess } from './access';
+import { assistantDailyRequestLimit, withDailyRequestCap } from './dailyCap';
 import { allowedDatasets, type AssistantDataset } from './datasets';
 import { createTranslator } from './i18n';
 import { createDatasetLoader } from './loaders';
@@ -28,12 +29,13 @@ export function assistantProvider(env: Record<string, string | undefined> = proc
     console.error('[assistant] free-tier Gemini needs ASSISTANT_ALLOW_FREE_GEMINI=true');
     throw new AssistantError('NOT_CONFIGURED');
   }
-  return provider;
+  return withDailyRequestCap(provider, assistantDailyRequestLimit(env));
 }
 
 /**
- * Free-tier request counts (migration 080), shared by the whole deployment.
- * Best effort: without the service key or the migration the badge is hidden.
+ * Daily request counts (migration 080), shared by the whole deployment.
+ * Best effort: without the service key or the migration the badge is hidden
+ * and the daily cap is not counted.
  */
 function quotaStore() {
   try {

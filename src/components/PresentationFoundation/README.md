@@ -15,7 +15,7 @@ import { Button, Card, Field, Input, InlineAlert, PageHeader } from '@/component
 | Page title, tabs, actions, back link | `PageHeader` |
 | White panel / section | `Card` (+ `SectionHeading`, `CardHeader`, `CardBody`, `CardFooter`) |
 | Any clickable action | `Button` (`variant`: primary, outline, secondary, ghost, danger, dangerOutline, success), `ButtonLink` for navigation, `IconButton` for icon-only |
-| Text / money / select / textarea | `Field` + `Input` / `CurrencyInput` / `Select` / `Textarea` / `Checkbox` |
+| Text / money / select / textarea | `Field` + `Input` / `CurrencyInput` / `DecimalInput` / `Select` / `Textarea` / `Checkbox` |
 | Required note on a spending entry (5+ words) | `useEntryNoteGuard` + `NoteField`; call `guard.check(note)` before saving and render `guard.dialog` |
 | Multi-select option tiles (payment methods, page access) | `Checkbox variant="card"` |
 | Person or product initials | `Avatar` (`tone`: primary for people, neutral for products) |
@@ -67,7 +67,9 @@ Rules of thumb:
   than raw Tailwind reds and greens so the palette stays consistent.
 - Money and prices: `Money` shows the translated currency (сум / so'm / UZS)
   by default; `CurrencyInput` keeps the caret in place while separators move
-  and ignores a pasted decimal part ("1 500,50" → 1 500).
+  and ignores a pasted decimal part ("1 500,50" → 1 500). `DecimalInput` is for
+  values that are not whole UZS (dollars, exchange rates): two decimals, `.` or
+  `,`, parsed with `parseDecimalInput`.
 - Dialogs stack: `Modal`, `Drawer`, `ConfirmDialog`, the date/month pickers and the
   mobile drawer register with one modal stack, so Escape and the Tab focus trap
   only act on the top dialog. A bespoke overlay must use `useModalLayer` +

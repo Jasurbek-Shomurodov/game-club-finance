@@ -278,127 +278,131 @@ export default function DashboardPage({
         </LoadErrorAlert>
       )}
 
-      {/* Headline numbers: the four figures an owner checks first. */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <AmountCard
-          loading={loading}
-          currency={currency}
-          label={t('gameClubIncome')}
-          amount={totals.gameClubIncome}
-          icon={MonitorSmartphone}
-          iconClassName={SIDE_ICON_CLASS.gameClub}
-          tone="success"
-          comparison={comparisonFor(totals.gameClubIncome, previousTotals.gameClubIncome)}
-        />
-        <AmountCard
-          loading={loading}
-          currency={currency}
-          label={t('barSales')}
-          amount={totals.barSales}
-          icon={ShoppingBag}
-          iconClassName={SIDE_ICON_CLASS.bar}
-          tone="success"
-          comparison={comparisonFor(totals.barSales, previousTotals.barSales)}
-        />
-        {/* The game club and the bar are separate businesses: each keeps its own profit. */}
-        <AmountCard
-          loading={loading}
-          currency={currency}
-          label={t('gameClubNetProfit')}
-          amount={totals.gameClubProfit}
-          icon={totals.gameClubProfit < 0 ? ArrowDownRight : ArrowUpRight}
-          iconClassName={SIDE_ICON_CLASS.gameClub}
-          tone={toneForAmount(totals.gameClubProfit)}
-          comparison={comparisonFor(totals.gameClubProfit, previousTotals.gameClubProfit)}
-          helper={`${t('gameClubPaidExpenses')}: ${formatCurrency(totals.gameClubExpenses)} ${currency}`}
-        />
-        <AmountCard
-          loading={loading}
-          currency={currency}
-          label={t('barNetProfit')}
-          amount={totals.barProfit}
-          icon={totals.barProfit < 0 ? ArrowDownRight : ArrowUpRight}
-          iconClassName={SIDE_ICON_CLASS.bar}
-          tone={toneForAmount(totals.barProfit)}
-          comparison={barProfitComparison}
-          helper={t('barNetProfitDesc')}
-        />
-      </div>
+      {/* After a failed load the figures are unknown, not zero: show only the error. */}
+      {!error && (
+        <>
+          {/* Headline numbers: the four figures an owner checks first. */}
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <AmountCard
+              loading={loading}
+              currency={currency}
+              label={t('gameClubIncome')}
+              amount={totals.gameClubIncome}
+              icon={MonitorSmartphone}
+              iconClassName={SIDE_ICON_CLASS.gameClub}
+              tone="success"
+              comparison={comparisonFor(totals.gameClubIncome, previousTotals.gameClubIncome)}
+            />
+            <AmountCard
+              loading={loading}
+              currency={currency}
+              label={t('barSales')}
+              amount={totals.barSales}
+              icon={ShoppingBag}
+              iconClassName={SIDE_ICON_CLASS.bar}
+              tone="success"
+              comparison={comparisonFor(totals.barSales, previousTotals.barSales)}
+            />
+            {/* The game club and the bar are separate businesses: each keeps its own profit. */}
+            <AmountCard
+              loading={loading}
+              currency={currency}
+              label={t('gameClubNetProfit')}
+              amount={totals.gameClubProfit}
+              icon={totals.gameClubProfit < 0 ? ArrowDownRight : ArrowUpRight}
+              iconClassName={SIDE_ICON_CLASS.gameClub}
+              tone={toneForAmount(totals.gameClubProfit)}
+              comparison={comparisonFor(totals.gameClubProfit, previousTotals.gameClubProfit)}
+              helper={`${t('gameClubPaidExpenses')}: ${formatCurrency(totals.gameClubExpenses)} ${currency}`}
+            />
+            <AmountCard
+              loading={loading}
+              currency={currency}
+              label={t('barNetProfit')}
+              amount={totals.barProfit}
+              icon={totals.barProfit < 0 ? ArrowDownRight : ArrowUpRight}
+              iconClassName={SIDE_ICON_CLASS.bar}
+              tone={toneForAmount(totals.barProfit)}
+              comparison={barProfitComparison}
+              helper={t('barNetProfitDesc')}
+            />
+          </div>
 
-      {/* Each business gets its own money flow; tapping a node opens the Sankey behind it. */}
-      {loading ? (
-        <div className="grid gap-3 2xl:grid-cols-2" role="status" aria-label={t('loading')}>
-          <ChartLoading />
-          <ChartLoading />
-        </div>
-      ) : (
-        <MoneyFlowSankeys
-          className="grid gap-3 2xl:grid-cols-2"
-          ledgers={ledgers}
-          range={range}
-          periodLabel={periodLabel}
-          locale={locale}
-          currency={currency}
-          gameClub={{
-            title: tf('gameClubFlowTitle'),
-            description: tf('flowDesc'),
-            action: detailsLink(`/game-club-money-details?${detailsQuery}`),
-            footer: (
-              <FlowFigures
-                loading={loading}
-                items={[
-                  { label: t('totalMoneyLeft'), helper: t('totalMoneyLeftDesc'), amount: totals.gameClubMoneyLeft, currency, tone: toneForAmount(totals.gameClubMoneyLeft) },
-                  { label: t('activeDebts'), helper: t('activeDebtsDesc', { count: totals.activeDebtCount }), amount: totals.activeDebts, currency, tone: totals.activeDebts > 0 ? 'danger' : 'default' },
-                  { label: t('averageDailyIncome'), helper: t('averageDailyClubIncomeDesc'), amount: averageGameClubIncome, currency },
-                ]}
+          {/* Each business gets its own money flow; tapping a node opens the Sankey behind it. */}
+          {loading ? (
+            <div className="grid gap-3 2xl:grid-cols-2" role="status" aria-label={t('loading')}>
+              <ChartLoading />
+              <ChartLoading />
+            </div>
+          ) : (
+            <MoneyFlowSankeys
+              className="grid gap-3 2xl:grid-cols-2"
+              ledgers={ledgers}
+              range={range}
+              periodLabel={periodLabel}
+              locale={locale}
+              currency={currency}
+              gameClub={{
+                title: tf('gameClubFlowTitle'),
+                description: tf('flowDesc'),
+                action: detailsLink(`/game-club-money-details?${detailsQuery}`),
+                footer: (
+                  <FlowFigures
+                    loading={loading}
+                    items={[
+                      { label: t('totalMoneyLeft'), helper: t('totalMoneyLeftDesc'), amount: totals.gameClubMoneyLeft, currency, tone: toneForAmount(totals.gameClubMoneyLeft) },
+                      { label: t('activeDebts'), helper: t('activeDebtsDesc', { count: totals.activeDebtCount }), amount: totals.activeDebts, currency, tone: totals.activeDebts > 0 ? 'danger' : 'default' },
+                      { label: t('averageDailyIncome'), helper: t('averageDailyClubIncomeDesc'), amount: averageGameClubIncome, currency },
+                    ]}
+                  />
+                ),
+              }}
+              bar={{
+                title: tf('barFlowTitle'),
+                description: tf('flowDesc'),
+                action: detailsLink(`/bar-money-details?${detailsQuery}`),
+                footer: (
+                  <FlowFigures
+                    loading={loading}
+                    items={[
+                      { label: t('barMoneyLeft'), helper: t('barMoneyLeftDesc'), amount: totals.barIncome, currency, tone: toneForAmount(totals.barIncome) },
+                      { label: t('inventoryValue'), helper: `${t('inventoryValueDesc')} ${inventoryHelper}`, amount: totals.inventoryValue, currency },
+                      { label: t('averageDailyIncome'), helper: t('averageDailyBarIncomeDesc'), amount: averageBarIncome, currency },
+                    ]}
+                  />
+                ),
+              }}
+            />
+          )}
+
+          {!renderCharts ? (
+            <div ref={chartsAnchorRef} role="status" aria-label={t('loading')}>
+              <ChartLoading />
+            </div>
+          ) : (
+            // Once rendered, the chart stays mounted across range/club changes and is
+            // dimmed while the next data loads instead of swapping to a skeleton.
+            <div
+              className={cn('transition-opacity', loading && 'pointer-events-none opacity-60')}
+              aria-busy={loading || undefined}
+            >
+              <IncomeTrendChart
+                data={trend}
+                link={(
+                  <ButtonLink
+                    href={`/financial-analysis?${detailsQuery}`}
+                    variant="ghost"
+                    size="sm"
+                    iconRight={<ArrowRight size={15} aria-hidden="true" />}
+                  >
+                    {t('analysisLinkAction')}
+                  </ButtonLink>
+                )}
               />
-            ),
-          }}
-          bar={{
-            title: tf('barFlowTitle'),
-            description: tf('flowDesc'),
-            action: detailsLink(`/bar-money-details?${detailsQuery}`),
-            footer: (
-              <FlowFigures
-                loading={loading}
-                items={[
-                  { label: t('barMoneyLeft'), helper: t('barMoneyLeftDesc'), amount: totals.barIncome, currency, tone: toneForAmount(totals.barIncome) },
-                  { label: t('inventoryValue'), helper: `${t('inventoryValueDesc')} ${inventoryHelper}`, amount: totals.inventoryValue, currency },
-                  { label: t('averageDailyIncome'), helper: t('averageDailyBarIncomeDesc'), amount: averageBarIncome, currency },
-                ]}
-              />
-            ),
-          }}
-        />
+            </div>
+          )}
+        </>
       )}
-
-      {!renderCharts ? (
-        <div ref={chartsAnchorRef} role="status" aria-label={t('loading')}>
-          <ChartLoading />
-        </div>
-      ) : (
-        // Once rendered, the chart stays mounted across range/club changes and is
-        // dimmed while the next data loads instead of swapping to a skeleton.
-        <div
-          className={cn('transition-opacity', loading && 'pointer-events-none opacity-60')}
-          aria-busy={loading || undefined}
-        >
-          <IncomeTrendChart
-            data={trend}
-            link={(
-              <ButtonLink
-                href={`/financial-analysis?${detailsQuery}`}
-                variant="ghost"
-                size="sm"
-                iconRight={<ArrowRight size={15} aria-hidden="true" />}
-              >
-                {t('analysisLinkAction')}
-              </ButtonLink>
-            )}
-          />
-        </div>
-      )}
-
     </div>
   );
 }

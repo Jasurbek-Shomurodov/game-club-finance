@@ -31,6 +31,13 @@ describe('public showcase reads', () => {
     expect(mocks.rpc).toHaveBeenNthCalledWith(2, 'get_public_showcase', { p_slug: 'pixel' });
   });
 
+  it('reads a brand with no published club as not found', async () => {
+    mocks.rpc.mockResolvedValue({ data: { slug: 'fake', name: 'Fake', clubs: [] }, error: null });
+    await expect(fetchPublicBrand('fake', 'en')).resolves.toBeNull();
+    mocks.rpc.mockResolvedValue({ data: { slug: 'real', name: 'Real', clubs: [{ club_name: 'Neon', slug: 'neon' }] }, error: null });
+    await expect(fetchPublicBrand('real', 'en')).resolves.toMatchObject({ slug: 'real' });
+  });
+
   it('reads a failed call as not found', async () => {
     mocks.rpc.mockResolvedValue({ data: null, error: { message: 'boom' } });
     await expect(fetchPublicBrand('pixel-gaming', 'en')).resolves.toBeNull();

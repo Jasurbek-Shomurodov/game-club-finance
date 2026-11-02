@@ -4,7 +4,7 @@
 import { test, expect } from '@playwright/test';
 import { englishCookie, expectDashboardAmount, expectGameClubExpenses, open, pageText, resetDatabase, restAs, signIn, uzs } from './helpers.mjs';
 import { clubs, dailyCash, debts, expected, expenses, products, today } from './fixture.mjs';
-import { accounts, storageStatePath } from './settings.mjs';
+import { accounts, pendingAccount, storageStatePath } from './settings.mjs';
 
 test.beforeEach(async () => { await resetDatabase(); });
 
@@ -489,6 +489,63 @@ test('SET-007 Add PlayStation opens prefilled, and PS3, PS4 or PS5 is the only c
   await expect(dialog).toBeHidden();
   await expect(page.locator('main img[src="/playstation/ps3.svg"]')).toBeVisible();
   await expect(page.locator('main').getByText('PlayStation 3').first()).toBeVisible();
+});
+
+test('SET-008 saving a zone keeps unsaved page settings', async ({ page, context }) => {
+  await context.addCookies([englishCookie]);
+  await page.goto('/showcase');
+  const addPlaystation = page.getByRole('button', { name: 'Add PlayStation' });
+  await expect(page.getByRole('heading', { name: 'Page settings' })).toBeVisible();
+  if (!await addPlaystation.isVisible()) await page.getByRole('button', { name: 'Save' }).first().click();
+  await expect(addPlaystation).toBeVisible();
+
+  await page.locator('#showcase-address').fill('Unsaved draft address');
+  await addPlaystation.click();
+  const dialog = page.getByRole('dialog');
+  await page.getByRole('button', { name: 'Save', exact: true }).last().click();
+  await expect(dialog).toBeHidden();
+  await expect(page.locator('main').getByText('PlayStation 5').first()).toBeVisible();
+  await expect(page.locator('#showcase-address')).toHaveValue('Unsaved draft address');
+});
+
+test('REP-009 the exchange form keeps cents and fractional rates while typing', async ({ page, context }) => {
+  await context.addCookies([englishCookie]);
+  await page.goto('/reports');
+  await page.getByRole('button', { name: 'Exchange', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('radio', { name: 'US dollars' }).first().click();
+
+  const amount = dialog.locator('#exchange-amount');
+  await amount.pressSequentially('1234.5');
+  await expect(amount).toHaveValue('1 234,5');
+  await amount.pressSequentially('67');
+  // A third decimal is dropped, and the digits never run into the whole part.
+  await expect(amount).toHaveValue('1 234,56');
+  await amount.press('Home');
+  await amount.press('ArrowRight');
+  await amount.pressSequentially('0');
+  await expect(amount).toHaveValue('10 234,56');
+
+  const rate = dialog.locator('#exchange-rate');
+  await rate.pressSequentially('12650.5');
+  await expect(rate).toHaveValue('12 650,5');
+});
+
+test.describe('a new sign-up with no club', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test('AUTH-004 sees the approval screen on any path and cannot publish a brand page', async ({ page, context }) => {
+    await context.addCookies([englishCookie]);
+    await page.goto('/login?next=/daily-cash');
+    await page.locator('#login-email').fill(pendingAccount.email);
+    await page.locator('#login-password').fill(pendingAccount.password);
+    await page.getByRole('button', { name: 'Login', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Waiting for owner approval', level: 1 })).toBeVisible();
+    await expect(page).toHaveURL(/\/daily-cash$/);
+
+    const brand = { owner_id: pendingAccount.id, slug: 'stolen-brand', name: 'Pixel Gaming', is_published: true };
+    expect((await restAs(pendingAccount, 'POST', 'showcase_brands', brand)).status).toBe(403);
+  });
 });
 
 test.describe('as a viewer', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildExpensePlanSummary, plannedAmountForRange, type ExpensePreset } from './expensePlans';
+import { buildExpensePlanSummary, expenseAmountFromInput, plannedAmountForRange, type ExpensePreset } from './expensePlans';
 
 const preset = (overrides: Partial<ExpensePreset>): ExpensePreset => ({
   id: 'p1',
@@ -67,5 +67,21 @@ describe('buildExpensePlanSummary', () => {
     expect(buildExpensePlanSummary([archived], [], range).gameClub.rows).toEqual([]);
     const summary = buildExpensePlanSummary([archived], [{ date: '2026-10-02', amount: 700_000, preset_id: 'old' }], range);
     expect(summary.gameClub.rows[0]).toMatchObject({ planned: 0, actual: 700_000, difference: 700_000, usedPct: null });
+  });
+});
+
+describe('expenseAmountFromInput', () => {
+  it('uses the typed amount over the plan', () => {
+    expect(expenseAmountFromInput('1 500 000', 3_000_000)).toBe(1_500_000);
+  });
+
+  it('falls back to the plan only when the field is empty', () => {
+    expect(expenseAmountFromInput('', 3_000_000)).toBe(3_000_000);
+    expect(expenseAmountFromInput('  ', 3_000_000)).toBe(3_000_000);
+    expect(expenseAmountFromInput('', null)).toBe(0);
+  });
+
+  it('keeps an explicit zero, so the form refuses it', () => {
+    expect(expenseAmountFromInput('0', 3_000_000)).toBe(0);
   });
 });

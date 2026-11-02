@@ -13,6 +13,7 @@ import {
   type StockCountRow,
   type StockPurchaseCostRow,
 } from './dashboardMetrics';
+import { exchangeNetByMethod, type MoneyExchangeRow } from './moneyExchanges';
 
 /**
  * Financial analysis: where the selected period's money came from and where it
@@ -80,6 +81,8 @@ export interface PaymentMethodFlowRow {
   method: keyof MoneyLeftByPaymentMethod;
   income: number;
   expenses: number;
+  /** Net money moved in (+) or out (-) by exchanges; PlayStation is never exchanged. */
+  exchanged: number;
   left: number;
 }
 
@@ -92,7 +95,7 @@ export function visiblePaymentMethodRows(
   rows: PaymentMethodFlowRow[],
   enabledMethods: readonly string[],
 ): PaymentMethodFlowRow[] {
-  return rows.filter((row) => enabledMethods.includes(row.method) || row.income !== 0 || row.expenses !== 0);
+  return rows.filter((row) => enabledMethods.includes(row.method) || row.income !== 0 || row.expenses !== 0 || row.exchanged !== 0);
 }
 
 /** One side of the club; never summed with the other side. */
@@ -253,8 +256,12 @@ export function buildDailyAnalysis(range: { from: string; to: string }, ledgers:
   return Array.from(rows.values());
 }
 
-/** Game Club money by payment method: collections and debt payments in, game-club-paid expenses out. */
-export function buildPaymentMethodFlow(ledgers: AnalysisLedgers): PaymentMethodFlowRow[] {
+/**
+ * Game Club money by payment method: collections and debt payments in,
+ * game-club-paid expenses out, exchanges moved between methods. `left` equals
+ * calculateGameClubMoneyLeftByPaymentMethod for the same rows.
+ */
+export function buildPaymentMethodFlow(ledgers: AnalysisLedgers, exchangeRows: MoneyExchangeRow[] = []): PaymentMethodFlowRow[] {
   const flow: Record<PaymentMethodFlowRow['method'], { income: number; expenses: number }> = {
     cash: { income: 0, expenses: 0 },
     terminal: { income: 0, expenses: 0 },
@@ -271,11 +278,11 @@ export function buildPaymentMethodFlow(ledgers: AnalysisLedgers): PaymentMethodF
     if (expense.payment_source === 'bar') continue;
     flow[gameClubExpensePaymentBucket(expense.payment_method)].expenses += amountOf(expense);
   }
-  return (Object.keys(flow) as PaymentMethodFlowRow['method'][]).map((method) => ({
-    method,
-    ...flow[method],
-    left: flow[method].income - flow[method].expenses,
-  }));
+  const net = exchangeNetByMethod(exchangeRows);
+  return (Object.keys(flow) as PaymentMethodFlowRow['method'][]).map((method) => {
+    const exchanged = method === 'playstation' ? 0 : net[method];
+    return { method, ...flow[method], exchanged, left: flow[method].income - flow[method].expenses + exchanged };
+  });
 }
 
 /** Game club money: collections and new debts in, expenses paid from game club money out. */
@@ -314,7 +321,7 @@ export function buildAnalysisIndicators(
 export function buildFinancialAnalysis(
   range: { from: string; to: string },
   ledgers: AnalysisLedgers,
-  options: { largestCount?: number } = {},
+  options: { largestCount?: number; exchangeRows?: MoneyExchangeRow[] } = {},
 ): FinancialAnalysis {
   const totals = analysisTotals(ledgers);
   const categories = groupExpensesByCategory(ledgers.expenseRows);
@@ -330,7 +337,7 @@ export function buildFinancialAnalysis(
       .sort((a, b) => amountOf(b) - amountOf(a) || b.date.localeCompare(a.date))
       .slice(0, options.largestCount ?? 8),
     daily: buildDailyAnalysis(range, ledgers),
-    paymentMethods: buildPaymentMethodFlow(ledgers),
+    paymentMethods: buildPaymentMethodFlow(ledgers, options.exchangeRows),
   };
 }
 

@@ -103,10 +103,12 @@ export default function ShowcasePage() {
   const [uploading, setUploading] = useState(false);
 
   // Reset the forms to the loaded club; an open editor never carries over to another club.
+  // Keyed on the saved row, not the object: saving a zone, game or offer reloads
+  // an unchanged showcase, and that must not wipe an unsaved draft here.
   useEffect(() => {
     setSettings(showcaseSettingsForm(showcase, selectedClub?.name ?? ''));
     setSettingsError('');
-  }, [showcase, selectedClub?.name]);
+  }, [showcase?.club_id, showcase?.updated_at, selectedClub?.name]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => setEditor(null), [selectedClubId]);
 
   const publicPath = showcase ? `/club/${showcase.slug}` : null;

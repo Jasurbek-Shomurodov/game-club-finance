@@ -2,9 +2,10 @@
 
 import {
   forwardRef,
-  useCallback,
+  useImperativeHandle,
   useLayoutEffect,
   useRef,
+  type ForwardedRef,
   type InputHTMLAttributes,
   type ReactNode,
   type SelectHTMLAttributes,
@@ -12,7 +13,7 @@ import {
 } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { formatCurrencyInput } from '@/lib/formatters';
+import { formatCurrencyInput, formatDecimalInput } from '@/lib/formatters';
 
 /** Shared text-control styling; exported so bespoke controls can match it. */
 export const controlClassName =
@@ -117,6 +118,42 @@ function caretAfterDigits(formatted: string, digitCount: number) {
   return formatted.length;
 }
 
+/** Index in `formatted` just after the `count`-th character that is not a space. */
+function caretAfterCharacters(formatted: string, count: number) {
+  if (count <= 0) return 0;
+  let seen = 0;
+  for (let index = 0; index < formatted.length; index += 1) {
+    if (formatted[index] !== ' ') {
+      seen += 1;
+      if (seen === count) return index + 1;
+    }
+  }
+  return formatted.length;
+}
+
+/** Restores the caret once a reformatted `value` lands; `pendingCaretRef` holds its logical place. */
+function useKeptCaret(
+  value: string,
+  forwardedRef: ForwardedRef<HTMLInputElement>,
+  caretAt: (formatted: string, count: number) => number,
+) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const pendingCaretRef = useRef<number | null>(null);
+
+  useImperativeHandle(forwardedRef, () => inputRef.current as HTMLInputElement, []);
+
+  useLayoutEffect(() => {
+    const input = inputRef.current;
+    const count = pendingCaretRef.current;
+    if (!input || count === null || document.activeElement !== input) return;
+    pendingCaretRef.current = null;
+    const position = caretAt(value, count);
+    input.setSelectionRange(position, position);
+  }, [caretAt, value]);
+
+  return { inputRef, pendingCaretRef };
+}
+
 /**
  * Whole-UZS input that keeps thousands separators while typing. The caret
  * stays next to the digit being edited even when separators shift.
@@ -125,27 +162,11 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(fu
   { value, onValueChange, className, placeholder = '0', ...rest },
   forwardedRef,
 ) {
-  const innerRef = useRef<HTMLInputElement | null>(null);
-  const pendingCaretDigits = useRef<number | null>(null);
-
-  const setRefs = useCallback((element: HTMLInputElement | null) => {
-    innerRef.current = element;
-    if (typeof forwardedRef === 'function') forwardedRef(element);
-    else if (forwardedRef) forwardedRef.current = element;
-  }, [forwardedRef]);
-
-  useLayoutEffect(() => {
-    const input = innerRef.current;
-    const digits = pendingCaretDigits.current;
-    if (!input || digits === null || document.activeElement !== input) return;
-    pendingCaretDigits.current = null;
-    const position = caretAfterDigits(value, digits);
-    input.setSelectionRange(position, position);
-  }, [value]);
+  const { inputRef, pendingCaretRef } = useKeptCaret(value, forwardedRef, caretAfterDigits);
 
   return (
     <Input
-      ref={setRefs}
+      ref={inputRef}
       type="text"
       inputMode="numeric"
       autoComplete="off"
@@ -157,7 +178,42 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(fu
         const formatted = formatCurrencyInput(raw);
         // Digits before the caret, capped by what survived formatting (decimals, length cap).
         const digitsBefore = raw.slice(0, caret).replace(/\D/g, '').length;
-        pendingCaretDigits.current = Math.min(digitsBefore, formatted.replace(/\D/g, '').length);
+        pendingCaretRef.current = Math.min(digitsBefore, formatted.replace(/\D/g, '').length);
+        onValueChange(formatted);
+      }}
+      className={cn('tabular-nums', className)}
+      {...rest}
+    />
+  );
+});
+
+export type DecimalInputProps = CurrencyInputProps;
+
+/**
+ * Number with up to two decimals, for values that are not whole UZS: dollars
+ * and exchange rates. Takes `.` or `,` and keeps thousands separators. Parse
+ * with `parseDecimalInput` when saving.
+ */
+export const DecimalInput = forwardRef<HTMLInputElement, DecimalInputProps>(function DecimalInput(
+  { value, onValueChange, className, placeholder = '0', ...rest },
+  forwardedRef,
+) {
+  const { inputRef, pendingCaretRef } = useKeptCaret(value, forwardedRef, caretAfterCharacters);
+
+  return (
+    <Input
+      ref={inputRef}
+      type="text"
+      inputMode="decimal"
+      autoComplete="off"
+      placeholder={placeholder}
+      value={value}
+      onChange={(event) => {
+        const raw = event.target.value;
+        const caret = event.target.selectionStart ?? raw.length;
+        const formatted = formatDecimalInput(raw);
+        // The decimal separator counts too, or the next digit would land before it.
+        pendingCaretRef.current = raw.slice(0, caret).replace(/ /g, '').length;
         onValueChange(formatted);
       }}
       className={cn('tabular-nums', className)}

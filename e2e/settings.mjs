@@ -12,5 +12,8 @@ export const accounts = {
   viewer: { id: '00000000-0000-4000-8000-0000000000a3', email: 'viewer@example.test', password: 'e2e-viewer-password', name: 'E2E Viewer' },
 };
 
+/** A new sign-up with no club yet: kept out of `accounts` because it never reaches the dashboard. */
+export const pendingAccount = { id: '00000000-0000-4000-8000-0000000000a4', email: 'pending@example.test', password: 'e2e-pending-password', name: 'E2E Pending' };
+
 /** The saved browser session of one role, written by global-setup.mjs. */
 export const storageStatePath = (role) => `e2e/.auth/${role}.json`;

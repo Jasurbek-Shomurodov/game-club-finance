@@ -59,6 +59,8 @@ each side's all-time profit, month-by-month history (`buildMonthlyAnalysis`,
 owner profit earned, withdrawn and left to take, summed over the months by
 `sumAvailableMoneyResults` from the same `fetchOwnerMoney` read as Owner Profit.
 Owner profit is cash-based, so its "earned" differs from accounting profit.
+Its all-time left to take (`sumOwnerBalances`) counts money carried out of the
+current month: the receiving month is not listed until it arrives.
 
 `debtIncome` in financial reports represents new debt principal for the period.
 Debt payments are collections used in retained/available game-club money; do not
@@ -133,7 +135,8 @@ next month has already withdrawn or moved that money.
 
 `expense_presets` (migration 091) is each club's own list of recurring costs
 (Electricity, iCafe, Server maintenance, ...) with a monthly planned amount and
-one money source. Staff pick a preset in the expense form and type the amount;
+one money source. Staff pick a preset in the expense form and type the amount,
+or leave it empty to use the monthly amount (a typed 0 is refused);
 the expense stores `preset_id`, with the preset's category and source. It is an
 ordinary expense in every total. Financial analysis compares plan with actual
 per side through `buildExpensePlanSummary` in `expensePlans.ts`: the plan for a
@@ -168,7 +171,11 @@ applied inside `calculateGameClubMoneyLeftByPaymentMethod`). Dollars are a
 separate holding shown as their own Reports card and are never added to a
 UZS total. Game Club money left (Reports, day totals, dashboard, money details,
 Telegram, the assistant) is unchanged by exchanges: the method cards show where
-the money sits, so with dollars bought they sum to less than the headline.
+the money sits, so with dollars bought they sum to less than the headline. The
+monthly analysis payment-method panel shows the same per-method money
+(`buildPaymentMethodFlow`), with the exchanged amount on its own line.
+The form takes dollars and rates with two decimals (`DecimalInput`); UZS amounts
+stay whole.
 A rate gain or loss on dollars is not profit and is not counted.
 
 Owner per-method withdrawal limits follow exchanges: the 092 version of
@@ -188,6 +195,10 @@ exchanges through `record_money_exchange`; only owners delete
 - Payments cannot exceed the remaining debt.
 - Debt and payment rows are append-only for application users.
 - A database trigger updates the parent balance and status after payment insert.
+- The overpayment check runs before the id's unique check, so a retry of a saved
+  payment can be refused as exceeding the remainder. The page then looks the id
+  up (`debtPaymentIsRecorded`) and treats a found row as saved; the check itself
+  is unchanged.
 
 Keep UI validation for feedback, but rely on database constraints/triggers for
 integrity under concurrency or direct API access.
@@ -234,6 +245,8 @@ Each salary rate carries a KPI basis (migration 070) and the pools it draws from
 
 Employees sharing a basis and pools form a group; groups are independent, so
 overlapping pools with different groups are not netted against each other.
+A bonus or fine in a month the employee had no active days (after deactivation)
+counts against the group of their last active terms.
 `get_salary_profit_snapshot` therefore exposes monthly withdrawn totals (never
 individual withdrawal rows) to club members. Salary payment timing cannot
 change KPI. Existing manual salary expenses remain ordinary expenses; do not
@@ -258,4 +271,6 @@ inputs now use the member-authorized salary snapshot, independent of ledger
 feature grants. Money Report expense totals include both payment sources;
 method balances still deduct only Game Club expenses. Daily Cash uses the same
 accounting-profit calculation as reports, including new debt principal and all
-expenses; the metric is hidden when the member cannot read every required ledger.
+expenses; game club and bar profit are hidden when the member cannot read every
+required ledger, and bar sales when they cannot read stock counts
+(`canReadStockCounts`, which mirrors the read policy).

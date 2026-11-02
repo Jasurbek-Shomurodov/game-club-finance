@@ -4,7 +4,7 @@ import type { DailyAnalysisRow, FinancialAnalysis, MonthlyAnalysisRow } from '@/
 import type { MoneyReport } from '@/lib/calculations/moneyReport';
 import { listLowStockProducts, stockLevel, resolveLowStockThreshold } from '@/lib/calculations/stock';
 import { calculateRemainingDebt } from '@/lib/calculations/debt';
-import { canAccessFeature, canReadFinancialTotals } from '@/lib/permissions';
+import { canAccessFeature } from '@/lib/permissions';
 
 /**
  * Datasets the assistant can read and export. Every one is built from the
@@ -48,18 +48,22 @@ export interface DataTable {
 /**
  * Which datasets a member may read. This only shapes the tool list: the
  * member's own Supabase RLS still authorizes every row that is read.
+ *
+ * The ledger datasets come from get_finance_report_snapshot (dashboard or
+ * reports) and money from get_money_report_snapshot (reports); offering them to
+ * anyone else would only produce a failed tool call.
  */
 export function allowedDatasets(role: UserRole, featureAccess: unknown): AssistantDataset[] {
-  const finance = canReadFinancialTotals(role, featureAccess);
   const can = (key: Parameters<typeof canAccessFeature>[2]) => canAccessFeature(role, featureAccess, key);
+  const financeSnapshot = can('dashboard') || can('reports');
   const allowed: Record<AssistantDataset, boolean> = {
-    summary: finance,
+    summary: financeSnapshot,
     money: can('reports'),
-    daily: finance,
-    monthly: finance,
-    categories: finance,
-    expenses: finance || can('expenses'),
-    product_sales: finance || can('closing_stock'),
+    daily: financeSnapshot,
+    monthly: financeSnapshot,
+    categories: financeSnapshot,
+    expenses: financeSnapshot,
+    product_sales: financeSnapshot,
     stock: can('inventory') || can('closing_stock') || can('stock_purchase'),
     debts: can('debts'),
   };

@@ -30,6 +30,10 @@ post / photo -> /api/google-business/posts|photos (showcase feature check)
   Google then downloads them from that URL.
 - Disconnecting revokes the token at Google (best effort) and deletes the row.
   Posts already on Google stay there.
+- Reconnecting with the same account keeps the chosen listing if Google cannot
+  list locations at that moment, and leaves the old token alone: revoking it
+  would end the new one too. Connecting a different account revokes the old
+  account's token.
 
 ## One-time setup
 

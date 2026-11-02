@@ -61,9 +61,23 @@ describe('GET /api/assistant/usage', () => {
     expect(quota.currentModel).toMatchObject({ model: 'gemini-3.8-flash', remaining: 15 });
   });
 
-  it('returns no quota for Claude', async () => {
+  it('counts Claude against the daily cap and stops at the limit', async () => {
     vi.stubEnv('ASSISTANT_PROVIDER', 'anthropic');
     vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    vi.stubEnv('ASSISTANT_DAILY_REQUEST_LIMIT', '10');
+    const GET = await loadRoute();
+    mockMember(owner);
+    mockUsageRows([{ model: 'claude-opus-5-5', requests: 4, exhausted: false }]);
+    expect((await (await GET(url())).json()).quota.currentModel).toMatchObject({ limit: 10, remaining: 6 });
+
+    mockUsageRows([{ model: 'claude-opus-5-5', requests: 10, exhausted: false }]);
+    expect((await (await GET(url())).json()).quota.currentModel).toBeNull();
+  });
+
+  it('returns no quota for Claude when the cap is off', async () => {
+    vi.stubEnv('ASSISTANT_PROVIDER', 'anthropic');
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    vi.stubEnv('ASSISTANT_DAILY_REQUEST_LIMIT', '0');
     const GET = await loadRoute();
     mockMember(owner);
     expect(await (await GET(url())).json()).toMatchObject({ quota: null });

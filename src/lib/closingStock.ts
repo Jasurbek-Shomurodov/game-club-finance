@@ -408,6 +408,83 @@ export function applyStockAdjustment(
   };
 }
 
+/** Sold quantity derived from the row's stock movement, including promo giveaways. */
+function derivedSoldQuantity(row: ClosingStockRowData): string {
+  return String(calculateStockCountSummary({
+    previousStock: normalizeStockCount(row.previousStock),
+    addedToday: normalizeStockCount(row.addedToday),
+    adjustmentQuantity: normalizeStockAdjustment(row.adjustmentQuantity),
+    giveawayQuantity: normalizeStockCount(row.giveawayQuantity),
+    closingStock: normalizeStockCount(row.closingStock),
+    salePrice: row.product.sale_price,
+    costPrice: row.product.cost_price,
+  }).soldQuantity);
+}
+
+/** Count entry: staff type the closing stock and the sold quantity follows. */
+export function withClosingStock(row: ClosingStockRowData, value: string): ClosingStockRowData {
+  const nextRow = { ...row, closingStock: value };
+  return { ...nextRow, soldQuantity: derivedSoldQuantity(nextRow) };
+}
+
+/** Sold entry: staff type the sold quantity and the closing stock follows. */
+export function withSoldQuantity(row: ClosingStockRowData, value: string): ClosingStockRowData {
+  if (row.product.tracks_inventory === false) {
+    return {
+      ...row,
+      soldQuantity: value,
+      previousStock: '0',
+      addedToday: '0',
+      closingStock: '0',
+    };
+  }
+  return {
+    ...row,
+    soldQuantity: value,
+    closingStock: String(calculateClosingStockFromSold(
+      normalizeStockCount(row.previousStock),
+      normalizeStockCount(row.addedToday),
+      normalizeStockCount(value),
+      normalizeStockAdjustment(row.adjustmentQuantity),
+      normalizeStockCount(row.giveawayQuantity),
+    )),
+  };
+}
+
+/**
+ * Free units leave stock unsold. When staff count closing stock, the sold
+ * quantity shrinks; when they enter sold quantities, closing stock shrinks.
+ */
+export function withGiveaway(row: ClosingStockRowData, value: string, soldEntry = false): ClosingStockRowData {
+  const nextRow = { ...row, giveawayQuantity: value };
+  if (row.product.tracks_inventory === false) return nextRow;
+  if (soldEntry) return withSoldQuantity(nextRow, nextRow.soldQuantity);
+  return { ...nextRow, soldQuantity: derivedSoldQuantity(nextRow) };
+}
+
+/** What a saved count records for a row; a blank number stays blank so validation still sees it. */
+function closingRowFingerprint(row: ClosingStockRowData): string {
+  const count = (value: unknown) => (String(value ?? '').trim() === '' ? '' : String(normalizeStockCount(value)));
+  const giveaway = normalizeStockCount(row.giveawayQuantity);
+  return JSON.stringify([
+    count(row.closingStock),
+    count(row.soldQuantity),
+    normalizeStockAdjustment(row.adjustmentQuantity),
+    String(row.adjustmentReason ?? '').trim(),
+    giveaway,
+    giveaway > 0 ? row.promotionId ?? null : null,
+  ]);
+}
+
+/** The rows whose recorded values differ from the loaded snapshot. */
+export function changedClosingStockRows(
+  rows: ClosingStockRowData[],
+  snapshot: ClosingStockRowData[],
+): ClosingStockRowData[] {
+  const saved = new Map(snapshot.map((row) => [row.product.id, closingRowFingerprint(row)]));
+  return rows.filter((row) => saved.get(row.product.id) !== closingRowFingerprint(row));
+}
+
 export function getBulkStockAvailableQuantity(row: ClosingStockRowData): number | null {
   return row.product.tracks_inventory === false
     ? null

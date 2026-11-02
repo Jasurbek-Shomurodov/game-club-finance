@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 import { Button, Field, InlineAlert, Input } from '@/components/PresentationFoundation';
+import { DASHBOARD_PATH } from '@/lib/routes';
 import { AuthLayout } from '../AuthLayout';
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -41,7 +42,7 @@ export default function UpdatePasswordPage() {
       }
       setDone(true);
       window.setTimeout(() => {
-        router.replace('/');
+        router.replace(DASHBOARD_PATH);
         router.refresh();
       }, 1200);
     } catch {

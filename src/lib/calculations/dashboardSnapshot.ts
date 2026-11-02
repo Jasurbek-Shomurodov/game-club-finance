@@ -3,10 +3,8 @@ import {
   buildPeriodTrend,
   calculateDashboardInventoryValue,
   calculateDashboardTotals,
-  calculateGameClubMoneyLeftByPaymentMethod,
   calculateInventoryValueFromLatestStockCounts,
   emptyDashboardTotals,
-  emptyMoneyLeftByPaymentMethod,
   getDashboardComparisonRange,
   getDashboardRange,
   getLatestRowDateInRange,
@@ -16,7 +14,6 @@ import {
   type DebtPaymentValueRow,
   type ExpenseRow,
   type InventorySnapshotRow,
-  type MoneyLeftByPaymentMethod,
   type StockCountRow,
   type StockPurchaseCostRow,
   type TrendRow,
@@ -57,7 +54,6 @@ export interface DashboardData {
   trend: TrendRow[];
   lowStockCount: number;
   expenseCategories: Array<{ category: string; value: number }>;
-  moneyLeftByPaymentMethod: MoneyLeftByPaymentMethod;
   latestDailyCashEntryDate: string | null;
   latestBarEntryDate: string | null;
   /** The period's ledgers behind the money-flow Sankeys, from the same snapshot as the cards. */
@@ -81,7 +77,6 @@ export const emptyDashboardData: DashboardData = {
   trend: [],
   lowStockCount: 0,
   expenseCategories: [],
-  moneyLeftByPaymentMethod: emptyMoneyLeftByPaymentMethod,
   latestDailyCashEntryDate: null,
   latestBarEntryDate: null,
   ledgers: emptyDashboardLedgers,
@@ -206,11 +201,6 @@ export function buildDashboardDataFromSnapshot({
         && product.current_stock <= (product.low_stock_threshold ?? 5),
     ).length,
     expenseCategories,
-    moneyLeftByPaymentMethod: calculateGameClubMoneyLeftByPaymentMethod(
-      cashRows,
-      expenseRows,
-      debtPaymentRows,
-    ),
     latestDailyCashEntryDate: getLatestRowDateInRange([...cashRows, ...rangeDebts], range),
     latestBarEntryDate: getLatestRowDateInRange(stockRows, range),
     // Sankeys use only sales and cost of goods sold; purchases are not part of the flows.

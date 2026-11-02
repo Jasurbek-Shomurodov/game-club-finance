@@ -1,7 +1,12 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  STOCK_COUNT_READ_FEATURES,
   canAccessPath,
   canAccessFeature,
+  canReadFinancialTotals,
+  canReadStockCounts,
   defaultPathForAccess,
   featureAccessForMembership,
   featureForPath,
@@ -85,4 +90,26 @@ describe('feature permissions', () => {
     expect(canAccessFeature('owner', [], 'salaries')).toBe(true);
   });
 
+});
+
+describe('canReadStockCounts', () => {
+  it('mirrors the club_read_stock_counts read policy', () => {
+    const migration = readFileSync(join(process.cwd(), 'migrations/054_cache_ledger_read_permissions.sql'), 'utf8');
+    const policy = /alter policy "club_read_stock_counts"[\s\S]*?array\[(.*?)\]/.exec(migration);
+    expect(policy?.[1].replace(/['\s]/g, '').split(',')).toEqual([...STOCK_COUNT_READ_FEATURES]);
+  });
+
+  it('is false for a daily-cash-only member and true with closing stock', () => {
+    expect(canReadStockCounts('admin', ['daily_cash'])).toBe(false);
+    expect(canReadStockCounts('admin', ['daily_cash', 'closing_stock'])).toBe(true);
+  });
+
+  it('holds for every member who may see net profit', () => {
+    for (const access of [['dashboard'], ['reports'], ['owner_profit']]) {
+      expect(canReadFinancialTotals('viewer', access)).toBe(true);
+      expect(canReadStockCounts('viewer', access)).toBe(true);
+    }
+    expect(canReadStockCounts('owner', null)).toBe(true);
+    expect(canReadStockCounts('admin', null)).toBe(true);
+  });
 });

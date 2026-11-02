@@ -20,12 +20,21 @@ describe('allowedDatasets', () => {
 
   it('follows the member feature access', () => {
     expect(allowedDatasets('admin', ['assistant', 'debts'])).toEqual(['debts']);
-    expect(allowedDatasets('admin', ['assistant', 'expenses'])).toEqual(['expenses']);
-    expect(allowedDatasets('viewer', ['assistant', 'closing_stock'])).toEqual(['product_sales', 'stock']);
+    expect(allowedDatasets('viewer', ['assistant', 'closing_stock'])).toEqual(['stock']);
     expect(allowedDatasets('admin', ['assistant', 'reports'])).toEqual([
       'summary', 'money', 'daily', 'monthly', 'categories', 'expenses', 'product_sales',
     ]);
     expect(allowedDatasets('admin', ['assistant'])).toEqual([]);
+  });
+
+  it('offers only what the snapshot RPCs let the member read', () => {
+    // get_finance_report_snapshot needs dashboard or reports.
+    expect(allowedDatasets('admin', ['assistant', 'expenses'])).toEqual([]);
+    expect(allowedDatasets('admin', ['assistant', 'owner_profit'])).toEqual([]);
+    // get_money_report_snapshot needs reports itself.
+    expect(allowedDatasets('admin', ['assistant', 'dashboard'])).toEqual([
+      'summary', 'daily', 'monthly', 'categories', 'expenses', 'product_sales',
+    ]);
   });
 });
 

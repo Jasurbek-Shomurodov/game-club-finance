@@ -7,6 +7,7 @@ import {
   buildFinancialAnalysis,
   buildMonthlyAnalysis,
   buildOverallSummary,
+  buildPaymentMethodFlow,
   firstLedgerDate,
   monthsSpanned,
   barFlow,
@@ -16,7 +17,8 @@ import {
   type AnalysisLedgers,
   visiblePaymentMethodRows,
 } from './financialAnalysis';
-import { calculateDashboardTotals, type ExpenseRow } from './dashboardMetrics';
+import { calculateDashboardTotals, calculateGameClubMoneyLeftByPaymentMethod, type ExpenseRow } from './dashboardMetrics';
+import type { MoneyExchangeRow } from './moneyExchanges';
 import { BAR_LEFT, GAME_CLUB_LEFT, buildDrillSankey } from './sankeyDrill';
 
 const total = (nodes: Array<{ amount: number }>) => nodes.reduce((sum, node) => sum + node.amount, 0);
@@ -135,10 +137,10 @@ describe('buildFinancialAnalysis', () => {
 
   it('nets game-club money per payment method and ignores bar-paid expenses', () => {
     expect(analysis.paymentMethods).toEqual([
-      { method: 'cash', income: 180_000, expenses: 60_000, left: 120_000 },
-      { method: 'terminal', income: 50_000, expenses: 30_000, left: 20_000 },
-      { method: 'card', income: 35_000, expenses: 0, left: 35_000 },
-      { method: 'playstation', income: 20_000, expenses: 0, left: 20_000 },
+      { method: 'cash', income: 180_000, expenses: 60_000, exchanged: 0, left: 120_000 },
+      { method: 'terminal', income: 50_000, expenses: 30_000, exchanged: 0, left: 20_000 },
+      { method: 'card', income: 35_000, expenses: 0, exchanged: 0, left: 35_000 },
+      { method: 'playstation', income: 20_000, expenses: 0, exchanged: 0, left: 20_000 },
     ]);
   });
 
@@ -236,9 +238,9 @@ describe('buildCategoryDetail', () => {
 
 describe('visiblePaymentMethodRows', () => {
   const rows = [
-    { method: 'cash' as const, income: 0, expenses: 0, left: 0 },
-    { method: 'terminal' as const, income: 0, expenses: 0, left: 0 },
-    { method: 'card' as const, income: 5_000, expenses: 1_000, left: 4_000 },
+    { method: 'cash' as const, income: 0, expenses: 0, exchanged: 0, left: 0 },
+    { method: 'terminal' as const, income: 0, expenses: 0, exchanged: 0, left: 0 },
+    { method: 'card' as const, income: 5_000, expenses: 1_000, exchanged: 0, left: 4_000 },
   ];
 
   it('keeps a switched-off method that moved money in the period', () => {
@@ -248,5 +250,47 @@ describe('visiblePaymentMethodRows', () => {
 
   it('hides a switched-off method with no money', () => {
     expect(visiblePaymentMethodRows(rows, ['card']).map((row) => row.method)).toEqual(['card']);
+  });
+
+  it('keeps a switched-off method that only exchanged money', () => {
+    const exchangedOnly = [{ method: 'terminal' as const, income: 0, expenses: 0, exchanged: -500, left: -500 }];
+    expect(visiblePaymentMethodRows(exchangedOnly, ['card'])).toEqual(exchangedOnly);
+  });
+});
+
+describe('buildPaymentMethodFlow', () => {
+  const exchange = (from_method: MoneyExchangeRow['from_method'], to_method: MoneyExchangeRow['to_method'], from_amount: number, to_amount: number): MoneyExchangeRow => ({
+    id: `${from_method}-${to_method}`, date: '2026-09-02', from_method, to_method, from_amount, to_amount, rate: to_method === 'usd' ? 12_500 : null,
+  });
+  const rows = {
+    ...ledgers,
+    cashRows: [{ date: '2026-09-02', cash_income: 5_000_000, terminal_income: 1_000_000, card_income: 300_000, playstation_income: 200_000 }],
+    expenseRows: [
+      expense('e1', '2026-09-02', 100_000, 'rent', { payment_method: 'cash', payment_source: 'game_club' }),
+      expense('e2', '2026-09-02', 50_000, 'repair', { payment_method: 'playstation', payment_source: 'game_club' }),
+      expense('e3', '2026-09-02', 70_000, 'cleaning', { payment_method: 'cash', payment_source: 'bar' }),
+    ],
+    debtPaymentRows: [{ date: '2026-09-02', amount: 40_000, payment_method: 'terminal' }],
+  };
+
+  it('moves exchanged money between methods, as Reports and Money Taken do', () => {
+    const exchanges = [exchange('cash', 'card', 2_000_000, 2_000_000), exchange('terminal', 'usd', 500_000, 40)];
+    const flow = buildPaymentMethodFlow(rows, exchanges);
+    const expected = calculateGameClubMoneyLeftByPaymentMethod(rows.cashRows, rows.expenseRows, rows.debtPaymentRows, exchanges);
+
+    expect(Object.fromEntries(flow.map((row) => [row.method, row.left]))).toEqual(expected);
+    expect(flow.find((row) => row.method === 'cash')).toMatchObject({ income: 5_000_000, expenses: 100_000, exchanged: -2_000_000, left: 2_900_000 });
+    expect(flow.find((row) => row.method === 'playstation')).toMatchObject({ exchanged: 0, left: 150_000 });
+  });
+
+  it('matches the money-left calculation without exchanges', () => {
+    const flow = buildPaymentMethodFlow(rows);
+    expect(Object.fromEntries(flow.map((row) => [row.method, row.left])))
+      .toEqual(calculateGameClubMoneyLeftByPaymentMethod(rows.cashRows, rows.expenseRows, rows.debtPaymentRows));
+  });
+
+  it('reaches the analysis through its options', () => {
+    const analysis = buildFinancialAnalysis(range, rows, { exchangeRows: [exchange('cash', 'card', 2_000_000, 2_000_000)] });
+    expect(analysis.paymentMethods.find((row) => row.method === 'card')?.exchanged).toBe(2_000_000);
   });
 });

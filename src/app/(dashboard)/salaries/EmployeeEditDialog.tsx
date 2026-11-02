@@ -56,6 +56,17 @@ export function employeeEditChanges(edit: EmployeeEditState) {
   };
 }
 
+/** Moves one saved part into the baseline, so a retry of a partly saved edit sends only what is left. */
+export function withLandedEmployeeChange(edit: EmployeeEditState, part: keyof ReturnType<typeof employeeEditChanges>): EmployeeEditState {
+  const { employee, rate } = edit;
+  if (part === 'role') return { ...edit, employee: { ...employee, job_title: edit.role.trim() } };
+  if (!rate) return edit;
+  if (part === 'salary') {
+    return { ...edit, rate: { ...rate, salary_type: edit.salary_type as SalaryRate['salary_type'], amount: parseCurrencyInput(edit.amount) } };
+  }
+  return { ...edit, rate: { ...rate, kpi_percent: Number(edit.kpi), kpi_basis: edit.kpi_basis, kpi_game_club: edit.kpi_game_club, kpi_bar: edit.kpi_bar } };
+}
+
 /** Owner dialog behind the card's pencil: role, salary and KPI in one place. */
 export function EmployeeEditDialog({ edit, saving, error, onChange, onClose, onSave }: {
   edit: EmployeeEditState | null;

@@ -173,7 +173,7 @@ export function CategoryComparison({
   );
 }
 
-/** Game Club money in and out per payment method, with what is left. */
+/** Game Club money in, out and exchanged per payment method, with what is left. */
 export function PaymentMethodFlow({
   rows,
   methodLabel,
@@ -184,7 +184,7 @@ export function PaymentMethodFlow({
   methodLabel: (method: PaymentMethodFlowRow['method']) => string;
 }) {
   const t = useTranslations('financialAnalysis');
-  const visible = rows.filter((row) => row.income > 0 || row.expenses > 0);
+  const visible = rows.filter((row) => row.income > 0 || row.expenses > 0 || row.exchanged !== 0);
   if (!visible.length) return <ChartEmpty title={t('empty')} className="mt-4" />;
   const max = Math.max(...visible.map((row) => Math.max(row.income, row.expenses)), 1);
 
@@ -212,6 +212,12 @@ export function PaymentMethodFlow({
               </div>
             </div>
           ))}
+          {row.exchanged !== 0 && (
+            <div className="flex justify-between text-xs text-gray-500">
+              <span>{t('exchanged')}</span>
+              <span className="tabular-nums">{row.exchanged > 0 ? '+' : '−'}{formatCompactMoney(Math.abs(row.exchanged), locale)}</span>
+            </div>
+          )}
         </div>
       ))}
     </div>

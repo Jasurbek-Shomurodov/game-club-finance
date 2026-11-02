@@ -231,6 +231,24 @@ export function applyOwnerProfitCarryovers(
 }
 
 /**
+ * All-time owner totals across month balances. A carryover out of the current
+ * month lands in a month `byMonth` leaves out until it arrives, so that money
+ * is counted here: it is still left to take, and nothing can have drawn on it.
+ */
+export function sumOwnerBalances(
+  byMonth: AvailableMoneyByMonth,
+  carryovers: readonly OwnerProfitCarryover[],
+  throughMonth: string,
+): AvailableMoneyResult {
+  const total = sumAvailableMoneyResults(Object.values(byMonth));
+  for (const row of carryovers) {
+    if (row.to_month.slice(0, 7) <= throughMonth) continue;
+    total[row.source === 'bar' ? 'bar' : 'gameClub'].available += Number(row.amount ?? 0);
+  }
+  return total;
+}
+
+/**
  * Game Club money left per payment method for every month with activity,
  * keyed `YYYY-MM`. Groups the ledgers by month once, then applies the canonical
  * per-method calculation to each month.

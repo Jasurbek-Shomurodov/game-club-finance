@@ -29,7 +29,7 @@ import {
   useToast,
   type SegmentedOption,
 } from '@/components/PresentationFoundation';
-import { formatCurrency, formatCurrencyInput, formatNumber, formatUnitCurrency } from '@/lib/formatters';
+import { formatCurrency, formatNumber, formatUnitCurrency } from '@/lib/formatters';
 import { fetchProductsOrdered, isMissingSortOrder, updateProductSortOrders } from '@/lib/supabase/products';
 import {
   buildProductInsertPayload,
@@ -77,6 +77,7 @@ export default function ProductsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm());
   const [loadedCostPrice, setLoadedCostPrice] = useState<PrefilledAmount | null>(null);
+  const [loadedSalePrice, setLoadedSalePrice] = useState<PrefilledAmount | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [formError, setFormError] = useState('');
@@ -144,6 +145,7 @@ export default function ProductsPage() {
     setEditingId(null);
     setForm(emptyForm());
     setLoadedCostPrice(null);
+    setLoadedSalePrice(null);
     setFormError('');
     setSalePriceError('');
     setModalOpen(true);
@@ -152,12 +154,14 @@ export default function ProductsPage() {
   function openEdit(p: Product) {
     if (!canManageInventory || p.is_deleted) return;
     const costPrefill = prefillAmount(p.cost_price);
+    const salePrefill = prefillAmount(p.sale_price);
     setEditingId(p.id);
     setLoadedCostPrice(costPrefill);
+    setLoadedSalePrice(salePrefill);
     setForm({
       name: p.name,
       category: p.category ?? '',
-      sale_price: formatCurrencyInput(p.sale_price),
+      sale_price: salePrefill?.input ?? '',
       cost_price: costPrefill?.input ?? '',
       current_stock: String(p.current_stock),
       low_stock_threshold: String(resolveLowStockThreshold(p.low_stock_threshold)),
@@ -200,7 +204,7 @@ export default function ProductsPage() {
     const supabase = createClient();
     let err: string | null = null;
     if (editingId) {
-      const payload = buildProductUpdatePayload(form, { isOwner, loadedCostPrice });
+      const payload = buildProductUpdatePayload(form, { isOwner, loadedCostPrice, loadedSalePrice });
       const { data: updated, error: e } = await supabase
         .from('products')
         .update(payload)

@@ -209,6 +209,43 @@ describe('Google sign-in', () => {
     expect(saved.refresh_token_encrypted).not.toContain('refresh-new');
   });
 
+  const revoked = () => fetchMock.mock.calls
+    .filter(([url]) => String(url) === 'https://oauth2.googleapis.com/revoke')
+    .map(([, init]) => String(init?.body));
+  const locationsDown: Handler = (url, init) => (
+    url.startsWith('https://mybusinessaccountmanagement.googleapis.com') ? { status: 503, body: {} } : happyGoogle(url, init)
+  );
+  const otherAccount = (base: Handler): Handler => (url, init) => (
+    url.startsWith('https://openidconnect.googleapis.com') ? { body: { email: 'new@example.test' } } : base(url, init)
+  );
+
+  it('keeps the chosen listing and the token when the same account reconnects during an outage', async () => {
+    google = locationsDown;
+    expect(await returnFromGoogle(`code=c1&state=${state}`)).toBe(`${ORIGIN}/showcase/google?google=connected`);
+    expect(writes[0]?.value).toMatchObject({ account_name: 'accounts/1', location_name: 'locations/2', location_title: 'Pixel Gaming' });
+    expect(revoked()).toEqual([]);
+  });
+
+  it('never revokes the old token of the same account, whatever the casing', async () => {
+    row = connectedRow({ google_email: 'Owner@Example.test' });
+    await returnFromGoogle(`code=c1&state=${state}`);
+    expect(revoked()).toEqual([]);
+  });
+
+  it('keeps the listing but revokes nothing when the account cannot be read', async () => {
+    google = (url, init) => (url.startsWith('https://openidconnect.googleapis.com') ? { status: 503, body: {} } : locationsDown(url, init));
+    await returnFromGoogle(`code=c1&state=${state}`);
+    expect(writes[0]?.value).toMatchObject({ location_name: 'locations/2' });
+    expect(revoked()).toEqual([]);
+  });
+
+  it('revokes the old token and drops the listing when another account connects during an outage', async () => {
+    google = otherAccount(locationsDown);
+    await returnFromGoogle(`code=c1&state=${state}`);
+    expect(writes[0]?.value).toMatchObject({ google_email: 'new@example.test', account_name: null, location_name: null });
+    expect(revoked()).toEqual([new URLSearchParams({ token: 'refresh-1' }).toString()]);
+  });
+
   it('rejects a state that this browser did not start', async () => {
     expect(await returnFromGoogle(`code=c1&state=${state}`, 'zzzzzzzzzzzzzzzzzzzzzzzz')).toBe(`${ORIGIN}/showcase/google?google=failed`);
     expect(await returnFromGoogle(`error=access_denied&state=${state}`)).toBe(`${ORIGIN}/showcase/google?google=denied`);

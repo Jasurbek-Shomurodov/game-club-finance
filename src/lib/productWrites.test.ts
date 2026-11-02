@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildProductInsertPayload,
   buildProductUpdatePayload,
+  isInvalidPurchaseSalePrice,
   isPrefilledAmountEdited,
   parseLowStockThreshold,
   planProductReorder,
@@ -117,6 +118,34 @@ describe('loaded cost price', () => {
     expect(resolvePrefilledAmount('6 000', null)).toBe(6000);
     expect(isPrefilledAmountEdited(prefill!.input, prefill)).toBe(false);
     expect(prefillAmount(null)).toBeNull();
+  });
+});
+
+describe('loaded sale price', () => {
+  const loadedSalePrice = prefillAmount(2500.5);
+  const edit = { ...form, sale_price: loadedSalePrice!.input };
+
+  it('leaves the stored price alone when only another field changed', () => {
+    expect(buildProductUpdatePayload({ ...edit, name: 'Renamed' }, { isOwner: true, loadedSalePrice })).not.toHaveProperty('sale_price');
+  });
+
+  it('sends the price once it is edited', () => {
+    expect(buildProductUpdatePayload({ ...edit, sale_price: '3 000' }, { isOwner: false, loadedSalePrice })).toMatchObject({ sale_price: 3000 });
+  });
+
+  it('always sends it for a new product', () => {
+    expect(buildProductInsertPayload(form, { isOwner: true })).toMatchObject({ sale_price: 15_000 });
+  });
+});
+
+describe('purchase sale price', () => {
+  it('refuses zero like an active product does', () => {
+    expect(isInvalidPurchaseSalePrice(0)).toBe(true);
+  });
+
+  it('accepts a positive price and an untouched one', () => {
+    expect(isInvalidPurchaseSalePrice(15000)).toBe(false);
+    expect(isInvalidPurchaseSalePrice(null)).toBe(false);
   });
 });
 

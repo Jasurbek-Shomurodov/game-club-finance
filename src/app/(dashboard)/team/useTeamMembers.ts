@@ -31,16 +31,15 @@ const EMPTY_TEAM: TeamData = { profiles: [], memberships: [], hasFeatureAccess: 
  *
  * RLS (074) limits the reads to the caller's own profile, people who share a
  * club with them, and open access requests; memberships to the caller's clubs.
- * Only memberships in `managedClubs` (active clubs the caller owns) are listed.
+ * Every readable membership is loaded, so a teammate from a club the caller
+ * does not own is never mistaken for an access request; `buildTeamMembers` lists
+ * only those in `managedClubs` (active clubs the caller owns).
  *
  * Every write reports whether a row was actually changed: RLS silently skips
  * rows the caller may not touch, which must not look like success.
  */
 export function useTeamMembers({ enabled, managedClubs }: { enabled: boolean; managedClubs: ReadonlyArray<Pick<Club, 'id' | 'name'>> }) {
-  // Joined so the loader identity only changes when the managed set does.
-  const managedClubKey = managedClubs.map((club) => club.id).join(',');
   const fetchTeam = useCallback(async (): Promise<TeamData> => {
-    const managedClubIds = managedClubKey ? managedClubKey.split(',') : [];
     const supabase = createClient();
     const profiles = (columns: string) => fetchAllRows<TeamProfileRow>(() => supabase
       .from('profiles')
@@ -50,7 +49,6 @@ export function useTeamMembers({ enabled, managedClubs }: { enabled: boolean; ma
     const memberships = (columns: string) => fetchAllRows<TeamMembershipRow>(() => supabase
       .from('club_memberships')
       .select(columns)
-      .in('club_id', managedClubIds)
       .order('club_id', { ascending: true })
       .order('user_id', { ascending: true }) as never);
 
@@ -76,7 +74,7 @@ export function useTeamMembers({ enabled, managedClubs }: { enabled: boolean; ma
       memberships: membershipRes.data ?? [],
       hasFeatureAccess,
     };
-  }, [managedClubKey]);
+  }, []);
 
   const loadTeam = useCallback(async (isCurrent: () => boolean) => {
     try {

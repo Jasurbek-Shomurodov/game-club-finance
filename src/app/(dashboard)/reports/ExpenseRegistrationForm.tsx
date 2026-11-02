@@ -11,17 +11,18 @@ import {
   DatePicker,
   Field,
   InlineAlert,
+  LoadErrorAlert,
   NoteField,
   SegmentedControl,
   Skeleton,
   Select,
   useEntryNoteGuard,
 } from '@/components/PresentationFoundation';
-import { formatCurrency, parseCurrencyInput } from '@/lib/formatters';
+import { formatCurrency } from '@/lib/formatters';
 import { MANUAL_EXPENSE_CATEGORIES } from '@/lib/expenseCategories';
 import { createClient, mutateFinanceRequest } from '@/lib/supabase/client';
 import { fetchExpensePresets } from '@/lib/supabase/expensePresets';
-import type { ExpensePreset } from '@/lib/calculations/expensePlans';
+import { expenseAmountFromInput, type ExpensePreset } from '@/lib/calculations/expensePlans';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessRollover } from '@/lib/useBusinessPeriod';
@@ -91,6 +92,8 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
   // When the business day rolls over, a date still on the old day moves to the
   // new one; a date the user picked deliberately is kept.
   useBusinessRollover(businessToday, (previousToday, nextToday) => {
+    // A moved date is a different expense, not a retry of the last attempt.
+    if (form.date === previousToday) requestId.current = null;
     setForm((current) => (current.date === previousToday ? { ...current, date: nextToday } : current));
   });
 
@@ -158,7 +161,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (submitPending.current) return;
-    const amount = parseCurrencyInput(form.amount) || plannedAmount || 0;
+    const amount = expenseAmountFromInput(form.amount, plannedAmount);
     const category = form.category;
 
     if (!selectedClubId) {
@@ -272,6 +275,13 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
           </div>
           <Skeleton className="h-3 w-64 max-w-full" />
         </div>
+      )}
+
+      {/* Without this the plans just vanish, and a payment saved now can never be linked to one. */}
+      {presetQuery.error && (
+        <LoadErrorAlert retrying={presetQuery.loading} onRetry={() => void presetQuery.reload()}>
+          {t('presetLoadError')}
+        </LoadErrorAlert>
       )}
 
       {presets.length > 0 && (
