@@ -73,7 +73,7 @@ export function salaryErrorCode(error: { code?: string | null; message?: string 
   if (error.code && error.code !== 'P0001') return 'SERVER_ERROR';
   if (/payment method is not enabled/i.test(message)) return 'PAYMENT_METHOD_DISABLED';
   if (/already been used for a different entry/i.test(message)) return 'REQUEST_CONFLICT';
-  if (/invalid payroll date|cannot start before|must start on the current business date/i.test(message)) return 'INVALID_DATE';
+  if (/invalid payroll date|cannot start before|must start on the current business date|must start on or after/i.test(message)) return 'INVALID_DATE';
   if (/does not belong to this club/i.test(message)) return 'NOT_FOUND';
   if (/settings are missing/i.test(message)) return 'SETTINGS_MISSING';
   if (/last salary rate cannot be deleted/i.test(message)) return 'LAST_RATE';

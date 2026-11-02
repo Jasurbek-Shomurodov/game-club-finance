@@ -8,6 +8,7 @@ import {
   Badge,
   Card,
   ConfirmDialog,
+  DatePicker,
   Disclosure,
   EmptyState,
   Field,
@@ -29,9 +30,11 @@ import {
   calculateSalaries,
   combineSalaryMonths,
   displayedRate,
+  earliestDeactivationDate,
   employeeStatus,
   rateInForce,
   salaryBalance,
+  scheduledDeactivation,
   type KpiBasis,
   type SalaryEmployee,
 } from '@/lib/calculations/salaries';
@@ -89,6 +92,8 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   const today = useBusinessToday(businessDayStartHour);
   const [deletion, setDeletion] = useState<DeletionTarget | null>(null);
   const [employeeEdit, setEmployeeEdit] = useState<EmployeeEditState | null>(null);
+  const [deactivation, setDeactivation] = useState<{ employee: SalaryEmployee; date: string; earliest: string } | null>(null);
+  const [deactivationError, setDeactivationError] = useState('');
   const [editError, setEditError] = useState('');
   const [savingTarget, setSavingTarget] = useState<SavingTarget | null>(null);
   const saving = savingTarget !== null;
@@ -128,7 +133,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   // One pass per employee instead of re-filtering every rate on each lookup.
   const summaries = useMemo(() => new Map<string, EmployeeRateSummary>(data.employees.map((employee) => {
     const display = displayedRate(data.rates, employee.id, today);
-    return [employee.id, { current: rateInForce(data.rates, employee.id, today), display, status: employeeStatus(employee, display, today) }];
+    return [employee.id, { current: rateInForce(data.rates, employee.id, today), display, status: employeeStatus(employee, display, today), deactivatesOn: scheduledDeactivation(data.rates, employee.id, today) }];
   })), [data.employees, data.rates, today]);
   const historyEmployee = data.employees.find((employee) => employee.id === employeeId);
   const upcomingCount = data.employees.filter((e) => summaries.get(e.id)?.status === 'upcoming').length;
@@ -309,22 +314,43 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
     }
   }
 
-  async function setEmployeeActive(employee: SalaryEmployee, active: boolean) {
+  function setEmployeeActive(employee: SalaryEmployee, active: boolean) {
     if (mutating.current || !isOwner) return;
+    if (active) { void activateEmployee(employee); return; }
+    const earliest = earliestDeactivationDate(employee, data.rates);
+    setDeactivationError('');
+    setDeactivation({ employee, earliest, date: summaries.get(employee.id)?.deactivatesOn ?? (today > earliest ? today : earliest) });
+  }
+
+  async function activateEmployee(employee: SalaryEmployee) {
     const confirmed = await confirm({
-      title: `${t(active ? 'activate' : 'deactivate')} · ${employee.name}`,
-      description: t(active ? 'activateConfirm' : 'deactivateConfirm', { name: employee.name }),
-      confirmLabel: t(active ? 'activate' : 'deactivate'),
-      tone: active ? 'primary' : 'danger',
+      title: `${t('activate')} · ${employee.name}`,
+      description: t('activateConfirm', { name: employee.name }),
+      confirmLabel: t('activate'),
+      tone: 'primary',
     });
     if (!confirmed) return;
     mutating.current = true;
     setSavingTarget('deactivate');
     try {
-      await postSalary(clubId, { action: 'set_active', employeeId: employee.id, active });
-      showToast(t(active ? 'activated' : 'deactivated'));
+      await postSalary(clubId, { action: 'set_active', employeeId: employee.id, active: true });
+      showToast(t('activated'));
       await reload({ silent: true });
     } catch (error) { showToast(writeErrorMessage(error), 'error'); }
+    finally { mutating.current = false; setSavingTarget(null); }
+  }
+
+  async function deactivateEmployee() {
+    if (!deactivation || !isOwner || mutating.current) return;
+    mutating.current = true;
+    setSavingTarget('deactivate');
+    setDeactivationError('');
+    try {
+      await postSalary(clubId, { action: 'set_active', employeeId: deactivation.employee.id, active: false, date: deactivation.date });
+      setDeactivation(null);
+      showToast(t(deactivation.date > today ? 'deactivationScheduled' : 'deactivated'));
+      await reload({ silent: true });
+    } catch (error) { setDeactivationError(writeErrorMessage(error)); }
     finally { mutating.current = false; setSavingTarget(null); }
   }
 
@@ -456,7 +482,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
           isOwner={isOwner}
           savingTarget={savingTarget}
           onEdit={openEmployeeEdit}
-          onSetActive={(employee, active) => void setEmployeeActive(employee, active)}
+          onSetActive={setEmployeeActive}
         />
       )}
 
@@ -496,6 +522,31 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
         error={deleteError || undefined}
         onConfirm={() => void deleteRecord()}
         onCancel={() => setDeletion(null)}
+      />
+
+      <ConfirmDialog
+        open={deactivation !== null}
+        title={deactivation ? `${t('deactivate')} · ${deactivation.employee.name}` : t('deactivate')}
+        description={deactivation && (
+          <div className="space-y-3">
+            <p>{t('deactivateConfirm', { name: deactivation.employee.name })}</p>
+            <Field label={t('deactivationDate')} hint={deactivation.date < today ? t('deactivationBackdatedHelp') : undefined}>
+              <DatePicker
+                value={deactivation.date}
+                min={deactivation.earliest}
+                disabled={savingTarget === 'deactivate'}
+                ariaLabel={t('deactivationDate')}
+                onChange={(date) => setDeactivation({ ...deactivation, date })}
+              />
+            </Field>
+          </div>
+        )}
+        confirmLabel={t('deactivate')}
+        tone="danger"
+        loading={savingTarget === 'deactivate'}
+        error={deactivationError || undefined}
+        onConfirm={() => void deactivateEmployee()}
+        onCancel={() => { if (!mutating.current) setDeactivation(null); }}
       />
 
       <EmployeeEditDialog

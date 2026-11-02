@@ -23,6 +23,8 @@ export interface EmployeeRateSummary {
   current: SalaryRate | undefined;
   display: SalaryRate | undefined;
   status: SalaryEmployeeStatus;
+  /** Future date this employee is due to stop accruing, if one is set. */
+  deactivatesOn: string | undefined;
 }
 
 export class SalaryRequestError extends Error {

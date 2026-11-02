@@ -10,7 +10,7 @@ export type SalaryNotificationInput = {
   | { event: 'employee_updated'; role: string; salaryType: 'daily' | 'monthly'; amount: number; kpi: number; kpiSettings: KpiSettings; date: string }
   | { event: 'salary_changed'; salaryType: 'daily' | 'monthly'; amount: number }
   | { event: 'kpi_changed'; kpi: number; kpiSettings: KpiSettings }
-  | { event: 'deactivated' }
+  | { event: 'deactivated'; date?: string }
   | { event: 'activated' }
   | { event: 'payment' | 'bonus' | 'fine'; amount: number; date: string; comment: string | null; paymentMethod?: string | null; paymentSource?: string | null }
   | { event: 'entry_deleted'; kind: 'payment' | 'bonus' | 'fine'; amount: number; date: string; reason: string }
@@ -49,6 +49,7 @@ export function buildSalaryNotification(input: SalaryNotificationInput): string 
       break;
     case 'deactivated':
       lines = head('⏸ Сотрудник деактивирован');
+      if (input.date) lines.push(`Дата деактивации: ${formatDateShort(input.date, 'ru')}`);
       break;
     case 'activated':
       lines = head('▶️ Сотрудник активирован');

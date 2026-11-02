@@ -226,6 +226,24 @@ export function displayedRate(rates: SalaryRate[], employeeId: string, date: str
   return first;
 }
 
+/** The future date an active employee is due to be deactivated on, if one is set. */
+export function scheduledDeactivation(rates: SalaryRate[], employeeId: string, date: string): string | undefined {
+  const shown = displayedRate(rates, employeeId, date);
+  if (!shown?.active) return undefined;
+  const after = shown.effective_date > date ? shown.effective_date : date;
+  const next = liveRatesFor(rates, employeeId)
+    .filter((rate) => rate.effective_date > after)
+    .sort((a, b) => a.effective_date.localeCompare(b.effective_date))[0];
+  return next && !next.active ? next.effective_date : undefined;
+}
+
+/** Deactivation cannot predate joining, or the latest active rate, which would restart accrual after it. */
+export function earliestDeactivationDate(employee: SalaryEmployee, rates: SalaryRate[]): string {
+  return liveRatesFor(rates, employee.id)
+    .filter((rate) => rate.active)
+    .reduce((earliest, rate) => (rate.effective_date > earliest ? rate.effective_date : earliest), employee.joined_on);
+}
+
 export type SalaryEmployeeStatus = 'upcoming' | 'active' | 'inactive';
 
 /** Upcoming staff join after `date` with active terms; otherwise the displayed rate decides. */

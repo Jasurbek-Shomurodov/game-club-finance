@@ -2358,11 +2358,6 @@
     "probes": [
       {
         "kind": "functionBody",
-        "signature": "public.deactivate_salary_employee(uuid,uuid)",
-        "md5": "3102017fbb086edcdc6752d9b6e63a35"
-      },
-      {
-        "kind": "functionBody",
         "signature": "public.change_salary_employee_role(uuid,uuid,text)",
         "md5": "6f01483dbd69d1ef43899f2be62c7567"
       },
@@ -4172,6 +4167,15 @@
         "kind": "functionBody",
         "signature": "public.update_expense_payment_method(uuid,uuid,text)",
         "md5": "4a5d14e764713219eca662d97b7550f0"
+      }
+    ]
+  },
+  {
+    "file": "115_salary_deactivation_date.sql",
+    "probes": [
+      {
+        "kind": "function",
+        "signature": "public.deactivate_salary_employee(uuid,uuid,date)"
       }
     ]
   }

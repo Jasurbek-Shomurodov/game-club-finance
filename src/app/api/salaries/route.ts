@@ -176,12 +176,15 @@ export async function POST(request: Request) {
         break;
       }
       case 'set_active': {
-        if (typeof body.active !== 'boolean') throw new BadRequest();
+        if (typeof body.active !== 'boolean' || (!body.active && body.date !== undefined && !isDate(body.date))) throw new BadRequest();
+        const date = !body.active && isDate(body.date) ? body.date : undefined;
         // Activating and deactivating write a rate row; deleting it removes this announcement.
         const before = await latestRate(supabase, clubId, employeeId);
-        rpcResult = await supabase.rpc(body.active ? 'activate_salary_employee' : 'deactivate_salary_employee', { p_club_id: clubId, p_employee_id: employeeId });
+        rpcResult = await (body.active
+          ? supabase.rpc('activate_salary_employee', { p_club_id: clubId, p_employee_id: employeeId })
+          : supabase.rpc('deactivate_salary_employee', { p_club_id: clubId, p_employee_id: employeeId, p_date: date }));
         announced = { kind: 'rate', before };
-        notification = { event: body.active ? 'activated' : 'deactivated' };
+        notification = body.active ? { event: 'activated' } : { event: 'deactivated', date };
         break;
       }
       case 'record_entry': {

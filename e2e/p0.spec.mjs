@@ -404,6 +404,27 @@ test('SAL-007 an employee\'s history is its own page, and every salary tab has i
   await expect(page.getByRole('radio', { name: 'History', checked: true })).toBeVisible();
 });
 
+test('SAL-008 deactivating an employee asks for the date', async ({ page, context }) => {
+  const employeeId = 'e2e00000-0000-4000-8000-00000000c0e0';
+  await context.addCookies([englishCookie]);
+  await page.goto('/salaries/employees');
+  const salaries = await page.request.post('/api/salaries', { data: {
+    clubId: clubs.arcade.id, employeeId, action: 'save_employee', name: 'E2E Sardor', jobTitle: 'Admin',
+    date: `${today.slice(0, 7)}-01`, salaryType: 'daily', amount: 100_000, kpi: 0, active: true,
+  } });
+  expect(salaries.status()).toBe(200);
+  await page.reload();
+
+  const card = page.locator('article', { hasText: 'E2E Sardor' });
+  await card.getByRole('button', { name: 'Deactivate' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Deactivate · E2E Sardor' });
+  await expect(dialog.getByRole('button', { name: 'Deactivate from' })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Deactivate', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await page.getByText(/Deactivated employees/).click();
+  await expect(card.getByRole('button', { name: 'Activate' })).toBeVisible();
+});
+
 test('SAL-009 the card\'s pencil edits role, salary and KPI in one dialog', async ({ page, context }) => {
   const employeeId = 'e2e00000-0000-4000-8000-00000000c0df';
   await context.addCookies([englishCookie]);

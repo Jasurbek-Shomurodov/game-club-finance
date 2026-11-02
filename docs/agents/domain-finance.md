@@ -214,7 +214,8 @@ status, and `salary_entries` holds append-only payments, bonuses and fines.
 
 Daily salary accrues on active calendar days including the current business
 date. Monthly salary accrues proportionally to the actual calendar days in
-that month. Changes/deactivation start today; historical rates stay intact.
+that month. Changes start today; deactivation starts on the
+date the owner picks (past or future); historical rates stay intact.
 Same-business-day settings can be corrected. KPI percentages are weighted by
 eligible days over elapsed days in that month.
 

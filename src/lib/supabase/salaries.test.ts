@@ -45,6 +45,7 @@ beforeAll(async () => {
   await db.exec(readFileSync(resolve('migrations/077_salary_entry_created_flag.sql'), 'utf8'));
   await db.exec(readFileSync(resolve('migrations/089_salary_deletion_reason.sql'), 'utf8'));
   await db.exec(readFileSync(resolve('migrations/113_owner_only_salary_deletion.sql'), 'utf8'));
+  await db.exec(readFileSync(resolve('migrations/115_salary_deactivation_date.sql'), 'utf8'));
   await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub','${owner}',false);`);
   await save();
 }, 60_000);
@@ -214,6 +215,30 @@ describe('salary database authorization and ledger integrity', () => {
       {effective_date:'2026-09-24',active:false,amount:'3000000.00',kpi_percent:'10.00'},
     ]);
     expect((await db.query('select * from salary_entries order by id')).rows).toEqual(entries);
+  });
+  it('deactivates from a past or future date and moves a pending one', async () => {
+    const id='20000000-0000-0000-0000-000000000033';
+    const rates = async () => (await db.query('select effective_date::text,active from salary_rates where employee_id=$1 and deleted_at is null order by effective_date',[id])).rows;
+    await save(id,'2026-09-01');
+    await db.query('select deactivate_salary_employee($1,$2,$3)',[club,id,'2026-10-10']);
+    await db.query('select deactivate_salary_employee($1,$2,$3)',[club,id,'2026-10-20']);
+    await db.query('select deactivate_salary_employee($1,$2,$3)',[club,id,'2026-10-20']);
+    expect(await rates()).toEqual([{effective_date:'2026-09-01',active:true},{effective_date:'2026-10-20',active:false}]);
+    await db.query('select deactivate_salary_employee($1,$2,$3)',[club,id,'2026-09-10']);
+    expect(await rates()).toEqual([{effective_date:'2026-09-01',active:true},{effective_date:'2026-09-10',active:false}]);
+    expect((await db.query<{delete_reason:string}>('select delete_reason from salary_rates where employee_id=$1 and deleted_at is not null',[id])).rows[0].delete_reason).toBe('Deactivation date changed');
+  });
+  it('rejects a deactivation date before joining or the latest active rate', async () => {
+    const id='20000000-0000-0000-0000-000000000034';
+    await save(id,'2026-09-01');
+    await db.query(`select change_salary_term($1,$2,'kpi',5)`,[club,id]);
+    await expect(db.query('select deactivate_salary_employee($1,$2,$3)',[club,id,'2026-08-31'])).rejects.toThrow('before the employee joins');
+    await expect(db.query('select deactivate_salary_employee($1,$2,$3)',[club,id,'2026-09-10'])).rejects.toThrow('latest salary change');
+    await db.query('select deactivate_salary_employee($1,$2,$3)',[club,id,'2026-09-24']);
+    expect((await db.query('select effective_date::text,active,kpi_percent from salary_rates where employee_id=$1 order by effective_date',[id])).rows).toEqual([
+      {effective_date:'2026-09-01',active:true,kpi_percent:'10.00'},
+      {effective_date:'2026-09-24',active:false,kpi_percent:'5.00'},
+    ]);
   });
   it('requires ownership to deactivate and supports future employees', async () => {
     const id='20000000-0000-0000-0000-000000000031';
