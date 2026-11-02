@@ -243,6 +243,13 @@ export async function POST(request: Request) {
         }
         break;
       }
+      case 'delete_employee': {
+        const reason = text(body.reason, 500);
+        if (!reason) throw new BadRequest();
+        rpcResult = await supabase.rpc('delete_salary_employee', { p_club_id: clubId, p_employee_id: employeeId, p_reason: reason });
+        notification = { event: 'employee_deleted', reason };
+        break;
+      }
       default:
         throw new BadRequest();
     }

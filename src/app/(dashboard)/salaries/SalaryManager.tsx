@@ -41,7 +41,7 @@ import {
   type SalaryEmployee,
 } from '@/lib/calculations/salaries';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { formatCurrencyInput, formatDateOnly, parseCurrencyInput } from '@/lib/formatters';
+import { formatCurrency, formatCurrencyInput, formatDateOnly, parseCurrencyInput } from '@/lib/formatters';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
 import { canAccessFeature } from '@/lib/permissions';
 import { useBusinessToday } from '@/lib/useBusinessToday';
@@ -142,16 +142,23 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
     const display = displayedRate(data.rates, employee.id, today);
     return [employee.id, { current: rateInForce(data.rates, employee.id, today), display, status: employeeStatus(employee, display, today), deactivatesOn: scheduledDeactivation(data.rates, employee.id, today), deactivatedFrom: deactivatedFrom(data.rates, employee.id, today) }];
   })), [data.employees, data.rates, today]);
-  const historyEmployee = data.employees.find((employee) => employee.id === employeeId);
-  const upcomingCount = data.employees.filter((e) => summaries.get(e.id)?.status === 'upcoming').length;
-  const activeCount = data.employees.filter((e) => summaries.get(e.id)?.current?.active).length;
+  // Hidden employees stay in `data` for the KPI calculation above, which their
+  // fixed pay is part of, but leave every list, total and history.
+  const employees = useMemo(() => data.employees.filter((e) => !e.deleted_at), [data.employees]);
+  const shownRates = useMemo(() => { const ids = new Set(employees.map((e) => e.id)); return data.rates.filter((r) => ids.has(r.employee_id)); }, [data.rates, employees]);
+  const shownEntries = useMemo(() => { const ids = new Set(employees.map((e) => e.id)); return data.entries.filter((e) => ids.has(e.employee_id)); }, [data.entries, employees]);
+  const historyEmployee = employees.find((employee) => employee.id === employeeId);
+  const upcomingCount = employees.filter((e) => summaries.get(e.id)?.status === 'upcoming').length;
+  const activeCount = employees.filter((e) => summaries.get(e.id)?.current?.active).length;
   // Deactivated staff keep their balance on their card but stay out of the club's total due.
-  const due = data.employees
+  const due = employees
     .filter((e) => summaries.get(e.id)?.display?.active)
     .reduce((sum, e) => sum + Math.max(0, salaryBalance(balances[e.id] ?? [])), 0);
   // Without an employee in the route, history covers the whole club.
-  const historyMonths = useMemo(() => (employeeId ? balances[employeeId] ?? [] : combineSalaryMonths(balances)), [balances, employeeId]);
-  const paid = data.entries.filter((e) => !e.deleted_at && e.kind === 'payment').reduce((sum, e) => sum + Number(e.amount), 0);
+  const historyMonths = useMemo(() => (employeeId
+    ? balances[employeeId] ?? []
+    : combineSalaryMonths(Object.fromEntries(employees.map((e) => [e.id, balances[e.id] ?? []])))), [balances, employeeId, employees]);
+  const paid = shownEntries.filter((e) => !e.deleted_at && e.kind === 'payment').reduce((sum, e) => sum + Number(e.amount), 0);
 
   // An entry changes only entries and, for payments, the linked salary expense;
   // that expense's effect on earned profit is applied locally instead of
@@ -390,6 +397,17 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
     finally { mutating.current = false; setSavingTarget(null); }
   }
 
+  function requestDeletion(target: DeletionTarget) {
+    setDeleteError('');
+    setDeleteReason('');
+    setDeletion(target);
+  }
+
+  function requestEmployeeDeletion(employee: SalaryEmployee) {
+    const balance = salaryBalance(balances[employee.id] ?? []);
+    requestDeletion({ id: employee.id, employeeId: employee.id, kind: 'employee', label: employee.name, unpaid: balance > 0 ? balance : undefined });
+  }
+
   async function deleteRecord() {
     const reason = deleteReason.trim();
     if (!deletion || !reason || !isOwner || mutating.current) return;
@@ -398,7 +416,9 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
     setDeleteError('');
     try {
       // Same route as every other payroll write, so it is logged and notified consistently.
-      await postSalary(clubId, { action: 'delete_record', employeeId: deletion.employeeId, recordId: deletion.id, kind: deletion.kind, reason });
+      await postSalary(clubId, deletion.kind === 'employee'
+        ? { action: 'delete_employee', employeeId: deletion.employeeId, reason }
+        : { action: 'delete_record', employeeId: deletion.employeeId, recordId: deletion.id, kind: deletion.kind, reason });
       setDeletion(null);
       showToast(t('deletedSuccess'));
       // Deleting a rate can change accruals; an entry only changes entries.
@@ -493,7 +513,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
 
       {canEdit && view === 'operations' && (
         <OperationsForms
-          employees={data.employees}
+          employees={employees}
           balances={balances}
           today={today}
           isOwner={isOwner}
@@ -518,7 +538,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
 
       {view === 'employees' && (
         <EmployeesView
-          employees={data.employees}
+          employees={employees}
           summaries={summaries}
           balances={balances}
           loading={loading}
@@ -527,6 +547,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
           savingTarget={savingTarget}
           onEdit={openEmployeeEdit}
           onSetActive={setEmployeeActive}
+          onDelete={requestEmployeeDeletion}
         />
       )}
 
@@ -534,27 +555,28 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
         <HistoryView
           employeeId={employeeId}
           historyEmployee={historyEmployee}
-          employees={data.employees}
-          rates={data.rates}
-          entries={data.entries}
+          employees={employees}
+          rates={shownRates}
+          entries={shownEntries}
           months={historyMonths}
           loading={loading}
           loadError={loadError}
           isOwner={isOwner}
           saving={saving}
           today={today}
-          onDelete={(target) => { setDeleteError(''); setDeleteReason(''); setDeletion(target); }}
+          onDelete={requestDeletion}
         />
       )}
 
       <ConfirmDialog
         open={Boolean(deletion) && isOwner}
         tone="danger"
-        title={t('deleteTitle')}
+        title={t(deletion?.kind === 'employee' ? 'deleteEmployeeTitle' : 'deleteTitle')}
         description={(
           <>
             <p className="mb-2 font-semibold text-gray-900">{deletion?.label}</p>
-            <p>{t(deletion?.kind === 'rate' ? 'deleteRateHelp' : 'deleteEntryHelp')}</p>
+            <p>{t(deletion?.kind === 'employee' ? 'deleteEmployeeHelp' : deletion?.kind === 'rate' ? 'deleteRateHelp' : 'deleteEntryHelp')}</p>
+            {deletion?.unpaid !== undefined && <p className="mt-2 font-semibold text-warning-600">{t('deleteEmployeeDue', { amount: `${formatCurrency(deletion.unpaid)} ${tc('currency')}` })}</p>}
             <Field label={t('deleteReason')} htmlFor="salary-delete-reason" required className="mt-3">
               <Textarea id="salary-delete-reason" required autoFocus maxLength={500} placeholder={t('deleteReasonPlaceholder')} value={deleteReason} onChange={(e) => setDeleteReason(e.target.value)} />
             </Field>

@@ -16,7 +16,7 @@ export type SetupMode = 'new' | 'salary' | 'kpi' | 'profile';
 export type SalaryView = 'operations' | 'employees' | 'history';
 export type EntryKind = SalaryEntry['kind'];
 export type SavingTarget = 'entry' | 'employee' | 'deactivate' | 'delete';
-export type DeletionTarget = { id: string; employeeId: string; kind: 'entry' | 'rate'; label: string };
+export type DeletionTarget = { id: string; employeeId: string; kind: 'entry' | 'rate' | 'employee'; label: string; unpaid?: number };
 
 /** Rate shown for an employee, the rate in force today, and the resulting status. */
 export interface EmployeeRateSummary {
@@ -61,6 +61,7 @@ const ERROR_KEYS: Record<Exclude<SalaryErrorCode, 'FORBIDDEN' | 'CHECK_FAILED' |
   NOT_FOUND: 'errors.notFound',
   SETTINGS_MISSING: 'errors.settingsMissing',
   LAST_RATE: 'errors.lastRate',
+  EMPLOYEE_ACTIVE: 'errors.employeeActive',
   DAY_COLLECTED: 'errors.dayCollected',
 };
 

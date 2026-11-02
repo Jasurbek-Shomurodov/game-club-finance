@@ -93,6 +93,15 @@ describe('POST /api/salaries', () => {
     expect((await post({ action: 'set_active', clubId: CLUB, employeeId: EMPLOYEE, active: false, date: 'soon' })).status).toBe(400);
   });
 
+  it('deletes an employee with a reason and announces it', async () => {
+    const { rpc } = mockSupabase();
+    const response = await post({ action: 'delete_employee', clubId: CLUB, employeeId: EMPLOYEE, reason: 'Left the club' });
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('delete_salary_employee', { p_club_id: CLUB, p_employee_id: EMPLOYEE, p_reason: 'Left the club' });
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining('Сотрудник удалён') }));
+    expect((await post({ action: 'delete_employee', clubId: CLUB, employeeId: EMPLOYEE, reason: '  ' })).status).toBe(400);
+  });
+
   it('sends a payment notification once, and not for a retried request id', async () => {
     const entry = { action: 'record_entry', clubId: CLUB, employeeId: EMPLOYEE, requestId: REQUEST, date: '2026-10-01', kind: 'payment', amount: 100000, comment: '', paymentMethod: 'cash', paymentSource: 'bar' };
     mockSupabase();

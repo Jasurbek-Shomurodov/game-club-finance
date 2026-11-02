@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { History, Pencil, Power, Users } from 'lucide-react';
+import { History, Pencil, Power, Trash2, Users } from 'lucide-react';
 import {
   Avatar,
   Badge,
@@ -29,6 +29,7 @@ export interface EmployeesViewProps {
   savingTarget: SavingTarget | null;
   onEdit: (employee: SalaryEmployee) => void;
   onSetActive: (employee: SalaryEmployee, active: boolean) => void;
+  onDelete: (employee: SalaryEmployee) => void;
 }
 
 /** Employee cards: active and upcoming staff first, deactivated staff collapsed below. */
@@ -69,7 +70,7 @@ export function EmployeesView({ employees, summaries, loading, loadError, ...car
 }
 
 function EmployeeCard({
-  employee, summary, balances, isOwner, savingTarget, onEdit, onSetActive,
+  employee, summary, balances, isOwner, savingTarget, onEdit, onSetActive, onDelete,
 }: Omit<EmployeesViewProps, 'employees' | 'summaries' | 'loading' | 'loadError'> & { employee: SalaryEmployee; summary: EmployeeRateSummary | undefined }) {
   const t = useTranslations('salaries');
   const tc = useTranslations('common');
@@ -136,6 +137,11 @@ function EmployeeCard({
             icon={<Power size={16} aria-hidden="true" />}
           >
             {t(rate?.active ? 'deactivate' : 'activate')}
+          </Button>
+        )}
+        {isOwner && status === 'inactive' && (
+          <Button variant="dangerOutline" size="sm" disabled={saving} onClick={() => onDelete(employee)} icon={<Trash2 size={16} aria-hidden="true" />}>
+            {t('delete')}
           </Button>
         )}
       </div>

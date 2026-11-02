@@ -1438,6 +1438,9 @@
     "deletedSuccess": "Record deleted. Balances have been updated.",
     "deleteEntryHelp": "This removes the entry from salary calculations. A deleted payment also removes its linked expense. The record stays in history.",
     "deleteRateHelp": "This removes the rate from salary calculations. The previous rate, if any, continues until the next rate. Historical balances and KPI may change. The deleted rate stays in history.",
+    "deleteEmployeeTitle": "Delete this employee?",
+    "deleteEmployeeHelp": "The employee disappears from the lists and pay totals. Paid salaries stay in expenses, and past reports do not change.",
+    "deleteEmployeeDue": "{amount} unpaid to this employee will no longer appear in the totals.",
     "deleteReason": "Reason for deleting",
     "deleteReasonPlaceholder": "Why is this record being deleted?",
     "recordOperations": "Record payment / bonus / fine",
@@ -1487,6 +1490,7 @@
       "notFound": "This employee or record no longer exists. Refresh the page.",
       "settingsMissing": "This employee has no salary settings yet. Save their settings first.",
       "lastRate": "The last salary rate cannot be deleted. Change the salary settings or deactivate the employee instead.",
+      "employeeActive": "Deactivate this employee first. Only deactivated employees can be deleted.",
       "dayCollected": "The money for this day was collected, so the day is closed. Pick another date or ask an owner to reopen it."
     }
   },

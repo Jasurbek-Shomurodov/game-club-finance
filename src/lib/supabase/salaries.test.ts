@@ -12,8 +12,8 @@ const payment = '30000000-0000-0000-0000-000000000001';
 async function save(id = employee, date = '2026-09-01', clubId = club) {
   return db.query(`select save_salary_employee($1,$2,'Employee','Manager',$3,'monthly',3000000,10,true)`, [clubId, id, date]);
 }
-async function pay(id = payment, kind = 'payment', amount = 100, date = '2026-09-24', clubId = club, method: string | null = 'cash') {
-  return db.query(`select record_salary_entry($1,$2,$3,$4,$5,$6,'note',$7,$8)`, [clubId, employee, id, date, kind, amount, kind === 'payment' ? method : null, kind === 'payment' ? 'game_club' : null]);
+async function pay(id = payment, kind = 'payment', amount = 100, date = '2026-09-24', clubId = club, method: string | null = 'cash', employeeId = employee) {
+  return db.query(`select record_salary_entry($1,$2,$3,$4,$5,$6,'note',$7,$8)`, [clubId, employeeId, id, date, kind, amount, kind === 'payment' ? method : null, kind === 'payment' ? 'game_club' : null]);
 }
 beforeAll(async () => {
   db = new PGlite();
@@ -47,6 +47,7 @@ beforeAll(async () => {
   await db.exec(readFileSync(resolve('migrations/113_owner_only_salary_deletion.sql'), 'utf8'));
   await db.exec(readFileSync(resolve('migrations/115_salary_deactivation_date.sql'), 'utf8'));
   await db.exec(readFileSync(resolve('migrations/121_backdated_deactivation_replaces_later_rates.sql'), 'utf8'));
+  await db.exec(readFileSync(resolve('migrations/122_hide_salary_employee.sql'), 'utf8'));
   await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub','${owner}',false);`);
   await save();
 }, 60_000);
@@ -245,6 +246,21 @@ describe('salary database authorization and ledger integrity', () => {
       {effective_date:'2026-09-01',active:true,kpi_percent:'10.00'},
       {effective_date:'2026-09-10',active:false,kpi_percent:'10.00'},
     ]);
+  });
+  it('hides only a deactivated employee, keeps its ledgers and accepts nothing new for it', async () => {
+    const id='20000000-0000-0000-0000-000000000035';
+    const entry='30000000-0000-0000-0000-000000000035';
+    await save(id,'2026-09-01');
+    await pay(entry,'payment',100,'2026-09-10',club,'cash',id);
+    await expect(db.query('select delete_salary_employee($1,$2,$3)',[club,id,'Left'])).rejects.toThrow('Deactivate the employee');
+    await db.query('select deactivate_salary_employee($1,$2,$3)',[club,id,'2026-09-20']);
+    await expect(db.query('select delete_salary_employee($1,$2,$3)',[club,id,'  '])).rejects.toThrow('deletion reason');
+    await db.query('select delete_salary_employee($1,$2,$3)',[club,id,'Left']);
+    await db.query('select delete_salary_employee($1,$2,$3)',[club,id,'Left']);
+    expect((await db.query<{delete_reason:string}>('select delete_reason from salary_employees where id=$1',[id])).rows).toEqual([{delete_reason:'Left'}]);
+    expect((await db.query('select id from expenses where salary_entry_id=$1',[entry])).rows).toHaveLength(1);
+    await expect(db.query('select activate_salary_employee($1,$2)',[club,id])).rejects.toThrow('does not belong');
+    await expect(pay('30000000-0000-0000-0000-000000000036','bonus',100,'2026-09-10',club,'cash',id)).rejects.toThrow('does not belong');
   });
   it('requires ownership to deactivate and supports future employees', async () => {
     const id='20000000-0000-0000-0000-000000000031';

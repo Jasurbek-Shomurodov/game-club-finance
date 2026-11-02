@@ -226,7 +226,10 @@ status, and `salary_entries` holds append-only payments, bonuses and fines.
 Daily salary accrues on active calendar days including the current business
 date. Monthly salary accrues proportionally to the actual calendar days in
 that month. Changes start today; deactivation starts on the
-date the owner picks (past or future); historical rates stay intact.
+date the owner picks (past or future); historical rates stay intact. A
+deactivated employee can be hidden (migration 122): they leave the salary pages
+and totals, including any unpaid balance, but their paid salaries stay in
+expenses and their fixed pay still counts towards their KPI group.
 Same-business-day settings can be corrected. KPI percentages are weighted by
 eligible days over elapsed days in that month.
 

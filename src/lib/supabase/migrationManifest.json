@@ -4238,5 +4238,43 @@
         "md5": "1710443c4b07ecd2a6efc1870be29394"
       }
     ]
+  },
+  {
+    "file": "122_hide_salary_employee.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.salary_employees",
+        "column": "deleted_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_employees",
+        "column": "deleted_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_employees",
+        "column": "delete_reason"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.salary_rates",
+        "name": "salary_rates_reject_hidden_employee"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.salary_entries",
+        "name": "salary_entries_reject_hidden_employee"
+      },
+      {
+        "kind": "function",
+        "signature": "public.delete_salary_employee(uuid,uuid,text)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.reject_hidden_salary_employee()"
+      }
+    ]
   }
 ]

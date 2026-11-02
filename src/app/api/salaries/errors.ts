@@ -17,6 +17,7 @@ export const SALARY_ERROR_CODES = [
   'NOT_FOUND',
   'SETTINGS_MISSING',
   'LAST_RATE',
+  'EMPLOYEE_ACTIVE',
   'DAY_COLLECTED',
   'SERVER_ERROR',
 ] as const;
@@ -36,6 +37,7 @@ export const SALARY_ERROR_TEXT: Record<SalaryErrorCode, string> = {
   NOT_FOUND: 'Salary record not found',
   SETTINGS_MISSING: 'Employee salary settings are missing',
   LAST_RATE: 'The last salary rate cannot be deleted',
+  EMPLOYEE_ACTIVE: 'Deactivate the employee first',
   DAY_COLLECTED: 'The money for this day was collected; the day is closed',
   SERVER_ERROR: 'Salary change failed',
 };
@@ -53,6 +55,7 @@ const STATUS: Record<SalaryErrorCode, number> = {
   NOT_FOUND: 404,
   SETTINGS_MISSING: 409,
   LAST_RATE: 409,
+  EMPLOYEE_ACTIVE: 409,
   DAY_COLLECTED: 409,
   SERVER_ERROR: 500,
 };
@@ -77,6 +80,7 @@ export function salaryErrorCode(error: { code?: string | null; message?: string 
   if (/does not belong to this club/i.test(message)) return 'NOT_FOUND';
   if (/settings are missing/i.test(message)) return 'SETTINGS_MISSING';
   if (/last salary rate cannot be deleted/i.test(message)) return 'LAST_RATE';
+  if (/deactivate the employee before/i.test(message)) return 'EMPLOYEE_ACTIVE';
   if (/^invalid /i.test(message)) return 'INVALID_VALUES';
   return error.code === 'P0001' ? 'INVALID_VALUES' : 'SERVER_ERROR';
 }

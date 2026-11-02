@@ -14,6 +14,8 @@ export interface SalaryEmployee {
   name: string;
   job_title: string;
   joined_on: string;
+  /** Hidden by the owner (migration 122); the row still counts towards KPI. */
+  deleted_at?: string | null;
 }
 
 /**

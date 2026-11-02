@@ -38,5 +38,6 @@ describe('buildSalaryNotification', () => {
     expect(entry).toContain('Сумма: 500 000 сум');
     expect(entry).toContain('Причина: Paid twice');
     expect(buildSalaryNotification({ ...base, event: 'rate_deleted', effectiveDate: '2026-10-01', reason: 'Wrong rate' })).toContain('Удалено изменение зарплаты');
+    expect(buildSalaryNotification({ ...base, event: 'employee_deleted', reason: 'Left the club' })).toContain('Сотрудник удалён');
   });
 });

@@ -1438,6 +1438,9 @@
     "deletedSuccess": "Yozuv o‘chirildi. Qoldiqlar yangilandi.",
     "deleteEntryHelp": "Yozuv ish haqi hisobidan chiqariladi. To‘lov o‘chirilsa, unga bog‘liq xarajat ham o‘chiriladi. Yozuv tarixda saqlanadi.",
     "deleteRateHelp": "Stavka hisobdan chiqariladi. Oldingi stavka mavjud bo‘lsa, keyingisigacha amal qiladi. Oldingi qoldiq va KPI o‘zgarishi mumkin. O‘chirilgan stavka tarixda saqlanadi.",
+    "deleteEmployeeTitle": "Xodim o‘chirilsinmi?",
+    "deleteEmployeeHelp": "Xodim ro‘yxatlar va maosh yakunlaridan yo‘qoladi. To‘langan maoshlar xarajatlarda qoladi, o‘tgan hisobotlar o‘zgarmaydi.",
+    "deleteEmployeeDue": "Bu xodimga to‘lanmagan {amount} yakunlarda boshqa ko‘rinmaydi.",
     "deleteReason": "Oʻchirish sababi",
     "deleteReasonPlaceholder": "Bu yozuv nima uchun oʻchirilmoqda?",
     "recordOperations": "To‘lov / mukofot / jarima kiritish",
@@ -1487,6 +1490,7 @@
       "notFound": "Bu xodim yoki yozuv endi mavjud emas. Sahifani yangilang.",
       "settingsMissing": "Bu xodimda hali maosh sozlamalari yo‘q. Avval ularni saqlang.",
       "lastRate": "Oxirgi maosh stavkasini o‘chirib bo‘lmaydi. Maosh sozlamalarini o‘zgartiring yoki xodimni nofaol qiling.",
+      "employeeActive": "Avval xodimni faolsizlantiring. Faqat faolsizlantirilgan xodimni o‘chirish mumkin.",
       "dayCollected": "Bu kunning puli olindi, kun yopilgan. Boshqa sanani tanlang yoki egasidan kunni qayta ochishni so‘rang."
     }
   },
