@@ -271,11 +271,18 @@ const NAV_OFFSET_GAP = 12;
 export function SectionNav({ items, label }: { items: Array<{ id: string; label: string }>; label: string }) {
   const navRef = useRef<HTMLElement | null>(null);
   const [active, setActive] = useState(items[0]?.id ?? '');
+  // A chip tap holds its section marked while the page glides there (and when
+  // a short last section can never reach the top) until the reader scrolls.
+  const heldRef = useRef<string | null>(null);
 
   useEffect(() => {
     let frame = 0;
     const update = () => {
       frame = 0;
+      if (heldRef.current) {
+        setActive(heldRef.current);
+        return;
+      }
       const bottom = (navRef.current?.getBoundingClientRect().bottom ?? 0) + NAV_OFFSET_GAP;
       let current = items[0]?.id ?? '';
       for (const item of items) {
@@ -289,12 +296,19 @@ export function SectionNav({ items, label }: { items: Array<{ id: string; label:
     const schedule = () => {
       if (!frame) frame = window.requestAnimationFrame(update);
     };
+    const release = () => {
+      heldRef.current = null;
+    };
     update();
     window.addEventListener('scroll', schedule, { passive: true });
     window.addEventListener('resize', schedule);
+    // Only the reader's own scrolling releases a tapped chip; the glide does not.
+    const releaseOn = ['wheel', 'touchstart', 'keydown', 'mousedown'] as const;
+    for (const type of releaseOn) window.addEventListener(type, release, { passive: true });
     return () => {
       window.removeEventListener('scroll', schedule);
       window.removeEventListener('resize', schedule);
+      for (const type of releaseOn) window.removeEventListener(type, release);
       if (frame) window.cancelAnimationFrame(frame);
     };
   }, [items]);
@@ -317,6 +331,7 @@ export function SectionNav({ items, label }: { items: Array<{ id: string; label:
       - (navRef.current?.getBoundingClientRect().bottom ?? 0) - NAV_OFFSET_GAP + 1;
     window.scrollTo({ top, behavior: reduceMotion ? 'auto' : 'smooth' });
     window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${id}`);
+    heldRef.current = id;
     setActive(id);
   };
 
