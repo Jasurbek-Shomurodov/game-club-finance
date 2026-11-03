@@ -890,6 +890,7 @@ export default function MoneyTakenPage() {
               <Card as="section" padding="none" className="h-fit overflow-hidden">
                 <WithdrawalHistory
                   rows={historyRows}
+                  currentMonth={currentMonth}
                   withdrawals={withdrawals}
                   isOwner={isOwner}
                   deletingId={deletingId}

@@ -7,7 +7,7 @@ import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { Badge, EmptyState, IconButton, SectionHeading, SegmentedControl } from '@/components/PresentationFoundation';
 import { withdrawnBySourceForMonth } from '@/lib/calculations/ownerProfitSnapshot';
 import { capitalizeFirst, formatCurrency, formatDateTime, formatYearMonth } from '@/lib/formatters';
-import { cn } from '@/lib/utils';
+import { cn, previousYearMonth } from '@/lib/utils';
 import {
   OWNER_WITHDRAWAL_SOURCES,
   type OwnerProfitCarryover,
@@ -23,8 +23,6 @@ export type HistoryRow =
 
 type SourceFilter = OwnerWithdrawalSource | 'all';
 
-/** Months shown expanded until the owner toggles them. */
-const OPEN_BY_DEFAULT = 2;
 
 export function historyCreatedAt(row: HistoryRow): string {
   return row.kind === 'withdrawal' ? row.withdrawal.created_at : row.carryover.created_at;
@@ -33,6 +31,8 @@ export function historyCreatedAt(row: HistoryRow): string {
 interface WithdrawalHistoryProps {
   /** Newest month first, newest entry first within a month. */
   rows: readonly HistoryRow[];
+  /** The club's current business month (YYYY-MM); only the month before it starts expanded. */
+  currentMonth: string;
   withdrawals: readonly OwnerWithdrawal[];
   isOwner: boolean;
   deletingId: string | null;
@@ -46,6 +46,7 @@ interface WithdrawalHistoryProps {
 /** Owner withdrawals and carryovers as a month-by-month timeline, filterable by source. */
 export function WithdrawalHistory({
   rows,
+  currentMonth,
   withdrawals,
   isOwner,
   deletingId,
@@ -68,6 +69,23 @@ export function WithdrawalHistory({
     const last = months.at(-1);
     if (last?.month === row.month) last.rows.push(row);
     else months.push({ month: row.month, rows: [row] });
+  }
+
+  const lastMonth = previousYearMonth(currentMonth);
+  // Withdrawn per month for the chosen source: this and last month always, then every month with history.
+  const monthTotals = [...new Set([currentMonth, lastMonth, ...rows.map((row) => row.month)])]
+    .sort((a, b) => b.localeCompare(a))
+    .map((month) => {
+      const totals = withdrawnBySourceForMonth(withdrawals, month);
+      const amount = filter === 'all' ? OWNER_WITHDRAWAL_SOURCES.reduce((sum, source) => sum + totals[source], 0) : totals[filter];
+      return { month, amount };
+    });
+  const monthLabel = (month: string) => (month === currentMonth
+    ? t('summaryThisMonth')
+    : month === lastMonth ? t('summaryLastMonth') : capitalizeFirst(formatYearMonth(month, locale), locale));
+  function showMonth(month: string) {
+    setToggled((current) => ({ ...current, [month]: true }));
+    requestAnimationFrame(() => document.getElementById(`${baseId}-section-${month}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
 
   const filterOptions = (['all', ...OWNER_WITHDRAWAL_SOURCES] as const).map((source) => {
@@ -94,6 +112,34 @@ export function WithdrawalHistory({
             onChange={setFilter}
           />
         ) : null}
+        <div>
+          <p className="text-xs font-medium text-gray-500">{t('withdrawnByMonth')}</p>
+          <ul className="-mx-1 mt-2 flex gap-2 overflow-x-auto px-1 pb-1">
+            {monthTotals.map(({ month, amount }) => {
+              const hasRows = months.some((group) => group.month === month);
+              return (
+                <li key={month} className="shrink-0">
+                  <button
+                    type="button"
+                    disabled={!hasRows}
+                    onClick={() => showMonth(month)}
+                    className={cn(
+                      'min-w-[8.5rem] rounded-xl border px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+                      month === currentMonth ? 'border-primary-200 bg-primary-50/60' : 'border-gray-100 bg-gray-50/60',
+                      hasRows ? 'hover:bg-gray-100/70' : 'cursor-default',
+                    )}
+                  >
+                    <span className="block text-xs text-gray-500">{monthLabel(month)}</span>
+                    <span className="mt-0.5 block whitespace-nowrap font-bold tabular-nums text-gray-900">
+                      {formatCurrency(amount)}
+                      <span className="ml-1 text-[11px] font-medium text-gray-500">{tc('currency')}</span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       </div>
 
       {months.length === 0 ? (
@@ -102,15 +148,15 @@ export function WithdrawalHistory({
         </div>
       ) : (
         <div className="divide-y divide-gray-100">
-          {months.map(({ month, rows: monthRows }, index) => {
-            const open = toggled[month] ?? index < OPEN_BY_DEFAULT;
+          {months.map(({ month, rows: monthRows }) => {
+            const open = toggled[month] ?? month === lastMonth;
             const panelId = `${baseId}-${month}`;
             const totals = withdrawnBySourceForMonth(withdrawals, month);
             const sides = OWNER_WITHDRAWAL_SOURCES.filter((source) => totals[source] > 0 && (filter === 'all' || filter === source));
             const total = sides.reduce((sum, source) => sum + totals[source], 0);
 
             return (
-              <section key={month} aria-label={formatYearMonth(month, locale)}>
+              <section key={month} id={`${baseId}-section-${month}`} className="scroll-mt-20" aria-label={formatYearMonth(month, locale)}>
                 <button
                   type="button"
                   aria-expanded={open}

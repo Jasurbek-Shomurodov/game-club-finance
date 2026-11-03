@@ -81,6 +81,12 @@ export function nextYearMonth(yearMonth: string): string {
   return month === 12 ? `${year + 1}-01` : `${year}-${String(month + 1).padStart(2, '0')}`;
 }
 
+/** The calendar month before a YYYY-MM month, as YYYY-MM. */
+export function previousYearMonth(yearMonth: string): string {
+  const [year, month] = yearMonth.split('-').map(Number);
+  return month === 1 ? `${year - 1}-12` : `${year}-${String(month - 1).padStart(2, '0')}`;
+}
+
 export function monthRange(yearMonth: string): { from: string; to: string } {
   const [year, month] = yearMonth.split('-').map(Number);
   const fromDate = new Date(year, month - 1, 1);
