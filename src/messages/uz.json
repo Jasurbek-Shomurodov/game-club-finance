@@ -1252,6 +1252,7 @@
     "summaryThisMonth": "Shu oy",
     "summaryLastMonth": "O‘tgan oy",
     "historyMonthTotal": "Jami",
+    "historyMonthInvested": "Investitsiya",
     "historyFilter": "Qaysi manbadan yechilganini ko‘rsatish",
     "historyEntries": "{count, plural, other {# ta yozuv}}",
     "noHistoryForSource": "Bu manbadan hali pul yechilmagan.",

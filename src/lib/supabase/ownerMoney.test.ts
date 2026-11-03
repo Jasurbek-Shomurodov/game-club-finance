@@ -51,6 +51,18 @@ describe('fetchOwnerMoney', () => {
     expect(result.balancesByMonth['2026-09'].gameClub).toMatchObject({ earned: 1_000, withdrawn: 400, available: 600 });
   });
 
+  it('reads investment expenses for the club and hides them when the read fails', async () => {
+    const investments = query({ data: [{ date: '2026-10-03', amount: '2000', payment_source: 'bar' }], error: null });
+    const supabase = client({ expenses: investments }, () => ({ data: snapshotPayload, error: null }));
+    const result = await fetchOwnerMoney(supabase, 'club-1', '2026-10-25');
+    expect(investments.calls).toContainEqual(['eq', ['club_id', 'club-1']]);
+    expect(investments.calls).toContainEqual(['eq', ['category', 'investments']]);
+    expect(result.investments).toEqual([{ date: '2026-10-03', amount: '2000', payment_source: 'bar' }]);
+
+    const failing = client({ expenses: query({ data: null, error: { message: 'denied' } }) }, () => ({ data: snapshotPayload, error: null }));
+    await expect(fetchOwnerMoney(failing, 'club-1', '2026-10-25')).resolves.toMatchObject({ investments: [] });
+  });
+
   it('stops early when the load is superseded', async () => {
     const supabase = client({}, () => ({ data: snapshotPayload, error: null }));
     await expect(fetchOwnerMoney(supabase, 'club-1', '2026-10-25', () => false)).resolves.toBe(EMPTY_OWNER_MONEY);

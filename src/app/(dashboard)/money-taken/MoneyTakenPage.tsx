@@ -126,6 +126,7 @@ export default function MoneyTakenPage() {
     withdrawals,
     carryovers,
     exchangeRows,
+    investments,
     carryoversSupported,
     methodsSupported,
   } = ownerMoney.data;
@@ -892,6 +893,7 @@ export default function MoneyTakenPage() {
                   rows={historyRows}
                   currentMonth={currentMonth}
                   withdrawals={withdrawals}
+                  investments={investments}
                   isOwner={isOwner}
                   deletingId={deletingId}
                   deleteDisabled={loading || !!error || saving !== null || deletingId !== null}

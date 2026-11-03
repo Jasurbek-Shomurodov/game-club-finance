@@ -157,6 +157,26 @@ export function withdrawnBySourceForMonth(
   return totals;
 }
 
+/** One `investments` expense: money the owner put back into the game club or the bar. */
+export interface InvestmentRow {
+  date: string;
+  amount: number | string;
+  payment_source: 'game_club' | 'bar' | null;
+}
+
+/** Money invested in one calendar month (`YYYY-MM`), per source, from `investments` expenses. */
+export function investedBySourceForMonth(
+  investments: readonly InvestmentRow[],
+  month: string,
+): Record<'game_club' | 'bar', number> {
+  const totals = { game_club: 0, bar: 0 };
+  for (const row of investments) {
+    if (row.date.slice(0, 7) !== month) continue;
+    totals[row.payment_source === 'bar' ? 'bar' : 'game_club'] += Number(row.amount ?? 0);
+  }
+  return totals;
+}
+
 /** What can still be taken from one method: never more than the Game Club month balance. */
 export function availableForPaymentMethod(methodAvailable: number, gameClubAvailable: number): number {
   return Math.max(0, Math.min(methodAvailable, gameClubAvailable));

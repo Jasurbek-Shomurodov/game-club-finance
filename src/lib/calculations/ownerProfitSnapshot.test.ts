@@ -7,6 +7,7 @@ import {
   gameClubMoneyLeftByPaymentMethodByMonth,
   gameClubWithdrawalsByMethod,
   sumOwnerBalances,
+  investedBySourceForMonth,
   withdrawnBySourceForMonth,
 } from './ownerProfitSnapshot';
 import { calculateGameClubMoneyLeftByPaymentMethod, type ExpenseRow } from './dashboardMetrics';
@@ -269,5 +270,15 @@ describe('withdrawn by source for a month', () => {
       row('bar', 4_528_547), row('game_club', 4_500_000), row('game_club', 500_000), row('bar', 1, '2026-08-01'),
     ], '2026-09')).toEqual({ game_club: 5_000_000, bar: 4_528_547 });
     expect(withdrawnBySourceForMonth([], '2026-09')).toEqual({ game_club: 0, bar: 0 });
+  });
+
+  it('totals investment expenses per source for one month', () => {
+    expect(investedBySourceForMonth([
+      { date: '2026-09-03', amount: '2000000', payment_source: 'game_club' },
+      { date: '2026-09-20', amount: 500_000, payment_source: 'bar' },
+      { date: '2026-09-28', amount: 1_000, payment_source: 'game_club' },
+      { date: '2026-10-01', amount: 9_999, payment_source: 'bar' },
+    ], '2026-09')).toEqual({ game_club: 2_001_000, bar: 500_000 });
+    expect(investedBySourceForMonth([], '2026-09')).toEqual({ game_club: 0, bar: 0 });
   });
 });

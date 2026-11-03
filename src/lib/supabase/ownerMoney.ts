@@ -11,6 +11,7 @@ import {
   applyOwnerProfitCarryovers,
   buildOwnerProfitSnapshot,
   gameClubMoneyLeftByPaymentMethodByMonth,
+  type InvestmentRow,
   type OwnerProfitSnapshotPayload,
 } from '@/lib/calculations/ownerProfitSnapshot';
 import type { StockPurchaseCostRow } from '@/lib/calculations/barMoney';
@@ -34,6 +35,8 @@ export interface OwnerMoneyData {
   withdrawals: OwnerWithdrawal[];
   carryovers: OwnerProfitCarryover[];
   exchangeRows: MoneyExchangeRow[];
+  /** `investments` expenses; empty for a viewer who cannot read expenses. */
+  investments: InvestmentRow[];
   /** Migration 071 is applied: unwithdrawn profit can be moved to the next month. */
   carryoversSupported: boolean;
   /** Migration 066 is applied: Game Club withdrawals record a payment method. */
@@ -46,6 +49,7 @@ export const EMPTY_OWNER_MONEY: OwnerMoneyData = {
   withdrawals: [],
   carryovers: [],
   exchangeRows: [],
+  investments: [],
   carryoversSupported: false,
   methodsSupported: false,
 };
@@ -65,7 +69,7 @@ export async function fetchOwnerMoney(
   const currentMonth = businessToday.slice(0, 7);
 
   const snapshotArgs = { p_club_id: clubId, p_through_date: businessToday };
-  const [snapshotWithMethods, carryoverRes, exchangeRows] = await Promise.all([
+  const [snapshotWithMethods, carryoverRes, exchangeRows, investmentRes] = await Promise.all([
     // Migration 076: the snapshot's withdrawal rows carry their payment method.
     supabase.rpc('get_owner_profit_snapshot_with_methods', snapshotArgs),
     fetchAllRows<OwnerProfitCarryover>(() => supabase
@@ -76,6 +80,13 @@ export async function fetchOwnerMoney(
       .order('id')),
     // Exchanges move money between methods (092); neither balance source includes them.
     fetchMoneyExchanges(supabase, clubId, '2000-01-01', businessToday),
+    fetchAllRows<InvestmentRow>(() => supabase
+      .from('expenses')
+      .select('date,amount,payment_source')
+      .eq('club_id', clubId)
+      .eq('category', 'investments')
+      .lte('date', businessToday)
+      .order('id')),
   ]);
 
   // A superseded load stops early; useClubQuery discards whatever it returns.
@@ -113,6 +124,8 @@ export async function fetchOwnerMoney(
     ...row,
     payment_method: (methodById ? methodById.get(row.id) : row.payment_method) ?? null,
   }));
+  // Investments are context for the history, not balances: a failed read hides them instead of the page.
+  const investments = investmentRes.error ? [] : (investmentRes.data ?? []);
   const supported = { carryoversSupported: !carryoversMissing, methodsSupported: !methodsMissing };
 
   if (!snapshotResult.error && snapshotResult.data?.paymentMethodBalancesByMonth) {
@@ -123,6 +136,7 @@ export async function fetchOwnerMoney(
       withdrawals: withMethods(snapshot.withdrawals),
       carryovers,
       exchangeRows,
+      investments,
       ...supported,
     };
   }
@@ -204,6 +218,7 @@ export async function fetchOwnerMoney(
     withdrawals: withMethods(withdrawalRows),
     carryovers,
     exchangeRows,
+    investments,
     ...supported,
   };
 }

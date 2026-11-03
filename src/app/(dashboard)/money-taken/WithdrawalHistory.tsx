@@ -1,11 +1,11 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { CalendarArrowUp, CalendarDays, ChevronDown, Clock, History, Layers, MessageSquareText, Trash2 } from 'lucide-react';
+import { CalendarArrowUp, CalendarDays, ChevronDown, Clock, History, Layers, MessageSquareText, Sprout, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { Badge, EmptyState, IconButton, SectionHeading, SegmentedControl } from '@/components/PresentationFoundation';
-import { withdrawnBySourceForMonth } from '@/lib/calculations/ownerProfitSnapshot';
+import { investedBySourceForMonth, withdrawnBySourceForMonth, type InvestmentRow } from '@/lib/calculations/ownerProfitSnapshot';
 import { capitalizeFirst, formatCurrency, formatDateTime, formatYearMonth } from '@/lib/formatters';
 import { cn, previousYearMonth } from '@/lib/utils';
 import {
@@ -34,6 +34,8 @@ interface WithdrawalHistoryProps {
   /** The club's current business month (YYYY-MM); only the month before it starts expanded. */
   currentMonth: string;
   withdrawals: readonly OwnerWithdrawal[];
+  /** `investments` expenses, shown per month beside what was withdrawn. */
+  investments: readonly InvestmentRow[];
   isOwner: boolean;
   deletingId: string | null;
   deleteDisabled: boolean;
@@ -48,6 +50,7 @@ export function WithdrawalHistory({
   rows,
   currentMonth,
   withdrawals,
+  investments,
   isOwner,
   deletingId,
   deleteDisabled,
@@ -154,6 +157,10 @@ export function WithdrawalHistory({
             const totals = withdrawnBySourceForMonth(withdrawals, month);
             const sides = OWNER_WITHDRAWAL_SOURCES.filter((source) => totals[source] > 0 && (filter === 'all' || filter === source));
             const total = sides.reduce((sum, source) => sum + totals[source], 0);
+            const investedTotals = investedBySourceForMonth(investments, month);
+            const invested = filter === 'all'
+              ? OWNER_WITHDRAWAL_SOURCES.reduce((sum, source) => sum + investedTotals[source], 0)
+              : investedTotals[filter];
 
             return (
               <section key={month} id={`${baseId}-section-${month}`} className="scroll-mt-20" aria-label={formatYearMonth(month, locale)}>
@@ -172,8 +179,20 @@ export function WithdrawalHistory({
                       <span className="block font-semibold text-gray-900">{capitalizeFirst(formatYearMonth(month, locale), locale)}</span>
                       <span className="block text-xs text-gray-500">{t('historyEntries', { count: monthRows.length })}</span>
                     </span>
-                    {total > 0 ? (
+                    {invested > 0 ? (
                       <span className="text-right">
+                        <span className="flex items-center justify-end gap-1 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                          <Sprout size={12} aria-hidden="true" />
+                          {t('historyMonthInvested')}
+                        </span>
+                        <span className="block whitespace-nowrap text-base font-semibold leading-tight tabular-nums text-gray-700">
+                          {formatCurrency(invested)}
+                          <span className="ml-1 text-xs font-medium text-gray-500">{tc('currency')}</span>
+                        </span>
+                      </span>
+                    ) : null}
+                    {total > 0 ? (
+                      <span className="text-right sm:min-w-[9rem]">
                         <span className="block text-[11px] font-medium uppercase tracking-wide text-gray-500">{t('historyMonthTotal')}</span>
                         <span className="block text-lg font-bold leading-tight tabular-nums text-gray-900">
                           {formatCurrency(total)}

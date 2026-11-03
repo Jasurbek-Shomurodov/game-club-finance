@@ -1252,6 +1252,7 @@
     "summaryThisMonth": "This month",
     "summaryLastMonth": "Last month",
     "historyMonthTotal": "Total",
+    "historyMonthInvested": "Invested",
     "historyFilter": "Show withdrawals from",
     "historyEntries": "{count, plural, one {# entry} other {# entries}}",
     "noHistoryForSource": "Nothing withdrawn from this source yet.",

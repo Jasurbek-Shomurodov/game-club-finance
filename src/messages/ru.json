@@ -1252,6 +1252,7 @@
     "summaryThisMonth": "Этот месяц",
     "summaryLastMonth": "Прошлый месяц",
     "historyMonthTotal": "Всего",
+    "historyMonthInvested": "Инвестировано",
     "historyFilter": "Показать снятия из",
     "historyEntries": "{count, plural, one {# запись} few {# записи} many {# записей} other {# записи}}",
     "noHistoryForSource": "Из этого источника ещё ничего не снималось.",
