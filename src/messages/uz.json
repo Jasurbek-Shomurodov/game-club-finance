@@ -1361,6 +1361,8 @@
     "activeEmployees": "Faol xodimlar",
     "totalDue": "To‘lanishi kerak · jami",
     "totalPaid": "To‘langan · jami",
+    "earnedThisMonth": "Ish haqi · shu oy",
+    "paidThisMonth": "Shu oy to‘langan: {amount}",
     "howItWorks": "Ish haqi va KPI qanday hisoblanadi",
     "baseHelp": "Kunlik ish haqi har bir faol kalendar kuni uchun, bugunni ham qo‘shib hisoblanadi. Oylik ish haqi shu oydagi kunlar soniga bo‘linadi va faol kunlar uchun hisoblanadi. Nofaol qilish belgilangan sanadan hisoblashni to‘xtatadi.",
     "kpiHelp": "KPI — foydadan foiz. Har bir xodim uchun Umumiy foyda (har kuni ishlanadi, ega yechishlaridan oldin va barcha ish haqi xarajatlaridan keyin) yoki Ega foydasi (faqat oy davomida ega yechgan pul) tanlanadi, manba — O‘yin klubi, Bar yoki ikkalasi. Zarar KPI keltirmaydi. Foiz faol kunlar va stavka o‘zgarishlariga qarab o‘lchanadi.",

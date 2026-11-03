@@ -1361,6 +1361,8 @@
     "activeEmployees": "Active employees",
     "totalDue": "Total due · all time",
     "totalPaid": "Total paid · all time",
+    "earnedThisMonth": "Salary cost · this month",
+    "paidThisMonth": "Paid this month: {amount}",
     "howItWorks": "How salary and KPI are calculated",
     "baseHelp": "Daily salary accrues for each active calendar day, including today. Monthly salary is divided by the days in that month and accrues for active days. Deactivation stops accrual from its effective date.",
     "kpiHelp": "KPI is a percentage of profit. Each employee uses either Overall profit (earned every day, before owner withdrawals, after all salary costs) or Owner profit (only what the owner withdrew that month), taken from Game Club, Bar or both. A loss earns no KPI. The percentage is weighted by active days and rate changes within each month.",

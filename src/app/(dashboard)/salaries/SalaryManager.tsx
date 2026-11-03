@@ -158,7 +158,8 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   const historyMonths = useMemo(() => (employeeId
     ? balances[employeeId] ?? []
     : combineSalaryMonths(Object.fromEntries(employees.map((e) => [e.id, balances[e.id] ?? []])))), [balances, employeeId, employees]);
-  const paid = shownEntries.filter((e) => !e.deleted_at && e.kind === 'payment').reduce((sum, e) => sum + Number(e.amount), 0);
+  // This business month's salary cost across the club, history view aside.
+  const thisMonth = historyMonths.find((month) => month.month === today.slice(0, 7));
 
   // An entry changes only entries and, for payments, the linked salary expense;
   // that expense's effect on earned profit is applied locally instead of
@@ -495,7 +496,17 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
             loading={loading}
             tone={dueValue > 0 ? 'warning' : 'default'}
           />
-          <MetricCard label={t('totalPaid')} value={<MetricMoney amount={view === 'history' ? historyMonths.reduce((sum, month) => sum + month.paid, 0) : paid} />} icon={Banknote} loading={loading} />
+          {view === 'history' ? (
+            <MetricCard label={t('totalPaid')} value={<MetricMoney amount={historyMonths.reduce((sum, month) => sum + month.paid, 0)} />} icon={Banknote} loading={loading} />
+          ) : (
+            <MetricCard
+              label={t('earnedThisMonth')}
+              value={<MetricMoney amount={thisMonth?.earned ?? 0} />}
+              trendLabel={t('paidThisMonth', { amount: `${formatCurrency(thisMonth?.paid ?? 0)} ${tc('currency')}` })}
+              icon={Banknote}
+              loading={loading}
+            />
+          )}
         </div>
       )}
 
