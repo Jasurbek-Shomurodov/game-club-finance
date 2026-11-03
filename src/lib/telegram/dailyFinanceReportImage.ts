@@ -11,7 +11,7 @@ import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
 import type { DailyFinanceIncomePoint, DailyFinancePromoGiveaway, DailyFinanceReportInput } from './dailyFinanceReport';
 import { REPORT_FONT_DIRECTORY, REPORT_FONT_FILES } from './reportFontConfig';
 
-const WIDTH = 1200;
+const WIDTH = 1600;
 const PAGE_X = 40;
 const PAGE_WIDTH = WIDTH - PAGE_X * 2;
 const INK = '#0F1E4A';

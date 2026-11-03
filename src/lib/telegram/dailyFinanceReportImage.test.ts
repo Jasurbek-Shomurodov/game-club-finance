@@ -98,7 +98,7 @@ describe('daily finance report image', () => {
   it('builds deterministic SVG with escaped labels and exact calculated values', () => {
     const svg = buildDailyFinanceReportSvg(reportInput());
 
-    expect(svg).toContain('width="1200"');
+    expect(svg).toContain('width="1600"');
     expect(svg).toContain('height="2390"');
     expect(svg).toContain('ФИНАНСЫ КЛУБА');
     expect(svg).toContain('Main Game Club · Рабочий день: 27 августа 2026');
@@ -188,7 +188,7 @@ describe('daily finance report image', () => {
     ]));
     expect(metadata).toMatchObject({
       format: 'png',
-      width: 1200,
+      width: 1600,
       channels: 4,
     });
     expect(metadata.height).toBe(2390);
