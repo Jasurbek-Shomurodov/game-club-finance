@@ -299,7 +299,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   function openEmployeeEdit(employee: SalaryEmployee) {
     if (!isOwner || saving) return;
     setEditError('');
-    setEmployeeEdit(employeeEditState(employee, summaries.get(employee.id)?.display));
+    setEmployeeEdit(employeeEditState(employee, summaries.get(employee.id)?.display, { rates: data.rates, today }));
   }
 
   // Role, salary and KPI are separate owner actions (each logged and announced
@@ -314,6 +314,8 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
     if (changes.kpi && (!Number.isFinite(kpi) || kpi < 0 || kpi > 100)) { setEditError(tc('invalidAmount')); return; }
     if (changes.kpi && !employeeEdit.kpi_game_club && !employeeEdit.kpi_bar) { setEditError(t('kpiPoolRequired')); return; }
     const employeeId = employeeEdit.employee.id;
+    // Only a backdated change sends its date; today's keeps working on databases before migration 123.
+    const from = employeeEdit.date !== employeeEdit.defaultDate ? { date: employeeEdit.date } : {};
     mutating.current = true;
     setSavingTarget('employee');
     setEditError('');
@@ -331,13 +333,13 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
         markLanded('role');
       }
       if (changes.salary) {
-        await postSalary(clubId, { action: 'change_term', employeeId, kind: 'salary', amount, salaryType: employeeEdit.salary_type });
+        await postSalary(clubId, { action: 'change_term', employeeId, kind: 'salary', amount, salaryType: employeeEdit.salary_type, ...from });
         markLanded('salary');
       }
       if (changes.kpi) {
         await postSalary(clubId, {
           action: 'change_term', employeeId, kind: 'kpi', amount: kpi,
-          kpiBasis: employeeEdit.kpi_basis, kpiGameClub: employeeEdit.kpi_game_club, kpiBar: employeeEdit.kpi_bar,
+          kpiBasis: employeeEdit.kpi_basis, kpiGameClub: employeeEdit.kpi_game_club, kpiBar: employeeEdit.kpi_bar, ...from,
         });
         markLanded('kpi');
       }

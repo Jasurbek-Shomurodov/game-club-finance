@@ -6,6 +6,7 @@ import {
   Button,
   Checkbox,
   CurrencyInput,
+  DatePicker,
   Field,
   InlineAlert,
   Input,
@@ -13,13 +14,19 @@ import {
   SectionHeading,
   Select,
 } from '@/components/PresentationFoundation';
-import type { KpiBasis, SalaryEmployee, SalaryRate } from '@/lib/calculations/salaries';
+import { rateInForce, type KpiBasis, type SalaryEmployee, type SalaryRate } from '@/lib/calculations/salaries';
 import { formatCurrencyInput, parseCurrencyInput } from '@/lib/formatters';
 import { employeeRoles, knownEmployeeRole } from './shared';
 
 export interface EmployeeEditState {
   employee: SalaryEmployee;
+  /** The rate in force on `date`: what the salary and KPI fields are compared against. */
   rate: SalaryRate | undefined;
+  /** The employee's rates, to find the one in force on another chosen date. */
+  rates: SalaryRate[];
+  /** Salary and KPI changes apply from this date; `defaultDate` is today (or a future joining date). */
+  date: string;
+  defaultDate: string;
   role: string;
   salary_type: string;
   amount: string;
@@ -29,10 +36,17 @@ export interface EmployeeEditState {
   kpi_bar: boolean;
 }
 
-export function employeeEditState(employee: SalaryEmployee, rate: SalaryRate | undefined): EmployeeEditState {
+export function employeeEditState(
+  employee: SalaryEmployee, rate: SalaryRate | undefined,
+  { rates = [], today = '' }: { rates?: SalaryRate[]; today?: string } = {},
+): EmployeeEditState {
+  const defaultDate = employee.joined_on > today ? employee.joined_on : today;
   return {
     employee,
     rate,
+    rates: rates.filter((r) => r.employee_id === employee.id),
+    date: defaultDate,
+    defaultDate,
     role: knownEmployeeRole(employee.job_title) ?? employee.job_title,
     salary_type: rate?.salary_type ?? 'daily',
     amount: formatCurrencyInput(Number(rate?.amount ?? 0)),
@@ -40,6 +54,23 @@ export function employeeEditState(employee: SalaryEmployee, rate: SalaryRate | u
     kpi_basis: (rate?.kpi_basis ?? 'overall_profit') as KpiBasis,
     kpi_game_club: rate?.kpi_game_club ?? true,
     kpi_bar: rate?.kpi_bar ?? true,
+  };
+}
+
+/**
+ * Moves the edit to another start date: the rate in force then becomes the
+ * baseline, and fields the owner has not touched follow it.
+ */
+export function withEditDate(edit: EmployeeEditState, date: string): EmployeeEditState {
+  const rate = rateInForce(edit.rates, edit.employee.id, date) ?? edit.rate;
+  const touched = employeeEditChanges(edit);
+  const fresh = employeeEditState(edit.employee, rate);
+  return {
+    ...edit,
+    date,
+    rate,
+    ...(touched.salary ? {} : { salary_type: fresh.salary_type, amount: fresh.amount }),
+    ...(touched.kpi ? {} : { kpi: fresh.kpi, kpi_basis: fresh.kpi_basis, kpi_game_club: fresh.kpi_game_club, kpi_bar: fresh.kpi_bar }),
   };
 }
 
@@ -145,7 +176,18 @@ export function EmployeeEditDialog({ edit, saving, error, onChange, onClose, onS
               </div>
             </section>
 
-            <p className="text-xs leading-5 text-gray-500">{t('rateHelp')}</p>
+            <section className="border-t border-gray-100 pt-5">
+              <Field label={t('effectiveDate')} hint={t('editDateHelp')}>
+                <DatePicker
+                  ariaLabel={t('effectiveDate')}
+                  min={edit.employee.joined_on}
+                  max={edit.defaultDate}
+                  disabled={saving}
+                  value={edit.date}
+                  onChange={(date) => date && onChange(withEditDate(edit, date))}
+                />
+              </Field>
+            </section>
           </fieldset>
           {error && <InlineAlert variant="danger">{error}</InlineAlert>}
         </form>

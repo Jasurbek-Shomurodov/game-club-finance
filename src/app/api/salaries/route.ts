@@ -157,16 +157,20 @@ export async function POST(request: Request) {
         if ((body.kind !== 'salary' && body.kind !== 'kpi') || !isNumber(body.amount)) throw new BadRequest();
         const salaryType = body.kind === 'salary' ? body.salaryType : null;
         if (body.kind === 'salary' && !isSalaryType(salaryType)) throw new BadRequest();
+        if (body.date !== undefined && !isDate(body.date)) throw new BadRequest();
+        // Only a backdated change sends its date, so databases before migration 123 still save today's changes.
+        const date = isDate(body.date) ? body.date : undefined;
         const kpiOptions = kpiSettings(body);
         const before = await latestRate(supabase, clubId, employeeId);
         rpcResult = await supabase.rpc('change_salary_term', {
           p_club_id: clubId, p_employee_id: employeeId, p_kind: body.kind, p_amount: body.amount, p_salary_type: salaryType,
           p_kpi_basis: kpiOptions.basis, p_kpi_game_club: kpiOptions.gameClub, p_kpi_bar: kpiOptions.bar,
+          ...(date ? { p_effective_date: date } : {}),
         });
         announced = { kind: 'rate', before };
         notification = body.kind === 'kpi'
-          ? { event: 'kpi_changed', kpi: body.amount, kpiSettings: withDefaults(kpiOptions) }
-          : { event: 'salary_changed', salaryType: salaryType as 'daily' | 'monthly', amount: body.amount };
+          ? { event: 'kpi_changed', kpi: body.amount, kpiSettings: withDefaults(kpiOptions), date }
+          : { event: 'salary_changed', salaryType: salaryType as 'daily' | 'monthly', amount: body.amount, date };
         break;
       }
       case 'change_role': {

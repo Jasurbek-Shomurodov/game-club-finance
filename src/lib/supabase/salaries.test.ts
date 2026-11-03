@@ -48,6 +48,7 @@ beforeAll(async () => {
   await db.exec(readFileSync(resolve('migrations/115_salary_deactivation_date.sql'), 'utf8'));
   await db.exec(readFileSync(resolve('migrations/121_backdated_deactivation_replaces_later_rates.sql'), 'utf8'));
   await db.exec(readFileSync(resolve('migrations/122_hide_salary_employee.sql'), 'utf8'));
+  await db.exec(readFileSync(resolve('migrations/123_backdated_salary_term_change.sql'), 'utf8'));
   await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub','${owner}',false);`);
   await save();
 }, 60_000);
@@ -134,6 +135,33 @@ describe('salary database authorization and ledger integrity', () => {
     expect((await db.query('select effective_date::text,kpi_percent,amount from salary_rates where employee_id=$1 and deleted_at is null',[id])).rows).toEqual([
       { effective_date: '2026-09-24', kpi_percent: '5.00', amount: '3000000.00' },
     ]);
+  });
+  it('applies a backdated change from its date up to the next change of the same term', async () => {
+    const id = '20000000-0000-0000-0000-000000000012';
+    const live = async () => (await db.query('select effective_date::text,amount,kpi_percent from salary_rates where employee_id=$1 and deleted_at is null order by effective_date',[id])).rows;
+    const change = (kind: string, amount: number, type: string | null, date: string) =>
+      db.query('select change_salary_term($1,$2,$3,$4,$5,null,null,null,$6)', [club,id,kind,amount,type,date]);
+    await save(id, '2026-09-01');
+    await db.query('select change_salary_term($1,$2,$3,$4)', [club,id,'kpi',6]);
+    await change('salary', 4000000, 'monthly', '2026-09-10');
+    expect(await live()).toEqual([
+      { effective_date:'2026-09-01',amount:'3000000.00',kpi_percent:'10.00' },
+      { effective_date:'2026-09-10',amount:'4000000.00',kpi_percent:'10.00' },
+      { effective_date:'2026-09-24',amount:'4000000.00',kpi_percent:'6.00' },
+    ]);
+    expect((await db.query('select effective_date::text,amount,delete_reason from salary_rates where employee_id=$1 and deleted_at is not null',[id])).rows).toEqual([
+      { effective_date:'2026-09-24',amount:'3000000.00',delete_reason:'Replaced by a backdated salary change' },
+    ]);
+    await change('salary', 3500000, 'monthly', '2026-09-05');
+    await change('kpi', 8, null, '2026-09-01');
+    expect(await live()).toEqual([
+      { effective_date:'2026-09-01',amount:'3000000.00',kpi_percent:'8.00' },
+      { effective_date:'2026-09-05',amount:'3500000.00',kpi_percent:'8.00' },
+      { effective_date:'2026-09-10',amount:'4000000.00',kpi_percent:'8.00' },
+      { effective_date:'2026-09-24',amount:'4000000.00',kpi_percent:'6.00' },
+    ]);
+    await expect(change('salary', 1, 'daily', '2026-08-31')).rejects.toThrow('before the employee joins');
+    await expect(change('salary', 1, 'daily', '2026-09-25')).rejects.toThrow('after the current business date');
   });
   it('changes KPI today without overwriting past rates or the base salary', async () => {
     await db.query('select change_salary_term($1,$2,$3,$4)', [club,employee,'kpi',6]);

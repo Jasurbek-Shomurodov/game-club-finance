@@ -1394,6 +1394,7 @@
     "role": "Role",
     "effectiveDate": "Effective date",
     "rateHelp": "Changes apply today, or on the joining date for upcoming employees. Earlier rates are preserved.",
+    "editDateHelp": "Salary and KPI changes apply from this date. Pay for the days since then is recalculated; later changes to the same term stay.",
     "salaryType": "Salary type",
     "amount": "Amount",
     "kpiPercent": "KPI from owner profit (%)",

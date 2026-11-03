@@ -8,8 +8,8 @@ export type SalaryNotificationInput = {
 } & (
   | { event: 'employee_added'; role: string; salaryType: 'daily' | 'monthly'; amount: number; kpi: number; kpiSettings: KpiSettings; date: string }
   | { event: 'employee_updated'; role: string; salaryType: 'daily' | 'monthly'; amount: number; kpi: number; kpiSettings: KpiSettings; date: string }
-  | { event: 'salary_changed'; salaryType: 'daily' | 'monthly'; amount: number }
-  | { event: 'kpi_changed'; kpi: number; kpiSettings: KpiSettings }
+  | { event: 'salary_changed'; salaryType: 'daily' | 'monthly'; amount: number; date?: string }
+  | { event: 'kpi_changed'; kpi: number; kpiSettings: KpiSettings; date?: string }
   | { event: 'deactivated'; date?: string }
   | { event: 'activated' }
   | { event: 'payment' | 'bonus' | 'fine'; amount: number; date: string; comment: string | null; paymentMethod?: string | null; paymentSource?: string | null }
@@ -44,9 +44,11 @@ export function buildSalaryNotification(input: SalaryNotificationInput): string 
       break;
     case 'salary_changed':
       lines = [...head('💼 Изменена зарплата'), `${SALARY_TYPES[input.salaryType]}: ${money(input.amount)}`];
+      if (input.date) lines.push(`Действует с: ${formatDateShort(input.date, 'ru')}`);
       break;
     case 'kpi_changed':
       lines = [...head('📈 Изменён KPI'), ...kpiLines(input.kpi, input.kpiSettings)];
+      if (input.date) lines.push(`Действует с: ${formatDateShort(input.date, 'ru')}`);
       break;
     case 'deactivated':
       lines = head('⏸ Сотрудник деактивирован');

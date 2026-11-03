@@ -24,6 +24,7 @@ describe('buildSalaryNotification', () => {
     expect(kpi).toContain('Источник прибыли: Бар');
     expect(kpi).not.toContain('Игровой клуб');
     expect(buildSalaryNotification({ ...base, event: 'salary_changed', salaryType: 'monthly', amount: 3000000 })).toContain('Месячная зарплата');
+    expect(buildSalaryNotification({ ...base, event: 'salary_changed', salaryType: 'monthly', amount: 3000000, date: '2026-10-01' })).toContain('Действует с:');
     expect(buildSalaryNotification({ ...base, event: 'deactivated' })).toContain('деактивирован');
     expect(buildSalaryNotification({ ...base, event: 'activated' })).toContain('активирован');
   });

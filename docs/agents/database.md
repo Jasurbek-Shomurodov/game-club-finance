@@ -216,6 +216,8 @@ Migration 115 gives `deactivate_salary_employee` a `p_date` chosen by the owner,
 
 Migration 121 removes the latest-active-rate floor: a backdated deactivation soft-deletes every rate dated after it, with the reason `Deactivation date changed`, so the earliest date is joining or the first rate. Reactivating later copies the terms in force on the deactivation date, so a cancelled raise is not restored. Apply 121 before deploying the page that offers those dates.
 
+Migration 123 gives `change_salary_term` an optional `p_effective_date` (joining date up to today). A backdated salary or KPI change replaces the rate in force on that date and every later rate that still carries the old value of that term, stopping at the next rate that changed it; replaced rows are soft-deleted with the reason `Replaced by a backdated salary change`. The route sends the date only for backdated changes, so today's changes keep working before 123 is applied.
+
 Migration 122 adds `delete_salary_employee`: the owner hides an employee who no longer accrues (deactivated, with no active rate today or later), with a required reason. The row keeps `deleted_at`, `deleted_by` and `delete_reason`; rates, entries and salary expenses stay. A trigger refuses new rates and entries for a hidden employee, so it cannot be reactivated. `/salaries` keeps hidden employees in `calculateSalaries`, because KPI groups share fixed pay and removing them would change other staff's past KPI, but leaves them out of lists, totals and history. Apply 122 before deploying the delete button.
 
 Migration 066 adds a nullable `owner_withdrawals.payment_method` (`cash`,

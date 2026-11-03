@@ -1394,6 +1394,7 @@
     "role": "Lavozim",
     "effectiveDate": "Amal qilish sanasi",
     "rateHelp": "O‘zgarishlar bugundan yoki kelajakdagi xodimning ish boshlash sanasidan amal qiladi. Oldingi stavkalar saqlanadi.",
+    "editDateHelp": "Maosh va KPI o‘zgarishlari shu sanadan amal qiladi. Shu sanadan keyingi kunlar uchun hisob qayta hisoblanadi; keyinroq kiritilgan o‘zgarishlar saqlanadi.",
     "salaryType": "Ish haqi turi",
     "amount": "Summa",
     "kpiPercent": "Ega foydasidan KPI (%)",

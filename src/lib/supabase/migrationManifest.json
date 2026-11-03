@@ -2392,10 +2392,6 @@
       {
         "kind": "function",
         "signature": "public.save_salary_employee(uuid,uuid,text,text,date,text,numeric,numeric,boolean,text,boolean,boolean)"
-      },
-      {
-        "kind": "function",
-        "signature": "public.change_salary_term(uuid,uuid,text,numeric,text,text,boolean,boolean)"
       }
     ]
   },
@@ -4274,6 +4270,15 @@
       {
         "kind": "function",
         "signature": "public.reject_hidden_salary_employee()"
+      }
+    ]
+  },
+  {
+    "file": "123_backdated_salary_term_change.sql",
+    "probes": [
+      {
+        "kind": "function",
+        "signature": "public.change_salary_term(uuid,uuid,text,numeric,text,text,boolean,boolean,date)"
       }
     ]
   }
