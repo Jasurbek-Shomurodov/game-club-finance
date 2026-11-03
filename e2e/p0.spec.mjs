@@ -416,8 +416,8 @@ test('SAL-008 deactivating an employee asks for the date', async ({ page, contex
   await page.reload();
 
   const card = page.locator('article', { hasText: 'E2E Sardor' });
-  await expect(card.getByText('Base salary earned')).toBeVisible();
-  await expect(card.getByText('KPI earned')).toBeVisible();
+  await expect(card.getByText('Total earned')).toBeVisible();
+  await expect(card.getByText('Paid out')).toBeVisible();
   await card.getByRole('button', { name: 'Deactivate' }).click();
   const dialog = page.getByRole('dialog', { name: 'Deactivate · E2E Sardor' });
   await expect(dialog.getByRole('button', { name: 'Deactivate from' })).toBeVisible();

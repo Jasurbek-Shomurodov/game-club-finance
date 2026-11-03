@@ -132,8 +132,8 @@ function EmployeeCard({
           [t('kpiBasis'), kpiSummary(rate)],
           ...(summary?.deactivatesOn ? [[t('deactivatesOn'), formatDateOnly(summary.deactivatesOn, locale)]] : []),
           ...(summary?.deactivatedFrom ? [[t('deactivatedFrom'), formatDateOnly(summary.deactivatedFrom, locale)]] : []),
-          [t('earnedBase'), currency(earnings.base)],
-          [t('earnedKpi'), currency(earnings.kpi)],
+          [t('breakdownEarned'), currency(earnings.earned)],
+          [t('breakdownPaid'), currency(earnings.paid)],
         ].map(([label, value]) => (
           <div key={label} className="flex items-center justify-between gap-4 py-2">
             <dt className="text-gray-500">{label}</dt>
