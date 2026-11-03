@@ -1187,6 +1187,7 @@
     "passwordUpdateError": "Не удалось сохранить пароль. Откройте ссылку из письма ещё раз."
   },
   "moneyTaken": {
+    "overallProfit": "Всего · Клуб + Бар",
     "earnedBeforeWithdrawals": "Доход до снятий",
     "clubMethodsBeforeWithdrawals": "Прибыль клуба разбита по способам оплаты: заработано после операционных расходов, снято владельцем и остаток в каждом.",
     "playstation": "PlayStation",
@@ -1247,7 +1248,11 @@
     "carryDeleteConfirm": "Удалить перенос {amount} ({source}) из {from} в {to}? Сумма вернётся в {from}.",
     "carryDeleted": "Перенос удалён. Сумма вернулась в исходный месяц.",
     "carryDeleteUsed": "Эти деньги уже сняты или снова перенесены в следующем месяце. Сначала удалите ту запись.",
-    "historyMonthTotal": "Всего"
+    "historyMonthTotal": "Всего",
+    "historyFilter": "Показать снятия из",
+    "historyEntries": "{count, plural, one {# запись} few {# записи} many {# записей} other {# записи}}",
+    "noHistoryForSource": "Из этого источника ещё ничего не снималось.",
+    "withdrawnShare": "Снято {percent}% дохода"
   },
   "calendar": {
     "selectDate": "Выберите дату",

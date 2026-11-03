@@ -1187,6 +1187,7 @@
     "passwordUpdateError": "Parolni saqlab bo‘lmadi. Xatdagi havolani qayta oching."
   },
   "moneyTaken": {
+    "overallProfit": "Jami · Klub + Bar",
     "earnedBeforeWithdrawals": "Pul yechishdan oldingi daromad",
     "clubMethodsBeforeWithdrawals": "O‘yin klubi foydasi to‘lov usullari bo‘yicha ajratilgan: operatsion xarajatlardan keyin topilgan, egasi yechgan va har birida qolgan summa.",
     "playstation": "PlayStation",
@@ -1247,7 +1248,11 @@
     "carryDeleteConfirm": "{amount} ({source}) ning {from} dan {to} ga o‘tkazilishi o‘chirilsinmi? Summa {from} ga qaytadi.",
     "carryDeleted": "O‘tkazish o‘chirildi. Summa asl oyiga qaytdi.",
     "carryDeleteUsed": "Bu pul keyingi oyda allaqachon yechib olingan yoki yana o‘tkazilgan. Avval o‘sha yozuvni o‘chiring.",
-    "historyMonthTotal": "Jami"
+    "historyMonthTotal": "Jami",
+    "historyFilter": "Qaysi manbadan yechilganini ko‘rsatish",
+    "historyEntries": "{count, plural, other {# ta yozuv}}",
+    "noHistoryForSource": "Bu manbadan hali pul yechilmagan.",
+    "withdrawnShare": "Daromadning {percent}% yechilgan"
   },
   "calendar": {
     "selectDate": "Sanani tanlang",

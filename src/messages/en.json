@@ -1187,6 +1187,7 @@
     "passwordUpdateError": "Could not save the password. Open the link from the email again."
   },
   "moneyTaken": {
+    "overallProfit": "Overall · Game Club + Bar",
     "earnedBeforeWithdrawals": "Earned before withdrawals",
     "clubMethodsBeforeWithdrawals": "Game Club profit is split by payment method: earned after operating expenses, withdrawn by the owner, and what is left in each.",
     "playstation": "PlayStation",
@@ -1247,7 +1248,11 @@
     "carryDeleteConfirm": "Delete the move of {amount} ({source}) from {from} to {to}? The amount will return to {from}.",
     "carryDeleted": "Move deleted. The amount is back in its original month.",
     "carryDeleteUsed": "This money has already been withdrawn or moved again in the next month. Delete that first.",
-    "historyMonthTotal": "Total"
+    "historyMonthTotal": "Total",
+    "historyFilter": "Show withdrawals from",
+    "historyEntries": "{count, plural, one {# entry} other {# entries}}",
+    "noHistoryForSource": "Nothing withdrawn from this source yet.",
+    "withdrawnShare": "{percent}% of earnings withdrawn"
   },
   "calendar": {
     "selectDate": "Select date",
