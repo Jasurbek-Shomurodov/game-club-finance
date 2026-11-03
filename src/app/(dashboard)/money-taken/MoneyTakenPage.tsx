@@ -645,12 +645,38 @@ export default function MoneyTakenPage() {
       {/* After a failed load the balances are unknown, not zero: show only the error. */}
       {!error && (
         <>
-          {/* What the owner can still take out this month, per business, then both together. */}
+          {/* What the owner can still take out this month: both businesses together, then each one. */}
           <Card as="section" padding="lg" aria-labelledby="owner-profit-headline">
-            <p id="owner-profit-headline" className="flex items-center gap-2 text-[13px] font-medium text-gray-500">
-              <Wallet size={15} aria-hidden="true" />
-              {t('monthlyRemaining')} · {formatYearMonth(form.month, locale)}
-            </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div className="min-w-0">
+                <p id="owner-profit-headline" className="flex items-center gap-2 text-[13px] font-medium text-gray-500">
+                  <Wallet size={15} aria-hidden="true" />
+                  {t('monthlyRemaining')} · {t('overallProfit')} · {formatYearMonth(form.month, locale)}
+                </p>
+                {loading ? (
+                  <Skeleton className="mt-3 h-10 w-56 max-w-full" />
+                ) : (
+                  <p className={cn('mt-3 break-words text-3xl font-bold leading-none tracking-tight tabular-nums sm:text-4xl', metricToneClassName[toneForAmount(overall.available)])}>
+                    {formatCurrency(overall.available)}
+                    <span className="ml-2 text-base font-medium tracking-normal text-gray-500">{tc('currency')}</span>
+                  </p>
+                )}
+              </div>
+              {!loading && (
+                <dl className="grid gap-2 text-sm sm:grid-cols-2 sm:gap-6">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp size={15} aria-hidden="true" className="shrink-0 text-gray-400" />
+                    <dt className="text-gray-500">{t('earnedBeforeWithdrawals')}</dt>
+                    <dd className="ml-auto font-semibold tabular-nums text-gray-900 sm:ml-0">{formatCurrency(overall.earned)}</dd>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <HandCoins size={15} aria-hidden="true" className="shrink-0 text-gray-400" />
+                    <dt className="text-gray-500">{t('monthlyWithdrawn')}</dt>
+                    <dd className="ml-auto font-semibold tabular-nums text-gray-900 sm:ml-0">{formatCurrency(overall.withdrawn)}</dd>
+                  </div>
+                </dl>
+              )}
+            </div>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               {headlineSources.map((side) => {
                 const SourceIcon = SOURCE_ICONS[side.source];
@@ -714,36 +740,6 @@ export default function MoneyTakenPage() {
                   </div>
                 );
               })}
-            </div>
-            <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-gray-100 bg-gray-50/40 p-4 sm:flex-row sm:items-center sm:gap-6 sm:p-5">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-700">
-                  <Layers size={18} aria-hidden="true" />
-                </span>
-                <p className="text-sm font-semibold text-gray-900">{t('overallProfit')}</p>
-              </div>
-              {loading ? (
-                <Skeleton className="h-8 w-48 max-w-full" />
-              ) : (
-                <>
-                  <p className={cn('break-words text-2xl font-bold leading-none tracking-tight tabular-nums sm:text-3xl', metricToneClassName[toneForAmount(overall.available)])}>
-                    {formatCurrency(overall.available)}
-                    <span className="ml-2 text-sm font-medium tracking-normal text-gray-500">{tc('currency')}</span>
-                  </p>
-                  <dl className="grid gap-2 text-sm sm:ml-auto sm:grid-cols-2 sm:gap-6">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp size={15} aria-hidden="true" className="shrink-0 text-gray-400" />
-                      <dt className="text-gray-500">{t('earnedBeforeWithdrawals')}</dt>
-                      <dd className="ml-auto font-semibold tabular-nums text-gray-900 sm:ml-0">{formatCurrency(overall.earned)}</dd>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <HandCoins size={15} aria-hidden="true" className="shrink-0 text-gray-400" />
-                      <dt className="text-gray-500">{t('monthlyWithdrawn')}</dt>
-                      <dd className="ml-auto font-semibold tabular-nums text-gray-900 sm:ml-0">{formatCurrency(overall.withdrawn)}</dd>
-                    </div>
-                  </dl>
-                </>
-              )}
             </div>
           </Card>
 

@@ -39,9 +39,9 @@ The game club and the bar are separate businesses. **Never add their money
 together**: there is no combined income, combined spending, combined profit, or
 share of a club + bar total, in the app, reports, assistant data, or Telegram.
 Show each side's figures side by side instead. The one exception, at the
-owner's request, is the Owner Profit headline: under the Game Club and Bar cards
-an "Overall" row adds the month's remaining, earned and withdrawn owner profit
-of both sides. `totalExpenses` (every expense,
+owner's request, is the Owner Profit headline: above the Game Club and Bar cards
+it shows the month's remaining, earned and withdrawn owner profit of both sides
+added together. `totalExpenses` (every expense,
 whichever money paid it) exists only for expense-category breakdowns.
 
 Average daily income has one definition (`getAverageIncomeDayCounts` in

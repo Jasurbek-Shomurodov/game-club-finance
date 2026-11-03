@@ -1187,7 +1187,7 @@
     "passwordUpdateError": "Could not save the password. Open the link from the email again."
   },
   "moneyTaken": {
-    "overallProfit": "Overall · Game Club + Bar",
+    "overallProfit": "Game Club + Bar",
     "earnedBeforeWithdrawals": "Earned before withdrawals",
     "clubMethodsBeforeWithdrawals": "Game Club profit is split by payment method: earned after operating expenses, withdrawn by the owner, and what is left in each.",
     "playstation": "PlayStation",

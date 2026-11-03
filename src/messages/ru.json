@@ -1187,7 +1187,7 @@
     "passwordUpdateError": "Не удалось сохранить пароль. Откройте ссылку из письма ещё раз."
   },
   "moneyTaken": {
-    "overallProfit": "Всего · Клуб + Бар",
+    "overallProfit": "Клуб + Бар",
     "earnedBeforeWithdrawals": "Доход до снятий",
     "clubMethodsBeforeWithdrawals": "Прибыль клуба разбита по способам оплаты: заработано после операционных расходов, снято владельцем и остаток в каждом.",
     "playstation": "PlayStation",

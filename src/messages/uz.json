@@ -1187,7 +1187,7 @@
     "passwordUpdateError": "Parolni saqlab bo‘lmadi. Xatdagi havolani qayta oching."
   },
   "moneyTaken": {
-    "overallProfit": "Jami · Klub + Bar",
+    "overallProfit": "Klub + Bar",
     "earnedBeforeWithdrawals": "Pul yechishdan oldingi daromad",
     "clubMethodsBeforeWithdrawals": "O‘yin klubi foydasi to‘lov usullari bo‘yicha ajratilgan: operatsion xarajatlardan keyin topilgan, egasi yechgan va har birida qolgan summa.",
     "playstation": "PlayStation",
