@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applySalaryPaymentChanges, calculateSalaries, combineSalaryMonths, deactivatedFrom, deactivationCancelsRates, displayedRate, earliestDeactivationDate, employeeStatus, rateInForce, salaryBalance, salaryEarnings, scheduledDeactivation, canDeleteSalaryRate, type SalaryEmployee, type SalaryEntry, type SalaryRate } from './salaries';
+import { applySalaryPaymentChanges, calculateSalaries, combineSalaryMonths, deactivatedFrom, deactivationCancelsRates, displayedRate, earliestDeactivationDate, employeeStatus, rateInForce, salaryBalance, salaryEarnings, salaryPaymentsBySource, scheduledDeactivation, canDeleteSalaryRate, type SalaryEmployee, type SalaryEntry, type SalaryRate } from './salaries';
 
 const employee: SalaryEmployee = { id: 'one', club_id: 'club', name: 'Employee', job_title: '', joined_on: '2026-09-01' };
 const rate: SalaryRate = { id: 'rate', employee_id: 'one', effective_date: '2026-09-01', salary_type: 'daily', amount: 100, kpi_percent: 10, active: true };
@@ -219,8 +219,22 @@ describe('rate in force and employee status', () => {
 describe('earnings split', () => {
   it('adds fixed pay and KPI across months, leaving out bonuses, fines and payments', () => {
     const month = { month: '2026-09', base: 100.5, bonus: 40, fine: 10, kpi: 20.25, paid: 50, earned: 150.75, balance: 100.75, kpiProfit: 0, effectiveKpiPercent: 0 };
-    expect(salaryEarnings([month, { ...month, month: '2026-10', base: 200 }])).toEqual({ base: 300.5, kpi: 40.5 });
-    expect(salaryEarnings([])).toEqual({ base: 0, kpi: 0 });
+    expect(salaryEarnings([month, { ...month, month: '2026-10', base: 200 }])).toMatchObject({ base: 300.5, kpi: 40.5 });
+    expect(salaryEarnings([])).toEqual({ base: 0, kpi: 0, bonus: 0, fine: 0, earned: 0, paid: 0 });
+  });
+});
+
+describe('salary payments by source', () => {
+  it('splits live payments through the date by source and skips bonuses, fines and deleted rows', () => {
+    const rows: SalaryEntry[] = [
+      { ...entry('payment', 100), id: 'a' },
+      { ...entry('payment', 40.5), id: 'b', payment_source: 'bar' },
+      { ...entry('payment', 7), id: 'c', deleted_at: '2026-09-11T00:00:00Z' },
+      { ...entry('payment', 9, '2026-09-20'), id: 'd' },
+      { ...entry('bonus', 50), id: 'e' },
+    ];
+    expect(salaryPaymentsBySource(rows, '2026-09-15')).toEqual({ one: { game_club: 100, bar: 40.5 } });
+    expect(salaryPaymentsBySource([], '2026-09-15')).toEqual({});
   });
 });
 

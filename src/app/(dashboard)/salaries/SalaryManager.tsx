@@ -36,6 +36,7 @@ import {
   employeeStatus,
   rateInForce,
   salaryBalance,
+  salaryPaymentsBySource,
   scheduledDeactivation,
   type KpiBasis,
   type SalaryEmployee,
@@ -158,6 +159,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   const historyMonths = useMemo(() => (employeeId
     ? balances[employeeId] ?? []
     : combineSalaryMonths(Object.fromEntries(employees.map((e) => [e.id, balances[e.id] ?? []])))), [balances, employeeId, employees]);
+  const paidBySource = useMemo(() => salaryPaymentsBySource(data.entries, today), [data.entries, today]);
   // This business month's salary cost across the club, history view aside.
   const thisMonth = historyMonths.find((month) => month.month === today.slice(0, 7));
 
@@ -552,6 +554,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
           employees={employees}
           summaries={summaries}
           balances={balances}
+          paidBySource={paidBySource}
           loading={loading}
           loadError={loadError}
           isOwner={isOwner}

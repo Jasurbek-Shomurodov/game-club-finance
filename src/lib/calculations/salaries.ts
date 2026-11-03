@@ -183,12 +183,22 @@ export function salaryBalance(months: SalaryMonth[]): number {
   return money(months.reduce((sum, month) => sum + month.balance, 0));
 }
 
-/** Fixed pay and KPI accrued across the given months, before bonuses, fines and payments. */
-export function salaryEarnings(months: SalaryMonth[]): { base: number; kpi: number } {
-  return {
-    base: money(months.reduce((sum, month) => sum + month.base, 0)),
-    kpi: money(months.reduce((sum, month) => sum + month.kpi, 0)),
-  };
+/** Each part of the balance across the given months: earned = base + kpi + bonus - fine, balance = earned - paid. */
+export function salaryEarnings(months: SalaryMonth[]): { base: number; kpi: number; bonus: number; fine: number; earned: number; paid: number } {
+  const total = (key: 'base' | 'kpi' | 'bonus' | 'fine' | 'earned' | 'paid') => money(months.reduce((sum, month) => sum + month[key], 0));
+  return { base: total('base'), kpi: total('kpi'), bonus: total('bonus'), fine: total('fine'), earned: total('earned'), paid: total('paid') };
+}
+
+/** Salary paid to each employee through the given date, split by the profit source it came from. */
+export function salaryPaymentsBySource(entries: SalaryEntry[], throughDate: string): Record<string, { game_club: number; bar: number }> {
+  const result: Record<string, { game_club: number; bar: number }> = {};
+  for (const entry of entries) {
+    if (entry.deleted_at || entry.kind !== 'payment' || entry.date > throughDate) continue;
+    const totals = result[entry.employee_id] ??= { game_club: 0, bar: 0 };
+    const source = entry.payment_source === 'bar' ? 'bar' : 'game_club';
+    totals[source] = money(totals[source] + Number(entry.amount));
+  }
+  return result;
 }
 
 /**
