@@ -75,14 +75,17 @@ export function WithdrawalHistory({
   }
 
   const lastMonth = previousYearMonth(currentMonth);
-  // Withdrawn per month for the chosen source: this and last month always, then every month with history.
+  const forFilter = (totals: Record<OwnerWithdrawalSource, number>) => (filter === 'all'
+    ? OWNER_WITHDRAWAL_SOURCES.reduce((sum, source) => sum + totals[source], 0)
+    : totals[filter]);
+  // Withdrawn and invested per month for the chosen source: this and last month always, then every month with history.
   const monthTotals = [...new Set([currentMonth, lastMonth, ...rows.map((row) => row.month)])]
     .sort((a, b) => b.localeCompare(a))
-    .map((month) => {
-      const totals = withdrawnBySourceForMonth(withdrawals, month);
-      const amount = filter === 'all' ? OWNER_WITHDRAWAL_SOURCES.reduce((sum, source) => sum + totals[source], 0) : totals[filter];
-      return { month, amount };
-    });
+    .map((month) => ({
+      month,
+      amount: forFilter(withdrawnBySourceForMonth(withdrawals, month)),
+      invested: forFilter(investedBySourceForMonth(investments, month)),
+    }));
   const monthLabel = (month: string) => (month === currentMonth
     ? t('summaryThisMonth')
     : month === lastMonth ? t('summaryLastMonth') : capitalizeFirst(formatYearMonth(month, locale), locale));
@@ -118,7 +121,7 @@ export function WithdrawalHistory({
         <div>
           <p className="text-xs font-medium text-gray-500">{t('withdrawnByMonth')}</p>
           <ul className="-mx-1 mt-2 flex gap-2 overflow-x-auto px-1 pb-1">
-            {monthTotals.map(({ month, amount }) => {
+            {monthTotals.map(({ month, amount, invested }) => {
               const hasRows = months.some((group) => group.month === month);
               return (
                 <li key={month} className="shrink-0">
@@ -137,6 +140,13 @@ export function WithdrawalHistory({
                       {formatCurrency(amount)}
                       <span className="ml-1 text-[11px] font-medium text-gray-500">{tc('currency')}</span>
                     </span>
+                    {invested > 0 ? (
+                      <span className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-[11px] text-gray-500">
+                        <Sprout size={11} aria-hidden="true" />
+                        {t('historyMonthInvested')}
+                        <span className="font-semibold tabular-nums text-gray-700">{formatCurrency(invested)}</span>
+                      </span>
+                    ) : null}
                   </button>
                 </li>
               );
@@ -157,10 +167,7 @@ export function WithdrawalHistory({
             const totals = withdrawnBySourceForMonth(withdrawals, month);
             const sides = OWNER_WITHDRAWAL_SOURCES.filter((source) => totals[source] > 0 && (filter === 'all' || filter === source));
             const total = sides.reduce((sum, source) => sum + totals[source], 0);
-            const investedTotals = investedBySourceForMonth(investments, month);
-            const invested = filter === 'all'
-              ? OWNER_WITHDRAWAL_SOURCES.reduce((sum, source) => sum + investedTotals[source], 0)
-              : investedTotals[filter];
+            const invested = forFilter(investedBySourceForMonth(investments, month));
 
             return (
               <section key={month} id={`${baseId}-section-${month}`} className="scroll-mt-20" aria-label={formatYearMonth(month, locale)}>
