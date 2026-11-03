@@ -80,5 +80,14 @@ Rules of thumb:
   for reduced motion). `Modal` holds its last open content while closing, so
   callers may clear the state that fed it as soon as it closes.
 - `SegmentedControl` is a radio group: one Tab stop, arrow keys move and select.
+  In the `soft` and `tabs` variants one shared pill/underline glides to the
+  selected option.
 - Toasts appear at the top on phones (never over a bottom sheet's Save button)
   and bottom-right on larger screens; errors stay 8 s and pause on hover/focus.
+  They slide in and out, and a thin countdown bar is their timer.
+- Every `<details>` (including `Disclosure`) grows open and folds shut where
+  the browser supports `interpolate-size` (globals.css).
+- Rows added or removed in place grow in or fold away so the list closes up:
+  `DataTable` does this itself; for a hand-built list use `useListPresence`
+  and render each entry with `PresenceItem`. Up to three changes at once
+  animate; a bigger change (another month, a filter) is shown at once.

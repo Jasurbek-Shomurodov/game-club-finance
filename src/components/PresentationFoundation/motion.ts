@@ -88,3 +88,12 @@ export function slideMotion(visible: boolean, side: 'left' | 'right') {
     visible ? 'translate-x-0' : side === 'left' ? '-translate-x-full' : 'translate-x-full',
   );
 }
+
+/** Toast that drops in from the top on phones and rises from the bottom from `sm` up. */
+export function toastMotion(visible: boolean) {
+  return cn(
+    'transition-[transform,opacity]',
+    MOTION,
+    visible ? 'translate-y-0 opacity-100' : '-translate-y-3 opacity-0 sm:translate-y-3',
+  );
+}

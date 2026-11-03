@@ -216,6 +216,60 @@
 }
 
 /*
+ * Toast countdown: the bar shrinks over the toast's lifetime and its end
+ * dismisses the toast. Under reduced motion it still runs (it is the timer)
+ * but is not drawn.
+ */
+@keyframes toast-countdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.toast-countdown { animation: toast-countdown linear forwards; }
+@media (prefers-reduced-motion: reduce) { .toast-countdown { visibility: hidden; } }
+
+/*
+ * Disclosure (<details>): the content grows open and folds shut instead of
+ * jumping. Browsers without interpolate-size keep the instant toggle.
+ */
+@supports (interpolate-size: allow-keywords) {
+  details { interpolate-size: allow-keywords; }
+  details::details-content {
+    block-size: 0;
+    overflow-y: clip;
+    opacity: 0;
+    /* A little room so focus rings inside an open panel are not clipped. */
+    overflow-clip-margin: 4px;
+    transition: block-size 250ms cubic-bezier(0.22, 1, 0.36, 1), opacity 200ms ease, content-visibility 250ms allow-discrete;
+  }
+  details[open]::details-content { block-size: auto; opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { details::details-content { transition: none; } }
+}
+
+/*
+ * List presence (useListPresence): a row added or removed in place grows in or
+ * folds away and the list closes up. The fold is a one-row grid going between
+ * 1fr and 0fr; it clips only while animating so focus rings are never cut off.
+ */
+@keyframes presence-open { from { grid-template-rows: 0fr; opacity: 0; } }
+@keyframes presence-close { to { grid-template-rows: 0fr; opacity: 0; } }
+@keyframes presence-pad-open { from { padding-top: 0; padding-bottom: 0; } }
+@keyframes presence-pad-close { to { padding-top: 0; padding-bottom: 0; } }
+.presence { display: grid; grid-template-rows: 1fr; }
+.presence > * { min-height: 0; }
+.presence[data-presence] > * { overflow: hidden; }
+.presence[data-presence="enter"] { animation: presence-open 250ms cubic-bezier(0.22, 1, 0.36, 1); }
+.presence[data-presence="exit"] { animation: presence-close 250ms cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+/* Table cells: both wrapper layers are boxless at rest. */
+.presence-cell, .presence-cell > * { display: contents; }
+tr[data-presence] > td { animation: presence-pad-open 250ms cubic-bezier(0.22, 1, 0.36, 1); }
+tr[data-presence="exit"] > td { animation: presence-pad-close 250ms cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+tr[data-presence] > td > .presence-cell { display: grid; grid-template-rows: 1fr; animation: presence-open 250ms cubic-bezier(0.22, 1, 0.36, 1); }
+tr[data-presence="exit"] > td > .presence-cell { animation: presence-close 250ms cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+tr[data-presence] > td > .presence-cell > * { display: block; min-height: 0; overflow: hidden; }
+[data-presence="exit"] { pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .presence[data-presence], tr[data-presence] > td, tr[data-presence] > td > .presence-cell { animation: none; }
+  [data-presence="exit"] { display: none; }
+}
+
+/*
  * Rolling figures (RollingText): each digit is a 0–9 strip that slides into
  * place like an odometer. Same timing as the personal-finance app.
  */

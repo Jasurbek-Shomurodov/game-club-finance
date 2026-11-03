@@ -2,7 +2,7 @@
 
 // Route: /debts
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 import { useClub } from '@/components/layout/DashboardShell';
@@ -29,7 +29,9 @@ import {
   SectionHeading,
   SegmentedControl,
   Skeleton,
+  PresenceItem,
   useEntryNoteGuard,
+  useListPresence,
   useToast,
   MetricMoney,
 } from '@/components/PresentationFoundation';
@@ -70,6 +72,8 @@ function statusVariant(status: string): DebtStatusVariant {
 function remainingFor(debt: Pick<NewDebt, 'amount' | 'paid_amount'>): number {
   return calculateRemainingDebt(Number(debt.amount) || 0, Number(debt.paid_amount) || 0);
 }
+
+const debtKey = (debt: { id: string }) => debt.id;
 
 export default function DebtsPage() {
   const t = useTranslations('debts');
@@ -392,8 +396,11 @@ export default function DebtsPage() {
   }
 
   const activeDebt = payDebtId ? debts.find((d) => d.id === payDebtId) : null;
-  const unpaid = debts.filter((d) => d.status !== 'paid');
-  const paid = debts.filter((d) => d.status === 'paid');
+  const unpaid = useMemo(() => debts.filter((d) => d.status !== 'paid'), [debts]);
+  const paid = useMemo(() => debts.filter((d) => d.status === 'paid'), [debts]);
+  // A debt paid off folds out of Outstanding and grows into Paid.
+  const unpaidShown = useListPresence(unpaid, debtKey);
+  const paidShown = useListPresence(paid, debtKey);
   const outstandingTotal = unpaid.reduce((sum, debt) => sum + remainingFor(debt), 0);
   const debtorCount = new Set(unpaid.map((debt) => debt.person_name.trim().toLocaleLowerCase())).size;
   const paidTotal = debts.reduce((sum, debt) => sum + (Number(debt.paid_amount) || 0), 0);
@@ -452,11 +459,11 @@ export default function DebtsPage() {
                 />
               </CardHeader>
               <ul className="divide-y divide-gray-100">
-                {unpaid.map((debt) => {
+                {unpaidShown.map(({ key, item: debt, presence }) => {
                   const remaining = remainingFor(debt);
                   const status = getDebtStatus(debt.amount, debt.paid_amount);
                   return (
-                    <li key={debt.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:px-5">
+                    <PresenceItem key={key} presence={presence} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:px-5">
                       <div className="flex min-w-0 flex-1 items-center gap-3">
                         <Avatar name={debt.person_name} />
                         <div className="min-w-0 flex-1">
@@ -496,7 +503,7 @@ export default function DebtsPage() {
                           </div>
                         )}
                       </div>
-                    </li>
+                    </PresenceItem>
                   );
                 })}
               </ul>
@@ -519,8 +526,8 @@ export default function DebtsPage() {
               </CardHeader>
               {showPaid && (
                 <ul className="divide-y divide-gray-100">
-                  {paid.map((debt) => (
-                    <li key={debt.id} className="flex items-center gap-3 px-4 py-3 sm:px-5">
+                  {paidShown.map(({ key, item: debt, presence }) => (
+                    <PresenceItem key={key} presence={presence} className="flex items-center gap-3 px-4 py-3 sm:px-5">
                       <Avatar name={debt.person_name} size="sm" tone="neutral" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium text-gray-700">{debt.person_name}</p>
@@ -531,7 +538,7 @@ export default function DebtsPage() {
                       </div>
                       <span className="shrink-0 font-semibold tabular-nums text-gray-500"><Money amount={debt.amount} /></span>
                       <Badge variant="success" size="sm">{t('paid')}</Badge>
-                    </li>
+                    </PresenceItem>
                   ))}
                 </ul>
               )}

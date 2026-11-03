@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { PresenceCell, presenceProps, useListPresence, type Presence } from './listPresence';
 import { stickyOffsetBelow, useElementHeight } from './useElementHeight';
 
 export interface DataTableColumn<T> {
@@ -43,6 +44,12 @@ export interface DataTableProps<T> {
   groups?: DataTableGroup<T>[];
 }
 
+/** Pairs each shown row with its index among the rows still in the data, so a row folding away does not shift numbering. */
+function withLiveIndex<E extends { presence?: Presence }>(entries: E[]) {
+  let live = 0;
+  return entries.map((entry) => ({ entry, index: entry.presence === 'exit' ? live : live++ }));
+}
+
 const alignClass = { left: 'text-left', right: 'text-right tabular-nums', center: 'text-center' };
 
 /** Standard data table: uppercase header, zebra hover, optional totals row. */
@@ -64,10 +71,18 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
   const cellPadding = dense ? 'px-3 py-2.5' : 'px-4 py-3';
   const [theadRef, theadHeight] = useElementHeight<HTMLTableSectionElement>();
+  // One presence list across every section, tagged with its section, so a row
+  // added or removed in place grows in or folds away wherever it sits.
+  const tagged = useMemo(
+    () => (groups ? groups.flatMap((group) => group.rows.map((row) => ({ group: group.key, row }))) : data.map((row) => ({ group: '', row }))),
+    [data, groups],
+  );
+  const shown = useListPresence(tagged, (entry) => `${entry.group}\u0000${keyExtractor(entry.row)}`);
 
-  const renderRow = (row: T, index: number) => (
+  const renderRow = (row: T, index: number, presence?: Presence) => (
     <tr
       key={keyExtractor(row)}
+      {...presenceProps(presence)}
       onClick={onRowClick ? () => onRowClick(row) : undefined}
       onKeyDown={onRowClick ? (event) => {
         if (event.target !== event.currentTarget) return;
@@ -84,9 +99,11 @@ export function DataTable<T>({
           key={column.key}
           className={cn(cellPadding, 'text-gray-800', alignClass[column.align ?? 'left'], column.className, column.cellClassName)}
         >
-          {column.render
-            ? column.render(row, index)
-            : String((row as Record<string, unknown>)[column.key] ?? '')}
+          <PresenceCell>
+            {column.render
+              ? column.render(row, index)
+              : String((row as Record<string, unknown>)[column.key] ?? '')}
+          </PresenceCell>
         </td>
       ))}
     </tr>
@@ -131,7 +148,7 @@ export function DataTable<T>({
             </tr>
           </thead>
           {groups && data.length > 0 ? (
-            groups.filter((group) => group.rows.length > 0).map((group) => (
+            groups.map((group) => ({ group, entries: shown.filter((entry) => entry.item.group === group.key) })).filter(({ entries }) => entries.length > 0).map(({ group, entries }) => (
               <tbody key={group.key} className="divide-y divide-gray-100 bg-surface">
                 <tr className="bg-gray-50">
                   <th
@@ -147,12 +164,12 @@ export function DataTable<T>({
                     {group.header}
                   </th>
                 </tr>
-                {group.rows.map(renderRow)}
+                {withLiveIndex(entries).map(({ entry, index }) => renderRow(entry.item.row, index, entry.presence))}
               </tbody>
             ))
           ) : (
             <tbody className="divide-y divide-gray-100 bg-surface">
-              {data.map(renderRow)}
+              {withLiveIndex(shown).map(({ entry, index }) => renderRow(entry.item.row, index, entry.presence))}
             </tbody>
           )}
           {footer && data.length > 0 && (

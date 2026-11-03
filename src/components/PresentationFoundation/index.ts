@@ -64,3 +64,4 @@ export { Toast, useToast, type ToastType } from './Toast';
 export { stickyOffsetBelow, useElementHeight } from './useElementHeight';
 export { Money } from './Money';
 export { RollingText, rollingColumns } from './RollingText';
+export { PresenceCell, PresenceItem, mergePresence, presenceProps, useListPresence, type Presence, type PresenceEntry } from './listPresence';

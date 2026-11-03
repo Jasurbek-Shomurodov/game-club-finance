@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle, X, XCircle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
+import { DIALOG_EXIT_MS, toastMotion, usePresence } from './motion';
 
 export type ToastType = 'success' | 'error';
 
@@ -22,13 +23,18 @@ interface ToastProps {
 export function Toast({ message, type, onClose, durationMs }: ToastProps) {
   const tc = useTranslations('common');
   const [paused, setPaused] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const { visible } = usePresence(!closing);
   const duration = durationMs ?? (type === 'error' ? 8000 : 3500);
+  const close = useCallback(() => setClosing(true), []);
 
+  // The countdown bar is the timer: it pauses with the toast, and its end closes it,
+  // so the bar and the dismissal never drift apart.
   useEffect(() => {
-    if (paused) return;
-    const timer = setTimeout(onClose, duration);
+    if (!closing) return;
+    const timer = setTimeout(onClose, DIALOG_EXIT_MS);
     return () => clearTimeout(timer);
-  }, [duration, onClose, paused]);
+  }, [closing, onClose]);
 
   return (
     <div
@@ -38,15 +44,22 @@ export function Toast({ message, type, onClose, durationMs }: ToastProps) {
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
       className={cn(
-        'fixed left-4 right-4 top-[max(1rem,env(safe-area-inset-top))] z-[90] flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium shadow-pop sm:bottom-[max(1rem,env(safe-area-inset-bottom))] sm:left-auto sm:top-auto sm:max-w-sm',
+        'fixed left-4 right-4 top-[max(1rem,env(safe-area-inset-top))] z-[90] flex items-center gap-3 overflow-hidden rounded-xl px-4 py-3 text-sm font-medium shadow-pop sm:bottom-[max(1rem,env(safe-area-inset-bottom))] sm:left-auto sm:top-auto sm:max-w-sm',
         type === 'success' ? 'bg-gray-950 text-gray-50' : 'bg-danger-600 text-on-accent',
+        toastMotion(visible),
       )}
     >
       {type === 'success' ? <CheckCircle size={18} className="text-success-500" aria-hidden="true" /> : <XCircle size={18} aria-hidden="true" />}
       <span className="flex-1">{message}</span>
-      <button type="button" onClick={onClose} aria-label={tc('close')} className="relative -mr-1 flex h-8 w-8 shrink-0 max-sm:before:absolute max-sm:before:-inset-1 max-sm:before:content-[''] items-center justify-center rounded-md opacity-80 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
+      <button type="button" onClick={close} aria-label={tc('close')} className="relative -mr-1 flex h-8 w-8 shrink-0 max-sm:before:absolute max-sm:before:-inset-1 max-sm:before:content-[''] items-center justify-center rounded-md opacity-80 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
         <X size={16} />
       </button>
+      <span
+        aria-hidden="true"
+        onAnimationEnd={close}
+        className="toast-countdown absolute inset-x-0 bottom-0 h-0.5 origin-left bg-current opacity-30"
+        style={{ animationDuration: `${duration}ms`, animationPlayState: paused || closing ? 'paused' : 'running' }}
+      />
     </div>
   );
 }
