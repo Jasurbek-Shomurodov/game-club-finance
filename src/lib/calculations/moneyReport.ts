@@ -1,13 +1,14 @@
 import {
   calculateGameClubMoneyLeftByPaymentMethod,
   gameClubExpensePaymentBucket,
+  isDollarExpense,
   isBarPaidExpense,
   type DailyCashRow,
   type DebtPaymentValueRow,
   type ExpenseRow,
   type MoneyLeftByPaymentMethod,
 } from './dashboardMetrics';
-import { exchangeNetByMethod, type ExchangeMethod, type MoneyExchangeRow } from './moneyExchanges';
+import { exchangeNetByMethod, heldDollars, type ExchangeMethod, type MoneyExchangeRow } from './moneyExchanges';
 import {
   calculateBarMoney,
   type BarSalesRow,
@@ -40,6 +41,8 @@ export interface MoneyReportActivity {
     card: number;
     playstation: number;
   };
+  /** Only on expenses paid from the club's dollars (124): dollars spent and the rate they were booked at. */
+  dollars?: { amount: number; rate: number };
   /** Only on exchanges, whose `amount` is 0: they move money rather than add or remove it. */
   exchange?: {
     from: ExchangeMethod;
@@ -83,7 +86,7 @@ export interface MoneyReport {
   gameClubLeft: number;
   barLeft: number;
   paymentMethods: Record<keyof MoneyLeftByPaymentMethod, MoneyReportPaymentBreakdown>;
-  /** Dollars bought minus dollars sold in the period; never added to UZS figures. */
+  /** Dollars bought minus dollars sold and spent in the period; never added to UZS figures. */
   usd: number;
   days: MoneyReportDay[];
 }
@@ -134,7 +137,7 @@ function buildPaymentMethods(
 
   const expenses = expenseRows.reduce(
     (totals, row) => {
-      if (row.payment_source !== 'bar') {
+      if (row.payment_source !== 'bar' && !isDollarExpense(row)) {
         totals[gameClubExpensePaymentBucket(row.payment_method)] += Number(row.amount ?? 0);
       }
       return totals;
@@ -220,6 +223,9 @@ function buildDailyActivities(
         amount: -Number(row.amount ?? 0),
         paymentMethod: row.payment_method ?? null,
         paymentSource: row.payment_source ?? null,
+        ...(isDollarExpense(row) && row.usd_amount != null && row.usd_rate != null
+          ? { dollars: { amount: Number(row.usd_amount), rate: Number(row.usd_rate) } }
+          : {}),
         comment: row.comment,
         createdAt: row.created_at,
         ...(row.creator_name !== undefined ? { createdByName: row.creator_name } : {}),
@@ -261,7 +267,7 @@ export function buildMoneyReport(
   exchangeRows: MoneyExchangeRow[] = [],
 ): MoneyReport {
   const paymentMethods = buildPaymentMethods(cashRows, expenseRows, debtPaymentRows, exchangeRows);
-  const usd = exchangeNetByMethod(exchangeRows).usd;
+  const usd = heldDollars(exchangeRows, expenseRows);
   const totalCollected = Object.values(paymentMethods)
     .reduce((sum, method) => sum + method.collected, 0);
   const gameClubLeft = gameClubLeftExcludingExchanges(paymentMethods);

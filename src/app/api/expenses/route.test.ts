@@ -25,7 +25,7 @@ vi.mock('@/lib/telegram/sendDailyFinanceReport', async (importOriginal) => ({
   isIsoDate: (await importOriginal<typeof import('@/lib/telegram/sendDailyFinanceReport')>()).isIsoDate,
   sendTelegramMessage: mocks.sendTelegramMessage,
 }));
-vi.mock('@/types', () => ({ PAYMENT_METHODS: ['cash', 'terminal', 'card'], EXPENSE_PAYMENT_METHODS: ['cash', 'terminal', 'card', 'playstation'] }));
+vi.mock('@/types', () => ({ PAYMENT_METHODS: ['cash', 'terminal', 'card'], EXPENSE_PAYMENT_METHODS: ['cash', 'terminal', 'card', 'playstation', 'usd'] }));
 
 import { DELETE, PATCH, POST } from './route';
 
@@ -285,6 +285,24 @@ describe('expense creation route', () => {
     expect(writeQuery.upsert).toHaveBeenCalledWith(expect.objectContaining({ payment_method: 'playstation', payment_source: 'game_club' }), expect.anything());
   });
 
+  it('books a dollar expense in sums at the entered rate', async () => {
+    const { writeQuery } = mockCreate({ methods: ['terminal'], upserted: { ...saved, payment_method: 'usd', amount: 1_265_050, usd_amount: 100, usd_rate: 12_650.5 } });
+    const response = await create({ ...body, id: EXPENSE_ID, amount: 1, paymentMethod: 'usd', usdAmount: 100, usdRate: 12_650.5 });
+    expect(response.status).toBe(201);
+    expect(writeQuery.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      payment_method: 'usd', amount: 1_265_050, usd_amount: 100, usd_rate: 12_650.5,
+    }), expect.anything());
+  });
+
+  it('needs dollars and a rate exactly on a dollar expense, and only from Game Club money', async () => {
+    mockCreate();
+    expect((await create({ ...body, paymentMethod: 'usd', usdAmount: 100 })).status).toBe(400);
+    expect((await create({ ...body, paymentMethod: 'usd', usdAmount: 0.001, usdRate: 12_600 })).status).toBe(400);
+    expect((await create({ ...body, usdAmount: 100, usdRate: 12_600 })).status).toBe(400);
+    const bar = await create({ ...body, paymentMethod: 'usd', paymentSource: 'bar', usdAmount: 100, usdRate: 12_600 });
+    expect((await bar.json()).code).toBe('PAYMENT_METHOD_DISABLED');
+  });
+
   it('refuses PlayStation money for a Bar expense', async () => {
     mockCreate();
     const response = await create({ ...body, paymentMethod: 'playstation', paymentSource: 'bar' });
@@ -457,6 +475,15 @@ describe('expense payment method route', () => {
     const bar = mockPatchSupabase(baseExpense);
     expect((await (await patch('playstation')).json()).code).toBe('PAYMENT_METHOD_DISABLED');
     expect(bar.rpc).not.toHaveBeenCalled();
+  });
+
+  it('never moves an expense into or out of dollars', async () => {
+    const toDollars = mockPatchSupabase({ ...baseExpense, payment_source: 'game_club' });
+    expect((await (await patch('usd')).json()).code).toBe('INVALID_REQUEST');
+    expect(toDollars.rpc).not.toHaveBeenCalled();
+    const fromDollars = mockPatchSupabase({ ...baseExpense, payment_source: 'game_club', payment_method: 'usd' });
+    expect((await (await patch('cash')).json()).code).toBe('INVALID_REQUEST');
+    expect(fromDollars.rpc).not.toHaveBeenCalled();
   });
 
   it('leaves payroll payments to Salaries', async () => {

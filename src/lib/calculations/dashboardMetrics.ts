@@ -42,6 +42,10 @@ export interface ExpenseRow {
   category: string;
   payment_method?: string | null;
   payment_source?: 'game_club' | 'bar' | null;
+  /** Dollars spent, on an expense paid from the club's US dollars (124); `amount` is their value in sums. */
+  usd_amount?: number | string | null;
+  /** UZS per dollar the dollar expense was booked at. */
+  usd_rate?: number | string | null;
   comment: string | null;
   created_at: string;
   created_by?: string | null;
@@ -388,6 +392,11 @@ export function isBarPaidExpense(row: Pick<ExpenseRow, 'payment_source'>): boole
   return row.payment_source === 'bar';
 }
 
+/** An expense paid from the club's US dollars (124): it leaves every UZS payment method alone. */
+export function isDollarExpense(row: Pick<ExpenseRow, 'payment_method'>): boolean {
+  return row.payment_method === 'usd';
+}
+
 export function gameClubExpensePaymentBucket(method: string | null | undefined): keyof MoneyLeftByPaymentMethod {
   if (method === 'cash') return 'cash';
   if (method === 'terminal') return 'terminal';
@@ -406,7 +415,7 @@ export function calculateGameClubMoneyLeftByPaymentMethod(
   const exchanged = exchangeNetByMethod(exchangeRows);
   const expensesByPayment = expenseRows.reduce(
     (acc, row) => {
-      if (isBarPaidExpense(row)) return acc;
+      if (isBarPaidExpense(row) || isDollarExpense(row)) return acc;
 
       const bucket = gameClubExpensePaymentBucket(row.payment_method);
       acc[bucket] += Number(row.amount ?? 0);

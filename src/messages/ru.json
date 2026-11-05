@@ -137,7 +137,8 @@
     "card": "Карта",
     "playstation": "PlayStation",
     "analysisLinkAction": "Открыть анализ",
-    "gameClubNetProfit": "Чистая прибыль клуба"
+    "gameClubNetProfit": "Чистая прибыль клуба",
+    "usd": "Доллары США"
   },
   "financialAnalysis": {
     "title": "Финансовый анализ",
@@ -391,7 +392,7 @@
     "exchange": "Обмен",
     "exchanged": "Обмен",
     "usd": "Доллары США",
-    "usdHeld": "Куплено минус продано за период",
+    "usdHeld": "Куплено минус продано и потрачено за период",
     "exchangeSaved": "Обмен сохранён.",
     "exchangeRate": "Курс",
     "paymentMethodUpdated": "Способ оплаты изменён.",
@@ -830,7 +831,12 @@
     "presetHelp": "Выберите, чтобы учесть этот платёж в месячном плане.",
     "presetLoadError": "Не удалось загрузить плановые расходы, поэтому этот платёж не попадёт в план. Повторите перед сохранением.",
     "presetNone": "Другой расход",
-    "presetPlanned": "План {amount} {currency} в месяц; оставьте сумму пустой, чтобы записать ровно её. Категория и источник денег берутся из плана."
+    "presetPlanned": "План {amount} {currency} в месяц; оставьте сумму пустой, чтобы записать ровно её. Категория и источник денег берутся из плана.",
+    "usdAmount": "Сумма в долларах",
+    "usdRate": "Курс",
+    "usdRateHint": "Сумов за 1 доллар США",
+    "usdInSums": "В расходы запишется {amount} {currency}",
+    "usdRateRequired": "Введите курс."
   },
   "debts": {
     "title": "Долги",
@@ -1341,7 +1347,8 @@
       "qr": "QR-код",
       "transfer": "Перевод",
       "debt": "Долг",
-      "playstation": "PlayStation"
+      "playstation": "PlayStation",
+      "usd": "Доллары США"
     },
     "theme": {
       "label": "Тема",

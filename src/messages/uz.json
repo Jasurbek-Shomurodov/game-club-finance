@@ -137,7 +137,8 @@
     "card": "Karta",
     "playstation": "PlayStation",
     "analysisLinkAction": "Tahlilni ochish",
-    "gameClubNetProfit": "Klub sof foydasi"
+    "gameClubNetProfit": "Klub sof foydasi",
+    "usd": "AQSH dollari"
   },
   "financialAnalysis": {
     "title": "Moliyaviy tahlil",
@@ -391,7 +392,7 @@
     "exchange": "Almashtirish",
     "exchanged": "Almashtirildi",
     "usd": "AQSH dollari",
-    "usdHeld": "Davr ichida sotib olingan minus sotilgan",
+    "usdHeld": "Davr ichida sotib olingan minus sotilgan va sarflangan",
     "exchangeSaved": "Almashtirish saqlandi.",
     "exchangeRate": "Kurs",
     "paymentMethodUpdated": "To'lov usuli o'zgartirildi.",
@@ -830,7 +831,12 @@
     "presetHelp": "Bu to'lovni oylik rejaga hisoblash uchun tanlang.",
     "presetLoadError": "Rejali xarajatlarni yuklab bo'lmadi, shuning uchun bu to'lov rejaga hisoblanmaydi. Saqlashdan oldin qayta urinib ko'ring.",
     "presetNone": "Boshqa xarajat",
-    "presetPlanned": "Oyiga {amount} {currency} rejalashtirilgan; aynan shu summani yozish uchun Summani bo'sh qoldiring. Kategoriya va pul manbai rejadan olinadi."
+    "presetPlanned": "Oyiga {amount} {currency} rejalashtirilgan; aynan shu summani yozish uchun Summani bo'sh qoldiring. Kategoriya va pul manbai rejadan olinadi.",
+    "usdAmount": "Dollardagi miqdor",
+    "usdRate": "Dollar kursi",
+    "usdRateHint": "1 AQSH dollari uchun so‘m",
+    "usdInSums": "Xarajatga {amount} {currency} bo‘lib yoziladi",
+    "usdRateRequired": "Kursni kiriting."
   },
   "debts": {
     "title": "Qarzlar",
@@ -1341,7 +1347,8 @@
       "qr": "QR-kod",
       "transfer": "O'tkazma",
       "debt": "Qarz",
-      "playstation": "PlayStation"
+      "playstation": "PlayStation",
+      "usd": "AQSH dollari"
     },
     "theme": {
       "label": "Mavzu",

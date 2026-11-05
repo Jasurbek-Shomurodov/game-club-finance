@@ -126,6 +126,7 @@ export default function MoneyTakenPage() {
     withdrawals,
     carryovers,
     exchangeRows,
+    dollarExpenses,
     investments,
     carryoversSupported,
     methodsSupported,
@@ -175,7 +176,10 @@ export default function MoneyTakenPage() {
     () => gameClubWithdrawalsByMethod(paymentMethodBalances, withdrawals, form.month, carryovers),
     [paymentMethodBalances, withdrawals, form.month, carryovers],
   );
-  const monthDollars = useMemo(() => dollarsForMonth(exchangeRows, form.month), [exchangeRows, form.month]);
+  const monthDollars = useMemo(
+    () => dollarsForMonth(exchangeRows, form.month, dollarExpenses),
+    [exchangeRows, form.month, dollarExpenses],
+  );
   const monthCarried = useMemo(() => carryoversForMonth(carryovers, form.month), [carryovers, form.month]);
   const monthHasCarryovers = carryovers.some((row) => (
     row.from_month.slice(0, 7) === form.month || row.to_month.slice(0, 7) === form.month

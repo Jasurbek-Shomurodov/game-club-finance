@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchAllRows } from './pagination';
-import { fetchMoneyExchanges } from './moneyExchanges';
+import { fetchDollarExpenses, fetchMoneyExchanges, type DollarExpense } from './moneyExchanges';
 import { isMissingDatabaseColumn, isMissingDatabaseFunction, isMissingDatabaseTable } from './errors';
 import { withExchangesByMonth, type MoneyExchangeRow } from '@/lib/calculations/moneyExchanges';
 import {
@@ -35,6 +35,8 @@ export interface OwnerMoneyData {
   withdrawals: OwnerWithdrawal[];
   carryovers: OwnerProfitCarryover[];
   exchangeRows: MoneyExchangeRow[];
+  /** Expenses paid from the club's dollars (124); they lower the dollars held. */
+  dollarExpenses: DollarExpense[];
   /** `investments` expenses; empty for a viewer who cannot read expenses. */
   investments: InvestmentRow[];
   /** Migration 071 is applied: unwithdrawn profit can be moved to the next month. */
@@ -49,6 +51,7 @@ export const EMPTY_OWNER_MONEY: OwnerMoneyData = {
   withdrawals: [],
   carryovers: [],
   exchangeRows: [],
+  dollarExpenses: [],
   investments: [],
   carryoversSupported: false,
   methodsSupported: false,
@@ -69,7 +72,7 @@ export async function fetchOwnerMoney(
   const currentMonth = businessToday.slice(0, 7);
 
   const snapshotArgs = { p_club_id: clubId, p_through_date: businessToday };
-  const [snapshotWithMethods, carryoverRes, exchangeRows, investmentRes] = await Promise.all([
+  const [snapshotWithMethods, carryoverRes, exchangeRows, investmentRes, dollarExpenses] = await Promise.all([
     // Migration 076: the snapshot's withdrawal rows carry their payment method.
     supabase.rpc('get_owner_profit_snapshot_with_methods', snapshotArgs),
     fetchAllRows<OwnerProfitCarryover>(() => supabase
@@ -87,6 +90,8 @@ export async function fetchOwnerMoney(
       .eq('category', 'investments')
       .lte('date', businessToday)
       .order('id')),
+    // Like investments, a failed read leaves dollar spending out instead of failing the page.
+    fetchDollarExpenses(supabase, clubId, '2000-01-01', businessToday).catch(() => [] as DollarExpense[]),
   ]);
 
   // A superseded load stops early; useClubQuery discards whatever it returns.
@@ -136,6 +141,7 @@ export async function fetchOwnerMoney(
       withdrawals: withMethods(snapshot.withdrawals),
       carryovers,
       exchangeRows,
+      dollarExpenses,
       investments,
       ...supported,
     };
@@ -218,6 +224,7 @@ export async function fetchOwnerMoney(
     withdrawals: withMethods(withdrawalRows),
     carryovers,
     exchangeRows,
+    dollarExpenses,
     investments,
     ...supported,
   };

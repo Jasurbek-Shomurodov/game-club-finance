@@ -1,6 +1,7 @@
 import {
   calculateDashboardTotals,
   gameClubExpensePaymentBucket,
+  isDollarExpense,
   getAverageIncomeDayCounts,
   percentChange,
   sumGameClubRows,
@@ -275,7 +276,7 @@ export function buildPaymentMethodFlow(ledgers: AnalysisLedgers, exchangeRows: M
   flow.playstation.income += collected.playstationIncome;
   for (const payment of ledgers.debtPaymentRows) flow[gameClubExpensePaymentBucket(payment.payment_method)].income += amountOf(payment);
   for (const expense of ledgers.expenseRows) {
-    if (expense.payment_source === 'bar') continue;
+    if (expense.payment_source === 'bar' || isDollarExpense(expense)) continue;
     flow[gameClubExpensePaymentBucket(expense.payment_method)].expenses += amountOf(expense);
   }
   const net = exchangeNetByMethod(exchangeRows);

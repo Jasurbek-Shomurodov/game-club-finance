@@ -4124,21 +4124,6 @@
         "kind": "constraint",
         "table": "public.expenses",
         "name": "expenses_playstation_is_game_club"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.owner_payment_method_earned_for_month(uuid,text,date)",
-        "md5": "fa4c8fc8f8b29ad01e484745800750bc"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.get_owner_profit_snapshot_with_methods(uuid,date)",
-        "md5": "68c30113d1b98b4e708650be9841765d"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.update_expense_payment_method(uuid,uuid,text)",
-        "md5": "4a5d14e764713219eca662d97b7550f0"
       }
     ]
   },
@@ -4279,6 +4264,46 @@
       {
         "kind": "function",
         "signature": "public.change_salary_term(uuid,uuid,text,numeric,text,text,boolean,boolean,date)"
+      }
+    ]
+  },
+  {
+    "file": "124_usd_expenses.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.expenses",
+        "column": "usd_amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.expenses",
+        "column": "usd_rate"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.expenses",
+        "name": "expenses_usd_is_game_club"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.expenses",
+        "name": "expenses_usd_amounts"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.owner_payment_method_earned_for_month(uuid,text,date)",
+        "md5": "f2d64ee370e74bc09e842903cfd5d577"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_owner_profit_snapshot_with_methods(uuid,date)",
+        "md5": "f13640571a3178b3fdbbfaa1308346f0"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.update_expense_payment_method(uuid,uuid,text)",
+        "md5": "a6076fe999be0ead7782040018254d58"
       }
     ]
   }

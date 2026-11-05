@@ -87,6 +87,12 @@ Accounting profit and available cash answer different questions:
   not a configurable club method, and a Bar expense cannot name it. It reduces
   the PlayStation balance, not card. Payroll payments and a plan's usual method
   do not offer it.
+- A Game Club expense can be paid from the club's US dollars bought through
+  money exchanges (`payment_method = 'usd'`, migration 124). The person enters
+  dollars and a rate; `amount` is the sums value (`dollarExpenseAmount`), so
+  profit and expense totals count it in UZS. It lowers the dollars held
+  (`heldDollars`, `dollarsForMonth`), never cash, terminal, card or PlayStation,
+  and its method cannot be corrected afterwards.
 
 ```text
 barCashLeft = barSales - qualifyingStockPurchaseCost - barExpenses

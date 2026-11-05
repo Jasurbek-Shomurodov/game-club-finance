@@ -3,6 +3,7 @@ import {
   dollarsForMonth,
   exchangeNetByMethod,
   exchangeReceivedAmount,
+  heldDollars,
   withExchangesByMonth,
   type MoneyExchangeRow,
 } from './moneyExchanges';
@@ -35,6 +36,21 @@ describe('money exchanges', () => {
     expect(dollarsForMonth(rows, '2026-08')).toEqual({ usd: 0, uzs: 0, heldUsd: 0 });
     // A month with no exchanges still knows what earlier months left in dollars.
     expect(dollarsForMonth(rows.slice(0, 1), '2026-12')).toEqual({ usd: 0, uzs: 0, heldUsd: 1000 });
+  });
+
+  it('takes dollars spent by expenses out of the dollars held, at their own rate in sums', () => {
+    const exchanges = [
+      row({ date: '2026-09-05', from_method: 'cash', to_method: 'usd', from_amount: 12_000_000, to_amount: 1000, rate: 12_000 }),
+    ];
+    const expenses = [
+      { date: '2026-10-03', amount: 1_260_000, payment_method: 'usd', usd_amount: '100' },
+      { date: '2026-10-04', amount: 50_000, payment_method: 'cash' },
+      { date: '2026-11-01', amount: 630_000, payment_method: 'usd', usd_amount: 50 },
+    ];
+    expect(heldDollars(exchanges, expenses)).toBe(850);
+    expect(heldDollars(exchanges)).toBe(1000);
+    expect(dollarsForMonth(exchanges, '2026-10', expenses)).toEqual({ usd: -100, uzs: -1_260_000, heldUsd: 900 });
+    expect(dollarsForMonth(exchanges, '2026-09', expenses)).toEqual({ usd: 1000, uzs: 12_000_000, heldUsd: 1000 });
   });
 
   it('nets each method, keeping dollars apart', () => {

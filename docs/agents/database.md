@@ -14,7 +14,7 @@ migrations.
 | `stock_purchases` | Inventory purchase ledger | Write through inventory RPCs. |
 | `daily_stock_counts` | Daily bar/accounting snapshots | Save through closing RPC. |
 | `daily_cash_entries` | Game-club collections | Owners/admins write under time/role rules. |
-| `expenses` | Current expense ledger | Includes `payment_source` and payment method; `playstation` is allowed only on `game_club` expenses (114). |
+| `expenses` | Current expense ledger | Includes `payment_source` and payment method; `playstation` (114) and `usd` (124) are allowed only on `game_club` expenses. A `usd` expense also stores `usd_amount` and `usd_rate`, and `amount` = round(usd_amount × usd_rate). |
 | `new_debts` | Debt principal ledger | Append-only to application users. |
 | `debt_payments` | Debt collection ledger | Append-only; trigger updates parent. |
 | `owner_withdrawals` | Monthly/source withdrawals; Game Club rows may name a `payment_method` (066) | Insert through `withdraw_owner_money_for_month` or `withdraw_owner_game_club_money_by_method`. |
@@ -101,10 +101,10 @@ visible to every club owner until requests are targeted at a club.
 | `get_latest_stock_closings` | Raw latest product closings for older clients. |
 | Delivery ledger RPCs | Claim, begin dispatch, and complete Telegram delivery. |
 | `reject_access_request` | Atomically reject an open access request (074). |
-| `get_owner_profit_snapshot_with_methods` | 050 owner-profit payload plus each withdrawal's `payment_method` (076), with PlayStation expenses moved from the 050 card balances to PlayStation (114). |
+| `get_owner_profit_snapshot_with_methods` | 050 owner-profit payload plus each withdrawal's `payment_method` (076), with PlayStation expenses moved from the 050 card balances to PlayStation (114) and dollar expenses taken out of card (124). |
 | `record_salary_entry_with_status` | `record_salary_entry` that also reports whether it inserted (077). |
 | `update_expense_date` | Owner moves an ordinary expense to another date, never after the club business date (095); payroll-linked expenses refuse. |
-| `update_expense_payment_method` | Owner correction of an ordinary expense's payment method (090, PlayStation since 114); payroll expenses refuse. |
+| `update_expense_payment_method` | Owner correction of an ordinary expense's payment method (090, PlayStation since 114); payroll expenses refuse, and nothing moves into or out of dollars (124). |
 | `set_salary_record_telegram_message` | Save the club-group message that announced a salary entry or rate (090), so deletion removes it. |
 | `mark_daily_cash_collected` / `unmark_daily_cash_collected` | Collector ticks a business date as collected; only an owner removes a tick (096). |
 | `record_money_exchange` / `delete_money_exchange` | Record (idempotent) or owner-delete a money exchange (092). |

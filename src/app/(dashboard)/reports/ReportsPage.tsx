@@ -78,7 +78,7 @@ import { expensePaymentMethods } from '@/lib/paymentMethods';
 import ExpenseRegistrationForm from './ExpenseRegistrationForm';
 import ExchangeForm from './ExchangeForm';
 import CollectedTab from './CollectedTab';
-import { fetchMoneyExchanges } from '@/lib/supabase/moneyExchanges';
+import { fetchDollarExpenses, fetchMoneyExchanges, withDollarAmounts } from '@/lib/supabase/moneyExchanges';
 import { requestCollectionChange } from '@/lib/collectionsApi';
 import { fetchDailyCashCollections, type DailyCashCollection } from '@/lib/supabase/dailyCashCollections';
 import type { ExchangeMethod, MoneyExchangeRow } from '@/lib/calculations/moneyExchanges';
@@ -310,7 +310,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     if (!selectedClubId || !hasReportsAccess) return emptyReportRows;
 
     const supabase = createClient();
-    const [snapshotResult, exchangeRows, collections] = await Promise.all([
+    const [snapshotResult, exchangeRows, collections, dollarExpenses] = await Promise.all([
       supabase.rpc('get_money_report_snapshot', {
         p_club_id: selectedClubId,
         p_range_from: range.from,
@@ -319,13 +319,15 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       // Exchanges (092) are read beside the snapshot, which predates them.
       fetchMoneyExchanges(supabase, selectedClubId, range.from, range.to),
       fetchDailyCashCollections(supabase, selectedClubId, range.from, range.to),
+      // Dollars spent by expenses (124) are read beside the snapshot, which predates them.
+      fetchDollarExpenses(supabase, selectedClubId, range.from, range.to),
     ]);
 
     if (!snapshotResult.error) {
       const snapshot = snapshotResult.data as MoneyReportSnapshotPayload;
       return {
         cash: snapshot.cash ?? [],
-        expenses: snapshot.expenses ?? [],
+        expenses: withDollarAmounts(snapshot.expenses ?? [], dollarExpenses),
         debtPayments: snapshot.debtPayments ?? [],
         barSales: snapshot.barSales ?? [],
         stockPurchases: snapshot.stockPurchases ?? [],
@@ -392,7 +394,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     if (firstError) throw firstError;
 
     const cashRows = (cashResult.data ?? []) as MoneyReportCashRow[];
-    const expenseRows = (expenseResult.data ?? []) as ExpenseRow[];
+    const expenseRows = withDollarAmounts((expenseResult.data ?? []) as ExpenseRow[], dollarExpenses);
     const creatorIds = Array.from(new Set([
       ...cashRows.map((row) => row.created_by),
       ...expenseRows.map((row) => row.created_by),
@@ -703,7 +705,9 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   /** Methods this expense can use, plus the current one so a since-disabled method still displays. */
   function paymentMethodOptions(activity: MoneyReportActivity): string[] {
     const current = activity.paymentMethod;
-    const methods: string[] = expensePaymentMethods(enabledPaymentMethods, activity.paymentSource === 'bar' ? 'bar' : 'game_club');
+    // Dollars are converted at their own rate when spent, so no expense moves into them later.
+    const methods: string[] = expensePaymentMethods(enabledPaymentMethods, activity.paymentSource === 'bar' ? 'bar' : 'game_club')
+      .filter((method) => method !== 'usd');
     return current && !methods.includes(current) ? [current, ...methods] : methods;
   }
 
@@ -726,6 +730,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   function paymentLabel(method: string | null): string {
     if (!method) return t('mixedPayments');
     if (method === 'playstation') return t('playstation');
+    if (method === 'usd') return t('usd');
     if (method === 'cash' || method === 'terminal' || method === 'card') {
       return tc(`paymentMethods.${method}`);
     }
@@ -1246,6 +1251,14 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                             </Badge>
                           ))}
                       </div>
+                    ) : selectedEntry.activity.dollars ? (
+                      // Dollars were converted at their own rate, so the method stays.
+                      <span>
+                        {paymentLabel('usd')} · ${formatUnitCurrency(selectedEntry.activity.dollars.amount)}
+                        <span className="block text-xs font-normal text-gray-500">
+                          {t('exchangeRate')}: {formatUnitCurrency(selectedEntry.activity.dollars.rate)} {tc('currency')}
+                        </span>
+                      </span>
                     ) : canCorrectExpense(selectedEntry.activity, selectedEntry.date) ? (
                       <Select
                         value={selectedEntry.activity.paymentMethod ?? ''}

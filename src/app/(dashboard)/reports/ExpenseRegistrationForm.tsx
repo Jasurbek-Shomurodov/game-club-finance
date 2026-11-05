@@ -9,6 +9,7 @@ import {
   Button,
   CurrencyInput,
   DatePicker,
+  DecimalInput,
   Field,
   InlineAlert,
   LoadErrorAlert,
@@ -18,7 +19,7 @@ import {
   Select,
   useEntryNoteGuard,
 } from '@/components/PresentationFoundation';
-import { formatCurrency } from '@/lib/formatters';
+import { formatCurrency, formatCurrencyInput, parseDecimalInput } from '@/lib/formatters';
 import { MANUAL_EXPENSE_CATEGORIES } from '@/lib/expenseCategories';
 import { createClient, mutateFinanceRequest } from '@/lib/supabase/client';
 import { fetchExpensePresets } from '@/lib/supabase/expensePresets';
@@ -27,7 +28,7 @@ import { useClubQuery } from '@/lib/useClubQuery';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { useCollectedDay } from '@/lib/useCollectedDay';
-import { defaultPaymentMethod, expensePaymentMethods } from '@/lib/paymentMethods';
+import { defaultPaymentMethod, dollarExpenseAmount, expensePaymentMethods } from '@/lib/paymentMethods';
 import type { ExpensePaymentMethod } from '@/types';
 
 const PAYMENT_SOURCES = ['game_club', 'bar'] as const;
@@ -72,6 +73,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     payment_source: 'game_club' as PaymentSource,
     comment: '',
     preset_id: '',
+    usd_rate: '',
   });
   // A date whose money was collected is closed (097); say so before saving.
   const dayClosed = useCollectedDay(selectedClubId, form.date);
@@ -86,8 +88,14 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
   const presetQuery = useClubQuery<ExpensePreset[]>(loadPresets, []);
   const presets = presetQuery.data;
   const selectedPreset = presets.find((preset) => preset.id === form.preset_id) ?? null;
+  // Paid from the club's dollars: the amount is in dollars and a rate converts it to sums.
+  const paysInDollars = form.payment_method === 'usd';
   // A chosen plan's monthly amount is the amount's placeholder and its value when left empty.
-  const plannedAmount = selectedPreset && selectedPreset.monthly_amount > 0 ? selectedPreset.monthly_amount : null;
+  // It is in sums, so it does not apply to dollars.
+  const plannedAmount = !paysInDollars && selectedPreset && selectedPreset.monthly_amount > 0 ? selectedPreset.monthly_amount : null;
+  const usdAmount = paysInDollars ? parseDecimalInput(form.amount) : 0;
+  const usdRate = paysInDollars ? parseDecimalInput(form.usd_rate) : 0;
+  const dollarAmount = paysInDollars ? dollarExpenseAmount(usdAmount, usdRate) : null;
 
   // When the business day rolls over, a date still on the old day moves to the
   // new one; a date the user picked deliberately is kept.
@@ -122,6 +130,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
       payment_source: 'game_club',
       comment: '',
       preset_id: '',
+      usd_rate: '',
     });
   }, [businessToday, enabledPaymentMethods, selectedClubId]);
 
@@ -134,7 +143,12 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
   function set<K extends keyof typeof form>(field: K, value: (typeof form)[K]) {
     // Edited values are a different expense, not a retry of the last attempt.
     requestId.current = null;
-    setForm((current) => ({ ...current, [field]: value }));
+    setForm((current) => {
+      const next = { ...current, [field]: value };
+      // Leaving dollars for sums: sum amounts are whole, so show what will be saved.
+      if (current.payment_method === 'usd' && next.payment_method !== 'usd') next.amount = formatCurrencyInput(current.amount);
+      return next;
+    });
   }
 
   function choosePreset(presetId: string) {
@@ -161,11 +175,15 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (submitPending.current) return;
-    const amount = expenseAmountFromInput(form.amount, plannedAmount);
+    const amount = paysInDollars ? dollarAmount : expenseAmountFromInput(form.amount, plannedAmount);
     const category = form.category;
 
     if (!selectedClubId) {
       setError(tc('error'));
+      return;
+    }
+    if (paysInDollars && usdAmount > 0 && !(usdRate > 0)) {
+      setError(t('usdRateRequired'));
       return;
     }
     if (!amount || amount <= 0) {
@@ -212,6 +230,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
           paymentSource: form.payment_source,
           comment: form.comment.trim() || null,
           presetId: selectedPreset?.id ?? null,
+          ...(paysInDollars ? { usdAmount, usdRate } : {}),
         }),
       });
 
@@ -245,6 +264,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
         payment_source: 'game_club',
         comment: '',
         preset_id: '',
+        usd_rate: '',
       });
     } catch {
       setError(t('saveError'));
@@ -302,19 +322,53 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
         </Field>
       )}
 
-      <Field label={t('amount')} htmlFor="expense-amount" required={plannedAmount === null}>
-        <CurrencyInput
-          id="expense-amount"
-          controlSize="lg"
-          autoFocus
-          required={plannedAmount === null}
-          placeholder={plannedAmount === null ? undefined : formatCurrency(plannedAmount)}
-          value={form.amount}
-          onValueChange={(value) => set('amount', value)}
-          trailingAddon={tc('currency')}
-          className="text-gray-950 placeholder:text-gray-300"
-        />
-      </Field>
+      {paysInDollars ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label={t('usdAmount')} htmlFor="expense-amount" required>
+            <DecimalInput
+              id="expense-amount"
+              controlSize="lg"
+              autoFocus
+              required
+              value={form.amount}
+              onValueChange={(value) => set('amount', value)}
+              trailingAddon="$"
+              className="text-gray-950 placeholder:text-gray-300"
+            />
+          </Field>
+          <Field
+            label={t('usdRate')}
+            htmlFor="expense-usd-rate"
+            required
+            hint={dollarAmount === null
+              ? t('usdRateHint')
+              : t('usdInSums', { amount: formatCurrency(dollarAmount), currency: tc('currency') })}
+          >
+            <DecimalInput
+              id="expense-usd-rate"
+              controlSize="lg"
+              required
+              value={form.usd_rate}
+              onValueChange={(value) => set('usd_rate', value)}
+              trailingAddon={tc('currency')}
+            />
+          </Field>
+        </div>
+      ) : (
+        <Field label={t('amount')} htmlFor="expense-amount" required={plannedAmount === null}>
+          <CurrencyInput
+            id="expense-amount"
+            controlSize="lg"
+            autoFocus
+            required={plannedAmount === null}
+            placeholder={plannedAmount === null ? undefined : formatCurrency(plannedAmount)}
+            value={form.amount}
+            onValueChange={(value) => set('amount', value)}
+            trailingAddon={tc('currency')}
+            className="text-gray-950 placeholder:text-gray-300"
+          />
+        </Field>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label={t('date')} error={dayClosed ? tc('dayClosed') : undefined}>

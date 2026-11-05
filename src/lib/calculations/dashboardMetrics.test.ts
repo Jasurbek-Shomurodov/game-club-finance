@@ -320,6 +320,18 @@ describe('dashboard metrics', () => {
     expect(breakdown).toEqual({ cash: 500, terminal: 0, card: 100, playstation: 180 });
   });
 
+  it('leaves every UZS method alone for an expense paid from dollars', () => {
+    const breakdown = calculateGameClubMoneyLeftByPaymentMethod(
+      [{ date: '2026-07-04', cash_income: 500, terminal_income: 0, card_income: 100, playstation_income: 300 }],
+      [{
+        id: 'usd', date: '2026-07-04', amount: 1_260_000, category: 'repair', payment_method: 'usd', payment_source: 'game_club',
+        usd_amount: 100, usd_rate: 12_600, comment: null, created_at: '2026-07-04T10:00:00Z',
+      }],
+    );
+
+    expect(breakdown).toEqual({ cash: 500, terminal: 0, card: 100, playstation: 300 });
+  });
+
   it('breaks game club money left down by payment method', () => {
     const breakdown = calculateGameClubMoneyLeftByPaymentMethod(
       [

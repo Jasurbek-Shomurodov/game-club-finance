@@ -121,6 +121,22 @@ test('EXP-010 a Game Club expense can be paid from PlayStation money, a Bar expe
   await expectGameClubExpenses(page, expected.gameClubExpenses + 25_000);
 });
 
+test('EXP-011 a Game Club expense can be paid from US dollars at an entered rate', async ({ page }) => {
+  await page.goto('/reports');
+  await page.getByRole('button', { name: 'Register Expense' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Register Expense' });
+  await dialog.getByRole('radio', { name: 'US dollars' }).click();
+  await dialog.locator('#expense-amount').fill('20');
+  await dialog.locator('#expense-usd-rate').fill('12600');
+  await expect(dialog.getByText('Recorded as 252 000 UZS in expenses')).toBeVisible();
+  await dialog.locator('#expense-category').selectOption('repair');
+  await dialog.locator('#expense-comment').fill('Spare parts bought abroad in dollars');
+  await dialog.getByRole('button', { name: 'Save Expense' }).click();
+  await expect(page.getByText('Expense registered successfully.')).toBeVisible();
+  const rows = await (await restAs(accounts.owner, 'GET', `expenses?select=amount,payment_method,usd_amount,usd_rate&club_id=eq.${clubs.arcade.id}&date=eq.${today}&order=created_at.asc`)).json();
+  expect(rows.at(-1)).toEqual({ amount: 252000, payment_method: 'usd', usd_amount: 20, usd_rate: 12600 });
+});
+
 test('EXP-008 a planned expense is set up in Settings, picked in the expense form and compared in Financial analysis', async ({ page }) => {
   await page.goto('/settings');
   await page.getByRole('button', { name: 'Add planned expense' }).click();

@@ -25,7 +25,7 @@ export function PaymentDetails({ row, labelFor, locale, currency }: PaymentDetai
     [tr('dateAndTime'), `${formatDateOnly(row.date, locale)} · ${formatTime(row.created_at, locale)}`],
     [tr('category'), labelFor(row.category)],
     [t('drawerPaidFrom'), row.payment_source === 'bar' ? t('paidFromBar') : t('paidFromGameClub')],
-    ...(method === 'cash' || method === 'terminal' || method === 'card' || method === 'playstation' ? [[tr('paymentMethod'), td(method)] as [string, ReactNode]] : []),
+    ...(method === 'cash' || method === 'terminal' || method === 'card' || method === 'playstation' || method === 'usd' ? [[tr('paymentMethod'), td(method)] as [string, ReactNode]] : []),
     // Only where the ledger was read with its authors' names.
     ...(row.creator_name !== undefined ? [[tr('addedBy'), row.creator_name || tr('unknownCreator')] as [string, ReactNode]] : []),
     [tr('descriptionLabel'), row.comment?.trim() || t('drawerNoComment')],

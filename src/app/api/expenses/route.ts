@@ -2,7 +2,7 @@ import { after } from 'next/server';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { validateEntryNote } from '@/lib/entryNote';
 import { isManualExpenseCategory } from '@/lib/expenseCategories';
-import { expensePaymentMethods, normalizePaymentMethods } from '@/lib/paymentMethods';
+import { dollarExpenseAmount, expensePaymentMethods, normalizePaymentMethods } from '@/lib/paymentMethods';
 import { createClient } from '@/lib/supabase/server';
 import { actorName } from '@/lib/telegram/actorName';
 import { buildExpenseNotification } from '@/lib/telegram/expenseNotification';
@@ -33,6 +33,9 @@ interface ExpenseRequestBody {
   comment?: unknown;
   /** Optional planned expense (091) this payment belongs to. */
   presetId?: unknown;
+  /** Dollar expenses (124) only: dollars spent and UZS per dollar; `amount` is then computed from them. */
+  usdAmount?: unknown;
+  usdRate?: unknown;
 }
 
 interface ValidExpenseRequestBody {
@@ -45,7 +48,16 @@ interface ValidExpenseRequestBody {
   paymentSource: (typeof PAYMENT_SOURCES)[number];
   comment?: string | null;
   presetId?: string | null;
+  usdAmount?: number | null;
+  usdRate?: number | null;
 }
+
+/** Positive, below the numeric(16,2) column limit, at most two decimals. */
+const isCents = (value: unknown): value is number => typeof value === 'number'
+  && Number.isFinite(value)
+  && value > 0
+  && value < 1e14
+  && Math.abs(Math.round(value * 100) - value * 100) < 1e-6;
 
 interface DeleteExpenseRequestBody {
   clubId?: unknown;
@@ -65,7 +77,11 @@ function isValidBody(body: ExpenseRequestBody): body is ValidExpenseRequestBody 
     && EXPENSE_PAYMENT_METHODS.includes(body.paymentMethod as ExpensePaymentMethod)
     && PAYMENT_SOURCES.includes(body.paymentSource as (typeof PAYMENT_SOURCES)[number])
     && (body.comment === null || body.comment === undefined || (typeof body.comment === 'string' && body.comment.length <= 300))
-    && (body.presetId === null || body.presetId === undefined || isId(body.presetId));
+    && (body.presetId === null || body.presetId === undefined || isId(body.presetId))
+    // Dollars and rate come exactly with a dollar expense.
+    && (body.paymentMethod === 'usd'
+      ? isCents(body.usdAmount) && isCents(body.usdRate)
+      : (body.usdAmount === null || body.usdAmount === undefined) && (body.usdRate === null || body.usdRate === undefined));
 }
 
 /** Postgres invalid/out-of-range datetime (e.g. the future-date guard of migration 086). */
@@ -80,6 +96,7 @@ function failure(scope: string, context: Record<string, unknown>, error: Databas
 /** Same request id must describe the same expense; anything else is a conflicting reuse. */
 function sameExpense(existing: Record<string, unknown>, row: Record<string, unknown>) {
   return Number(existing.amount) === Number(row.amount)
+    && Number(existing.usd_amount ?? 0) === Number(row.usd_amount ?? 0)
     && ['date', 'category', 'payment_method', 'payment_source', 'comment', 'preset_id'].every((field) => (existing[field] ?? null) === (row[field] ?? null));
 }
 
@@ -100,6 +117,9 @@ async function notifyExpense(supabase: SupabaseClient, user: User, expense: Expe
         date: expense.date,
         paymentMethod: expense.payment_method,
         paymentSource: expense.payment_source,
+        dollars: expense.payment_method === 'usd' && expense.usd_amount != null && expense.usd_rate != null
+          ? { amount: Number(expense.usd_amount), rate: Number(expense.usd_rate) }
+          : null,
       }),
     });
     const { error: coordinateError } = await supabase
@@ -154,10 +174,15 @@ export async function POST(request: Request) {
   // Every manual expense says what the money was for (also enforced by 108).
   if (!validateEntryNote(body.comment).valid) return expenseErrorResponse('NOTE_REQUIRED');
 
+  // A dollar expense is booked in sums at the rate entered (also enforced by 124).
+  const dollars = body.paymentMethod === 'usd' ? { amount: body.usdAmount as number, rate: body.usdRate as number } : null;
+  const amount = dollars ? dollarExpenseAmount(dollars.amount, dollars.rate) : body.amount;
+  if (!amount) return expenseErrorResponse('INVALID_REQUEST');
+
   const row = {
     club_id: body.clubId,
     date: body.date,
-    amount: body.amount,
+    amount,
     category: body.category.trim(),
     payment_method: body.paymentMethod,
     payment_source: body.paymentSource,
@@ -166,6 +191,8 @@ export async function POST(request: Request) {
     // Sent only when chosen, so clubs without migration 091 keep saving expenses.
     // The 091 trigger checks the preset is live and matches category and source.
     ...(body.presetId ? { preset_id: body.presetId } : {}),
+    // Sent only on dollar expenses, so clubs without migration 124 keep saving the rest.
+    ...(dollars ? { usd_amount: dollars.amount, usd_rate: dollars.rate } : {}),
   };
 
   let expense: Expense;
@@ -332,6 +359,10 @@ export async function PATCH(request: Request) {
     return expenseErrorResponse('PAYMENT_METHOD_DISABLED');
   }
   const changeMethod = paymentMethod !== null && expense.payment_method !== paymentMethod;
+  // Dollars were converted at the expense's own rate: no move into or out of them (also enforced by 124).
+  if (changeMethod && (paymentMethod === 'usd' || expense.payment_method === 'usd')) {
+    return expenseErrorResponse('INVALID_REQUEST');
+  }
   const changeDate = date !== null && expense.date !== date;
   if (!changeMethod && !changeDate) return Response.json({ expense });
 

@@ -4,8 +4,11 @@ export type UserRole = 'owner' | 'admin' | 'viewer';
 export const PAYMENT_METHODS = ['terminal', 'cash', 'card'] as const;
 export type EntryPaymentMethod = (typeof PAYMENT_METHODS)[number];
 export type PaymentMethod = EntryPaymentMethod | 'qr' | 'transfer' | 'debt';
-/** Methods an expense can name: the configurable ones, plus PlayStation money for Game Club expenses (migration 114). */
-export const EXPENSE_PAYMENT_METHODS = [...PAYMENT_METHODS, 'playstation'] as const;
+/**
+ * Methods an expense can name: the configurable ones, plus PlayStation money
+ * (migration 114) and the club's US dollars (124) for Game Club expenses.
+ */
+export const EXPENSE_PAYMENT_METHODS = [...PAYMENT_METHODS, 'playstation', 'usd'] as const;
 export type ExpensePaymentMethod = (typeof EXPENSE_PAYMENT_METHODS)[number];
 export type PaymentSource = 'cash' | 'terminal' | 'bank';
 export type IncomeCategory = 'game_time' | 'food' | 'drinks' | 'other';
@@ -213,6 +216,9 @@ export interface Expense {
   amount: number;
   payment_method: string;
   payment_source: ExpensePaymentSource;
+  /** Dollars spent and UZS per dollar, on an expense paid from the club's dollars (124); null otherwise. */
+  usd_amount?: number | string | null;
+  usd_rate?: number | string | null;
   category: string;
   comment: string | null;
   telegram_chat_id: string | null;

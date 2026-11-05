@@ -137,7 +137,8 @@
     "card": "Card",
     "playstation": "PlayStation",
     "analysisLinkAction": "Open analysis",
-    "gameClubNetProfit": "Game Club Net Profit"
+    "gameClubNetProfit": "Game Club Net Profit",
+    "usd": "US dollars"
   },
   "financialAnalysis": {
     "title": "Financial Analysis",
@@ -391,7 +392,7 @@
     "exchange": "Exchange",
     "exchanged": "Exchanged",
     "usd": "US dollars",
-    "usdHeld": "Bought minus sold in this period",
+    "usdHeld": "Bought minus sold and spent in this period",
     "exchangeSaved": "Exchange saved.",
     "exchangeRate": "Exchange rate",
     "paymentMethodUpdated": "Payment method updated.",
@@ -830,7 +831,12 @@
     "presetHelp": "Pick one to count this payment against its monthly plan.",
     "presetLoadError": "Could not load the planned expenses, so this payment would not count against a plan. Try again before saving.",
     "presetNone": "Other expense",
-    "presetPlanned": "Planned {amount} {currency} a month; leave Amount empty to record exactly that. Category and money source come from the plan."
+    "presetPlanned": "Planned {amount} {currency} a month; leave Amount empty to record exactly that. Category and money source come from the plan.",
+    "usdAmount": "Amount in dollars",
+    "usdRate": "Exchange rate",
+    "usdRateHint": "UZS for 1 US dollar",
+    "usdInSums": "Recorded as {amount} {currency} in expenses",
+    "usdRateRequired": "Enter the exchange rate."
   },
   "debts": {
     "title": "Debts",
@@ -1341,7 +1347,8 @@
       "qr": "QR Code",
       "transfer": "Transfer",
       "debt": "Debt",
-      "playstation": "PlayStation"
+      "playstation": "PlayStation",
+      "usd": "US dollars"
     },
     "theme": {
       "label": "Theme",

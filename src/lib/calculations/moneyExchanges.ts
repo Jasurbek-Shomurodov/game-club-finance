@@ -68,10 +68,35 @@ export function exchangeNetByMethod(rows: MoneyExchangeRow[]): ExchangeNetByMeth
   return net;
 }
 
+/** An expense paid from the club's dollars (migration 124): `amount` in sums, `usd_amount` in dollars. */
+export interface DollarExpenseRow {
+  date: string;
+  amount: number | string;
+  payment_method?: string | null;
+  usd_amount?: number | string | null;
+}
+
+function dollarExpenses<T extends DollarExpenseRow>(rows: readonly T[]): T[] {
+  return rows.filter((row) => row.payment_method === 'usd');
+}
+
+/**
+ * Dollars held at the end of the rows: bought minus sold through exchanges,
+ * minus what dollar expenses spent. Rows without a dollar amount (read before
+ * migration 124) spend nothing.
+ */
+export function heldDollars(
+  exchangeRows: MoneyExchangeRow[],
+  expenseRows: readonly DollarExpenseRow[] = [],
+): number {
+  const spent = dollarExpenses(expenseRows).reduce((sum, row) => sum + Number(row.usd_amount ?? 0), 0);
+  return Math.round((exchangeNetByMethod(exchangeRows).usd - spent) * 100) / 100;
+}
+
 export interface DollarsForMonth {
-  /** Dollars bought minus sold in the month. */
+  /** Dollars bought minus sold and spent in the month. */
   usd: number;
-  /** UZS those purchases took out of the methods, minus what sales brought back. */
+  /** UZS those purchases took out of the methods, minus what sales brought back and expenses spent. */
   uzs: number;
   /** Dollars still held after every exchange through the month. */
   heldUsd: number;
@@ -82,8 +107,21 @@ export interface DollarsForMonth {
  * is what was actually exchanged, never a conversion at a current rate, so it
  * is the part of the month's Game Club profit the methods no longer show.
  */
-export function dollarsForMonth(rows: readonly MoneyExchangeRow[], month: string): DollarsForMonth {
+export function dollarsForMonth(
+  rows: readonly MoneyExchangeRow[],
+  month: string,
+  expenseRows: readonly DollarExpenseRow[] = [],
+): DollarsForMonth {
   const totals = { usd: 0, uzs: 0, heldUsd: 0 };
+  // A dollar expense counts in sums at its own rate, so profit and dollars stay in step.
+  for (const row of dollarExpenses(expenseRows)) {
+    const rowMonth = row.date.slice(0, 7);
+    if (rowMonth > month) continue;
+    totals.heldUsd -= Number(row.usd_amount ?? 0);
+    if (rowMonth !== month) continue;
+    totals.usd -= Number(row.usd_amount ?? 0);
+    totals.uzs -= Number(row.amount ?? 0);
+  }
   for (const row of rows) {
     const rowMonth = row.date.slice(0, 7);
     if (rowMonth > month) continue;
