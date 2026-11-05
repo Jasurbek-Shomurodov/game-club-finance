@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applySalaryPaymentChanges, calculateSalaries, combineSalaryMonths, deactivatedFrom, deactivationCancelsRates, displayedRate, earliestDeactivationDate, employeeStatus, rateInForce, salaryBalance, salaryEarnings, salaryPaymentsBySource, scheduledDeactivation, canDeleteSalaryRate, type SalaryEmployee, type SalaryEntry, type SalaryRate } from './salaries';
+import { applySalaryPaymentChanges, calculateSalaries, combineSalaryMonths, dailyBasePay, deactivatedFrom, deactivationCancelsRates, displayedRate, earliestDeactivationDate, employeeStatus, rateInForce, salaryBalance, salaryEarnings, salaryPaymentsBySource, scheduledDeactivation, canDeleteSalaryRate, type SalaryEmployee, type SalaryEntry, type SalaryRate } from './salaries';
 
 const employee: SalaryEmployee = { id: 'one', club_id: 'club', name: 'Employee', job_title: '', joined_on: '2026-09-01' };
 const rate: SalaryRate = { id: 'rate', employee_id: 'one', effective_date: '2026-09-01', salary_type: 'daily', amount: 100, kpi_percent: 10, active: true };
@@ -257,5 +257,25 @@ describe('applying salary payment changes to loaded profit', () => {
     const patched = calculate({ entries: [entry('payment', 500)], monthlyProfit: applySalaryPaymentChanges([profit(12000)], [], [entry('payment', 500)]) }).one[0];
     expect(patched.kpi).toBe(loaded.kpi);
     expect(patched.balance).toBe(loaded.balance - 500);
+  });
+});
+
+describe('dailyBasePay', () => {
+  it('pays the rate in force each day, so a raise counts from its effective date', () => {
+    const raise: SalaryRate = { ...rate, id: 'raise', effective_date: '2026-09-15', amount: 140 };
+    expect(dailyBasePay(employee, [rate, raise], '2026-09-14')).toBe(100);
+    expect(dailyBasePay(employee, [rate, raise], '2026-09-15')).toBe(140);
+    expect(dailyBasePay(employee, [rate, { ...raise, deleted_at: '2026-09-20T00:00:00Z' }], '2026-09-20')).toBe(100);
+  });
+
+  it('splits a monthly rate over the days of that month', () => {
+    const monthly: SalaryRate = { ...rate, salary_type: 'monthly', amount: 3_000_000 };
+    expect(dailyBasePay(employee, [monthly], '2026-09-10')).toBe(100_000);
+    expect(dailyBasePay(employee, [monthly], '2026-10-10')).toBe(96_774.19);
+  });
+
+  it('pays nothing before joining or while inactive', () => {
+    expect(dailyBasePay({ ...employee, joined_on: '2026-09-05' }, [rate], '2026-09-04')).toBeUndefined();
+    expect(dailyBasePay(employee, [rate, { ...rate, id: 'off', effective_date: '2026-09-10', active: false }], '2026-09-12')).toBeUndefined();
   });
 });

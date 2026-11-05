@@ -16,7 +16,7 @@ import {
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { buildSalaryCalendar, shiftYearMonth } from '@/lib/calculations/salaryCalendar';
-import { canDeleteSalaryRate, type SalaryEmployee, type SalaryEntry, type SalaryMonth, type SalaryRate } from '@/lib/calculations/salaries';
+import { canDeleteSalaryRate, dailyBasePay, type SalaryEmployee, type SalaryEntry, type SalaryMonth, type SalaryRate } from '@/lib/calculations/salaries';
 import { formatCurrency, formatDateOnly, formatDateTime, formatYearMonth } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { SalaryCalendar } from './SalaryCalendar';
@@ -55,7 +55,12 @@ export function HistoryView({
   const [selectedDate, setSelectedDate] = useState('');
   const historyEntries = useMemo(() => entries.filter((e) => !historyEmployee || e.employee_id === historyEmployee.id)
     .sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at)), [entries, historyEmployee]);
-  const calendarDays = useMemo(() => buildSalaryCalendar(calendarMonth, historyEntries, today), [calendarMonth, historyEntries, today]);
+  // Each day's base pay, summed over the club in the club-wide history; a raise shows from its effective date.
+  const calendarDays = useMemo(() => {
+    const staff = historyEmployee ? [historyEmployee] : employees;
+    const earnedOn = (date: string) => staff.reduce((sum, employee) => sum + (dailyBasePay(employee, rates, date) ?? 0), 0);
+    return buildSalaryCalendar(calendarMonth, historyEntries, today, earnedOn);
+  }, [calendarMonth, historyEntries, today, historyEmployee, employees, rates]);
 
   if (loading) return <TableSkeleton rows={6} columns={7} />;
   if (employeeId && !loadError && !historyEmployee) return <Card><EmptyState icon={Users} title={t('employeeNotFound')} /></Card>;

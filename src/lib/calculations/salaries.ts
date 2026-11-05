@@ -239,6 +239,20 @@ export function rateInForce(rates: SalaryRate[], employeeId: string, date: strin
   return current;
 }
 
+/**
+ * Base pay earned on one day: the daily rate in force, or a monthly rate split
+ * evenly over that month's days, the same proration `calculateSalaries` uses.
+ * Undefined before joining or while inactive.
+ */
+export function dailyBasePay(employee: SalaryEmployee, rates: SalaryRate[], date: string): number | undefined {
+  if (date < employee.joined_on) return undefined;
+  const rate = rateInForce(rates, employee.id, date);
+  if (!rate?.active) return undefined;
+  if (rate.salary_type === 'daily') return money(Number(rate.amount));
+  const { from, to } = monthRange(date.slice(0, 7));
+  return money(Number(rate.amount) / (differenceInCalendarDays(parseISO(to), parseISO(from)) + 1));
+}
+
 /** Rate to show for an employee: the one in force, or the first future one for staff who have not started yet. */
 export function displayedRate(rates: SalaryRate[], employeeId: string, date: string): SalaryRate | undefined {
   const current = rateInForce(rates, employeeId, date);

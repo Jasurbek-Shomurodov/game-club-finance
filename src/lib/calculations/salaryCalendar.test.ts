@@ -48,4 +48,14 @@ describe('buildSalaryCalendar', () => {
     const days = buildSalaryCalendar('2026-10', [entry('x', '2026-10-05', 'bonus', 10, true)], '2026-10-27');
     expect(days.find((d) => d.date === '2026-10-05')).toMatchObject({ totals: {}, count: 1 });
   });
+
+  it('shows the earned pay through today only', () => {
+    const days = buildSalaryCalendar('2026-10', [], '2026-10-27', (date) => (date < '2026-10-15' ? 100 : date === '2026-10-20' ? 0 : 140));
+    const at = (date: string) => days.find((day) => day.date === date);
+    expect(at('2026-10-14')?.earned).toBe(100);
+    expect(at('2026-10-15')?.earned).toBe(140);
+    expect(at('2026-10-20')).not.toHaveProperty('earned');
+    expect(at('2026-10-28')).not.toHaveProperty('earned');
+    expect(buildSalaryCalendar('2026-10', [], '2026-10-27')[5]).not.toHaveProperty('earned');
+  });
 });

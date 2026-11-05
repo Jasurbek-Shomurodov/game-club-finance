@@ -11,6 +11,8 @@ export interface SalaryCalendarDay {
   totals: Partial<Record<SalaryEntryKind, number>>;
   /** Every entry on the day, deleted ones included, so the day still opens its history. */
   count: number;
+  /** Base pay earned that day, through `today` only; absent when nothing was earned. */
+  earned?: number;
 }
 
 /** YYYY-MM shifted by whole months. */
@@ -22,9 +24,15 @@ export function shiftYearMonth(month: string, delta: number): string {
 
 /**
  * The Monday-first weeks covering `month` (YYYY-MM), each day carrying the
- * payments, bonuses and fines recorded on it.
+ * payments, bonuses and fines recorded on it and, through `today`, the base
+ * pay `earnedOn` reports for it.
  */
-export function buildSalaryCalendar(month: string, entries: SalaryEntry[], today: string): SalaryCalendarDay[] {
+export function buildSalaryCalendar(
+  month: string,
+  entries: SalaryEntry[],
+  today: string,
+  earnedOn?: (date: string) => number | undefined,
+): SalaryCalendarDay[] {
   const [year, monthNumber] = month.split('-').map(Number);
   const first = new Date(Date.UTC(year, monthNumber - 1, 1));
   const mondayOffset = (first.getUTCDay() + 6) % 7;
@@ -40,6 +48,10 @@ export function buildSalaryCalendar(month: string, entries: SalaryEntry[], today
     for (const entry of dayEntries) {
       if (!entry.deleted_at) totals[entry.kind] = (totals[entry.kind] ?? 0) + Number(entry.amount);
     }
-    return { date, day: cursor.getUTCDate(), inMonth: date.startsWith(month), isToday: date === today, totals, count: dayEntries.length };
+    const earned = earnedOn && date <= today ? earnedOn(date) : undefined;
+    return {
+      date, day: cursor.getUTCDate(), inMonth: date.startsWith(month), isToday: date === today, totals, count: dayEntries.length,
+      ...(earned ? { earned } : {}),
+    };
   });
 }
