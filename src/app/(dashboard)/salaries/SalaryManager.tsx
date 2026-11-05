@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
-import { Banknote, Building2, Users, Wallet } from 'lucide-react';
+import { Banknote, Building2, CalendarCheck, Gift, Percent, ShieldAlert, Users, Wallet } from 'lucide-react';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
   Badge,
@@ -36,6 +36,7 @@ import {
   employeeStatus,
   rateInForce,
   salaryBalance,
+  salaryEarnings,
   salaryPaymentsBySource,
   scheduledDeactivation,
   type KpiBasis,
@@ -452,6 +453,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   // One employee's negative balance is an advance, shown like on their card.
   const dueValue = view === 'history' && employeeId ? salaryBalance(historyMonths) : due;
   const isAdvance = dueValue < 0;
+  const historyTotals = salaryEarnings(historyMonths);
 
   return (
     <div className="space-y-5">
@@ -484,12 +486,32 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
       )}
 
       {/* After a failed load the totals are unknown, not zero. */}
-      {!loadError && (
+      {!loadError && view === 'history' && (
+        // Tinted tiles, one per part of the balance, the way the calendar chips colour them.
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+          <MetricCard
+            label={t(isAdvance ? 'advance' : 'totalDue')}
+            value={<MetricMoney amount={Math.abs(dueValue)} />}
+            icon={Wallet}
+            iconClassName="text-warning-600"
+            tone={dueValue > 0 ? 'warning' : 'default'}
+            className="border-warning-100 bg-warning-50"
+            loading={loading}
+          />
+          <MetricCard label={t('earnedTotal')} value={<MetricMoney amount={historyTotals.earned} />} icon={CalendarCheck} iconClassName="text-success-600" tone="success" className="border-success-100 bg-success-50" loading={loading} />
+          <MetricCard label={t('totalPaid')} value={<MetricMoney amount={historyTotals.paid} />} icon={Banknote} iconClassName="text-primary-600" tone="primary" className="border-primary-100 bg-primary-50" loading={loading} />
+          <MetricCard label={t('bonusTotal')} value={<MetricMoney amount={historyTotals.bonus} />} icon={Gift} iconClassName="text-purple-600" className="border-purple-100 bg-purple-50" loading={loading} />
+          <MetricCard label={t('kpiTotal')} value={<MetricMoney amount={historyTotals.kpi} />} icon={Percent} iconClassName="text-success-600" tone="success" className="border-success-100 bg-success-50" loading={loading} />
+          <MetricCard label={t('fineTotal')} value={<MetricMoney amount={historyTotals.fine} />} icon={ShieldAlert} iconClassName="text-danger-600" tone="danger" className="border-danger-100 bg-danger-50" loading={loading} />
+        </div>
+      )}
+
+      {!loadError && view !== 'history' && (
         <div className="grid gap-4 sm:grid-cols-3">
           <MetricCard
-            label={t(view === 'history' ? 'base' : 'activeEmployees')}
-            value={view === 'history' ? <MetricMoney amount={historyMonths.reduce((sum, month) => sum + month.base, 0)} /> : String(activeCount)}
-            trendLabel={view !== 'history' && upcomingCount ? t('upcomingCount', { count: upcomingCount }) : undefined}
+            label={t('activeEmployees')}
+            value={String(activeCount)}
+            trendLabel={upcomingCount ? t('upcomingCount', { count: upcomingCount }) : undefined}
             icon={Users}
             loading={loading}
           />
@@ -500,17 +522,13 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
             loading={loading}
             tone={dueValue > 0 ? 'warning' : 'default'}
           />
-          {view === 'history' ? (
-            <MetricCard label={t('totalPaid')} value={<MetricMoney amount={historyMonths.reduce((sum, month) => sum + month.paid, 0)} />} icon={Banknote} loading={loading} />
-          ) : (
-            <MetricCard
-              label={t('earnedThisMonth')}
-              value={<MetricMoney amount={thisMonth?.earned ?? 0} />}
-              trendLabel={t('paidThisMonth', { amount: `${formatCurrency(thisMonth?.paid ?? 0)} ${tc('currency')}` })}
-              icon={Banknote}
-              loading={loading}
-            />
-          )}
+          <MetricCard
+            label={t('earnedThisMonth')}
+            value={<MetricMoney amount={thisMonth?.earned ?? 0} />}
+            trendLabel={t('paidThisMonth', { amount: `${formatCurrency(thisMonth?.paid ?? 0)} ${tc('currency')}` })}
+            icon={Banknote}
+            loading={loading}
+          />
         </div>
       )}
 

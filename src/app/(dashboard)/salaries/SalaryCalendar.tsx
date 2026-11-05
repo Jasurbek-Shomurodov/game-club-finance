@@ -11,11 +11,11 @@ import { cn } from '@/lib/utils';
 
 const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 
-/** Chip colours match the entry badges below the calendar (payment info, bonus success, fine danger). */
+/** Chip colours match the entry badges below the calendar (payment warning, bonus info, fine danger). */
 const KINDS: { kind: SalaryEntryKind; sign: string; chip: string; dot: string }[] = [
-  { kind: 'payment', sign: '−', chip: 'bg-primary-50 text-primary-700', dot: 'bg-primary-500' },
-  { kind: 'bonus', sign: '+', chip: 'bg-success-50 text-success-700', dot: 'bg-success-500' },
-  { kind: 'fine', sign: '−', chip: 'bg-danger-50 text-danger-700', dot: 'bg-danger-500' },
+  { kind: 'payment', sign: '', chip: 'border-warning-100 bg-warning-50 text-warning-700', dot: 'bg-warning-500' },
+  { kind: 'bonus', sign: '+', chip: 'border-primary-100 bg-primary-50 text-primary-700', dot: 'bg-primary-500' },
+  { kind: 'fine', sign: '−', chip: 'border-danger-100 bg-danger-50 text-danger-700', dot: 'bg-danger-500' },
 ];
 
 export interface SalaryCalendarProps {
@@ -57,19 +57,22 @@ export function SalaryCalendar({ month, days, selectedDate, onMonthChange, onSel
                 aria-label={`${formatDateOnly(day.date, locale)} · ${t('calendarRecords', { count: day.count })}`}
                 onClick={() => onSelectDate(selected ? '' : day.date)}
                 className={cn(
-                  'flex min-h-[96px] min-w-0 flex-col items-stretch gap-1 rounded-xl border p-1.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1',
-                  selected
-                    ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-500'
-                    : day.isToday
-                      ? 'border-primary-300 bg-surface'
-                      : day.inMonth
-                        ? 'border-transparent bg-gray-50 hover:border-primary-200'
-                        : 'border-transparent bg-transparent',
+                  'relative flex min-h-[112px] min-w-0 flex-col items-stretch gap-1 rounded-xl border p-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1',
+                  !day.inMonth
+                    ? 'border-transparent bg-transparent'
+                    : day.totals.fine !== undefined
+                      ? 'border-danger-100 bg-danger-50/60 hover:border-danger-400'
+                      : 'border-gray-200 bg-surface hover:border-primary-300',
+                  day.isToday && day.inMonth && 'border-warning-500 bg-warning-50/50',
+                  selected && 'border-primary-500 ring-1 ring-primary-500',
                 )}
               >
-                <span className={cn('text-sm font-bold', day.inMonth ? 'text-gray-900' : 'text-gray-300', day.isToday && 'text-primary-700')}>{day.day}</span>
+                <span className="flex items-start justify-between gap-1">
+                  <span className={cn('text-sm font-bold', day.inMonth ? 'text-gray-900' : 'text-gray-300', day.totals.fine !== undefined && day.inMonth && 'text-danger-700', day.isToday && 'text-warning-700')}>{day.day}</span>
+                  {day.count > 1 && <span aria-hidden="true" className="rounded-full bg-gray-100 px-1.5 text-[10px] font-bold leading-4 text-gray-500">{day.count}</span>}
+                </span>
                 {KINDS.map(({ kind, sign, chip }) => day.totals[kind] !== undefined && (
-                  <span key={kind} className={cn('block rounded-md px-1.5 py-1 text-[11px] leading-tight', chip, !day.inMonth && 'opacity-60')}>
+                  <span key={kind} className={cn('block rounded-lg border px-1.5 py-1 text-[11px] leading-tight', chip, !day.inMonth && 'opacity-60')}>
                     <span className="block font-medium">{t(kind)}</span>
                     <span className="block break-words font-bold tabular-nums">{sign}{formatCurrency(day.totals[kind]!)}</span>
                   </span>
