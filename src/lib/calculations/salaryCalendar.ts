@@ -13,6 +13,7 @@ export interface SalaryCalendarDay {
   count: number;
   /** Base pay earned that day, through `today` only; absent when nothing was earned. */
   earned?: number;
+  kpi?: number;
 }
 
 /** YYYY-MM shifted by whole months. */
@@ -32,6 +33,7 @@ export function buildSalaryCalendar(
   entries: SalaryEntry[],
   today: string,
   earnedOn?: (date: string) => number | undefined,
+  kpiByDay: Record<string, number> = {},
 ): SalaryCalendarDay[] {
   const [year, monthNumber] = month.split('-').map(Number);
   const first = new Date(Date.UTC(year, monthNumber - 1, 1));
@@ -49,9 +51,11 @@ export function buildSalaryCalendar(
       if (!entry.deleted_at) totals[entry.kind] = (totals[entry.kind] ?? 0) + Number(entry.amount);
     }
     const earned = earnedOn && date <= today ? earnedOn(date) : undefined;
+    const kpi = kpiByDay[date];
     return {
       date, day: cursor.getUTCDate(), inMonth: date.startsWith(month), isToday: date === today, totals, count: dayEntries.length,
       ...(earned ? { earned } : {}),
+      ...(kpi ? { kpi } : {}),
     };
   });
 }

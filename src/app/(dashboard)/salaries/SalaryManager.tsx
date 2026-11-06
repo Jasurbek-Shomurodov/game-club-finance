@@ -593,6 +593,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
           rates={shownRates}
           entries={shownEntries}
           months={historyMonths}
+          balances={balances}
           loading={loading}
           loadError={loadError}
           isOwner={isOwner}

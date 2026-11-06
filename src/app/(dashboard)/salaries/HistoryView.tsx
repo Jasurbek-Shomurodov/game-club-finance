@@ -16,7 +16,7 @@ import {
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { buildSalaryCalendar, shiftYearMonth } from '@/lib/calculations/salaryCalendar';
-import { canDeleteSalaryRate, dailyBasePay, type SalaryEmployee, type SalaryEntry, type SalaryMonth, type SalaryRate } from '@/lib/calculations/salaries';
+import { canDeleteSalaryRate, dailyBasePay, rateInForce, type SalaryEmployee, type SalaryEntry, type SalaryMonth, type SalaryRate } from '@/lib/calculations/salaries';
 import { formatCurrency, formatDateOnly, formatDateTime, formatYearMonth } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { SalaryCalendar } from './SalaryCalendar';
@@ -32,6 +32,7 @@ export interface HistoryViewProps {
   rates: SalaryRate[];
   entries: SalaryEntry[];
   months: SalaryMonth[];
+  balances: Record<string, SalaryMonth[]>;
   loading: boolean;
   loadError: boolean;
   /** Only the owner deletes payments, bonuses, fines and rates (migration 113). */
@@ -44,7 +45,7 @@ export interface HistoryViewProps {
 
 /** Monthly breakdown, transactions and rate history for one employee or the whole club. */
 export function HistoryView({
-  employeeId, historyEmployee, employees, rates, entries, months, loading, loadError, isOwner, saving, today, onDelete,
+  employeeId, historyEmployee, employees, rates, entries, months, balances, loading, loadError, isOwner, saving, today, onDelete,
 }: HistoryViewProps) {
   const t = useTranslations('salaries');
   const tc = useTranslations('common');
@@ -55,18 +56,24 @@ export function HistoryView({
   const [selectedDate, setSelectedDate] = useState('');
   const historyEntries = useMemo(() => entries.filter((e) => !historyEmployee || e.employee_id === historyEmployee.id)
     .sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at)), [entries, historyEmployee]);
+  const staff = useMemo(() => (historyEmployee ? [historyEmployee] : employees), [historyEmployee, employees]);
   // Each day's base pay, summed over the club in the club-wide history; a raise shows from its effective date.
   const calendarDays = useMemo(() => {
-    const staff = historyEmployee ? [historyEmployee] : employees;
     const earnedOn = (date: string) => staff.reduce((sum, employee) => sum + (dailyBasePay(employee, rates, date) ?? 0), 0);
-    return buildSalaryCalendar(calendarMonth, historyEntries, today, earnedOn);
-  }, [calendarMonth, historyEntries, today, historyEmployee, employees, rates]);
+    const kpiByDay = Object.assign({}, ...months.map((month) => month.kpiByDay));
+    return buildSalaryCalendar(calendarMonth, historyEntries, today, earnedOn, kpiByDay);
+  }, [calendarMonth, historyEntries, today, staff, rates, months]);
 
   if (loading) return <TableSkeleton rows={6} columns={7} />;
   if (employeeId && !loadError && !historyEmployee) return <Card><EmptyState icon={Users} title={t('employeeNotFound')} /></Card>;
   if (!historyEmployee && (employeeId || loadError)) return null;
 
   const visibleEntries = historyEntries.filter((e) => (selectedDate ? e.date === selectedDate : e.date.startsWith(calendarMonth)));
+  const kpiRows = staff.flatMap((employee) => {
+    const month = balances[employee.id]?.find((row) => row.month === calendarMonth);
+    const amount = selectedDate ? month?.kpiByDay[selectedDate] : month?.kpi;
+    return amount ? [{ employeeId: employee.id, amount, rate: selectedDate ? rateInForce(rates, employee.id, selectedDate) : undefined }] : [];
+  });
   const historyRates = rates.filter((r) => !historyEmployee || r.employee_id === historyEmployee.id)
     .sort((a, b) => b.effective_date.localeCompare(a.effective_date));
   // In the club-wide history each row names its employee.
@@ -134,6 +141,18 @@ export function HistoryView({
             className="mb-3"
           />
           <div className="space-y-2">
+            {kpiRows.map(({ employeeId: id, amount, rate }) => (
+              <div key={`kpi-${id}`} className="flex items-start gap-3 rounded-xl border border-gray-200 p-3 text-sm">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="success" size="sm">{t('kpi')}</Badge>
+                    <span className="font-semibold text-gray-900">{employeePrefix(id)}{selectedDate ? formatDateOnly(selectedDate, locale) : formatYearMonth(calendarMonth, locale)}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">{t(selectedDate ? 'calendarKpiDay' : 'calendarKpiMonth')}{rate ? ` · ${Number(rate.kpi_percent)}% (${kpiSummary(rate)})` : ''}</p>
+                </div>
+                <strong className="shrink-0 whitespace-nowrap tabular-nums text-success-700">+{currency(amount)}</strong>
+              </div>
+            ))}
             {visibleEntries.map((entry) => (
               <div key={entry.id} className={cn('flex items-start gap-3 rounded-xl border border-gray-200 p-3 text-sm', entry.deleted_at && 'opacity-60')}>
                 <div className="min-w-0 flex-1">
@@ -157,7 +176,7 @@ export function HistoryView({
                 </div>
               </div>
             ))}
-            {visibleEntries.length === 0 && <EmptyState compact bordered title={t('noTransactions')} />}
+            {visibleEntries.length === 0 && kpiRows.length === 0 && <EmptyState compact bordered title={t('noTransactions')} />}
           </div>
         </div>
         <div>

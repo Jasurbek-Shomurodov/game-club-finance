@@ -58,4 +58,13 @@ describe('buildSalaryCalendar', () => {
     expect(at('2026-10-28')).not.toHaveProperty('earned');
     expect(buildSalaryCalendar('2026-10', [], '2026-10-27')[5]).not.toHaveProperty('earned');
   });
+
+  it('shows each day its KPI, including days of the neighbouring months in the grid', () => {
+    const days = buildSalaryCalendar('2026-10', [], '2026-10-27', undefined, { '2026-10-05': 3527.13, '2026-09-28': 10, '2026-10-06': 0 });
+    const at = (date: string) => days.find((day) => day.date === date);
+    expect(at('2026-10-05')?.kpi).toBe(3527.13);
+    expect(at('2026-09-28')?.kpi).toBe(10);
+    expect(at('2026-10-06')).not.toHaveProperty('kpi');
+    expect(at('2026-10-07')).not.toHaveProperty('kpi');
+  });
 });

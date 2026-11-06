@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
-import { ChevronLeft, ChevronRight, CircleCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CircleCheck, Percent } from 'lucide-react';
 import { SectionHeading } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import type { SalaryCalendarDay, SalaryEntryKind } from '@/lib/calculations/salaryCalendar';
@@ -54,7 +54,7 @@ export function SalaryCalendar({ month, days, selectedDate, onMonthChange, onSel
                 type="button"
                 aria-pressed={selected}
                 aria-current={day.isToday ? 'date' : undefined}
-                aria-label={`${formatDateOnly(day.date, locale)} · ${day.earned !== undefined ? `${t('calendarEarned')} ${formatCurrency(day.earned)} · ` : ''}${t('calendarRecords', { count: day.count })}`}
+                aria-label={`${formatDateOnly(day.date, locale)} · ${day.earned !== undefined ? `${t('calendarEarned')} ${formatCurrency(day.earned)} · ` : ''}${day.kpi !== undefined ? `${t('kpi')} ${formatCurrency(day.kpi)} · ` : ''}${t('calendarRecords', { count: day.count })}`}
                 onClick={() => onSelectDate(selected ? '' : day.date)}
                 className={cn(
                   'relative flex min-h-[112px] min-w-0 flex-col items-stretch gap-1 rounded-xl border p-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1',
@@ -77,6 +77,12 @@ export function SalaryCalendar({ month, days, selectedDate, onMonthChange, onSel
                     <span className="min-w-0 break-words tabular-nums">+{formatCurrency(day.earned)}</span>
                   </span>
                 )}
+                {day.kpi !== undefined && (
+                  <span className={cn('flex items-center gap-1 text-[11px] font-semibold leading-tight text-success-600', !day.inMonth && 'opacity-60')}>
+                    <Percent size={12} aria-hidden="true" className="shrink-0" />
+                    <span className="min-w-0 break-words tabular-nums">+{formatCurrency(day.kpi)}</span>
+                  </span>
+                )}
                 {KINDS.map(({ kind, sign, chip }) => day.totals[kind] !== undefined && (
                   <span key={kind} className={cn('block rounded-lg border px-1.5 py-1 text-[11px] leading-tight', chip, !day.inMonth && 'opacity-60')}>
                     <span className="block font-medium">{t(kind)}</span>
@@ -91,6 +97,9 @@ export function SalaryCalendar({ month, days, selectedDate, onMonthChange, onSel
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
         <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
           <CircleCheck size={12} aria-hidden="true" className="text-success-600" />{t('calendarEarned')}
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
+          <Percent size={12} aria-hidden="true" className="text-success-600" />{t('kpi')}
         </span>
         {KINDS.map(({ kind, dot }) => (
           <span key={kind} className="inline-flex items-center gap-1.5 text-xs text-gray-500">

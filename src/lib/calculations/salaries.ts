@@ -1,4 +1,4 @@
-import { differenceInCalendarDays, eachMonthOfInterval, format, parseISO } from 'date-fns';
+import { addDays, differenceInCalendarDays, eachMonthOfInterval, format, parseISO } from 'date-fns';
 import { monthRange } from '../utils';
 import type { OwnerProfitMonthlyBalanceRow } from '@/lib/calculations/ownerProfitSnapshot';
 
@@ -69,6 +69,7 @@ export interface SalaryMonth {
   balance: number;
   kpiProfit: number;
   effectiveKpiPercent: number;
+  kpiByDay: Record<string, number>;
 }
 
 const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
@@ -112,6 +113,7 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, th
       // carries bonuses and fines of a month the employee was never active in.
       let lastGroup = null as string | null;
       const configs = new Map<string, { basis: KpiBasis; gameClub: boolean; bar: boolean; share: number; days: number }>();
+      const spans: { key: string; start: string; days: number; percent: number }[] = [];
       const terms = employeeRates.get(employee.id) ?? [];
       terms.forEach((rate, index) => {
         if (!rate.active) return;
@@ -132,12 +134,13 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, th
         config.share += share;
         config.days += days;
         configs.set(key, config);
+        if (days > 0) spans.push({ key, start, days, percent: Number(rate.kpi_percent) });
       });
       const employeeEntries = monthEntries.filter((e) => e.employee_id === employee.id);
       const sum = (kind: SalaryEntry['kind']) => money(employeeEntries.filter((e) => e.kind === kind).reduce((s, e) => s + Number(e.amount), 0));
       const bonus = sum('bonus');
       const fine = sum('fine');
-      return { employee, base: money(base), bonus, fine, paid: sum('payment'), weightedPercent, activeDays, configs, lastGroup, fixed: money(base) + bonus - fine };
+      return { employee, base: money(base), bonus, fine, paid: sum('payment'), weightedPercent, activeDays, configs, spans, lastGroup, fixed: money(base) + bonus - fine };
     });
 
     const profitRow = profits.get(month);
@@ -173,9 +176,29 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, th
       }
       kpi = money(kpi);
       const earned = money(row.base + row.bonus - row.fine + kpi);
-      result[row.employee.id].push({ month, base: row.base, bonus: row.bonus, fine: row.fine, paid: row.paid, kpi, earned, balance: money(earned - row.paid), kpiProfit: money(primaryBase), effectiveKpiPercent: row.weightedPercent });
+      const kpiByDay = spreadKpiOverDays(kpi, row.spans.map((span) => ({ ...span, perDay: (groups.get(span.key)?.base ?? 0) * span.percent / elapsedDays / 100 })));
+      result[row.employee.id].push({ month, base: row.base, bonus: row.bonus, fine: row.fine, paid: row.paid, kpi, earned, balance: money(earned - row.paid), kpiProfit: money(primaryBase), effectiveKpiPercent: row.weightedPercent, kpiByDay });
     }
   }
+  return result;
+}
+
+function spreadKpiOverDays(kpi: number, spans: { start: string; days: number; perDay: number }[]): Record<string, number> {
+  const days = spans.flatMap(({ start, days: count, perDay }) => Array.from({ length: count }, (_, index) => ({
+    date: format(addDays(parseISO(start), index), 'yyyy-MM-dd'),
+    perDay,
+  })));
+  const result: Record<string, number> = {};
+  if (kpi <= 0) return result;
+  let running = 0;
+  let shown = 0;
+  days.forEach(({ date, perDay }, index) => {
+    running += perDay;
+    const upTo = index === days.length - 1 ? kpi : Math.min(kpi, Math.round(running));
+    const amount = money(upTo - shown);
+    shown = upTo;
+    if (amount > 0) result[date] = amount;
+  });
   return result;
 }
 
@@ -209,7 +232,7 @@ export function combineSalaryMonths(byEmployee: Record<string, SalaryMonth[]>): 
   const totals = new Map<string, SalaryMonth>();
   for (const months of Object.values(byEmployee)) {
     for (const row of months) {
-      const total = totals.get(row.month) ?? { month: row.month, base: 0, bonus: 0, fine: 0, kpi: 0, paid: 0, earned: 0, balance: 0, kpiProfit: 0, effectiveKpiPercent: 0 };
+      const total = totals.get(row.month) ?? { month: row.month, base: 0, bonus: 0, fine: 0, kpi: 0, paid: 0, earned: 0, balance: 0, kpiProfit: 0, effectiveKpiPercent: 0, kpiByDay: {} };
       total.base = money(total.base + row.base);
       total.bonus = money(total.bonus + row.bonus);
       total.fine = money(total.fine + row.fine);
@@ -217,6 +240,7 @@ export function combineSalaryMonths(byEmployee: Record<string, SalaryMonth[]>): 
       total.paid = money(total.paid + row.paid);
       total.earned = money(total.earned + row.earned);
       total.balance = money(total.balance + row.balance);
+      for (const [date, amount] of Object.entries(row.kpiByDay)) total.kpiByDay[date] = money((total.kpiByDay[date] ?? 0) + amount);
       totals.set(row.month, total);
     }
   }

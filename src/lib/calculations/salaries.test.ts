@@ -218,7 +218,7 @@ describe('rate in force and employee status', () => {
 
 describe('earnings split', () => {
   it('adds fixed pay and KPI across months, leaving out bonuses, fines and payments', () => {
-    const month = { month: '2026-09', base: 100.5, bonus: 40, fine: 10, kpi: 20.25, paid: 50, earned: 150.75, balance: 100.75, kpiProfit: 0, effectiveKpiPercent: 0 };
+    const month = { month: '2026-09', base: 100.5, bonus: 40, fine: 10, kpi: 20.25, paid: 50, earned: 150.75, balance: 100.75, kpiProfit: 0, effectiveKpiPercent: 0, kpiByDay: {} };
     expect(salaryEarnings([month, { ...month, month: '2026-10', base: 200 }])).toMatchObject({ base: 300.5, kpi: 40.5 });
     expect(salaryEarnings([])).toEqual({ base: 0, kpi: 0, bonus: 0, fine: 0, earned: 0, paid: 0 });
   });
@@ -277,5 +277,48 @@ describe('dailyBasePay', () => {
   it('pays nothing before joining or while inactive', () => {
     expect(dailyBasePay({ ...employee, joined_on: '2026-09-05' }, [rate], '2026-09-04')).toBeUndefined();
     expect(dailyBasePay(employee, [rate, { ...rate, id: 'off', effective_date: '2026-09-10', active: false }], '2026-09-12')).toBeUndefined();
+  });
+});
+
+describe('KPI by day', () => {
+  const total = (byDay: Record<string, number>) => Math.round(Object.values(byDay).reduce((sum, amount) => sum + amount, 0) * 100) / 100;
+
+  it('spreads the month KPI over the days worked so the days add up to it', () => {
+    const row = calculate().one[0];
+    expect(row.kpi).toBe(1000);
+    expect(Object.keys(row.kpiByDay)).toHaveLength(10);
+    expect(row.kpiByDay['2026-09-01']).toBe(100);
+    expect(row.kpiByDay['2026-09-10']).toBe(100);
+    expect(total(row.kpiByDay)).toBe(row.kpi);
+  });
+
+  it('weights each day by the KPI percent in force and skips inactive or zero-percent days', () => {
+    const row = calculate({ rates: [rate, { ...rate, id: '2', effective_date: '2026-09-05', amount: 200, kpi_percent: 20 }, { ...rate, id: '3', effective_date: '2026-09-08', active: false }, { ...rate, id: '4', effective_date: '2026-09-10', amount: 300, kpi_percent: 0 }] }).one[0];
+    expect(Math.abs(row.kpiByDay['2026-09-05'] - row.kpiByDay['2026-09-01'] * 2)).toBeLessThanOrEqual(1);
+    expect(row.kpiByDay).not.toHaveProperty('2026-09-08');
+    expect(row.kpiByDay).not.toHaveProperty('2026-09-10');
+    expect(total(row.kpiByDay)).toBe(row.kpi);
+  });
+
+  it('keeps whole sums per day and lets the last day carry the remainder', () => {
+    const row = calculate({ monthlyProfit: [profit(12345.67)], throughDate: '2026-09-07' }).one[0];
+    const amounts = Object.values(row.kpiByDay);
+    expect(amounts.slice(0, -1).every(Number.isInteger)).toBe(true);
+    expect(total(row.kpiByDay)).toBe(row.kpi);
+  });
+
+  it('starts on the joining day and stays empty on a loss', () => {
+    const joined = calculate({ employees: [{ ...employee, joined_on: '2026-09-06' }], rates: [{ ...rate, effective_date: '2026-09-06' }] }).one[0];
+    expect(Object.keys(joined.kpiByDay).sort()[0]).toBe('2026-09-06');
+    expect(total(joined.kpiByDay)).toBe(joined.kpi);
+    expect(calculate({ monthlyProfit: [profit(-2000)] }).one[0].kpiByDay).toEqual({});
+  });
+
+  it('adds every employee day together for the club-wide history', () => {
+    const second = { ...employee, id: 'two' };
+    const rows = calculate({ employees: [employee, second], rates: [rate, { ...rate, id: 'r2', employee_id: 'two', kpi_percent: 20 }], monthlyProfit: [profit(15000)] });
+    const [combined] = combineSalaryMonths(rows);
+    expect(combined.kpiByDay['2026-09-03']).toBe(rows.one[0].kpiByDay['2026-09-03'] + rows.two[0].kpiByDay['2026-09-03']);
+    expect(total(combined.kpiByDay)).toBe(combined.kpi);
   });
 });
