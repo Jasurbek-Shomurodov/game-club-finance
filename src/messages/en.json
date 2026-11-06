@@ -825,7 +825,8 @@
       "salaryPaymentImmutable": "Salary payments can only be removed from the Salaries page.",
       "serverError": "Something went wrong on the server. Try again in a moment.",
       "presetUnavailable": "This planned expense was archived or changed. Pick it again or choose another.",
-      "dayCollected": "The money for this day was collected, so the day is closed. Pick another date."
+      "dayCollected": "The money for this day was collected, so the day is closed. Pick another date.",
+      "insufficientBalance": "This payment method does not hold enough money for this expense."
     },
     "preset": "Planned expense",
     "presetHelp": "Pick one to count this payment against its monthly plan.",
@@ -836,7 +837,11 @@
     "usdRate": "Exchange rate",
     "usdRateHint": "UZS for 1 US dollar",
     "usdInSums": "Recorded as {amount} {currency} in expenses",
-    "usdRateRequired": "Enter the exchange rate."
+    "usdRateRequired": "Enter the exchange rate.",
+    "availableAmount": "Available: {amount}",
+    "overBalance": "Only {amount} is left in this payment method.",
+    "balancesHelp": "Each method shows the Game Club money it holds for the expense month; dollars show every dollar held.",
+    "balancesLoadError": "Could not load what each payment method holds."
   },
   "debts": {
     "title": "Debts",

@@ -18,6 +18,7 @@ export const EXPENSE_ERROR_CODES = [
   'SALARY_PAYMENT_IMMUTABLE',
   'PRESET_UNAVAILABLE',
   'DAY_COLLECTED',
+  'INSUFFICIENT_BALANCE',
   'SERVER_ERROR',
 ] as const;
 
@@ -36,6 +37,7 @@ const ERRORS: Record<ExpenseErrorCode, { status: number; text: string }> = {
   SALARY_PAYMENT_IMMUTABLE: { status: 409, text: 'Salary payments can only be removed from Salaries' },
   PRESET_UNAVAILABLE: { status: 409, text: 'The planned expense is archived or no longer matches this expense' },
   DAY_COLLECTED: { status: 409, text: 'The money for this day was collected; the day is closed' },
+  INSUFFICIENT_BALANCE: { status: 409, text: 'The payment method does not hold enough money for this expense' },
   SERVER_ERROR: { status: 500, text: 'Expense change failed' },
 };
 
@@ -53,6 +55,8 @@ export function expenseErrorCode(error: { code?: string | null; message?: string
   if (/salary payments cannot be (deleted|edited)/i.test(message)) return 'SALARY_PAYMENT_IMMUTABLE';
   // The 091 trigger: an archived, foreign or mismatched planned expense.
   if (/expense preset is not available|does not match its preset/i.test(message)) return 'PRESET_UNAVAILABLE';
+  // The 125 trigger: the payment method does not hold that much money.
+  if (error.hint === 'INSUFFICIENT_BALANCE' || /insufficient payment method balance/i.test(message)) return 'INSUFFICIENT_BALANCE';
   if (error.code === '42501') return 'FORBIDDEN';
   if (error.code === '23514') return 'CHECK_FAILED';
   if (error.code === '23505') return 'REQUEST_CONFLICT';

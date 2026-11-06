@@ -119,8 +119,8 @@ describe('money exchanges (092)', () => {
     const change = (method: string, userId = owner) => asUser(userId, () => db.query('select update_expense_payment_method($1,$2,$3)', [club, expense, method]));
     await expect(change('card', admin)).rejects.toMatchObject({ code: '42501' });
     await expect(change('usd')).rejects.toThrow('Invalid payment method');
-    await change('card');
-    expect((await db.query('select payment_method, amount from expenses where id = $1', [expense])).rows).toEqual([{ payment_method: 'card', amount: '5000' }]);
+    await change('terminal');
+    expect((await db.query('select payment_method, amount from expenses where id = $1', [expense])).rows).toEqual([{ payment_method: 'terminal', amount: '5000' }]);
     await expect(asUser(owner, () => db.query('select update_expense_payment_method($1,$2,$3)', [club, id(51), 'cash']))).rejects.toMatchObject({ code: 'P0002' });
   });
 });

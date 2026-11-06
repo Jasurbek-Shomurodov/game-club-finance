@@ -93,6 +93,12 @@ Accounting profit and available cash answer different questions:
   profit and expense totals count it in UZS. It lowers the dollars held
   (`heldDollars`, `dollarsForMonth`), never cash, terminal, card or PlayStation,
   and its method cannot be corrected afterwards.
+- A manual Game Club expense cannot spend more than its method holds
+  (migration 125, `expense_method_balance`). A UZS method holds its Reports
+  "left" for the expense's month: collections plus debt payments, minus Game
+  Club expenses paid that way, plus or minus exchanges. Dollars hold every
+  dollar still held. The database trigger enforces it for application users,
+  including method or date corrections; payroll and Bar expenses are not limited.
 
 ```text
 barCashLeft = barSales - qualifyingStockPurchaseCost - barExpenses

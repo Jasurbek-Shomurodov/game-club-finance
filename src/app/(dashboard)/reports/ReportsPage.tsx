@@ -256,6 +256,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   const t = useTranslations('reports');
   const tc = useTranslations('common');
   const te = useTranslations('expenses.categories');
+  const tex = useTranslations('expenses');
   const { locale } = useAppLocale();
   const { selectedClubId, businessDayStartHour, role, featureAccess, enabledPaymentMethods } = useClub();
   const hasReportsAccess = canAccessFeature(role, featureAccess, 'reports');
@@ -583,6 +584,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
           ? t('salaryPaymentMethodProtected')
           : result?.code === 'DAY_COLLECTED'
             ? tc('dayClosed')
+            : result?.code === 'INSUFFICIENT_BALANCE'
+            ? tex('errors.insufficientBalance')
             : response.status === 401 || response.status === 403
             ? tc('accessDeniedDescription')
             : errorText);

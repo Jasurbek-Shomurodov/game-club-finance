@@ -19,16 +19,18 @@ import {
   Select,
   useEntryNoteGuard,
 } from '@/components/PresentationFoundation';
-import { formatCurrency, formatCurrencyInput, parseDecimalInput } from '@/lib/formatters';
+import { formatCurrency, formatCurrencyInput, formatUnitCurrency, parseDecimalInput } from '@/lib/formatters';
 import { MANUAL_EXPENSE_CATEGORIES } from '@/lib/expenseCategories';
 import { createClient, mutateFinanceRequest } from '@/lib/supabase/client';
 import { fetchExpensePresets } from '@/lib/supabase/expensePresets';
+import { fetchExpenseMethodBalances, type ExpenseMethodBalances } from '@/lib/supabase/expenseBalances';
 import { expenseAmountFromInput, type ExpensePreset } from '@/lib/calculations/expensePlans';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { useCollectedDay } from '@/lib/useCollectedDay';
 import { defaultPaymentMethod, dollarExpenseAmount, expensePaymentMethods } from '@/lib/paymentMethods';
+import { cn } from '@/lib/utils';
 import type { ExpensePaymentMethod } from '@/types';
 
 const PAYMENT_SOURCES = ['game_club', 'bar'] as const;
@@ -49,6 +51,7 @@ const EXPENSE_ERROR_KEYS: Record<string, string> = {
   NOT_FOUND: 'notFound',
   PRESET_UNAVAILABLE: 'presetUnavailable',
   DAY_COLLECTED: 'dayCollected',
+  INSUFFICIENT_BALANCE: 'insufficientBalance',
   SERVER_ERROR: 'serverError',
 };
 
@@ -65,7 +68,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
   // One id per expense being entered: a retry after a lost response reuses it,
   // so the server stores the expense once. A fresh id after each success.
   const requestId = useRef<string | null>(null);
-  const [form, setForm] = useState({
+  const emptyForm = useCallback(() => ({
     date: businessToday,
     amount: '',
     category: '',
@@ -74,7 +77,8 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     comment: '',
     preset_id: '',
     usd_rate: '',
-  });
+  }), [businessToday, enabledPaymentMethods]);
+  const [form, setForm] = useState(emptyForm);
   // A date whose money was collected is closed (097); say so before saving.
   const dayClosed = useCollectedDay(selectedClubId, form.date);
 
@@ -88,6 +92,16 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
   const presetQuery = useClubQuery<ExpensePreset[]>(loadPresets, []);
   const presets = presetQuery.data;
   const selectedPreset = presets.find((preset) => preset.id === form.preset_id) ?? null;
+
+  // What each method still holds for the expense's month (125): the same
+  // "left" as the Reports cards; dollars are every dollar still held. Only
+  // Game Club money is limited, and before the migration (null) nothing is.
+  const loadBalances = useCallback(async (): Promise<ExpenseMethodBalances | null> => (
+    selectedClubId ? fetchExpenseMethodBalances(createClient(), selectedClubId, form.date) : null
+  ), [form.date, selectedClubId]);
+  const balanceQuery = useClubQuery<ExpenseMethodBalances | null>(loadBalances, null);
+  const balances = form.payment_source === 'game_club' ? balanceQuery.data?.balances ?? null : null;
+
   // Paid from the club's dollars: the amount is in dollars and a rate converts it to sums.
   const paysInDollars = form.payment_method === 'usd';
   // A chosen plan's monthly amount is the amount's placeholder and its value when left empty.
@@ -96,6 +110,15 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
   const usdAmount = paysInDollars ? parseDecimalInput(form.amount) : 0;
   const usdRate = paysInDollars ? parseDecimalInput(form.usd_rate) : 0;
   const dollarAmount = paysInDollars ? dollarExpenseAmount(usdAmount, usdRate) : null;
+  const available = balances ? balances[form.payment_method] : null;
+  const enteredAmount = paysInDollars ? usdAmount : expenseAmountFromInput(form.amount, plannedAmount) ?? 0;
+  const overBalance = available !== null && enteredAmount > 0 && enteredAmount > available;
+
+  function methodMoney(method: ExpensePaymentMethod, amount: number): string {
+    return method === 'usd'
+      ? `${amount < 0 ? '−' : ''}$${formatUnitCurrency(Math.abs(amount))}`
+      : `${formatCurrency(amount)} ${tc('currency')}`;
+  }
 
   // When the business day rolls over, a date still on the old day moves to the
   // new one; a date the user picked deliberately is kept.
@@ -105,7 +128,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     setForm((current) => (current.date === previousToday ? { ...current, date: nextToday } : current));
   });
 
-  // PlayStation money only pays Game Club expenses.
+  // PlayStation money and dollars only pay Game Club expenses.
   const paymentMethods = expensePaymentMethods(enabledPaymentMethods, form.payment_source);
 
   // A payment method no longer on offer falls back to the club's default.
@@ -122,17 +145,8 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     if (previousClubId.current === selectedClubId) return;
     previousClubId.current = selectedClubId;
     setError('');
-    setForm({
-      date: businessToday,
-      amount: '',
-      category: '',
-      payment_method: defaultPaymentMethod(enabledPaymentMethods),
-      payment_source: 'game_club',
-      comment: '',
-      preset_id: '',
-      usd_rate: '',
-    });
-  }, [businessToday, enabledPaymentMethods, selectedClubId]);
+    setForm(emptyForm());
+  }, [emptyForm, selectedClubId]);
 
   // Stable API error codes → translated text; anything unknown is a generic save error.
   function expenseErrorMessage(code: string | null): string {
@@ -143,10 +157,16 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
   function set<K extends keyof typeof form>(field: K, value: (typeof form)[K]) {
     // Edited values are a different expense, not a retry of the last attempt.
     requestId.current = null;
+    setError('');
+    const lastRate = balanceQuery.data?.usdRate ?? null;
     setForm((current) => {
       const next = { ...current, [field]: value };
       // Leaving dollars for sums: sum amounts are whole, so show what will be saved.
       if (current.payment_method === 'usd' && next.payment_method !== 'usd') next.amount = formatCurrencyInput(current.amount);
+      // Paying in dollars starts from the club's latest dollar rate.
+      if (next.payment_method === 'usd' && current.payment_method !== 'usd' && !current.usd_rate && lastRate) {
+        next.usd_rate = String(lastRate);
+      }
       return next;
     });
   }
@@ -188,6 +208,10 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     }
     if (!amount || amount <= 0) {
       setError(tc('invalidAmount'));
+      return;
+    }
+    if (overBalance) {
+      setError(t('errors.insufficientBalance'));
       return;
     }
     if (!category) {
@@ -242,6 +266,8 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
           return;
         }
         setError(expenseErrorMessage(code));
+        // Money was spent meanwhile: show what is left now.
+        if (code === 'INSUFFICIENT_BALANCE') void balanceQuery.reload({ silent: true });
         // The plan was archived or changed meanwhile: drop it and show the current list.
         if (code === 'PRESET_UNAVAILABLE') {
           requestId.current = null;
@@ -254,18 +280,10 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
       saved = true;
       requestId.current = null;
       note.reset();
-      // The inline form stays mounted between expenses; keep its plan list current.
+      // The inline form stays mounted between expenses; keep its plans and balances current.
       void presetQuery.reload({ silent: true });
-      setForm({
-        date: businessToday,
-        amount: '',
-        category: '',
-        payment_method: defaultPaymentMethod(enabledPaymentMethods),
-        payment_source: 'game_club',
-        comment: '',
-        preset_id: '',
-        usd_rate: '',
-      });
+      void balanceQuery.reload({ silent: true });
+      setForm(emptyForm());
     } catch {
       setError(t('saveError'));
     } finally {
@@ -279,6 +297,30 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     const Icon = PAYMENT_METHOD_ICONS[method];
     return <Icon size={16} aria-hidden="true" />;
   };
+
+  /** A method's name, with what it still holds underneath when Game Club money is limited. */
+  function methodLabel(method: ExpensePaymentMethod) {
+    const name = tc(`paymentMethods.${method}`);
+    if (!balances) return name;
+    const balance = balances[method];
+    return (
+      <span className="flex flex-col items-start leading-tight">
+        <span>{name}</span>
+        <span className={cn('text-xs font-normal tabular-nums', balance <= 0 ? 'text-danger-600' : 'opacity-80')}>
+          {methodMoney(method, balance)}
+        </span>
+      </span>
+    );
+  }
+
+  const availableAddon = available === null ? null : (
+    <span className={cn('ml-auto text-xs font-normal tabular-nums', overBalance || available <= 0 ? 'font-semibold text-danger-600' : 'text-gray-500')}>
+      {t('availableAmount', { amount: methodMoney(form.payment_method, available) })}
+    </span>
+  );
+  const overBalanceError = overBalance && available !== null
+    ? t('overBalance', { amount: methodMoney(form.payment_method, available) })
+    : undefined;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -322,9 +364,46 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
         </Field>
       )}
 
+      {/* Where the money comes from decides what can be spent, so it is chosen before the amount. */}
+      <Field label={t('paymentSource')}>
+        <SegmentedControl
+          variant="soft"
+          label={t('paymentSource')}
+          value={form.payment_source}
+          disabled={selectedPreset !== null}
+          onChange={(source) => set('payment_source', source)}
+          options={PAYMENT_SOURCES.map((source) => ({
+            value: source,
+            label: t(`paymentSources.${source}`),
+            icon: source === 'game_club' ? <Building2 size={16} aria-hidden="true" /> : <WalletCards size={16} aria-hidden="true" />,
+          }))}
+        />
+      </Field>
+
+      <Field label={t('paymentMethod')} hint={balances ? t('balancesHelp') : undefined}>
+        {balanceQuery.error && form.payment_source === 'game_club' && (
+          <LoadErrorAlert className="mb-2" retrying={balanceQuery.loading} onRetry={() => void balanceQuery.reload()}>
+            {t('balancesLoadError')}
+          </LoadErrorAlert>
+        )}
+        <SegmentedControl
+          label={t('paymentMethod')}
+          value={form.payment_method}
+          onChange={(method) => set('payment_method', method)}
+          // Three or more labels do not fit one row on a phone.
+          columns={paymentMethods.length > 2 ? 2 : undefined}
+          className={balances ? '[&>button]:min-h-14 [&>button]:justify-start [&>button]:px-3' : undefined}
+          options={paymentMethods.map((method) => ({
+            value: method,
+            label: methodLabel(method),
+            icon: methodIcon(method),
+          }))}
+        />
+      </Field>
+
       {paysInDollars ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label={t('usdAmount')} htmlFor="expense-amount" required>
+          <Field label={t('usdAmount')} htmlFor="expense-amount" required labelAddon={availableAddon} error={overBalanceError}>
             <DecimalInput
               id="expense-amount"
               controlSize="lg"
@@ -355,7 +434,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
           </Field>
         </div>
       ) : (
-        <Field label={t('amount')} htmlFor="expense-amount" required={plannedAmount === null}>
+        <Field label={t('amount')} htmlFor="expense-amount" required={plannedAmount === null} labelAddon={availableAddon} error={overBalanceError}>
           <CurrencyInput
             id="expense-amount"
             controlSize="lg"
@@ -384,36 +463,6 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
         </Field>
       </div>
 
-      <Field label={t('paymentSource')} hint={t('paymentSourceHelp')}>
-        <SegmentedControl
-          variant="soft"
-          label={t('paymentSource')}
-          value={form.payment_source}
-          disabled={selectedPreset !== null}
-          onChange={(source) => set('payment_source', source)}
-          options={PAYMENT_SOURCES.map((source) => ({
-            value: source,
-            label: t(`paymentSources.${source}`),
-            icon: source === 'game_club' ? <Building2 size={16} aria-hidden="true" /> : <WalletCards size={16} aria-hidden="true" />,
-          }))}
-        />
-      </Field>
-
-      <Field label={t('paymentMethod')}>
-        <SegmentedControl
-          label={t('paymentMethod')}
-          value={form.payment_method}
-          onChange={(method) => set('payment_method', method)}
-          // Three or more labels do not fit one row on a phone.
-          columns={paymentMethods.length > 2 ? 2 : undefined}
-          options={paymentMethods.map((method) => ({
-            value: method,
-            label: tc(`paymentMethods.${method}`),
-            icon: methodIcon(method),
-          }))}
-        />
-      </Field>
-
       <NoteField
         guard={note}
         id="expense-comment"
@@ -424,7 +473,15 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
         maxLength={300}
       />
 
-      <Button type="submit" size="lg" fullWidth disabled={enabledPaymentMethods.length === 0 || dayClosed} loading={saving} loadingLabel={tc('saving')} icon={<Save size={18} aria-hidden="true" />}>
+      <Button
+        type="submit"
+        size="lg"
+        fullWidth
+        disabled={enabledPaymentMethods.length === 0 || dayClosed || overBalance}
+        loading={saving}
+        loadingLabel={tc('saving')}
+        icon={<Save size={18} aria-hidden="true" />}
+      >
         {t('submit')}
       </Button>
       {note.dialog}

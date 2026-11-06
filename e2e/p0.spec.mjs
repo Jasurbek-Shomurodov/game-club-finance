@@ -121,11 +121,23 @@ test('EXP-010 a Game Club expense can be paid from PlayStation money, a Bar expe
   await expectGameClubExpenses(page, expected.gameClubExpenses + 25_000);
 });
 
-test('EXP-011 a Game Club expense can be paid from US dollars at an entered rate', async ({ page }) => {
+test('EXP-011 a Game Club expense can be paid from US dollars at an entered rate, up to the dollars held', async ({ page }) => {
+  const bought = await restAs(accounts.owner, 'POST', 'rpc/record_money_exchange', {
+    p_id: crypto.randomUUID(), p_club_id: clubs.arcade.id, p_date: today, p_from_method: 'cash', p_to_method: 'usd',
+    p_from_amount: 1_000_000, p_rate: 12_500, p_comment: 'Cash moved into dollars for parts',
+  });
+  expect(bought.ok).toBe(true);
   await page.goto('/reports');
   await page.getByRole('button', { name: 'Register Expense' }).click();
   const dialog = page.getByRole('dialog', { name: 'Register Expense' });
-  await dialog.getByRole('radio', { name: 'US dollars' }).click();
+  const dollars = dialog.getByRole('radio', { name: 'US dollars' });
+  await expect(dollars).toContainText('$80');
+  await dollars.click();
+  // The rate starts from the latest exchange.
+  await expect(dialog.locator('#expense-usd-rate')).toHaveValue(/12\s?500/);
+  await dialog.locator('#expense-amount').fill('100');
+  await expect(dialog.getByText('Only $80 is left in this payment method.')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Save Expense' })).toBeDisabled();
   await dialog.locator('#expense-amount').fill('20');
   await dialog.locator('#expense-usd-rate').fill('12600');
   await expect(dialog.getByText('Recorded as 252 000 UZS in expenses')).toBeVisible();

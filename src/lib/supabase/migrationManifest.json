@@ -4306,5 +4306,27 @@
         "md5": "a6076fe999be0ead7782040018254d58"
       }
     ]
+  },
+  {
+    "file": "125_expense_balance_limit.sql",
+    "probes": [
+      {
+        "kind": "trigger",
+        "table": "public.expenses",
+        "name": "expenses_method_balance"
+      },
+      {
+        "kind": "function",
+        "signature": "public.expense_method_balance(uuid,text,date,uuid)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.get_expense_method_balances(uuid,date)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.enforce_expense_method_balance()"
+      }
+    ]
   }
 ]

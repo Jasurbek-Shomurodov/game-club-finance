@@ -278,6 +278,14 @@ describe('expense creation route', () => {
     expect((await response.json()).code).toBe('INVALID_REQUEST');
   });
 
+  it('says when the payment method does not hold enough money (125)', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockCreate({ upserted: null, insertError: { message: 'Insufficient payment method balance: 400 available', code: 'P0001' } });
+    const response = await create(body);
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe('INSUFFICIENT_BALANCE');
+  });
+
   it('takes a Game Club expense from PlayStation money without it being an enabled method', async () => {
     const { writeQuery } = mockCreate({ methods: ['terminal'], upserted: { ...saved, payment_method: 'playstation' } });
     const response = await create({ ...body, id: EXPENSE_ID, paymentMethod: 'playstation' });

@@ -825,7 +825,8 @@
       "salaryPaymentImmutable": "Maosh to‘lovlarini faqat «Maoshlar» sahifasida o‘chirish mumkin.",
       "serverError": "Serverda xatolik yuz berdi. Birozdan so‘ng qayta urinib ko‘ring.",
       "presetUnavailable": "Bu rejalashtirilgan xarajat arxivlangan yoki o'zgargan. Uni qayta yoki boshqasini tanlang.",
-      "dayCollected": "Bu kunning puli olindi, kun yopilgan. Boshqa sanani tanlang."
+      "dayCollected": "Bu kunning puli olindi, kun yopilgan. Boshqa sanani tanlang.",
+      "insufficientBalance": "Bu to‘lov usulida xarajat uchun pul yetarli emas."
     },
     "preset": "Rejalashtirilgan xarajat",
     "presetHelp": "Bu to'lovni oylik rejaga hisoblash uchun tanlang.",
@@ -836,7 +837,11 @@
     "usdRate": "Dollar kursi",
     "usdRateHint": "1 AQSH dollari uchun so‘m",
     "usdInSums": "Xarajatga {amount} {currency} bo‘lib yoziladi",
-    "usdRateRequired": "Kursni kiriting."
+    "usdRateRequired": "Kursni kiriting.",
+    "availableAmount": "Mavjud: {amount}",
+    "overBalance": "Bu to‘lov usulida faqat {amount} qolgan.",
+    "balancesHelp": "Har bir usul ostida xarajat oyidagi klub puli qoldig‘i ko‘rsatilgan; dollarda esa qo‘ldagi barcha dollar.",
+    "balancesLoadError": "To‘lov usullaridagi qoldiqni yuklab bo‘lmadi."
   },
   "debts": {
     "title": "Qarzlar",
