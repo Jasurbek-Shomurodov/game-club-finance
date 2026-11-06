@@ -1473,6 +1473,7 @@
     "deleteEmployeeHelp": "Xodim ro‘yxatlar va maosh yakunlaridan yo‘qoladi. To‘langan maoshlar xarajatlarda qoladi, o‘tgan hisobotlar o‘zgarmaydi.",
     "deleteEmployeeDue": "Bu xodimga to‘lanmagan {amount} yakunlarda boshqa ko‘rinmaydi.",
     "deleteReason": "Oʻchirish sababi",
+    "deletedBy": "Oʻchirgan",
     "deleteReasonPlaceholder": "Bu yozuv nima uchun oʻchirilmoqda?",
     "recordOperations": "To‘lov / mukofot / jarima kiritish",
     "deactivate": "Faolsizlantirish",

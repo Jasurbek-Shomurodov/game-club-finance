@@ -1473,6 +1473,7 @@
     "deleteEmployeeHelp": "The employee disappears from the lists and pay totals. Paid salaries stay in expenses, and past reports do not change.",
     "deleteEmployeeDue": "{amount} unpaid to this employee will no longer appear in the totals.",
     "deleteReason": "Reason for deleting",
+    "deletedBy": "Deleted by",
     "deleteReasonPlaceholder": "Why is this record being deleted?",
     "recordOperations": "Record payment / bonus / fine",
     "deactivate": "Deactivate",

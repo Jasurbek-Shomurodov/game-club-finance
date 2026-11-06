@@ -31,6 +31,8 @@ export interface HistoryViewProps {
   employees: SalaryEmployee[];
   rates: SalaryRate[];
   entries: SalaryEntry[];
+  /** Who deleted each deleted rate or entry, by user id. */
+  deleterNames: Record<string, string>;
   months: SalaryMonth[];
   balances: Record<string, SalaryMonth[]>;
   loading: boolean;
@@ -45,7 +47,7 @@ export interface HistoryViewProps {
 
 /** Monthly breakdown, transactions and rate history for one employee or the whole club. */
 export function HistoryView({
-  employeeId, historyEmployee, employees, rates, entries, months, balances, loading, loadError, isOwner, saving, today, onDelete,
+  employeeId, historyEmployee, employees, rates, entries, deleterNames, months, balances, loading, loadError, isOwner, saving, today, onDelete,
 }: HistoryViewProps) {
   const t = useTranslations('salaries');
   const tc = useTranslations('common');
@@ -78,6 +80,7 @@ export function HistoryView({
     .sort((a, b) => b.effective_date.localeCompare(a.effective_date));
   // In the club-wide history each row names its employee.
   const employeePrefix = (id: string) => (historyEmployee ? '' : `${employees.find((e) => e.id === id)?.name ?? ''} · `);
+  const deleterName = (id?: string | null) => (id ? deleterNames[id] : undefined);
 
   return (
     <Card as="section" padding="lg">
@@ -111,6 +114,7 @@ export function HistoryView({
                       </p>
                       <p className="mt-0.5 text-xs text-gray-500">{t('kpi')}: {Number(rate.kpi_percent)}% ({kpiSummary(rate)})</p>
                       {rate.delete_reason && <p className="mt-1 break-words text-xs text-gray-500">{t('deleteReason')}: {rate.delete_reason}</p>}
+                      {deleterName(rate.deleted_by) && <p className="mt-0.5 break-words text-xs text-gray-500">{t('deletedBy')}: {deleterName(rate.deleted_by)}</p>}
                       {!rate.deleted_at && isOwner && !deletable && <p className="mt-1.5 text-xs text-gray-400">{t('lastRateHelp')}</p>}
                     </div>
                     {rate.deleted_at ? (
@@ -163,6 +167,7 @@ export function HistoryView({
                   {entry.payment_method && <p className="mt-1 text-xs text-gray-500">{tc(`paymentMethods.${entry.payment_method}`)} · {tp(`paymentSources.${entry.payment_source}`)}</p>}
                   {entry.comment && <p className="mt-1.5 whitespace-pre-line break-words text-gray-600">{entry.comment}</p>}
                   {entry.delete_reason && <p className="mt-1 break-words text-xs text-gray-500">{t('deleteReason')}: {entry.delete_reason}</p>}
+                  {deleterName(entry.deleted_by) && <p className="mt-0.5 break-words text-xs text-gray-500">{t('deletedBy')}: {deleterName(entry.deleted_by)}</p>}
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
                   <strong className={cn('whitespace-nowrap tabular-nums', entry.kind === 'bonus' ? 'text-primary-700' : entry.kind === 'fine' ? 'text-danger-600' : 'text-gray-900')}>{entry.kind === 'bonus' ? '+' : '−'}{currency(Number(entry.amount))}</strong>

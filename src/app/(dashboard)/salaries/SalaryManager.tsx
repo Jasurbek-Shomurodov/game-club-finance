@@ -66,7 +66,7 @@ import {
   type SetupMode,
 } from './shared';
 
-const emptyData: Awaited<ReturnType<typeof loadSalaries>> = { employees: [], rates: [], entries: [], monthlyProfit: [] };
+const emptyData: Awaited<ReturnType<typeof loadSalaries>> = { employees: [], rates: [], entries: [], deleterNames: {}, monthlyProfit: [] };
 
 const VIEW_PATHS: Record<SalaryView, string> = { employees: '/salaries/employees', operations: '/salaries/operations', history: '/salaries/history' };
 
@@ -174,9 +174,9 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   const reloadEntries = useCallback(async () => {
     const request = ++generation.current;
     try {
-      const entries = await loadSalaryEntries(clubId, today);
+      const { entries, deleterNames } = await loadSalaryEntries(clubId, today);
       if (request === generation.current) {
-        setData((previous) => ({ ...previous, entries, monthlyProfit: applySalaryPaymentChanges(previous.monthlyProfit, previous.entries, entries) }));
+        setData((previous) => ({ ...previous, entries, deleterNames: { ...previous.deleterNames, ...deleterNames }, monthlyProfit: applySalaryPaymentChanges(previous.monthlyProfit, previous.entries, entries) }));
       }
     } catch {
       if (request === generation.current) await reload({ silent: true });
@@ -592,6 +592,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
           employees={employees}
           rates={shownRates}
           entries={shownEntries}
+          deleterNames={data.deleterNames}
           months={historyMonths}
           balances={balances}
           loading={loading}
