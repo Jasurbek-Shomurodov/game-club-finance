@@ -4346,5 +4346,20 @@
         "signature": "public.update_salary_payment_method(uuid,uuid,text)"
       }
     ]
+  },
+  {
+    "file": "128_algoritm_showcase_offers.sql",
+    "probes": [
+      {
+        "kind": "constraint",
+        "table": "public.showcase_offers",
+        "name": "showcase_offers_badge_not_blank"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.showcase_offers",
+        "name": "showcase_offers_time_window_not_blank"
+      }
+    ]
   }
 ]
