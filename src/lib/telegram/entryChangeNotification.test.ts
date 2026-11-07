@@ -38,6 +38,9 @@ describe('entry change notices', () => {
     expect(dateOnly).toContain('Способ оплаты: Наличные\n');
     expect(dateOnly).toContain('Дата: 24 октября → 20 октября');
     expect(dateOnly).toContain('Изменил(а): Owner');
+    const categoryOnly = buildExpenseChangedNotice(expense, { ...expense, category: 'cleaning' }, 'Owner');
+    expect(categoryOnly).toContain('Категория: Электричество → Уборка');
+    expect(dateOnly).toContain('Категория: Электричество\n');
   });
 
   it('lists only the non-zero income methods with their total', () => {

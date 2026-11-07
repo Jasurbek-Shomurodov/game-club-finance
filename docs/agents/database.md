@@ -104,6 +104,7 @@ visible to every club owner until requests are targeted at a club.
 | `get_owner_profit_snapshot_with_methods` | 050 owner-profit payload plus each withdrawal's `payment_method` (076), with PlayStation expenses moved from the 050 card balances to PlayStation (114) and dollar expenses taken out of card (124). |
 | `record_salary_entry_with_status` | `record_salary_entry` that also reports whether it inserted (077). |
 | `update_expense_date` | Owner moves an ordinary expense to another date, never after the club business date (095); payroll-linked expenses refuse. |
+| `update_expense_category` | Owner moves an ordinary expense to another hand-chosen category, never `salary` (126); payroll-linked expenses refuse, and a preset-linked expense leaves its preset when its category changes. |
 | `get_expense_method_balances` | What each payment method can still pay for an expense on a date (125): the month's money left for UZS methods, all dollars held, and the latest dollar rate. |
 | `update_expense_payment_method` | Owner correction of an ordinary expense's payment method (090, PlayStation since 114); payroll expenses refuse, and nothing moves into or out of dollars (124). |
 | `set_salary_record_telegram_message` | Save the club-group message that announced a salary entry or rate (090), so deletion removes it. |

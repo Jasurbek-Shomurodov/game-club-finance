@@ -418,6 +418,8 @@
     "deleteEntryConfirmDetailed": "Delete “{category}” ({type}, {amount}) from {date}? This cannot be undone.",
     "gameClubExpenses": "Game club expenses",
     "gameClubLeft": "Game club left",
+    "categoryUpdated": "Category changed",
+    "categoryUpdateError": "Could not change the category. Try again.",
     "dateUpdated": "Date changed",
     "dateUpdateError": "Could not change the date. Try again.",
     "addedAt": "Added at {time}",

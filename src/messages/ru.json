@@ -418,6 +418,8 @@
     "deleteEntryConfirmDetailed": "Удалить «{category}» ({type}, {amount}) за {date}? Это действие нельзя отменить.",
     "gameClubExpenses": "Расходы клуба",
     "gameClubLeft": "Остаток клуба",
+    "categoryUpdated": "Категория изменена",
+    "categoryUpdateError": "Не удалось изменить категорию. Попробуйте ещё раз.",
     "dateUpdated": "Дата изменена",
     "dateUpdateError": "Не удалось изменить дату. Попробуйте ещё раз.",
     "addedAt": "Добавлено в {time}",

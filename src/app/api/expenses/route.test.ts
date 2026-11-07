@@ -564,4 +564,37 @@ describe('expense payment method route', () => {
       expect(rpc).not.toHaveBeenCalled();
     });
   });
+
+  describe('category', () => {
+    async function patchBody(body: Record<string, unknown>) {
+      const response = await PATCH(new Request('https://example.test/api/expenses', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ clubId: CLUB_ID, expenseId: EXPENSE_ID, ...body }),
+      }));
+      await Promise.all(mocks.afterTasks.splice(0));
+      return response;
+    }
+
+    it('moves the expense through the category RPC and announces the change', async () => {
+      const { rpc } = mockPatchSupabase(baseExpense);
+      const response = await patchBody({ category: 'cleaning' });
+      expect(response.status).toBe(200);
+      expect((await response.json()).expense).toMatchObject({ category: 'cleaning', preset_id: null });
+      expect(rpc).toHaveBeenCalledOnce();
+      expect(rpc).toHaveBeenCalledWith('update_expense_category', { p_club_id: CLUB_ID, p_expense_id: EXPENSE_ID, p_category: 'cleaning' });
+      expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({
+        text: expect.stringMatching(/✏️ Изменён расход[\s\S]*Категория: Еда \/ Напитки → Уборка/),
+      }));
+    });
+
+    it('refuses salary and unknown categories, and skips an unchanged one', async () => {
+      const { rpc } = mockPatchSupabase(baseExpense);
+      for (const category of ['salary', 'bitcoin', 7]) {
+        expect((await patchBody({ category })).status).toBe(400);
+      }
+      expect((await patchBody({ category: baseExpense.category })).status).toBe(200);
+      expect(rpc).not.toHaveBeenCalled();
+    });
+  });
 });

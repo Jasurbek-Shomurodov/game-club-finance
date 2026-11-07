@@ -82,7 +82,7 @@ import { fetchDollarExpenses, fetchMoneyExchanges, withDollarAmounts } from '@/l
 import { requestCollectionChange } from '@/lib/collectionsApi';
 import { fetchDailyCashCollections, type DailyCashCollection } from '@/lib/supabase/dailyCashCollections';
 import type { ExchangeMethod, MoneyExchangeRow } from '@/lib/calculations/moneyExchanges';
-import { EXPENSE_CATEGORIES, isKnownExpenseCategory } from '@/lib/expenseCategories';
+import { EXPENSE_CATEGORIES, MANUAL_EXPENSE_CATEGORIES, isKnownExpenseCategory } from '@/lib/expenseCategories';
 
 const emptyReportRows = {
   cash: [] as MoneyReportCashRow[],
@@ -562,12 +562,16 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     }
   }
 
-  /** Owners correct an ordinary expense's payment method or date; the club group message is edited server-side. */
-  async function handleUpdateExpense(activity: MoneyReportActivity, change: { paymentMethod: string } | { date: string }) {
+  /** Owners correct an ordinary expense's payment method, date or category; the club group message is edited server-side. */
+  async function handleUpdateExpense(
+    activity: MoneyReportActivity,
+    change: { paymentMethod: string } | { date: string } | { category: string },
+  ) {
     if (!isOwner || !selectedClubId || !activity.id || activity.source !== 'expense' || methodSaving) return;
     if ('paymentMethod' in change && change.paymentMethod === activity.paymentMethod) return;
     if ('date' in change && change.date === selectedEntry?.date) return;
-    const errorText = 'date' in change ? t('dateUpdateError') : t('paymentMethodUpdateError');
+    if ('category' in change && change.category === activity.category) return;
+    const errorText = 'date' in change ? t('dateUpdateError') : 'category' in change ? t('categoryUpdateError') : t('paymentMethodUpdateError');
     const clubId = selectedClubId;
     setMethodSaving(true);
     setActionError('');
@@ -594,9 +598,11 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       setSelectedEntry((current) => (current?.activity.id === activity.id
         ? 'date' in change
           ? { ...current, date: change.date }
-          : { ...current, activity: { ...current.activity, paymentMethod: change.paymentMethod } }
+          : 'category' in change
+            ? { ...current, activity: { ...current.activity, category: change.category } }
+            : { ...current, activity: { ...current.activity, paymentMethod: change.paymentMethod } }
         : current));
-      showToast('date' in change ? t('dateUpdated') : t('paymentMethodUpdated'));
+      showToast('date' in change ? t('dateUpdated') : 'category' in change ? t('categoryUpdated') : t('paymentMethodUpdated'));
       await reloadReport({ silent: true });
     } catch {
       if (currentClubId.current === clubId) setActionError(errorText);
@@ -697,6 +703,17 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     const category = activity.category ?? 'other';
     const label = isKnownExpenseCategory(category) || category === 'other' ? te(category) : category;
     return activity.paymentSource === 'bar' ? `${t('bar')} · ${label}` : label;
+  }
+
+  function expenseCategoryLabel(category: string): string {
+    return isKnownExpenseCategory(category) || category === 'other' ? te(category) : category;
+  }
+
+  /** Hand-chosen categories, plus the current one so an old category still displays. */
+  function categoryOptions(activity: MoneyReportActivity): string[] {
+    const current = activity.category;
+    const categories: string[] = [...MANUAL_EXPENSE_CATEGORIES];
+    return current && !categories.includes(current) ? [current, ...categories] : categories;
   }
 
   function canCorrectExpense(activity: MoneyReportActivity, date: string): boolean {
@@ -1224,7 +1241,23 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
               </div>
               <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 py-3 text-sm">
                 <dt className="text-gray-500">{t('category')}</dt>
-                <dd className="break-words text-right font-semibold text-gray-900">{categoryLabel(selectedEntry.activity)}</dd>
+                <dd className="break-words text-right font-semibold text-gray-900">
+                  {canCorrectExpense(selectedEntry.activity, selectedEntry.date) && !selectedEntry.activity.exchange ? (
+                    <Select
+                      value={selectedEntry.activity.category ?? ''}
+                      onChange={(event) => void handleUpdateExpense(selectedEntry.activity, { category: event.target.value })}
+                      disabled={methodSaving}
+                      aria-label={t('category')}
+                      className="ml-auto w-48"
+                    >
+                      {categoryOptions(selectedEntry.activity).map((category) => (
+                        <option key={category} value={category}>{expenseCategoryLabel(category)}</option>
+                      ))}
+                    </Select>
+                  ) : (
+                    categoryLabel(selectedEntry.activity)
+                  )}
+                </dd>
               </div>
               <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 py-3 text-sm">
                 <dt className="text-gray-500">{t('addedBy')}</dt>

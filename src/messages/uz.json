@@ -418,6 +418,8 @@
     "deleteEntryConfirmDetailed": "{date} sanasidagi «{category}» ({type}, {amount}) o'chirilsinmi? Bu amalni qaytarib bo'lmaydi.",
     "gameClubExpenses": "Klub xarajatlari",
     "gameClubLeft": "Klub qoldig‘i",
+    "categoryUpdated": "Toifa o'zgartirildi",
+    "categoryUpdateError": "Toifani o'zgartirib bo'lmadi. Qayta urinib ko'ring.",
     "dateUpdated": "Sana o'zgartirildi",
     "dateUpdateError": "Sanani o'zgartirib bo'lmadi. Qayta urinib ko'ring.",
     "addedAt": "{time} da qo'shilgan",

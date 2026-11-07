@@ -212,6 +212,28 @@ test('EXP-009 an owner moves an expense to another date from Entry details', asy
   expect(row.date).toBe(target);
 });
 
+test('EXP-012 an owner moves an expense to another category from Entry details', async ({ page }) => {
+  const [cleaning] = expenses;
+  await page.goto('/reports');
+  await page.getByText(cleaning.comment).click();
+  const details = page.getByRole('dialog', { name: 'Entry details' });
+  await details.getByRole('combobox', { name: 'Category' }).selectOption('marketing');
+  await expect(page.getByText('Category changed')).toBeVisible();
+  const [row] = await (await restAs(accounts.owner, 'GET', `expenses?select=category&id=eq.${cleaning.id}`)).json();
+  expect(row.category).toBe('marketing');
+});
+
+test('EXP-013 an owner deletes an expense from the Reports list', async ({ page }) => {
+  const [cleaning] = expenses;
+  await page.goto('/reports');
+  await page.getByRole('button', { name: /^Delete: Cleaning · / }).click();
+  const confirm = page.getByRole('dialog', { name: 'Delete' });
+  await confirm.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.getByText(/entry deleted/i)).toBeVisible();
+  await expect(page.getByText(cleaning.comment)).toHaveCount(0);
+  expect(await (await restAs(accounts.owner, 'GET', `expenses?select=id&id=eq.${cleaning.id}`)).json()).toEqual([]);
+});
+
 test('HIST-001 a deleted expense stays readable in the owner\'s edit history', async ({ page }) => {
   const [cleaning] = expenses;
   const deleted = await restAs(accounts.owner, 'DELETE', `expenses?id=eq.${cleaning.id}&club_id=eq.${clubs.arcade.id}`);

@@ -27,10 +27,10 @@ export interface ExpenseNoticeRow {
   payment_source: string | null;
 }
 
-function expenseLines(expense: ExpenseNoticeRow): string[] {
+function expenseLines(expense: ExpenseNoticeRow, before: ExpenseNoticeRow = expense): string[] {
   return [
     `Сумма: ${formatCurrency(Number(expense.amount))} сум`,
-    `Категория: ${category(expense.category)}`,
+    `Категория: ${change(category(before.category), category(expense.category))}`,
     `Источник: ${expense.payment_source === 'bar' ? 'Бар' : 'Игровой клуб'}`,
   ];
 }
@@ -52,7 +52,7 @@ export function buildExpenseChangedNotice(before: ExpenseNoticeRow, after: Expen
   const lines = [
     '✏️ Изменён расход',
     '',
-    ...expenseLines(after),
+    ...expenseLines(after, before),
     `Способ оплаты: ${change(method(before.payment_method), method(after.payment_method))}`,
     `Дата: ${change(date(before.date), date(after.date))}`,
     `Изменил(а): ${changedBy}`,

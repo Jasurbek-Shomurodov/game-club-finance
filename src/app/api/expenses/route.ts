@@ -311,6 +311,7 @@ interface UpdateExpenseRequestBody {
   expenseId?: unknown;
   paymentMethod?: unknown;
   date?: unknown;
+  category?: unknown;
 }
 
 /** Owner correction of an expense's payment method and/or date; the group message is edited to match. */
@@ -322,7 +323,9 @@ export async function PATCH(request: Request) {
   const body = await request.json().catch(() => null) as UpdateExpenseRequestBody | null;
   const hasMethod = body?.paymentMethod !== undefined;
   const hasDate = body?.date !== undefined;
-  if (!body || !isId(body.clubId) || !isId(body.expenseId) || (!hasMethod && !hasDate)
+  const hasCategory = body?.category !== undefined;
+  if (!body || !isId(body.clubId) || !isId(body.expenseId) || (!hasMethod && !hasDate && !hasCategory)
+    || (hasCategory && (typeof body.category !== 'string' || !isManualExpenseCategory(body.category)))
     || (hasMethod && !EXPENSE_PAYMENT_METHODS.includes(body.paymentMethod as ExpensePaymentMethod))
     || (hasDate && (typeof body.date !== 'string' || !isIsoDate(body.date)))) {
     return expenseErrorResponse('INVALID_REQUEST');
@@ -331,6 +334,7 @@ export async function PATCH(request: Request) {
   const expenseId = body.expenseId;
   const paymentMethod = hasMethod ? body.paymentMethod as ExpensePaymentMethod : null;
   const date = hasDate ? body.date as string : null;
+  const category = hasCategory ? body.category as string : null;
   const context = { clubId, expenseId };
 
   const { data: club, error: clubError } = await supabase
@@ -364,9 +368,10 @@ export async function PATCH(request: Request) {
     return expenseErrorResponse('INVALID_REQUEST');
   }
   const changeDate = date !== null && expense.date !== date;
-  if (!changeMethod && !changeDate) return Response.json({ expense });
+  const changeCategory = category !== null && expense.category !== category;
+  if (!changeMethod && !changeDate && !changeCategory) return Response.json({ expense });
 
-  // Owner check, the method/date rules and each write happen atomically in their RPC.
+  // Owner check, the method/date/category rules and each write happen atomically in their RPC.
   if (changeMethod) {
     const { error } = await supabase.rpc('update_expense_payment_method', {
       p_club_id: clubId,
@@ -383,10 +388,20 @@ export async function PATCH(request: Request) {
     });
     if (error) return failure('date change', context, error);
   }
+  if (changeCategory) {
+    // The RPC also takes the expense out of a preset of another category.
+    const { error } = await supabase.rpc('update_expense_category', {
+      p_club_id: clubId,
+      p_expense_id: expenseId,
+      p_category: category,
+    });
+    if (error) return failure('category change', context, error);
+  }
   const updated = {
     ...expense,
     ...(changeMethod ? { payment_method: paymentMethod } : {}),
     ...(changeDate ? { date } : {}),
+    ...(changeCategory ? { category, preset_id: null } : {}),
   } as Expense;
 
   // Editing the original message is silent in Telegram, so the change is also announced.

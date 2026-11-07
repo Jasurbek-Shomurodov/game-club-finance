@@ -4328,5 +4328,14 @@
         "signature": "public.enforce_expense_method_balance()"
       }
     ]
+  },
+  {
+    "file": "126_expense_category_correction.sql",
+    "probes": [
+      {
+        "kind": "function",
+        "signature": "public.update_expense_category(uuid,uuid,text)"
+      }
+    ]
   }
 ]
