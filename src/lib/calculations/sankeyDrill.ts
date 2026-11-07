@@ -144,17 +144,43 @@ function categoryDrill(target: Extract<DrillTarget, { kind: 'category' }>, expen
   }
   // Anything else splits by what its payments were for. A comment on one payment opens that payment; one shared by
   // several, and the folded rest, open their payments.
+  const notes = noteGroups(target, rows);
+  const top: DrillNode[] = notes.slice(0, TOP_NOTE_COUNT).map(({ key, amount, open }) => ({ key, amount, open }));
+  const rest = notes.slice(TOP_NOTE_COUNT);
+  const more = { key: MORE_PAYMENTS, amount: sum(rest, (node) => node.amount), open: group(target, rest.map((node) => node.key), rest.flatMap((node) => node.payments)) };
+  return drill(sources, more.amount > 0 ? [...top, more] : top);
+}
+
+/** A group of a category's payments sharing a comment: what a tap on it opens and the payments in it. */
+export interface PaymentGroup {
+  /** The comment key (`NOTE_PREFIX…` or `NO_COMMENT`). */
+  key: string;
+  amount: number;
+  payments: ExpenseRow[];
+  /** One payment opens its details; several open their history. */
+  open: DrillTarget;
+}
+
+function group(target: Extract<DrillTarget, { kind: 'category' }>, keys: string[], payments: ExpenseRow[]): DrillTarget | undefined {
+  return payments.length === 1 ? paymentTarget(payments[0]) : payments.length > 1 ? { ...target, notes: keys } : undefined;
+}
+
+function noteGroups(target: Extract<DrillTarget, { kind: 'category' }>, rows: ExpenseRow[]): PaymentGroup[] {
   const byNote = new Map<string, ExpenseRow[]>();
   for (const row of rows) byNote.set(noteKey(row), [...byNote.get(noteKey(row)) ?? [], row]);
-  const group = (keys: string[], payments: ExpenseRow[]): DrillTarget | undefined => (
-    payments.length === 1 ? paymentTarget(payments[0]) : payments.length > 1 ? { ...target, notes: keys } : undefined
-  );
-  const notes = Array.from(byNote, ([key, payments]) => ({ key, amount: sum(payments, amountOf), payments }))
+  return Array.from(byNote, ([key, payments]) => ({ key, amount: sum(payments, amountOf), payments, open: group(target, [key], payments) as DrillTarget }))
     .sort((a, b) => b.amount - a.amount || a.key.localeCompare(b.key));
-  const top: DrillNode[] = notes.slice(0, TOP_NOTE_COUNT).map(({ key, amount, payments }) => ({ key, amount, open: group([key], payments) }));
-  const rest = notes.slice(TOP_NOTE_COUNT);
-  const more = { key: MORE_PAYMENTS, amount: sum(rest, (node) => node.amount), open: group(rest.map((node) => node.key), rest.flatMap((node) => node.payments)) };
-  return drill(sources, more.amount > 0 ? [...top, more] : top);
+}
+
+/**
+ * The payments behind a category drill-down grouped by what they were for, the
+ * largest group first, so the list below the Sankey reads like its right side.
+ * A group of payments already opened, and the folded "other" category, list
+ * their payments one by one instead (null).
+ */
+export function drillPaymentGroups(target: Extract<DrillTarget, { kind: 'category' }>, expenseRows: ExpenseRow[]): PaymentGroup[] | null {
+  if (target.notes || target.category === OTHER_CATEGORY) return null;
+  return noteGroups(target, drillExpenseRows(target, expenseRows));
 }
 
 /** The Sankey a drill-down draws for the period's ledgers. */

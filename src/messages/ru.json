@@ -199,6 +199,7 @@
     "drawerCount": "Платежей",
     "drawerAverage": "Средний платёж",
     "drawerPaidFrom": "Оплачено из",
+    "paymentCount": "{count, plural, one {# платёж} few {# платежа} many {# платежей} other {# платежа}}",
     "drawerPayments": "Платежи",
     "drawerNoComment": "Без комментария",
     "drawerOtherHint": "Все небольшие категории вместе.",

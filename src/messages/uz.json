@@ -199,6 +199,7 @@
     "drawerCount": "To‘lovlar soni",
     "drawerAverage": "O‘rtacha to‘lov",
     "drawerPaidFrom": "Qayerdan to‘langan",
+    "paymentCount": "{count, plural, other {# ta to‘lov}}",
     "drawerPayments": "To‘lovlar",
     "drawerNoComment": "Izohsiz",
     "drawerOtherHint": "Barcha kichik toifalar birgalikda.",

@@ -199,6 +199,7 @@
     "drawerCount": "Payments",
     "drawerAverage": "Average payment",
     "drawerPaidFrom": "Paid from",
+    "paymentCount": "{count, plural, one {# payment} other {# payments}}",
     "drawerPayments": "Payments",
     "drawerNoComment": "No comment",
     "drawerOtherHint": "All smaller categories together.",

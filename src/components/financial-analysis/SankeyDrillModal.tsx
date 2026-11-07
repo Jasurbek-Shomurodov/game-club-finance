@@ -10,12 +10,14 @@ import {
   buildDrillSankey,
   drillDetailsHref,
   drillExpenseRows,
+  drillPaymentGroups,
   paymentTarget,
   type DrillNode,
   type DrillTarget,
 } from '@/lib/calculations/sankeyDrill';
 import { SankeyFlowChart } from './SankeyFlowChart';
 import { PaymentDetails } from './PaymentDetails';
+import { PaymentGroupList } from './PaymentGroupList';
 import { PaymentList } from './PaymentList';
 
 export interface SankeyDrillModalProps {
@@ -38,8 +40,9 @@ export interface SankeyDrillModalProps {
 /**
  * The Sankey behind a tapped node of the money flow, in a dialog over the page.
  * A node or flow in it that leads further opens its own Sankey in the same
- * dialog; Back returns to the one before. A category lists its payments below,
- * and a payment, in the list or the chart, opens its details in the same way.
+ * dialog; Back returns to the one before. A category lists its payments below
+ * grouped by what they were for; a group opens its payments day by day, and a
+ * payment, in the list or the chart, opens its details in the same way.
  */
 export function SankeyDrillModal({
   open,
@@ -60,9 +63,13 @@ export function SankeyDrillModal({
   const td = useTranslations('dashboard');
   const current = trail.at(-1);
   const sankey = useMemo(() => (current ? buildDrillSankey(current, ledgers) : null), [current, ledgers]);
-  const payments = useMemo(
-    () => (current?.kind === 'category' ? drillExpenseRows(current, ledgers.expenseRows) : null),
+  const groups = useMemo(
+    () => (current?.kind === 'category' ? drillPaymentGroups(current, ledgers.expenseRows) : null),
     [current, ledgers.expenseRows],
+  );
+  const payments = useMemo(
+    () => (current?.kind === 'category' && !groups ? drillExpenseRows(current, ledgers.expenseRows) : null),
+    [current, groups, ledgers.expenseRows],
   );
 
   const nodes = (list: DrillNode[] | undefined) => new Map((list ?? []).map((node, index) => [node.key, { node, index }]));
@@ -132,6 +139,12 @@ export function SankeyDrillModal({
             />
           ) : (
             <ChartEmpty title={t('empty')} />
+          )}
+          {groups && (
+            <section>
+              <h3 className="mb-1 text-sm font-semibold text-gray-950">{t('drawerPayments')}</h3>
+              <PaymentGroupList groups={groups} locale={locale} currency={currency} onOpen={(group) => onTrailChange([...trail, group.open])} />
+            </section>
           )}
           {payments && (
             <section>

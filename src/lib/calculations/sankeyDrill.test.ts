@@ -13,6 +13,7 @@ import {
   buildDrillSankey,
   drillDetailsHref,
   drillExpenseRows,
+  drillPaymentGroups,
   type DrillTarget,
 } from './sankeyDrill';
 
@@ -162,5 +163,31 @@ describe('drillDetailsHref', () => {
   it('opens every expense for the folded other category', () => {
     expect(drillDetailsHref({ kind: 'category', category: OTHER_CATEGORY, named: ['rent'] }, range))
       .toBe('/reports?from=2026-10-01&to=2026-10-31&category=expense');
+  });
+});
+
+describe('drillPaymentGroups', () => {
+  const rows = [
+    expense('a', '2026-09-01', 5_000, 'salary', { comment: 'Izzat' }),
+    expense('b', '2026-09-03', 3_000, 'salary', { comment: 'Izzat' }),
+    expense('c', '2026-09-02', 2_000, 'salary', { comment: 'Uborka' }),
+    expense('d', '2026-09-02', 9_000, 'rent'),
+  ];
+
+  it('groups a category by what its payments were for, largest first, newest payment first in each', () => {
+    const target = { kind: 'category' as const, category: 'salary' };
+    const groups = drillPaymentGroups(target, rows) ?? [];
+    expect(groups.map((group) => [group.key, group.amount, group.payments.map((row) => row.id)])).toEqual([
+      [`${NOTE_PREFIX}Izzat`, 8_000, ['b', 'a']],
+      [`${NOTE_PREFIX}Uborka`, 2_000, ['c']],
+    ]);
+    // Several payments open their history; one opens its details.
+    expect(groups[0].open).toEqual({ ...target, notes: [`${NOTE_PREFIX}Izzat`] });
+    expect(groups[1].open).toEqual({ kind: 'payment', id: 'c', date: '2026-09-02', category: 'salary', source: 'game_club' });
+  });
+
+  it('lists an opened group and the folded other category payment by payment', () => {
+    expect(drillPaymentGroups({ kind: 'category', category: 'salary', notes: [`${NOTE_PREFIX}Izzat`] }, rows)).toBeNull();
+    expect(drillPaymentGroups({ kind: 'category', category: OTHER_CATEGORY, named: ['salary'] }, rows)).toBeNull();
   });
 });
