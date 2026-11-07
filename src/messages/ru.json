@@ -398,7 +398,7 @@
     "exchangeRate": "Курс",
     "paymentMethodUpdated": "Способ оплаты изменён.",
     "paymentMethodUpdateError": "Не удалось изменить способ оплаты. Повторите попытку.",
-    "salaryPaymentMethodProtected": "Способ оплаты выплат зарплаты задаётся в разделе «Зарплаты».",
+    "salaryPaymentMethodProtected": "Дата и категория выплаты зарплаты задаются в разделе «Зарплаты».",
     "entryDetails": "Детали записи",
     "addedBy": "Добавил",
     "unknownCreator": "Неизвестный пользователь",

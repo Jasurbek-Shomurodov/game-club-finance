@@ -105,6 +105,7 @@ visible to every club owner until requests are targeted at a club.
 | `record_salary_entry_with_status` | `record_salary_entry` that also reports whether it inserted (077). |
 | `update_expense_date` | Owner moves an ordinary expense to another date, never after the club business date (095); payroll-linked expenses refuse. |
 | `update_expense_category` | Owner moves an ordinary expense to another hand-chosen category, never `salary` (126); payroll-linked expenses refuse, and a preset-linked expense leaves its preset when its category changes. |
+| `update_salary_payment_method` | Owner moves a salary payment to another enabled cash, terminal or card method (127); the salary entry and its payroll expense change together, and `protect_salary_expense` still refuses every other edit of a payroll expense. |
 | `get_expense_method_balances` | What each payment method can still pay for an expense on a date (125): the month's money left for UZS methods, all dollars held, and the latest dollar rate. |
 | `update_expense_payment_method` | Owner correction of an ordinary expense's payment method (090, PlayStation since 114); payroll expenses refuse, and nothing moves into or out of dollars (124). |
 | `set_salary_record_telegram_message` | Save the club-group message that announced a salary entry or rate (090), so deletion removes it. |

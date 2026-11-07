@@ -494,10 +494,18 @@ describe('expense payment method route', () => {
     expect(fromDollars.rpc).not.toHaveBeenCalled();
   });
 
-  it('leaves payroll payments to Salaries', async () => {
-    const { rpc } = mockPatchSupabase({ ...baseExpense, salary_entry_id: 'salary-entry' });
-    expect((await (await patch('terminal')).json()).code).toBe('SALARY_PAYMENT_IMMUTABLE');
-    expect(rpc).not.toHaveBeenCalled();
+  it('moves a payroll payment through the salary method RPC', async () => {
+    const salary = { ...baseExpense, category: 'salary', payment_source: 'game_club', salary_entry_id: 'salary-entry' };
+    const { rpc } = mockPatchSupabase(salary);
+    const response = await patch('terminal');
+    expect(response.status).toBe(200);
+    expect((await response.json()).expense).toMatchObject({ payment_method: 'terminal', salary_entry_id: 'salary-entry' });
+    expect(rpc).toHaveBeenCalledWith('update_salary_payment_method', {
+      p_club_id: CLUB_ID, p_expense_id: EXPENSE_ID, p_payment_method: 'terminal',
+    });
+    const playstation = mockPatchSupabase(salary);
+    expect((await (await patch('playstation')).json()).code).toBe('INVALID_REQUEST');
+    expect(playstation.rpc).not.toHaveBeenCalled();
   });
 
   it('never edits a message outside the club group, nor after a refused write', async () => {

@@ -306,6 +306,9 @@ export async function DELETE(request: Request) {
   return Response.json({ deleted: true });
 }
 
+/** Methods a salary entry can record (the salary_entries check constraint). */
+const SALARY_PAYMENT_METHODS: readonly string[] = ['cash', 'terminal', 'card'];
+
 interface UpdateExpenseRequestBody {
   clubId?: unknown;
   expenseId?: unknown;
@@ -314,7 +317,7 @@ interface UpdateExpenseRequestBody {
   category?: unknown;
 }
 
-/** Owner correction of an expense's payment method and/or date; the group message is edited to match. */
+/** Owner correction of an expense's payment method, date and/or category; the group message is edited to match. */
 export async function PATCH(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -357,8 +360,14 @@ export async function PATCH(request: Request) {
     .maybeSingle();
   if (expenseError) return failure('lookup', context, expenseError);
   if (!expense) return expenseErrorResponse('NOT_FOUND');
-  // Payroll payments keep the method and date recorded on their salary entry.
-  if (expense.salary_entry_id) return expenseErrorResponse('SALARY_PAYMENT_IMMUTABLE');
+  const salaryPayment = Boolean(expense.salary_entry_id);
+  // A payroll payment keeps its salary entry's date and category; only its method can be corrected.
+  if (salaryPayment && ((date !== null && expense.date !== date) || (category !== null && expense.category !== category))) {
+    return expenseErrorResponse('SALARY_PAYMENT_IMMUTABLE');
+  }
+  if (salaryPayment && paymentMethod && !SALARY_PAYMENT_METHODS.includes(paymentMethod)) {
+    return expenseErrorResponse('INVALID_REQUEST');
+  }
   if (paymentMethod && !expensePaymentMethods(normalizePaymentMethods(club.enabled_payment_methods), expense.payment_source).includes(paymentMethod)) {
     return expenseErrorResponse('PAYMENT_METHOD_DISABLED');
   }
@@ -373,7 +382,8 @@ export async function PATCH(request: Request) {
 
   // Owner check, the method/date/category rules and each write happen atomically in their RPC.
   if (changeMethod) {
-    const { error } = await supabase.rpc('update_expense_payment_method', {
+    // A salary payment's entry and expense change together (migration 127).
+    const { error } = await supabase.rpc(salaryPayment ? 'update_salary_payment_method' : 'update_expense_payment_method', {
       p_club_id: clubId,
       p_expense_id: expenseId,
       p_payment_method: paymentMethod,

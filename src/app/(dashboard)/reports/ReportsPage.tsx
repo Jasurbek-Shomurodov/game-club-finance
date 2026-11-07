@@ -717,17 +717,22 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   }
 
   function canCorrectExpense(activity: MoneyReportActivity, date: string): boolean {
-    // Payroll payments take their method and date from the salary entry; a collected day is closed.
-    return isOwner && activity.source === 'expense' && Boolean(activity.id) && activity.category !== 'salary'
-      && !collectionsByDate.has(date);
+    // Payroll payments take their date and category from the salary entry; a collected day is closed.
+    return canCorrectPaymentMethod(activity, date) && activity.category !== 'salary';
+  }
+
+  /** A payroll payment's method can be corrected too: its salary entry changes with it. */
+  function canCorrectPaymentMethod(activity: MoneyReportActivity, date: string): boolean {
+    return isOwner && activity.source === 'expense' && Boolean(activity.id) && !collectionsByDate.has(date);
   }
 
   /** Methods this expense can use, plus the current one so a since-disabled method still displays. */
   function paymentMethodOptions(activity: MoneyReportActivity): string[] {
     const current = activity.paymentMethod;
     // Dollars are converted at their own rate when spent, so no expense moves into them later.
+    // A salary entry records only cash, terminal or card.
     const methods: string[] = expensePaymentMethods(enabledPaymentMethods, activity.paymentSource === 'bar' ? 'bar' : 'game_club')
-      .filter((method) => method !== 'usd');
+      .filter((method) => method !== 'usd' && (activity.category !== 'salary' || method !== 'playstation'));
     return current && !methods.includes(current) ? [current, ...methods] : methods;
   }
 
@@ -1295,7 +1300,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                           {t('exchangeRate')}: {formatUnitCurrency(selectedEntry.activity.dollars.rate)} {tc('currency')}
                         </span>
                       </span>
-                    ) : canCorrectExpense(selectedEntry.activity, selectedEntry.date) ? (
+                    ) : canCorrectPaymentMethod(selectedEntry.activity, selectedEntry.date) ? (
                       <Select
                         value={selectedEntry.activity.paymentMethod ?? ''}
                         onChange={(event) => void handleUpdateExpense(selectedEntry.activity, { paymentMethod: event.target.value })}

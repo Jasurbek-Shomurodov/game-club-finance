@@ -223,6 +223,28 @@ test('EXP-012 an owner moves an expense to another category from Entry details',
   expect(row.category).toBe('marketing');
 });
 
+test('EXP-014 an owner changes a salary payment\'s method from Entry details', async ({ page }) => {
+  const employee = crypto.randomUUID();
+  const entry = crypto.randomUUID();
+  expect((await restAs(accounts.owner, 'POST', 'rpc/save_salary_employee', {
+    p_club_id: clubs.arcade.id, p_employee_id: employee, p_name: 'E2E Izzat', p_job_title: '',
+    p_effective_date: today, p_salary_type: 'daily', p_amount: 100000, p_kpi_percent: 0, p_active: true,
+  })).ok).toBe(true);
+  expect((await restAs(accounts.owner, 'POST', 'rpc/record_salary_entry_with_status', {
+    p_club_id: clubs.arcade.id, p_employee_id: employee, p_request_id: entry, p_date: today,
+    p_kind: 'payment', p_amount: 50000, p_comment: '', p_payment_method: 'cash', p_payment_source: 'game_club',
+  })).ok).toBe(true);
+  await page.goto('/reports');
+  await page.getByText('E2E Izzat').click();
+  const details = page.getByRole('dialog', { name: 'Entry details' });
+  await expect(details.getByRole('combobox', { name: 'Category' })).toHaveCount(0);
+  await details.getByRole('combobox', { name: 'Payment method' }).selectOption('terminal');
+  await expect(page.getByText('Payment method updated')).toBeVisible();
+  const [salary] = await (await restAs(accounts.owner, 'GET', `salary_entries?select=payment_method&id=eq.${entry}`)).json();
+  const [expense] = await (await restAs(accounts.owner, 'GET', `expenses?select=payment_method&salary_entry_id=eq.${entry}`)).json();
+  expect([salary.payment_method, expense.payment_method]).toEqual(['terminal', 'terminal']);
+});
+
 test('EXP-013 an owner deletes an expense from the Reports list', async ({ page }) => {
   const [cleaning] = expenses;
   await page.goto('/reports');

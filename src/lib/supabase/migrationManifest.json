@@ -2306,11 +2306,6 @@
       {
         "kind": "relation",
         "name": "public.salary_rates_live_effective"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.protect_salary_expense()",
-        "md5": "532d198f869e1e7a19dd35cdf79bb5dc"
       }
     ]
   },
@@ -4335,6 +4330,20 @@
       {
         "kind": "function",
         "signature": "public.update_expense_category(uuid,uuid,text)"
+      }
+    ]
+  },
+  {
+    "file": "127_salary_payment_method_correction.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.protect_salary_expense()",
+        "md5": "7f938069d21b2f7a68604bb6a0fcbb1c"
+      },
+      {
+        "kind": "function",
+        "signature": "public.update_salary_payment_method(uuid,uuid,text)"
       }
     ]
   }
