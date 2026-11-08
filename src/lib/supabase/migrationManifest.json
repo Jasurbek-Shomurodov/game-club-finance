@@ -4371,5 +4371,14 @@
         "name": "showcase_pc_zones_name_translations_object"
       }
     ]
+  },
+  {
+    "file": "130_pixel_pro_packages.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.idx_showcase_offers_club_active_order"
+      }
+    ]
   }
 ]
