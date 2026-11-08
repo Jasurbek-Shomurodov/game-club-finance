@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applySalaryPaymentChanges, calculateSalaries, combineSalaryMonths, dailyBasePay, deactivatedFrom, deactivationCancelsRates, displayedRate, earliestDeactivationDate, employeeStatus, rateInForce, salaryBalance, salaryEarnings, salaryPaymentsBySource, scheduledDeactivation, canDeleteSalaryRate, type SalaryEmployee, type SalaryEntry, type SalaryRate } from './salaries';
+import { applySalaryPaymentChanges, calculateSalaries, combineSalaryMonths, dailyBasePay, deactivatedFrom, deactivationCancelsRates, displayedRate, earliestDeactivationDate, employeeStatus, maxSalaryPayment, rateInForce, salaryBalance, salaryEarnings, salaryPaymentsBySource, scheduledDeactivation, canDeleteSalaryRate, type SalaryEmployee, type SalaryEntry, type SalaryRate } from './salaries';
 
 const employee: SalaryEmployee = { id: 'one', club_id: 'club', name: 'Employee', job_title: '', joined_on: '2026-09-01' };
 const rate: SalaryRate = { id: 'rate', employee_id: 'one', effective_date: '2026-09-01', salary_type: 'daily', amount: 100, kpi_percent: 10, active: true };
@@ -320,5 +320,21 @@ describe('KPI by day', () => {
     const [combined] = combineSalaryMonths(rows);
     expect(combined.kpiByDay['2026-09-03']).toBe(rows.one[0].kpiByDay['2026-09-03'] + rows.two[0].kpiByDay['2026-09-03']);
     expect(total(combined.kpiByDay)).toBe(combined.kpi);
+  });
+});
+
+describe('maxSalaryPayment', () => {
+  const month = (balance: number) => ({ month: '2026-11', base: 0, bonus: 0, fine: 0, kpi: 0, paid: 0, earned: 0, balance, kpiProfit: 0, effectiveKpiPercent: 0, kpiByDay: {} });
+
+  it('allows paying exactly what is owed and nothing more', () => {
+    const max = maxSalaryPayment([month(150000), month(50000)]);
+    expect(max).toBe(200000);
+    expect(200000 > max).toBe(false);
+    expect(200001 > max).toBe(true);
+  });
+
+  it('allows nothing once the balance is settled or advanced', () => {
+    expect(maxSalaryPayment([])).toBe(0);
+    expect(maxSalaryPayment([month(-5000)])).toBe(0);
   });
 });

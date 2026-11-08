@@ -206,6 +206,11 @@ export function salaryBalance(months: SalaryMonth[]): number {
   return money(months.reduce((sum, month) => sum + month.balance, 0));
 }
 
+/** The most a new salary payment may be: what the employee is owed now, never below zero. */
+export function maxSalaryPayment(months: SalaryMonth[]): number {
+  return Math.max(0, salaryBalance(months));
+}
+
 /** Each part of the balance across the given months: earned = base + kpi + bonus - fine, balance = earned - paid. */
 export function salaryEarnings(months: SalaryMonth[]): { base: number; kpi: number; bonus: number; fine: number; earned: number; paid: number } {
   const total = (key: 'base' | 'kpi' | 'bonus' | 'fine' | 'earned' | 'paid') => money(months.reduce((sum, month) => sum + month[key], 0));

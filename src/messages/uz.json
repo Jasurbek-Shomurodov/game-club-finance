@@ -1491,6 +1491,7 @@
     "poolGameClub": "O‘yin klubi",
     "poolBar": "Bar",
     "kpiPoolRequired": "O‘yin klubi, Bar yoki ikkalasini belgilang.",
+    "paymentExceedsBalance": "To‘lov balansdan oshmasligi kerak: {max} {currency}.",
     "activate": "Faollashtirish",
     "activated": "Xodim faollashtirildi. Ish haqi va KPI bugundan yana hisoblanadi.",
     "activateConfirm": "Bugundan boshlab {name} uchun maosh va KPI yana hisoblanadi. Oldingi tarix va to‘lanmagan qoldiq saqlanadi.",

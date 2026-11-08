@@ -1491,6 +1491,7 @@
     "poolGameClub": "Game Club",
     "poolBar": "Bar",
     "kpiPoolRequired": "Tick Game Club, Bar or both.",
+    "paymentExceedsBalance": "The payment cannot be more than the balance: {max} {currency}.",
     "activate": "Activate",
     "activated": "Employee activated. Salary and KPI accrue again from today.",
     "activateConfirm": "{name} will start accruing salary and KPI again from today. Previous history and any unpaid balance are kept.",

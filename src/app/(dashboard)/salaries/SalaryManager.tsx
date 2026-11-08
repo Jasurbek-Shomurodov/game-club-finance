@@ -34,6 +34,7 @@ import {
   displayedRate,
   earliestDeactivationDate,
   employeeStatus,
+  maxSalaryPayment,
   rateInForce,
   salaryBalance,
   salaryEarnings,
@@ -258,6 +259,13 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
     if (!Number.isFinite(amount) || amount >= 100000000000000 || (dialog === 'employee' ? amount < 0 : amount <= 0)) {
       setError(tc('invalidAmount'));
       return;
+    }
+    if (dialog === 'entry' && entryForm.kind === 'payment') {
+      const max = maxSalaryPayment(balances[targetEmployee!.id] ?? []);
+      if (amount > max) {
+        setError(t('paymentExceedsBalance', { max: formatCurrency(max), currency: tc('currency') }));
+        return;
+      }
     }
     if (dialog === 'employee' && setupMode !== 'salary' && !employeeForm.kpi_game_club && !employeeForm.kpi_bar) {
       setError(t('kpiPoolRequired'));
