@@ -4361,5 +4361,15 @@
         "name": "showcase_offers_time_window_not_blank"
       }
     ]
+  },
+  {
+    "file": "129_pixel_vip_standard_pro.sql",
+    "probes": [
+      {
+        "kind": "constraint",
+        "table": "public.showcase_pc_zones",
+        "name": "showcase_pc_zones_name_translations_object"
+      }
+    ]
   }
 ]
