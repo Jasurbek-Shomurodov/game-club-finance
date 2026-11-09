@@ -4380,5 +4380,15 @@
         "name": "public.idx_showcase_offers_club_active_order"
       }
     ]
+  },
+  {
+    "file": "131_pixel_vip_short_packages.sql",
+    "probes": [
+      {
+        "kind": "constraint",
+        "table": "public.showcase_offers",
+        "name": "showcase_offers_description_not_blank"
+      }
+    ]
   }
 ]
