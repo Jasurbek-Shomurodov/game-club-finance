@@ -589,27 +589,33 @@ test('SET-008 saving a zone keeps unsaved page settings', async ({ page, context
   await expect(page.locator('#showcase-address')).toHaveValue('Unsaved draft address');
 });
 
-test('REP-009 the exchange form keeps cents and fractional rates while typing', async ({ page, context }) => {
+test('REP-009 the exchange form keeps cents and fractional rates and caps the amount at the available money', async ({ page, context }) => {
   await context.addCookies([englishCookie]);
   await page.goto('/reports');
   await page.getByRole('button', { name: 'Exchange', exact: true }).click();
   const dialog = page.getByRole('dialog');
-  await dialog.getByRole('radio', { name: 'US dollars' }).first().click();
-
-  const amount = dialog.locator('#exchange-amount');
-  await amount.pressSequentially('1234.5');
-  await expect(amount).toHaveValue('1 234,5');
-  await amount.pressSequentially('67');
-  // A third decimal is dropped, and the digits never run into the whole part.
-  await expect(amount).toHaveValue('1 234,56');
-  await amount.press('Home');
-  await amount.press('ArrowRight');
-  await amount.pressSequentially('0');
-  await expect(amount).toHaveValue('10 234,56');
+  // From cash (the default) into dollars, so a rate is needed.
+  await dialog.getByRole('radio', { name: 'US dollars' }).last().click();
 
   const rate = dialog.locator('#exchange-rate');
-  await rate.pressSequentially('12650.5');
-  await expect(rate).toHaveValue('12 650,5');
+  await rate.pressSequentially('1234.5');
+  await expect(rate).toHaveValue('1 234,5');
+  await rate.pressSequentially('67');
+  // A third decimal is dropped, and the digits never run into the whole part.
+  await expect(rate).toHaveValue('1 234,56');
+  await rate.press('Home');
+  await rate.press('ArrowRight');
+  await rate.pressSequentially('0');
+  await expect(rate).toHaveValue('10 234,56');
+
+  // More than the cash on hand is cut back to what is available.
+  const hint = dialog.getByText(/^Available: /);
+  await expect(hint).toBeVisible();
+  const availableCash = (await hint.textContent()).replace(/^Available: /, '').replace(/ so.m$| UZS$| сум$/, '').trim();
+  const amount = dialog.locator('#exchange-amount');
+  await amount.fill('');
+  await amount.pressSequentially('999999999');
+  await expect(amount).toHaveValue(availableCash);
 });
 
 test.describe('a new sign-up with no club', () => {
