@@ -1179,6 +1179,12 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
           size="xl"
         >
           <ExchangeForm
+            available={hasReportsAccess && !loading && !loadFailed ? {
+              cash: report.paymentMethods.cash.left,
+              terminal: report.paymentMethods.terminal.left,
+              card: report.paymentMethods.card.left,
+              usd: report.usd,
+            } : undefined}
             onSaved={async () => {
               setExchangeDialogOpen(false);
               showToast(t('exchangeSaved'));

@@ -1727,6 +1727,8 @@
     "rate": "Exchange rate",
     "rateHint": "UZS for 1 US dollar",
     "receive": "You receive",
+    "available": "Available: {amount}",
+    "notEnoughMoney": "Not enough money. Available: {amount}",
     "date": "Date",
     "comment": "Comment",
     "commentPlaceholder": "Why is the money being exchanged? For example: changed cash to dollars for rent",

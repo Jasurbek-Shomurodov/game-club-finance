@@ -1727,6 +1727,8 @@
     "rate": "Kurs",
     "rateHint": "1 AQSH dollari uchun so‘m",
     "receive": "Olasiz",
+    "available": "Mavjud: {amount}",
+    "notEnoughMoney": "Pul yetarli emas. Mavjud: {amount}",
     "date": "Sana",
     "comment": "Izoh",
     "commentPlaceholder": "Pul nima uchun almashtirilmoqda? Masalan: ijara uchun naqdni dollarga almashtirdik",

@@ -16,7 +16,7 @@ import {
   SegmentedControl,
   useEntryNoteGuard,
 } from '@/components/PresentationFoundation';
-import { formatCurrency, formatCurrencyInput, formatUnitCurrency, parseCurrencyInput, parseDecimalInput } from '@/lib/formatters';
+import { formatCurrency, formatCurrencyInput, formatDecimalInput, formatUnitCurrency, parseCurrencyInput, parseDecimalInput } from '@/lib/formatters';
 import {
   exchangeNeedsRate,
   exchangeReceivedAmount,
@@ -28,6 +28,8 @@ import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { useCollectedDay } from '@/lib/useCollectedDay';
 
 interface ExchangeFormProps {
+  /** Money left per method in the report's period; an exchange cannot take more than this. Omit when unknown. */
+  available?: Record<ExchangeMethod, number>;
   onSaved?: () => void | Promise<void>;
 }
 
@@ -43,7 +45,7 @@ const ERROR_KEYS: Record<string, string> = {
 const METHOD_ICONS: Record<ExchangeMethod, LucideIcon> = { ...PAYMENT_METHOD_ICONS, usd: CircleDollarSign };
 
 /** Moves Game Club money between payment methods, or into and out of dollars at a typed rate. */
-export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
+export default function ExchangeForm({ available, onSaved }: ExchangeFormProps) {
   const t = useTranslations('exchanges');
   const tc = useTranslations('common');
   const { selectedClubId, businessDayStartHour, enabledPaymentMethods } = useClub();
@@ -94,6 +96,12 @@ export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
       if (field === 'to' && value === current.from) next.from = current.to;
       // Leaving dollars for som: som amounts are whole, so show what will be saved.
       if (current.from === 'usd' && next.from !== 'usd') next.amount = formatCurrencyInput(current.amount);
+      // The amount cannot exceed what the "from" method holds.
+      const limit = available ? Math.max(0, available[next.from]) : null;
+      if (limit !== null && (field === 'amount' || field === 'from')) {
+        const typed = next.from === 'usd' ? parseDecimalInput(next.amount) : parseCurrencyInput(next.amount);
+        if (typed > limit) next.amount = next.from === 'usd' ? formatDecimalInput(limit) : formatCurrencyInput(limit);
+      }
       return next;
     });
   }
@@ -103,6 +111,8 @@ export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
   const needsRate = exchangeNeedsRate(form.from, form.to);
   const rate = needsRate ? parseDecimalInput(form.rate) : null;
   const received = exchangeReceivedAmount(form.from, form.to, amount, rate);
+  const availableFrom = available ? available[form.from] : null;
+  const nothingAvailable = availableFrom !== null && availableFrom <= 0;
   const formatAmount = (method: ExchangeMethod, value: number) => (
     method === 'usd' ? `$${formatUnitCurrency(value)}` : `${formatCurrency(value)} ${tc('currency')}`
   );
@@ -124,6 +134,10 @@ export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
     }
     if (!amount || amount <= 0) {
       setError(tc('invalidAmount'));
+      return;
+    }
+    if (availableFrom !== null && amount > availableFrom) {
+      setError(t('notEnoughMoney', { amount: formatAmount(form.from, Math.max(0, availableFrom)) }));
       return;
     }
     if (needsRate && (!rate || rate <= 0)) {
@@ -201,7 +215,13 @@ export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
       </Field>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label={t('amount')} htmlFor="exchange-amount" required>
+        <Field
+          label={t('amount')}
+          htmlFor="exchange-amount"
+          required
+          hint={availableFrom !== null && !nothingAvailable ? t('available', { amount: formatAmount(form.from, availableFrom) }) : undefined}
+          error={nothingAvailable ? t('notEnoughMoney', { amount: formatAmount(form.from, 0) }) : undefined}
+        >
           {form.from === 'usd' ? (
             <DecimalInput
               id="exchange-amount"
@@ -259,7 +279,7 @@ export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
         maxLength={300}
       />
 
-      <Button type="submit" size="lg" fullWidth disabled={dayClosed} loading={saving} loadingLabel={tc('saving')} icon={<ArrowRightLeft size={18} aria-hidden="true" />}>
+      <Button type="submit" size="lg" fullWidth disabled={dayClosed || nothingAvailable} loading={saving} loadingLabel={tc('saving')} icon={<ArrowRightLeft size={18} aria-hidden="true" />}>
         {t('submit')}
       </Button>
       {note.dialog}
