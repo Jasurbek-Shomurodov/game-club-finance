@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyOwnerReserve, reserveActivity, reserveBalances, reserveForMonth, reserveGoalPercent, type ReservePaidExpense } from './ownerReserve';
+import { applyOwnerReserve, reserveActivity, reserveBalances, reserveForMonth, planGameClubDepositAll, type ReservePaidExpense } from './ownerReserve';
 import { sumAvailableMoneyResults, type AvailableMoneyByMonth } from './availableMoney';
 import type { OwnerReserveEntry } from '@/types';
 
@@ -65,11 +65,24 @@ describe('reserveForMonth', () => {
   });
 });
 
-describe('reserveActivity and goals', () => {
-  it('lists the newest first and reports goal progress within 0-100', () => {
+describe('reserveActivity', () => {
+  it('lists the newest first', () => {
     expect(reserveActivity(entries, purchases).map((row) => row.id)).toEqual(['pcs', 'back', 'oct', 'sep', 'bar']);
-    expect(reserveGoalPercent(7_500_000, 30_000_000)).toBe(25);
-    expect(reserveGoalPercent(40_000_000, 30_000_000)).toBe(100);
-    expect(reserveGoalPercent(-5, 30_000_000)).toBe(0);
+  });
+});
+
+describe('planGameClubDepositAll', () => {
+  it('takes every method that holds money, skips negative ones, and never exceeds Game Club', () => {
+    const methods = [
+      { method: 'cash' as const, available: 7_928_483 },
+      { method: 'terminal' as const, available: -800 },
+      { method: 'card' as const, available: 4_172_000 },
+      { method: 'playstation' as const, available: 0 },
+    ];
+    expect(planGameClubDepositAll(methods, 12_099_683)).toEqual([
+      { method: 'cash', amount: 7_928_483 },
+      { method: 'card', amount: 4_171_200 },
+    ]);
+    expect(planGameClubDepositAll(methods, -5)).toEqual([]);
   });
 });

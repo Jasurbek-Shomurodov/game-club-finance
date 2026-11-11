@@ -334,16 +334,6 @@ export interface OwnerReserveEntry {
   created_at: string;
 }
 
-/** What the owner is saving for on one side, e.g. "New PCs: 30 000 000" (migration 136). */
-export interface OwnerReserveGoal {
-  club_id: string;
-  source: OwnerWithdrawalSource;
-  title: string;
-  target_amount: number;
-  updated_by: string | null;
-  updated_at: string;
-}
-
 /** Ledgers whose edits and deletes are kept in the entry history (migration 111). */
 export type AuditedTable =
   | 'daily_cash_entries'

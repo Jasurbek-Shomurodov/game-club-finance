@@ -2332,7 +2332,7 @@
   },
   "ownerReserve": {
     "sectionTitle": "Jamg'arma",
-    "sectionDescription": "Uyga olib ketish o'rniga klubda qoldirilgan foyda: yangi PK yoki ta'mir uchun yig'iladi. Jamg'armadan to'langan xaridlar o'sha oy foydasini kamaytirmaydi.",
+    "sectionDescription": "Klubda ishchi fond sifatida qoldirilgan egasi foydasi. Shu oy pulini qo'ying va undan ta'mir va xaridlarni to'lang: ular to'langan oyni kamaytirmaydi.",
     "sources": {
       "game_club": "O'yin klubi",
       "bar": "Bar"
@@ -2344,13 +2344,9 @@
     "depositChooseSource": "Jamg'armaga pul qo'yish uchun O'yin klubi yoki Barni tanlang.",
     "depositHint": "Pul keyinga klubda qoladi. U shu oy foydasidan chiqadi, lekin yechib olinmaydi.",
     "depositedToast": "Pul jamg'armaga qo'yildi.",
-    "goalProgress": "{title}: {percent}% yig'ildi",
-    "goalOf": "{target} dan {held}",
-    "setGoal": "Maqsad qo'yish",
-    "editGoal": "Maqsadni o'zgartirish",
     "returnButton": "Foydaga qaytarish",
     "empty": "Jamg'armada hozircha hech narsa yo'q.",
-    "emptyHint": "«Oylik foydani olish»da summani kiriting va «Jamg'armaga qo'yish»ni bosing.",
+    "emptyHint": "Pastdagi «Hammasini qo'yish»ni bosing yoki «Oylik foydani olish»da summani kiritib «Jamg'armaga qo'yish»ni tanlang.",
     "activityLabel": "Jamg'arma tarixi",
     "kinds": {
       "deposit": "Jamg'armaga qo'yildi",
@@ -2364,15 +2360,6 @@
     "returnTooLarge": "Ko'pi bilan {amount} kiriting.",
     "returnSave": "Qaytarish",
     "returnedToast": "Pul egasi foydasiga qaytarildi.",
-    "goalTitle": "Jamg'arma maqsadi · {source}",
-    "goalDescription": "Nima uchun yig'ayotganingiz. Jamg'arma kartasi qancha qolganini ko'rsatadi.",
-    "goalName": "Nima uchun",
-    "goalNamePlaceholder": "Masalan: 5 ta yangi PK",
-    "goalAmount": "Kerakli summa",
-    "goalRemove": "Maqsadni olib tashlash",
-    "goalSave": "Maqsadni saqlash",
-    "goalSavedToast": "Maqsad saqlandi.",
-    "goalRemovedToast": "Maqsad olib tashlandi.",
     "deleteDepositConfirm": "{amount} jamg'armaga qo'yilganini o'chirasizmi? Pul o'sha oy egasi foydasiga qaytadi.",
     "deleteReturnConfirm": "{amount} qaytarilganini o'chirasizmi? Pul jamg'armaga qaytadi.",
     "deletedToast": "Jamg'arma yozuvi o'chirildi.",
@@ -2384,6 +2371,15 @@
       "forbidden": "Jamg'armadan faqat klub egasi foydalana oladi.",
       "failed": "Saqlab bo'lmadi. Internetni tekshirib, qayta urinib ko'ring."
     },
-    "heroReserved": "Jamg'armaga qo'yildi:"
+    "heroReserved": "Jamg'armaga qo'yildi:",
+    "leftInMonth": "{month} dan qolgan: {amount}",
+    "depositAllShort": "Hammasini qo'yish · {amount}",
+    "depositAllTitle": "Hammasini jamg'armaga qo'yish",
+    "depositAllButton": "Jamg'armaga qo'yish",
+    "depositAllConfirm": "{month} uchun {source} foydasidan {amount} jamg'armaga qo'yilsinmi? Hech narsa yechilmaydi: undan to'lash yoki keyin qaytarish mumkin.",
+    "payButton": "Jamg'armadan to'lash",
+    "payTitle": "Jamg'armadan to'lash",
+    "payDescription": "Jamg'arma pulidan to'langan ta'mir yoki xaridni yozing. Bu xarajat, lekin shu oy egasi foydasi o'zgarmaydi.",
+    "paidToast": "Jamg'armadan to'landi."
   }
 }

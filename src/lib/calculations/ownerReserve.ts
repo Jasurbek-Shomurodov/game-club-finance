@@ -167,7 +167,22 @@ export function reserveActivity(
   ].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
 }
 
-/** Progress towards a goal, 0-100. */
-export function reserveGoalPercent(held: number, target: number): number {
-  return target > 0 ? Math.max(0, Math.min(100, Math.round((held / target) * 100))) : 0;
+/**
+ * Splits everything left of a month's Game Club profit over its payment methods,
+ * the way the database limits deposits: no method above what it holds, and
+ * together never above what Game Club has left.
+ */
+export function planGameClubDepositAll(
+  methods: readonly { method: OwnerWithdrawalPaymentMethod; available: number }[],
+  gameClubAvailable: number,
+): { method: OwnerWithdrawalPaymentMethod; amount: number }[] {
+  const plan: { method: OwnerWithdrawalPaymentMethod; amount: number }[] = [];
+  let left = Math.max(0, gameClubAvailable);
+  for (const row of methods) {
+    const amount = Math.min(Math.max(0, row.available), left);
+    if (amount <= 0) continue;
+    plan.push({ method: row.method, amount });
+    left -= amount;
+  }
+  return plan;
 }

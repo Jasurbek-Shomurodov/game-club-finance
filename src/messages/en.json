@@ -2332,7 +2332,7 @@
   },
   "ownerReserve": {
     "sectionTitle": "Reserve",
-    "sectionDescription": "Profit you set aside in the club instead of taking it home, to save for new PCs or repairs. Purchases paid from it do not reduce that month's profit.",
+    "sectionDescription": "Owner profit kept in the club as a working fund. Put this month's money in, then pay repairs and purchases from it; they do not reduce the month they are paid in.",
     "sources": {
       "game_club": "Game Club",
       "bar": "Bar"
@@ -2344,13 +2344,9 @@
     "depositChooseSource": "Choose Game Club or Bar to put money into the reserve.",
     "depositHint": "Keeps the money in the club for later. It leaves this month's profit but is not withdrawn.",
     "depositedToast": "Money put into the reserve.",
-    "goalProgress": "{title}: {percent}% saved",
-    "goalOf": "{held} of {target}",
-    "setGoal": "Set a goal",
-    "editGoal": "Edit goal",
     "returnButton": "Return to profit",
     "empty": "Nothing in the reserve yet.",
-    "emptyHint": "Enter an amount in Withdraw monthly profit and choose Put into reserve.",
+    "emptyHint": "Use Put all into reserve below, or enter an amount in Withdraw monthly profit and choose Put into reserve.",
     "activityLabel": "Reserve history",
     "kinds": {
       "deposit": "Put into reserve",
@@ -2364,15 +2360,6 @@
     "returnTooLarge": "Enter at most {amount}.",
     "returnSave": "Return",
     "returnedToast": "Money returned to owner profit.",
-    "goalTitle": "Reserve goal · {source}",
-    "goalDescription": "What you are saving for. The reserve card shows how close you are.",
-    "goalName": "Saving for",
-    "goalNamePlaceholder": "For example: 5 new PCs",
-    "goalAmount": "Target amount",
-    "goalRemove": "Remove goal",
-    "goalSave": "Save goal",
-    "goalSavedToast": "Goal saved.",
-    "goalRemovedToast": "Goal removed.",
     "deleteDepositConfirm": "Delete this deposit of {amount}? The money goes back to that month's owner profit.",
     "deleteReturnConfirm": "Delete this return of {amount}? The money goes back into the reserve.",
     "deletedToast": "Reserve entry deleted.",
@@ -2384,6 +2371,15 @@
       "forbidden": "Only the club owner can use the reserve.",
       "failed": "Could not save. Check your connection and try again."
     },
-    "heroReserved": "Put into reserve:"
+    "heroReserved": "Put into reserve:",
+    "leftInMonth": "Left of {month}: {amount}",
+    "depositAllShort": "Put all in · {amount}",
+    "depositAllTitle": "Put all into reserve",
+    "depositAllButton": "Put into reserve",
+    "depositAllConfirm": "Put {amount} of {source} profit for {month} into the reserve? Nothing is withdrawn; you can pay from it or return it later.",
+    "payButton": "Pay from reserve",
+    "payTitle": "Pay from reserve",
+    "payDescription": "Record a repair or purchase paid with reserve money. It is an expense, but this month's owner profit stays the same.",
+    "paidToast": "Paid from the reserve."
   }
 }

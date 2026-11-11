@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownToLine, CalendarArrowUp, HandCoins, Layers, PiggyBank, Target, TriangleAlert, TrendingUp, Undo2, Wallet, type LucideIcon } from 'lucide-react';
+import { ArrowDownToLine, CalendarArrowUp, HandCoins, Layers, PiggyBank, TriangleAlert, TrendingUp, Undo2, Wallet, type LucideIcon } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useClub } from '@/components/layout/DashboardShell';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
@@ -14,7 +14,6 @@ import {
   Field,
   FormSkeleton,
   InlineAlert,
-  Input,
   LoadErrorAlert,
   Modal,
   MonthPicker,
@@ -67,15 +66,15 @@ import { METHOD_ICONS, SOURCE_ICONS, SOURCE_TINTS } from './profitIcons';
 import { WithdrawalHistory, historyCreatedAt, type HistoryRow } from './WithdrawalHistory';
 import { CashShortagesSection } from './CashShortagesSection';
 import { ReserveSection } from './ReserveSection';
-import { reserveActivity, reserveBalances, reserveForMonth, reservedNet, type ReserveActivity } from '@/lib/calculations/ownerReserve';
+import { planGameClubDepositAll, reserveActivity, reserveBalances, reserveForMonth, reservedNet, type ReserveActivity } from '@/lib/calculations/ownerReserve';
 import {
   deleteReserveEntry,
   depositToReserve,
   returnFromReserve,
-  setReserveGoal,
   type ReserveErrorCode,
 } from '@/lib/supabase/ownerReserve';
 import { CashShortageForm } from '@/components/cash-shortages/CashShortageForm';
+import ExpenseRegistrationForm from '../reports/ExpenseRegistrationForm';
 import {
   EMPTY_CASH_SHORTAGES,
   deleteCashShortage,
@@ -161,9 +160,7 @@ export default function MoneyTakenPage() {
   const [returnTarget, setReturnTarget] = useState<OwnerWithdrawalSource | null>(null);
   const [returnMethod, setReturnMethod] = useState<OwnerWithdrawalPaymentMethod>('cash');
   const [returnInput, setReturnInput] = useState('');
-  const [goalTarget, setGoalTarget] = useState<OwnerWithdrawalSource | null>(null);
-  const [goalTitle, setGoalTitle] = useState('');
-  const [goalInput, setGoalInput] = useState('');
+  const [reservePayOpen, setReservePayOpen] = useState(false);
   const [reserveError, setReserveError] = useState<ReserveErrorCode | null>(null);
   const [reserveBusy, setReserveBusy] = useState<string | null>(null);
   const reserveRequestId = useRef<string | null>(null);
@@ -185,7 +182,6 @@ export default function MoneyTakenPage() {
     methodsSupported,
     reserveEntries,
     reserveExpenses,
-    reserveGoals,
     reserveSupported,
   } = ownerMoney.data;
   /** Balances failed to load; mutations stay disabled until a successful reload. */
@@ -755,8 +751,15 @@ export default function MoneyTakenPage() {
   const returnMax = returnTarget === 'game_club' ? reserveHeld.game_club.byMethod[returnMethod] : returnTarget === 'bar' ? reserveHeld.bar.held : 0;
   const returnValue = parseCurrencyInput(returnInput);
   const returnValid = Number.isFinite(returnValue) && returnValue > 0 && returnValue <= returnMax;
-  const goalValue = goalInput ? parseCurrencyInput(goalInput) : 0;
-  const goalValid = goalTitle.trim().length > 0 && Number.isFinite(goalValue) && goalValue > 0;
+  // Everything still left of the month on each side; Game Club is split over its methods.
+  const depositAllPlan = {
+    game_club: planGameClubDepositAll(methodBreakdown.methods, monthlyBalance?.gameClub.available ?? 0),
+    bar: Math.max(0, monthlyBalance?.bar.available ?? 0),
+  };
+  const depositAllAmounts: Record<OwnerWithdrawalSource, number> = {
+    game_club: depositAllPlan.game_club.reduce((sum, row) => sum + row.amount, 0),
+    bar: depositAllPlan.bar,
+  };
 
   function openReturn(source: OwnerWithdrawalSource) {
     reserveRequestId.current = null;
@@ -799,30 +802,50 @@ export default function MoneyTakenPage() {
     }
   }
 
-  function openGoal(source: OwnerWithdrawalSource) {
-    const goal = reserveGoals.find((row) => row.source === source);
-    setReserveError(null);
-    setGoalTitle(goal?.title ?? '');
-    setGoalInput(goal ? formatCurrencyInput(goal.target_amount) : '');
-    setGoalTarget(source);
-  }
-
-  async function saveGoal(remove: boolean) {
-    if (!selectedClubId || !goalTarget || reserveBusy || (!remove && !goalValid)) return;
-    setReserveBusy('goal');
-    setReserveError(null);
+  /** Puts everything left of the selected month on one side into the reserve. */
+  async function handleDepositAll(source: OwnerWithdrawalSource) {
+    if (!selectedClubId || reserveBusy || mutationPending.current) return;
+    const amount = depositAllAmounts[source];
+    if (amount <= 0) return;
+    const loadBeforeConfirm = currentLoad.current;
+    const confirmed = await confirm({
+      title: tr('depositAllTitle'),
+      description: tr('depositAllConfirm', {
+        amount: currency(amount),
+        source: tr(`sources.${source}`),
+        month: formatYearMonth(form.month, locale),
+      }),
+      confirmLabel: tr('depositAllButton'),
+      tone: 'primary',
+    });
+    if (!confirmed || loadBeforeConfirm !== currentLoad.current) return;
+    const parts = source === 'bar'
+      ? [{ method: null, amount: depositAllPlan.bar }]
+      : depositAllPlan.game_club;
+    mutationPending.current = true;
+    setReserveBusy(`all:${source}`);
+    let failure: ReserveErrorCode | null = null;
     try {
-      const failure = await setReserveGoal(createClient(), selectedClubId, goalTarget, remove ? null : goalTitle.trim(), remove ? null : Math.round(goalValue));
-      if (failure) {
-        setReserveError(failure);
-        return;
+      // One deposit per Game Club method, so each keeps its own reserve balance.
+      for (const part of parts) {
+        failure = await depositToReserve(createClient(), selectedClubId, {
+          id: crypto.randomUUID(),
+          month: form.month,
+          source,
+          method: part.method,
+          amount: part.amount,
+          comment: '',
+        });
+        if (failure || loadBeforeConfirm !== currentLoad.current) break;
       }
-      setGoalTarget(null);
-      showToast(remove ? tr('goalRemovedToast') : tr('goalSavedToast'), 'success');
+      if (loadBeforeConfirm !== currentLoad.current) return;
+      showToast(failure ? tr(`errors.${failure}`) : tr('depositedToast'), failure ? 'error' : 'success');
       await loadData({ silent: true });
     } catch {
-      setReserveError('failed');
+      showToast(tr('errors.failed'), 'error');
+      await loadData({ silent: true });
     } finally {
+      mutationPending.current = false;
       setReserveBusy(null);
     }
   }
@@ -1238,13 +1261,15 @@ export default function MoneyTakenPage() {
                 <Card as="section" padding="none" className="overflow-hidden">
                   <ReserveSection
                     balances={reserveHeld}
-                    goals={reserveGoals}
+                    depositAllAmounts={depositAllAmounts}
+                    monthLabel={formatYearMonth(form.month, locale)}
                     activity={reserveRows}
                     methodLabel={methodLabel}
                     busyId={reserveBusy}
                     disabled={reserveActionsDisabled}
                     onReturn={openReturn}
-                    onGoal={openGoal}
+                    onDepositAll={(source) => void handleDepositAll(source)}
+                    onPay={() => setReservePayOpen(true)}
                     onDelete={(row) => void handleDeleteReserve(row)}
                   />
                 </Card>
@@ -1418,45 +1443,20 @@ export default function MoneyTakenPage() {
       </Modal>
 
       <Modal
-        open={goalTarget !== null}
-        onClose={() => (reserveBusy ? undefined : setGoalTarget(null))}
-        locked={reserveBusy !== null}
-        title={goalTarget ? tr('goalTitle', { source: tr(`sources.${goalTarget}`) }) : undefined}
-        description={tr('goalDescription')}
-        size="md"
+        open={reservePayOpen}
+        onClose={() => setReservePayOpen(false)}
+        title={tr('payTitle')}
+        description={tr('payDescription')}
+        size="xl"
       >
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void saveGoal(false);
+        <ExpenseRegistrationForm
+          defaultFromReserve
+          onSaved={async () => {
+            setReservePayOpen(false);
+            showToast(tr('paidToast'), 'success');
+            await loadData({ silent: true });
           }}
-          className="space-y-4"
-        >
-          <Field label={tr('goalName')} htmlFor="reserve-goal-title" required>
-            <Input
-              id="reserve-goal-title"
-              value={goalTitle}
-              maxLength={120}
-              placeholder={tr('goalNamePlaceholder')}
-              onChange={(event) => setGoalTitle(event.target.value)}
-            />
-          </Field>
-          <Field label={`${tr('goalAmount')} (${tc('currency')})`} htmlFor="reserve-goal-amount" required>
-            <CurrencyInput id="reserve-goal-amount" controlSize="lg" value={goalInput} onValueChange={setGoalInput} />
-          </Field>
-          {reserveError ? <InlineAlert variant="danger">{tr(`errors.${reserveError}`)}</InlineAlert> : null}
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
-            {goalTarget && reserveGoals.some((goal) => goal.source === goalTarget) ? (
-              <Button type="button" variant="dangerOutline" disabled={reserveBusy !== null} onClick={() => void saveGoal(true)}>{tr('goalRemove')}</Button>
-            ) : <span />}
-            <div className="flex flex-col-reverse gap-2 sm:flex-row">
-              <Button type="button" variant="ghost" disabled={reserveBusy !== null} onClick={() => setGoalTarget(null)}>{tc('cancel')}</Button>
-              <Button type="submit" disabled={!goalValid} loading={reserveBusy === 'goal'} loadingLabel={tc('saving')} icon={<Target size={17} aria-hidden="true" />}>
-                {tr('goalSave')}
-              </Button>
-            </div>
-          </div>
-        </form>
+        />
       </Modal>
 
       {toastElement}

@@ -23,7 +23,7 @@ import type {
   MoneyLeftByPaymentMethod,
   StockCountRow,
 } from '@/lib/calculations/dashboardMetrics';
-import type { OwnerProfitCarryover, OwnerReserveEntry, OwnerReserveGoal, OwnerWithdrawal, OwnerWithdrawalPaymentMethod } from '@/types';
+import type { OwnerProfitCarryover, OwnerReserveEntry, OwnerWithdrawal, OwnerWithdrawalPaymentMethod } from '@/types';
 
 interface WithdrawalMethodRow {
   id: string;
@@ -48,7 +48,6 @@ export interface OwnerMoneyData {
   reserveEntries: OwnerReserveEntry[];
   /** Expenses the reserve paid for (136). */
   reserveExpenses: ReservePaidExpense[];
-  reserveGoals: OwnerReserveGoal[];
   /** Migration 136 is applied: profit can be set aside in the reserve. */
   reserveSupported: boolean;
 }
@@ -65,7 +64,6 @@ export const EMPTY_OWNER_MONEY: OwnerMoneyData = {
   methodsSupported: false,
   reserveEntries: [],
   reserveExpenses: [],
-  reserveGoals: [],
   reserveSupported: false,
 };
 
@@ -84,7 +82,7 @@ export async function fetchOwnerMoney(
   const currentMonth = businessToday.slice(0, 7);
 
   const snapshotArgs = { p_club_id: clubId, p_through_date: businessToday };
-  const [snapshotWithMethods, carryoverRes, exchangeRows, investmentRes, dollarExpenses, reserveRes, reserveExpenseRes, goalRes] = await Promise.all([
+  const [snapshotWithMethods, carryoverRes, exchangeRows, investmentRes, dollarExpenses, reserveRes, reserveExpenseRes] = await Promise.all([
     // Migration 076: the snapshot's withdrawal rows carry their payment method.
     supabase.rpc('get_owner_profit_snapshot_with_methods', snapshotArgs),
     fetchAllRows<OwnerProfitCarryover>(() => supabase
@@ -115,11 +113,6 @@ export async function fetchOwnerMoney(
       .eq('club_id', clubId)
       .eq('paid_from_reserve', true)
       .order('id')),
-    fetchAllRows<OwnerReserveGoal>(() => supabase
-      .from('owner_reserve_goals')
-      .select('club_id,source,title,target_amount,updated_by,updated_at')
-      .eq('club_id', clubId)
-      .order('source')),
   ]);
 
   // A superseded load stops early; useClubQuery discards whatever it returns.
@@ -147,13 +140,12 @@ export async function fetchOwnerMoney(
   // Before migration 136 there is no reserve: nothing is set aside.
   const reserveMissing = isMissingDatabaseTable(reserveRes.error as { code?: string; message?: string } | null, 'owner_reserve_entries')
     || isMissingDatabaseColumn(reserveExpenseRes.error as { code?: string; message?: string } | null, 'paid_from_reserve');
-  const reserveError = reserveMissing ? null : reserveRes.error ?? goalRes.error;
+  const reserveError = reserveMissing ? null : reserveRes.error;
   if (reserveError) throw new Error(reserveError.message);
   const reserveEntries = reserveMissing ? [] : (reserveRes.data ?? []).map((row) => ({ ...row, amount: Number(row.amount) }));
   // Like investments, a failed expense read leaves reserve purchases out instead of failing the page:
   // their months then show less left to take, never more.
   const reserveExpenses = reserveMissing || reserveExpenseRes.error ? [] : (reserveExpenseRes.data ?? []).map((row) => ({ ...row, amount: Number(row.amount) }));
-  const reserveGoals = reserveMissing ? [] : (goalRes.data ?? []).map((row) => ({ ...row, target_amount: Number(row.target_amount) }));
   const withCarryovers = (byMonth: AvailableMoneyByMonth) => applyOwnerReserve(
     applyOwnerProfitCarryovers(byMonth, carryovers, currentMonth), reserveEntries, reserveExpenses, currentMonth,
   );
@@ -176,7 +168,6 @@ export async function fetchOwnerMoney(
     methodsSupported: !methodsMissing,
     reserveEntries,
     reserveExpenses,
-    reserveGoals,
     reserveSupported: !reserveMissing,
   };
 

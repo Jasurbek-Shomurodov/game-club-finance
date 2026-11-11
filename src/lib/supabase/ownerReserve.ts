@@ -54,16 +54,6 @@ export async function deleteReserveEntry(supabase: SupabaseClient, clubId: strin
   return error ? reserveErrorCode(error, 'delete_owner_reserve_entry') : null;
 }
 
-/** A null amount removes the goal. */
-export async function setReserveGoal(
-  supabase: SupabaseClient, clubId: string, source: OwnerWithdrawalSource, title: string | null, amount: number | null,
-): Promise<ReserveErrorCode | null> {
-  const { error } = await supabase.rpc('set_owner_reserve_goal', {
-    p_club_id: clubId, p_source: source, p_title: title, p_target_amount: amount,
-  });
-  return error ? reserveErrorCode(error, 'set_owner_reserve_goal') : null;
-}
-
 export interface ReserveHoldings {
   game_club: Record<'total' | OwnerWithdrawalPaymentMethod, number>;
   bar: { total: number };

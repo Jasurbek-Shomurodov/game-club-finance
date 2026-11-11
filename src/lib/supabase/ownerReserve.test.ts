@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { deleteReserveEntry, depositToReserve, fetchReserveHoldings, reserveErrorCode, returnFromReserve, setReserveGoal } from './ownerReserve';
+import { deleteReserveEntry, depositToReserve, fetchReserveHoldings, reserveErrorCode, returnFromReserve } from './ownerReserve';
 
 const client = (result: { data?: unknown; error?: unknown }) => {
   const rpc = vi.fn(() => Promise.resolve({ data: result.data ?? null, error: result.error ?? null }));
@@ -22,7 +22,7 @@ describe('reserve RPC wrappers', () => {
   it('maps database refusals to what the page says', async () => {
     expect(await depositToReserve(client({ error: { hint: 'reserve_exceeds_available' } }).supabase, 'club', move)).toBe('exceeds_available');
     expect(await deleteReserveEntry(client({ error: { hint: 'reserve_already_used' } }).supabase, 'club', 'id')).toBe('already_used');
-    expect(await setReserveGoal(client({ error: { code: '42501' } }).supabase, 'club', 'bar', 'Fridge', 1)).toBe('forbidden');
+    expect(await deleteReserveEntry(client({ error: { code: '42501' } }).supabase, 'club', 'id')).toBe('forbidden');
     expect(reserveErrorCode({ hint: 'reserve_insufficient' }, 'x')).toBe('insufficient');
     expect(reserveErrorCode({ code: 'PGRST202', message: 'Could not find the function public.x' }, 'x')).toBe('migration_required');
     expect(reserveErrorCode({ code: 'XX000' }, 'x')).toBe('failed');

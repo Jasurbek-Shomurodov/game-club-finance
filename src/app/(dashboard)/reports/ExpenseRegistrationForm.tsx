@@ -40,6 +40,8 @@ type PaymentSource = (typeof PAYMENT_SOURCES)[number];
 
 interface ExpenseRegistrationFormProps {
   onSaved?: () => void | Promise<void>;
+  /** Start on "Pay from: Reserve" (owners only; ignored when the reserve is empty). */
+  defaultFromReserve?: boolean;
 }
 
 const EXPENSE_ERROR_KEYS: Record<string, string> = {
@@ -58,7 +60,7 @@ const EXPENSE_ERROR_KEYS: Record<string, string> = {
   SERVER_ERROR: 'serverError',
 };
 
-export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistrationFormProps) {
+export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = false }: ExpenseRegistrationFormProps) {
   const t = useTranslations('expenses');
   const tc = useTranslations('common');
   const { selectedClubId, businessDayStartHour, enabledPaymentMethods, role } = useClub();
@@ -81,8 +83,8 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     comment: '',
     preset_id: '',
     usd_rate: '',
-    from_reserve: false,
-  }), [businessToday, enabledPaymentMethods]);
+    from_reserve: defaultFromReserve,
+  }), [businessToday, defaultFromReserve, enabledPaymentMethods]);
   const [form, setForm] = useState(emptyForm);
   // A date whose money was collected is closed (097); say so before saving.
   const dayClosed = useCollectedDay(selectedClubId, form.date);

@@ -506,6 +506,13 @@ test('OWN-008 profit put into the reserve leaves the month, and a purchase paid 
   await expect(row('Cash')).toContainText(uzs(780_000));
   await expect(reserve).toContainText('Paid from reserve');
   await expect(reserve).toContainText(uzs(200_000));
+
+  // Everything left of the Bar's month goes in with one click, and nothing is left to take.
+  await reserve.getByRole('button', { name: `Put all in · ${uzs(48_000)}` }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Put into reserve' }).click();
+  await expect(page.getByText('Money put into the reserve.')).toBeVisible();
+  await expect(row('Bar')).toContainText(uzs(48_000));
+  await expect(reserve.getByRole('button', { name: `Put all in · ${uzs(0)}` }).last()).toBeDisabled();
 });
 
 test('SAL-007 an employee\'s history is its own page, and every salary tab has its own address', async ({ page, context }) => {

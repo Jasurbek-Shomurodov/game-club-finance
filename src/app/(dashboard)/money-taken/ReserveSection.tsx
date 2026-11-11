@@ -1,52 +1,65 @@
 'use client';
 
-import { ArrowDownToLine, ArrowUpFromLine, Clock, MessageSquareText, PiggyBank, ShoppingCart, Target, Trash2, Undo2 } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Clock, MessageSquareText, PiggyBank, ShoppingCart, Trash2, Undo2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { Badge, Button, EmptyState, IconButton, SectionHeading } from '@/components/PresentationFoundation';
-import { reserveGoalPercent, type ReserveActivity, type ReserveBalance } from '@/lib/calculations/ownerReserve';
+import type { ReserveActivity, ReserveBalance } from '@/lib/calculations/ownerReserve';
 import { formatCurrency, formatDateOnly } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
-import { OWNER_WITHDRAWAL_PAYMENT_METHODS, OWNER_WITHDRAWAL_SOURCES, type OwnerReserveGoal, type OwnerWithdrawalPaymentMethod, type OwnerWithdrawalSource } from '@/types';
+import { OWNER_WITHDRAWAL_PAYMENT_METHODS, OWNER_WITHDRAWAL_SOURCES, type OwnerWithdrawalPaymentMethod, type OwnerWithdrawalSource } from '@/types';
 import { SOURCE_ICONS, SOURCE_TINTS } from './profitIcons';
 
 const ACTIVITY_LIMIT = 12;
 
 interface ReserveSectionProps {
   balances: Record<OwnerWithdrawalSource, ReserveBalance>;
-  goals: readonly OwnerReserveGoal[];
+  /** What "put all into reserve" would move from the selected month, per side. */
+  depositAllAmounts: Record<OwnerWithdrawalSource, number>;
+  /** The selected month, e.g. "November 2026". */
+  monthLabel: string;
   activity: readonly ReserveActivity[];
   methodLabel: (method: OwnerWithdrawalPaymentMethod) => string;
   busyId: string | null;
   disabled: boolean;
   onReturn: (source: OwnerWithdrawalSource) => void;
-  onGoal: (source: OwnerWithdrawalSource) => void;
+  onDepositAll: (source: OwnerWithdrawalSource) => void;
+  onPay: () => void;
   onDelete: (activity: Extract<ReserveActivity, { kind: 'deposit' | 'return' }>) => void;
 }
 
-/** The owner reserve: what is saved per side, the goal it is for, and every deposit, return and purchase. */
-export function ReserveSection({ balances, goals, activity, methodLabel, busyId, disabled, onReturn, onGoal, onDelete }: ReserveSectionProps) {
+/** The owner reserve: what it holds per side, ways to fill and spend it, and every deposit, return and purchase. */
+export function ReserveSection({ balances, depositAllAmounts, monthLabel, activity, methodLabel, busyId, disabled, onReturn, onDepositAll, onPay, onDelete }: ReserveSectionProps) {
   const t = useTranslations('ownerReserve');
   const tc = useTranslations('common');
   const { locale } = useAppLocale();
-  const goalFor = (source: OwnerWithdrawalSource) => goals.find((goal) => goal.source === source);
   const recent = activity.slice(0, ACTIVITY_LIMIT);
 
   return (
     <>
-      <div className="flex items-start gap-3 border-b border-gray-100 px-4 py-4 sm:px-5">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
-          <PiggyBank size={20} aria-hidden="true" />
-        </span>
-        <SectionHeading title={t('sectionTitle')} description={t('sectionDescription')} />
+      <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
+            <PiggyBank size={20} aria-hidden="true" />
+          </span>
+          <SectionHeading title={t('sectionTitle')} description={t('sectionDescription')} />
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0 self-start"
+          disabled={disabled || (balances.game_club.held <= 0 && balances.bar.held <= 0)}
+          onClick={onPay}
+          icon={<ShoppingCart size={16} aria-hidden="true" />}
+        >
+          {t('payButton')}
+        </Button>
       </div>
 
       <div className="grid gap-3 border-b border-gray-100 px-4 py-4 sm:grid-cols-2 sm:px-5">
         {OWNER_WITHDRAWAL_SOURCES.map((source) => {
           const SourceIcon = SOURCE_ICONS[source];
           const side = balances[source];
-          const goal = goalFor(source);
-          const percent = goal ? reserveGoalPercent(side.held, goal.target_amount) : 0;
           const methods = source === 'game_club'
             ? OWNER_WITHDRAWAL_PAYMENT_METHODS.filter((method) => side.byMethod[method] !== 0)
             : [];
@@ -73,34 +86,19 @@ export function ReserveSection({ balances, goals, activity, methodLabel, busyId,
                 </p>
               ) : null}
 
-              {goal ? (
-                <div className="mt-4">
-                  <p className="flex items-center justify-between gap-2 text-xs">
-                    <span className="flex min-w-0 items-center gap-1.5 font-medium text-gray-700">
-                      <Target size={13} aria-hidden="true" className="shrink-0 text-gray-400" />
-                      <span className="truncate">{goal.title}</span>
-                    </span>
-                    <span className="shrink-0 font-semibold tabular-nums text-primary-600">{percent}%</span>
-                  </p>
-                  <div
-                    className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-gray-100"
-                    role="progressbar"
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={percent}
-                    aria-label={t('goalProgress', { title: goal.title, percent })}
-                  >
-                    <div className={cn('h-full rounded-full transition-[width] duration-700', SOURCE_TINTS[source].bar)} style={{ width: `${percent}%` }} />
-                  </div>
-                  <p className="mt-1.5 text-xs text-gray-500">
-                    {t('goalOf', { held: formatCurrency(Math.max(0, side.held)), target: formatCurrency(goal.target_amount) })}
-                  </p>
-                </div>
-              ) : null}
-
-              <div className="mt-auto flex flex-wrap gap-2 pt-4">
-                <Button variant="outline" size="sm" disabled={disabled} onClick={() => onGoal(source)} icon={<Target size={15} aria-hidden="true" />}>
-                  {goal ? t('editGoal') : t('setGoal')}
+              <p className="mt-3 text-xs text-gray-500">
+                {t('leftInMonth', { month: monthLabel, amount: formatCurrency(depositAllAmounts[source]) })}
+              </p>
+              <div className="mt-auto flex flex-wrap gap-2 pt-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={disabled || depositAllAmounts[source] <= 0}
+                  loading={busyId === `all:${source}`}
+                  onClick={() => onDepositAll(source)}
+                  icon={<ArrowDownToLine size={15} aria-hidden="true" />}
+                >
+                  {t('depositAllShort', { amount: formatCurrency(depositAllAmounts[source]) })}
                 </Button>
                 <Button variant="ghost" size="sm" disabled={disabled || side.held <= 0} onClick={() => onReturn(source)} icon={<Undo2 size={15} aria-hidden="true" />}>
                   {t('returnButton')}

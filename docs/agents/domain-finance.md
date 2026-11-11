@@ -227,7 +227,8 @@ club group that admins read; without that group nothing is sent.
 ## Owner reserve
 
 The owner reserve (migration 136) is owner profit set aside in the club instead
-of taken home, e.g. to save for new PCs. A `deposit` takes money out of a
+of taken home, as a working fund: put a month's money in, then pay repairs
+and purchases from it. A `deposit` takes money out of a
 month's owner profit (it is not a withdrawal: withdrawn totals and owner-profit
 KPI are unchanged), a `return` gives it back to a month, and a purchase paid
 from the reserve is an ordinary expense with `paid_from_reserve`.
