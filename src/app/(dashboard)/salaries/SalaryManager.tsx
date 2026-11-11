@@ -20,7 +20,6 @@ import {
   PageHeader,
   SegmentedControl,
   Textarea,
-  useConfirm,
   useToast,
   type SegmentedOption,
 } from '@/components/PresentationFoundation';
@@ -32,6 +31,7 @@ import {
   deactivatedFrom,
   deactivationCancelsRates,
   displayedRate,
+  earliestActivationDate,
   earliestDeactivationDate,
   employeeStatus,
   maxSalaryPayment,
@@ -92,7 +92,6 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   const [view, setView] = useState<SalaryView>(initialView);
   const { businessDayStartHour, enabledPaymentMethods, role, featureAccess } = useClub();
   const { showToast, toastElement } = useToast();
-  const { confirm, confirmDialog } = useConfirm();
   const { writeErrorMessage } = useSalaryText();
   // Salary editors record payments, bonuses and fines; only owners change employees, salary, KPI or activation, or delete records.
   const canEdit = canAccessFeature(role, featureAccess, 'salaries');
@@ -102,6 +101,8 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   const [employeeEdit, setEmployeeEdit] = useState<EmployeeEditState | null>(null);
   const [deactivation, setDeactivation] = useState<{ employee: SalaryEmployee; date: string; earliest: string } | null>(null);
   const [deactivationError, setDeactivationError] = useState('');
+  const [activation, setActivation] = useState<{ employee: SalaryEmployee; date: string; earliest: string } | null>(null);
+  const [activationError, setActivationError] = useState('');
   const [editError, setEditError] = useState('');
   const [savingTarget, setSavingTarget] = useState<SavingTarget | null>(null);
   const saving = savingTarget !== null;
@@ -365,27 +366,27 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
 
   function setEmployeeActive(employee: SalaryEmployee, active: boolean) {
     if (mutating.current || !isOwner) return;
-    if (active) { void activateEmployee(employee); return; }
+    if (active) {
+      setActivationError('');
+      setActivation({ employee, date: today, earliest: earliestActivationDate(employee, data.rates, today) });
+      return;
+    }
     const earliest = earliestDeactivationDate(employee, data.rates);
     setDeactivationError('');
     setDeactivation({ employee, earliest, date: summaries.get(employee.id)?.deactivatesOn ?? (today > earliest ? today : earliest) });
   }
 
-  async function activateEmployee(employee: SalaryEmployee) {
-    const confirmed = await confirm({
-      title: `${t('activate')} · ${employee.name}`,
-      description: t('activateConfirm', { name: employee.name }),
-      confirmLabel: t('activate'),
-      tone: 'primary',
-    });
-    if (!confirmed) return;
+  async function activateEmployee() {
+    if (!activation || !isOwner || mutating.current) return;
     mutating.current = true;
     setSavingTarget('deactivate');
+    setActivationError('');
     try {
-      await postSalary(clubId, { action: 'set_active', employeeId: employee.id, active: true });
-      showToast(t('activated'));
+      await postSalary(clubId, { action: 'set_active', employeeId: activation.employee.id, active: true, date: activation.date });
+      setActivation(null);
+      showToast(t('activated', { date: formatDateOnly(activation.date, locale) }));
       await reload({ silent: true });
-    } catch (error) { showToast(writeErrorMessage(error), 'error'); }
+    } catch (error) { setActivationError(writeErrorMessage(error)); }
     finally { mutating.current = false; setSavingTarget(null); }
   }
 
@@ -659,6 +660,32 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
         onCancel={() => { if (!mutating.current) setDeactivation(null); }}
       />
 
+      <ConfirmDialog
+        open={activation !== null}
+        title={activation ? `${t('activate')} · ${activation.employee.name}` : t('activate')}
+        description={activation && (
+          <div className="space-y-3">
+            <p>{t('activateConfirm', { name: activation.employee.name })}</p>
+            <Field label={t('activationDate')} hint={activation.date < today ? t('activationBackdatedHelp') : undefined}>
+              <DatePicker
+                value={activation.date}
+                min={activation.earliest}
+                max={today}
+                disabled={savingTarget === 'deactivate'}
+                ariaLabel={t('activationDate')}
+                onChange={(date) => setActivation({ ...activation, date })}
+              />
+            </Field>
+          </div>
+        )}
+        confirmLabel={t('activate')}
+        tone="primary"
+        loading={savingTarget === 'deactivate'}
+        error={activationError || undefined}
+        onConfirm={() => void activateEmployee()}
+        onCancel={() => { if (!mutating.current) setActivation(null); }}
+      />
+
       <EmployeeEditDialog
         edit={isOwner ? employeeEdit : null}
         saving={savingTarget === 'employee' && employeeEdit !== null}
@@ -669,7 +696,6 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
       />
 
       {toastElement}
-      {confirmDialog}
     </div>
   );
 }

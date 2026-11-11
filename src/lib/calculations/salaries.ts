@@ -324,6 +324,16 @@ export function earliestDeactivationDate(employee: SalaryEmployee, rates: Salary
   return first && first > employee.joined_on ? first : employee.joined_on;
 }
 
+/**
+ * The earliest day an inactive employee can be activated from: the start of
+ * the inactive stretch in force on `today` (choosing it cancels the gap), or
+ * the joining date when nothing marks where the stretch began.
+ */
+export function earliestActivationDate(employee: SalaryEmployee, rates: SalaryRate[], today: string): string {
+  const from = deactivatedFrom(rates, employee.id, today);
+  return from && from > employee.joined_on ? from : employee.joined_on;
+}
+
 /** Whether deactivating from `date` would cancel a salary change dated after it. */
 export function deactivationCancelsRates(rates: SalaryRate[], employeeId: string, date: string): boolean {
   return liveRatesFor(rates, employeeId).some((rate) => rate.active && rate.effective_date > date);

@@ -11,7 +11,7 @@ export type SalaryNotificationInput = {
   | { event: 'salary_changed'; salaryType: 'daily' | 'monthly'; amount: number; date?: string }
   | { event: 'kpi_changed'; kpi: number; kpiSettings: KpiSettings; date?: string }
   | { event: 'deactivated'; date?: string }
-  | { event: 'activated' }
+  | { event: 'activated'; date?: string }
   | { event: 'payment' | 'bonus' | 'fine'; amount: number; date: string; comment: string | null; paymentMethod?: string | null; paymentSource?: string | null }
   | { event: 'entry_deleted'; kind: 'payment' | 'bonus' | 'fine'; amount: number; date: string; reason: string }
   | { event: 'rate_deleted'; effectiveDate: string; reason: string }
@@ -56,6 +56,7 @@ export function buildSalaryNotification(input: SalaryNotificationInput): string 
       break;
     case 'activated':
       lines = head('▶️ Сотрудник активирован');
+      if (input.date) lines.push(`Дата активации: ${formatDateShort(input.date, 'ru')}`);
       break;
     case 'entry_deleted': {
       const title = input.kind === 'payment' ? '🗑 Удалена выплата зарплаты' : input.kind === 'bonus' ? '🗑 Удалена премия' : '🗑 Удалён штраф';

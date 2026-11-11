@@ -2346,10 +2346,6 @@
         "kind": "functionBody",
         "signature": "public.change_salary_employee_role(uuid,uuid,text)",
         "md5": "6f01483dbd69d1ef43899f2be62c7567"
-      },
-      {
-        "kind": "function",
-        "signature": "public.activate_salary_employee(uuid,uuid)"
       }
     ]
   },
@@ -4388,6 +4384,15 @@
         "kind": "constraint",
         "table": "public.showcase_offers",
         "name": "showcase_offers_description_not_blank"
+      }
+    ]
+  },
+  {
+    "file": "132_salary_activation_date.sql",
+    "probes": [
+      {
+        "kind": "function",
+        "signature": "public.activate_salary_employee(uuid,uuid,date)"
       }
     ]
   }

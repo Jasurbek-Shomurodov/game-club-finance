@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applySalaryPaymentChanges, calculateSalaries, combineSalaryMonths, dailyBasePay, deactivatedFrom, deactivationCancelsRates, displayedRate, earliestDeactivationDate, employeeStatus, maxSalaryPayment, rateInForce, salaryBalance, salaryEarnings, salaryPaymentsBySource, scheduledDeactivation, canDeleteSalaryRate, type SalaryEmployee, type SalaryEntry, type SalaryRate } from './salaries';
+import { applySalaryPaymentChanges, calculateSalaries, combineSalaryMonths, dailyBasePay, deactivatedFrom, deactivationCancelsRates, displayedRate, earliestActivationDate, earliestDeactivationDate, employeeStatus, maxSalaryPayment, rateInForce, salaryBalance, salaryEarnings, salaryPaymentsBySource, scheduledDeactivation, canDeleteSalaryRate, type SalaryEmployee, type SalaryEntry, type SalaryRate } from './salaries';
 
 const employee: SalaryEmployee = { id: 'one', club_id: 'club', name: 'Employee', job_title: '', joined_on: '2026-09-01' };
 const rate: SalaryRate = { id: 'rate', employee_id: 'one', effective_date: '2026-09-01', salary_type: 'daily', amount: 100, kpi_percent: 10, active: true };
@@ -188,6 +188,11 @@ describe('rate in force and employee status', () => {
     expect(scheduledDeactivation(rates, 'one', '2026-09-20')).toBeUndefined();
     expect(scheduledDeactivation([...rates, { ...rate, id: 'raise', effective_date: '2026-09-18' }], 'one', '2026-09-16')).toBeUndefined();
     expect(scheduledDeactivation(rates, 'two', '2026-09-20')).toBeUndefined();
+  });
+  it('allows activating from the start of the current inactive stretch', () => {
+    // 'one' is active from 09-01 and inactive from 09-20.
+    expect(earliestActivationDate(employee, rates, '2026-09-24')).toBe('2026-09-20');
+    expect(earliestActivationDate({ ...employee, id: 'nobody' }, rates, '2026-09-24')).toBe('2026-09-01');
   });
   it('allows deactivating from the first rate past later salary changes', () => {
     const raised = [...rates, { ...rate, id: 'raise', effective_date: '2026-09-25' }];

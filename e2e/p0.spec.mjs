@@ -498,6 +498,11 @@ test('SAL-008 deactivating an employee asks for the date', async ({ page, contex
   await page.getByText(/Deactivated employees/).click();
   await expect(card.getByRole('button', { name: 'Activate' })).toBeVisible();
   await expect(card.getByText('Deactivated from')).toBeVisible();
+  await card.getByRole('button', { name: 'Activate' }).click();
+  const activation = page.getByRole('dialog', { name: 'Activate · E2E Sardor' });
+  await expect(activation.getByRole('button', { name: 'Activate from' })).toBeVisible();
+  await activation.getByRole('button', { name: 'Cancel' }).click();
+  await expect(activation).toBeHidden();
 
   await card.getByRole('button', { name: 'Delete' }).click();
   const deletion = page.getByRole('dialog', { name: 'Delete this employee?' });

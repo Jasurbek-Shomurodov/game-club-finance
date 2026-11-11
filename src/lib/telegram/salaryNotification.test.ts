@@ -27,6 +27,7 @@ describe('buildSalaryNotification', () => {
     expect(buildSalaryNotification({ ...base, event: 'salary_changed', salaryType: 'monthly', amount: 3000000, date: '2026-10-01' })).toContain('Действует с:');
     expect(buildSalaryNotification({ ...base, event: 'deactivated' })).toContain('деактивирован');
     expect(buildSalaryNotification({ ...base, event: 'activated' })).toContain('активирован');
+    expect(buildSalaryNotification({ ...base, event: 'activated', date: '2026-09-15' })).toContain('Дата активации');
   });
   it('announces a new employee with terms', () => {
     const text = buildSalaryNotification({ ...base, event: 'employee_added', role: 'Manager', salaryType: 'daily', amount: 100000, kpi: 3, kpiSettings: { basis: 'overall_profit', gameClub: true, bar: true }, date: '2026-10-01' });
