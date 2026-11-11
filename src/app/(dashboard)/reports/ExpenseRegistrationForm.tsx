@@ -403,8 +403,12 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
         />
       </Field>
 
-      {isOwner && reserve && (reserveTotal > 0 || form.from_reserve) ? (
-        <Field label={t('payFrom')} hint={form.from_reserve ? t('reserveHint') : undefined}>
+      {/* Owners always see where the money comes from; an empty reserve is shown but cannot be picked. */}
+      {isOwner && reserve ? (
+        <Field
+          label={t('payFrom')}
+          hint={form.from_reserve ? t('reserveHint') : reserveTotal <= 0 ? t('reserveEmptyHint') : undefined}
+        >
           <SegmentedControl
             variant="soft"
             label={t('payFrom')}
@@ -419,6 +423,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
                 value: 'reserve',
                 label: `${t('payFromReserve')} · ${formatCurrency(reserveTotal)}`,
                 icon: <PiggyBank size={16} aria-hidden="true" />,
+                disabled: reserveTotal <= 0 && !form.from_reserve,
               },
             ]}
           />

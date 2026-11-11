@@ -851,7 +851,8 @@
     "payFrom": "Qayerdan to'lanadi",
     "payFromMonth": "Shu oy puli",
     "payFromReserve": "Jamg'arma",
-    "reserveHint": "Jamg'arma to'laydi: shu oy foydasi va to'lov usullari qoldig'i o'zgarmaydi."
+    "reserveHint": "Jamg'arma to'laydi: shu oy foydasi va to'lov usullari qoldig'i o'zgarmaydi.",
+    "reserveEmptyHint": "Jamg'arma bo'sh. Undan to'lash uchun «Klub egasi foydasi» sahifasida oy foydasining bir qismini jamg'armaga qo'ying."
   },
   "debts": {
     "title": "Qarzlar",

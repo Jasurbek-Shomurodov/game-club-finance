@@ -851,7 +851,8 @@
     "payFrom": "Pay from",
     "payFromMonth": "This month's money",
     "payFromReserve": "Reserve",
-    "reserveHint": "The reserve pays: this month's profit and method balances stay as they are."
+    "reserveHint": "The reserve pays: this month's profit and method balances stay as they are.",
+    "reserveEmptyHint": "The reserve is empty. Put part of a month's profit aside on Owner Profit to pay from it."
   },
   "debts": {
     "title": "Debts",
