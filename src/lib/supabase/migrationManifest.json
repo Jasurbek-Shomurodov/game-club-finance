@@ -3233,14 +3233,6 @@
         "kind": "policy",
         "table": "public.daily_cash_collections",
         "name": "daily_cash_collections_member_read"
-      },
-      {
-        "kind": "function",
-        "signature": "public.mark_daily_cash_collected(uuid,date)"
-      },
-      {
-        "kind": "function",
-        "signature": "public.unmark_daily_cash_collected(uuid,date)"
       }
     ]
   },
@@ -4690,15 +4682,44 @@
       },
       {
         "kind": "function",
-        "signature": "public.delete_owner_reserve_entry(uuid,uuid)"
-      },
-      {
-        "kind": "function",
         "signature": "public.get_owner_reserve_balances(uuid)"
       },
       {
         "kind": "function",
         "signature": "public.set_owner_reserve_goal(uuid,text,text,numeric)"
+      }
+    ]
+  },
+  {
+    "file": "137_collection_to_reserve.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.owner_reserve_entries",
+        "column": "collection_date"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_reserve_entries_collection"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.mark_daily_cash_collected(uuid,date)",
+        "md5": "51bb699f84ebaf74118572ab270944f0"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.unmark_daily_cash_collected(uuid,date)",
+        "md5": "ec0ed47d95fed4fe2fd2a1bef92d407f"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.delete_owner_reserve_entry(uuid,uuid)",
+        "md5": "4bf6290574b15c9436634c434e026107"
+      },
+      {
+        "kind": "function",
+        "signature": "public.collection_day_method_money(uuid,text,date)"
       }
     ]
   }

@@ -104,7 +104,7 @@ export async function fetchOwnerMoney(
     fetchDollarExpenses(supabase, clubId, '2000-01-01', businessToday).catch(() => [] as DollarExpense[]),
     fetchAllRows<OwnerReserveEntry>(() => supabase
       .from('owner_reserve_entries')
-      .select('id,club_id,kind,period_month,source,payment_method,amount,comment,created_by,created_at')
+      .select('id,club_id,kind,period_month,source,payment_method,amount,comment,collection_date,created_by,created_at')
       .eq('club_id', clubId)
       .order('id')),
     fetchAllRows<ReservePaidExpense>(() => supabase

@@ -330,6 +330,8 @@ export interface OwnerReserveEntry {
   payment_method: OwnerWithdrawalPaymentMethod | null;
   amount: number;
   comment: string | null;
+  /** The collected business date that made this deposit (137); undone with that collection. */
+  collection_date: string | null;
   created_by: string;
   created_at: string;
 }

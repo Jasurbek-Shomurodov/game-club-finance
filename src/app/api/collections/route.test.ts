@@ -16,7 +16,7 @@ const CLUB = '290c5c33-9dfa-464a-a072-ef5a231f5308';
 const DATE = '2026-10-12';
 
 function mockSupabase({
-  rpcResult = { data: true as unknown, error: null as { code: string; message: string } | null },
+  rpcResult = { data: true as unknown, error: null as { code: string; message: string; hint?: string } | null },
   collected = true,
   user = { id: 'u1', email: 'o@example.test', user_metadata: {} } as object | null,
 } = {}) {
@@ -87,6 +87,14 @@ describe('/api/collections', () => {
     mockSupabase({ rpcResult: { data: null, error: { code: '42501', message: 'Only a club owner can undo a collection.' } } });
     expect((await call(DELETE, { clubId: CLUB, date: DATE })).status).toBe(403);
     expect((await call(POST, { clubId: CLUB, date: DATE })).status).toBe(403);
+    expect(mocks.sendTelegramMessage).not.toHaveBeenCalled();
+  });
+
+  it('maps an undo whose reserve money was already used to 409 and sends nothing', async () => {
+    mockSupabase({ rpcResult: { data: null, error: { code: '23514', message: 'already spent', hint: 'reserve_already_used' } } });
+    const response = await call(DELETE, { clubId: CLUB, date: DATE });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ code: 'RESERVE_ALREADY_USED' });
     expect(mocks.sendTelegramMessage).not.toHaveBeenCalled();
   });
 

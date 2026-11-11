@@ -111,7 +111,7 @@ visible to every club owner until requests are targeted at a club.
 | `get_expense_method_balances` | What each payment method can still pay for an expense on a date (125): the month's money left for UZS methods, all dollars held, and the latest dollar rate. |
 | `update_expense_payment_method` | Owner correction of an ordinary expense's payment method (090, PlayStation since 114); payroll expenses refuse, and nothing moves into or out of dollars (124). |
 | `set_salary_record_telegram_message` | Save the club-group message that announced a salary entry or rate (090), so deletion removes it. |
-| `mark_daily_cash_collected` / `unmark_daily_cash_collected` | Collector ticks a business date as collected; only an owner removes a tick (096). |
+| `mark_daily_cash_collected` / `unmark_daily_cash_collected` | Collector ticks a business date as collected; only an owner removes a tick (096). Since 137 a tick deposits the day's Game Club money into the owner reserve (`owner_reserve_entries.collection_date`) and removing it takes those deposits back out. |
 | `record_money_exchange` / `delete_money_exchange` | Record (idempotent) or owner-delete a money exchange (092). |
 | `record_cash_shortage` / `recover_cash_shortage` / `delete_cash_shortage` | Owner records a shortage with its expense and an optional salary-fine recovery (idempotent id), adds more recovery later (never above what is still lost), or deletes it once its live recovery fines are deleted in Salaries (135). |
 | `get_public_showcase` | Anonymous read of one published club showcase by slug; null when unpublished or unknown (098, payload shared with `public_showcase_payload` since 099). |

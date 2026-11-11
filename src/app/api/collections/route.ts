@@ -13,6 +13,7 @@ const ERRORS = {
   UNAUTHORIZED: 401,
   INVALID_REQUEST: 400,
   FORBIDDEN: 403,
+  RESERVE_ALREADY_USED: 409,
   SERVER_ERROR: 500,
 } as const;
 
@@ -29,8 +30,10 @@ async function readRequest(request: Request) {
   return { supabase, user, clubId: body.clubId, date: body.date };
 }
 
-function rpcFailure(error: { code?: string; message?: string }, context: Record<string, unknown>) {
+function rpcFailure(error: { code?: string; message?: string; hint?: string }, context: Record<string, unknown>) {
   if (error.code === '42501') return errorResponse('FORBIDDEN');
+  // Undoing a collection whose reserve money was already spent or returned (137).
+  if (error.hint === 'reserve_already_used') return errorResponse('RESERVE_ALREADY_USED');
   if (error.code === '22007') return errorResponse('INVALID_REQUEST');
   console.error('[collections] rpc failed', { ...context, code: error.code, error: error.message });
   return errorResponse('SERVER_ERROR');
@@ -38,8 +41,9 @@ function rpcFailure(error: { code?: string; message?: string }, context: Record<
 
 /**
  * Ticks a business date as collected and tells the club group. The RPC runs
- * as the signed-in user and decides access (migration 096); a date that was
- * already ticked succeeds without a second notice.
+ * as the signed-in user and decides access (migration 096), and puts the day's
+ * Game Club money into the owner reserve (137); a date that was already ticked
+ * succeeds without a second notice.
  */
 export async function POST(request: Request) {
   const parsed = await readRequest(request);

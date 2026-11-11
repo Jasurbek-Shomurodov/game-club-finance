@@ -641,7 +641,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       const status = await requestCollectionChange(clubId, date, !collected);
       if (currentClubId.current !== clubId) return;
       if (status !== 200) {
-        setActionError(status === 403 ? tc('accessDeniedDescription') : t('collectionError'));
+        setActionError(status === 403 ? tc('accessDeniedDescription') : status === 409 ? t('collectionReserveUsed') : t('collectionError'));
         return;
       }
       showToast(collected ? t('collectionUndone') : t('collectionSaved'));

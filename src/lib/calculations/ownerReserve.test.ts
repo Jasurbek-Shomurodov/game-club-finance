@@ -5,7 +5,7 @@ import type { OwnerReserveEntry } from '@/types';
 
 const entry = (id: string, overrides: Partial<OwnerReserveEntry>): OwnerReserveEntry => ({
   id, club_id: 'club', kind: 'deposit', period_month: '2026-09-01', source: 'game_club', payment_method: 'cash',
-  amount: 1_000_000, comment: 'For new PCs', created_by: 'owner', created_at: '2026-09-30T10:00:00Z', ...overrides,
+  amount: 1_000_000, comment: 'For new PCs', collection_date: null, created_by: 'owner', created_at: '2026-09-30T10:00:00Z', ...overrides,
 });
 const purchase = (id: string, overrides: Partial<ReservePaidExpense> = {}): ReservePaidExpense => ({
   id, date: '2026-11-05', amount: 2_500_000, payment_source: 'game_club', payment_method: 'cash',

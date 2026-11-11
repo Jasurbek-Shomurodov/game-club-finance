@@ -247,6 +247,17 @@ month balances and adds reserve purchases back to that month's earned. A
 reserve purchase still counts as an expense everywhere else (Reports money left,
 dashboard, analysis, Telegram): it is real money leaving the club.
 
+Collected money goes into the reserve (migration 137). Ticking a date as
+collected (`mark_daily_cash_collected`, any role with `collection` access)
+deposits that day's Game Club money, one deposit per method tagged with
+`collection_date`: income + debt payments -/+ exchanges - Game Club expenses not
+paid from the reserve (`collection_day_method_money`), capped at the month's
+`owner_profit_bucket_available` for that method. A method that is short deposits
+nothing; Bar money is untouched; days ticked before 137 were not back-filled.
+Removing the tick deletes those deposits and is refused (`reserve_already_used`,
+HTTP 409) when the reserve has since spent or returned the money. A collection
+deposit cannot be deleted on its own (`reserve_collection_entry`).
+
 ## Debts
 
 - New debts begin unpaid with `paid_amount = 0` and the full amount remaining.

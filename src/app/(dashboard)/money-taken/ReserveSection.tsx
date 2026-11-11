@@ -132,6 +132,11 @@ export function ReserveSection({ balances, depositAllAmounts, monthLabel, activi
                     <Badge size="sm" variant="outline">{t(`sources.${row.source}`)}</Badge>
                     {row.method ? <Badge size="sm" variant="outline">{methodLabel(row.method)}</Badge> : null}
                   </div>
+                  {row.kind === 'deposit' && row.entry.collection_date ? (
+                    <p className="mt-1 text-sm leading-5 text-gray-600">
+                      {t('fromCollection', { date: formatDateOnly(row.entry.collection_date, locale) })}
+                    </p>
+                  ) : null}
                   {row.note ? (
                     <p className="mt-1 flex gap-1.5 text-sm leading-5 text-gray-600">
                       <MessageSquareText size={14} aria-hidden="true" className="mt-0.5 shrink-0 text-gray-400" />
@@ -148,7 +153,8 @@ export function ReserveSection({ balances, depositAllAmounts, monthLabel, activi
                     {incoming ? '+' : '−'}{formatCurrency(row.amount)}
                     <span className="ml-1 text-xs font-medium text-gray-500">{tc('currency')}</span>
                   </p>
-                  {row.kind === 'purchase' ? (
+                  {/* A collection deposit is undone with its collection in Reports. */}
+                  {row.kind === 'purchase' || (row.kind === 'deposit' && row.entry.collection_date) ? (
                     <span aria-hidden="true" className="w-8 shrink-0" />
                   ) : (
                     <IconButton
