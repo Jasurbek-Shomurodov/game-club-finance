@@ -1,3 +1,4 @@
+import type { MonthReserve } from './ownerReserve';
 import {
   OWNER_WITHDRAWAL_PAYMENT_METHODS,
   type OwnerProfitCarryover,
@@ -99,6 +100,8 @@ export interface PaymentMethodWithdrawalBalance {
   /** Net money carried into this month (positive) or on to the next month (negative). */
   carried: number;
   withdrawn: number;
+  /** Net money put into the owner reserve this month (deposits minus returns, 136). */
+  reserved: number;
   available: number;
 }
 
@@ -117,6 +120,7 @@ export function gameClubWithdrawalsByMethod(
   withdrawals: readonly OwnerWithdrawal[],
   month: string,
   carryovers: readonly OwnerProfitCarryover[] = [],
+  reserve?: MonthReserve,
 ): GameClubWithdrawalsByMethod {
   const { byMethod } = carryoversForMonth(carryovers, month);
   const withdrawn = Object.fromEntries(
@@ -133,9 +137,12 @@ export function gameClubWithdrawalsByMethod(
 
   return {
     methods: OWNER_WITHDRAWAL_PAYMENT_METHODS.map((method) => {
-      const earned = Number(balances[method] ?? 0);
+      const flow = reserve?.byMethod[method];
+      // The reserve paid for its purchases, so they are not this month's cost (136).
+      const earned = Number(balances[method] ?? 0) + (flow?.spent ?? 0);
       const carried = byMethod[method];
-      return { method, earned, carried, withdrawn: withdrawn[method], available: earned + carried - withdrawn[method] };
+      const reserved = flow ? flow.deposited - flow.returned : 0;
+      return { method, earned, carried, withdrawn: withdrawn[method], reserved, available: earned + carried - withdrawn[method] - reserved };
     }),
     unassignedWithdrawn,
   };

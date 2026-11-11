@@ -203,6 +203,49 @@ never a conversion at a current rate. Members with the expenses feature record
 exchanges through `record_money_exchange`; only owners delete
 (`delete_money_exchange`), which also removes the club-group Telegram message.
 
+## Cash shortages
+
+A cash shortage (`cash_shortages`, migration 135) is money that should be in
+the till but is not: stolen, handed over short, or unknown. It is recorded by
+an owner from Daily Cash or Owner Profit and writes one ordinary expense in the
+`shortage` category, on the shortage's date, side (`payment_source`) and method.
+So every existing total already loses it: dashboard money left, reports, the
+method balances and Owner Profit withdrawal limits, accounting profit, salary
+KPI profit and the daily Telegram report. There is no second formula; do not
+subtract shortages again anywhere.
+
+Part of a shortage can be taken back from the responsible employee's salary as
+a salary fine that names it (`salary_entries.cash_shortage_id`). Recovery lowers
+what payroll pays out; it never edits the shortage. Actually lost = amount -
+live recovery fines (`summarizeCashShortages` in `cashShortages.ts`). Owner
+Profit lists each month's shortages per side with missing, recovered and
+actually lost. Shortages are never added across Game Club and Bar.
+A new shortage is posted once (through `/api/cash-shortages`) to the club's
+owners-only Telegram group (`TELEGRAM_<TARGET>_OWNER_CHAT_ID`), never to the
+club group that admins read; without that group nothing is sent.
+
+## Owner reserve
+
+The owner reserve (migration 136) is owner profit set aside in the club instead
+of taken home, e.g. to save for new PCs. A `deposit` takes money out of a
+month's owner profit (it is not a withdrawal: withdrawn totals and owner-profit
+KPI are unchanged), a `return` gives it back to a month, and a purchase paid
+from the reserve is an ordinary expense with `paid_from_reserve`.
+
+```text
+reserve held   = deposits - returns - reserve purchases       (per side; per method on Game Club)
+month effect   = - deposits(month) + returns(month) + reserve purchases(month)
+```
+
+`owner_source_earned_for_month`, `owner_payment_method_earned_for_month` and
+`expense_method_balance` add the month effect, so every withdrawal and carryover
+limit respects the reserve, money reserved this month cannot pay ordinary
+expenses, and a reserve purchase does not use the month's money. In the app,
+`applyOwnerReserve` (`ownerReserve.ts`) applies the same effect to Owner Profit
+month balances and adds reserve purchases back to that month's earned. A
+reserve purchase still counts as an expense everywhere else (Reports money left,
+dashboard, analysis, Telegram): it is real money leaving the club.
+
 ## Debts
 
 - New debts begin unpaid with `paid_amount = 0` and the full amount remaining.

@@ -39,6 +39,7 @@ describe('migration 068 unifies expense categories', () => {
     await expect(db.query("insert into expenses(category) values ('custom')")).rejects.toThrow();
     await expect(db.query("insert into expenses(category) values ('other')")).rejects.toThrow();
     await db.query("insert into expenses(category) values ('salary')");
-    for (const category of EXPENSE_CATEGORIES) await db.query('insert into expenses(category) values ($1)', [category]);
+    // `shortage` arrives with migration 135, replayed in migrationReplay.test.ts.
+    for (const category of EXPENSE_CATEGORIES.filter((value) => value !== 'shortage')) await db.query('insert into expenses(category) values ($1)', [category]);
   });
 });

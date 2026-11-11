@@ -11,6 +11,8 @@ export const AUDITED_TABLES: readonly AuditedTable[] = [
   'new_debts',
   'debt_payments',
   'daily_cash_collections',
+  'cash_shortages',
+  'owner_reserve_entries',
 ];
 
 /** Keys, links and bookkeeping that say nothing to an owner reading the history. */
@@ -30,6 +32,8 @@ const HIDDEN_FIELDS = new Set([
   'debt_id',
   'preset_id',
   'salary_entry_id',
+  'cash_shortage_id',
+  'employee_id',
   'promotion_id',
 ]);
 

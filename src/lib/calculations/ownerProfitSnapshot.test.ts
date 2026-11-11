@@ -121,10 +121,10 @@ describe('Game Club withdrawals by payment method', () => {
     );
 
     expect(result.methods).toEqual([
-      { method: 'cash', earned: 100, carried: 0, withdrawn: 0, available: 100 },
-      { method: 'terminal', earned: 17_830_000, carried: 0, withdrawn: 17_000_000, available: 830_000 },
-      { method: 'card', earned: 5_747_000, carried: 0, withdrawn: 5_747_000, available: 0 },
-      { method: 'playstation', earned: 0, carried: 0, withdrawn: 0, available: 0 },
+      { method: 'cash', earned: 100, carried: 0, withdrawn: 0, reserved: 0, available: 100 },
+      { method: 'terminal', earned: 17_830_000, carried: 0, withdrawn: 17_000_000, reserved: 0, available: 830_000 },
+      { method: 'card', earned: 5_747_000, carried: 0, withdrawn: 5_747_000, reserved: 0, available: 0 },
+      { method: 'playstation', earned: 0, carried: 0, withdrawn: 0, reserved: 0, available: 0 },
     ]);
     expect(result.unassignedWithdrawn).toBe(400);
   });
@@ -213,10 +213,10 @@ describe('owner profit carryovers', () => {
     const october = gameClubWithdrawalsByMethod({ cash: 0, terminal: 0, card: 0, playstation: 0 }, [], '2026-10', rows);
 
     expect(september.methods.slice(0, 2)).toEqual([
-      { method: 'cash', earned: 10, carried: 20, withdrawn: 0, available: 30 },
-      { method: 'terminal', earned: 100, carried: -70, withdrawn: 0, available: 30 },
+      { method: 'cash', earned: 10, carried: 20, withdrawn: 0, reserved: 0, available: 30 },
+      { method: 'terminal', earned: 100, carried: -70, withdrawn: 0, reserved: 0, available: 30 },
     ]);
-    expect(october.methods[1]).toEqual({ method: 'terminal', earned: 0, carried: 70, withdrawn: 0, available: 70 });
+    expect(october.methods[1]).toEqual({ method: 'terminal', earned: 0, carried: 70, withdrawn: 0, reserved: 0, available: 70 });
   });
 });
 

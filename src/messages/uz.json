@@ -449,7 +449,8 @@
     "collectionFilter": "Yig‘ish bo‘yicha filtr",
     "collectionFilterAll": "Barchasi ({count})",
     "collectionFilterPending": "Yig‘ilmagan ({count})",
-    "collectionFilterCollected": "Yig‘ilgan ({count})"
+    "collectionFilterCollected": "Yig‘ilgan ({count})",
+    "shortageProtected": "Kamomad xarajati faqat «Klub egasi foydasi» sahifasida kamomad bilan birga o'chiriladi."
   },
   "dailyCash": {
     "title": "Kunlik kassa",
@@ -814,7 +815,8 @@
       "discount": "Mijozlarga chegirma va bonus",
       "supplies": "Sarf materiallari va xo‘jalik mollari",
       "investments": "Investitsiyalar",
-      "other": "Boshqa"
+      "other": "Boshqa",
+      "shortage": "Kamomad"
     },
     "errors": {
       "unauthorized": "Sessiya muddati tugadi. Qayta kiring va yana urinib ko‘ring.",
@@ -829,7 +831,8 @@
       "serverError": "Serverda xatolik yuz berdi. Birozdan so‘ng qayta urinib ko‘ring.",
       "presetUnavailable": "Bu rejalashtirilgan xarajat arxivlangan yoki o'zgargan. Uni qayta yoki boshqasini tanlang.",
       "dayCollected": "Bu kunning puli olindi, kun yopilgan. Boshqa sanani tanlang.",
-      "insufficientBalance": "Bu to‘lov usulida xarajat uchun pul yetarli emas."
+      "insufficientBalance": "Bu to‘lov usulida xarajat uchun pul yetarli emas.",
+      "reserveInsufficient": "Tanlangan to'lov usulida jamg'armada bundan kam pul bor."
     },
     "preset": "Rejalashtirilgan xarajat",
     "presetHelp": "Bu to'lovni oylik rejaga hisoblash uchun tanlang.",
@@ -844,7 +847,11 @@
     "availableAmount": "Mavjud: {amount}",
     "overBalance": "Bu to‘lov usulida faqat {amount} qolgan.",
     "balancesHelp": "Har bir usul ostida xarajat oyidagi klub puli qoldig‘i ko‘rsatilgan; dollarda esa qo‘ldagi barcha dollar.",
-    "balancesLoadError": "To‘lov usullaridagi qoldiqni yuklab bo‘lmadi."
+    "balancesLoadError": "To‘lov usullaridagi qoldiqni yuklab bo‘lmadi.",
+    "payFrom": "Qayerdan to'lanadi",
+    "payFromMonth": "Shu oy puli",
+    "payFromReserve": "Jamg'arma",
+    "reserveHint": "Jamg'arma to'laydi: shu oy foydasi va to'lov usullari qoldig'i o'zgarmaydi."
   },
   "debts": {
     "title": "Qarzlar",
@@ -1243,7 +1250,7 @@
     "availableForMethod": "Mavjud: {method}",
     "noMethodAvailable": "Bu oy uchun hech bir to‘lov usulida o‘yin klubi foydasi qolmagan.",
     "dollars": "AQSH dollari",
-    "dollarsHint": "Mavjud: {held}. Shu oyda dollarga o‘tkazilgan so‘m ko‘rsatilgan: sotib olingan minus sotilgan. Yechib olish uchun so‘mga qayta almashtiring.",
+    "dollarsHint": "Mavjud {held} · almashtirib yeching",
     "unassignedMethod": "To‘lov usulisiz",
     "unassignedMethodHint": "To‘lov usullari hisobga olinishidan oldin yozilgan. Usulni belgilash uchun o‘chirib, qayta yeching.",
     "methodMigrationRequired": "To‘lov usuli bo‘yicha pul yechish uchun ma’lumotlar bazasining 066 migratsiyasi talab qilinadi. Yechishni yozishdan oldin uni qo‘llang.",
@@ -1270,7 +1277,11 @@
     "historyFilter": "Qaysi manbadan yechilganini ko‘rsatish",
     "historyEntries": "{count, plural, other {# ta yozuv}}",
     "noHistoryForSource": "Bu manbadan hali pul yechilmagan.",
-    "withdrawnShare": "Daromadning {percent}% yechilgan"
+    "withdrawnShare": "Daromadning {percent}% yechilgan",
+    "takeAll": "Hammasi",
+    "takeAllLabel": "Mavjud summaning hammasini kiritish: {amount}",
+    "recordButtonAmount": "{amount} olish",
+    "withdrawnOfEarned": "{earned} daromaddan {withdrawn} yechilgan"
   },
   "calendar": {
     "selectDate": "Sanani tanlang",
@@ -2049,7 +2060,9 @@
       "owner_profit_carryovers": "Foydani o'tkazish",
       "new_debts": "Qarz",
       "debt_payments": "Qarz to'lovi",
-      "daily_cash_collections": "Yig'ilgan kun"
+      "daily_cash_collections": "Yig'ilgan kun",
+      "cash_shortages": "Kamomad",
+      "owner_reserve_entries": "Egasi jamg'armasi"
     },
     "fields": {
       "date": "Sana",
@@ -2254,5 +2267,122 @@
         "body": "Ushbu siyosat bo‘yicha savollar uchun pixelgaming.uz saytida ko‘rsatilgan telefon, email yoki Telegram orqali bog‘laning."
       }
     }
+  },
+  "cashShortages": {
+    "title": "Kamomadni yozish",
+    "description": "Kassada bo'lishi kerak, lekin yo'q pul. U xarajat kabi shu tomon pulidan va egasi foydasidan ayiriladi.",
+    "addButton": "Kamomad",
+    "date": "Sana",
+    "source": "Kimning puli",
+    "sources": {
+      "game_club": "O'yin klubi",
+      "bar": "Bar"
+    },
+    "method": "Qayerdan yo'qolgan",
+    "amount": "Kamomad summasi",
+    "amountHint": "Kassada bo'lishi kerak bo'lgan summa minus sanalgan pul.",
+    "reason": "Sabab",
+    "reasons": {
+      "stolen": "O'g'irlangan",
+      "short_handover": "To'liq topshirilmagan",
+      "unknown": "Noma'lum"
+    },
+    "employee": "Kim javobgar",
+    "employeeUnknown": "Hech kim / noma'lum",
+    "noEmployees": "Javobgarni ko'rsatish uchun «Ish haqi» bo'limida xodim qo'shing.",
+    "recoverNow": "Hozir ish haqidan ushlab qolish",
+    "recoverHint": "{name} ish haqiga jarima sifatida qo'shiladi. Keyinroq ham ushlab qolish mumkin.",
+    "recoverAll": "Hammasi",
+    "recoverTooLarge": "Ko'pi bilan {amount} kiriting.",
+    "comment": "Nima bo'ldi",
+    "commentPlaceholder": "Masalan: kechki smena topshirilganda naqd puldan 300 000 yetmadi",
+    "save": "Kamomadni yozish",
+    "saveAmount": "{amount} kamomadni yozish",
+    "savedToast": "Kamomad yozildi.",
+    "sectionTitle": "Kamomadlar · {month}",
+    "sectionDescription": "Shu oyda yo'qolgan pul, ish haqidan ushlab qolingan qismi va haqiqatda yo'qotilgan summa. Yuqoridagi summalardan allaqachon ayirilgan.",
+    "empty": "Shu oyda kamomad yo'q.",
+    "missing": "Kamomad",
+    "recovered": "Ish haqidan ushlandi",
+    "lost": "Haqiqatda yo'qotildi",
+    "recoveredShort": "Ushlandi",
+    "lostShort": "Yo'qotildi",
+    "removedEmployee": "O'chirilgan xodim",
+    "heroLost": "Kamomaddan yo'qotildi:",
+    "recoverButton": "Ish haqidan ushlab qolish",
+    "recoverTitle": "Ish haqidan ushlab qolish",
+    "recoverDescription": "Summa {name} ish haqiga jarima sifatida qo'shiladi, shuning uchun kamroq to'lanadi.",
+    "recoverAmount": "Ushlab qolinadigan summa",
+    "recoverLeft": "Hali qoplanmagan: {amount}",
+    "recoverSave": "Jarima qo'shish",
+    "recoveredToast": "Jarima qo'shildi. Kamomad qisman qoplandi.",
+    "deleteConfirm": "{amount} kamomadni ({reason}) o'chirasizmi? Pul o'sha kun summalariga qaytadi.",
+    "deletedToast": "Kamomad o'chirildi.",
+    "errors": {
+      "note_required": "Nima bo'lganini kamida 5 so'z bilan yozing.",
+      "day_collected": "Bu kunning puli allaqachon yig'ilgan va kun yopilgan. Boshqa sanani tanlang yoki yig'ish belgisini olib tashlang.",
+      "recovery_too_large": "Bu hali qoplanmagan summadan ko'p.",
+      "no_employee": "Ish haqidan ushlab qolish uchun avval javobgarni tanlang.",
+      "has_recoveries": "Avval «Ish haqi» bo'limida bu kamomadni qoplagan jarimalarni o'chiring.",
+      "migration_required": "Kamomadlar uchun 135-ma'lumotlar bazasi migratsiyasi kerak. Avval uni qo'llang.",
+      "forbidden": "Kamomadni faqat klub egasi yoza oladi.",
+      "failed": "Saqlab bo'lmadi. Internetni tekshirib, qayta urinib ko'ring."
+    }
+  },
+  "ownerReserve": {
+    "sectionTitle": "Jamg'arma",
+    "sectionDescription": "Uyga olib ketish o'rniga klubda qoldirilgan foyda: yangi PK yoki ta'mir uchun yig'iladi. Jamg'armadan to'langan xaridlar o'sha oy foydasini kamaytirmaydi.",
+    "sources": {
+      "game_club": "O'yin klubi",
+      "bar": "Bar"
+    },
+    "held": "Jamg'armada",
+    "reservedColumn": "Jamg'armaga",
+    "depositButton": "Jamg'armaga qo'yish",
+    "depositButtonAmount": "{amount} jamg'armaga qo'yish",
+    "depositChooseSource": "Jamg'armaga pul qo'yish uchun O'yin klubi yoki Barni tanlang.",
+    "depositHint": "Pul keyinga klubda qoladi. U shu oy foydasidan chiqadi, lekin yechib olinmaydi.",
+    "depositedToast": "Pul jamg'armaga qo'yildi.",
+    "goalProgress": "{title}: {percent}% yig'ildi",
+    "goalOf": "{target} dan {held}",
+    "setGoal": "Maqsad qo'yish",
+    "editGoal": "Maqsadni o'zgartirish",
+    "returnButton": "Foydaga qaytarish",
+    "empty": "Jamg'armada hozircha hech narsa yo'q.",
+    "emptyHint": "«Oylik foydani olish»da summani kiriting va «Jamg'armaga qo'yish»ni bosing.",
+    "activityLabel": "Jamg'arma tarixi",
+    "kinds": {
+      "deposit": "Jamg'armaga qo'yildi",
+      "return": "Foydaga qaytarildi",
+      "purchase": "Jamg'armadan to'landi"
+    },
+    "returnTitle": "Foydaga qaytarish",
+    "returnDescription": "Pul {month} uchun egasi foydasiga qo'shiladi va uni yechib olish mumkin.",
+    "returnAmount": "Qaytariladigan summa",
+    "returnLeft": "Jamg'armada: {amount}",
+    "returnTooLarge": "Ko'pi bilan {amount} kiriting.",
+    "returnSave": "Qaytarish",
+    "returnedToast": "Pul egasi foydasiga qaytarildi.",
+    "goalTitle": "Jamg'arma maqsadi · {source}",
+    "goalDescription": "Nima uchun yig'ayotganingiz. Jamg'arma kartasi qancha qolganini ko'rsatadi.",
+    "goalName": "Nima uchun",
+    "goalNamePlaceholder": "Masalan: 5 ta yangi PK",
+    "goalAmount": "Kerakli summa",
+    "goalRemove": "Maqsadni olib tashlash",
+    "goalSave": "Maqsadni saqlash",
+    "goalSavedToast": "Maqsad saqlandi.",
+    "goalRemovedToast": "Maqsad olib tashlandi.",
+    "deleteDepositConfirm": "{amount} jamg'armaga qo'yilganini o'chirasizmi? Pul o'sha oy egasi foydasiga qaytadi.",
+    "deleteReturnConfirm": "{amount} qaytarilganini o'chirasizmi? Pul jamg'armaga qaytadi.",
+    "deletedToast": "Jamg'arma yozuvi o'chirildi.",
+    "errors": {
+      "exceeds_available": "Bu shu oy foydasidan qolganidan ko'p.",
+      "insufficient": "Jamg'armada bundan kam pul bor.",
+      "already_used": "Bu pul allaqachon sarflangan, qaytarilgan yoki yechib olingan. Avval uni bekor qiling.",
+      "migration_required": "Jamg'arma uchun 136-ma'lumotlar bazasi migratsiyasi kerak. Avval uni qo'llang.",
+      "forbidden": "Jamg'armadan faqat klub egasi foydalana oladi.",
+      "failed": "Saqlab bo'lmadi. Internetni tekshirib, qayta urinib ko'ring."
+    },
+    "heroReserved": "Jamg'armaga qo'yildi:"
   }
 }

@@ -530,6 +530,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
           const result = await response.json().catch(() => null) as { error?: string; code?: string } | null;
           deleteError = result?.code === 'SALARY_PAYMENT_IMMUTABLE'
             ? t('salaryPaymentProtected')
+            : result?.code === 'SHORTAGE_IMMUTABLE'
+            ? t('shortageProtected')
             : result?.code === 'DAY_COLLECTED'
               ? tc('dayClosed')
               : response.status === 401 || response.status === 403
@@ -723,7 +725,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
 
   /** A payroll payment's method can be corrected too: its salary entry changes with it. */
   function canCorrectPaymentMethod(activity: MoneyReportActivity, date: string): boolean {
-    return isOwner && activity.source === 'expense' && Boolean(activity.id) && !collectionsByDate.has(date);
+    // A cash shortage's expense mirrors its shortage (135): it changes and goes only on Owner Profit.
+    return isOwner && activity.source === 'expense' && Boolean(activity.id) && activity.category !== 'shortage' && !collectionsByDate.has(date);
   }
 
   /** Methods this expense can use, plus the current one so a since-disabled method still displays. */
@@ -935,7 +938,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         }
         if (!isOwner) return null;
         const deleteKey = row.activity.id ? `${row.activity.source}:${row.activity.id}` : null;
-        const canDelete = row.activity.source !== 'debt_payment' && Boolean(row.activity.id);
+        const canDelete = row.activity.source !== 'debt_payment' && row.activity.category !== 'shortage' && Boolean(row.activity.id);
         if (!canDelete) return null;
         return (
           <IconButton

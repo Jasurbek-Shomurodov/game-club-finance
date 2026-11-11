@@ -449,7 +449,8 @@
     "collectionFilter": "Filter by collection",
     "collectionFilterAll": "All ({count})",
     "collectionFilterPending": "Not collected ({count})",
-    "collectionFilterCollected": "Collected ({count})"
+    "collectionFilterCollected": "Collected ({count})",
+    "shortageProtected": "A shortage's expense can only be deleted from Owner Profit, together with the shortage."
   },
   "dailyCash": {
     "title": "Daily Cash Entry",
@@ -814,7 +815,8 @@
       "discount": "Customer discounts & bonuses",
       "supplies": "Supplies & household goods",
       "investments": "Investments",
-      "other": "Other"
+      "other": "Other",
+      "shortage": "Cash shortage"
     },
     "errors": {
       "unauthorized": "Your session has expired. Sign in again and retry.",
@@ -829,7 +831,8 @@
       "serverError": "Something went wrong on the server. Try again in a moment.",
       "presetUnavailable": "This planned expense was archived or changed. Pick it again or choose another.",
       "dayCollected": "The money for this day was collected, so the day is closed. Pick another date.",
-      "insufficientBalance": "This payment method does not hold enough money for this expense."
+      "insufficientBalance": "This payment method does not hold enough money for this expense.",
+      "reserveInsufficient": "The reserve holds less than this expense in that payment method."
     },
     "preset": "Planned expense",
     "presetHelp": "Pick one to count this payment against its monthly plan.",
@@ -844,7 +847,11 @@
     "availableAmount": "Available: {amount}",
     "overBalance": "Only {amount} is left in this payment method.",
     "balancesHelp": "Each method shows the Game Club money it holds for the expense month; dollars show every dollar held.",
-    "balancesLoadError": "Could not load what each payment method holds."
+    "balancesLoadError": "Could not load what each payment method holds.",
+    "payFrom": "Pay from",
+    "payFromMonth": "This month's money",
+    "payFromReserve": "Reserve",
+    "reserveHint": "The reserve pays: this month's profit and method balances stay as they are."
   },
   "debts": {
     "title": "Debts",
@@ -1243,7 +1250,7 @@
     "availableForMethod": "Available in {method}",
     "noMethodAvailable": "No payment method has Game Club profit left for this month.",
     "dollars": "US dollars",
-    "dollarsHint": "Held: {held}. Shows the som moved into dollars this month, bought minus sold. Exchange back to som to withdraw.",
+    "dollarsHint": "Held {held} · exchange to withdraw",
     "unassignedMethod": "No payment method",
     "unassignedMethodHint": "Recorded before methods were tracked. Delete and withdraw again to assign one.",
     "methodMigrationRequired": "Withdrawing by payment method requires database migration 066. Apply it before recording a withdrawal.",
@@ -1270,7 +1277,11 @@
     "historyFilter": "Show withdrawals from",
     "historyEntries": "{count, plural, one {# entry} other {# entries}}",
     "noHistoryForSource": "Nothing withdrawn from this source yet.",
-    "withdrawnShare": "{percent}% of earnings withdrawn"
+    "withdrawnShare": "{percent}% of earnings withdrawn",
+    "takeAll": "Take all",
+    "takeAllLabel": "Fill in all available: {amount}",
+    "recordButtonAmount": "Withdraw {amount}",
+    "withdrawnOfEarned": "Withdrawn {withdrawn} of {earned} earned"
   },
   "calendar": {
     "selectDate": "Select date",
@@ -2049,7 +2060,9 @@
       "owner_profit_carryovers": "Profit carryover",
       "new_debts": "Debt",
       "debt_payments": "Debt payment",
-      "daily_cash_collections": "Collected day"
+      "daily_cash_collections": "Collected day",
+      "cash_shortages": "Cash shortage",
+      "owner_reserve_entries": "Owner reserve"
     },
     "fields": {
       "date": "Date",
@@ -2254,5 +2267,122 @@
         "body": "For questions about this policy, use the phone, email or Telegram contacts shown on pixelgaming.uz."
       }
     }
+  },
+  "cashShortages": {
+    "title": "Record a cash shortage",
+    "description": "Money that should be in the till but is missing. It is subtracted from that side's money and owner profit, like an expense.",
+    "addButton": "Shortage",
+    "date": "Date",
+    "source": "Whose money",
+    "sources": {
+      "game_club": "Game Club",
+      "bar": "Bar"
+    },
+    "method": "Missing from",
+    "amount": "Missing amount",
+    "amountHint": "Counted money minus what the till should hold.",
+    "reason": "Reason",
+    "reasons": {
+      "stolen": "Stolen",
+      "short_handover": "Handed over short",
+      "unknown": "Unknown"
+    },
+    "employee": "Who is responsible",
+    "employeeUnknown": "Nobody / not known",
+    "noEmployees": "Add staff in Salaries to name who is responsible.",
+    "recoverNow": "Take back from salary now",
+    "recoverHint": "Added as a fine on {name}'s salary. You can also recover it later.",
+    "recoverAll": "All",
+    "recoverTooLarge": "Enter at most {amount}.",
+    "comment": "What happened",
+    "commentPlaceholder": "For example: 300 000 missing from cash at the evening handover",
+    "save": "Record shortage",
+    "saveAmount": "Record shortage of {amount}",
+    "savedToast": "Shortage recorded.",
+    "sectionTitle": "Shortages · {month}",
+    "sectionDescription": "Money that went missing this month, what was taken back from salary, and what is actually lost. Already subtracted from the figures above.",
+    "empty": "No shortages this month.",
+    "missing": "Missing",
+    "recovered": "Recovered from salary",
+    "lost": "Actually lost",
+    "recoveredShort": "Recovered",
+    "lostShort": "Lost",
+    "removedEmployee": "Removed employee",
+    "heroLost": "Lost to shortages:",
+    "recoverButton": "Recover from salary",
+    "recoverTitle": "Recover from salary",
+    "recoverDescription": "The amount is added as a fine on {name}'s salary, so less is paid out.",
+    "recoverAmount": "Amount to recover",
+    "recoverLeft": "Still lost: {amount}",
+    "recoverSave": "Add fine",
+    "recoveredToast": "Fine added. The shortage is partly recovered.",
+    "deleteConfirm": "Delete the shortage of {amount} ({reason})? The money returns to that day's figures.",
+    "deletedToast": "Shortage deleted.",
+    "errors": {
+      "note_required": "Describe what happened in at least 5 words.",
+      "day_collected": "That day's money was already collected and the day is closed. Choose another date or remove the collection tick.",
+      "recovery_too_large": "That is more than is still lost.",
+      "no_employee": "Choose who is responsible before recovering from salary.",
+      "has_recoveries": "Delete the salary fines that recover this shortage in Salaries first.",
+      "migration_required": "Shortages need database migration 135. Apply it first.",
+      "forbidden": "Only the club owner can record shortages.",
+      "failed": "Could not save. Check your connection and try again."
+    }
+  },
+  "ownerReserve": {
+    "sectionTitle": "Reserve",
+    "sectionDescription": "Profit you set aside in the club instead of taking it home, to save for new PCs or repairs. Purchases paid from it do not reduce that month's profit.",
+    "sources": {
+      "game_club": "Game Club",
+      "bar": "Bar"
+    },
+    "held": "In the reserve",
+    "reservedColumn": "Into reserve",
+    "depositButton": "Put into reserve",
+    "depositButtonAmount": "Put {amount} into reserve",
+    "depositChooseSource": "Choose Game Club or Bar to put money into the reserve.",
+    "depositHint": "Keeps the money in the club for later. It leaves this month's profit but is not withdrawn.",
+    "depositedToast": "Money put into the reserve.",
+    "goalProgress": "{title}: {percent}% saved",
+    "goalOf": "{held} of {target}",
+    "setGoal": "Set a goal",
+    "editGoal": "Edit goal",
+    "returnButton": "Return to profit",
+    "empty": "Nothing in the reserve yet.",
+    "emptyHint": "Enter an amount in Withdraw monthly profit and choose Put into reserve.",
+    "activityLabel": "Reserve history",
+    "kinds": {
+      "deposit": "Put into reserve",
+      "return": "Returned to profit",
+      "purchase": "Paid from reserve"
+    },
+    "returnTitle": "Return to profit",
+    "returnDescription": "The money joins owner profit for {month}, where you can withdraw it.",
+    "returnAmount": "Amount to return",
+    "returnLeft": "In the reserve: {amount}",
+    "returnTooLarge": "Enter at most {amount}.",
+    "returnSave": "Return",
+    "returnedToast": "Money returned to owner profit.",
+    "goalTitle": "Reserve goal · {source}",
+    "goalDescription": "What you are saving for. The reserve card shows how close you are.",
+    "goalName": "Saving for",
+    "goalNamePlaceholder": "For example: 5 new PCs",
+    "goalAmount": "Target amount",
+    "goalRemove": "Remove goal",
+    "goalSave": "Save goal",
+    "goalSavedToast": "Goal saved.",
+    "goalRemovedToast": "Goal removed.",
+    "deleteDepositConfirm": "Delete this deposit of {amount}? The money goes back to that month's owner profit.",
+    "deleteReturnConfirm": "Delete this return of {amount}? The money goes back into the reserve.",
+    "deletedToast": "Reserve entry deleted.",
+    "errors": {
+      "exceeds_available": "That is more than is left of this month's profit.",
+      "insufficient": "The reserve holds less than that.",
+      "already_used": "This money has already been spent, returned or withdrawn. Undo that first.",
+      "migration_required": "The reserve needs database migration 136. Apply it first.",
+      "forbidden": "Only the club owner can use the reserve.",
+      "failed": "Could not save. Check your connection and try again."
+    },
+    "heroReserved": "Put into reserve:"
   }
 }

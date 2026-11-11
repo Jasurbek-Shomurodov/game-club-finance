@@ -16,9 +16,11 @@ export const EXPENSE_ERROR_CODES = [
   'INVALID_VALUES',
   'NOT_FOUND',
   'SALARY_PAYMENT_IMMUTABLE',
+  'SHORTAGE_IMMUTABLE',
   'PRESET_UNAVAILABLE',
   'DAY_COLLECTED',
   'INSUFFICIENT_BALANCE',
+  'RESERVE_INSUFFICIENT',
   'SERVER_ERROR',
 ] as const;
 
@@ -35,9 +37,11 @@ const ERRORS: Record<ExpenseErrorCode, { status: number; text: string }> = {
   INVALID_VALUES: { status: 400, text: 'Invalid expense values' },
   NOT_FOUND: { status: 404, text: 'Expense not found' },
   SALARY_PAYMENT_IMMUTABLE: { status: 409, text: 'Salary payments can only be removed from Salaries' },
+  SHORTAGE_IMMUTABLE: { status: 409, text: 'Cash shortages can only be removed from Owner Profit' },
   PRESET_UNAVAILABLE: { status: 409, text: 'The planned expense is archived or no longer matches this expense' },
   DAY_COLLECTED: { status: 409, text: 'The money for this day was collected; the day is closed' },
   INSUFFICIENT_BALANCE: { status: 409, text: 'The payment method does not hold enough money for this expense' },
+  RESERVE_INSUFFICIENT: { status: 409, text: 'The owner reserve holds less than this expense' },
   SERVER_ERROR: { status: 500, text: 'Expense change failed' },
 };
 
@@ -53,9 +57,13 @@ export function expenseErrorCode(error: { code?: string | null; message?: string
   // The 108 trigger: a manual expense needs a note of at least 5 words.
   if (isNoteRequiredError(error)) return 'NOTE_REQUIRED';
   if (/salary payments cannot be (deleted|edited)/i.test(message)) return 'SALARY_PAYMENT_IMMUTABLE';
+  // The 135 trigger: a shortage's expense moves and goes only with its shortage.
+  if (error.hint === 'shortage_expense') return 'SHORTAGE_IMMUTABLE';
   // The 091 trigger: an archived, foreign or mismatched planned expense.
   if (/expense preset is not available|does not match its preset/i.test(message)) return 'PRESET_UNAVAILABLE';
   // The 125 trigger: the payment method does not hold that much money.
+  // The 136 trigger: the owner reserve holds less than this purchase.
+  if (error.hint === 'reserve_insufficient') return 'RESERVE_INSUFFICIENT';
   if (error.hint === 'INSUFFICIENT_BALANCE' || /insufficient payment method balance/i.test(message)) return 'INSUFFICIENT_BALANCE';
   if (error.code === '42501') return 'FORBIDDEN';
   if (error.code === '23514') return 'CHECK_FAILED';

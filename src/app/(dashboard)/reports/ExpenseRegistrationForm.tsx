@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Building2, Save, WalletCards } from 'lucide-react';
+import { Building2, PiggyBank, Save, WalletCards } from 'lucide-react';
 import { PAYMENT_METHOD_ICONS } from '@/components/paymentMethodIcons';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
@@ -24,6 +24,8 @@ import { MANUAL_EXPENSE_CATEGORIES } from '@/lib/expenseCategories';
 import { createClient, mutateFinanceRequest } from '@/lib/supabase/client';
 import { fetchExpensePresets } from '@/lib/supabase/expensePresets';
 import { fetchExpenseMethodBalances, type ExpenseMethodBalances } from '@/lib/supabase/expenseBalances';
+import { fetchReserveHoldings, type ReserveHoldings } from '@/lib/supabase/ownerReserve';
+import { reserveExpenseMethod } from '@/lib/calculations/ownerReserve';
 import { expenseAmountFromInput, type ExpensePreset } from '@/lib/calculations/expensePlans';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { useBusinessToday } from '@/lib/useBusinessToday';
@@ -52,13 +54,15 @@ const EXPENSE_ERROR_KEYS: Record<string, string> = {
   PRESET_UNAVAILABLE: 'presetUnavailable',
   DAY_COLLECTED: 'dayCollected',
   INSUFFICIENT_BALANCE: 'insufficientBalance',
+  RESERVE_INSUFFICIENT: 'reserveInsufficient',
   SERVER_ERROR: 'serverError',
 };
 
 export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistrationFormProps) {
   const t = useTranslations('expenses');
   const tc = useTranslations('common');
-  const { selectedClubId, businessDayStartHour, enabledPaymentMethods } = useClub();
+  const { selectedClubId, businessDayStartHour, enabledPaymentMethods, role } = useClub();
+  const isOwner = role === 'owner';
   const businessToday = useBusinessToday(businessDayStartHour);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -77,6 +81,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     comment: '',
     preset_id: '',
     usd_rate: '',
+    from_reserve: false,
   }), [businessToday, enabledPaymentMethods]);
   const [form, setForm] = useState(emptyForm);
   // A date whose money was collected is closed (097); say so before saving.
@@ -100,7 +105,20 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
     selectedClubId ? fetchExpenseMethodBalances(createClient(), selectedClubId, form.date) : null
   ), [form.date, selectedClubId]);
   const balanceQuery = useClubQuery<ExpenseMethodBalances | null>(loadBalances, null);
-  const balances = form.payment_source === 'game_club' ? balanceQuery.data?.balances ?? null : null;
+  // Owners can pay from the reserve they saved (136): it holds money per side, and per method on the Game Club side.
+  const loadReserve = useCallback(async (): Promise<ReserveHoldings | null> => (
+    selectedClubId && isOwner ? fetchReserveHoldings(createClient(), selectedClubId) : null
+  ), [isOwner, selectedClubId]);
+  const reserveQuery = useClubQuery<ReserveHoldings | null>(loadReserve, null);
+  const reserve = reserveQuery.data;
+  const reserveTotal = reserve ? (form.payment_source === 'bar' ? reserve.bar.total : reserve.game_club.total) : 0;
+  const fromReserve = form.from_reserve && reserve !== null;
+  const reserveHeld = (method: ExpensePaymentMethod) => {
+    if (!reserve) return 0;
+    const bucket = reserveExpenseMethod(form.payment_source, method);
+    return bucket ? reserve.game_club[bucket] : reserve.bar.total;
+  };
+  const balances = !fromReserve && form.payment_source === 'game_club' ? balanceQuery.data?.balances ?? null : null;
 
   // Paid from the club's dollars: the amount is in dollars and a rate converts it to sums.
   const paysInDollars = form.payment_method === 'usd';
@@ -110,7 +128,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
   const usdAmount = paysInDollars ? parseDecimalInput(form.amount) : 0;
   const usdRate = paysInDollars ? parseDecimalInput(form.usd_rate) : 0;
   const dollarAmount = paysInDollars ? dollarExpenseAmount(usdAmount, usdRate) : null;
-  const available = balances ? balances[form.payment_method] : null;
+  const available = fromReserve ? reserveHeld(form.payment_method) : balances ? balances[form.payment_method] : null;
   const enteredAmount = paysInDollars ? usdAmount : expenseAmountFromInput(form.amount, plannedAmount) ?? 0;
   const overBalance = available !== null && enteredAmount > 0 && enteredAmount > available;
 
@@ -129,7 +147,9 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
   });
 
   // PlayStation money and dollars only pay Game Club expenses.
-  const paymentMethods = expensePaymentMethods(enabledPaymentMethods, form.payment_source);
+  // Dollars were converted at their own rate; the reserve holds sums, so it never pays in dollars.
+  const paymentMethods = expensePaymentMethods(enabledPaymentMethods, form.payment_source)
+    .filter((method) => !(form.from_reserve && method === 'usd'));
 
   // A payment method no longer on offer falls back to the club's default.
   useEffect(() => {
@@ -255,6 +275,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
           comment: form.comment.trim() || null,
           presetId: selectedPreset?.id ?? null,
           ...(paysInDollars ? { usdAmount, usdRate } : {}),
+          ...(fromReserve ? { fromReserve: true } : {}),
         }),
       });
 
@@ -268,6 +289,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
         setError(expenseErrorMessage(code));
         // Money was spent meanwhile: show what is left now.
         if (code === 'INSUFFICIENT_BALANCE') void balanceQuery.reload({ silent: true });
+        if (code === 'RESERVE_INSUFFICIENT') void reserveQuery.reload({ silent: true });
         // The plan was archived or changed meanwhile: drop it and show the current list.
         if (code === 'PRESET_UNAVAILABLE') {
           requestId.current = null;
@@ -283,6 +305,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
       // The inline form stays mounted between expenses; keep its plans and balances current.
       void presetQuery.reload({ silent: true });
       void balanceQuery.reload({ silent: true });
+      void reserveQuery.reload({ silent: true });
       setForm(emptyForm());
     } catch {
       setError(t('saveError'));
@@ -301,8 +324,8 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
   /** A method's name, with what it still holds underneath when Game Club money is limited. */
   function methodLabel(method: ExpensePaymentMethod) {
     const name = tc(`paymentMethods.${method}`);
-    if (!balances) return name;
-    const balance = balances[method];
+    if (!balances && !fromReserve) return name;
+    const balance = fromReserve ? reserveHeld(method) : balances![method];
     return (
       <span className="flex flex-col items-start leading-tight">
         <span>{name}</span>
@@ -380,6 +403,28 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
         />
       </Field>
 
+      {isOwner && reserve && (reserveTotal > 0 || form.from_reserve) ? (
+        <Field label={t('payFrom')} hint={form.from_reserve ? t('reserveHint') : undefined}>
+          <SegmentedControl
+            variant="soft"
+            label={t('payFrom')}
+            value={form.from_reserve ? 'reserve' : 'month'}
+            onChange={(value) => {
+              set('from_reserve', value === 'reserve');
+              if (value === 'reserve' && form.payment_method === 'usd') set('payment_method', defaultPaymentMethod(enabledPaymentMethods));
+            }}
+            options={[
+              { value: 'month', label: t('payFromMonth'), icon: <WalletCards size={16} aria-hidden="true" /> },
+              {
+                value: 'reserve',
+                label: `${t('payFromReserve')} · ${formatCurrency(reserveTotal)}`,
+                icon: <PiggyBank size={16} aria-hidden="true" />,
+              },
+            ]}
+          />
+        </Field>
+      ) : null}
+
       <Field label={t('paymentMethod')} hint={balances ? t('balancesHelp') : undefined}>
         {balanceQuery.error && form.payment_source === 'game_club' && (
           <LoadErrorAlert className="mb-2" retrying={balanceQuery.loading} onRetry={() => void balanceQuery.reload()}>
@@ -392,7 +437,7 @@ export default function ExpenseRegistrationForm({ onSaved }: ExpenseRegistration
           onChange={(method) => set('payment_method', method)}
           // Three or more labels do not fit one row on a phone.
           columns={paymentMethods.length > 2 ? 2 : undefined}
-          className={balances ? '[&>button]:min-h-14 [&>button]:justify-start [&>button]:px-3' : undefined}
+          className={balances || fromReserve ? '[&>button]:min-h-14 [&>button]:justify-start [&>button]:px-3' : undefined}
           options={paymentMethods.map((method) => ({
             value: method,
             label: methodLabel(method),

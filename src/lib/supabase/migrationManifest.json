@@ -2477,11 +2477,6 @@
         "name": "club_members_read_owner_profit_carryovers"
       },
       {
-        "kind": "functionBody",
-        "signature": "public.owner_source_earned_for_month(uuid,text,date)",
-        "md5": "709664166cd57271e3b73e762111b1c2"
-      },
-      {
         "kind": "function",
         "signature": "public.owner_profit_bucket_available(uuid,text,text,date)"
       },
@@ -2877,13 +2872,7 @@
   },
   {
     "file": "088_investments_expense_category.sql",
-    "probes": [
-      {
-        "kind": "constraint",
-        "table": "public.expenses",
-        "name": "expenses_category_allowed"
-      }
-    ]
+    "probes": []
   },
   {
     "file": "089_salary_deletion_reason.sql",
@@ -4277,11 +4266,6 @@
       },
       {
         "kind": "functionBody",
-        "signature": "public.owner_payment_method_earned_for_month(uuid,text,date)",
-        "md5": "f2d64ee370e74bc09e842903cfd5d577"
-      },
-      {
-        "kind": "functionBody",
         "signature": "public.get_owner_profit_snapshot_with_methods(uuid,date)",
         "md5": "f13640571a3178b3fdbbfaa1308346f0"
       },
@@ -4302,15 +4286,7 @@
       },
       {
         "kind": "function",
-        "signature": "public.expense_method_balance(uuid,text,date,uuid)"
-      },
-      {
-        "kind": "function",
         "signature": "public.get_expense_method_balances(uuid,date)"
-      },
-      {
-        "kind": "function",
-        "signature": "public.enforce_expense_method_balance()"
       }
     ]
   },
@@ -4411,6 +4387,318 @@
         "kind": "functionBody",
         "signature": "public.get_salary_profit_snapshot(uuid,date)",
         "md5": "3ad76fd38885e7d75bf26b6094138bea"
+      }
+    ]
+  },
+  {
+    "file": "135_cash_shortages.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.cash_shortages"
+      },
+      {
+        "kind": "column",
+        "table": "public.cash_shortages",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.cash_shortages",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.cash_shortages",
+        "column": "date"
+      },
+      {
+        "kind": "column",
+        "table": "public.cash_shortages",
+        "column": "payment_source"
+      },
+      {
+        "kind": "column",
+        "table": "public.cash_shortages",
+        "column": "payment_method"
+      },
+      {
+        "kind": "column",
+        "table": "public.cash_shortages",
+        "column": "amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.cash_shortages",
+        "column": "reason"
+      },
+      {
+        "kind": "column",
+        "table": "public.cash_shortages",
+        "column": "employee_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.cash_shortages",
+        "column": "comment"
+      },
+      {
+        "kind": "column",
+        "table": "public.cash_shortages",
+        "column": "created_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.cash_shortages",
+        "column": "created_at"
+      },
+      {
+        "kind": "relation",
+        "name": "public.cash_shortages_club_date"
+      },
+      {
+        "kind": "policy",
+        "table": "public.cash_shortages",
+        "name": "cash_shortages_owner_read"
+      },
+      {
+        "kind": "column",
+        "table": "public.expenses",
+        "column": "cash_shortage_id"
+      },
+      {
+        "kind": "relation",
+        "name": "public.expenses_cash_shortage_unique"
+      },
+      {
+        "kind": "column",
+        "table": "public.salary_entries",
+        "column": "cash_shortage_id"
+      },
+      {
+        "kind": "relation",
+        "name": "public.salary_entries_cash_shortage"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.expenses",
+        "name": "expenses_category_with_shortage"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.expenses",
+        "name": "expenses_cash_shortage_guard"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.cash_shortages",
+        "name": "record_entry_audit"
+      },
+      {
+        "kind": "function",
+        "signature": "public.protect_cash_shortage_expense()"
+      },
+      {
+        "kind": "function",
+        "signature": "public.cash_shortage_recovered(uuid,uuid)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.add_cash_shortage_fine(cash_shortages,uuid,numeric,text)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.record_cash_shortage(uuid,uuid,date,text,text,numeric,text,uuid,text,numeric,uuid)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.recover_cash_shortage(uuid,uuid,uuid,numeric)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.delete_cash_shortage(uuid,uuid)"
+      }
+    ]
+  },
+  {
+    "file": "136_owner_reserve.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.owner_reserve_entries"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_reserve_entries",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_reserve_entries",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_reserve_entries",
+        "column": "kind"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_reserve_entries",
+        "column": "period_month"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_reserve_entries",
+        "column": "source"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_reserve_entries",
+        "column": "payment_method"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_reserve_entries",
+        "column": "amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_reserve_entries",
+        "column": "comment"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_reserve_entries",
+        "column": "created_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_reserve_entries",
+        "column": "created_at"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_reserve_entries_club_month"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_reserve_goals"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_reserve_goals",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_reserve_goals",
+        "column": "source"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_reserve_goals",
+        "column": "title"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_reserve_goals",
+        "column": "target_amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_reserve_goals",
+        "column": "updated_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_reserve_goals",
+        "column": "updated_at"
+      },
+      {
+        "kind": "policy",
+        "table": "public.owner_reserve_entries",
+        "name": "owner_reserve_entries_read"
+      },
+      {
+        "kind": "policy",
+        "table": "public.owner_reserve_goals",
+        "name": "owner_reserve_goals_read"
+      },
+      {
+        "kind": "column",
+        "table": "public.expenses",
+        "column": "paid_from_reserve"
+      },
+      {
+        "kind": "relation",
+        "name": "public.expenses_paid_from_reserve"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.expenses",
+        "name": "expenses_reserve_guard"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.owner_reserve_entries",
+        "name": "record_entry_audit"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.owner_source_earned_for_month(uuid,text,date)",
+        "md5": "8f4f6201cf483fa320f7d55851b3ca08"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.owner_payment_method_earned_for_month(uuid,text,date)",
+        "md5": "7409b041ea2ab9a2295e34bf97c51c87"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.expense_method_balance(uuid,text,date,uuid)",
+        "md5": "367445eb0911aa0e2aef3bef5562b0cd"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.enforce_expense_method_balance()",
+        "md5": "479431182755c349f65b987246874660"
+      },
+      {
+        "kind": "function",
+        "signature": "public.reserve_expense_method(text,text)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_reserve_balance(uuid,text,text)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_reserve_month_effect(uuid,text,text,date)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.guard_reserve_expense()"
+      },
+      {
+        "kind": "function",
+        "signature": "public.move_owner_profit_to_reserve(uuid,uuid,date,text,text,numeric,text)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.return_owner_reserve(uuid,uuid,date,text,text,numeric,text)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.delete_owner_reserve_entry(uuid,uuid)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.get_owner_reserve_balances(uuid)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.set_owner_reserve_goal(uuid,text,text,numeric)"
       }
     ]
   }

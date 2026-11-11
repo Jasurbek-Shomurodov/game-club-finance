@@ -15,6 +15,24 @@ export function isTelegramReportTargetKey(value: string): value is TelegramRepor
   return TELEGRAM_REPORT_TARGET_ENV.some((target) => target.key === value);
 }
 
+/**
+ * Owners-only Telegram group per target, for messages admins must not see
+ * (cash shortages). Optional: without one, such messages are not sent at all.
+ */
+const OWNER_CHAT_ENV: Readonly<Record<TelegramReportTargetKey, string>> = {
+  pixel: 'TELEGRAM_PIXEL_OWNER_CHAT_ID',
+  main: 'TELEGRAM_MAIN_OWNER_CHAT_ID',
+  bunker: 'TELEGRAM_BUNKER_OWNER_CHAT_ID',
+};
+
+/** The club's owners-only group, or null. Never falls back to the club group, which admins read. */
+export function ownerChatId(clubId: string): string | null {
+  for (const { key, clubEnvName } of TELEGRAM_REPORT_TARGET_ENV) {
+    if (process.env[clubEnvName] === clubId) return process.env[OWNER_CHAT_ENV[key]]?.trim() || null;
+  }
+  return null;
+}
+
 /** Telegram group configured for a club, or null when the club has none. */
 export function targetChatId(clubId: string): string | null {
   for (const { clubEnvName, chatEnvName } of TELEGRAM_REPORT_TARGET_ENV) {

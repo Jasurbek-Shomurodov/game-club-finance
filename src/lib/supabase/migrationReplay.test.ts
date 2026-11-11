@@ -158,7 +158,7 @@ describe('expense category checks match the application lists', () => {
   };
 
   it('expenses allow every category and planned expenses every manual one (091, 093)', async () => {
-    expect(await allowed('expenses', 'expenses_category_allowed')).toEqual([...EXPENSE_CATEGORIES].sort());
+    expect(await allowed('expenses', 'expenses_category_with_shortage')).toEqual([...EXPENSE_CATEGORIES].sort());
     expect(await allowed('expense_presets', 'expense_presets_category_manual')).toEqual([...MANUAL_EXPENSE_CATEGORIES].sort());
   });
 });

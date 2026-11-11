@@ -7,11 +7,12 @@ export const MANUAL_EXPENSE_CATEGORIES = [
 
 /**
  * Every category an expense row may have. `salary` is written only by the
- * payroll flow (record_salary_entry), never chosen by hand. Migrations 068, 069 and 088
- * enforce this list in the database.
+ * payroll flow (record_salary_entry) and `shortage` only with a cash shortage
+ * (record_cash_shortage), never chosen by hand. Migrations 068, 069, 088 and
+ * 135 enforce this list in the database.
  */
 export const EXPENSE_CATEGORIES = [
-  'salary', ...MANUAL_EXPENSE_CATEGORIES,
+  'salary', ...MANUAL_EXPENSE_CATEGORIES, 'shortage',
 ] as const;
 
 export type KnownExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];

@@ -14,11 +14,14 @@ import {
   Save,
   Trash2,
   TrendingUp,
+  TriangleAlert,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { calculateFinancialReportTotals, calculateManualIncome } from '@/lib/calculations/dailyReport';
 import { canAccessFeature, canReadFinancialTotals, canReadStockCounts } from '@/lib/permissions';
 import ExpenseRegistrationForm from '../reports/ExpenseRegistrationForm';
+import { CashShortageForm } from '@/components/cash-shortages/CashShortageForm';
+import { fetchCashShortages, type ShortageEmployee } from '@/lib/supabase/cashShortages';
 import { loadDailyCashSummary, emptyDailyCashSummary, type DailyCashSummary } from '@/lib/supabase/dailyCashSummary';
 import { requestDailyCashDeletion } from '@/lib/dailyCashApi';
 import { calculateGameClubIncome } from '@/lib/calculations/dailyCash';
@@ -156,6 +159,7 @@ export default function DailyCashPage() {
   const t = useTranslations('dailyCash');
   const tc = useTranslations('common');
   const tr = useTranslations('reports');
+  const tsh = useTranslations('cashShortages');
   const { selectedClubId, role: currentRole, businessDayStartHour, enabledPaymentMethods, featureAccess } = useClub();
   const { locale } = useAppLocale();
   const { showToast, toastElement } = useToast();
@@ -163,6 +167,9 @@ export default function DailyCashPage() {
   const businessToday = useBusinessToday(businessDayStartHour);
   const [form, setForm] = useState<CashFormData>(() => emptyForm(businessToday));
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
+  /** Open shortage dialog with the employees it can name; null while closed. */
+  const [shortageDialog, setShortageDialog] = useState<{ employees: ShortageEmployee[] } | null>(null);
+  const [shortageOpening, setShortageOpening] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [now, setNow] = useState(() => new Date());
@@ -409,6 +416,26 @@ export default function DailyCashPage() {
     }
   }
 
+  /** Shortages are owner-only: load who can be held responsible, then open the form. */
+  async function openShortageDialog() {
+    if (!selectedClubId || shortageOpening) return;
+    const clubId = selectedClubId;
+    setShortageOpening(true);
+    try {
+      const data = await fetchCashShortages(createClient(), clubId);
+      if (currentClubId.current !== clubId) return;
+      if (!data.supported) {
+        showToast(tsh('errors.migration_required'), 'error');
+        return;
+      }
+      setShortageDialog({ employees: data.employees.filter((employee) => !employee.hidden) });
+    } catch {
+      if (currentClubId.current === clubId) showToast(tsh('errors.failed'), 'error');
+    } finally {
+      setShortageOpening(false);
+    }
+  }
+
   function handleReset() {
     setError('');
     setForm(entry ? entryToForm(entry) : emptyForm(form.date));
@@ -419,6 +446,16 @@ export default function DailyCashPage() {
       title={t('title')}
       action={(
         <div className="flex flex-wrap gap-2">
+          {isOwner && (
+            <Button
+              variant="outline"
+              onClick={() => void openShortageDialog()}
+              loading={shortageOpening}
+              icon={<TriangleAlert size={18} className="text-danger-500" aria-hidden="true" />}
+            >
+              {tsh('addButton')}
+            </Button>
+          )}
           {canAccessFeature(currentRole, featureAccess, 'expenses') && (
             <Button variant="outline" onClick={() => setExpenseDialogOpen(true)} icon={<ReceiptText size={18} aria-hidden="true" />}>
               {tr('registerExpense')}
@@ -628,6 +665,33 @@ export default function DailyCashPage() {
           }}
         />
       </Modal>
+
+      {isOwner && selectedClubId ? (
+        <Modal
+          open={shortageDialog !== null}
+          onClose={() => setShortageDialog(null)}
+          title={tsh('title')}
+          description={tsh('description')}
+          size="xl"
+        >
+          {shortageDialog ? (
+            <CashShortageForm
+              clubId={selectedClubId}
+              defaultDate={form.date}
+              maxDate={businessToday}
+              enabledPaymentMethods={enabledPaymentMethods}
+              employees={shortageDialog.employees}
+              onCancel={() => setShortageDialog(null)}
+              onSaved={async () => {
+                setShortageDialog(null);
+                showToast(tsh('savedToast'));
+                // A shortage is an expense: the day's profit tiles change.
+                await refreshSummary(form.date);
+              }}
+            />
+          ) : null}
+        </Modal>
+      ) : null}
 
       {toastElement}
       {confirmDialog}

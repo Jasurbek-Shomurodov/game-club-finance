@@ -37,6 +37,12 @@ Configure these only in trusted server/deployment environments:
 - At least one complete `TELEGRAM_<TARGET>_CHAT_ID` and
   `TELEGRAM_<TARGET>_CLUB_ID` pair
 
+Optional: `TELEGRAM_<TARGET>_OWNER_CHAT_ID`, an owners-only group for messages
+admins must not see. Today that is the cash-shortage notice (`/api/cash-shortages`,
+migration 135). Without it the notice is not sent at all; it never falls back to
+the club group (`ownerChatId` in `clubChat.ts`). Create a Telegram group with
+only the owners and the bot, then set its id here and redeploy.
+
 Supported target keys are `pixel`, `main`, and `bunker`. `CRON_SECRET` must be a
 header-safe random string of at least 16 characters and must match the value
 stored in Supabase Vault.

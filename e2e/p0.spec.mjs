@@ -438,10 +438,74 @@ test('OWN-006 unspent dollars show on Owner Profit, and the methods plus dollars
   await expect(row('Game Club').first()).toContainText(uzs(expected.gameClubMoneyLeft));
   await expect(row('Cash')).toContainText(uzs(280_000));
   await expect(row('US dollars')).toContainText(uzs(1_000_000));
-  await expect(row('US dollars')).toContainText('Held: $80');
+  await expect(row('US dollars')).toContainText('Held $80');
   // Dollars cannot be withdrawn: the picker still offers only what is left in cash.
   await expect(page.getByRole('radio', { name: /Cash/ })).toContainText(uzs(280_000));
   await expect(page.getByRole('radio', { name: /US dollars/ })).toHaveCount(0);
+});
+
+test('OWN-007 a cash shortage recorded on Owner Profit leaves the cash it was missing from and shows as actually lost', async ({ page }) => {
+  await page.goto('/money-taken');
+  const table = page.getByRole('table').first();
+  const row = name => table.getByRole('row').filter({ hasText: name });
+  await expect(row('Cash')).toContainText(uzs(1_280_000));
+
+  const shortages = page.locator('section').filter({ has: page.getByRole('heading', { name: /^Shortages · / }) });
+  await expect(shortages).toContainText('No shortages this month.');
+  await shortages.getByRole('button', { name: 'Shortage' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('radio', { name: /Cash/ }).click();
+  await dialog.getByLabel('Missing amount (UZS)').fill('200000');
+  await dialog.getByRole('radio', { name: 'Handed over short' }).click();
+  await dialog.getByLabel('What happened').fill('Cash was short at the evening handover');
+  await dialog.getByRole('button', { name: `Record shortage of ${uzs(200_000)} UZS` }).click();
+  await expect(dialog).toBeHidden();
+
+  // A shortage is an expense in every balance: cash and Game Club profit both lose it.
+  await expect(row('Cash')).toContainText(uzs(1_080_000));
+  await expect(row('Game Club').first()).toContainText(uzs(expected.gameClubMoneyLeft - 200_000));
+  await expect(shortages).toContainText('Handed over short');
+  await expect(shortages).toContainText('Cash was short at the evening handover');
+  await expect(shortages.getByText('Actually lost', { exact: true })).toBeVisible();
+  // Its expense is removed only together with the shortage, never on its own.
+  const rpc = await restAs(accounts.owner, 'POST', 'rpc/update_expense_category', {
+    p_club_id: clubs.arcade.id, p_expense_id: crypto.randomUUID(), p_category: 'shortage',
+  });
+  expect(rpc.ok).toBe(false);
+});
+
+test('OWN-008 profit put into the reserve leaves the month, and a purchase paid from the reserve does not touch it', async ({ page }) => {
+  await page.goto('/money-taken');
+  const table = page.getByRole('table').first();
+  const row = name => table.getByRole('row').filter({ hasText: name });
+  await expect(row('Cash')).toContainText(uzs(1_280_000));
+
+  await page.getByRole('radio', { name: /Cash/ }).first().click();
+  await page.getByLabel('Withdrawal amount (UZS)').fill('500000');
+  await page.getByRole('button', { name: `Put ${uzs(500_000)} UZS into reserve` }).click();
+  await expect(page.getByText('Money put into the reserve.')).toBeVisible();
+
+  // The cash it came from now has 500 000 less left to take, shown in its own column.
+  await expect(row('Cash')).toContainText(uzs(780_000));
+  await expect(table.getByRole('columnheader', { name: 'Into reserve' })).toBeVisible();
+  const reserve = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Reserve' }) });
+  await expect(reserve).toContainText(uzs(500_000));
+
+  // A purchase from the reserve: it is an expense, but the month keeps its profit.
+  const bought = await page.request.post('/api/expenses', { data: {
+    id: crypto.randomUUID(), clubId: clubs.arcade.id, date: today, amount: 300_000, category: 'equipment',
+    paymentMethod: 'cash', paymentSource: 'game_club', comment: 'New gaming mouse and keyboards for hall', fromReserve: true,
+  } });
+  expect(bought.status()).toBe(201);
+  const tooMuch = await page.request.post('/api/expenses', { data: {
+    id: crypto.randomUUID(), clubId: clubs.arcade.id, date: today, amount: 300_000, category: 'equipment',
+    paymentMethod: 'cash', paymentSource: 'game_club', comment: 'Another set of keyboards for hall', fromReserve: true,
+  } });
+  expect((await tooMuch.json()).code).toBe('RESERVE_INSUFFICIENT');
+  await page.reload();
+  await expect(row('Cash')).toContainText(uzs(780_000));
+  await expect(reserve).toContainText('Paid from reserve');
+  await expect(reserve).toContainText(uzs(200_000));
 });
 
 test('SAL-007 an employee\'s history is its own page, and every salary tab has its own address', async ({ page, context }) => {

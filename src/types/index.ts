@@ -15,7 +15,7 @@ export type IncomeCategory = 'game_time' | 'food' | 'drinks' | 'other';
 export type ExpenseCategory =
   | 'rent' | 'salary' | 'electricity' | 'internet' | 'repair'
   | 'cleaning' | 'food_drinks' | 'marketing' | 'equipment' | 'tax'
-  | 'correction' | 'discount' | 'supplies' | 'investments' | 'other';
+  | 'correction' | 'discount' | 'supplies' | 'investments' | 'shortage' | 'other';
 export type ExpensePaymentSource = 'game_club' | 'bar';
 export const OWNER_WITHDRAWAL_SOURCES = ['game_club', 'bar'] as const;
 export type OwnerWithdrawalSource = (typeof OWNER_WITHDRAWAL_SOURCES)[number];
@@ -225,6 +225,10 @@ export interface Expense {
   telegram_message_id: number | null;
   /** The salary payment this expense mirrors (059); null for ordinary expenses. */
   salary_entry_id: string | null;
+  /** Set on the expense a cash shortage writes (migration 135). */
+  cash_shortage_id?: string | null;
+  /** Paid from the owner reserve (migration 136), not from the month's money. */
+  paid_from_reserve?: boolean;
   /** The planned expense this payment counts against (091); null when none was picked. */
   preset_id: string | null;
   created_by: string | null;
@@ -293,6 +297,53 @@ export interface OwnerProfitCarryover {
   created_at: string;
 }
 
+export const CASH_SHORTAGE_REASONS = ['stolen', 'short_handover', 'unknown'] as const;
+export type CashShortageReason = (typeof CASH_SHORTAGE_REASONS)[number];
+/** Money a shortage can be missing from: Game Club methods include PlayStation, Bar does not. */
+export type CashShortageMethod = 'cash' | 'terminal' | 'card' | 'playstation';
+
+/** Money missing from the till (migration 135); owners read it, it writes its own `shortage` expense. */
+export interface CashShortage {
+  id: string;
+  club_id: string;
+  date: string;
+  payment_source: OwnerWithdrawalSource;
+  payment_method: CashShortageMethod;
+  amount: number;
+  reason: CashShortageReason;
+  /** The salary employee held responsible, when known. */
+  employee_id: string | null;
+  comment: string;
+  created_by: string;
+  created_at: string;
+}
+
+/** Owner profit set aside in the club (migration 136): a deposit leaves a month, a return goes back into one. */
+export interface OwnerReserveEntry {
+  id: string;
+  club_id: string;
+  kind: 'deposit' | 'return';
+  /** First day of the month whose owner profit the money leaves or joins. */
+  period_month: string;
+  source: OwnerWithdrawalSource;
+  /** Required for Game Club; null for Bar. */
+  payment_method: OwnerWithdrawalPaymentMethod | null;
+  amount: number;
+  comment: string | null;
+  created_by: string;
+  created_at: string;
+}
+
+/** What the owner is saving for on one side, e.g. "New PCs: 30 000 000" (migration 136). */
+export interface OwnerReserveGoal {
+  club_id: string;
+  source: OwnerWithdrawalSource;
+  title: string;
+  target_amount: number;
+  updated_by: string | null;
+  updated_at: string;
+}
+
 /** Ledgers whose edits and deletes are kept in the entry history (migration 111). */
 export type AuditedTable =
   | 'daily_cash_entries'
@@ -303,7 +354,9 @@ export type AuditedTable =
   | 'owner_profit_carryovers'
   | 'new_debts'
   | 'debt_payments'
-  | 'daily_cash_collections';
+  | 'daily_cash_collections'
+  | 'cash_shortages'
+  | 'owner_reserve_entries';
 
 /** One edit or delete of a finance entry (migration 111); owners read it, nobody writes it. */
 export interface EntryAuditLog {

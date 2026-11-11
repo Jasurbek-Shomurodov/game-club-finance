@@ -36,6 +36,8 @@ interface ExpenseRequestBody {
   /** Dollar expenses (124) only: dollars spent and UZS per dollar; `amount` is then computed from them. */
   usdAmount?: unknown;
   usdRate?: unknown;
+  /** Owner reserve (136) pays instead of the month's money; owners only, never dollars. */
+  fromReserve?: unknown;
 }
 
 interface ValidExpenseRequestBody {
@@ -50,6 +52,7 @@ interface ValidExpenseRequestBody {
   presetId?: string | null;
   usdAmount?: number | null;
   usdRate?: number | null;
+  fromReserve?: boolean;
 }
 
 /** Positive, below the numeric(16,2) column limit, at most two decimals. */
@@ -78,6 +81,8 @@ function isValidBody(body: ExpenseRequestBody): body is ValidExpenseRequestBody 
     && PAYMENT_SOURCES.includes(body.paymentSource as (typeof PAYMENT_SOURCES)[number])
     && (body.comment === null || body.comment === undefined || (typeof body.comment === 'string' && body.comment.length <= 300))
     && (body.presetId === null || body.presetId === undefined || isId(body.presetId))
+    && (body.fromReserve === undefined || typeof body.fromReserve === 'boolean')
+    && !(body.fromReserve === true && body.paymentMethod === 'usd')
     // Dollars and rate come exactly with a dollar expense.
     && (body.paymentMethod === 'usd'
       ? isCents(body.usdAmount) && isCents(body.usdRate)
@@ -97,6 +102,7 @@ function failure(scope: string, context: Record<string, unknown>, error: Databas
 function sameExpense(existing: Record<string, unknown>, row: Record<string, unknown>) {
   return Number(existing.amount) === Number(row.amount)
     && Number(existing.usd_amount ?? 0) === Number(row.usd_amount ?? 0)
+    && Boolean(existing.paid_from_reserve) === Boolean(row.paid_from_reserve)
     && ['date', 'category', 'payment_method', 'payment_source', 'comment', 'preset_id'].every((field) => (existing[field] ?? null) === (row[field] ?? null));
 }
 
@@ -193,6 +199,9 @@ export async function POST(request: Request) {
     ...(body.presetId ? { preset_id: body.presetId } : {}),
     // Sent only on dollar expenses, so clubs without migration 124 keep saving the rest.
     ...(dollars ? { usd_amount: dollars.amount, usd_rate: dollars.rate } : {}),
+    // Sent only when chosen, so clubs without migration 136 keep saving expenses.
+    // The 136 trigger checks the owner and what the reserve holds.
+    ...(body.fromReserve === true ? { paid_from_reserve: true } : {}),
   };
 
   let expense: Expense;
@@ -260,6 +269,8 @@ export async function DELETE(request: Request) {
   // Payroll-linked expenses are removed from Salaries, where a deletion reason
   // is required; the audited RPC then removes this expense atomically.
   if (expense.salary_entry_id) return expenseErrorResponse('SALARY_PAYMENT_IMMUTABLE');
+  // A shortage's expense is removed with its shortage on Owner Profit (135).
+  if (expense.cash_shortage_id) return expenseErrorResponse('SHORTAGE_IMMUTABLE');
 
   // Remove the ledger row first: a failed or refused delete must leave its
   // Telegram message in place.
@@ -360,6 +371,8 @@ export async function PATCH(request: Request) {
     .maybeSingle();
   if (expenseError) return failure('lookup', context, expenseError);
   if (!expense) return expenseErrorResponse('NOT_FOUND');
+  // A shortage's expense mirrors its shortage and is never corrected on its own (135).
+  if (expense.cash_shortage_id) return expenseErrorResponse('SHORTAGE_IMMUTABLE');
   const salaryPayment = Boolean(expense.salary_entry_id);
   // A payroll payment keeps its salary entry's date and category; only its method can be corrected.
   if (salaryPayment && ((date !== null && expense.date !== date) || (category !== null && expense.category !== category))) {
