@@ -125,14 +125,12 @@ describe('owner reserve (136)', () => {
     await expect(deposit(31, 10, 'cash', 'bar')).rejects.toMatchObject({ code: '23514' });
   });
 
-  it('is owner-only to use and to read through the balance RPC, and sets one goal per side', async () => {
+  it('is owner-only to use and to read through the balance RPC, and has no goals after 138', async () => {
     await expect(deposit(40, 10, 'cash', 'game_club', admin)).rejects.toMatchObject({ code: '42501' });
     await expect(call('select get_owner_reserve_balances($1)', [club], admin)).rejects.toMatchObject({ code: '42501' });
-    await call('select set_owner_reserve_goal($1,$2,$3,$4)', [club, 'game_club', 'New PCs', 30_000_000]);
-    await call('select set_owner_reserve_goal($1,$2,$3,$4)', [club, 'game_club', 'Five new PCs', 45_000_000]);
-    const goals = await db.query<{ title: string; target_amount: string }>('select title, target_amount from public.owner_reserve_goals');
-    expect(goals.rows.map((row) => [row.title, Number(row.target_amount)])).toEqual([['Five new PCs', 45_000_000]]);
-    await call('select set_owner_reserve_goal($1,$2,$3,$4)', [club, 'game_club', null, null]);
-    expect((await db.query('select 1 from public.owner_reserve_goals')).rows).toEqual([]);
+    const leftovers = await db.query<{ goals: string | null; setter: string | null }>(
+      "select to_regclass('public.owner_reserve_goals')::text as goals, to_regprocedure('public.set_owner_reserve_goal(uuid,text,text,numeric)')::text as setter",
+    );
+    expect(leftovers.rows[0]).toEqual({ goals: null, setter: null });
   });
 });

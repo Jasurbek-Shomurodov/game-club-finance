@@ -4574,48 +4574,9 @@
         "name": "public.owner_reserve_entries_club_month"
       },
       {
-        "kind": "relation",
-        "name": "public.owner_reserve_goals"
-      },
-      {
-        "kind": "column",
-        "table": "public.owner_reserve_goals",
-        "column": "club_id"
-      },
-      {
-        "kind": "column",
-        "table": "public.owner_reserve_goals",
-        "column": "source"
-      },
-      {
-        "kind": "column",
-        "table": "public.owner_reserve_goals",
-        "column": "title"
-      },
-      {
-        "kind": "column",
-        "table": "public.owner_reserve_goals",
-        "column": "target_amount"
-      },
-      {
-        "kind": "column",
-        "table": "public.owner_reserve_goals",
-        "column": "updated_by"
-      },
-      {
-        "kind": "column",
-        "table": "public.owner_reserve_goals",
-        "column": "updated_at"
-      },
-      {
         "kind": "policy",
         "table": "public.owner_reserve_entries",
         "name": "owner_reserve_entries_read"
-      },
-      {
-        "kind": "policy",
-        "table": "public.owner_reserve_goals",
-        "name": "owner_reserve_goals_read"
       },
       {
         "kind": "column",
@@ -4679,14 +4640,6 @@
       {
         "kind": "function",
         "signature": "public.return_owner_reserve(uuid,uuid,date,text,text,numeric,text)"
-      },
-      {
-        "kind": "function",
-        "signature": "public.get_owner_reserve_balances(uuid)"
-      },
-      {
-        "kind": "function",
-        "signature": "public.set_owner_reserve_goal(uuid,text,text,numeric)"
       }
     ]
   },
@@ -4720,6 +4673,16 @@
       {
         "kind": "function",
         "signature": "public.collection_day_method_money(uuid,text,date)"
+      }
+    ]
+  },
+  {
+    "file": "138_drop_owner_reserve_goals.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.get_owner_reserve_balances(uuid)",
+        "md5": "9e72c8cc86aefcb62b0a51a2d964e145"
       }
     ]
   }
