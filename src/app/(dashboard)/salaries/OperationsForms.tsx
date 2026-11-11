@@ -18,11 +18,11 @@ import {
   StatTile,
   Textarea,
 } from '@/components/PresentationFoundation';
-import { salaryBalance, type KpiBasis, type SalaryEmployee, type SalaryMonth } from '@/lib/calculations/salaries';
+import { KPI_BASES, salaryBalance, type KpiBasis, type SalaryEmployee, type SalaryMonth } from '@/lib/calculations/salaries';
 import { formatCurrency } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import type { EntryPaymentMethod } from '@/types';
-import { employeeRoles, knownEmployeeRole, useSalaryText, type EntryKind, type SavingTarget, type SetupMode } from './shared';
+import { employeeRoles, KPI_BASIS_LABELS, kpiBasisChange, knownEmployeeRole, useSalaryText, type EntryKind, type SavingTarget, type SetupMode } from './shared';
 
 export interface EmployeeFormState {
   id: string;
@@ -179,17 +179,18 @@ function OperationForm({
           <Field label={t('kpiPercent')} htmlFor="salary-kpi">
             <Input id="salary-kpi" type="number" required min="0" max="100" step="0.01" inputMode="decimal" value={employeeForm.kpi} onChange={(e) => setEmployeeForm({ ...employeeForm, kpi: e.target.value })} onWheel={(event) => event.currentTarget.blur()} trailingAddon="%" />
           </Field>
-            <Field label={t('kpiBasis')} htmlFor="salary-kpi-basis" hint={t(employeeForm.kpi_basis === 'owner_profit' ? 'kpiBasisOwnerHelp' : 'kpiBasisOverallHelp')} className="sm:col-span-2">
-              <Select id="salary-kpi-basis" value={employeeForm.kpi_basis} onChange={(e) => setEmployeeForm({ ...employeeForm, kpi_basis: e.target.value as KpiBasis })}>
-                <option value="overall_profit">{t('kpiBasisOverall')}</option>
-                <option value="owner_profit">{t('kpiBasisOwner')}</option>
+            <Field label={t('kpiBasis')} htmlFor="salary-kpi-basis" hint={t(KPI_BASIS_LABELS[employeeForm.kpi_basis].help)} className="sm:col-span-2">
+              <Select id="salary-kpi-basis" value={employeeForm.kpi_basis} onChange={(e) => setEmployeeForm({ ...employeeForm, ...kpiBasisChange(e.target.value as KpiBasis) })}>
+                {KPI_BASES.map((basis) => <option key={basis} value={basis}>{t(KPI_BASIS_LABELS[basis].option)}</option>)}
               </Select>
             </Field>
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 sm:col-span-2" role="group" aria-label={t('kpiPools')}>
-              <span className="text-sm font-medium text-gray-700">{t('kpiPools')}</span>
-              <Checkbox label={t('poolGameClub')} checked={employeeForm.kpi_game_club} onChange={(e) => setEmployeeForm({ ...employeeForm, kpi_game_club: e.target.checked })} />
-              <Checkbox label={t('poolBar')} checked={employeeForm.kpi_bar} onChange={(e) => setEmployeeForm({ ...employeeForm, kpi_bar: e.target.checked })} />
-            </div>
+            {employeeForm.kpi_basis !== 'game_club_income' && (
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 sm:col-span-2" role="group" aria-label={t('kpiPools')}>
+                <span className="text-sm font-medium text-gray-700">{t('kpiPools')}</span>
+                <Checkbox label={t('poolGameClub')} checked={employeeForm.kpi_game_club} onChange={(e) => setEmployeeForm({ ...employeeForm, kpi_game_club: e.target.checked })} />
+                <Checkbox label={t('poolBar')} checked={employeeForm.kpi_bar} onChange={(e) => setEmployeeForm({ ...employeeForm, kpi_bar: e.target.checked })} />
+              </div>
+            )}
           </>
         )}
         {(setupMode === 'new' || setupMode === 'profile') && (

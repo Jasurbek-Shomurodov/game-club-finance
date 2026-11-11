@@ -14,9 +14,9 @@ import {
   SectionHeading,
   Select,
 } from '@/components/PresentationFoundation';
-import { rateInForce, type KpiBasis, type SalaryEmployee, type SalaryRate } from '@/lib/calculations/salaries';
+import { KPI_BASES, rateInForce, type KpiBasis, type SalaryEmployee, type SalaryRate } from '@/lib/calculations/salaries';
 import { formatCurrencyInput, parseCurrencyInput } from '@/lib/formatters';
-import { employeeRoles, knownEmployeeRole } from './shared';
+import { employeeRoles, KPI_BASIS_LABELS, kpiBasisChange, knownEmployeeRole } from './shared';
 
 export interface EmployeeEditState {
   employee: SalaryEmployee;
@@ -162,18 +162,19 @@ export function EmployeeEditDialog({ edit, saving, error, onChange, onClose, onS
                 <Field label={t('kpiPercent')} htmlFor="salary-edit-kpi">
                   <Input id="salary-edit-kpi" type="number" required min="0" max="100" step="0.01" inputMode="decimal" value={edit.kpi} onChange={(event) => set({ kpi: event.target.value })} onWheel={(event) => event.currentTarget.blur()} trailingAddon="%" />
                 </Field>
-                <Field label={t('kpiBasis')} htmlFor="salary-edit-kpi-basis" hint={t(edit.kpi_basis === 'owner_profit' ? 'kpiBasisOwnerHelp' : 'kpiBasisOverallHelp')}>
-                  <Select id="salary-edit-kpi-basis" value={edit.kpi_basis} onChange={(event) => set({ kpi_basis: event.target.value as KpiBasis })}>
-                    <option value="overall_profit">{t('kpiBasisOverall')}</option>
-                    <option value="owner_profit">{t('kpiBasisOwner')}</option>
+                <Field label={t('kpiBasis')} htmlFor="salary-edit-kpi-basis" hint={t(KPI_BASIS_LABELS[edit.kpi_basis].help)}>
+                  <Select id="salary-edit-kpi-basis" value={edit.kpi_basis} onChange={(event) => set(kpiBasisChange(event.target.value as KpiBasis))}>
+                    {KPI_BASES.map((basis) => <option key={basis} value={basis}>{t(KPI_BASIS_LABELS[basis].option)}</option>)}
                   </Select>
                 </Field>
               </div>
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-2" role="group" aria-label={t('kpiPools')}>
-                <span className="text-sm font-medium text-gray-700">{t('kpiPools')}</span>
-                <Checkbox label={t('poolGameClub')} checked={edit.kpi_game_club} onChange={(event) => set({ kpi_game_club: event.target.checked })} />
-                <Checkbox label={t('poolBar')} checked={edit.kpi_bar} onChange={(event) => set({ kpi_bar: event.target.checked })} />
-              </div>
+              {edit.kpi_basis !== 'game_club_income' && (
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-2" role="group" aria-label={t('kpiPools')}>
+                  <span className="text-sm font-medium text-gray-700">{t('kpiPools')}</span>
+                  <Checkbox label={t('poolGameClub')} checked={edit.kpi_game_club} onChange={(event) => set({ kpi_game_club: event.target.checked })} />
+                  <Checkbox label={t('poolBar')} checked={edit.kpi_bar} onChange={(event) => set({ kpi_bar: event.target.checked })} />
+                </div>
+              )}
             </section>
 
             <section className="border-t border-gray-100 pt-5">

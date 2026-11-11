@@ -76,6 +76,15 @@ describe('POST /api/salaries', () => {
     expect((await response.json()).notificationQueued).toBe(true);
   });
 
+  it('locks Game Club income KPI to the Game Club pool and rejects unknown bases', async () => {
+    const { rpc } = mockSupabase();
+    const response = await post({ action: 'change_term', clubId: CLUB, employeeId: EMPLOYEE, kind: 'kpi', amount: 10, kpiBasis: 'game_club_income', kpiGameClub: true, kpiBar: true });
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('change_salary_term', expect.objectContaining({ p_kpi_basis: 'game_club_income', p_kpi_game_club: true, p_kpi_bar: false }));
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining('Доход игрового клуба') }));
+    expect((await post({ action: 'change_term', clubId: CLUB, employeeId: EMPLOYEE, kind: 'kpi', amount: 10, kpiBasis: 'revenue' })).status).toBe(400);
+  });
+
   it('uses the activate and deactivate functions', async () => {
     const { rpc } = mockSupabase();
     await post({ action: 'set_active', clubId: CLUB, employeeId: EMPLOYEE, active: true });

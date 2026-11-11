@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/client';
 import { fetchAllRows } from '@/lib/supabase/pagination';
-import type { SalaryEmployee, SalaryEntry, SalaryProfitMonth, SalaryRate } from '@/lib/calculations/salaries';
+import type { SalaryDailyIncome, SalaryEmployee, SalaryEntry, SalaryProfitMonth, SalaryRate } from '@/lib/calculations/salaries';
 
 type Db = ReturnType<typeof createClient>;
 
@@ -35,6 +35,8 @@ export async function loadSalaries(clubId: string, throughDate: string) {
   return {
     employees: employees.data ?? [], rates: rates.data ?? [], entries: entries.data ?? [], deleterNames,
     monthlyProfit: (profit.data as { monthlyBalances?: SalaryProfitMonth[] } | null)?.monthlyBalances ?? [],
+    // Absent before migration 134; only the game_club_income KPI basis uses it.
+    dailyIncome: (profit.data as { dailyGameClubIncome?: SalaryDailyIncome[] } | null)?.dailyGameClubIncome ?? [],
   };
 }
 

@@ -3934,13 +3934,7 @@
   },
   {
     "file": "109_salary_kpi_excludes_investments.sql",
-    "probes": [
-      {
-        "kind": "functionBody",
-        "signature": "public.get_salary_profit_snapshot(uuid,date)",
-        "md5": "60d4a90c947a15765183e374bf85fa54"
-      }
-    ]
+    "probes": []
   },
   {
     "file": "110_daily_report_cron_admin_domain.sql",
@@ -4393,6 +4387,30 @@
       {
         "kind": "function",
         "signature": "public.activate_salary_employee(uuid,uuid,date)"
+      }
+    ]
+  },
+  {
+    "file": "133_pixel_duplicate_internet_expense.sql",
+    "probes": []
+  },
+  {
+    "file": "134_salary_kpi_game_club_income.sql",
+    "probes": [
+      {
+        "kind": "constraint",
+        "table": "public.salary_rates",
+        "name": "salary_rates_kpi_basis_check"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.salary_rates",
+        "name": "salary_rates_kpi_income_pool_check"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_salary_profit_snapshot(uuid,date)",
+        "md5": "3ad76fd38885e7d75bf26b6094138bea"
       }
     ]
   }

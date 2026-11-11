@@ -21,8 +21,17 @@ export interface SalaryEmployee {
 /**
  * `overall_profit`: profit earned every day (Owner Profit "earned" cash, before withdrawals).
  * `owner_profit`: only money the owner has actually withdrawn.
+ * `game_club_income`: each day's Game Club income, before any expense (migration 134).
  */
-export type KpiBasis = 'owner_profit' | 'overall_profit';
+export type KpiBasis = 'owner_profit' | 'overall_profit' | 'game_club_income';
+
+export const KPI_BASES: readonly KpiBasis[] = ['overall_profit', 'owner_profit', 'game_club_income'];
+
+/** One business date's Game Club income (cash + terminal + card + PlayStation). */
+export interface SalaryDailyIncome {
+  date: string;
+  amount: number;
+}
 
 export const DEFAULT_KPI_BASIS: KpiBasis = 'overall_profit';
 
@@ -84,16 +93,22 @@ const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 10
  *    Payment timing therefore cannot change KPI or deduct salary twice.
  *  - owner_profit: the amount the owner withdrew from the ticked pools in the
  *    month; KPI is the percentage of that amount.
+ *  - game_club_income: the percentage of each active day's Game Club income,
+ *    credited on that day. Nothing is deducted and it forms no group.
  * Groups are independent: overlapping pools are not netted against each other.
  * Current/historical months remain estimates when underlying finance is edited.
  */
-export function calculateSalaries({ employees, rates, entries, monthlyProfit, throughDate }: {
+export function calculateSalaries({ employees, rates, entries, monthlyProfit, dailyIncome = [], throughDate }: {
   employees: SalaryEmployee[];
   rates: SalaryRate[];
   entries: SalaryEntry[];
   monthlyProfit: SalaryProfitMonth[];
+  /** Game Club income per day, used only by the `game_club_income` basis. */
+  dailyIncome?: SalaryDailyIncome[];
   throughDate: string;
 }): Record<string, SalaryMonth[]> {
+  const incomeOn = new Map<string, number>();
+  for (const row of dailyIncome) incomeOn.set(row.date, (incomeOn.get(row.date) ?? 0) + Number(row.amount));
   const result: Record<string, SalaryMonth[]> = Object.fromEntries(employees.map((e) => [e.id, []]));
   const firstDate = employees.reduce((date, e) => e.joined_on < date ? e.joined_on : date, throughDate);
   const profits = new Map(monthlyProfit.map((row) => [row.period_month.slice(0, 7), row]));
@@ -114,6 +129,8 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, th
       let lastGroup = null as string | null;
       const configs = new Map<string, { basis: KpiBasis; gameClub: boolean; bar: boolean; share: number; days: number }>();
       const spans: { key: string; start: string; days: number; percent: number }[] = [];
+      // KPI on daily Game Club income, credited on the day the income came in.
+      const income = { kpi: 0, base: 0, share: 0, byDay: {} as Record<string, number> };
       const terms = employeeRates.get(employee.id) ?? [];
       terms.forEach((rate, index) => {
         if (!rate.active) return;
@@ -126,6 +143,19 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, th
         weightedPercent += share;
         activeDays += days;
         const basis = rate.kpi_basis ?? DEFAULT_KPI_BASIS;
+        if (basis === 'game_club_income') {
+          if (rate.effective_date <= end) lastGroup = null;
+          income.share += share;
+          for (let day = 0; day < days; day += 1) {
+            const date = format(addDays(parseISO(start), day), 'yyyy-MM-dd');
+            const taken = incomeOn.get(date) ?? 0;
+            const amount = money(Math.max(0, taken) * Number(rate.kpi_percent) / 100);
+            income.base += taken;
+            income.kpi += amount;
+            if (amount > 0) income.byDay[date] = amount;
+          }
+          return;
+        }
         const gameClub = rate.kpi_game_club ?? true;
         const bar = rate.kpi_bar ?? true;
         const key = `${basis}:${gameClub ? 1 : 0}${bar ? 1 : 0}`;
@@ -140,7 +170,9 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, th
       const sum = (kind: SalaryEntry['kind']) => money(employeeEntries.filter((e) => e.kind === kind).reduce((s, e) => s + Number(e.amount), 0));
       const bonus = sum('bonus');
       const fine = sum('fine');
-      return { employee, base: money(base), bonus, fine, paid: sum('payment'), weightedPercent, activeDays, configs, spans, lastGroup, fixed: money(base) + bonus - fine };
+      // Income-basis days count in activeDays, so their share of fixed pay is
+      // deducted from no profit group.
+      return { employee, base: money(base), bonus, fine, paid: sum('payment'), weightedPercent, activeDays, configs, spans, lastGroup, income, fixed: money(base) + bonus - fine };
     });
 
     const profitRow = profits.get(month);
@@ -174,9 +206,12 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, th
         kpi += base * config.share / 100;
         if (config.share > primaryShare) { primaryShare = config.share; primaryBase = base; }
       }
-      kpi = money(kpi);
+      const profitKpi = money(kpi);
+      if (row.income.share > primaryShare) primaryBase = row.income.base;
+      kpi = money(profitKpi + row.income.kpi);
       const earned = money(row.base + row.bonus - row.fine + kpi);
-      const kpiByDay = spreadKpiOverDays(kpi, row.spans.map((span) => ({ ...span, perDay: (groups.get(span.key)?.base ?? 0) * span.percent / elapsedDays / 100 })));
+      const kpiByDay = spreadKpiOverDays(profitKpi, row.spans.map((span) => ({ ...span, perDay: (groups.get(span.key)?.base ?? 0) * span.percent / elapsedDays / 100 })));
+      for (const [date, amount] of Object.entries(row.income.byDay)) kpiByDay[date] = money((kpiByDay[date] ?? 0) + amount);
       result[row.employee.id].push({ month, base: row.base, bonus: row.bonus, fine: row.fine, paid: row.paid, kpi, earned, balance: money(earned - row.paid), kpiProfit: money(primaryBase), effectiveKpiPercent: row.weightedPercent, kpiByDay });
     }
   }

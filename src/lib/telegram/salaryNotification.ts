@@ -1,6 +1,6 @@
 import { formatCurrency, formatDateShort } from '../formatters';
 
-export type KpiSettings = { basis: 'owner_profit' | 'overall_profit'; gameClub: boolean; bar: boolean };
+export type KpiSettings = { basis: 'owner_profit' | 'overall_profit' | 'game_club_income'; gameClub: boolean; bar: boolean };
 
 export type SalaryNotificationInput = {
   addedBy: string;
@@ -24,7 +24,7 @@ const ROLES: Record<string, string> = { Manager: 'Менеджер', Admin: 'А�
 const SALARY_TYPES = { daily: 'Дневная зарплата', monthly: 'Месячная зарплата' } as const;
 const money = (value: number) => `${formatCurrency(value)} сум`;
 const percent = (value: number) => `${Number(value)}%`;
-const BASES = { owner_profit: 'Прибыль владельца (выведенные деньги)', overall_profit: 'Общая прибыль (ежедневно)' } as const;
+const BASES = { owner_profit: 'Прибыль владельца (выведенные деньги)', overall_profit: 'Общая прибыль (ежедневно)', game_club_income: 'Доход игрового клуба (каждый день)' } as const;
 const kpiLines = (kpi: number, settings: KpiSettings) => {
   const pools = [settings.gameClub && 'Игровой клуб', settings.bar && 'Бар'].filter(Boolean).join(' + ');
   return [`KPI: ${percent(kpi)}`, `База KPI: ${BASES[settings.basis]}`, `Источник прибыли: ${pools}`];

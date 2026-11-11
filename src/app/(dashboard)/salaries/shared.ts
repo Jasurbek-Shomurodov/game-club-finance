@@ -1,10 +1,22 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import type { SalaryEmployeeStatus, SalaryEntry, SalaryRate } from '@/lib/calculations/salaries';
+import { DEFAULT_KPI_BASIS, type KpiBasis, type SalaryEmployeeStatus, type SalaryEntry, type SalaryRate } from '@/lib/calculations/salaries';
 import { formatCurrency } from '@/lib/formatters';
 import { isSalaryErrorCode, type SalaryErrorCode } from '@/app/api/salaries/errors';
 import { mutateFinanceRequest } from '@/lib/supabase/client';
+
+/** Message keys of each KPI basis: option label, field hint and short summary. */
+export const KPI_BASIS_LABELS = {
+  overall_profit: { option: 'kpiBasisOverall', help: 'kpiBasisOverallHelp', short: 'kpiBasisOverallShort' },
+  owner_profit: { option: 'kpiBasisOwner', help: 'kpiBasisOwnerHelp', short: 'kpiBasisOwnerShort' },
+  game_club_income: { option: 'kpiBasisIncome', help: 'kpiBasisIncomeHelp', short: 'kpiBasisIncomeShort' },
+} as const satisfies Record<KpiBasis, { option: string; help: string; short: string }>;
+
+/** Choosing Game Club income locks the pools to the Game Club alone. */
+export const kpiBasisChange = (basis: KpiBasis) => (basis === 'game_club_income'
+  ? { kpi_basis: basis, kpi_game_club: true, kpi_bar: false }
+  : { kpi_basis: basis });
 
 export const employeeRoles = ['Manager', 'Admin', 'Cleaner'] as const;
 
@@ -76,7 +88,7 @@ export function useSalaryText() {
     },
     kpiSummary: (rate: Pick<SalaryRate, 'kpi_basis' | 'kpi_game_club' | 'kpi_bar'> | undefined) => {
       const pools = [(rate?.kpi_game_club ?? true) && t('poolGameClub'), (rate?.kpi_bar ?? true) && t('poolBar')].filter(Boolean).join(' + ');
-      return `${t((rate?.kpi_basis ?? 'overall_profit') === 'owner_profit' ? 'kpiBasisOwnerShort' : 'kpiBasisOverallShort')} · ${pools}`;
+      return `${t(KPI_BASIS_LABELS[rate?.kpi_basis ?? DEFAULT_KPI_BASIS].short)} · ${pools}`;
     },
     currency: (value: number) => `${formatCurrency(value)} ${tc('currency')}`,
     /** Maps a stable API error code to a translated message; database text is never shown. */

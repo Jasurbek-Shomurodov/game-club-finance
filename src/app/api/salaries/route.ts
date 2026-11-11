@@ -1,5 +1,6 @@
 import { after } from 'next/server';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import { KPI_BASES, type KpiBasis } from '@/lib/calculations/salaries';
 import { isMissingDatabaseFunction } from '@/lib/supabase/errors';
 import { createClient } from '@/lib/supabase/server';
 import { actorName } from '@/lib/telegram/actorName';
@@ -33,13 +34,15 @@ function kpiSettings(body: Body): { basis: string | null; gameClub: boolean | nu
   const basis = body.kpiBasis ?? null;
   const gameClub = body.kpiGameClub ?? null;
   const bar = body.kpiBar ?? null;
-  if ((basis !== null && basis !== 'owner_profit' && basis !== 'overall_profit')
+  if ((basis !== null && !(KPI_BASES as readonly string[]).includes(basis as string))
     || (gameClub !== null && typeof gameClub !== 'boolean') || (bar !== null && typeof bar !== 'boolean')
     || (gameClub === false && bar === false)) throw new BadRequest();
-  return { basis, gameClub, bar };
+  // Game Club income KPI always draws from the Game Club alone (migration 134).
+  if (basis === 'game_club_income') return { basis: 'game_club_income', gameClub: true, bar: false };
+  return { basis: basis as string | null, gameClub, bar };
 }
 const withDefaults = (settings: ReturnType<typeof kpiSettings>) => ({
-  basis: (settings.basis ?? 'overall_profit') as 'owner_profit' | 'overall_profit',
+  basis: (settings.basis ?? 'overall_profit') as KpiBasis,
   gameClub: settings.gameClub ?? true,
   bar: settings.bar ?? true,
 });

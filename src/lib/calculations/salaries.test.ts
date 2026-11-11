@@ -166,6 +166,30 @@ describe('KPI basis and profit pools', () => {
   });
 });
 
+describe('Game Club income KPI basis', () => {
+  const income = { ...rate, amount: 0, kpi_basis: 'game_club_income' as const, kpi_game_club: true, kpi_bar: false };
+  const days = [{ date: '2026-09-01', amount: 5000000 }, { date: '2026-09-02', amount: 2000000 }, { date: '2026-09-10', amount: 3000000 }, { date: '2026-09-11', amount: 9000000 }];
+  it('pays the percentage of each day income on that day, before any expense', () => {
+    const row = calculate({ rates: [income], dailyIncome: days, monthlyProfit: [profit(-50000000)] }).one[0];
+    expect(row).toMatchObject({ kpi: 1000000, kpiProfit: 10000000, earned: 1000000 });
+    expect(row.kpiByDay).toEqual({ '2026-09-01': 500000, '2026-09-02': 200000, '2026-09-10': 300000 });
+  });
+  it('counts only active days of the income rate and is not shared with profit groups', () => {
+    const second = { ...employee, id: 'two' };
+    const rows = calculate({
+      employees: [employee, second],
+      rates: [{ ...income, effective_date: '2026-09-02' }, { ...rate, id: 'r2', employee_id: 'two' }],
+      dailyIncome: days,
+      monthlyProfit: [profit(12000)],
+    });
+    expect(rows.one[0].kpi).toBe(500000);
+    expect(rows.two[0]).toMatchObject({ base: 1000, kpi: 1000, kpiProfit: 10000 });
+  });
+  it('earns nothing without income data, so older databases show no income KPI', () => {
+    expect(calculate({ rates: [income] }).one[0].kpi).toBe(0);
+  });
+});
+
 describe('rate in force and employee status', () => {
   const rates: SalaryRate[] = [
     { ...rate, id: 'old', effective_date: '2026-09-01' },

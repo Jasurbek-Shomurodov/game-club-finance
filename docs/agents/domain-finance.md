@@ -260,6 +260,12 @@ Each salary rate carries a KPI basis (migration 070) and the pools it draws from
   `max(0, P) / (1 + r)`; each employee receives their fraction of it.
 - `owner_profit`: only money the owner actually withdrew from the ticked pools
   in the month; KPI is the percentage of that amount, with no extra deduction.
+- `game_club_income` (migration 134): the percentage of each active day's Game
+  Club income (cash + terminal + card + PlayStation in `daily_cash_entries`),
+  credited on that day with no expense, salary or bar deduction. It always uses
+  the Game Club pool alone (a check constraint enforces it), forms no group and
+  does not change other employees' KPI. `get_salary_profit_snapshot` returns the
+  daily totals as `dailyGameClubIncome` (per date, never per payment method).
 
 Employees sharing a basis and pools form a group; groups are independent, so
 overlapping pools with different groups are not netted against each other.

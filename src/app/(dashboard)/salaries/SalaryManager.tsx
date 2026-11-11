@@ -67,7 +67,7 @@ import {
   type SetupMode,
 } from './shared';
 
-const emptyData: Awaited<ReturnType<typeof loadSalaries>> = { employees: [], rates: [], entries: [], deleterNames: {}, monthlyProfit: [] };
+const emptyData: Awaited<ReturnType<typeof loadSalaries>> = { employees: [], rates: [], entries: [], deleterNames: {}, monthlyProfit: [], dailyIncome: [] };
 
 const VIEW_PATHS: Record<SalaryView, string> = { employees: '/salaries/employees', operations: '/salaries/operations', history: '/salaries/history' };
 
