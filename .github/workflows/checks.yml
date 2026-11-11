@@ -42,7 +42,9 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      # When apt cannot reach the Ubuntu mirrors, install Chromium alone: the runner image already has its
+      # libraries, and only optional fonts are missing.
+      - run: npx playwright install --with-deps chromium || npx playwright install chromium
       - run: npm run test:e2e:full
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
