@@ -253,7 +253,8 @@ deposits that day's Game Club money, one deposit per method tagged with
 `collection_date`: income + debt payments -/+ exchanges - Game Club expenses not
 paid from the reserve (`collection_day_method_money`), capped at the month's
 `owner_profit_bucket_available` for that method. A method that is short deposits
-nothing; Bar money is untouched; days ticked before 137 were not back-filled.
+nothing; Bar money is untouched. Migration 139 back-filled the days ticked
+before 137 the same way, oldest first, crediting whoever ticked the day.
 Removing the tick deletes those deposits and is refused (`reserve_already_used`,
 HTTP 409) when the reserve has since spent or returned the money. A collection
 deposit cannot be deleted on its own (`reserve_collection_entry`).

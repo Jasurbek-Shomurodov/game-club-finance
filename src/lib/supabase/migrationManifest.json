@@ -4685,5 +4685,14 @@
         "md5": "9e72c8cc86aefcb62b0a51a2d964e145"
       }
     ]
+  },
+  {
+    "file": "139_backfill_collection_reserve.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.owner_reserve_entries_collection_method"
+      }
+    ]
   }
 ]

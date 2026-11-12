@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-/** Migration 137 on the full replayed schema: collected money goes into the reserve. */
+/** Migrations 137 and 139 on the full replayed schema: collected money goes into the reserve. */
 
 const migrationsDir = resolve(process.cwd(), 'migrations');
 const readMigration = (name: string) => readFileSync(resolve(migrationsDir, name), 'utf8')
@@ -103,5 +103,17 @@ describe('collected money goes into the reserve (137)', () => {
     expect((await db.query('select 1 from public.daily_cash_collections where date = $1', ['2024-08-03'])).rows).toEqual([]);
     expect(await reserve()).toBe(850);
     expect(await available()).toBe(150);
+  });
+
+  it('back-fills a day collected before 137, capped and credited to who ticked it, once (139)', async () => {
+    // A tick from before 137: the collection row with no deposit.
+    await db.query('insert into public.daily_cash_collections (club_id, date, collected_by) values ($1,$2,$3)', [club, '2024-08-03', admin]);
+    await db.exec(readMigration('139_backfill_collection_reserve.sql'));
+    // The day has 300 cash, but the month has only 150 left after the withdrawal.
+    expect(await collectionDeposits('2024-08-03')).toEqual([['cash', 150]]);
+    expect(await num('select created_by::text = $1 from public.owner_reserve_entries where collection_date = $2', [admin, '2024-08-03'])).toBe(1);
+    await db.exec(readMigration('139_backfill_collection_reserve.sql'));
+    expect(await collectionDeposits('2024-08-03')).toEqual([['cash', 150]]);
+    expect(await available()).toBe(0);
   });
 });
