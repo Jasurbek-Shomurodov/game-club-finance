@@ -115,3 +115,33 @@ describe('117 anonymous payload', () => {
     await db.exec('reset role');
   });
 });
+
+describe('140 club Yandex Maps place', () => {
+  const yandexMigration = sql('140_showcase_yandex_maps_url.sql');
+
+  it('publishes the saved place, sets both Pixel branches and only accepts Yandex Maps links', async () => {
+    await db.exec(yandexMigration);
+    await db.exec(yandexMigration);
+    await actAs('anon');
+    const empty = (await db.query<{ p: Record<string, unknown> }>("select public.get_public_showcase('neon-arena') as p")).rows[0].p;
+    expect(empty.yandex_maps_url).toBeNull();
+    await db.exec(`reset role; update club_showcases set yandex_maps_url = 'https://yandex.uz/maps/org/neon/123/'`);
+    await actAs('anon');
+    const saved = (await db.query<{ p: Record<string, unknown> }>("select public.get_public_showcase('neon-arena') as p")).rows[0].p;
+    expect(saved.yandex_maps_url).toBe('https://yandex.uz/maps/org/neon/123/');
+    await db.exec('reset role');
+    await expect(db.query(`update club_showcases set yandex_maps_url = 'https://evil.example/maps/'`)).rejects.toThrow(/yandex_maps_url/);
+    await expect(db.query(`update club_showcases set yandex_maps_url = 'javascript:alert(1)'`)).rejects.toThrow(/yandex_maps_url/);
+  });
+
+  it('fills a Pixel branch that has no place yet and keeps one already saved', async () => {
+    await db.exec(`update club_showcases set slug = 'main-game-club', yandex_maps_url = null`);
+    await db.exec(yandexMigration);
+    expect((await db.query<{ u: string }>('select yandex_maps_url as u from club_showcases')).rows[0].u)
+      .toBe('https://yandex.uz/maps/org/pixel_gaming/76261965061/');
+    await db.exec(`update club_showcases set yandex_maps_url = 'https://yandex.uz/maps/org/other/1/'`);
+    await db.exec(yandexMigration);
+    expect((await db.query<{ u: string }>('select yandex_maps_url as u from club_showcases')).rows[0].u)
+      .toBe('https://yandex.uz/maps/org/other/1/');
+  });
+});

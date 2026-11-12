@@ -110,6 +110,21 @@ export function normalizeYoutubeUrl(value: string | null | undefined): string | 
   return normalizeExternalUrl(trimmed);
 }
 
+const YANDEX_MAPS_HOST = /^(?:www\.)?yandex\.(?:uz|ru|com|kz|by)$/;
+
+/**
+ * A Yandex Maps place link (e.g. yandex.uz/maps/org/club/123/), or null for
+ * anything else. Matches the club_showcases_yandex_maps_url check in migration 140.
+ */
+export function normalizeYandexMapsUrl(value: string | null | undefined): string | null {
+  const url = normalizeExternalUrl(value);
+  if (!url) return null;
+  const parsed = new URL(url);
+  if (!YANDEX_MAPS_HOST.test(parsed.hostname) || !parsed.pathname.startsWith('/maps/')) return null;
+  parsed.protocol = 'https:';
+  return parsed.toString();
+}
+
 /** Matches the *_email_format checks in migration 104. */
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -138,6 +153,7 @@ export interface ShowcaseSettingsForm {
   telegram_url: string;
   instagram_url: string;
   youtube_url: string;
+  yandex_maps_url: string;
   sort_order: string;
 }
 
@@ -147,6 +163,7 @@ export type ShowcaseSettingsError =
   | 'telegram_invalid'
   | 'instagram_invalid'
   | 'youtube_invalid'
+  | 'yandex_maps_invalid'
   | 'email_invalid'
   | 'image_invalid';
 
@@ -174,6 +191,7 @@ export function showcaseSettingsForm(showcase: ClubShowcase | null, clubName: st
     telegram_url: showcase?.telegram_url ?? '',
     instagram_url: showcase?.instagram_url ?? '',
     youtube_url: showcase?.youtube_url ?? '',
+    yandex_maps_url: showcase?.yandex_maps_url ?? '',
     sort_order: String(showcase?.sort_order ?? 0),
   };
 }
@@ -181,6 +199,7 @@ export function showcaseSettingsForm(showcase: ClubShowcase | null, clubName: st
 export function validateShowcaseSettings(form: ShowcaseSettingsForm): ShowcaseSettingsError | null {
   if (!SHOWCASE_SLUG_PATTERN.test(form.slug)) return 'slug_invalid';
   if (!isSortOrder(form.sort_order)) return 'sort_order_invalid';
+  if (form.yandex_maps_url.trim() && !normalizeYandexMapsUrl(form.yandex_maps_url)) return 'yandex_maps_invalid';
   return validateContactLinks(form);
 }
 
@@ -200,6 +219,7 @@ export function buildShowcaseSettingsPayload(form: ShowcaseSettingsForm) {
     telegram_url: normalizeTelegramUrl(form.telegram_url),
     instagram_url: normalizeInstagramUrl(form.instagram_url),
     youtube_url: normalizeYoutubeUrl(form.youtube_url),
+    yandex_maps_url: normalizeYandexMapsUrl(form.yandex_maps_url),
     sort_order: Number(form.sort_order.trim()),
   };
 }
@@ -478,6 +498,8 @@ export interface PublicShowcase {
   telegram_url: string | null;
   instagram_url: string | null;
   youtube_url: string | null;
+  /** The club's own Yandex Maps place; the map menu searches the address without it. */
+  yandex_maps_url: string | null;
   games: PublicShowcaseGame[];
   zones: PublicShowcaseZone[];
   offers: PublicShowcaseOffer[];
@@ -524,6 +546,7 @@ export function parsePublicShowcase(raw: unknown, locale = 'ru'): PublicShowcase
     telegram_url: safeUrl(data.telegram_url),
     instagram_url: safeUrl(data.instagram_url),
     youtube_url: safeUrl(data.youtube_url),
+    yandex_maps_url: typeof data.yandex_maps_url === 'string' ? normalizeYandexMapsUrl(data.yandex_maps_url) : null,
     games: list(data.games).flatMap((game) => {
       const title = text(game.title);
       const id = text(game.id);
@@ -820,13 +843,17 @@ export interface MapLinks {
   google: string;
 }
 
-/** Search links for a club's address in Yandex Maps and Google Maps; null without an address. */
-export function mapLinks(club: Pick<PublicShowcase, 'club_name' | 'address'>): MapLinks | null {
+/**
+ * Links for a club's address in Yandex Maps and Google Maps; null without an
+ * address. Yandex opens the club's saved place when there is one: its text
+ * search guesses, landing on the building, another club or a "typo fixed" list.
+ */
+export function mapLinks(club: Pick<PublicShowcase, 'club_name' | 'address'> & { yandex_maps_url?: string | null }): MapLinks | null {
   const address = club.address?.trim();
   if (!address) return null;
   const query = encodeURIComponent(`${club.club_name}, ${address}`);
   return {
-    yandex: `https://yandex.uz/maps/?text=${query}`,
+    yandex: normalizeYandexMapsUrl(club.yandex_maps_url) ?? `https://yandex.uz/maps/?text=${query}`,
     google: `https://www.google.com/maps/search/?api=1&query=${query}`,
   };
 }

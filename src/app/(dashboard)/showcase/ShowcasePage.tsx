@@ -304,6 +304,9 @@ export default function ShowcasePage() {
                   <Field label={t('address')} htmlFor="showcase-address">
                     <Input id="showcase-address" value={settings.address} maxLength={160} placeholder={selectedClub?.address ?? undefined} onChange={(e) => setField('address', e.target.value)} />
                   </Field>
+                  <Field label={t('yandexMaps')} htmlFor="showcase-yandex-maps" hint={t('yandexMapsHint')}>
+                    <Input id="showcase-yandex-maps" type="url" inputMode="url" value={settings.yandex_maps_url} maxLength={300} placeholder="yandex.uz/maps/org/…" onChange={(e) => setField('yandex_maps_url', e.target.value)} />
+                  </Field>
                   <Field label={t('openingHours')} htmlFor="showcase-hours">
                     <Input id="showcase-hours" value={settings.opening_hours} maxLength={80} placeholder={t('openingHoursPlaceholder')} onChange={(e) => setField('opening_hours', e.target.value)} />
                   </Field>

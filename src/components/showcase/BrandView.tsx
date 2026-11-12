@@ -125,7 +125,7 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
           ...bookable.map((club) => ({ href: club.telegram_url as string, label: t('bookTelegramClub', { club: club.club_name }), external: true })),
         ]}
         locations={brand.clubs.flatMap((club) => (club.address
-          ? [{ label: club.club_name, clubName: club.club_name, address: club.address, phone: club.phone, hours: club.opening_hours }]
+          ? [{ label: club.club_name, clubName: club.club_name, address: club.address, yandexMapsUrl: club.yandex_maps_url, phone: club.phone, hours: club.opening_hours }]
           : []))}
       />
     </div>

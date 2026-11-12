@@ -16,6 +16,7 @@ export interface FooterLocation {
   label: string | null;
   clubName: string;
   address: string;
+  yandexMapsUrl?: string | null;
   /** A chain lists each club's own phone and hours under its address. */
   phone?: string | null;
   hours?: string | null;
@@ -163,7 +164,7 @@ export async function ShowcaseFooter({ name, logoUrl, description, hours, phone,
             <h2 className="sc-display text-sm font-bold uppercase tracking-[0.15em] text-white">{t('footerContact')}</h2>
             <ul className="mt-5 space-y-4">
               {locations.map((location) => {
-                const links = mapLinks({ club_name: location.clubName, address: location.address });
+                const links = mapLinks({ club_name: location.clubName, address: location.address, yandex_maps_url: location.yandexMapsUrl });
                 return (
                   <ContactItem key={`${location.clubName}-${location.address}`} icon={<MapPin size={16} aria-hidden="true" />}>
                     {location.label && <span className="block text-xs font-semibold uppercase tracking-wider text-white/40">{location.label}</span>}

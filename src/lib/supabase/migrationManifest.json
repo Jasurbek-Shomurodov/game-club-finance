@@ -4139,11 +4139,6 @@
         "kind": "policy",
         "table": "public.showcase_brands",
         "name": "showcase_brand_update_club_owner"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.public_showcase_payload(uuid)",
-        "md5": "e168db7d81247770fbf555113389c06c"
       }
     ]
   },
@@ -4692,6 +4687,21 @@
       {
         "kind": "relation",
         "name": "public.owner_reserve_entries_collection_method"
+      }
+    ]
+  },
+  {
+    "file": "140_showcase_yandex_maps_url.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.club_showcases",
+        "column": "yandex_maps_url"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.public_showcase_payload(uuid)",
+        "md5": "cfdc0eeec8fd1dc8ba361be747acd6e7"
       }
     ]
   }

@@ -4,6 +4,7 @@ import {
   openStatus,
   normalizeEmail,
   normalizeYoutubeUrl,
+  normalizeYandexMapsUrl,
   totalConsoleCount,
   mapLinks,
   buildShowcaseOfferPayload,
@@ -307,6 +308,25 @@ describe('map links', () => {
       google: 'https://www.google.com/maps/search/?api=1&query=Pixel%20Gaming%2C%20Matbuotchilar%2017',
     });
     expect(mapLinks({ club_name: 'X', address: '  ' })).toBeNull();
+  });
+
+  it('opens the saved Yandex place instead of guessing from the address', () => {
+    const place = 'https://yandex.uz/maps/org/pixel_gaming/76261965061/';
+    expect(mapLinks({ club_name: 'Pixel', address: 'Zargarlik 30A', yandex_maps_url: place })?.yandex).toBe(place);
+    expect(mapLinks({ club_name: 'Pixel', address: 'Zargarlik 30A', yandex_maps_url: 'https://evil.example/maps/' })?.yandex)
+      .toBe('https://yandex.uz/maps/?text=Pixel%2C%20Zargarlik%2030A');
+  });
+
+  it('accepts only Yandex Maps links for the saved place', () => {
+    expect(normalizeYandexMapsUrl('yandex.uz/maps/org/pixel_gaming/76261965061/')).toBe('https://yandex.uz/maps/org/pixel_gaming/76261965061/');
+    expect(normalizeYandexMapsUrl('http://www.yandex.ru/maps/-/CHu1abc')).toBe('https://www.yandex.ru/maps/-/CHu1abc');
+    expect(normalizeYandexMapsUrl('https://yandex.uz/search/?text=x')).toBeNull();
+    expect(normalizeYandexMapsUrl('https://notyandex.uz/maps/')).toBeNull();
+    expect(normalizeYandexMapsUrl('javascript:alert(1)')).toBeNull();
+    const form = showcaseSettingsForm(null, 'Neon');
+    expect(validateShowcaseSettings({ ...form, yandex_maps_url: 'https://maps.google.com/x' })).toBe('yandex_maps_invalid');
+    expect(buildShowcaseSettingsPayload({ ...form, yandex_maps_url: ' yandex.uz/maps/org/a/1/ ' }).yandex_maps_url).toBe('https://yandex.uz/maps/org/a/1/');
+    expect(parsePublicShowcase({ club_name: 'N', slug: 'n', yandex_maps_url: 'https://evil.example/' })?.yandex_maps_url).toBeNull();
   });
 });
 

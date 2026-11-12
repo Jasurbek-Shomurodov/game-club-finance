@@ -149,7 +149,7 @@ export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
           { href: '#contacts', label: t('howToFind') },
           ...(showcase.telegram_url ? [{ href: showcase.telegram_url, label: t('bookTelegram'), external: true }] : []),
         ]}
-        locations={showcase.address ? [{ label: null, clubName: showcase.club_name, address: showcase.address }] : []}
+        locations={showcase.address ? [{ label: null, clubName: showcase.club_name, address: showcase.address, yandexMapsUrl: showcase.yandex_maps_url }] : []}
       />
     </div>
   );
