@@ -1,3 +1,4 @@
+import { STOCK_WRITE_OFF_REASON_PATTERN } from './calculations/stock';
 import {
   normalizeStockAdjustment,
   normalizeStockCount,
@@ -14,14 +15,13 @@ import {
  *   adjustment_reason   = "shortage" | "expired" [": note"]
  *
  * The units leave the closing balance and sales stay as recorded, so bar income
- * is not charged for them. Their value at cost is the loss shown in reports.
+ * is not charged for them. Their value at cost is added to bar cost (so bar
+ * profit falls by it, migration 141) and shown as the loss in reports.
  */
 export const STOCK_WRITE_OFF_KINDS = ['shortage', 'expired'] as const;
 export type StockWriteOffKind = (typeof STOCK_WRITE_OFF_KINDS)[number];
 /** A negative adjustment saved before write-offs existed, with a free-text reason. */
 export type StockWriteOffReportKind = StockWriteOffKind | 'other';
-
-const REASON_PATTERN = /^(shortage|expired)(?::\s*([\s\S]*))?$/;
 
 export function formatWriteOffReason(kind: StockWriteOffKind, note = ''): string {
   const trimmed = note.trim();
@@ -30,7 +30,7 @@ export function formatWriteOffReason(kind: StockWriteOffKind, note = ''): string
 
 export function parseWriteOffReason(reason: string | null | undefined): { kind: StockWriteOffReportKind; note: string } {
   const text = String(reason ?? '').trim();
-  const match = REASON_PATTERN.exec(text);
+  const match = STOCK_WRITE_OFF_REASON_PATTERN.exec(text);
   if (!match) return { kind: 'other', note: text };
   return { kind: match[1] as StockWriteOffKind, note: (match[2] ?? '').trim() };
 }

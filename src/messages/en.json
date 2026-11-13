@@ -621,7 +621,7 @@
     "promotionsLoadFailed": "Promotions could not be loaded. You can still enter free (promo) units; the promotion label is left empty.",
     "writeOffButton": "Write-off",
     "writeOffTitle": "Write off bar stock",
-    "writeOffDescription": "Record items that went missing or expired. They leave the closing stock without counting as sales, and their cost shows as a loss in Reports.",
+    "writeOffDescription": "Record items that went missing or expired. They leave the closing stock without counting as sales, and their cost comes off bar profit and shows in Reports.",
     "writeOffChooseProduct": "Choose a product",
     "writeOffKind": "Reason",
     "writeOffKinds": {

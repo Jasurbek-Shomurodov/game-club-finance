@@ -61,7 +61,7 @@ describe('write-off reasons', () => {
 });
 
 describe('applyStockWriteOff', () => {
-  it('removes units from closing stock and keeps sales and bar money unchanged', () => {
+  it('removes units from closing stock, keeps sales and charges the cost to bar profit', () => {
     const before = row();
     const after = applyStockWriteOff(before, { kind: 'shortage', quantity: 2, note: 'missing' });
 
@@ -71,8 +71,16 @@ describe('applyStockWriteOff', () => {
       closingStock: '7',
       soldQuantity: '3',
     });
-    expect(summarizeStockRow(closingStockRowTotalsInput(after)))
-      .toEqual(summarizeStockRow(closingStockRowTotalsInput(before)));
+    const was = summarizeStockRow(closingStockRowTotalsInput(before));
+    const now = summarizeStockRow(closingStockRowTotalsInput(after));
+    expect(now).toMatchObject({
+      soldQuantity: was.soldQuantity,
+      barIncome: was.barIncome,
+      writeOffQuantity: 2,
+      writeOffCost: 12_000,
+      barCost: was.barCost + 12_000,
+      barProfit: was.barProfit - 12_000,
+    });
     expect(validateClosingStockRows([after])).toBeNull();
     expect(rowWriteOff(after)).toEqual({ quantity: 2, kind: 'shortage', note: 'missing' });
   });
@@ -90,7 +98,10 @@ describe('applyStockWriteOff', () => {
   it('sends the write-off as an adjustment with its reason', () => {
     const written = applyStockWriteOff(row(), { kind: 'expired', quantity: 1 });
     const { upserts } = buildClosingStockUpserts({ date: '2026-11-13', rows: [written], createdBy: null });
-    expect(upserts[0]).toMatchObject({ adjustment_quantity: -1, adjustment_reason: 'expired', closing_stock: 8, sold_quantity: 3 });
+    expect(upserts[0]).toMatchObject({
+      adjustment_quantity: -1, adjustment_reason: 'expired', closing_stock: 8, sold_quantity: 3,
+      bar_income: 30_000, bar_cost: 24_000, bar_profit: 6_000,
+    });
   });
 
   it('refuses more than the remaining stock', () => {

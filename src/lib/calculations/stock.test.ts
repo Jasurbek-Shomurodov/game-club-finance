@@ -122,6 +122,8 @@ describe('calculateDirectSalesSummary', () => {
       soldQuantity: 4,
       giveawayQuantity: 0,
       giveawayCost: 0,
+      writeOffQuantity: 0,
+      writeOffCost: 0,
       barIncome: 100_000,
       barCost: 44_000,
       barProfit: 56_000,
@@ -184,6 +186,8 @@ describe('calculateStockCountSummary', () => {
       soldQuantity: 2,
       giveawayQuantity: 0,
       giveawayCost: 0,
+      writeOffQuantity: 0,
+      writeOffCost: 0,
       barIncome: 20_000,
       barCost: 12_000,
       barProfit: 8_000,
@@ -206,6 +210,8 @@ describe('applyPurchaseDeltaToStockCount', () => {
       soldQuantity: 3,
       giveawayQuantity: 0,
       giveawayCost: 0,
+      writeOffQuantity: 0,
+      writeOffCost: 0,
       barIncome: 45000,
       barCost: 27000,
       barProfit: 18000,
@@ -226,6 +232,8 @@ describe('applyPurchaseDeltaToStockCount', () => {
       soldQuantity: 10,
       giveawayQuantity: 0,
       giveawayCost: 0,
+      writeOffQuantity: 0,
+      writeOffCost: 0,
       barIncome: 100000,
       barCost: 60000,
       barProfit: 40000,
@@ -458,6 +466,7 @@ describe('summarizeStockRows', () => {
       sold: 13,
       giveaways: 0,
       giveawayCost: 0,
+      writeOffCost: 0,
       income: 1_150,
       profit: 490,
       stockValue: 240,
@@ -469,7 +478,7 @@ describe('summarizeStockRows', () => {
 
   it('returns zero totals for no rows', () => {
     expect(summarizeStockRows([])).toEqual({
-      sold: 0, giveaways: 0, giveawayCost: 0, income: 0, profit: 0, stockValue: 0, previous: 0, added: 0, purchaseCost: 0,
+      sold: 0, giveaways: 0, giveawayCost: 0, writeOffCost: 0, income: 0, profit: 0, stockValue: 0, previous: 0, added: 0, purchaseCost: 0,
     });
   });
 });
@@ -485,6 +494,8 @@ describe('promo giveaways', () => {
       soldQuantity: 5,
       giveawayQuantity: 3,
       giveawayCost: 27_000,
+      writeOffQuantity: 0,
+      writeOffCost: 0,
       barIncome: 75_000,
       barCost: 72_000,
       barProfit: 3_000,

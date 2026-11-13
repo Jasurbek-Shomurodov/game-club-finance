@@ -324,7 +324,7 @@ test('STOCK-001 STOCK-002 STOCK-003 a purchase and a closing count go through th
   await expectDashboardAmount(page, 'Game Club Income', expected.bunkerGameClubIncome);
 });
 
-test('STOCK-008 a write-off removes units from closing stock without a sale and shows its cost in Reports', async ({ page }) => {
+test('STOCK-008 a write-off removes units from closing stock without a sale, charges its cost to bar profit and shows in Reports', async ({ page }) => {
   // E2E Arcade saved today's count in the fixture: cola closes at 62 with 12 sold.
   await page.goto('/closing-stock');
   await expect(page.getByRole('heading', { name: 'Closing Stock', level: 1 })).toBeVisible();
@@ -337,9 +337,11 @@ test('STOCK-008 a write-off removes units from closing stock without a sale and 
   await dialog.getByRole('button', { name: 'Write off' }).click();
   await expect(page.getByText('Write-off saved')).toBeVisible();
 
-  const [count] = await (await restAs(accounts.owner, 'GET', `daily_stock_counts?select=adjustment_quantity,adjustment_reason,closing_stock,sold_quantity,bar_income&club_id=eq.${clubs.arcade.id}&product_id=eq.${products.cola.id}&date=eq.${today}`)).json();
-  expect({ ...count, adjustment_quantity: Number(count.adjustment_quantity), closing_stock: Number(count.closing_stock), sold_quantity: Number(count.sold_quantity), bar_income: Number(count.bar_income) }).toEqual({
+  const [count] = await (await restAs(accounts.owner, 'GET', `daily_stock_counts?select=adjustment_quantity,adjustment_reason,closing_stock,sold_quantity,bar_income,bar_cost,writeoff_cost&club_id=eq.${clubs.arcade.id}&product_id=eq.${products.cola.id}&date=eq.${today}`)).json();
+  expect({ ...count, adjustment_quantity: Number(count.adjustment_quantity), closing_stock: Number(count.closing_stock), sold_quantity: Number(count.sold_quantity), bar_income: Number(count.bar_income), bar_cost: Number(count.bar_cost), writeoff_cost: Number(count.writeoff_cost) }).toEqual({
     adjustment_quantity: -3, adjustment_reason: 'expired: E2E sour', closing_stock: expected.colaStock - 3, sold_quantity: 12, bar_income: 12 * products.cola.sale_price,
+    // The written-off units are charged to bar profit at cost, with no income.
+    bar_cost: (12 + 3) * products.cola.cost_price, writeoff_cost: 3 * products.cola.cost_price,
   });
 
   await page.goto('/reports?view=writeOffs');

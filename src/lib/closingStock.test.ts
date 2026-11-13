@@ -907,7 +907,7 @@ describe('closing stock save payloads', () => {
       row({ product: product({ id: 'b', tracks_inventory: false, sale_price: 50, cost_price: 10 }), previousStock: '0', addedToday: '0', closingStock: '0', soldQuantity: '4' }),
     ];
     const totals = summarizeStockRows(rows.map((item) => closingStockRowTotalsInput(item, item.product.id === 'a' ? 80 : 0)));
-    expect(totals).toEqual({ sold: 9, giveaways: 0, giveawayCost: 0, income: 700, profit: 460, stockValue: 280, previous: 10, added: 2, purchaseCost: 80 });
+    expect(totals).toEqual({ sold: 9, giveaways: 0, giveawayCost: 0, writeOffCost: 0, income: 700, profit: 460, stockValue: 280, previous: 10, added: 2, purchaseCost: 80 });
   });
 
   it('treats promo giveaways as units that left stock unsold', () => {

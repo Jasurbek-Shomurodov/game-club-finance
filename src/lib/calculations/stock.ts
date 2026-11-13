@@ -2,6 +2,8 @@ export interface StockCountInput {
   previousStock: number;
   addedToday: number;
   adjustmentQuantity?: number;
+  /** A negative adjustment whose reason names a write-off kind is a write-off. */
+  adjustmentReason?: string | null;
   /** Units given away free under a promotion; they leave stock unsold. */
   giveawayQuantity?: number;
   closingStock: number;
@@ -10,13 +12,16 @@ export interface StockCountInput {
 }
 
 /**
- * Giveaways carry no income. Their cost is part of `barCost` (cost of goods
- * that left stock) and repeated in `giveawayCost` for reporting.
+ * Giveaways and write-offs carry no income. Their cost is part of `barCost`
+ * (cost of goods that left stock) and repeated in `giveawayCost` and
+ * `writeOffCost` for reporting.
  */
 export interface StockCountResult {
   soldQuantity: number;
   giveawayQuantity: number;
   giveawayCost: number;
+  writeOffQuantity: number;
+  writeOffCost: number;
   barIncome: number;
   barCost: number;
   barProfit: number;
@@ -53,6 +58,7 @@ export interface FutureStockCountInput {
   date: string;
   added_today: number;
   adjustment_quantity?: number;
+  adjustment_reason?: string | null;
   giveaway_quantity?: number;
   closing_stock: number;
   sale_price: number;
@@ -83,6 +89,20 @@ export function calculateAvailableStock(
   adjustmentQuantity = 0,
 ): number {
   return previousStock + addedToday + adjustmentQuantity;
+}
+
+/**
+ * Reason of a write-off saved as a negative adjustment: "shortage" (kamomad) or
+ * "expired" (eskirgan), optionally followed by ": note". Mirrors
+ * `public.stock_write_off_quantity` (migration 141).
+ */
+export const STOCK_WRITE_OFF_REASON_PATTERN = /^(shortage|expired)(?::\s*([\s\S]*))?$/;
+
+/** Units written off: the removed quantity of a write-off adjustment, else 0. */
+export function stockWriteOffQuantity(adjustmentQuantity: number | undefined, adjustmentReason: string | null | undefined): number {
+  const adjustment = Math.trunc(Number(adjustmentQuantity ?? 0)) || 0;
+  if (adjustment >= 0) return 0;
+  return STOCK_WRITE_OFF_REASON_PATTERN.test(String(adjustmentReason ?? '').trim()) ? -adjustment : 0;
 }
 
 export function normalizeGiveawayQuantity(value: number | undefined): number {
@@ -132,9 +152,9 @@ export function calculateBarIncome(soldQuantity: number, salePrice: number): num
   return soldQuantity * salePrice;
 }
 
-/** Cost of every unit that left stock: sold plus given away. */
-export function calculateBarCost(soldQuantity: number, costPrice: number, giveawayQuantity = 0): number {
-  return (soldQuantity + normalizeGiveawayQuantity(giveawayQuantity)) * costPrice;
+/** Cost of every unit that left stock: sold, given away and written off. */
+export function calculateBarCost(soldQuantity: number, costPrice: number, giveawayQuantity = 0, writeOffQuantity = 0): number {
+  return (soldQuantity + normalizeGiveawayQuantity(giveawayQuantity) + normalizeGiveawayQuantity(writeOffQuantity)) * costPrice;
 }
 
 export function calculateGiveawayCost(giveawayQuantity: number, costPrice: number): number {
@@ -150,16 +170,20 @@ export function calculateDirectSalesSummary(
   salePrice: number,
   costPrice: number,
   giveawayQuantity = 0,
+  writeOffQuantity = 0,
 ): StockCountResult {
   const normalizedSoldQuantity = Math.max(0, soldQuantity);
   const normalizedGiveawayQuantity = normalizeGiveawayQuantity(giveawayQuantity);
+  const normalizedWriteOffQuantity = normalizeGiveawayQuantity(writeOffQuantity);
   const barIncome = calculateBarIncome(normalizedSoldQuantity, salePrice);
-  const barCost = calculateBarCost(normalizedSoldQuantity, costPrice, normalizedGiveawayQuantity);
+  const barCost = calculateBarCost(normalizedSoldQuantity, costPrice, normalizedGiveawayQuantity, normalizedWriteOffQuantity);
 
   return {
     soldQuantity: normalizedSoldQuantity,
     giveawayQuantity: normalizedGiveawayQuantity,
     giveawayCost: calculateGiveawayCost(normalizedGiveawayQuantity, costPrice),
+    writeOffQuantity: normalizedWriteOffQuantity,
+    writeOffCost: normalizedWriteOffQuantity * costPrice,
     barIncome,
     barCost,
     barProfit: calculateBarProfit(barIncome, barCost),
@@ -174,7 +198,13 @@ export function calculateStockCountSummary(input: StockCountInput): StockCountRe
     input.adjustmentQuantity,
     input.giveawayQuantity,
   );
-  return calculateDirectSalesSummary(soldQuantity, input.salePrice, input.costPrice, input.giveawayQuantity);
+  return calculateDirectSalesSummary(
+    soldQuantity,
+    input.salePrice,
+    input.costPrice,
+    input.giveawayQuantity,
+    stockWriteOffQuantity(input.adjustmentQuantity, input.adjustmentReason),
+  );
 }
 
 export function applyPurchaseDeltaToStockCount(input: StockCountPurchaseDeltaInput): StockCountPurchaseDeltaResult {
@@ -184,6 +214,7 @@ export function applyPurchaseDeltaToStockCount(input: StockCountPurchaseDeltaInp
     previousStock: input.previousStock,
     addedToday,
     adjustmentQuantity: input.adjustmentQuantity,
+    adjustmentReason: input.adjustmentReason,
     giveawayQuantity: input.giveawayQuantity,
     closingStock,
     salePrice: input.salePrice,
@@ -236,6 +267,7 @@ export function recalculateFutureStockCounts(
         previousStock,
         addedToday: row.added_today,
         adjustmentQuantity: row.adjustment_quantity,
+        adjustmentReason: row.adjustment_reason,
         giveawayQuantity: row.giveaway_quantity,
         closingStock: row.closing_stock,
         salePrice: row.sale_price,
@@ -354,6 +386,7 @@ export interface StockTotalsRowInput {
   previousStock: number;
   addedToday: number;
   adjustmentQuantity?: number;
+  adjustmentReason?: string | null;
   giveawayQuantity?: number;
   closingStock: number;
   /** Direct sold quantity; used only for made-to-order products. */
@@ -368,6 +401,7 @@ export interface StockTotals {
   sold: number;
   giveaways: number;
   giveawayCost: number;
+  writeOffCost: number;
   income: number;
   profit: number;
   stockValue: number;
@@ -386,6 +420,7 @@ export function summarizeStockRow(row: StockTotalsRowInput): StockCountResult {
     previousStock: row.previousStock,
     addedToday: row.addedToday,
     adjustmentQuantity: row.adjustmentQuantity,
+    adjustmentReason: row.adjustmentReason,
     giveawayQuantity: row.giveawayQuantity,
     closingStock: row.closingStock,
     salePrice: row.salePrice,
@@ -404,6 +439,7 @@ export function summarizeStockRows(rows: StockTotalsRowInput[]): StockTotals {
       acc.sold += summary.soldQuantity;
       acc.giveaways += summary.giveawayQuantity;
       acc.giveawayCost += summary.giveawayCost;
+      acc.writeOffCost += summary.writeOffCost;
       acc.income += summary.barIncome;
       acc.profit += summary.barProfit;
       if (row.tracksInventory) {
@@ -414,6 +450,6 @@ export function summarizeStockRows(rows: StockTotalsRowInput[]): StockTotals {
       }
       return acc;
     },
-    { sold: 0, giveaways: 0, giveawayCost: 0, income: 0, profit: 0, stockValue: 0, previous: 0, added: 0, purchaseCost: 0 },
+    { sold: 0, giveaways: 0, giveawayCost: 0, writeOffCost: 0, income: 0, profit: 0, stockValue: 0, previous: 0, added: 0, purchaseCost: 0 },
   );
 }

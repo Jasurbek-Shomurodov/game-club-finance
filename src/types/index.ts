@@ -187,6 +187,8 @@ export interface DailyStockCount {
   adjustment_recorded_at: string | null;
   giveaway_quantity?: number;
   giveaway_cost?: number;
+  /** Cost of a shortage/expired write-off; included in bar_cost (migration 141). */
+  writeoff_cost?: number;
   promotion_id?: string | null;
   created_by: string | null;
   created_at: string;

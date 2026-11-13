@@ -621,7 +621,7 @@
     "promotionsLoadFailed": "Aksiyalarni yuklab bo‘lmadi. Bepul (aksiya) donalarini baribir kiritish mumkin, aksiya nomi bo‘sh qoladi.",
     "writeOffButton": "Hisobdan chiqarish",
     "writeOffTitle": "Bar mahsulotini hisobdan chiqarish",
-    "writeOffDescription": "Kamomad yoki eskirgan mahsulotni belgilang. U sotuv hisoblanmasdan qoldiqdan chiqadi, tannarxi esa hisobotlarda zarar sifatida ko'rinadi.",
+    "writeOffDescription": "Kamomad yoki eskirgan mahsulotni belgilang. U sotuv hisoblanmasdan qoldiqdan chiqadi, tannarxi bar foydasidan ayriladi va hisobotlarda ko'rinadi.",
     "writeOffChooseProduct": "Mahsulotni tanlang",
     "writeOffKind": "Sabab",
     "writeOffKinds": {

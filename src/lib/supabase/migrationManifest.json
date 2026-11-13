@@ -2726,16 +2726,6 @@
         "name": "daily_stock_counts_giveaway_cost_matches"
       },
       {
-        "kind": "functionBody",
-        "signature": "public.validate_daily_stock_count_integrity()",
-        "md5": "455f7672205fa057c44a247911282cb2"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.save_closing_stock_counts(uuid,date,jsonb)",
-        "md5": "fd038ed098df8f309bc4e061df74f927"
-      },
-      {
         "kind": "function",
         "signature": "public.enforce_promotion_product_club()"
       }
@@ -4702,6 +4692,35 @@
         "kind": "functionBody",
         "signature": "public.public_showcase_payload(uuid)",
         "md5": "cfdc0eeec8fd1dc8ba361be747acd6e7"
+      }
+    ]
+  },
+  {
+    "file": "141_write_offs_in_bar_profit.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.daily_stock_counts",
+        "column": "writeoff_cost"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.daily_stock_counts",
+        "name": "daily_stock_counts_writeoff_cost_nonnegative"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.validate_daily_stock_count_integrity()",
+        "md5": "9f722f1b7bba1966234d19e606b846a0"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.save_closing_stock_counts(uuid,date,jsonb)",
+        "md5": "fe2a91fab2416a9032fe9569d8e70a58"
+      },
+      {
+        "kind": "function",
+        "signature": "public.stock_write_off_quantity(numeric,text)"
       }
     ]
   }

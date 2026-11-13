@@ -144,10 +144,19 @@ adjustment_reason   = "shortage" | "expired" [": note"]
 closingStock       -= writeOffQuantity     -- sold and bar money unchanged
 ```
 
-The units leave stock without a sale. Bar profit stays sold-based; the loss
-at the count's saved cost is shown on the closing page KPI and in Reports →
-Write-offs (`summarizeStockWriteOffs`). Older negative adjustments with free
-text appear there as "Other". Logic lives in `src/lib/stockWriteOffs.ts`.
+The units leave stock without a sale. Like a giveaway, their cost is charged
+to bar profit (migration 141):
+
+```text
+writeoff_cost = stock_write_off_quantity(adjustment, reason) * cost_price
+bar_cost      = (sold + giveaway) * cost_price + writeoff_cost
+```
+
+`stock_write_off_quantity` counts only "shortage"/"expired" reasons, so older
+negative adjustments with free text keep `writeoff_cost = 0` and their saved
+snapshot. The TS mirror is `stockWriteOffQuantity` in `calculations/stock.ts`.
+The loss is shown on the closing page KPI and in Reports → Write-offs
+(`summarizeStockWriteOffs`), where free-text adjustments appear as "Other".
 
 ## Historical snapshot rule
 

@@ -421,9 +421,6 @@ export default function ClosingStockPage() {
   const productNameById = useMemo(() => new Map(rows.map((row) => [row.product.id, row.product.name])), [rows]);
 
   // KPIs describe the whole day; filters only narrow the table and its footer.
-  const writeOffCost = useMemo(() => rows.reduce((sum, row) => (
-    sum + (rowWriteOff(row)?.quantity ?? 0) * Number(row.product.cost_price ?? 0)
-  ), 0), [rows]);
   const totals = useMemo(() => summarizeStockRows(rows.map((row) => (
     closingStockRowTotalsInput(row, purchaseCostsByProduct[row.product.id] ?? 0)
   ))), [rows, purchaseCostsByProduct]);
@@ -607,7 +604,7 @@ export default function ClosingStockPage() {
     { label: t('barIncomeEst'), value: formatCurrency(totals.income), unit: tc('currency'), tone: 'success' },
     { label: t('barProfitEst'), value: formatCurrency(totals.profit), unit: tc('currency'), tone: totals.profit < 0 ? 'danger' : 'success' },
     { label: t('promoCost'), value: formatCurrency(totals.giveawayCost), unit: tc('currency'), tone: totals.giveawayCost > 0 ? 'danger' : 'default' },
-    { label: t('writeOffCost'), value: formatCurrency(writeOffCost), unit: tc('currency'), tone: writeOffCost > 0 ? 'danger' : 'default' },
+    { label: t('writeOffCost'), value: formatCurrency(totals.writeOffCost), unit: tc('currency'), tone: totals.writeOffCost > 0 ? 'danger' : 'default' },
     { label: t('stockValue'), value: formatCurrency(totals.stockValue), unit: tc('currency') },
   ];
   const categoryChipOptions = [{ value: '', label: tc('all') }, ...categoryOptions.map((category) => ({ value: category, label: category }))];

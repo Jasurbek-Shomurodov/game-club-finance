@@ -81,7 +81,7 @@ Telegram group if one is set up.
 | STOCK-005 | S1 | Zero stock product | View a product with 0 units | Shows 0, no NaN or negative value |
 | STOCK-006 | S1 | Cost prices hidden from non-privileged roles | Open Products as a viewer | No cost price column; the network payload carries no cost field |
 | STOCK-007 | S2 | Product search filters the table | Type part of a name | Table filters client-side with no extra request |
-| STOCK-008 | S1 | A write-off is a loss, not a sale [e2e] | Closing stock → Write-off → 3 units Expired (approved) | Closing stock −3, sold and bar income unchanged; Reports → Write-offs shows the product at 3 × cost |
+| STOCK-008 | S1 | A write-off is a loss, not a sale [e2e] | Closing stock → Write-off → 3 units Expired (approved) | Closing stock −3, sold and bar income unchanged, bar cost +3 × cost (bar profit falls); Reports → Write-offs shows the product at 3 × cost |
 
 ## DEBT — debts and payments
 
