@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   dollarsForMonth,
+  exchangeFlowByMethod,
   exchangeNetByMethod,
   exchangeReceivedAmount,
   heldDollars,
@@ -60,6 +61,19 @@ describe('money exchanges', () => {
       row({ from_method: 'usd', to_method: 'terminal', from_amount: 0.1, to_amount: 1265, rate: 12650 }),
       row({ from_method: 'usd', to_method: 'terminal', from_amount: 0.2, to_amount: 2530, rate: 12650 }),
     ])).toEqual({ cash: -300, terminal: 3795, card: 300 - 12650, usd: 0.7 });
+  });
+
+  it('splits each method into positive amounts received and given', () => {
+    expect(exchangeFlowByMethod([
+      row({ from_method: 'cash', to_method: 'card', from_amount: 300, to_amount: 300 }),
+      row({ from_method: 'card', to_method: 'cash', from_amount: '100', to_amount: '100' }),
+      row({ from_method: 'cash', to_method: 'usd', from_amount: 12650, to_amount: 1, rate: 12650 }),
+    ])).toEqual({
+      cash: { in: 100, out: 12_950 },
+      terminal: { in: 0, out: 0 },
+      card: { in: 300, out: 100 },
+      usd: { in: 1, out: 0 },
+    });
   });
 
   it('adds exchanges to the month they are dated in', () => {

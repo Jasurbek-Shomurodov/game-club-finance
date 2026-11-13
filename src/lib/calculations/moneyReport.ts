@@ -8,7 +8,7 @@ import {
   type ExpenseRow,
   type MoneyLeftByPaymentMethod,
 } from './dashboardMetrics';
-import { exchangeNetByMethod, heldDollars, type ExchangeMethod, type MoneyExchangeRow } from './moneyExchanges';
+import { exchangeFlowByMethod, heldDollars, type ExchangeMethod, type MoneyExchangeRow } from './moneyExchanges';
 import {
   calculateBarMoney,
   type BarSalesRow,
@@ -20,6 +20,10 @@ export interface MoneyReportPaymentBreakdown {
   expenses: number;
   /** Net money moved in (+) or out (-) by exchanges; PlayStation is never exchanged. */
   exchanged: number;
+  /** Money this method received from exchanges, as a positive amount. */
+  exchangedIn: number;
+  /** Money this method gave to exchanges, as a positive amount. */
+  exchangedOut: number;
   left: number;
 }
 
@@ -146,16 +150,26 @@ function buildPaymentMethods(
   );
 
   const left = calculateGameClubMoneyLeftByPaymentMethod(cashRows, expenseRows, debtPaymentRows, exchangeRows);
-  const exchanged = exchangeNetByMethod(exchangeRows);
+  const flow = exchangeFlowByMethod(exchangeRows);
+  const method = (key: 'cash' | 'terminal' | 'card'): MoneyReportPaymentBreakdown => ({
+    collected: collected[key],
+    expenses: expenses[key],
+    exchanged: flow[key].in - flow[key].out,
+    exchangedIn: flow[key].in,
+    exchangedOut: flow[key].out,
+    left: left[key],
+  });
 
   return {
-    cash: { collected: collected.cash, expenses: expenses.cash, exchanged: exchanged.cash, left: left.cash },
-    terminal: { collected: collected.terminal, expenses: expenses.terminal, exchanged: exchanged.terminal, left: left.terminal },
-    card: { collected: collected.card, expenses: expenses.card, exchanged: exchanged.card, left: left.card },
+    cash: method('cash'),
+    terminal: method('terminal'),
+    card: method('card'),
     playstation: {
       collected: collected.playstation,
       expenses: expenses.playstation,
       exchanged: 0,
+      exchangedIn: 0,
+      exchangedOut: 0,
       left: left.playstation,
     },
   };

@@ -80,6 +80,8 @@ describe('money report', () => {
       collected: 1_000_000,
       expenses: 150_000,
       exchanged: 0,
+      exchangedIn: 0,
+      exchangedOut: 0,
       left: 850_000,
     });
     expect(report.paymentMethods.terminal.left).toBe(1_750_000);
@@ -87,6 +89,8 @@ describe('money report', () => {
       collected: 350_000,
       expenses: 0,
       exchanged: 0,
+      exchangedIn: 0,
+      exchangedOut: 0,
       left: 350_000,
     });
     expect(report.paymentMethods.playstation.left).toBe(200_000);
@@ -374,8 +378,8 @@ describe('expensesFromSource', () => {
     );
 
     expect(report.totalCollected).toBe(1_500_000);
-    expect(report.paymentMethods.cash).toEqual({ collected: 1_000_000, expenses: 0, exchanged: -440_000, left: 560_000 });
-    expect(report.paymentMethods.terminal).toEqual({ collected: 500_000, expenses: 0, exchanged: -200_000, left: 300_000 });
+    expect(report.paymentMethods.cash).toEqual({ collected: 1_000_000, expenses: 0, exchanged: -440_000, exchangedIn: 200_000, exchangedOut: 640_000, left: 560_000 });
+    expect(report.paymentMethods.terminal).toEqual({ collected: 500_000, expenses: 0, exchanged: -200_000, exchangedIn: 0, exchangedOut: 200_000, left: 300_000 });
     expect(report.usd).toBe(50);
     // Changing 640 000 of cash into $50 keeps Game Club money left at 1 500 000.
     expect(report.gameClubLeft).toBe(1_500_000);

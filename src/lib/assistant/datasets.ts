@@ -113,7 +113,10 @@ const MONEY_METHODS = ['cash', 'terminal', 'card', 'playstation'] as const;
  * the bar row's money left.
  */
 export function moneyTable(report: MoneyReport): DataTable {
-  const methods = MONEY_METHODS.map((method) => ({ line: method, ...report.paymentMethods[method] }));
+  const methods = MONEY_METHODS.map((method) => {
+    const { collected, expenses, exchanged, left } = report.paymentMethods[method];
+    return { line: method, collected, expenses, exchanged, left };
+  });
   const gameClubExpenses = methods.reduce((sum, row) => sum + row.expenses, 0);
   // Exchanges only move money between methods (or into dollars), so the Game
   // Club total keeps the report's figure rather than the sum of method rows.

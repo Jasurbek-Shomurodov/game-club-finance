@@ -392,6 +392,8 @@
     "exchanges": "Exchanges",
     "exchange": "Exchange",
     "exchanged": "Exchanged",
+    "exchangedIn": "Exchanged in",
+    "exchangedOut": "Exchanged out",
     "usd": "US dollars",
     "usdHeld": "Bought minus sold and spent in this period",
     "exchangeSaved": "Exchange saved.",

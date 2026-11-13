@@ -56,6 +56,24 @@ export function exchangeReceivedAmount(
   return received > 0 ? received : null;
 }
 
+export type ExchangeFlowByMethod = Record<ExchangeMethod, { in: number; out: number }>;
+
+/** Money each method received from and gave to exchanges, both as positive amounts. */
+export function exchangeFlowByMethod(rows: MoneyExchangeRow[]): ExchangeFlowByMethod {
+  const flow: ExchangeFlowByMethod = {
+    cash: { in: 0, out: 0 },
+    terminal: { in: 0, out: 0 },
+    card: { in: 0, out: 0 },
+    usd: { in: 0, out: 0 },
+  };
+  for (const row of rows) {
+    flow[row.from_method].out += Number(row.from_amount ?? 0);
+    flow[row.to_method].in += Number(row.to_amount ?? 0);
+  }
+  flow.usd = { in: Math.round(flow.usd.in * 100) / 100, out: Math.round(flow.usd.out * 100) / 100 };
+  return flow;
+}
+
 /** Net change per method: what was exchanged in minus what was exchanged out. */
 export function exchangeNetByMethod(rows: MoneyExchangeRow[]): ExchangeNetByMethod {
   const net: ExchangeNetByMethod = { cash: 0, terminal: 0, card: 0, usd: 0 };

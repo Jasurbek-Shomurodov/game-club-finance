@@ -392,6 +392,8 @@
     "exchanges": "Almashtirishlar",
     "exchange": "Almashtirish",
     "exchanged": "Almashtirildi",
+    "exchangedIn": "Almashtirib olindi",
+    "exchangedOut": "Almashtirishga berildi",
     "usd": "AQSH dollari",
     "usdHeld": "Davr ichida sotib olingan minus sotilgan va sarflangan",
     "exchangeSaved": "Almashtirish saqlandi.",

@@ -171,7 +171,8 @@ function PaymentCard({
   icon: Icon,
   collectedLabel,
   expensesLabel,
-  exchangedLabel,
+  exchangedInLabel,
+  exchangedOutLabel,
   leftLabel,
 }: {
   label: string;
@@ -179,7 +180,8 @@ function PaymentCard({
   icon: LucideIcon;
   collectedLabel: string;
   expensesLabel: string;
-  exchangedLabel: string;
+  exchangedInLabel: string;
+  exchangedOutLabel: string;
   leftLabel: string;
 }) {
   return (
@@ -205,11 +207,19 @@ function PaymentCard({
             <Money amount={data.expenses} currency={null} />
           </dd>
         </div>
-        {data.exchanged !== 0 && (
+        {data.exchangedIn !== 0 && (
           <div className="flex items-baseline justify-between gap-3">
-            <dt className="text-gray-500">{exchangedLabel}</dt>
-            <dd className={cn('shrink-0 font-semibold tabular-nums', amountToneClassName(data.exchanged))}>
-              <Money amount={data.exchanged} showPlus currency={null} />
+            <dt className="text-gray-500">{exchangedInLabel}</dt>
+            <dd className="shrink-0 font-semibold tabular-nums text-gray-900">
+              <Money amount={data.exchangedIn} currency={null} />
+            </dd>
+          </div>
+        )}
+        {data.exchangedOut !== 0 && (
+          <div className="flex items-baseline justify-between gap-3">
+            <dt className="text-gray-500">{exchangedOutLabel}</dt>
+            <dd className="shrink-0 font-semibold tabular-nums text-gray-900">
+              <Money amount={data.exchangedOut} currency={null} />
             </dd>
           </div>
         )}
@@ -1060,7 +1070,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                   if (card.method === 'playstation') return true;
                   if (enabledPaymentMethods.includes(card.method)) return true;
                   const data = report.paymentMethods[card.method];
-                  return data.collected !== 0 || data.expenses !== 0 || data.exchanged !== 0;
+                  return data.collected !== 0 || data.expenses !== 0 || data.exchangedIn !== 0 || data.exchangedOut !== 0;
                 }).map((card) => (
                   <PaymentCard
                     key={card.method}
@@ -1069,7 +1079,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                     data={report.paymentMethods[card.method]}
                     collectedLabel={t('collected')}
                     expensesLabel={t('expenses')}
-                    exchangedLabel={t('exchanged')}
+                    exchangedInLabel={t('exchangedIn')}
+                    exchangedOutLabel={t('exchangedOut')}
                     leftLabel={t('left')}
                   />
                 ))}
