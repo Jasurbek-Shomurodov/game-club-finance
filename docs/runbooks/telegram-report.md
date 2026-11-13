@@ -89,6 +89,16 @@ total and their cost. `getPromoGiveawayRows` reads report-date
 the read fails and the section is omitted without blocking the report. The
 cost is already inside bar cost, so no total changes.
 
+## Bar write-offs section
+
+The report adds "Списания бара" when bar stock was written off on the report
+date: each product with its reason (недостача / просрочка, plus the note), units
+and loss at cost, and the total in the caption. `getStockWriteOffRows` reads
+report-date `daily_stock_counts` rows with `adjustment_quantity < 0`, and
+`summarizeStockWriteOffsForReport` keeps only shortage/expired reasons, so older
+free-text adjustments are not listed. A failed read omits the section. The loss
+is already inside bar cost (migration 141), so no total changes.
+
 ## Low-stock section
 
 The report lists active, inventory-tracked products that are out of stock or at

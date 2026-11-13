@@ -738,6 +738,32 @@ test.describe('a new sign-up with no club', () => {
   });
 });
 
+test.describe('as an admin', () => {
+  test.use({ storageState: storageStatePath('admin') });
+
+  test('STOCK-009 write-offs are owner-only: an admin sees no button, cost, badge or Reports tab', async ({ page }) => {
+    // The owner writes off 2 colas: 62 counted becomes 60, 12 still sold.
+    const saved = await restAs(accounts.owner, 'POST', 'rpc/save_closing_stock_counts', {
+      p_club_id: clubs.arcade.id,
+      p_date: today,
+      p_counts: [{ product_id: products.cola.id, closing_stock: expected.colaStock - 2, sold_quantity: 12, adjustment_quantity: -2, adjustment_reason: 'shortage', giveaway_quantity: 0 }],
+    });
+    expect(saved.status).toBe(200);
+
+    await page.goto('/closing-stock');
+    await expect(page.getByRole('heading', { name: 'Closing Stock', level: 1 })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Bulk Update' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Write-off' })).toHaveCount(0);
+    const text = await pageText(page);
+    expect(text).not.toContain('Write-offs');
+    expect(text).not.toContain('Shortage');
+
+    await page.goto('/reports?view=writeOffs');
+    await expect(page.getByRole('heading', { name: 'Reports', level: 1 })).toBeVisible();
+    expect(await pageText(page)).not.toContain('Write-offs');
+  });
+});
+
 test.describe('as a viewer', () => {
   test.use({ storageState: storageStatePath('viewer') });
 

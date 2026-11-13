@@ -8,7 +8,7 @@ import { BAR_COST_TARGET, OTHER_CATEGORY } from '../calculations/financialAnalys
 import { BAR_LEFT, GAME_CLUB_LEFT, type DrillSankey } from '../calculations/sankeyDrill';
 import { layoutSankey } from '../sankeyLayout';
 import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
-import type { DailyFinanceIncomePoint, DailyFinancePromoGiveaway, DailyFinanceReportInput } from './dailyFinanceReport';
+import { stockWriteOffItemLabel, type DailyFinanceIncomePoint, type DailyFinancePromoGiveaway, type DailyFinanceReportInput, type DailyFinanceStockWriteOff } from './dailyFinanceReport';
 import { REPORT_FONT_DIRECTORY, REPORT_FONT_FILES } from './reportFontConfig';
 
 const WIDTH = 1600;
@@ -329,6 +329,39 @@ function promoGiveawaySection(items: DailyFinancePromoGiveaway[], y: number): { 
   };
 }
 
+const GLYPH_TRASH = '<line x1="-14" y1="-9" x2="14" y2="-9"/><path d="M-5,-9 V-14 H5 V-9"/><path d="M-11,-9 L-9,15 H9 L11,-9"/><line x1="-3" y1="-3" x2="-3" y2="9"/><line x1="3" y1="-3" x2="3" y2="9"/>';
+
+/** Bar units written off (shortage/expired) on the report date; their cost is in bar cost. */
+function stockWriteOffSection(items: DailyFinanceStockWriteOff[], y: number): { svg: string; height: number } {
+  const visible = items.slice(0, PROMO_MAX_ITEMS);
+  const hidden = items.length - visible.length;
+  const units = items.reduce((sum, item) => sum + item.quantity, 0);
+  const cost = items.reduce((sum, item) => sum + item.cost, 0);
+  const height = 96 + visible.length * PROMO_ROW_HEIGHT + (hidden > 0 ? 36 : 0) + 16;
+  const x = PAGE_X + 28;
+  const right = WIDTH - PAGE_X - 28;
+  const itemsSvg = visible.map((item, index) => {
+    const rowY = y + 100 + index * PROMO_ROW_HEIGHT;
+    return `<circle cx="${x + 7}" cy="${rowY - 7}" r="6" fill="${RED}"/>
+    <text x="${x + 26}" y="${rowY}" font-size="20" fill="${TEXT}">${escapeXml(truncate(stockWriteOffItemLabel(item), 60))}</text>
+    <text x="${right - 220}" y="${rowY}" text-anchor="end" font-size="20" font-weight="700" fill="${RED}">${escapeXml(lowStockQuantity(item.quantity))} шт.</text>
+    <text x="${right}" y="${rowY}" text-anchor="end" font-size="18" fill="${MUTED}">${escapeXml(money(item.cost))}</text>`;
+  }).join('\n    ');
+  const more = hidden > 0
+    ? `<text x="${x}" y="${y + 100 + visible.length * PROMO_ROW_HEIGHT}" font-size="18" fill="${MUTED}">и ещё ${hidden} — см. «Отчёты → Списания» в приложении</text>`
+    : '';
+
+  return {
+    height,
+    svg: `${card(PAGE_X, y, PAGE_WIDTH, height, '#FEF2F2', '#FBD5D5')}
+    ${iconBadge(PAGE_X + 46, y + 44, 18, RED, GLYPH_TRASH)}
+    <text x="${PAGE_X + 76}" y="${y + 51}" font-size="20" font-weight="800" fill="${INK}">СПИСАНИЯ БАРА · ${escapeXml(lowStockQuantity(units))} шт.</text>
+    <text x="${right}" y="${y + 51}" text-anchor="end" font-size="16" fill="${MUTED}">убыток ${escapeXml(money(cost))} · вычтен из прибыли бара</text>
+    ${itemsSvg}
+    ${more}`,
+  };
+}
+
 const SANKEY_SOURCE_LABELS: Record<string, string> = {
   computers: 'Компьютеры',
   playstation: 'PlayStation',
@@ -495,10 +528,15 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
   const promo = input.promoGiveaways?.length
     ? promoGiveawaySection(input.promoGiveaways, kpiY + kpiHeight + 24)
     : null;
-  const lowStock = input.lowStockProducts?.length
-    ? lowStockSection(input.lowStockProducts, kpiY + kpiHeight + 24 + (promo ? promo.height + 24 : 0))
+  const writeOffY = kpiY + kpiHeight + 24 + (promo ? promo.height + 24 : 0);
+  const writeOffs = input.stockWriteOffs?.length
+    ? stockWriteOffSection(input.stockWriteOffs, writeOffY)
     : null;
-  const footerY = kpiY + kpiHeight + (promo ? 24 + promo.height : 0) + (lowStock ? 24 + lowStock.height : 0) + 20;
+  const lowStock = input.lowStockProducts?.length
+    ? lowStockSection(input.lowStockProducts, writeOffY + (writeOffs ? writeOffs.height + 24 : 0))
+    : null;
+  const footerY = kpiY + kpiHeight + (promo ? 24 + promo.height : 0) + (writeOffs ? 24 + writeOffs.height : 0)
+    + (lowStock ? 24 + lowStock.height : 0) + 20;
   const height = footerY + 60;
 
   const clubRows = [
@@ -622,6 +660,7 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
     ${kpiTile(kpiX(3), kpiY + 62, kpiWidth - 12, SLATE, GLYPH_BOX, ['СТОИМОСТЬ', 'СКЛАДА'], input.inventoryValue, 'к прошлому месяцу', input.inventoryValueChange)}
     ${kpiTile(kpiX(4) - 6, kpiY + 62, kpiWidth - 6, RED, GLYPH_ALERT, ['АКТИВНЫЕ', 'ДОЛГИ'], input.activeDebts, 'долги клиентов')}
     ${promo?.svg ?? ''}
+    ${writeOffs?.svg ?? ''}
     ${lowStock?.svg ?? ''}
 
     <circle cx="${PAGE_X + 18}" cy="${footerY + 18}" r="11" fill="${MUTED}"/>

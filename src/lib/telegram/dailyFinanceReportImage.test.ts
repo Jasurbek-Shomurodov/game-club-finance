@@ -265,6 +265,20 @@ describe('daily finance report image', () => {
     }
   });
 
+  it('adds a write-off card only when bar stock was written off', () => {
+    const stockWriteOffs = [
+      { productName: 'Saber', kind: 'expired' as const, note: 'sour', quantity: 3, cost: 21999 },
+      { productName: 'Coca cola', kind: 'shortage' as const, note: '', quantity: 2, cost: 11749 },
+    ];
+    const empty = buildDailyFinanceReportSvg({ ...reportInput(), stockWriteOffs: [] });
+    const withWriteOffs = buildDailyFinanceReportSvg({ ...reportInput(), stockWriteOffs });
+    expect(empty).not.toContain('СПИСАНИЯ БАРА');
+    expect(withWriteOffs).toContain('СПИСАНИЯ БАРА · 5 шт.');
+    expect(withWriteOffs).toContain('Saber — просрочка (sour)');
+    expect(withWriteOffs).toContain('Coca cola — недостача');
+    expect(withWriteOffs).toContain('убыток 33 748 UZS');
+  });
+
   it('adds a promo giveaway card only when bonuses were handed out', () => {
     const promoGiveaways = Array.from({ length: 10 }, (_, index) => ({
       productName: `Напиток ${index}`,

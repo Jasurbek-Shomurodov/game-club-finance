@@ -157,6 +157,10 @@ negative adjustments with free text keep `writeoff_cost = 0` and their saved
 snapshot. The TS mirror is `stockWriteOffQuantity` in `calculations/stock.ts`.
 The loss is shown on the closing page KPI and in Reports → Write-offs
 (`summarizeStockWriteOffs`), where free-text adjustments appear as "Other".
+The Telegram daily report adds a "Списания бара" card and text block for the
+report date (`summarizeStockWriteOffsForReport`), listing only shortage/expired
+write-offs. Write-offs are an owner tool: the button, the KPI, the row badge and
+the Reports tab are shown to owners only (the RPC already refuses admins).
 
 ## Historical snapshot rule
 

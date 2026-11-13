@@ -78,7 +78,9 @@ describe('buildDailyFinanceTelegramReport', () => {
     }));
     // Each ledger is read once over the comparison window, never per period.
     for (const table of ['daily_cash_entries', 'daily_stock_counts', 'stock_purchases', 'expenses']) {
-      const ledgerReads = queries.filter((query) => query.table === table && !query.select?.includes('giveaway_quantity'));
+      // The giveaway and write-off sections read only the report date, separately.
+      const ledgerReads = queries.filter((query) => query.table === table
+        && !query.select?.includes('giveaway_quantity') && !query.select?.includes('adjustment_reason'));
       expect(ledgerReads, table).toHaveLength(1);
     }
     // The debt ledger is bounded: window debts plus open ones, never all history.

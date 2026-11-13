@@ -23,6 +23,7 @@ import type {
   DailyFinanceReportDebtPaymentRow,
   DailyFinanceReportDebtRow,
   DailyFinanceGiveawayRow,
+  DailyFinanceWriteOffRow,
   DailyFinanceReportLaterDebtPaymentRow,
 } from './dailyFinanceReport';
 
@@ -182,6 +183,33 @@ export async function getPromoGiveawayRows(
   }
 }
 
+/**
+ * Report-date counts with a negative adjustment; the report keeps only
+ * shortage/expired write-offs. A failure only drops the section.
+ */
+export async function getStockWriteOffRows(
+  supabase: SupabaseClient,
+  clubId: string,
+  businessDate: string,
+): Promise<DailyFinanceWriteOffRow[] | undefined> {
+  try {
+    const { data, error } = await fetchAllRows<DailyFinanceWriteOffRow>(() =>
+      supabase
+        .from('daily_stock_counts')
+        .select('product_id,adjustment_quantity,adjustment_reason,cost_price,products(name)')
+        .eq('club_id', clubId)
+        .eq('date', businessDate)
+        .lt('adjustment_quantity', 0)
+        .order('product_id', { ascending: true }),
+    );
+    if (error) throw error;
+    return (data ?? []) as DailyFinanceWriteOffRow[];
+  } catch (error) {
+    console.error('[telegram/daily-finance] stock write-offs unavailable; omitting section:', error);
+    return undefined;
+  }
+}
+
 async function getClub(supabase: SupabaseClient, clubId: string): Promise<ClubRow> {
   const { data, error } = await supabase
     .from('clubs')
@@ -277,7 +305,7 @@ export async function buildDailyFinanceTelegramReport(
       .order('date', { ascending: true })
       .order('id', { ascending: true }),
   );
-  const [clubRes, cashRes, stockRes, purchaseRes, expenseRes, debtPaymentRes, laterDebtPaymentRes, debtRes, lowStockProductRows, giveawayRows, internetPaymentDay] = await Promise.all([
+  const [clubRes, cashRes, stockRes, purchaseRes, expenseRes, debtPaymentRes, laterDebtPaymentRes, debtRes, lowStockProductRows, giveawayRows, writeOffRows, internetPaymentDay] = await Promise.all([
     getClub(supabase, clubId),
     windowed<DailyCashRow>('daily_cash_entries', 'date,cash_income,terminal_income,card_income,playstation_income', ['date']),
     // (club_id, date, product_id) is unique, so the ordering pages stably.
@@ -301,6 +329,7 @@ export async function buildDailyFinanceTelegramReport(
       ))),
     getLowStockProductRows(supabase, clubId),
     getPromoGiveawayRows(supabase, clubId, businessDate),
+    getStockWriteOffRows(supabase, clubId, businessDate),
     getInternetPaymentDay(supabase, clubId),
   ]);
 
@@ -349,6 +378,7 @@ export async function buildDailyFinanceTelegramReport(
     laterDebtPaymentRows: (laterDebtPaymentRes.data ?? []) as DailyFinanceReportLaterDebtPaymentRow[],
     lowStockProductRows,
     giveawayRows,
+    writeOffRows,
     internetPaymentDay,
     // Calendar date in the club's time zone, independent of its business-day start.
     sendDate: serverTodayIso(now, 0),

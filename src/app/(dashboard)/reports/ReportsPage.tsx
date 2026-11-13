@@ -292,7 +292,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   }, [requestedCategory]);
   /** Narrows the closeout table to dates ticked as collected, or to the ones still waiting. */
   const [collectionFilter, setCollectionFilter] = useState<'all' | 'pending' | 'collected'>('all');
-  const [view, setView] = useState<ReportsView>(requestedView === 'collected' || requestedView === 'writeOffs' ? requestedView : 'closeout');
+  const [view, setView] = useState<ReportsView>(requestedView === 'collected' || (requestedView === 'writeOffs' && role === 'owner') ? requestedView : 'closeout');
   // Keep the tab shareable without dropping the rest of the link.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -982,7 +982,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
             options={[
               { value: 'closeout', label: t('title') },
               { value: 'collected', label: t('collectedTab') },
-              { value: 'writeOffs', label: t('writeOffsTab') },
+              // Write-offs are an owner tool.
+              ...(isOwner ? [{ value: 'writeOffs' as const, label: t('writeOffsTab') }] : []),
             ]}
             value={view}
             onChange={setView}
@@ -1038,7 +1039,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       )}
 
       {/* After a failed load the figures are unknown, not zero: show only the error. */}
-      {hasReportsAccess && view === 'writeOffs' && (
+      {hasReportsAccess && isOwner && view === 'writeOffs' && (
         <WriteOffsTab clubId={selectedClubId} from={range.from} to={range.to} />
       )}
       {hasReportsAccess && !loadFailed && view === 'collected' && (

@@ -604,7 +604,8 @@ export default function ClosingStockPage() {
     { label: t('barIncomeEst'), value: formatCurrency(totals.income), unit: tc('currency'), tone: 'success' },
     { label: t('barProfitEst'), value: formatCurrency(totals.profit), unit: tc('currency'), tone: totals.profit < 0 ? 'danger' : 'success' },
     { label: t('promoCost'), value: formatCurrency(totals.giveawayCost), unit: tc('currency'), tone: totals.giveawayCost > 0 ? 'danger' : 'default' },
-    { label: t('writeOffCost'), value: formatCurrency(totals.writeOffCost), unit: tc('currency'), tone: totals.writeOffCost > 0 ? 'danger' : 'default' },
+    // Write-offs are an owner tool: only owners see their cost and badges.
+    ...(isOwner ? [{ label: t('writeOffCost'), value: formatCurrency(totals.writeOffCost), unit: tc('currency'), tone: totals.writeOffCost > 0 ? 'danger' as const : 'default' as const }] : []),
     { label: t('stockValue'), value: formatCurrency(totals.stockValue), unit: tc('currency') },
   ];
   const categoryChipOptions = [{ value: '', label: tc('all') }, ...categoryOptions.map((category) => ({ value: category, label: category }))];
@@ -749,10 +750,10 @@ export default function ClosingStockPage() {
       ) : (
         <>
           {loading ? (
-            <MetricGridSkeleton count={8} className="grid-cols-2 lg:grid-cols-8" />
+            <MetricGridSkeleton count={kpis.length} className={isOwner ? 'grid-cols-2 lg:grid-cols-8' : 'grid-cols-2 lg:grid-cols-7'} />
           ) : (
             <Card as="section" padding="none" aria-busy={refreshing || undefined}>
-              <div className="grid grid-cols-2 lg:grid-cols-8">
+              <div className={`grid grid-cols-2 ${isOwner ? 'lg:grid-cols-8' : 'lg:grid-cols-7'}`}>
                 {kpis.map((kpi) => (
                   <StatTile
                     key={kpi.label}
@@ -902,7 +903,7 @@ export default function ClosingStockPage() {
                       const rowFlagged = invalidProductId === productId;
                       const rowPromotions = promotionsForProduct(promotions, productId, date);
                       const giveawayQuantity = parseNum(row.giveawayQuantity);
-                      const writeOff = rowWriteOff(row);
+                      const writeOff = isOwner ? rowWriteOff(row) : null;
                       const selectedPromotion = row.promotionId
                         ? promotions.find((promotion) => promotion.id === row.promotionId) ?? null
                         : null;

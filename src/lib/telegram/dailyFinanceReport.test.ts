@@ -584,6 +584,44 @@ describe('promo giveaways in the daily report', () => {
   });
 });
 
+describe('bar write-offs in the daily report', () => {
+  const baseRows = {
+    clubName: 'Pixel',
+    businessDate: '2026-11-13',
+    businessDateLabel: '13 ноября 2026',
+    cashRows: [],
+    stockRows: [],
+    stockPurchaseRows: [],
+    expenseRows: [],
+    debtRows: [],
+  };
+
+  it('lists shortage and expired write-offs with their loss, largest first, and skips free-text adjustments', () => {
+    const input = buildDailyFinanceReportInput({
+      ...baseRows,
+      writeOffRows: [
+        { product_id: 'a', adjustment_quantity: '-2', adjustment_reason: 'shortage', cost_price: '5874.35', products: { name: 'Coca cola 0,5' } },
+        { product_id: 'b', adjustment_quantity: -3, adjustment_reason: 'expired: sour', cost_price: 7333, products: [{ name: 'Saber' }] },
+        { product_id: 'c', adjustment_quantity: -1, adjustment_reason: 'broken bottle', cost_price: 2000, products: { name: 'Water' } },
+      ],
+    });
+    expect(input.stockWriteOffs).toEqual([
+      { productName: 'Saber', kind: 'expired', note: 'sour', quantity: 3, cost: 21999 },
+      { productName: 'Coca cola 0,5', kind: 'shortage', note: '', quantity: 2, cost: 11748.7 },
+    ]);
+    const text = formatRussianDailyFinanceReport(input);
+    expect(text).toContain('🗑 Списания бара: 5 шт., убыток 33 748 UZS');
+    expect(text).toContain('  • Saber — просрочка (sour): 3 шт., 21 999 UZS');
+    expect(text).toContain('  • Coca cola 0,5 — недостача: 2 шт., 11 749 UZS');
+    expect(text).not.toContain('Water');
+    expect(formatRussianDailyFinanceReportCaption(input)).toContain('🗑 Списания бара: 33 748 UZS');
+
+    const none = buildDailyFinanceReportInput({ ...baseRows, writeOffRows: [] });
+    expect(formatRussianDailyFinanceReport(none)).not.toContain('Списания');
+    expect(buildDailyFinanceReportInput(baseRows).stockWriteOffs).toBeUndefined();
+  });
+});
+
 describe('internet payment reminder', () => {
   it('fires on the day before the payment day', () => {
     expect(internetPaymentDueDate('2026-10-19', 20)).toBe('2026-10-20');

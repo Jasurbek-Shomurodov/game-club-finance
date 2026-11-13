@@ -15,7 +15,7 @@ import type {
   StockPurchaseCostRow,
   ProductValueRow,
 } from '../calculations/dashboardMetrics';
-import { listLowStockProducts } from '../calculations/stock';
+import { listLowStockProducts, STOCK_WRITE_OFF_REASON_PATTERN, stockWriteOffQuantity } from '../calculations/stock';
 import type { AnalysisLedgers } from '../calculations/financialAnalysis';
 import { buildDrillSankey, type DrillSankey } from '../calculations/sankeyDrill';
 import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
@@ -67,6 +67,8 @@ export interface DailyFinanceReportInput {
   lowStockProducts?: LowStockProduct[];
   /** Units handed out free under promotions on the report date, by product. */
   promoGiveaways?: DailyFinancePromoGiveaway[];
+  /** Bar units written off (shortage/expired) on the report date, by product. */
+  stockWriteOffs?: DailyFinanceStockWriteOff[];
   /** Internet due date when this report is sent the day before it; otherwise absent. */
   internetPaymentDueDate?: string | null;
 }
@@ -77,6 +79,24 @@ export interface DailyFinancePromoGiveaway {
   quantity: number;
   /** quantity × cost price; already inside bar cost. */
   cost: number;
+}
+
+export interface DailyFinanceStockWriteOff {
+  productName: string;
+  kind: 'shortage' | 'expired';
+  note: string;
+  quantity: number;
+  /** quantity × the count's cost price; already inside bar cost (migration 141). */
+  cost: number;
+}
+
+/** A saved stock count with a negative adjustment, joined to its product name. */
+export interface DailyFinanceWriteOffRow {
+  product_id: string;
+  adjustment_quantity: number | string | null;
+  adjustment_reason: string | null;
+  cost_price: number | string | null;
+  products?: { name?: string | null } | { name?: string | null }[] | null;
 }
 
 /** A saved stock count with a promo giveaway, joined to its product and promotion names. */
@@ -155,6 +175,8 @@ export interface DailyFinanceReportRows {
   lowStockProductRows?: LowStockProductInput[];
   /** Report-date stock counts with giveaways; omitted when they could not be read. */
   giveawayRows?: DailyFinanceGiveawayRow[];
+  /** Report-date stock counts with a negative adjustment; omitted when they could not be read. */
+  writeOffRows?: DailyFinanceWriteOffRow[];
   /** The club's internet payment day of the month (1-31); null or absent means no reminder. */
   internetPaymentDay?: number | null;
   /** Calendar date the report is sent on; the reminder fires when the next day is the payment date. */
@@ -203,6 +225,45 @@ export function summarizePromoGiveaways(rows: DailyFinanceGiveawayRow[]): DailyF
     }))
     .filter((item) => item.quantity > 0)
     .sort((a, b) => b.quantity - a.quantity || a.productName.localeCompare(b.productName, 'ru'));
+}
+
+/** Shortage/expired write-offs, largest loss first; free-text adjustments are not write-offs. */
+export function summarizeStockWriteOffsForReport(rows: DailyFinanceWriteOffRow[]): DailyFinanceStockWriteOff[] {
+  return rows
+    .flatMap((row) => {
+      const reason = String(row.adjustment_reason ?? '').trim();
+      const quantity = stockWriteOffQuantity(Number(row.adjustment_quantity ?? 0), reason);
+      const match = STOCK_WRITE_OFF_REASON_PATTERN.exec(reason);
+      if (quantity <= 0 || !match) return [];
+      return [{
+        productName: relationName(row.products) ?? 'Товар',
+        kind: match[1] as DailyFinanceStockWriteOff['kind'],
+        note: (match[2] ?? '').trim(),
+        quantity,
+        cost: quantity * (Number(row.cost_price ?? 0) || 0),
+      }];
+    })
+    .sort((a, b) => b.cost - a.cost || a.productName.localeCompare(b.productName, 'ru'));
+}
+
+export const WRITE_OFF_KIND_LABELS: Record<DailyFinanceStockWriteOff['kind'], string> = {
+  shortage: 'недостача',
+  expired: 'просрочка',
+};
+
+export function stockWriteOffItemLabel(item: DailyFinanceStockWriteOff): string {
+  return `${item.productName} — ${WRITE_OFF_KIND_LABELS[item.kind]}${item.note ? ` (${item.note})` : ''}`;
+}
+
+function stockWriteOffLines(items: DailyFinanceStockWriteOff[] | undefined): string[] {
+  if (!items?.length) return [];
+  const units = items.reduce((sum, item) => sum + item.quantity, 0);
+  const cost = items.reduce((sum, item) => sum + item.cost, 0);
+  return [
+    '',
+    `🗑 Списания бара: ${quantityLabel(units)}, убыток ${money(cost)}`,
+    ...items.map((item) => `  • ${stockWriteOffItemLabel(item)}: ${quantityLabel(item.quantity)}, ${money(item.cost)}`),
+  ];
 }
 
 function quantityLabel(value: number): string {
@@ -471,6 +532,9 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
     promoGiveaways: rows.giveawayRows === undefined
       ? undefined
       : summarizePromoGiveaways(rows.giveawayRows),
+    stockWriteOffs: rows.writeOffRows === undefined
+      ? undefined
+      : summarizeStockWriteOffsForReport(rows.writeOffRows),
     internetPaymentDueDate: rows.sendDate
       ? internetPaymentDueDate(rows.sendDate, rows.internetPaymentDay)
       : null,
@@ -512,6 +576,7 @@ export function formatRussianDailyFinanceReport(input: DailyFinanceReportInput):
     `📦 Стоимость склада: ${money(input.inventoryValue)}`,
     `🤝 Активные долги: ${money(input.activeDebts)}`,
     ...promoGiveawayLines(input.promoGiveaways),
+    ...stockWriteOffLines(input.stockWriteOffs),
     ...lowStockLines(input.lowStockProducts),
     ...(input.internetPaymentDueDate ? ['', internetPaymentLine(input.internetPaymentDueDate)] : []),
   ].join('\n');
@@ -524,6 +589,9 @@ export function formatRussianDailyFinanceReportCaption(input: DailyFinanceReport
     ...(input.internetPaymentDueDate ? [internetPaymentLine(input.internetPaymentDueDate)] : []),
     ...(input.promoGiveaways?.length
       ? [`🎁 Бонусы по акциям: ${quantityLabel(input.promoGiveaways.reduce((sum, item) => sum + item.quantity, 0))}`]
+      : []),
+    ...(input.stockWriteOffs?.length
+      ? [`🗑 Списания бара: ${money(input.stockWriteOffs.reduce((sum, item) => sum + item.cost, 0))}`]
       : []),
     ...(input.lowStockProducts?.length
       ? [`⚠️ Заканчивается на складе: ${input.lowStockProducts.length}`]
