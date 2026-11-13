@@ -137,10 +137,10 @@ describe('buildFinancialAnalysis', () => {
 
   it('nets game-club money per payment method and ignores bar-paid expenses', () => {
     expect(analysis.paymentMethods).toEqual([
-      { method: 'cash', income: 180_000, expenses: 60_000, exchanged: 0, left: 120_000 },
-      { method: 'terminal', income: 50_000, expenses: 30_000, exchanged: 0, left: 20_000 },
-      { method: 'card', income: 35_000, expenses: 0, exchanged: 0, left: 35_000 },
-      { method: 'playstation', income: 20_000, expenses: 0, exchanged: 0, left: 20_000 },
+      { method: 'cash', income: 180_000, expenses: 60_000, exchanged: 0, exchangedIn: 0, exchangedOut: 0, left: 120_000 },
+      { method: 'terminal', income: 50_000, expenses: 30_000, exchanged: 0, exchangedIn: 0, exchangedOut: 0, left: 20_000 },
+      { method: 'card', income: 35_000, expenses: 0, exchanged: 0, exchangedIn: 0, exchangedOut: 0, left: 35_000 },
+      { method: 'playstation', income: 20_000, expenses: 0, exchanged: 0, exchangedIn: 0, exchangedOut: 0, left: 20_000 },
     ]);
   });
 
@@ -238,9 +238,9 @@ describe('buildCategoryDetail', () => {
 
 describe('visiblePaymentMethodRows', () => {
   const rows = [
-    { method: 'cash' as const, income: 0, expenses: 0, exchanged: 0, left: 0 },
-    { method: 'terminal' as const, income: 0, expenses: 0, exchanged: 0, left: 0 },
-    { method: 'card' as const, income: 5_000, expenses: 1_000, exchanged: 0, left: 4_000 },
+    { method: 'cash' as const, income: 0, expenses: 0, exchanged: 0, exchangedIn: 0, exchangedOut: 0, left: 0 },
+    { method: 'terminal' as const, income: 0, expenses: 0, exchanged: 0, exchangedIn: 0, exchangedOut: 0, left: 0 },
+    { method: 'card' as const, income: 5_000, expenses: 1_000, exchanged: 0, exchangedIn: 0, exchangedOut: 0, left: 4_000 },
   ];
 
   it('keeps a switched-off method that moved money in the period', () => {
@@ -253,7 +253,7 @@ describe('visiblePaymentMethodRows', () => {
   });
 
   it('keeps a switched-off method that only exchanged money', () => {
-    const exchangedOnly = [{ method: 'terminal' as const, income: 0, expenses: 0, exchanged: -500, left: -500 }];
+    const exchangedOnly = [{ method: 'terminal' as const, income: 0, expenses: 0, exchanged: -500, exchangedIn: 0, exchangedOut: 500, left: -500 }];
     expect(visiblePaymentMethodRows(exchangedOnly, ['card'])).toEqual(exchangedOnly);
   });
 });
@@ -279,8 +279,8 @@ describe('buildPaymentMethodFlow', () => {
     const expected = calculateGameClubMoneyLeftByPaymentMethod(rows.cashRows, rows.expenseRows, rows.debtPaymentRows, exchanges);
 
     expect(Object.fromEntries(flow.map((row) => [row.method, row.left]))).toEqual(expected);
-    expect(flow.find((row) => row.method === 'cash')).toMatchObject({ income: 5_000_000, expenses: 100_000, exchanged: -2_000_000, left: 2_900_000 });
-    expect(flow.find((row) => row.method === 'playstation')).toMatchObject({ exchanged: 0, left: 150_000 });
+    expect(flow.find((row) => row.method === 'cash')).toMatchObject({ income: 5_000_000, expenses: 100_000, exchanged: -2_000_000, exchangedIn: 0, exchangedOut: 2_000_000, left: 2_900_000 });
+    expect(flow.find((row) => row.method === 'playstation')).toMatchObject({ exchanged: 0, exchangedIn: 0, exchangedOut: 0, left: 150_000 });
   });
 
   it('matches the money-left calculation without exchanges', () => {

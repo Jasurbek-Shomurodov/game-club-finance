@@ -14,7 +14,7 @@ import {
   type StockCountRow,
   type StockPurchaseCostRow,
 } from './dashboardMetrics';
-import { exchangeNetByMethod, type MoneyExchangeRow } from './moneyExchanges';
+import { exchangeFlowByMethod, type MoneyExchangeRow } from './moneyExchanges';
 
 /**
  * Financial analysis: where the selected period's money came from and where it
@@ -84,6 +84,10 @@ export interface PaymentMethodFlowRow {
   expenses: number;
   /** Net money moved in (+) or out (-) by exchanges; PlayStation is never exchanged. */
   exchanged: number;
+  /** Money this method received from exchanges, as a positive amount. */
+  exchangedIn: number;
+  /** Money this method gave to exchanges, as a positive amount. */
+  exchangedOut: number;
   left: number;
 }
 
@@ -96,7 +100,7 @@ export function visiblePaymentMethodRows(
   rows: PaymentMethodFlowRow[],
   enabledMethods: readonly string[],
 ): PaymentMethodFlowRow[] {
-  return rows.filter((row) => enabledMethods.includes(row.method) || row.income !== 0 || row.expenses !== 0 || row.exchanged !== 0);
+  return rows.filter((row) => enabledMethods.includes(row.method) || row.income !== 0 || row.expenses !== 0 || row.exchangedIn !== 0 || row.exchangedOut !== 0);
 }
 
 /** One side of the club; never summed with the other side. */
@@ -279,10 +283,12 @@ export function buildPaymentMethodFlow(ledgers: AnalysisLedgers, exchangeRows: M
     if (expense.payment_source === 'bar' || isDollarExpense(expense)) continue;
     flow[gameClubExpensePaymentBucket(expense.payment_method)].expenses += amountOf(expense);
   }
-  const net = exchangeNetByMethod(exchangeRows);
+  const exchanges = exchangeFlowByMethod(exchangeRows);
   return (Object.keys(flow) as PaymentMethodFlowRow['method'][]).map((method) => {
-    const exchanged = method === 'playstation' ? 0 : net[method];
-    return { method, ...flow[method], exchanged, left: flow[method].income - flow[method].expenses + exchanged };
+    const exchangedIn = method === 'playstation' ? 0 : exchanges[method].in;
+    const exchangedOut = method === 'playstation' ? 0 : exchanges[method].out;
+    const exchanged = exchangedIn - exchangedOut;
+    return { method, ...flow[method], exchanged, exchangedIn, exchangedOut, left: flow[method].income - flow[method].expenses + exchanged };
   });
 }
 

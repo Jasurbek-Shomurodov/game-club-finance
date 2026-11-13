@@ -212,12 +212,15 @@ export function PaymentMethodFlow({
               </div>
             </div>
           ))}
-          {row.exchanged !== 0 && (
-            <div className="flex justify-between text-xs text-gray-500">
-              <span>{t('exchanged')}</span>
-              <span className="tabular-nums">{row.exchanged > 0 ? '+' : '−'}{formatCompactMoney(Math.abs(row.exchanged), locale)}</span>
+          {([
+            [t('exchangedIn'), row.exchangedIn],
+            [t('exchangedOut'), row.exchangedOut],
+          ] as const).filter(([, amount]) => amount !== 0).map(([label, amount]) => (
+            <div key={label} className="flex justify-between text-xs text-gray-500" aria-label={`${label}: ${formatCurrency(amount)} ${currency}`}>
+              <span>{label}</span>
+              <span className="tabular-nums">{formatCompactMoney(amount, locale)}</span>
             </div>
-          )}
+          ))}
         </div>
       ))}
     </div>
