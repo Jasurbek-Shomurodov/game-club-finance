@@ -1,13 +1,9 @@
 {
-  "lines": 40,
-  "branches": 34,
-  "functions": 36,
+  "lines": 42,
+  "branches": 38,
+  "functions": 38,
   "untested": [
     "src/lib/assistant/loaders.ts",
-    "src/lib/collectionsApi.ts",
-    "src/lib/supabase/closingStockQueries.ts",
-    "src/lib/supabase/products.ts",
-    "src/lib/supabase/salaries.ts",
     "src/lib/supabase/server.ts",
     "src/lib/supabase/showcase.ts",
     "src/lib/useBusinessPeriod.ts",

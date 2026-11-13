@@ -137,3 +137,54 @@ describe('summarizeStockWriteOffs', () => {
     expect(summary.total).toEqual({ quantity: 6, cost: 26_001.5 });
   });
 });
+
+describe('write-offs with incomplete data', () => {
+  it('formats a reason with no note as the bare kind', () => {
+    expect(formatWriteOffReason('shortage')).toBe('shortage');
+    expect(formatWriteOffReason('expired', '   ')).toBe('expired');
+  });
+
+  it('reads a negative adjustment with no reason as an unexplained "other" removal', () => {
+    expect(parseWriteOffReason(null)).toEqual({ kind: 'other', note: '' });
+    expect(parseWriteOffReason(undefined)).toEqual({ kind: 'other', note: '' });
+    expect(rowWriteOff({ adjustmentQuantity: '-2' })).toEqual({ quantity: 2, kind: 'other', note: '' });
+  });
+
+  it('has no write-off on a row without an adjustment', () => {
+    expect(rowWriteOff({})).toBeNull();
+    expect(maxWriteOffQuantity(row({ adjustmentQuantity: undefined, closingStock: '9' }))).toBe(9);
+  });
+
+  it('values a write-off with no usable saved cost at zero and still counts its units', () => {
+    const summary = summarizeStockWriteOffs([
+      { date: '2026-11-12', product_id: 'gum', adjustment_quantity: -2, adjustment_reason: 'shortage', cost_price: null, products: { name: 'Gum' } },
+      { date: '2026-11-12', product_id: 'ice', adjustment_quantity: -3, adjustment_reason: 'expired', cost_price: 'n/a', products: { name: 'Ice' } },
+      { date: '2026-11-12', product_id: 'coke', adjustment_quantity: -1, adjustment_reason: 'shortage', cost_price: 6_000, products: { name: 'Coke' } },
+    ]);
+
+    expect(summary.total).toEqual({ quantity: 6, cost: 6_000 });
+    expect(summary.byKind.shortage).toEqual({ quantity: 3, cost: 6_000 });
+    expect(summary.byKind.expired).toEqual({ quantity: 3, cost: 0 });
+    expect(summary.byKind.other).toEqual({ quantity: 0, cost: 0 });
+  });
+
+  it('lists a product whose row is not readable with a blank name and sorts a day by product name', () => {
+    const summary = summarizeStockWriteOffs([
+      { date: '2026-11-12', product_id: 'milk', adjustment_quantity: -1, adjustment_reason: 'expired', cost_price: 4_000, products: { name: 'Milk' } },
+      { date: '2026-11-12', product_id: 'gone', adjustment_quantity: -1, adjustment_reason: 'shortage', cost_price: 1_000 },
+      { date: '2026-11-12', product_id: 'unnamed', adjustment_quantity: -1, adjustment_reason: 'shortage', cost_price: 1_000, products: { name: null } },
+      { date: '2026-11-12', product_id: 'coke', adjustment_quantity: -1, adjustment_reason: 'shortage', cost_price: 6_000, products: { name: 'Coke' } },
+      { date: '2026-11-13', product_id: 'water', adjustment_quantity: -1, adjustment_reason: 'shortage', cost_price: 1_000, products: { name: 'Water' } },
+    ]);
+
+    // Newest day first; within a day by name, unnamed products first.
+    expect(summary.entries.map((entry) => [entry.date, entry.productName])).toEqual([
+      ['2026-11-13', 'Water'],
+      ['2026-11-12', ''],
+      ['2026-11-12', ''],
+      ['2026-11-12', 'Coke'],
+      ['2026-11-12', 'Milk'],
+    ]);
+    expect(summary.total).toEqual({ quantity: 5, cost: 13_000 });
+  });
+});

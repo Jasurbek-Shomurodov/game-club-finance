@@ -332,7 +332,11 @@ function parseClosingStockNumber(value: unknown): number | null {
   const normalized = normalizeDecimalSeparators(compact);
   if (normalized === null) return null;
 
-  const parsed = Number(normalized.replace(/[^\d.-]/g, ''));
+  const digits = normalized.replace(/[^\d.-]/g, '');
+  // Text with no number in it ("n/a", "нет") is not a count: Number('') would
+  // read it as 0, i.e. every unit sold.
+  if (!/\d/.test(digits)) return null;
+  const parsed = Number(digits);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
@@ -904,6 +908,7 @@ function applyImportToRow(
       addedToday,
       soldQuantity,
       adjustmentQuantity,
+      giveawayQuantity,
     ));
   }
 

@@ -35,4 +35,28 @@ describe('reserve RPC wrappers', () => {
     expect(holdings).toEqual({ game_club: { total: 750_000, cash: 450_000, terminal: 300_000, card: 0, playstation: 0 }, bar: { total: 0 } });
     expect(await fetchReserveHoldings(client({ error: { code: '42501' } }).supabase, 'club')).toBeNull();
   });
+
+  it('reads nothing when the RPC answers without a payload', async () => {
+    const { supabase, rpc } = client({ data: null });
+    expect(await fetchReserveHoldings(supabase, 'club')).toBeNull();
+    expect(rpc).toHaveBeenCalledWith('get_owner_reserve_balances', { p_club_id: 'club' });
+  });
+
+  it('counts a side or method missing from the payload as holding nothing', async () => {
+    expect(await fetchReserveHoldings(client({ data: { game_club: { total: '450000', cash: 450_000 } } }).supabase, 'club'))
+      .toEqual({ game_club: { total: 450_000, cash: 450_000, terminal: 0, card: 0, playstation: 0 }, bar: { total: 0 } });
+    expect(await fetchReserveHoldings(client({ data: { bar: { total: '120000' } } }).supabase, 'club'))
+      .toEqual({ game_club: { total: 0, cash: 0, terminal: 0, card: 0, playstation: 0 }, bar: { total: 120_000 } });
+  });
+
+  it('deletes an entry through the RPC scoped to the club', async () => {
+    const { supabase, rpc } = client({});
+    expect(await deleteReserveEntry(supabase, 'club', 'entry-1')).toBeNull();
+    expect(rpc).toHaveBeenCalledWith('delete_owner_reserve_entry', { p_club_id: 'club', p_entry_id: 'entry-1' });
+  });
+
+  it('reports a missing migration and an overdrawn return', async () => {
+    expect(await depositToReserve(client({ error: { code: 'PGRST202', message: 'not found' } }).supabase, 'club', move)).toBe('migration_required');
+    expect(await returnFromReserve(client({ error: { hint: 'reserve_insufficient' } }).supabase, 'club', move)).toBe('insufficient');
+  });
 });

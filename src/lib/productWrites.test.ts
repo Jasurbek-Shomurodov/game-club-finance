@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { LOW_STOCK_DEFAULT } from './calculations/stock';
 import {
   buildProductInsertPayload,
   buildProductUpdatePayload,
@@ -176,5 +177,46 @@ describe('planProductReorder', () => {
 
   it('rejects out-of-range moves', () => {
     expect(planProductReorder([{ id: 'a', sort_order: 1 }], 0, 1)).toBeNull();
+  });
+});
+
+describe('product write payloads with blank inputs', () => {
+  it('saves a blank category as no category', () => {
+    expect(buildProductUpdatePayload({ ...form, category: '   ' }, { isOwner: true, updatedAt: 'now' }).category).toBeNull();
+  });
+
+  it('opens a tracked product at zero stock when the stock field is blank, unreadable or negative', () => {
+    for (const current_stock of ['', 'abc', '-5']) {
+      expect(buildProductInsertPayload({ ...form, current_stock }, { isOwner: true, updatedAt: 'now' }))
+        .toMatchObject({ tracks_inventory: true, current_stock: 0 });
+    }
+  });
+
+  it('opens a tracked product at whole units only', () => {
+    expect(buildProductInsertPayload({ ...form, current_stock: '7.9' }, { isOwner: true, updatedAt: 'now' }).current_stock).toBe(7);
+  });
+
+  it('never lets a non-owner set opening stock or tracking mode', () => {
+    const payload = buildProductInsertPayload(form, { isOwner: false, updatedAt: 'now' });
+    expect(payload).not.toHaveProperty('current_stock');
+    expect(payload).not.toHaveProperty('tracks_inventory');
+    expect(payload).not.toHaveProperty('cost_price');
+  });
+
+  it('uses the default low-stock threshold when the form has no value at all', () => {
+    expect(parseLowStockThreshold(undefined as unknown as string)).toBe(LOW_STOCK_DEFAULT);
+    expect(parseLowStockThreshold(null as unknown as string)).toBe(LOW_STOCK_DEFAULT);
+    expect(parseLowStockThreshold('-1')).toBe(LOW_STOCK_DEFAULT);
+    expect(parseLowStockThreshold('7.9')).toBe(7);
+  });
+
+  it('stamps the current time when no update time is given', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-13T08:30:00.000Z'));
+    try {
+      expect(buildProductUpdatePayload(form, { isOwner: true }).updated_at).toBe('2026-11-13T08:30:00.000Z');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -180,8 +180,14 @@ function buildPaymentMethods(
  * between methods nets to zero, and UZS sent into (or brought back from)
  * dollars is still Game Club money, not money gained or spent.
  */
-function gameClubLeftExcludingExchanges(methods: MoneyReport['paymentMethods']): number {
-  return Object.values(methods).reduce((sum, method) => sum + method.left - method.exchanged, 0);
+function gameClubLeftExcludingExchanges(methods: MoneyReport['paymentMethods'], expenseRows: ExpenseRow[]): number {
+  // A dollar expense is in no UZS method's "left", but it is a Game Club
+  // expense: buying the dollars left this figure alone, so spending them lowers it.
+  const dollarExpenses = expenseRows.reduce(
+    (sum, row) => (row.payment_source !== 'bar' && isDollarExpense(row) ? sum + Number(row.amount ?? 0) : sum),
+    0,
+  );
+  return Object.values(methods).reduce((sum, method) => sum + method.left - method.exchanged, 0) - dollarExpenses;
 }
 
 function buildDailyActivities(
@@ -284,7 +290,7 @@ export function buildMoneyReport(
   const usd = heldDollars(exchangeRows, expenseRows);
   const totalCollected = Object.values(paymentMethods)
     .reduce((sum, method) => sum + method.collected, 0);
-  const gameClubLeft = gameClubLeftExcludingExchanges(paymentMethods);
+  const gameClubLeft = gameClubLeftExcludingExchanges(paymentMethods, expenseRows);
   const barExpenses = expenseRows.reduce(
     (sum, row) => row.payment_source === 'bar' ? sum + Number(row.amount ?? 0) : sum,
     0,
@@ -346,7 +352,7 @@ export function buildMoneyReport(
       terminal: dayMethods.terminal.left,
       card: dayMethods.card.left,
       playstation: dayMethods.playstation.left,
-      total: gameClubLeftExcludingExchanges(dayMethods),
+      total: gameClubLeftExcludingExchanges(dayMethods, dayExpenseRows),
       income: activities
         .filter((activity) => activity.amount > 0)
         .reduce((sum, activity) => sum + activity.amount, 0),

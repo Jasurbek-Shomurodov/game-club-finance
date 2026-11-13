@@ -18,6 +18,7 @@ import {
   isLowStock,
   listLowStockProducts,
   LOW_STOCK_DEFAULT,
+  normalizeGiveawayQuantity,
   stockLevel,
   summarizeStockRows,
 } from './stock';
@@ -514,5 +515,24 @@ describe('promo giveaways', () => {
     expect(summarizeStockRows([
       { tracksInventory: true, previousStock: 10, addedToday: 0, giveawayQuantity: 2, closingStock: 6, soldQuantity: 0, salePrice: 100, costPrice: 40 },
     ])).toMatchObject({ sold: 2, giveaways: 2, giveawayCost: 80, income: 200, profit: 40 });
+  });
+});
+
+describe('stock helpers with missing values', () => {
+  it('reads a missing, fractional or negative giveaway as whole non-negative units', () => {
+    expect(normalizeGiveawayQuantity(undefined)).toBe(0);
+    expect(normalizeGiveawayQuantity(Number.NaN)).toBe(0);
+    expect(normalizeGiveawayQuantity(-3)).toBe(0);
+    expect(normalizeGiveawayQuantity(2.9)).toBe(2);
+  });
+
+  it('lists a product with no recorded stock as out of stock', () => {
+    expect(listLowStockProducts([
+      { name: 'New', current_stock: null, low_stock_threshold: null },
+      { name: 'Broken', current_stock: 'abc', low_stock_threshold: 3 },
+    ])).toEqual([
+      { name: 'Broken', currentStock: 0, threshold: 3, level: 'out' },
+      { name: 'New', currentStock: 0, threshold: 5, level: 'out' },
+    ]);
   });
 });

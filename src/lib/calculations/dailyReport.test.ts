@@ -146,3 +146,40 @@ describe('calculateFinancialReportTotals', () => {
     expect(report.barProfit).toBe(40000);
   });
 });
+
+describe('report totals with incomplete rows', () => {
+  it('counts a day without PlayStation income from the other three methods only', () => {
+    expect(calculateManualIncome({ cash_income: 100_000, terminal_income: 50_000, card_income: 30_000 })).toBe(180_000);
+  });
+
+  it('reads missing costs and amounts as zero and unassigned expenses as game-club expenses', () => {
+    const totals = calculateFinancialReportTotals({
+      manualIncome: 500_000,
+      stockRows: [
+        { bar_income: 100_000, bar_cost: 40_000 },
+        { bar_income: 20_000, bar_cost: null as unknown as number },
+      ],
+      purchaseRows: [{ date: '2026-07-10', quantity: 5, cost_price: 6_000 }],
+      expenseRows: [
+        { amount: 70_000, payment_source: 'bar' },
+        { amount: null as unknown as number, payment_source: 'bar' },
+        { amount: 50_000 },
+        { amount: 25_000, payment_source: null },
+        { amount: null as unknown as number, payment_source: 'game_club' },
+      ],
+    });
+
+    expect(totals).toEqual({
+      manualIncome: 500_000,
+      debtIncome: 0,
+      barSales: 120_000,
+      barCost: 40_000,
+      stockPurchaseCost: 30_000,
+      barExpenses: 70_000,
+      gameClubExpenses: 75_000,
+      barCashLeft: 20_000, // 120 000 sales − 30 000 purchases − 70 000 bar expenses
+      gameClubProfit: 425_000, // 500 000 − 75 000
+      barProfit: 10_000, // 120 000 − 40 000 cost of goods − 70 000
+    });
+  });
+});
