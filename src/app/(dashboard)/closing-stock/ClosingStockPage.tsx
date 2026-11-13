@@ -37,6 +37,7 @@ import {
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { BulkStockUpdateModal } from './BulkStockUpdateModal';
+import { StockWriteOffModal, type StockWriteOffInput } from './StockWriteOffModal';
 import { groupByCategory } from '@/lib/productSections';
 import { calendarTodayIso, todayIso } from '@/lib/utils';
 import { useClubQuery } from '@/lib/useClubQuery';
@@ -47,7 +48,6 @@ import { classifyStockWriteError, type StockWriteErrorLike } from '@/lib/stockWr
 import {
   applyBulkStockOrder,
   applyClosingStockDraft,
-  applyStockAdjustment,
   BulkStockAvailabilityError,
   buildEditableClosingStockRows,
   buildClosingStockUpserts,
@@ -56,10 +56,8 @@ import {
   clearClosingStockDraft,
   closingStockRowTotalsInput,
   isReadOnlyClosingStockProduct,
-  isSignedWholeNumberInput,
   isWholeNumberInput,
   normalizeStockCount,
-  normalizeStockAdjustment,
   readClosingStockDraft,
   saveClosingStockDraft,
   usesSoldQuantityEntry,
@@ -74,11 +72,13 @@ import {
   type BulkStockOrderSummary,
   type StorageLike,
 } from '@/lib/closingStock';
+import { applyStockWriteOff, rowWriteOff, StockWriteOffError } from '@/lib/stockWriteOffs';
 import {
   CalendarX,
   Gift,
   Info,
   Package,
+  PackageMinus,
   Save,
   Search,
   ShoppingCart,
@@ -90,10 +90,6 @@ type RowData = ClosingStockRowData;
 
 function parseNum(value: string | undefined): number {
   return normalizeStockCount(value);
-}
-
-function parseAdjustment(value: string | undefined): number {
-  return normalizeStockAdjustment(value);
 }
 
 function preventNonSignedIntegerNumberInput(event: KeyboardEvent<HTMLInputElement>) {
@@ -152,7 +148,7 @@ const stickyIndexCellClass = 'sticky left-0 z-10 w-12 bg-surface px-3 py-4 group
 // The product column stays visible while the wide table scrolls horizontally.
 const stickyProductHeaderCellClass = 'sticky left-12 top-0 z-30 border-b border-gray-100 bg-gray-50 px-4 py-3 align-bottom shadow-[1px_0_0_0_rgb(var(--c-gray-200))]';
 const stickyProductCellClass = 'sticky left-12 z-10 bg-surface px-4 py-4 shadow-[1px_0_0_0_rgb(var(--c-gray-200))] group-hover:bg-gray-50';
-const TABLE_COLUMN_COUNT = 12;
+const TABLE_COLUMN_COUNT = 11;
 const addedTodayHeaderCellClass = stickyHeaderCellClass;
 
 function rowSummary(row: RowData) {
@@ -198,6 +194,7 @@ export default function ClosingStockPage() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [saving, setSaving] = useState(false);
   const [bulkUpdateOpen, setBulkUpdateOpen] = useState(false);
+  const [writeOffOpen, setWriteOffOpen] = useState(false);
   const [error, setError] = useState('');
   const [invalidProductId, setInvalidProductId] = useState<string | null>(null);
   const { showToast, toastElement } = useToast();
@@ -310,6 +307,7 @@ export default function ClosingStockPage() {
 
   useEffect(() => {
     setBulkUpdateOpen(false);
+    setWriteOffOpen(false);
   }, [date, selectedClubId]);
 
   useEffect(() => {
@@ -348,15 +346,6 @@ export default function ClosingStockPage() {
 
   function stepClosingStock(productId: string, amount: number) {
     editRow(productId, (row) => withClosingStock(row, String(Math.max(0, parseNum(row.closingStock) + amount))));
-  }
-
-  function updateAdjustment(productId: string, value: string) {
-    if (!isSignedWholeNumberInput(value)) return;
-    editRow(productId, (row) => applyStockAdjustment(row, value, usesSoldEntry));
-  }
-
-  function updateAdjustmentReason(productId: string, value: string) {
-    editRow(productId, (row) => ({ ...row, adjustmentReason: value }));
   }
 
   function updateSoldQuantity(productId: string, value: string) {
@@ -420,6 +409,9 @@ export default function ClosingStockPage() {
   );
 
   const bulkRows = useMemo(() => rows.filter((row) => !isReadOnlyClosingStockProduct(row.product)), [rows]);
+  // Write-offs remove tracked stock; the save RPC lets only owners record them.
+  const writeOffRows = useMemo(() => bulkRows.filter((row) => row.product.tracks_inventory !== false), [bulkRows]);
+  const canWriteOff = isOwner && canSave;
 
   // Promotions active on the selected date, so staff see what to give away.
   const activePromotions = useMemo(
@@ -429,6 +421,9 @@ export default function ClosingStockPage() {
   const productNameById = useMemo(() => new Map(rows.map((row) => [row.product.id, row.product.name])), [rows]);
 
   // KPIs describe the whole day; filters only narrow the table and its footer.
+  const writeOffCost = useMemo(() => rows.reduce((sum, row) => (
+    sum + (rowWriteOff(row)?.quantity ?? 0) * Number(row.product.cost_price ?? 0)
+  ), 0), [rows]);
   const totals = useMemo(() => summarizeStockRows(rows.map((row) => (
     closingStockRowTotalsInput(row, purchaseCostsByProduct[row.product.id] ?? 0)
   ))), [rows, purchaseCostsByProduct]);
@@ -580,6 +575,31 @@ export default function ClosingStockPage() {
     return result.ok ? null : result.message ?? tc('error');
   }
 
+  async function handleWriteOffSave(writeOff: StockWriteOffInput): Promise<string | null> {
+    let nextRows: RowData[];
+    try {
+      nextRows = rows.map((row) => (row.product.id === writeOff.productId
+        ? applyStockWriteOff(row, writeOff)
+        : row));
+    } catch (writeOffError) {
+      if (writeOffError instanceof StockWriteOffError) {
+        if (writeOffError.code === 'exceeds_stock') {
+          return t('writeOffExceedsStock', {
+            product: writeOffError.productName,
+            available: formatNumber(writeOffError.availableQuantity),
+          });
+        }
+        if (writeOffError.code === 'positive_adjustment') {
+          return t('writeOffHasAdjustment', { product: writeOffError.productName });
+        }
+      }
+      return tc('error');
+    }
+
+    const result = await persistStockCounts(nextRows, writeOff.quantity > 0 ? t('writeOffSaved') : t('writeOffRemoved'));
+    return result.ok ? null : result.message ?? tc('error');
+  }
+
   const kpis: Array<{ label: string; value: string; unit?: string; tone?: 'default' | 'success' | 'danger' }> = [
     { label: t('totalProducts'), value: formatNumber(rows.length) },
     { label: t('stockPurchased'), value: formatNumber(totals.added), unit: t('pcs') },
@@ -587,6 +607,7 @@ export default function ClosingStockPage() {
     { label: t('barIncomeEst'), value: formatCurrency(totals.income), unit: tc('currency'), tone: 'success' },
     { label: t('barProfitEst'), value: formatCurrency(totals.profit), unit: tc('currency'), tone: totals.profit < 0 ? 'danger' : 'success' },
     { label: t('promoCost'), value: formatCurrency(totals.giveawayCost), unit: tc('currency'), tone: totals.giveawayCost > 0 ? 'danger' : 'default' },
+    { label: t('writeOffCost'), value: formatCurrency(writeOffCost), unit: tc('currency'), tone: writeOffCost > 0 ? 'danger' : 'default' },
     { label: t('stockValue'), value: formatCurrency(totals.stockValue), unit: tc('currency') },
   ];
   const categoryChipOptions = [{ value: '', label: tc('all') }, ...categoryOptions.map((category) => ({ value: category, label: category }))];
@@ -609,6 +630,15 @@ export default function ClosingStockPage() {
         onClose={() => setBulkUpdateOpen(false)}
         onSave={handleBulkStockSave}
       />
+      {canWriteOff && (
+        <StockWriteOffModal
+          open={writeOffOpen}
+          rows={writeOffRows}
+          saving={saving}
+          onClose={() => setWriteOffOpen(false)}
+          onSave={handleWriteOffSave}
+        />
+      )}
 
       <PageHeader
         title={t('title')}
@@ -651,6 +681,20 @@ export default function ClosingStockPage() {
                 >
                   {t('bulkUpdate')}
                 </Button>
+                {canWriteOff && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setError('');
+                      setWriteOffOpen(true);
+                    }}
+                    disabled={saving || saveDisabled || writeOffRows.length === 0}
+                    icon={<PackageMinus size={15} aria-hidden="true" />}
+                  >
+                    {t('writeOffButton')}
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -708,10 +752,10 @@ export default function ClosingStockPage() {
       ) : (
         <>
           {loading ? (
-            <MetricGridSkeleton count={7} className="grid-cols-2 lg:grid-cols-7" />
+            <MetricGridSkeleton count={8} className="grid-cols-2 lg:grid-cols-8" />
           ) : (
             <Card as="section" padding="none" aria-busy={refreshing || undefined}>
-              <div className="grid grid-cols-2 lg:grid-cols-7">
+              <div className="grid grid-cols-2 lg:grid-cols-8">
                 {kpis.map((kpi) => (
                   <StatTile
                     key={kpi.label}
@@ -807,11 +851,6 @@ export default function ClosingStockPage() {
                       <th className={`${stickyHeaderCellClass} text-right`}>{t('costBasis')}<br /><span className="text-gray-400">({tc('currency')})</span></th>
                       <th className={`${stickyHeaderCellClass} text-center`} title={t('openingStockHint')}>{t('previousStock')}<br /><span className="text-gray-400">({t('pcs')})</span></th>
                       <th className={`${addedTodayHeaderCellClass} text-center`}>{t('addedToday')}<br /><span className="text-gray-400">({t('pcs')})</span></th>
-                      <th className={`${stickyHeaderCellClass} min-w-[150px] text-center`}>
-                        {t('adjustment')}
-                        <br />
-                        <span className="text-gray-400">({t('pcs')})</span>
-                      </th>
                       <th className={`${stickyHeaderCellClass} min-w-[150px] text-center`} title={t('giveawayHint')}>
                         {t('giveaway')}
                         <br />
@@ -866,6 +905,7 @@ export default function ClosingStockPage() {
                       const rowFlagged = invalidProductId === productId;
                       const rowPromotions = promotionsForProduct(promotions, productId, date);
                       const giveawayQuantity = parseNum(row.giveawayQuantity);
+                      const writeOff = rowWriteOff(row);
                       const selectedPromotion = row.promotionId
                         ? promotions.find((promotion) => promotion.id === row.promotionId) ?? null
                         : null;
@@ -883,6 +923,17 @@ export default function ClosingStockPage() {
                                 {rowPromotions.length > 0 && (
                                   <Badge variant="primary" size="sm" className="mt-1" icon={<Gift size={12} aria-hidden="true" />}>
                                     {rowPromotions.map((promotion) => promotion.name).join(', ')}
+                                  </Badge>
+                                )}
+                                {writeOff && (
+                                  <Badge
+                                    variant={writeOff.kind === 'expired' ? 'warning' : 'danger'}
+                                    size="sm"
+                                    className="mt-1"
+                                    icon={<PackageMinus size={12} aria-hidden="true" />}
+                                    title={writeOff.note || undefined}
+                                  >
+                                    {t(`writeOffKinds.${writeOff.kind}`)} −{formatNumber(writeOff.quantity)}
                                   </Badge>
                                 )}
                                 <p className="mt-1 text-xs text-gray-500">{t('costLabel')} {formatUnitCurrency(row.product.cost_price)} {tc('currency')}</p>
@@ -917,46 +968,6 @@ export default function ClosingStockPage() {
                                   >
                                     {t('purchasesBadge', { purchased: formatNumber(row.purchaseQuantity ?? 0) })}
                                   </Badge>
-                                )}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-4 py-4">
-                            {!tracksInventory ? (
-                              <p className="text-center font-semibold text-gray-400">—</p>
-                            ) : isOwner && !rowReadOnly ? (
-                              <div className="mx-auto w-32 space-y-2">
-                                <Input
-                                  type="text"
-                                  inputMode="numeric"
-                                  controlSize="sm"
-                                  className="text-center text-base font-semibold sm:text-sm"
-                                  value={row.adjustmentQuantity ?? '0'}
-                                  aria-label={`${t('adjustment')} · ${row.product.name}`}
-                                  disabled={inputsDisabled}
-                                  onKeyDown={preventNonSignedIntegerNumberInput}
-                                  onWheel={(event) => event.currentTarget.blur()}
-                                  onChange={(event) => updateAdjustment(productId, event.target.value)}
-                                />
-                                {parseAdjustment(row.adjustmentQuantity) !== 0 && (
-                                  <Input
-                                    type="text"
-                                    controlSize="sm"
-                                    className="text-base sm:text-xs"
-                                    value={row.adjustmentReason ?? ''}
-                                    placeholder={t('adjustmentReason')}
-                                    aria-label={`${t('adjustmentReason')} · ${row.product.name}`}
-                                    aria-invalid={(rowFlagged && !String(row.adjustmentReason ?? '').trim()) || undefined}
-                                    disabled={inputsDisabled}
-                                    onChange={(event) => updateAdjustmentReason(productId, event.target.value)}
-                                  />
-                                )}
-                              </div>
-                            ) : (
-                              <div className="text-center">
-                                <p className="font-semibold text-gray-900">{formatNumber(parseAdjustment(row.adjustmentQuantity))}</p>
-                                {row.adjustmentReason && (
-                                  <p className="mt-1 text-xs text-gray-500">{row.adjustmentReason}</p>
                                 )}
                               </div>
                             )}
@@ -1059,7 +1070,6 @@ export default function ClosingStockPage() {
                       </td>
                       <td className="px-4 py-4 text-center">{formatNumber(filteredTotals.previous)}</td>
                       <td className="px-4 py-4 text-center text-success-600">{formatNumber(filteredTotals.added)}</td>
-                      <td className="px-4 py-4 text-center">—</td>
                       <td className="px-4 py-4 text-center">{formatNumber(filteredTotals.giveaways)}</td>
                       <td className="px-4 py-4 text-center">—</td>
                       <td className="px-4 py-4 text-center">{formatNumber(filteredTotals.sold)}</td>

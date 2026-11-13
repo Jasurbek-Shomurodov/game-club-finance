@@ -78,6 +78,7 @@ import { expensePaymentMethods } from '@/lib/paymentMethods';
 import ExpenseRegistrationForm from './ExpenseRegistrationForm';
 import ExchangeForm from './ExchangeForm';
 import CollectedTab from './CollectedTab';
+import WriteOffsTab from './WriteOffsTab';
 import { fetchDollarExpenses, fetchMoneyExchanges, withDollarAmounts } from '@/lib/supabase/moneyExchanges';
 import { requestCollectionChange } from '@/lib/collectionsApi';
 import { fetchDailyCashCollections, type DailyCashCollection } from '@/lib/supabase/dailyCashCollections';
@@ -241,7 +242,7 @@ function requestedSourceFilter(source: string | undefined): ExpenseSourceFilter 
 
 type ExpenseSourceFilter = 'game_club' | 'bar' | null;
 
-type ReportsView = 'closeout' | 'collected';
+type ReportsView = 'closeout' | 'collected' | 'writeOffs';
 
 /** A red edge down the left of every row of a closed (collected) day. */
 const CLOSED_DAY_ROW = '[&>td:first-child]:shadow-[inset_4px_0_0_rgb(var(--c-danger-500))]';
@@ -281,11 +282,11 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   }, [requestedCategory]);
   /** Narrows the closeout table to dates ticked as collected, or to the ones still waiting. */
   const [collectionFilter, setCollectionFilter] = useState<'all' | 'pending' | 'collected'>('all');
-  const [view, setView] = useState<ReportsView>(requestedView === 'collected' ? 'collected' : 'closeout');
+  const [view, setView] = useState<ReportsView>(requestedView === 'collected' || requestedView === 'writeOffs' ? requestedView : 'closeout');
   // Keep the tab shareable without dropping the rest of the link.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (view === 'collected') params.set('view', 'collected');
+    if (view !== 'closeout') params.set('view', view);
     else params.delete('view');
     const query = params.toString();
     if (query !== window.location.search.replace(/^\?/, '')) {
@@ -971,6 +972,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
             options={[
               { value: 'closeout', label: t('title') },
               { value: 'collected', label: t('collectedTab') },
+              { value: 'writeOffs', label: t('writeOffsTab') },
             ]}
             value={view}
             onChange={setView}
@@ -1010,7 +1012,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         </Card>
       )}
       {!hasReportsAccess && !canRegisterExpenses && <InlineAlert variant="info">{tc('accessDeniedDescription')}</InlineAlert>}
-      {hasReportsAccess && loadFailed && (
+      {hasReportsAccess && loadFailed && view !== 'writeOffs' && (
         <LoadErrorAlert retrying={loading} onRetry={() => void reloadReport()}>
           {t('loadError')}
         </LoadErrorAlert>
@@ -1026,6 +1028,9 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       )}
 
       {/* After a failed load the figures are unknown, not zero: show only the error. */}
+      {hasReportsAccess && view === 'writeOffs' && (
+        <WriteOffsTab clubId={selectedClubId} from={range.from} to={range.to} />
+      )}
       {hasReportsAccess && !loadFailed && view === 'collected' && (
         <CollectedTab
           days={report.days}

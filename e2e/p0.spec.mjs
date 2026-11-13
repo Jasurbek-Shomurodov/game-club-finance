@@ -324,6 +324,31 @@ test('STOCK-001 STOCK-002 STOCK-003 a purchase and a closing count go through th
   await expectDashboardAmount(page, 'Game Club Income', expected.bunkerGameClubIncome);
 });
 
+test('STOCK-008 a write-off removes units from closing stock without a sale and shows its cost in Reports', async ({ page }) => {
+  // E2E Arcade saved today's count in the fixture: cola closes at 62 with 12 sold.
+  await page.goto('/closing-stock');
+  await expect(page.getByRole('heading', { name: 'Closing Stock', level: 1 })).toBeVisible();
+  await page.getByRole('button', { name: 'Write-off' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.locator('#write-off-product').selectOption(products.cola.id);
+  await dialog.getByRole('radio', { name: 'Expired' }).click();
+  await dialog.getByRole('textbox', { name: 'Quantity (pcs)' }).fill('3');
+  await dialog.locator('#write-off-note').fill('E2E sour');
+  await dialog.getByRole('button', { name: 'Write off' }).click();
+  await expect(page.getByText('Write-off saved')).toBeVisible();
+
+  const [count] = await (await restAs(accounts.owner, 'GET', `daily_stock_counts?select=adjustment_quantity,adjustment_reason,closing_stock,sold_quantity,bar_income&club_id=eq.${clubs.arcade.id}&product_id=eq.${products.cola.id}&date=eq.${today}`)).json();
+  expect({ ...count, adjustment_quantity: Number(count.adjustment_quantity), closing_stock: Number(count.closing_stock), sold_quantity: Number(count.sold_quantity), bar_income: Number(count.bar_income) }).toEqual({
+    adjustment_quantity: -3, adjustment_reason: 'expired: E2E sour', closing_stock: expected.colaStock - 3, sold_quantity: 12, bar_income: 12 * products.cola.sale_price,
+  });
+
+  await page.goto('/reports?view=writeOffs');
+  await expect(page.getByRole('cell', { name: products.cola.name })).toBeVisible();
+  const text = await pageText(page);
+  expect(text).toContain(uzs(3 * products.cola.cost_price));
+  expect(text).toContain('E2E sour');
+});
+
 test('DEBT-001 DEBT-002 a debt and a payment on it update the balance through the ledger', async ({ page }) => {
   await page.goto('/debts');
   await expect(page.getByRole('heading', { name: 'Debts', level: 1 })).toBeVisible();

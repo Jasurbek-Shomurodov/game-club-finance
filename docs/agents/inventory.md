@@ -131,6 +131,24 @@ Deleting a promotion clears `promotion_id` on saved giveaways. Counts of an
 archived product accept no writes, so such a delete is refused; the page says so
 (`isArchivedProductWriteError`) and the owner turns the promotion off instead.
 
+## Write-offs (kamomad / eskirgan)
+
+The closing page has no per-row adjustment column. Owners record missing
+(`shortage`) or spoiled (`expired`) bar units through the Write-off dialog,
+which stores them in the existing adjustment fields of that day's count via
+`save_closing_stock_counts`, so no schema change was needed:
+
+```text
+adjustment_quantity = -writeOffQuantity
+adjustment_reason   = "shortage" | "expired" [": note"]
+closingStock       -= writeOffQuantity     -- sold and bar money unchanged
+```
+
+The units leave stock without a sale. Bar profit stays sold-based; the loss
+at the count's saved cost is shown on the closing page KPI and in Reports →
+Write-offs (`summarizeStockWriteOffs`). Older negative adjustments with free
+text appear there as "Other". Logic lives in `src/lib/stockWriteOffs.ts`.
+
 ## Historical snapshot rule
 
 For an open business day, purchases are the live source of `added_today`. Once a
