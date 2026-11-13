@@ -19,9 +19,10 @@ import {
   TableSkeleton,
   toneForAmount,
   MetricMoney,
+  metricGridClassName,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { monthRange } from '@/lib/utils';
+import { cn, monthRange } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
@@ -194,7 +195,7 @@ export default function MonthlyReportPage() {
         <Card><EmptyState icon={BarChart2} title={t('noData')} /></Card>
       ) : (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className={cn(metricGridClassName, 'sm:grid-cols-2 sm:gap-4 lg:grid-cols-4')}>
             {summaryCards.map((card) => (
               <MetricCard key={card.label} label={card.label} value={<MetricMoney amount={card.amount} currency={currency} />} tone={card.tone} />
             ))}

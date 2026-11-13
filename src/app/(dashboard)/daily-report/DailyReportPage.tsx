@@ -2,6 +2,7 @@
 
 // Route: /daily-report
 
+import { cn } from '@/lib/utils';
 import { useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
@@ -22,6 +23,7 @@ import {
   TableSkeleton,
   toneForAmount,
   MetricMoney,
+  metricGridClassName,
 } from '@/components/PresentationFoundation';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
@@ -130,7 +132,7 @@ export default function DailyReportPage() {
         <Card><EmptyState icon={FileText} title={t('noData')} /></Card>
       ) : (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className={cn(metricGridClassName, 'sm:grid-cols-2 sm:gap-4 lg:grid-cols-4')}>
             {kpis.map((kpi) => (
               <MetricCard key={kpi.label} label={kpi.label} value={<MetricMoney amount={kpi.amount} currency={currency} />} icon={kpi.icon} tone={kpi.tone} />
             ))}
@@ -155,6 +157,7 @@ export default function DailyReportPage() {
                 <SectionHeading size="sm" title={t('stockSummary')} />
               </div>
               <DataTable
+                mobileCards
                 bare
                 className="mt-3"
                 label={t('stockSummary')}

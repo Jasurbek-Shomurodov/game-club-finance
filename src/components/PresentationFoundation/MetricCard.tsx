@@ -24,7 +24,14 @@ export function toneForAmount(amount: number, positive: MetricTone = 'success'):
 
 // Big numbers: tight tracking, one line where the width allows, and a
 // smaller step on phones so "68 314 000 сум" never wraps mid-number.
-const metricValueClassName = 'break-words text-[1.375rem] font-bold leading-none tracking-tight tabular-nums sm:text-2xl';
+const metricValueClassName = 'break-words text-xl font-bold leading-none tracking-tight tabular-nums sm:text-2xl';
+
+/**
+ * Grid for a row of MetricCards. Phones get two cards to a line (an odd last
+ * card takes the full width) so a page of figures is not one long column; add
+ * the `sm:`/`lg:` column counts at the call site.
+ */
+export const metricGridClassName = 'grid grid-cols-2 gap-3 max-sm:[&>*:last-child:nth-child(odd)]:col-span-2';
 
 /**
  * Money value for a MetricCard: the number rolls into place and the muted
@@ -69,7 +76,7 @@ export function MetricCard({
 }: MetricCardProps) {
   const tc = useTranslations('common');
   return (
-    <div className={cn('min-w-0 rounded-2xl border border-gray-200 bg-surface px-4 py-3.5 shadow-card sm:px-5 sm:py-4', className)}>
+    <div className={cn('min-w-0 rounded-2xl border border-gray-200 bg-surface px-3.5 py-3.5 shadow-card sm:px-5 sm:py-4', className)}>
       <div className="flex items-center gap-2">
         {Icon && <Icon size={15} className={cn('shrink-0 text-gray-400', iconClassName)} aria-hidden="true" />}
         <p className="min-w-0 break-words text-[13px] font-medium text-gray-500">{label}</p>

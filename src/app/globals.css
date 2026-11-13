@@ -243,6 +243,34 @@
 }
 
 /*
+ * Stacked table (closing stock): below `sm` a wide hand-built table shows each
+ * row as a card of labelled values, two to a line, instead of scrolling
+ * sideways past a pinned first column. Cells name themselves with
+ * `data-label`; `data-stack` picks title / full / hidden. DataTable has the
+ * same layout built in (`mobileCards`).
+ */
+@media (max-width: 639.98px) {
+  .stack-table, .stack-table > tbody { display: block; min-width: 0 !important; }
+  .stack-table > thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+  .stack-table > tbody > tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem 1rem; padding: 0.875rem 1rem; }
+  .stack-table > tbody > tr[data-stack="section"] { display: block; padding: 0; }
+  .stack-table > tbody > tr[data-stack="section"] > th { display: block; position: static !important; }
+  .stack-table > tbody > tr > td {
+    display: block; position: static !important; width: auto !important; min-width: 0; padding: 0 !important;
+    text-align: left !important; white-space: normal !important; box-shadow: none !important; background: transparent !important;
+  }
+  .stack-table > tbody > tr > td > :is(p, div) { text-align: left !important; }
+  .stack-table > tbody > tr > td > .mx-auto { margin-inline: 0 !important; }
+  .stack-table > tbody > tr > td > .items-center { align-items: flex-start !important; }
+  .stack-table > tbody > tr > td[data-label]::before {
+    content: attr(data-label); display: block; margin-bottom: 0.125rem;
+    font-size: 0.6875rem; line-height: 1rem; font-weight: 500; color: rgb(var(--c-gray-500));
+  }
+  .stack-table > tbody > tr > td:is([data-stack="title"], [data-stack="full"]) { grid-column: 1 / -1; }
+  .stack-table > tbody > tr > td:is([data-stack="hidden"], :empty) { display: none; }
+}
+
+/*
  * List presence (useListPresence): a row added or removed in place grows in or
  * folds away and the list closes up. The fold is a one-row grid going between
  * 1fr and 0fr; it clips only while animating so focus rings are never cut off.
@@ -252,7 +280,8 @@
 @keyframes presence-pad-open { from { padding-top: 0; padding-bottom: 0; } }
 @keyframes presence-pad-close { to { padding-top: 0; padding-bottom: 0; } }
 .presence { display: grid; grid-template-rows: 1fr; }
-.presence > * { min-height: 0; }
+/* min-width: a grid item defaults to its content width, which let one long truncated line widen the whole row. */
+.presence > * { min-height: 0; min-width: 0; }
 .presence[data-presence] > * { overflow: hidden; }
 .presence[data-presence="enter"] { animation: presence-open 250ms cubic-bezier(0.22, 1, 0.36, 1); }
 .presence[data-presence="exit"] { animation: presence-close 250ms cubic-bezier(0.22, 1, 0.36, 1) forwards; }

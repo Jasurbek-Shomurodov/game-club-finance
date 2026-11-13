@@ -167,7 +167,7 @@ export function SegmentedControl<T extends string>({
                   ? 'border-gray-950 bg-gray-950 text-gray-50'
                   : 'border-gray-200 bg-surface text-gray-600 hover:border-gray-300 hover:text-gray-900')
                 : isTabs
-                  ? cn('relative whitespace-nowrap border-b-2 px-1 py-1 text-sm', drawn ? 'border-primary-600' : 'border-transparent', selected
+                  ? cn('relative min-h-10 whitespace-nowrap border-b-2 px-1 py-1 text-sm sm:min-h-0', drawn ? 'border-primary-600' : 'border-transparent', selected
                     ? 'text-primary-600'
                     : 'text-gray-500 hover:text-gray-900')
                   : variant === 'soft'

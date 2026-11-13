@@ -230,6 +230,7 @@ export default function PromotionsPage() {
             <SectionHeading title={t('list')} description={t('description')} />
           </CardHeader>
           <DataTable<Promotion>
+            mobileCards
             data={promotions}
             keyExtractor={(row) => row.id}
             label={t('list')}

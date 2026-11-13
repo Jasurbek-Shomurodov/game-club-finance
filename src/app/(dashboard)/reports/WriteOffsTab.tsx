@@ -1,5 +1,6 @@
 'use client';
 
+import { cn } from '@/lib/utils';
 import { useCallback, useMemo } from 'react';
 import { CalendarX, PackageMinus, PackageX } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -15,6 +16,7 @@ import {
   SectionHeading,
   TableSkeleton,
   type DataTableColumn,
+  metricGridClassName,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { createClient } from '@/lib/supabase/client';
@@ -113,7 +115,7 @@ export default function WriteOffsTab({ clubId, from, to }: { clubId: string | nu
 
   return (
     <>
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <section className={cn(metricGridClassName, 'sm:grid-cols-3')}>
         <MetricCard
           loading={query.loading}
           label={t('writeOffsTotal')}
@@ -146,6 +148,7 @@ export default function WriteOffsTab({ clubId, from, to }: { clubId: string | nu
           <TableSkeleton rows={5} columns={6} className="rounded-none border-0 shadow-none" />
         ) : (
           <DataTable
+            mobileCards
             bare
             label={t('writeOffsTitle')}
             minWidth={720}

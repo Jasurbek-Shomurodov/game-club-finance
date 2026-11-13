@@ -41,7 +41,7 @@ export { InlineAlert, type InlineAlertVariant } from './InlineAlert';
 export { LanguageSwitcher } from './LanguageSwitcher';
 export { LoadErrorAlert, type LoadErrorAlertProps } from './LoadErrorAlert';
 export { ThemeToggle } from './ThemeToggle';
-export { AmountCard, MetricCard, MetricMoney, StatTile, metricToneClassName, toneForAmount, type MetricTone } from './MetricCard';
+export { AmountCard, MetricCard, MetricMoney, StatTile, metricGridClassName, metricToneClassName, toneForAmount, type MetricTone } from './MetricCard';
 export { Modal } from './Modal';
 export { NoteField, useEntryNoteGuard, type EntryNoteGuard, type NoteFieldProps } from './NoteField';
 export { PageHeader } from './PageHeader';

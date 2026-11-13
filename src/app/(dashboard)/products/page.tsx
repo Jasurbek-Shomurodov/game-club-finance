@@ -406,6 +406,7 @@ export default function ProductsPage() {
             </CardHeader>
 
             <DataTable
+              mobileCards
               bare
               label={t('catalog')}
               keyExtractor={(r) => r.id}

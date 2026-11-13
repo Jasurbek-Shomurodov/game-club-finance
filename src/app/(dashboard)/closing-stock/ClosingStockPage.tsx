@@ -401,6 +401,20 @@ export default function ClosingStockPage() {
 
   // With every category in view, the table reads as one section per category.
   const showSections = hasCategories && !selectedCategory;
+  // The count steppers are wider than half a phone card, so their cells take a full line while the day is editable.
+  const stepperCell = canSave ? 'full' : undefined;
+  // Names for the cells when a phone shows each product as a card (.stack-table in globals.css).
+  const labels = {
+    salePrice: `${t('salePrice')} (${tc('currency')})`,
+    costBasis: `${t('costBasis')} (${tc('currency')})`,
+    previousStock: `${t('previousStock')} (${t('pcs')})`,
+    addedToday: `${t('addedToday')} (${t('pcs')})`,
+    giveaway: `${t('giveaway')} (${t('pcs')})`,
+    closingStock: t('closingStock'),
+    soldQty: `${t('soldQty')} (${t('pcs')})`,
+    barIncome: `${t('barIncome')} (${tc('currency')})`,
+    barProfit: `${t('barProfit')} (${tc('currency')})`,
+  };
   const rowSections = useMemo(
     () => (showSections
       ? groupByCategory(filteredRows, (row) => row.product.category)
@@ -750,10 +764,12 @@ export default function ClosingStockPage() {
       ) : (
         <>
           {loading ? (
-            <MetricGridSkeleton count={kpis.length} className={isOwner ? 'grid-cols-2 lg:grid-cols-8' : 'grid-cols-2 lg:grid-cols-7'} />
+            <MetricGridSkeleton count={kpis.length} className={isOwner ? 'grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8' : 'grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7'} />
           ) : (
-            <Card as="section" padding="none" aria-busy={refreshing || undefined}>
-              <div className={`grid grid-cols-2 ${isOwner ? 'lg:grid-cols-8' : 'lg:grid-cols-7'}`}>
+            <Card as="section" padding="none" className="overflow-hidden" aria-busy={refreshing || undefined}>
+              {/* Hairlines are the grid's gaps, so they stay right at 2, 4 and 7-8 columns. Eight columns
+                  only from 2xl: at laptop widths they squeezed "156 000" onto two lines. */}
+              <div className={`grid grid-cols-2 gap-px bg-gray-100 lg:grid-cols-4 ${isOwner ? '2xl:grid-cols-8' : '2xl:grid-cols-7'}`}>
                 {kpis.map((kpi) => (
                   <StatTile
                     key={kpi.label}
@@ -763,7 +779,7 @@ export default function ClosingStockPage() {
                     value={kpi.value}
                     unit={kpi.unit}
                     tone={kpi.tone}
-                    className="border-gray-100 p-3 even:border-l sm:p-4 [&:nth-child(n+3)]:border-t lg:[&:nth-child(n+3)]:border-t-0 lg:[&:not(:first-child)]:border-l"
+                    className="rounded-none bg-surface p-3 sm:p-4 [&:last-child:nth-child(odd)]:col-span-2 2xl:[&:last-child]:col-span-1"
                   />
                 ))}
               </div>
@@ -835,12 +851,12 @@ export default function ClosingStockPage() {
             ) : (
               <div className="relative">
                 <div
-                  className={`max-h-[calc(100vh-14rem)] overflow-auto scrollbar-thin transition-opacity ${refreshing ? 'opacity-70' : ''}`}
+                  className={`max-h-[calc(100vh-14rem)] overflow-auto scrollbar-thin transition-opacity max-sm:max-h-none max-sm:overflow-visible ${refreshing ? 'opacity-70' : ''}`}
                   aria-busy={refreshing || undefined}
                   aria-label={t('products')}
                   tabIndex={0}
                 >
-                <table className="w-full min-w-[960px] text-sm">
+                <table className="stack-table w-full min-w-[960px] text-sm">
                   <thead ref={tableHeadRef}>
                     <tr className="border-b border-gray-100 text-xs font-medium text-gray-500">
                       <th className={`${stickyIndexHeaderCellClass} text-left`}>#</th>
@@ -880,7 +896,7 @@ export default function ClosingStockPage() {
                     {rowSections.map((section) => (
                       <Fragment key={section.category || '__uncategorized'}>
                       {showSections && (
-                        <tr className="bg-gray-50">
+                        <tr data-stack="section" className="bg-gray-50">
                           <th
                             scope="colgroup"
                             colSpan={TABLE_COLUMN_COUNT}
@@ -909,8 +925,8 @@ export default function ClosingStockPage() {
                         : null;
                       return (
                         <tr key={productId} className="group hover:bg-gray-50">
-                          <td className={`${stickyIndexCellClass} text-gray-500 tabular-nums`}>{rowNumberById.get(productId)}</td>
-                          <td className={stickyProductCellClass}>
+                          <td data-stack="hidden" className={`${stickyIndexCellClass} text-gray-500 tabular-nums`}>{rowNumberById.get(productId)}</td>
+                          <td data-stack="title" className={stickyProductCellClass}>
                             <div className="flex items-center gap-3 sm:gap-4">
                               <Avatar name={row.product.name} tone="neutral" className="hidden sm:inline-flex" />
                               <div className="min-w-0">
@@ -934,23 +950,23 @@ export default function ClosingStockPage() {
                                     {t(`writeOffKinds.${writeOff.kind}`)} −{formatNumber(writeOff.quantity)}
                                   </Badge>
                                 )}
-                                <p className="mt-1 text-xs text-gray-500">{t('costLabel')} {formatUnitCurrency(row.product.cost_price)} {tc('currency')}</p>
+                                <p className="mt-1 text-xs text-gray-500 max-sm:hidden">{t('costLabel')} {formatUnitCurrency(row.product.cost_price)} {tc('currency')}</p>
                               </div>
                             </div>
                           </td>
-                          <td className="whitespace-nowrap px-4 py-4 text-right font-medium tabular-nums text-gray-900">{formatCurrency(row.product.sale_price)}</td>
-                          <td className="px-4 py-4 text-right">
+                          <td data-label={labels.salePrice} className="whitespace-nowrap px-4 py-4 text-right font-medium tabular-nums text-gray-900">{formatCurrency(row.product.sale_price)}</td>
+                          <td data-label={labels.costBasis} className="px-4 py-4 text-right">
                             <p className="whitespace-nowrap font-medium tabular-nums text-gray-900">{formatUnitCurrency(row.product.cost_price)}</p>
-                            <p className="mt-1 text-xs text-gray-500">
+                            <p className="mt-1 text-xs text-gray-500 max-sm:whitespace-nowrap">
                               {!tracksInventory
                                 ? t('notIncludedInStockValue')
                                 : `${t('valueLabel')} ${formatCurrency(parseNum(row.closingStock) * row.product.cost_price)}`}
                             </p>
                           </td>
-                          <td className="px-4 py-4 text-center font-medium tabular-nums text-gray-900">
+                          <td data-label={labels.previousStock} className="px-4 py-4 text-center font-medium tabular-nums text-gray-900">
                             {!tracksInventory ? '—' : formatNumber(parseNum(row.previousStock))}
                           </td>
-                          <td className="px-4 py-4 text-center font-medium tabular-nums text-success-600">
+                          <td data-label={labels.addedToday} className="px-4 py-4 text-center font-medium tabular-nums text-success-600">
                             {!tracksInventory ? '—' : (
                               <div className="flex flex-col items-center gap-1">
                                 <span>{formatNumber(parseNum(row.addedToday))}</span>
@@ -970,7 +986,7 @@ export default function ClosingStockPage() {
                               </div>
                             )}
                           </td>
-                          <td className="px-4 py-4">
+                          <td data-label={labels.giveaway} className="px-4 py-4">
                             {rowPromotions.length === 0 && giveawayQuantity === 0 && !promotionsFailed ? (
                               <p className="text-center font-semibold text-gray-400">—</p>
                             ) : !rowReadOnly ? (
@@ -1015,7 +1031,7 @@ export default function ClosingStockPage() {
                               </div>
                             )}
                           </td>
-                          <td className="px-4 py-4">
+                          <td data-stack={stepperCell} data-label={labels.closingStock} className="px-4 py-4">
                             {!tracksInventory ? (
                               <p className="text-center font-semibold text-gray-400">—</p>
                             ) : rowReadOnly || usesSoldEntry ? (
@@ -1034,7 +1050,7 @@ export default function ClosingStockPage() {
                               />
                             )}
                           </td>
-                          <td className="px-4 py-4">
+                          <td data-stack={stepperCell} data-label={labels.soldQty} className="px-4 py-4">
                             {!rowReadOnly && (usesSoldEntry || !tracksInventory) ? (
                               <Stepper
                                 className="mx-auto flex w-fit"
@@ -1051,8 +1067,8 @@ export default function ClosingStockPage() {
                               <p className="text-center font-semibold text-gray-900">{formatNumber(summary.soldQuantity)}</p>
                             )}
                           </td>
-                          <td className="whitespace-nowrap px-4 py-4 text-right font-medium tabular-nums text-success-600">{formatCurrency(summary.barIncome)}</td>
-                          <td className="whitespace-nowrap px-5 py-4 text-right font-medium tabular-nums text-success-600">{formatCurrency(summary.barProfit)}</td>
+                          <td data-label={labels.barIncome} className="whitespace-nowrap px-4 py-4 text-right font-medium tabular-nums text-success-600">{formatCurrency(summary.barIncome)}</td>
+                          <td data-label={labels.barProfit} className="whitespace-nowrap px-5 py-4 text-right font-medium tabular-nums text-success-600">{formatCurrency(summary.barProfit)}</td>
                         </tr>
                       );
                     })}
@@ -1060,24 +1076,24 @@ export default function ClosingStockPage() {
                     ))}
                     <tr className="group border-t border-gray-200 bg-surface font-semibold tabular-nums text-gray-900">
                       <td className={stickyIndexCellClass} />
-                      <td className={stickyProductCellClass}>{t('totalRow', { count: filteredRows.length })}</td>
+                      <td data-stack="title" className={stickyProductCellClass}>{t('totalRow', { count: filteredRows.length })}</td>
                       <td className="px-4 py-4" />
                       <td className="whitespace-nowrap px-4 py-4 text-right">
                         <span className="block text-xs font-medium text-gray-500">{t('stockValue')}</span>
                         {formatCurrency(filteredTotals.stockValue)}
                       </td>
-                      <td className="px-4 py-4 text-center">{formatNumber(filteredTotals.previous)}</td>
-                      <td className="px-4 py-4 text-center text-success-600">{formatNumber(filteredTotals.added)}</td>
-                      <td className="px-4 py-4 text-center">{formatNumber(filteredTotals.giveaways)}</td>
-                      <td className="px-4 py-4 text-center">—</td>
-                      <td className="px-4 py-4 text-center">{formatNumber(filteredTotals.sold)}</td>
-                      <td className="whitespace-nowrap px-4 py-4 text-right text-success-600">{formatCurrency(filteredTotals.income)}</td>
-                      <td className="whitespace-nowrap px-5 py-4 text-right text-success-600">{formatCurrency(filteredTotals.profit)}</td>
+                      <td data-label={labels.previousStock} className="px-4 py-4 text-center">{formatNumber(filteredTotals.previous)}</td>
+                      <td data-label={labels.addedToday} className="px-4 py-4 text-center text-success-600">{formatNumber(filteredTotals.added)}</td>
+                      <td data-label={labels.giveaway} className="px-4 py-4 text-center">{formatNumber(filteredTotals.giveaways)}</td>
+                      <td data-stack="hidden" className="px-4 py-4 text-center">—</td>
+                      <td data-label={labels.soldQty} className="px-4 py-4 text-center">{formatNumber(filteredTotals.sold)}</td>
+                      <td data-label={labels.barIncome} className="whitespace-nowrap px-4 py-4 text-right text-success-600">{formatCurrency(filteredTotals.income)}</td>
+                      <td data-label={labels.barProfit} className="whitespace-nowrap px-5 py-4 text-right text-success-600">{formatCurrency(filteredTotals.profit)}</td>
                     </tr>
                   </tbody>
                 </table>
                 </div>
-                <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-surface" aria-hidden="true" />
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-surface max-sm:hidden" aria-hidden="true" />
               </div>
             )}
           </Card>

@@ -686,6 +686,7 @@ export default function StockPurchasePage() {
           <TableSkeleton rows={6} columns={8} className="rounded-none border-0 shadow-none" />
         ) : (
           <DataTable
+            mobileCards
             bare
             label={t('recentPurchases')}
             keyExtractor={(row) => row.id}
@@ -696,8 +697,8 @@ export default function StockPurchasePage() {
               ? <EmptyState compact icon={AlertTriangle} title={t('purchasesLoadFailed')} />
               : <EmptyState compact icon={ShoppingCart} title={tc('noData')} />}
             columns={[
-              { key: 'index', header: '#', className: 'w-12', render: (_row, index) => <span className="text-gray-500 tabular-nums">{(purchasePage - 1) * PURCHASES_PAGE_SIZE + index + 1}</span> },
-              { key: 'date', header: t('date'), render: (row) => <span className="font-medium text-gray-900">{formatDateOnly(row.date, locale)}</span> },
+              { key: 'index', header: '#', className: 'w-12', mobile: 'hidden', render: (_row, index) => <span className="text-gray-500 tabular-nums">{(purchasePage - 1) * PURCHASES_PAGE_SIZE + index + 1}</span> },
+              { key: 'date', header: t('date'), mobile: 'title', render: (row) => <span className="font-medium text-gray-900">{formatDateOnly(row.date, locale)}</span> },
               {
                 key: 'product',
                 header: t('product'),

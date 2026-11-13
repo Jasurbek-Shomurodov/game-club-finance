@@ -813,11 +813,30 @@ test.describe('on a phone', () => {
   test('UI-001 every core page fits 375 px with no horizontal scroll', async ({ page }) => {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    for (const [path, heading] of [['/', 'Dashboard'], ['/showcase/brand', 'Public page'], ['/daily-cash', 'Daily Cash Entry'], ['/closing-stock', 'Closing Stock'], ['/stock-purchase', 'Stock Purchase'], ['/reports', 'Reports'], ['/debts', 'Debts'], ['/history', 'Edit history']]) {
+    for (const [path, heading] of [['/', 'Dashboard'], ['/showcase/brand', 'Public page'], ['/daily-cash', 'Daily Cash Entry'], ['/closing-stock', 'Closing Stock'], ['/stock-purchase', 'Stock Purchase'], ['/reports', 'Reports'], ['/debts', 'Debts'], ['/history', 'Edit history'], ['/products', 'Products'], ['/salaries/history', 'History']]) {
       await page.goto(path);
       await expect(page.getByRole('heading', { name: heading, level: 1 })).toBeVisible();
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), { message: `${path} overflows` }).toBe(0);
     }
     expect(errors).toEqual([]);
+  });
+
+  test('UI-002 tables are cards on a phone: no cell of a row is off to the side', async ({ page }) => {
+    for (const [path, heading] of [['/products', 'Products'], ['/closing-stock', 'Closing Stock'], ['/stock-purchase', 'Stock Purchase'], ['/reports', 'Reports']]) {
+      await page.goto(path);
+      await expect(page.getByRole('heading', { name: heading, level: 1 })).toBeVisible();
+      await expect(page.locator('#main-content table td:visible').first()).toBeVisible();
+      // Every cell that is shown ends inside the screen, so nothing is reached by scrolling a table sideways.
+      const offScreen = await page.locator('#main-content table td').evaluateAll(cells => cells
+        .filter(cell => cell.getClientRects().length > 0)
+        .filter(cell => cell.getBoundingClientRect().right > window.innerWidth + 1 || cell.getBoundingClientRect().left < -1)
+        .map(cell => cell.textContent.trim().slice(0, 40)));
+      expect(offScreen, `${path} has cells off screen`).toEqual([]);
+    }
+    // The count a bartender types is on screen with the product it belongs to.
+    await page.goto('/closing-stock');
+    const count = page.getByRole('textbox', { name: `Closing Stock · ${products.cola.name}` });
+    await count.scrollIntoViewIfNeeded();
+    await expect(count).toBeInViewport({ ratio: 1 });
   });
 });

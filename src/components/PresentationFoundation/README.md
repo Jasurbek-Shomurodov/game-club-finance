@@ -30,7 +30,7 @@ import { Button, Card, Field, Input, InlineAlert, PageHeader } from '@/component
 | Collapsible help or secondary list | `Disclosure` (native `<details>` with a chevron summary) |
 | "What is this?" beside a heading | `HelpButton` (a `?` that opens a `Modal`; blank lines in `body` start paragraphs) |
 | KPI numbers | `MetricCard` (formatted value), `AmountCard` (money with comparison), `StatTile` (compact) |
-| Tables | `DataTable` (supports totals row, sticky header, empty state; pass `label` so keyboard users can scroll wide tables) |
+| Tables | `DataTable` (supports totals row, sticky header, empty state; pass `label` so keyboard users can scroll wide tables; pass `mobileCards` so phones get one card per row instead of a sideways scroll) |
 | Nothing to show | `EmptyState` |
 | Loading | `Skeleton`, `MetricGridSkeleton`, `TableSkeleton`, `FormSkeleton`, `DetailListSkeleton`, `EmployeeCardGridSkeleton`, `ChartSkeleton`, `PageSkeleton` |
 
@@ -56,6 +56,19 @@ Design rules ("quiet surfaces, loud numbers"):
   `ghost`, never a primary that happens to be disabled.
 - The currency label is always `tc('currency')` (сум / so'm / UZS), never a
   hardcoded "UZS".
+
+Phones:
+
+- A table a person reads row by row takes `mobileCards`: below `sm` each row is
+  a card with the first column as its title, the other columns as labelled
+  values two to a line, and the `actions` column in the corner. Tune a column
+  with `mobile: 'title' | 'full' | 'action' | 'hidden'`. A hand-built table gets
+  the same layout from the `.stack-table` class with `data-label` /
+  `data-stack` on its cells (closing stock). Keep the wide scrolling table only
+  for a grid that is compared across rows (the monthly report).
+- A row of `MetricCard`s uses `metricGridClassName` (two to a line on phones,
+  an odd last card full width) plus its own `sm:`/`lg:` column counts.
+- Page tabs are 40 px tall on phones; keep any new tap target at least 36 px.
 
 Rules of thumb:
 

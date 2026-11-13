@@ -127,7 +127,7 @@ function LoginForm() {
           label={t('password')}
           htmlFor="login-password"
           labelAddon={(
-            <Link href="/forgot-password" className="ml-auto text-[13px] font-medium text-primary-600 hover:text-primary-700">
+            <Link href="/forgot-password" className="-my-2 ml-auto inline-flex min-h-9 items-center rounded-lg text-[13px] font-medium text-primary-600 hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
               {t('forgotPassword')}
             </Link>
           )}

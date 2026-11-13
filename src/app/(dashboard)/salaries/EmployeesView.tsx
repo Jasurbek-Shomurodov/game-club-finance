@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ChevronRight, Gamepad2, History, Pencil, Power, Trash2, Users, Wine } from 'lucide-react';
+import { ChevronRight, Gamepad2, History, Pencil, Power, Trash2, UserPlus, Users, Wine } from 'lucide-react';
 import {
   Avatar,
   Badge,
@@ -48,7 +48,19 @@ export function EmployeesView({ employees, summaries, loading, loadError, ...car
   const tc = useTranslations('common');
   if (loading) return <EmployeeCardGridSkeleton />;
   if (loadError) return null;
-  if (employees.length === 0) return <Card><EmptyState icon={Users} title={t('emptyTitle')} description={t('emptyDescription')} /></Card>;
+  if (employees.length === 0) {
+    return (
+      <Card>
+        <EmptyState
+          icon={Users}
+          title={t('emptyTitle')}
+          description={t('emptyDescription')}
+          // Employees are added on the operations tab; without this the empty page was a dead end.
+          action={cardProps.isOwner ? <ButtonLink variant="primary" href="/salaries/operations" icon={<UserPlus size={16} aria-hidden="true" />}>{t('addEmployee')}</ButtonLink> : undefined}
+        />
+      </Card>
+    );
+  }
 
   const sorted = [...employees].sort((a, b) => a.name.localeCompare(b.name));
   const live = sorted.filter((employee) => summaries.get(employee.id)?.display?.active);

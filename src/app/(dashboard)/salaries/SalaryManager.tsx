@@ -1,5 +1,6 @@
 'use client';
 
+import { cn } from '@/lib/utils';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import { Banknote, Building2, CalendarCheck, Gift, Percent, ShieldAlert, Users, Wallet } from 'lucide-react';
@@ -22,6 +23,7 @@ import {
   Textarea,
   useToast,
   type SegmentedOption,
+  metricGridClassName,
 } from '@/components/PresentationFoundation';
 import { loadSalaries, loadSalaryEntries } from '@/lib/supabase/salaries';
 import {
@@ -516,7 +518,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
       )}
 
       {!loadError && view !== 'history' && (
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className={cn(metricGridClassName, 'sm:grid-cols-3 sm:gap-4')}>
           <MetricCard
             label={t('activeEmployees')}
             value={String(activeCount)}

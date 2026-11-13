@@ -13,6 +13,7 @@ import {
   SectionHeading,
   TableSkeleton,
   type DataTableColumn,
+  metricGridClassName,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { summarizeCollectedMoney, type CollectedDay, type CollectionMark } from '@/lib/calculations/collectedMoney';
@@ -103,7 +104,7 @@ export default function CollectedTab({
 
   return (
     <>
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <section className={cn(metricGridClassName, 'sm:grid-cols-3')}>
         <MetricCard
           loading={loading}
           label={t('collectedTakenTotal')}
@@ -145,6 +146,7 @@ export default function CollectedTab({
           <TableSkeleton rows={6} columns={methods.length + 3} className="rounded-none border-0 shadow-none" />
         ) : (
           <DataTable
+            mobileCards
             bare
             label={t('collectedTitle')}
             minWidth={720}

@@ -34,6 +34,7 @@ import {
   useListPresence,
   useToast,
   MetricMoney,
+  metricGridClassName,
 } from '@/components/PresentationFoundation';
 import { isNoteRequiredError } from '@/lib/entryNote';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
@@ -439,7 +440,7 @@ export default function DebtsPage() {
         </Card>
       ) : (
         <>
-          <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <section className={cn(metricGridClassName, 'sm:grid-cols-3')}>
             <MetricCard
               label={t('outstandingTotal')}
               value={<MetricMoney amount={outstandingTotal} />}
@@ -483,8 +484,8 @@ export default function DebtsPage() {
                             <Money amount={remaining} />
                           </p>
                           {debt.paid_amount > 0 && (
-                            <p className="mt-0.5 text-xs text-gray-500">
-                              {t('paidAmount')}: {formatCurrency(debt.paid_amount)} / {formatCurrency(debt.amount)}
+                            <p className="mt-0.5 whitespace-nowrap text-xs text-gray-500" title={t('paidAmount')}>
+                              <span className="max-sm:sr-only">{t('paidAmount')}: </span>{formatCurrency(debt.paid_amount)} / {formatCurrency(debt.amount)}
                             </p>
                           )}
                         </div>

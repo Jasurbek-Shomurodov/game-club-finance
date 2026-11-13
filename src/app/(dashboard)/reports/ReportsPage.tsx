@@ -47,6 +47,7 @@ import {
   type BadgeVariant,
   type DataTableColumn,
   type MetricTone,
+  metricGridClassName,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import {
@@ -903,6 +904,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       key: 'description',
       header: t('descriptionLabel'),
       className: 'min-w-[240px]',
+      mobile: 'full',
       render: (row) => (row.kind === 'day' ? (
         <span className="block text-xs text-gray-500">
           {/* Income minus these game-club expenses is the day total; bar-paid
@@ -1052,7 +1054,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       )}
       {hasReportsAccess && !loadFailed && view === 'closeout' && (
         <>
-          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <section className={cn(metricGridClassName, 'sm:grid-cols-2 xl:grid-cols-4')}>
             <SummaryCard loading={loading} label={t('totalCollected')} value={report.totalCollected} icon={WalletCards} tone="success" />
             <SummaryCard loading={loading} label={t('gameClubExpenses')} value={report.gameClubExpenses} icon={ReceiptText} tone="danger" />
             <SummaryCard loading={loading} label={t('gameClubLeft')} value={report.gameClubLeft} icon={CircleDollarSign} tone={toneForAmount(report.gameClubLeft, 'default')} />
@@ -1149,6 +1151,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
               <TableSkeleton rows={6} columns={showActions ? 7 : 6} className="rounded-none border-0 shadow-none" />
             ) : (
               <DataTable
+                mobileCards
                 bare
                 label={t('dailyCloseout')}
                 minWidth={showActions ? 1040 : 980}

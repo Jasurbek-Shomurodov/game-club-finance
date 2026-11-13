@@ -187,6 +187,7 @@ export function HistoryView({
         <div>
           <SectionHeading size="sm" title={t('monthlyBreakdown')} description={t('estimateHelp')} className="mb-3" />
           <DataTable
+            mobileCards
             bare
             dense
             minWidth={640}
