@@ -55,7 +55,7 @@ describe('DELETE /api/daily-cash', () => {
     expect(deleteSpy).toHaveBeenCalledOnce();
     expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({
       chatId: '-1001',
-      text: expect.stringMatching(/🗑 Удалена выручка клуба[\s\S]*Наличные: 2 134 000 сум[\s\S]*Удалил\(а\): Alisher/),
+      text: expect.stringMatching(/🗑 Удалена выручка: [\s\S]*Наличные 2 134 000[\s\S]*Удалил\(а\) Alisher/),
     }));
   });
 

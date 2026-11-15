@@ -1,4 +1,5 @@
-import { formatCurrency, formatDateShort } from '../formatters';
+import { serverTodayIso } from '../utils';
+import { authorLine, details, lines, method, noticeDate, source, sum } from './messageParts';
 
 export type KpiSettings = { basis: 'owner_profit' | 'overall_profit' | 'game_club_income'; gameClub: boolean; bar: boolean };
 
@@ -18,68 +19,80 @@ export type SalaryNotificationInput = {
   | { event: 'employee_deleted'; reason: string }
 );
 
-const METHODS: Record<string, string> = { cash: 'Наличные', terminal: 'Терминал', card: 'Карта' };
-const SOURCES: Record<string, string> = { game_club: 'Игровой клуб', bar: 'Бар' };
 const ROLES: Record<string, string> = { Manager: 'Менеджер', Admin: 'Админ', Cleaner: 'Уборщик' };
-const SALARY_TYPES = { daily: 'Дневная зарплата', monthly: 'Месячная зарплата' } as const;
-const money = (value: number) => `${formatCurrency(value)} сум`;
-const percent = (value: number) => `${Number(value)}%`;
-const BASES = { owner_profit: 'Прибыль владельца (выведенные деньги)', overall_profit: 'Общая прибыль (ежедневно)', game_club_income: 'Доход игрового клуба (каждый день)' } as const;
-const kpiLines = (kpi: number, settings: KpiSettings) => {
-  const pools = [settings.gameClub && 'Игровой клуб', settings.bar && 'Бар'].filter(Boolean).join(' + ');
-  return [`KPI: ${percent(kpi)}`, `База KPI: ${BASES[settings.basis]}`, `Источник прибыли: ${pools}`];
-};
+const PER = { daily: 'в день', monthly: 'в месяц' } as const;
+const BASES = {
+  owner_profit: 'от прибыли владельца (выведенные деньги)',
+  overall_profit: 'от общей прибыли (ежедневно)',
+  game_club_income: 'от дохода игрового клуба (ежедневно)',
+} as const;
+const ENTRY_TITLES = { payment: 'Зарплата', bonus: 'Премия', fine: 'Штраф' } as const;
+const ENTRY_ICONS = { payment: '💵', bonus: '🎁', fine: '⚠️' } as const;
+const DELETED_TITLES = { payment: 'Удалена зарплата', bonus: 'Удалена премия', fine: 'Удалён штраф' } as const;
 
-export function buildSalaryNotification(input: SalaryNotificationInput): string {
-  const head = (title: string) => [title, '', `Сотрудник: ${input.employee}`];
-  let lines: string[];
+const salary = (amount: number, type: 'daily' | 'monthly') => `${sum(amount)} ${PER[type]}`;
+
+/** "KPI 5% от прибыли владельца (выведенные деньги) · Игровой клуб + Бар", or "Без KPI". */
+function kpiText(kpi: number, settings: KpiSettings) {
+  if (!Number(kpi)) return 'Без KPI';
+  // Game Club income KPI always draws from the Game Club alone, so its pools are implied.
+  const pools = settings.basis === 'game_club_income'
+    ? null
+    : [settings.gameClub && 'Игровой клуб', settings.bar && 'Бар'].filter(Boolean).join(' + ');
+  return details(`KPI ${Number(kpi)}% ${BASES[settings.basis]}`, pools);
+}
+
+/**
+ * Line 1 names what happened, to whom and how much; line 2 holds the details
+ * and always a date (the club's business date when the change gave none);
+ * the last line is who did it, with their comment or reason.
+ */
+export function buildSalaryNotification(input: SalaryNotificationInput, today = serverTodayIso()): string {
+  const by = input.addedBy;
+  const from = (date: string | undefined) => `с ${noticeDate(date ?? today)}`;
 
   switch (input.event) {
     case 'employee_added':
     case 'employee_updated':
-      lines = head(input.event === 'employee_added' ? '👤 Добавлен сотрудник' : '✏️ Обновлён сотрудник');
-      if (input.role) lines.push(`Должность: ${ROLES[input.role] ?? input.role}`);
-      lines.push(`${SALARY_TYPES[input.salaryType]}: ${money(input.amount)}`, ...kpiLines(input.kpi, input.kpiSettings),
-        `${input.event === 'employee_added' ? 'Начало работы' : 'Действует с'}: ${formatDateShort(input.date, 'ru')}`);
-      break;
+      return lines(
+        `${input.event === 'employee_added' ? '👤 Новый сотрудник' : '✏️ Обновлён сотрудник'}: ${input.employee}`,
+        details(input.role && (ROLES[input.role] ?? input.role), salary(input.amount, input.salaryType), from(input.date)),
+        kpiText(input.kpi, input.kpiSettings),
+        by,
+      );
     case 'salary_changed':
-      lines = [...head('💼 Изменена зарплата'), `${SALARY_TYPES[input.salaryType]}: ${money(input.amount)}`];
-      if (input.date) lines.push(`Действует с: ${formatDateShort(input.date, 'ru')}`);
-      break;
+      return lines(`💼 Новая зарплата: ${input.employee}`, details(salary(input.amount, input.salaryType), from(input.date)), by);
     case 'kpi_changed':
-      lines = [...head('📈 Изменён KPI'), ...kpiLines(input.kpi, input.kpiSettings)];
-      if (input.date) lines.push(`Действует с: ${formatDateShort(input.date, 'ru')}`);
-      break;
+      return lines(`📈 Новый KPI: ${input.employee}`, details(kpiText(input.kpi, input.kpiSettings), from(input.date)), by);
     case 'deactivated':
-      lines = head('⏸ Сотрудник деактивирован');
-      if (input.date) lines.push(`Дата деактивации: ${formatDateShort(input.date, 'ru')}`);
-      break;
+      return lines(`⏸ Сотрудник деактивирован: ${input.employee}`, `С ${noticeDate(input.date ?? today)}`, by);
     case 'activated':
-      lines = head('▶️ Сотрудник активирован');
-      if (input.date) lines.push(`Дата активации: ${formatDateShort(input.date, 'ru')}`);
-      break;
-    case 'entry_deleted': {
-      const title = input.kind === 'payment' ? '🗑 Удалена выплата зарплаты' : input.kind === 'bonus' ? '🗑 Удалена премия' : '🗑 Удалён штраф';
-      lines = [...head(title), `Сумма: ${money(input.amount)}`, `Дата: ${formatDateShort(input.date, 'ru')}`, `Причина: ${input.reason}`];
-      break;
-    }
+      return lines(`▶️ Сотрудник активирован: ${input.employee}`, `С ${noticeDate(input.date ?? today)}`, by);
+    case 'entry_deleted':
+      return lines(
+        `🗑 ${DELETED_TITLES[input.kind]} ${input.employee}: ${sum(input.amount)}`,
+        details(noticeDate(input.date), `причина: ${input.reason}`),
+        `Удалил(а) ${by}`,
+      );
     case 'rate_deleted':
-      lines = [...head('🗑 Удалено изменение зарплаты'), `Действовало с: ${formatDateShort(input.effectiveDate, 'ru')}`, `Причина: ${input.reason}`];
-      break;
+      return lines(
+        `🗑 Удалено изменение зарплаты: ${input.employee}`,
+        details(`Действовало с ${noticeDate(input.effectiveDate)}`, `причина: ${input.reason}`),
+        `Удалил(а) ${by}`,
+      );
     case 'employee_deleted':
-      lines = [...head('🗑 Сотрудник удалён'), `Причина: ${input.reason}`];
-      break;
-    default: {
-      const title = input.event === 'payment' ? '💵 Выплата зарплаты' : input.event === 'bonus' ? '🎁 Премия' : '⚠️ Штраф';
-      lines = [...head(title), `Сумма: ${money(input.amount)}`];
-      if (input.event === 'payment') {
-        if (input.paymentSource) lines.push(`Источник: ${SOURCES[input.paymentSource] ?? input.paymentSource}`);
-        if (input.paymentMethod) lines.push(`Способ оплаты: ${METHODS[input.paymentMethod] ?? input.paymentMethod}`);
-      }
-      lines.push(`Дата: ${formatDateShort(input.date, 'ru')}`);
-      if (input.comment) lines.push(`Комментарий: ${input.comment}`);
-    }
+      return lines(
+        `🗑 Сотрудник удалён: ${input.employee}`,
+        details(noticeDate(today), `причина: ${input.reason}`),
+        `Удалил(а) ${by}`,
+      );
+    default:
+      return lines(
+        `${ENTRY_ICONS[input.event]} ${ENTRY_TITLES[input.event]} ${input.employee}: ${sum(input.amount)}`,
+        input.event === 'payment'
+          ? details(input.paymentSource && source(input.paymentSource), input.paymentMethod && method(input.paymentMethod), noticeDate(input.date))
+          : noticeDate(input.date),
+        authorLine(by, input.comment),
+      );
   }
-  lines.push(`Добавил(а): ${input.addedBy}`);
-  return lines.join('\n');
 }

@@ -72,7 +72,7 @@ describe('POST /api/cash-shortages', () => {
     });
     expect(mocks.sendTelegramMessage).toHaveBeenCalledTimes(1);
     expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({
-      chatId: '-100owners', text: expect.stringContaining('Ответственный: Izzat'),
+      chatId: '-100owners', text: expect.stringContaining('ответственный: Izzat'),
     }));
   });
 

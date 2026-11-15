@@ -72,7 +72,7 @@ describe('POST /api/salaries', () => {
     const response = await post({ action: 'change_term', clubId: CLUB, employeeId: EMPLOYEE, kind: 'kpi', amount: 5 });
     expect(response.status).toBe(200);
     expect(rpc).toHaveBeenCalledWith('change_salary_term', expect.objectContaining({ p_kind: 'kpi', p_amount: 5, p_salary_type: null }));
-    expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({ chatId: '-100123', text: expect.stringContaining('KPI: 5%') }));
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({ chatId: '-100123', text: expect.stringContaining('KPI 5%') }));
     expect((await response.json()).notificationQueued).toBe(true);
   });
 
@@ -81,7 +81,7 @@ describe('POST /api/salaries', () => {
     const response = await post({ action: 'change_term', clubId: CLUB, employeeId: EMPLOYEE, kind: 'kpi', amount: 10, kpiBasis: 'game_club_income', kpiGameClub: true, kpiBar: true });
     expect(response.status).toBe(200);
     expect(rpc).toHaveBeenCalledWith('change_salary_term', expect.objectContaining({ p_kpi_basis: 'game_club_income', p_kpi_game_club: true, p_kpi_bar: false }));
-    expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining('Доход игрового клуба') }));
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining('от дохода игрового клуба') }));
     expect((await post({ action: 'change_term', clubId: CLUB, employeeId: EMPLOYEE, kind: 'kpi', amount: 10, kpiBasis: 'revenue' })).status).toBe(400);
   });
 
@@ -98,7 +98,7 @@ describe('POST /api/salaries', () => {
     const { rpc } = mockSupabase();
     await post({ action: 'set_active', clubId: CLUB, employeeId: EMPLOYEE, active: false, date: '2026-11-15' });
     expect(rpc).toHaveBeenCalledWith('deactivate_salary_employee', { p_club_id: CLUB, p_employee_id: EMPLOYEE, p_date: '2026-11-15' });
-    expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining('Дата деактивации') }));
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({ text: expect.stringContaining('С 15 ноября') }));
     expect((await post({ action: 'set_active', clubId: CLUB, employeeId: EMPLOYEE, active: false, date: 'soon' })).status).toBe(400);
   });
 
@@ -184,11 +184,10 @@ describe('POST /api/salaries', () => {
     const { chatId, text } = mocks.sendTelegramMessage.mock.calls[0][0];
     expect(chatId).toBe('-100123');
     expect(text).toContain(title);
-    expect(text).toContain('Сотрудник: Izzat');
-    expect(text).toContain('Комментарий: Late shift');
-    expect(text).toContain('Добавил(а): Owner Name');
-    expect(text).not.toContain('Источник');
-    expect(text).not.toContain('Способ оплаты');
+    expect(text).toContain(`${title} Izzat: 50 000 сум`);
+    expect(text).toContain('Owner Name: Late shift');
+    expect(text).not.toContain('Бар');
+    expect(text).not.toContain('Наличные');
     expect((await response.json()).notificationQueued).toBe(true);
   });
 

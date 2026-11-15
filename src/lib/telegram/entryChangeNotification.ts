@@ -1,9 +1,10 @@
-import { formatCurrency, formatDateShort } from '../formatters';
+import { formatCurrency } from '../formatters';
 import type { ExchangeMethod } from '../calculations/moneyExchanges';
 import { targetChatId } from './clubChat';
-import { EXCHANGE_METHOD_LABELS, exchangeAmount } from './exchangeNotification';
+import { exchangeAmounts, exchangeMethods } from './exchangeNotification';
 import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
-import { PAYMENT_METHOD_LABELS } from './expenseNotification';
+import { expenseDollars, expenseMethod } from './expenseNotification';
+import { commentLine, details, lines, noticeDate, source, sum } from './messageParts';
 import { sendTelegramMessage } from './sendDailyFinanceReport';
 
 /**
@@ -12,11 +13,7 @@ import { sendTelegramMessage } from './sendDailyFinanceReport';
  * sound in Telegram, so every such change also posts its own message.
  */
 
-const date = (iso: string) => formatDateShort(iso, 'ru');
-const method = (value: string | null | undefined) => (value ? PAYMENT_METHOD_LABELS[value] ?? value : '—');
 const category = (value: string) => RUSSIAN_EXPENSE_CATEGORY_LABELS[value] ?? value;
-/** "old → new" when it changed, otherwise the value once. */
-const change = (before: string, after: string) => (before === after ? after : `${before} → ${after}`);
 
 export interface ExpenseNoticeRow {
   amount: number;
@@ -25,40 +22,43 @@ export interface ExpenseNoticeRow {
   date: string;
   payment_method: string | null;
   payment_source: string | null;
+  usd_amount?: number | string | null;
+  usd_rate?: number | string | null;
 }
 
-function expenseLines(expense: ExpenseNoticeRow, before: ExpenseNoticeRow = expense): string[] {
-  return [
-    `Сумма: ${formatCurrency(Number(expense.amount))} сум`,
-    `Категория: ${change(category(before.category), category(expense.category))}`,
-    `Источник: ${expense.payment_source === 'bar' ? 'Бар' : 'Игровой клуб'}`,
-  ];
-}
+const expenseDetails = (expense: ExpenseNoticeRow) => details(
+  source(expense.payment_source),
+  category(expense.category),
+  expenseMethod(expense.payment_method, expenseDollars(expense)),
+  noticeDate(expense.date),
+);
 
 export function buildExpenseDeletedNotice(expense: ExpenseNoticeRow, deletedBy: string): string {
-  const lines = [
-    '🗑 Удалён расход',
-    '',
-    ...expenseLines(expense),
-    `Способ оплаты: ${method(expense.payment_method)}`,
-    `Дата: ${date(expense.date)}`,
-    `Удалил(а): ${deletedBy}`,
-  ];
-  if (expense.comment) lines.push(`Комментарий: ${expense.comment}`);
-  return lines.join('\n');
+  return lines(
+    `🗑 Удалён расход: ${sum(Number(expense.amount))}`,
+    expenseDetails(expense),
+    commentLine(expense.comment),
+    `Удалил(а) ${deletedBy}`,
+  );
 }
 
+/** The current expense, then "Field: old → new" for each field that changed. */
 export function buildExpenseChangedNotice(before: ExpenseNoticeRow, after: ExpenseNoticeRow, changedBy: string): string {
-  const lines = [
-    '✏️ Изменён расход',
-    '',
-    ...expenseLines(after, before),
-    `Способ оплаты: ${change(method(before.payment_method), method(after.payment_method))}`,
-    `Дата: ${change(date(before.date), date(after.date))}`,
-    `Изменил(а): ${changedBy}`,
+  const changes: Array<[string, string, string]> = [
+    ['Сумма', sum(Number(before.amount)), sum(Number(after.amount))],
+    ['Источник', source(before.payment_source), source(after.payment_source)],
+    ['Категория', category(before.category), category(after.category)],
+    ['Оплата', expenseMethod(before.payment_method, expenseDollars(before)), expenseMethod(after.payment_method, expenseDollars(after))],
+    ['Дата', noticeDate(before.date), noticeDate(after.date)],
   ];
-  if (after.comment) lines.push(`Комментарий: ${after.comment}`);
-  return lines.join('\n');
+  const commentChanged = (before.comment ?? '') !== (after.comment ?? '');
+  return lines(
+    `✏️ Изменён расход: ${sum(Number(after.amount))}`,
+    expenseDetails(after),
+    ...changes.filter(([, old, now]) => old !== now).map(([label, old, now]) => `${label}: ${old} → ${now}`),
+    commentChanged ? `Комментарий: ${before.comment || '—'} → ${after.comment || '—'}` : commentLine(after.comment),
+    `Изменил(а) ${changedBy}`,
+  );
 }
 
 export interface ExchangeNoticeRow {
@@ -71,16 +71,12 @@ export interface ExchangeNoticeRow {
 }
 
 export function buildExchangeDeletedNotice(exchange: ExchangeNoticeRow, deletedBy: string): string {
-  const lines = [
-    '🗑 Удалён обмен денег',
-    '',
-    `Из: ${EXCHANGE_METHOD_LABELS[exchange.from_method]} — ${exchangeAmount(exchange.from_method, Number(exchange.from_amount))}`,
-    `В: ${EXCHANGE_METHOD_LABELS[exchange.to_method]} — ${exchangeAmount(exchange.to_method, Number(exchange.to_amount))}`,
-    `Дата: ${date(exchange.date)}`,
-    `Удалил(а): ${deletedBy}`,
-  ];
-  if (exchange.comment) lines.push(`Комментарий: ${exchange.comment}`);
-  return lines.join('\n');
+  return lines(
+    `🗑 Удалён обмен: ${exchangeAmounts(exchange.from_method, Number(exchange.from_amount), exchange.to_method, Number(exchange.to_amount))}`,
+    details(exchangeMethods(exchange.from_method, exchange.to_method), noticeDate(exchange.date)),
+    commentLine(exchange.comment),
+    `Удалил(а) ${deletedBy}`,
+  );
 }
 
 export interface IncomeNoticeRow {
@@ -98,35 +94,22 @@ export function buildIncomeDeletedNotice(entry: IncomeNoticeRow, deletedBy: stri
     ['Карта', Number(entry.card_income ?? 0)],
     ['PlayStation', Number(entry.playstation_income ?? 0)],
   ];
-  const total = parts.reduce((sum, [, amount]) => sum + amount, 0);
-  return [
-    '🗑 Удалена выручка клуба',
-    '',
-    ...parts.filter(([, amount]) => amount !== 0).map(([label, amount]) => `${label}: ${formatCurrency(amount)} сум`),
-    `Итого: ${formatCurrency(total)} сум`,
-    `Дата: ${date(entry.date)}`,
-    `Удалил(а): ${deletedBy}`,
-  ].join('\n');
+  const total = parts.reduce((total, [, amount]) => total + amount, 0);
+  return lines(
+    `🗑 Удалена выручка: ${sum(total)}`,
+    details(...parts.filter(([, amount]) => amount !== 0).map(([label, amount]) => `${label} ${formatCurrency(amount)}`), noticeDate(entry.date)),
+    `Удалил(а) ${deletedBy}`,
+  );
 }
 
 /** A business date was ticked as collected in Reports, which closes the day. */
 export function buildDayCollectedNotice(isoDate: string, collectedBy: string): string {
-  return [
-    '✅ День отмечен как собранный',
-    '',
-    `Дата: ${date(isoDate)}`,
-    `Собрал(а): ${collectedBy}`,
-  ].join('\n');
+  return `✅ День собран: ${noticeDate(isoDate)} · ${collectedBy}`;
 }
 
 /** An owner removed a collected tick, which reopens the day for changes. */
 export function buildDayUncollectedNotice(isoDate: string, removedBy: string): string {
-  return [
-    '↩️ Снята отметка о сборе',
-    '',
-    `Дата: ${date(isoDate)}`,
-    `Снял(а): ${removedBy}`,
-  ].join('\n');
+  return `↩️ День снова открыт: ${noticeDate(isoDate)} · ${removedBy}`;
 }
 
 /**

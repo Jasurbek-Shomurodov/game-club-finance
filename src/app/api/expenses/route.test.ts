@@ -458,7 +458,7 @@ describe('expense payment method route', () => {
     // The edit is silent, so the change is also announced.
     expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({
       chatId: '-1001',
-      text: expect.stringContaining('Способ оплаты: Наличные → Терминал'),
+      text: expect.stringContaining('Оплата: Наличные → Терминал'),
     }));
   });
 
@@ -477,7 +477,7 @@ describe('expense payment method route', () => {
       p_club_id: CLUB_ID, p_expense_id: EXPENSE_ID, p_payment_method: 'playstation',
     });
     expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({
-      text: expect.stringContaining('Способ оплаты: Наличные → PlayStation'),
+      text: expect.stringContaining('Оплата: Наличные → PlayStation'),
     }));
 
     const bar = mockPatchSupabase(baseExpense);

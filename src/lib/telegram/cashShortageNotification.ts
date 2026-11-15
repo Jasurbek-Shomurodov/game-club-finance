@@ -1,5 +1,6 @@
-import { formatCurrency, formatDateShort } from '../formatters';
+import { formatCurrency } from '../formatters';
 import type { CashShortageMethod, CashShortageReason, OwnerWithdrawalSource } from '@/types';
+import { authorLine, details, lines, method, noticeDate, source, sum } from './messageParts';
 
 export interface CashShortageNotificationInput {
   addedBy: string;
@@ -13,30 +14,20 @@ export interface CashShortageNotificationInput {
   comment: string;
 }
 
-const SOURCE_LABELS: Record<OwnerWithdrawalSource, string> = { game_club: 'Игровой клуб', bar: 'Бар' };
-const METHOD_LABELS: Record<CashShortageMethod, string> = {
-  cash: 'Наличные', terminal: 'Терминал', card: 'Карта', playstation: 'PlayStation',
-};
 const REASON_LABELS: Record<CashShortageReason, string> = {
-  stolen: 'Украдено', short_handover: 'Сдано не полностью', unknown: 'Неизвестно',
+  stolen: 'Украдено', short_handover: 'Сдано не полностью', unknown: 'Причина неизвестна',
 };
 
 /** Owners-only group message for a new cash shortage (Russian, like every club-group message). */
 export function buildCashShortageNotification(input: CashShortageNotificationInput): string {
-  const lines = [
-    '⚠️ Недостача',
-    '',
-    `Сумма: ${formatCurrency(input.amount)} сум`,
-    `Откуда: ${SOURCE_LABELS[input.source]} · ${METHOD_LABELS[input.method]}`,
-    `Причина: ${REASON_LABELS[input.reason]}`,
-    `Ответственный: ${input.employee ?? 'неизвестно'}`,
-  ];
-  if (input.recovered > 0) {
-    lines.push(
-      `Удержано из зарплаты: ${formatCurrency(input.recovered)} сум`,
-      `Потеряно: ${formatCurrency(Math.max(0, input.amount - input.recovered))} сум`,
-    );
-  }
-  lines.push(`Дата: ${formatDateShort(input.date, 'ru')}`, `Добавил(а): ${input.addedBy}`, `Комментарий: ${input.comment}`);
-  return lines.join('\n');
+  return lines(
+    `⚠️ Недостача: ${sum(input.amount)}`,
+    details(source(input.source), method(input.method), noticeDate(input.date)),
+    details(REASON_LABELS[input.reason], input.employee ? `ответственный: ${input.employee}` : 'ответственный неизвестен'),
+    input.recovered > 0 && details(
+      `Удержано из зарплаты ${formatCurrency(input.recovered)}`,
+      `потеряно ${sum(Math.max(0, input.amount - input.recovered))}`,
+    ),
+    authorLine(input.addedBy, input.comment),
+  );
 }

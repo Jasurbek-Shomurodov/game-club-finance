@@ -5,7 +5,7 @@ import { isManualExpenseCategory } from '@/lib/expenseCategories';
 import { dollarExpenseAmount, expensePaymentMethods, normalizePaymentMethods } from '@/lib/paymentMethods';
 import { createClient } from '@/lib/supabase/server';
 import { actorName } from '@/lib/telegram/actorName';
-import { buildExpenseNotification } from '@/lib/telegram/expenseNotification';
+import { buildExpenseNotification, expenseDollars } from '@/lib/telegram/expenseNotification';
 import { targetChatId } from '@/lib/telegram/clubChat';
 import { deleteTelegramMessage } from '@/lib/telegram/deleteTelegramMessage';
 import { editTelegramMessage } from '@/lib/telegram/editTelegramMessage';
@@ -123,9 +123,7 @@ async function notifyExpense(supabase: SupabaseClient, user: User, expense: Expe
         date: expense.date,
         paymentMethod: expense.payment_method,
         paymentSource: expense.payment_source,
-        dollars: expense.payment_method === 'usd' && expense.usd_amount != null && expense.usd_rate != null
-          ? { amount: Number(expense.usd_amount), rate: Number(expense.usd_rate) }
-          : null,
+        dollars: expenseDollars(expense),
       }),
     });
     const { error: coordinateError } = await supabase
@@ -458,6 +456,7 @@ export async function PATCH(request: Request) {
             date: updated.date,
             paymentMethod: updated.payment_method,
             paymentSource: updated.payment_source,
+            dollars: expenseDollars(updated),
           }),
         });
       } catch (telegramError) {

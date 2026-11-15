@@ -4,27 +4,25 @@ import { ownerChatId, targetChatId } from './clubChat';
 
 describe('buildCashShortageNotification', () => {
   it('names the money, the reason, who is responsible and what is still lost', () => {
-    const text = buildCashShortageNotification({
+    expect(buildCashShortageNotification({
       addedBy: 'Jasurbek', date: '2026-11-11', source: 'game_club', method: 'cash', amount: 300_000,
       reason: 'stolen', employee: 'Izzat', recovered: 100_000, comment: 'Не хватило при вечерней сдаче смены',
-    });
-    expect(text).toContain('⚠️ Недостача');
-    expect(text).toContain('Сумма: 300 000 сум');
-    expect(text).toContain('Откуда: Игровой клуб · Наличные');
-    expect(text).toContain('Причина: Украдено');
-    expect(text).toContain('Ответственный: Izzat');
-    expect(text).toContain('Удержано из зарплаты: 100 000 сум');
-    expect(text).toContain('Потеряно: 200 000 сум');
-    expect(text).toContain('Добавил(а): Jasurbek');
+    }).split('\n')).toEqual([
+      '⚠️ Недостача: 300 000 сум',
+      'Игровой клуб · Наличные · 11 ноября',
+      'Украдено · ответственный: Izzat',
+      'Удержано из зарплаты 100 000 · потеряно 200 000 сум',
+      'Jasurbek: Не хватило при вечерней сдаче смены',
+    ]);
   });
 
-  it('has no recovery lines when nothing was taken back', () => {
+  it('has no recovery line when nothing was taken back', () => {
     const text = buildCashShortageNotification({
       addedBy: 'A', date: '2026-11-11', source: 'bar', method: 'terminal', amount: 50_000,
       reason: 'unknown', employee: null, recovered: 0, comment: 'Терминал не сошёлся с кассой бара',
     });
-    expect(text).toContain('Откуда: Бар · Терминал');
-    expect(text).toContain('Ответственный: неизвестно');
+    expect(text).toContain('Бар · Терминал · 11 ноября');
+    expect(text).toContain('Причина неизвестна · ответственный неизвестен');
     expect(text).not.toContain('Удержано');
   });
 });

@@ -58,7 +58,7 @@ describe('/api/collections', () => {
     expect(rpc).toHaveBeenCalledWith('mark_daily_cash_collected', { p_club_id: CLUB, p_date: DATE });
     expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({
       chatId: '-1001',
-      text: expect.stringMatching(/✅ День отмечен как собранный[\s\S]*Дата: 12 октября[\s\S]*Собрал\(а\): Izzatilla/),
+      text: expect.stringMatching(/✅ День собран: 12 октября · Izzatilla/),
     }));
   });
 
@@ -73,7 +73,7 @@ describe('/api/collections', () => {
     expect((await call(DELETE, { clubId: CLUB, date: DATE })).status).toBe(200);
     expect(rpc).toHaveBeenCalledWith('unmark_daily_cash_collected', { p_club_id: CLUB, p_date: DATE });
     expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({
-      text: expect.stringMatching(/↩️ Снята отметка о сборе[\s\S]*Снял\(а\): Izzatilla/),
+      text: expect.stringMatching(/↩️ День снова открыт: .* · Izzatilla/),
     }));
   });
 

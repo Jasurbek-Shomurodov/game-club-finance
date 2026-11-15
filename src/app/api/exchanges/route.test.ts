@@ -72,7 +72,7 @@ describe('POST /api/exchanges', () => {
       p_id: EXCHANGE, p_club_id: CLUB, p_date: '2026-10-24', p_from_method: 'cash', p_to_method: 'usd',
       p_from_amount: 1_265_000, p_rate: 12_650, p_comment: 'Changed cash to dollars for rent',
     });
-    expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({ chatId: '-1001', text: expect.stringContaining('Курс: 1 $ = 12 650 сум') }));
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({ chatId: '-1001', text: expect.stringContaining('курс 12 650') }));
     expect(rpc).toHaveBeenCalledWith('set_money_exchange_telegram_message', { p_club_id: CLUB, p_id: EXCHANGE, p_chat_id: '-1001', p_message_id: 7 });
   });
 
@@ -126,7 +126,7 @@ describe('DELETE /api/exchanges', () => {
     // The deletion is silent in Telegram, so the group gets its own notice.
     expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({
       chatId: '-1001',
-      text: expect.stringMatching(/🗑 Удалён обмен денег[\s\S]*Удалил\(а\): Alisher/),
+      text: expect.stringMatching(/🗑 Удалён обмен: [\s\S]*Удалил\(а\) Alisher/),
     }));
   });
 

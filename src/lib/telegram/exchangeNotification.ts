@@ -1,5 +1,6 @@
-import { formatCurrency, formatDateShort, formatUnitCurrency } from '../formatters';
+import { formatCurrency, formatUnitCurrency } from '../formatters';
 import type { ExchangeMethod } from '../calculations/moneyExchanges';
+import { authorLine, details, lines, noticeDate } from './messageParts';
 
 export interface ExchangeNotificationInput {
   addedBy: string;
@@ -23,15 +24,24 @@ export const exchangeAmount = (method: ExchangeMethod, value: number) => (
   method === 'usd' ? `$${formatUnitCurrency(value)}` : `${formatCurrency(value)} сум`
 );
 
+/** "1 285 000 сум → $100" */
+export const exchangeAmounts = (from: ExchangeMethod, fromAmount: number, to: ExchangeMethod, toAmount: number) => (
+  `${exchangeAmount(from, fromAmount)} → ${exchangeAmount(to, toAmount)}`
+);
+
+/** "Наличные → Доллары" */
+export const exchangeMethods = (from: ExchangeMethod, to: ExchangeMethod) => (
+  `${EXCHANGE_METHOD_LABELS[from]} → ${EXCHANGE_METHOD_LABELS[to]}`
+);
+
 export function buildExchangeNotification(input: ExchangeNotificationInput): string {
-  const lines = [
-    '🔄 Обмен денег',
-    '',
-    `Из: ${EXCHANGE_METHOD_LABELS[input.from]} — ${exchangeAmount(input.from, input.fromAmount)}`,
-    `В: ${EXCHANGE_METHOD_LABELS[input.to]} — ${exchangeAmount(input.to, input.toAmount)}`,
-  ];
-  if (input.rate !== null) lines.push(`Курс: 1 $ = ${formatUnitCurrency(input.rate)} сум`);
-  lines.push(`Дата: ${formatDateShort(input.date, 'ru')}`, `Добавил(а): ${input.addedBy}`);
-  if (input.comment) lines.push(`Комментарий: ${input.comment}`);
-  return lines.join('\n');
+  return lines(
+    `🔄 Обмен: ${exchangeAmounts(input.from, input.fromAmount, input.to, input.toAmount)}`,
+    details(
+      exchangeMethods(input.from, input.to),
+      input.rate !== null && `курс ${formatUnitCurrency(input.rate)}`,
+      noticeDate(input.date),
+    ),
+    authorLine(input.addedBy, input.comment),
+  );
 }
