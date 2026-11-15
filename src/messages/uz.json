@@ -1295,6 +1295,7 @@
     "dollarsHint": "Mavjud {held} · almashtirib yeching",
     "unassignedMethod": "To‘lov usulisiz",
     "unassignedMethodHint": "To‘lov usullari hisobga olinishidan oldin yozilgan. Usulni belgilash uchun o‘chirib, qayta yeching.",
+    "allMigrationRequired": "Barcha manbalardan pul yechish uchun ma’lumotlar bazasining 142 migratsiyasi talab qilinadi. Yechishni yozishdan oldin uni qo‘llang.",
     "methodMigrationRequired": "To‘lov usuli bo‘yicha pul yechish uchun ma’lumotlar bazasining 066 migratsiyasi talab qilinadi. Yechishni yozishdan oldin uni qo‘llang.",
     "allAllocationUnassigned": "«Barchasi» avval o‘yin klubi, keyin bar foydasini to‘lov usulisiz ishlatadi. Muayyan usuldan pul olish uchun «O‘yin klubi»ni tanlang.",
     "carriedColumn": "Oylar orasida o‘tkazilgan",

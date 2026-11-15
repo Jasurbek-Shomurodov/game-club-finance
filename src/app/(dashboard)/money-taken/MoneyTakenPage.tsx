@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { EMPTY_OWNER_MONEY, fetchOwnerMoney, type OwnerMoneyData } from '@/lib/supabase/ownerMoney';
 import {
+  allSourcesWithdrawable,
   availableForPaymentMethod,
   carryoversForMonth,
   gameClubWithdrawalsByMethod,
@@ -258,9 +259,18 @@ export default function MoneyTakenPage() {
     || (enabledPaymentMethods as readonly string[]).includes(method)
     || methodWithdrawable[method] > 0
   ));
+  // With methods, "All" takes Game Club money method by method (142), so money
+  // held in dollars or in no method is not part of its limit.
+  const allByMethod = methodsSupported && form.source === 'all';
   const withdrawable = usesPaymentMethod
     ? (form.paymentMethod ? methodWithdrawable[form.paymentMethod] : 0)
-    : sourceAvailable;
+    : allByMethod
+      ? allSourcesWithdrawable(
+        Object.values(methodWithdrawable),
+        monthlyBalance?.gameClub.available ?? 0,
+        monthlyBalance?.bar.available ?? 0,
+      )
+      : sourceAvailable;
 
   useEffect(() => {
     if (!usesPaymentMethod) return;
@@ -326,7 +336,9 @@ export default function MoneyTakenPage() {
     setSaving('withdraw');
     try {
       const supabase = createClient();
-      const rpcName = usesPaymentMethod ? 'withdraw_owner_game_club_money_by_method' : 'withdraw_owner_money_for_month';
+      const rpcName = usesPaymentMethod
+        ? 'withdraw_owner_game_club_money_by_method'
+        : allByMethod ? 'withdraw_owner_money_all_by_method' : 'withdraw_owner_money_for_month';
       const { error: insertError } = usesPaymentMethod
         ? await supabase.rpc(rpcName, {
           p_club_id: selectedClubId,
@@ -335,13 +347,20 @@ export default function MoneyTakenPage() {
           p_amount: amount,
           p_comment: form.comment.trim() || null,
         })
-        : await supabase.rpc(rpcName, {
-          p_club_id: selectedClubId,
-          p_period_month: `${form.month}-01`,
-          p_source: form.source,
-          p_amount: amount,
-          p_comment: form.comment.trim() || null,
-        });
+        : allByMethod
+          ? await supabase.rpc(rpcName, {
+            p_club_id: selectedClubId,
+            p_period_month: `${form.month}-01`,
+            p_amount: amount,
+            p_comment: form.comment.trim() || null,
+          })
+          : await supabase.rpc(rpcName, {
+            p_club_id: selectedClubId,
+            p_period_month: `${form.month}-01`,
+            p_source: form.source,
+            p_amount: amount,
+            p_comment: form.comment.trim() || null,
+          });
 
       if (operationLoad !== currentLoad.current) return;
       if (insertError) {
@@ -350,7 +369,7 @@ export default function MoneyTakenPage() {
           return;
         }
         showToast(isMissingDatabaseFunction(insertError, rpcName)
-          ? t(usesPaymentMethod ? 'methodMigrationRequired' : 'migrationRequired')
+          ? t(usesPaymentMethod ? 'methodMigrationRequired' : allByMethod ? 'allMigrationRequired' : 'migrationRequired')
           : insertError.code === '23514' ? t('exceedsAvailable') : t('saveError'), 'error');
         await loadData({ silent: true });
         return;
@@ -1098,7 +1117,7 @@ export default function MoneyTakenPage() {
                       hint={usesPaymentMethod ? undefined : (
                         <>
                           {t('availableForSource')}:{' '}
-                          <span className="font-semibold tabular-nums text-success-600">{currency(sourceAvailable)}</span>
+                          <span className="font-semibold tabular-nums text-success-600">{currency(withdrawable)}</span>
                         </>
                       )}
                     >

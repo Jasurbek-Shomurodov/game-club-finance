@@ -4723,5 +4723,14 @@
         "signature": "public.stock_write_off_quantity(numeric,text)"
       }
     ]
+  },
+  {
+    "file": "142_withdraw_all_by_method.sql",
+    "probes": [
+      {
+        "kind": "function",
+        "signature": "public.withdraw_owner_money_all_by_method(uuid,date,numeric,text)"
+      }
+    ]
   }
 ]

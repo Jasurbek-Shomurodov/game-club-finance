@@ -189,6 +189,20 @@ export function availableForPaymentMethod(methodAvailable: number, gameClubAvail
   return Math.max(0, Math.min(methodAvailable, gameClubAvailable));
 }
 
+/**
+ * The "All" withdrawal limit when Game Club money is taken method by method
+ * (142): what the methods hold, never more than the Game Club month balance,
+ * plus the bar. Profit held in dollars is in neither, so it stays out.
+ */
+export function allSourcesWithdrawable(
+  methodAvailable: readonly number[],
+  gameClubAvailable: number,
+  barAvailable: number,
+): number {
+  const methods = methodAvailable.reduce((sum, amount) => sum + Math.max(0, amount), 0);
+  return Math.max(0, Math.min(methods, gameClubAvailable)) + Math.max(0, barAvailable);
+}
+
 export interface MonthCarryovers {
   /** Net carried per source: money in from the previous month minus money on to the next. */
   bySource: Record<OwnerWithdrawalSource, number>;

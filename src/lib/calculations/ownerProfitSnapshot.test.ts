@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { OwnerProfitCarryover, OwnerWithdrawal } from '../../types';
 import {
   applyOwnerProfitCarryovers,
+  allSourcesWithdrawable,
   availableForPaymentMethod,
   buildOwnerProfitSnapshot,
   gameClubMoneyLeftByPaymentMethodByMonth,
@@ -133,6 +134,13 @@ describe('Game Club withdrawals by payment method', () => {
     expect(availableForPaymentMethod(830_000, 0)).toBe(0);
     expect(availableForPaymentMethod(830_000, 1_000_000)).toBe(830_000);
     expect(availableForPaymentMethod(-5, 1_000)).toBe(0);
+  });
+
+  it('limits All to money the methods and the bar hold, leaving dollars out', () => {
+    // October 2026: 6 332 200 Game Club profit, 6 243 000 of it in dollars, bar moved on.
+    expect(allSourcesWithdrawable([0, -800, 0, 90_000], 6_332_200, 0)).toBe(90_000);
+    expect(allSourcesWithdrawable([500, 0, 0, 700], 1_000, 300)).toBe(1_300);
+    expect(allSourcesWithdrawable([500], -50, -10)).toBe(0);
   });
 });
 

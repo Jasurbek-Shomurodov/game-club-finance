@@ -1295,6 +1295,7 @@
     "dollarsHint": "Held {held} · exchange to withdraw",
     "unassignedMethod": "No payment method",
     "unassignedMethodHint": "Recorded before methods were tracked. Delete and withdraw again to assign one.",
+    "allMigrationRequired": "Withdrawing from all sources requires database migration 142. Apply it before recording a withdrawal.",
     "methodMigrationRequired": "Withdrawing by payment method requires database migration 066. Apply it before recording a withdrawal.",
     "allAllocationUnassigned": "All uses Game Club profit first, then Bar profit, without a payment method. Choose Game Club to take money from a specific method.",
     "carriedColumn": "Moved between months",
