@@ -2392,6 +2392,8 @@
     "empty": "Nothing in the reserve yet.",
     "emptyHint": "Use Put all into reserve below, or enter an amount in Withdraw monthly profit and choose Put into reserve.",
     "activityLabel": "Reserve history",
+    "showHistory": "History · {count}",
+    "hideHistory": "Hide history",
     "fromCollection": "From collecting {date}",
     "kinds": {
       "deposit": "Put into reserve",

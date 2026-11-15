@@ -1,6 +1,7 @@
 'use client';
 
-import { ArrowDownToLine, ArrowUpFromLine, Clock, MessageSquareText, PiggyBank, ShoppingCart, Trash2, Undo2 } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, ChevronDown, Clock, History, MessageSquareText, PiggyBank, ShoppingCart, Trash2, Undo2 } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { Badge, Button, EmptyState, IconButton, SectionHeading } from '@/components/PresentationFoundation';
@@ -9,8 +10,6 @@ import { formatCurrency, formatDateOnly } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { OWNER_WITHDRAWAL_PAYMENT_METHODS, OWNER_WITHDRAWAL_SOURCES, type OwnerWithdrawalPaymentMethod, type OwnerWithdrawalSource } from '@/types';
 import { SOURCE_ICONS, SOURCE_TINTS } from './profitIcons';
-
-const ACTIVITY_LIMIT = 12;
 
 interface ReserveSectionProps {
   balances: Record<OwnerWithdrawalSource, ReserveBalance>;
@@ -28,12 +27,12 @@ interface ReserveSectionProps {
   onDelete: (activity: Extract<ReserveActivity, { kind: 'deposit' | 'return' }>) => void;
 }
 
-/** The owner reserve: what it holds per side, ways to fill and spend it, and every deposit, return and purchase. */
+/** The owner reserve: what it holds per side, ways to fill and spend it, and and every deposit, return and purchase behind a History toggle. */
 export function ReserveSection({ balances, depositAllAmounts, monthLabel, activity, methodLabel, busyId, disabled, onReturn, onDepositAll, onPay, onDelete }: ReserveSectionProps) {
   const t = useTranslations('ownerReserve');
   const tc = useTranslations('common');
   const { locale } = useAppLocale();
-  const recent = activity.slice(0, ACTIVITY_LIMIT);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   return (
     <>
@@ -109,13 +108,28 @@ export function ReserveSection({ balances, depositAllAmounts, monthLabel, activi
         })}
       </div>
 
-      {recent.length === 0 ? (
+      {activity.length === 0 ? (
         <div className="p-4 sm:p-5">
           <EmptyState compact title={t('empty')} description={t('emptyHint')} />
         </div>
       ) : (
-        <ul className="divide-y divide-gray-100" aria-label={t('activityLabel')}>
-          {recent.map((row) => {
+        <>
+        <div className="px-4 py-3 sm:px-5">
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-expanded={historyOpen}
+            aria-controls="reserve-history"
+            onClick={() => setHistoryOpen((open) => !open)}
+            icon={<History size={15} aria-hidden="true" />}
+          >
+            {t(historyOpen ? 'hideHistory' : 'showHistory', { count: activity.length })}
+            <ChevronDown size={15} aria-hidden="true" className={cn('ml-1 transition-transform', historyOpen && 'rotate-180')} />
+          </Button>
+        </div>
+        {historyOpen ? (
+        <ul id="reserve-history" className="divide-y divide-gray-100 border-t border-gray-100" aria-label={t('activityLabel')}>
+          {activity.map((row) => {
             const Icon = row.kind === 'deposit' ? ArrowDownToLine : row.kind === 'return' ? ArrowUpFromLine : ShoppingCart;
             const incoming = row.kind === 'deposit';
             return (
@@ -173,6 +187,8 @@ export function ReserveSection({ balances, depositAllAmounts, monthLabel, activi
             );
           })}
         </ul>
+        ) : null}
+        </>
       )}
     </>
   );

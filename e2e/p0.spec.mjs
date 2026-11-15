@@ -531,6 +531,9 @@ test('OWN-008 profit put into the reserve leaves the month, and a purchase paid 
   expect((await tooMuch.json()).code).toBe('RESERVE_INSUFFICIENT');
   await page.reload();
   await expect(row('Cash')).toContainText(uzs(780_000));
+  // The history stays folded until asked for, then lists every entry.
+  await expect(reserve).not.toContainText('Paid from reserve');
+  await reserve.getByRole('button', { name: /^History · \d+/ }).click();
   await expect(reserve).toContainText('Paid from reserve');
   await expect(reserve).toContainText(uzs(200_000));
 

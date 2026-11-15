@@ -2392,6 +2392,8 @@
     "empty": "Jamg'armada hozircha hech narsa yo'q.",
     "emptyHint": "Pastdagi «Hammasini qo'yish»ni bosing yoki «Oylik foydani olish»da summani kiritib «Jamg'armaga qo'yish»ni tanlang.",
     "activityLabel": "Jamg'arma tarixi",
+    "showHistory": "Tarix · {count}",
+    "hideHistory": "Tarixni yashirish",
     "fromCollection": "{date} kuni olingan puldan",
     "kinds": {
       "deposit": "Jamg'armaga qo'yildi",
