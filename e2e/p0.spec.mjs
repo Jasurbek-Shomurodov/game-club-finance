@@ -207,8 +207,21 @@ test('EXP-009 an owner moves an expense to another date from Entry details', asy
   const calendar = page.getByRole('dialog', { name: 'Select date' });
   if (day === 1) await calendar.getByRole('button', { name: 'Previous month' }).click();
   await calendar.getByRole('button', { name: targetLabel, exact: true }).click();
+  // The fixture's cash arrives today: on the target date there is none yet, and a
+  // method never goes negative on any day (146), so the move is refused.
+  await expect(details.getByRole('alert')).toHaveText('This payment method does not hold enough money for this expense.');
+  let [row] = await (await restAs(accounts.owner, 'GET', `expenses?select=date&id=eq.${cleaning.id}`)).json();
+  expect(row.date).toBe(today);
+
+  // With the target day's own cash collected, the same move goes through.
+  expect((await restAs(accounts.owner, 'POST', 'daily_cash_entries', {
+    club_id: clubs.arcade.id, date: target, cash_income: cleaning.amount, terminal_income: 0, card_income: 0, playstation_income: 0,
+  })).ok).toBe(true);
+  await details.getByRole('button', { name: 'Date', exact: true }).click();
+  if (day === 1) await calendar.getByRole('button', { name: 'Previous month' }).click();
+  await calendar.getByRole('button', { name: targetLabel, exact: true }).click();
   await expect(page.getByText('Date changed')).toBeVisible();
-  const [row] = await (await restAs(accounts.owner, 'GET', `expenses?select=date&id=eq.${cleaning.id}`)).json();
+  [row] = await (await restAs(accounts.owner, 'GET', `expenses?select=date&id=eq.${cleaning.id}`)).json();
   expect(row.date).toBe(target);
 });
 
