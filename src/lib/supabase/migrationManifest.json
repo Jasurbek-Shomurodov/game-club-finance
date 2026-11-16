@@ -3147,10 +3147,6 @@
       {
         "kind": "function",
         "signature": "public.set_money_exchange_telegram_message(uuid,uuid,text,bigint)"
-      },
-      {
-        "kind": "function",
-        "signature": "public.delete_money_exchange(uuid,uuid)"
       }
     ]
   },
@@ -4755,6 +4751,16 @@
       {
         "kind": "function",
         "signature": "public.enforce_exchange_method_balance()"
+      }
+    ]
+  },
+  {
+    "file": "145_exchange_delete_balance_limit.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.delete_money_exchange(uuid,uuid)",
+        "md5": "23e736d94aafa770ecefba07808c2dfc"
       }
     ]
   }

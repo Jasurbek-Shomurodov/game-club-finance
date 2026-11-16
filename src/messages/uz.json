@@ -420,6 +420,7 @@
     "salaryPaymentProtected": "Ish haqi toʻlovlari faqat xodimning ish haqi tarixidan, sabab koʻrsatilgan holda oʻchiriladi.",
     "loadError": "Hisobotni yuklab bo'lmadi. Internet aloqasini tekshirib, qayta urinib ko'ring.",
     "deleteError": "Yozuvni o'chirib bo'lmadi. Qayta urinib ko'ring.",
+    "exchangeDeleteSpent": "Bu almashtirishni o‘chirib bo‘lmaydi: undan kelgan pul allaqachon sarflangan yoki almashtirilgan. Avval o‘sha keyingi yozuvlarni o‘chiring.",
     "deleteEntryConfirmDetailed": "{date} sanasidagi «{category}» ({type}, {amount}) o'chirilsinmi? Bu amalni qaytarib bo'lmaydi.",
     "gameClubExpenses": "Klub xarajatlari",
     "gameClubLeft": "Klub qoldig‘i",

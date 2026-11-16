@@ -420,6 +420,7 @@
     "salaryPaymentProtected": "Salary payments can only be deleted from the employee's salary history, where a reason is required.",
     "loadError": "Could not load the report. Check your connection and try again.",
     "deleteError": "Could not delete the entry. Try again.",
+    "exchangeDeleteSpent": "This exchange can't be deleted: the money it brought in has already been spent or exchanged. Delete those later entries first.",
     "deleteEntryConfirmDetailed": "Delete “{category}” ({type}, {amount}) from {date}? This cannot be undone.",
     "gameClubExpenses": "Game club expenses",
     "gameClubLeft": "Game club left",

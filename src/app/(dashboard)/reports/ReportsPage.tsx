@@ -572,6 +572,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
           const result = await response.json().catch(() => null) as { code?: string } | null;
           deleteError = result?.code === 'DAY_COLLECTED'
             ? tc('dayClosed')
+            : result?.code === 'INSUFFICIENT_BALANCE'
+            ? t('exchangeDeleteSpent')
             : response.status === 401 || response.status === 403
             ? tc('accessDeniedDescription')
             : t('deleteError');

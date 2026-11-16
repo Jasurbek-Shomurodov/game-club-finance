@@ -139,7 +139,13 @@ describe('DELETE /api/exchanges', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     mockSupabase({ rpcError: { message: 'Only a club owner can delete an exchange.', code: '42501' } });
     expect((await call(DELETE, body)).status).toBe(403);
+    // The 145 check: the money it brought in was already spent or exchanged again.
+    mockSupabase({ rpcError: { message: 'Insufficient payment method balance: 0 available', code: 'P0001' } });
+    const refused = await call(DELETE, body);
+    expect(refused.status).toBe(409);
+    expect(await refused.json()).toMatchObject({ code: 'INSUFFICIENT_BALANCE' });
     expect(mocks.sendTelegramMessage).not.toHaveBeenCalled();
+    expect(mocks.deleteTelegramMessage).not.toHaveBeenCalled();
     mockSupabase({ exchange: { ...saved, telegram_chat_id: '-1009' } });
     expect((await call(DELETE, body)).status).toBe(200);
     expect(mocks.deleteTelegramMessage).not.toHaveBeenCalled();

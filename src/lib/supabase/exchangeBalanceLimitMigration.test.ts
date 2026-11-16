@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-/** Migration 144 on the full replayed schema: an exchange cannot give away more than its method holds. */
+/** Migrations 144 and 145 on the full replayed schema: an exchange, or deleting one, cannot leave a method negative. */
 
 const migrationsDir = resolve(process.cwd(), 'migrations');
 const readMigration = (name: string) => readFileSync(resolve(migrationsDir, name), 'utf8')
@@ -28,6 +28,10 @@ const exchange = (date: string, from: string, to: string, amount: number, rate: 
     [id, club, date, from, to, amount, rate, note],
   ));
 };
+const removeExchange = (id: string, userId = owner) => asUser(userId, () => db.query(
+  'select delete_money_exchange($1,$2)', [club, id],
+));
+const exchangeId = (n: number) => `20000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
 const exchangeCount = async () => Number((await db.query<{ n: string }>('select count(*) n from money_exchanges')).rows[0].n);
 
 beforeAll(async () => {
@@ -88,5 +92,37 @@ describe('exchange balance limit (144)', () => {
     // 50 dollars came back as 600 000 cash.
     await exchange('2024-08-07', 'cash', 'card', 600_000);
     await expect(exchange('2024-08-07', 'cash', 'card', 1)).rejects.toMatchObject({ code: 'P0001' });
+  });
+});
+
+describe('deleting an exchange (145)', () => {
+  // By now: cash 1 000 000 - 400 000 expense - 600 000 into dollars
+  // + 600 000 back from 50 dollars - 600 000 to card = 0. Card holds 600 000, dollars 0.
+  it('is still for owners only', async () => {
+    await expect(removeExchange(exchangeId(7), admin)).rejects.toMatchObject({ code: '42501' });
+  });
+
+  it('refuses when the money it brought in was already spent or exchanged again', async () => {
+    // Saved exchanges (refused attempts use ids too): 3 cash -> 50 dollars,
+    // 6 those 50 dollars -> cash, 7 that cash -> card.
+    // The dollars bought (exchange 3) were sold again (exchange 6): none are left to take back.
+    await expect(removeExchange(exchangeId(3))).rejects.toMatchObject({
+      message: expect.stringMatching(/insufficient payment method balance/i),
+      code: 'P0001',
+    });
+    // The cash from selling dollars (exchange 6) went on to the card (exchange 7).
+    await expect(removeExchange(exchangeId(6))).rejects.toMatchObject({ code: 'P0001' });
+    expect(await exchangeCount()).toBe(3);
+  });
+
+  it('allows it once the later money movement is undone, in reverse order', async () => {
+    await removeExchange(exchangeId(7));
+    await removeExchange(exchangeId(6));
+    await removeExchange(exchangeId(3));
+    expect(await exchangeCount()).toBe(0);
+  });
+
+  it('still says when the exchange is not the club\'s', async () => {
+    await expect(removeExchange(exchangeId(99))).rejects.toMatchObject({ code: 'P0002' });
   });
 });
