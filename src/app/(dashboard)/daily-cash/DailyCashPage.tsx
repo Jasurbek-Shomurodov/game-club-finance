@@ -24,6 +24,7 @@ import { CashShortageForm } from '@/components/cash-shortages/CashShortageForm';
 import { fetchCashShortages, type ShortageEmployee } from '@/lib/supabase/cashShortages';
 import { loadDailyCashSummary, emptyDailyCashSummary, type DailyCashSummary } from '@/lib/supabase/dailyCashSummary';
 import { requestDailyCashDeletion } from '@/lib/dailyCashApi';
+import { isInsufficientBalanceError } from '@/lib/supabase/errors';
 import { calculateGameClubIncome } from '@/lib/calculations/dailyCash';
 import { canEditEntryForRole, getEditDeadline } from '@/lib/time/editWindow';
 import { useClub } from '@/components/layout/DashboardShell';
@@ -353,7 +354,8 @@ export default function DailyCashPage() {
 
       if (result.error) {
         setError(result.error.code === '23505' ? t('duplicateEntryError')
-          : isDayCollectedError(result.error) ? tc('dayClosed') : t('saveError'));
+          : isDayCollectedError(result.error) ? tc('dayClosed')
+          : isInsufficientBalanceError(result.error) ? tc('incomeAlreadySpent') : t('saveError'));
         return;
       }
       if (entry && (result.data ?? []).length === 0) {
@@ -395,12 +397,13 @@ export default function DailyCashPage() {
 
     try {
       // Through the route, so the club group is told about the deletion.
-      const status = await requestDailyCashDeletion(clubId, target.id);
+      const { status, code } = await requestDailyCashDeletion(clubId, target.id);
 
       if (currentClubId.current !== clubId) return;
 
       if (status !== 200) {
-        setError(status === 409 ? tc('dayClosed') : t('deleteError'));
+        setError(code === 'INSUFFICIENT_BALANCE' ? tc('incomeAlreadySpent')
+          : status === 409 ? tc('dayClosed') : t('deleteError'));
         return;
       }
 

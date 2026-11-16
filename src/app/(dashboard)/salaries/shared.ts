@@ -75,6 +75,7 @@ const ERROR_KEYS: Record<Exclude<SalaryErrorCode, 'FORBIDDEN' | 'CHECK_FAILED' |
   LAST_RATE: 'errors.lastRate',
   EMPLOYEE_ACTIVE: 'errors.employeeActive',
   DAY_COLLECTED: 'errors.dayCollected',
+  INSUFFICIENT_BALANCE: 'errors.insufficientBalance',
 };
 
 /** Translated labels and messages shared by the salary views. */

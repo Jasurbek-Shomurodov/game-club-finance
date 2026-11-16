@@ -597,9 +597,11 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
               : t('deleteError');
         }
       } else {
-        const status = await requestDailyCashDeletion(clubId, activity.id);
+        const { status, code } = await requestDailyCashDeletion(clubId, activity.id);
         if (status !== 200) {
-          deleteError = status === 409
+          deleteError = code === 'INSUFFICIENT_BALANCE'
+            ? tc('incomeAlreadySpent')
+            : status === 409
             ? tc('dayClosed')
             : status === 401 || status === 403 ? tc('accessDeniedDescription') : t('deleteError');
         }

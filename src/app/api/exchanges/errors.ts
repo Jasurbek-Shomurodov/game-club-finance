@@ -1,5 +1,6 @@
 import { isNoteRequiredError } from '@/lib/entryNote';
 import { isDayCollectedError } from '@/lib/supabase/dailyCashCollections';
+import { isInsufficientBalanceError } from '@/lib/supabase/errors';
 
 /**
  * Stable error codes returned by /api/exchanges. The browser maps each code to
@@ -42,8 +43,8 @@ export function exchangeErrorCode(error: { code?: string | null; message?: strin
   if (isDayCollectedError(error)) return 'DAY_COLLECTED';
   // The 108 trigger: an exchange needs a note of at least 5 words.
   if (isNoteRequiredError(error)) return 'NOTE_REQUIRED';
-  // The 144 trigger: the "from" method does not hold that much money.
-  if (error.hint === 'INSUFFICIENT_BALANCE' || /insufficient payment method balance/i.test(message)) return 'INSUFFICIENT_BALANCE';
+  // The 144 and 146 checks: the exchange (or its deletion) would leave a method negative.
+  if (isInsufficientBalanceError(error)) return 'INSUFFICIENT_BALANCE';
   if (/not enabled for this club/i.test(message)) return 'PAYMENT_METHOD_DISABLED';
   if (/could not find the function|does not exist/i.test(message) || error.code === 'PGRST202') return 'NOT_AVAILABLE';
   if (error.code === '42501') return 'FORBIDDEN';

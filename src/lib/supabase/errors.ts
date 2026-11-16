@@ -42,3 +42,14 @@ export function isMissingDatabaseTable(
   const message = error.message ?? '';
   return message.includes(tableName) && /could not find|does not exist/i.test(message);
 }
+
+/**
+ * The 125, 144 and 146 balance checks: the write would leave a payment
+ * method with less than nothing, on its own day or a later one.
+ */
+export function isInsufficientBalanceError(
+  error: { hint?: string | null; message?: string | null } | null | undefined,
+): boolean {
+  if (!error) return false;
+  return error.hint === 'INSUFFICIENT_BALANCE' || /insufficient payment method balance/i.test(error.message ?? '');
+}

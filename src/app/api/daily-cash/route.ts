@@ -12,6 +12,7 @@ const ERRORS = {
   INVALID_REQUEST: 400,
   NOT_FOUND: 404,
   DAY_COLLECTED: 409,
+  INSUFFICIENT_BALANCE: 409,
   SERVER_ERROR: 500,
 } as const;
 
@@ -22,7 +23,8 @@ function errorResponse(code: keyof typeof ERRORS) {
 /**
  * Deletes a daily income entry and tells the club group. The delete runs as
  * the signed-in user, so RLS (owner only, migration 036) decides; a refused
- * or missing row is a 404, a collected day a 409 and a database fault a 500,
+ * or missing row is a 404, a collected day or already-spent money a 409 and a
+ * database fault a 500,
  * and none of them sends anything.
  */
 export async function DELETE(request: Request) {
@@ -50,6 +52,7 @@ export async function DELETE(request: Request) {
   const deletion = await deleteDailyCashEntry(supabase, clubId, entryId);
   if (deletion === 'not_found') return errorResponse('NOT_FOUND');
   if (deletion === 'day_closed') return errorResponse('DAY_COLLECTED');
+  if (deletion === 'already_spent') return errorResponse('INSUFFICIENT_BALANCE');
   if (deletion === 'failed') {
     console.error('[daily-cash] deletion failed', { clubId, entryId });
     return errorResponse('SERVER_ERROR');

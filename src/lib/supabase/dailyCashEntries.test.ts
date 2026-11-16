@@ -31,4 +31,9 @@ describe('deleteDailyCashEntry', () => {
     const closed = deleteClient({ data: null, error: { message: 'this day is closed.', hint: 'day_collected' } });
     await expect(deleteDailyCashEntry(closed.client, 'club-1', 'entry-1')).resolves.toBe('day_closed');
   });
+
+  it('reports money that was already spent', async () => {
+    const spent = deleteClient({ data: null, error: { message: 'Insufficient payment method balance: cash would be negative by 5', hint: 'INSUFFICIENT_BALANCE' } });
+    await expect(deleteDailyCashEntry(spent.client, 'club-1', 'entry-1')).resolves.toBe('already_spent');
+  });
 });

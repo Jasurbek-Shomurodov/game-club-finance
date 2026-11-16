@@ -43,7 +43,7 @@ beforeAll(async () => {
     update public.clubs set enabled_payment_methods = array['cash','terminal'] where id = '${club}';
     insert into public.club_memberships (club_id, user_id, role) values ('${club}','${owner}','owner'), ('${club}','${manager}','admin');
     insert into public.daily_cash_entries (club_id, date, cash_income, terminal_income, card_income, playstation_income, created_by)
-      values ('${club}','2024-08-02',1000,0,500,700,'${owner}');
+      values ('${club}','2024-08-02',1000,1000,500,700,'${owner}');
     grant select on all tables in schema public to authenticated;
   `);
 }, 120_000);

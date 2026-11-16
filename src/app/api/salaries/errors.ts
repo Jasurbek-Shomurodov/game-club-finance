@@ -1,4 +1,5 @@
 import { isDayCollectedError } from '@/lib/supabase/dailyCashCollections';
+import { isInsufficientBalanceError } from '@/lib/supabase/errors';
 
 /**
  * Stable error codes returned by POST /api/salaries. The browser maps each code
@@ -19,6 +20,7 @@ export const SALARY_ERROR_CODES = [
   'LAST_RATE',
   'EMPLOYEE_ACTIVE',
   'DAY_COLLECTED',
+  'INSUFFICIENT_BALANCE',
   'SERVER_ERROR',
 ] as const;
 
@@ -39,6 +41,7 @@ export const SALARY_ERROR_TEXT: Record<SalaryErrorCode, string> = {
   LAST_RATE: 'The last salary rate cannot be deleted',
   EMPLOYEE_ACTIVE: 'Deactivate the employee first',
   DAY_COLLECTED: 'The money for this day was collected; the day is closed',
+  INSUFFICIENT_BALANCE: 'The payment method does not hold enough money for this payment',
   SERVER_ERROR: 'Salary change failed',
 };
 
@@ -57,6 +60,7 @@ const STATUS: Record<SalaryErrorCode, number> = {
   LAST_RATE: 409,
   EMPLOYEE_ACTIVE: 409,
   DAY_COLLECTED: 409,
+  INSUFFICIENT_BALANCE: 409,
   SERVER_ERROR: 500,
 };
 
@@ -69,6 +73,8 @@ export function salaryErrorCode(error: { code?: string | null; message?: string 
   const message = error.message ?? '';
   // The 097 trigger: the payment's day was collected, so the day is closed.
   if (isDayCollectedError(error)) return 'DAY_COLLECTED';
+  // The 146 trigger: the payment would leave its method negative on some day.
+  if (isInsufficientBalanceError(error)) return 'INSUFFICIENT_BALANCE';
   if (error.code === '42501') return /club owner/i.test(message) ? 'OWNER_ONLY' : 'FORBIDDEN';
   if (error.code === '23514') return 'CHECK_FAILED';
   if (error.code === '23505') return 'REQUEST_CONFLICT';

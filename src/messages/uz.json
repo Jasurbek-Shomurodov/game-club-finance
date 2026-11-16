@@ -1433,7 +1433,8 @@
       "progress": "Hozircha: {words} / {required} so‘z.",
       "example": "Masalan: «Bar uchun 12 ta suv sotib oldik».",
       "dialogButton": "Izoh yozish"
-    }
+    },
+    "incomeAlreadySpent": "Bu daromad allaqachon sarflangan yoki almashtirilgan: uni kamaytirsangiz yoki o‘chirsangiz, to‘lov usuli minusga tushadi. Avval keyingi xarajat yoki almashtirishlarni o‘chiring."
   },
   "salaries": {
     "title": "Ish haqi",
@@ -1602,7 +1603,8 @@
       "settingsMissing": "Bu xodimda hali maosh sozlamalari yo‘q. Avval ularni saqlang.",
       "lastRate": "Oxirgi maosh stavkasini o‘chirib bo‘lmaydi. Maosh sozlamalarini o‘zgartiring yoki xodimni nofaol qiling.",
       "employeeActive": "Avval xodimni faolsizlantiring. Faqat faolsizlantirilgan xodimni o‘chirish mumkin.",
-      "dayCollected": "Bu kunning puli olindi, kun yopilgan. Boshqa sanani tanlang yoki egasidan kunni qayta ochishni so‘rang."
+      "dayCollected": "Bu kunning puli olindi, kun yopilgan. Boshqa sanani tanlang yoki egasidan kunni qayta ochishni so‘rang.",
+      "insufficientBalance": "Bu kunda to‘lov usulida bu to‘lov uchun yetarli pul yo‘q."
     }
   },
   "testChecklist": {

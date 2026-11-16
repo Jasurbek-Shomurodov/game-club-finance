@@ -1433,7 +1433,8 @@
       "progress": "So far: {words} of {required} words.",
       "example": "For example: “Bought 12 bottles of water for the bar”.",
       "dialogButton": "Write the note"
-    }
+    },
+    "incomeAlreadySpent": "This income was already spent or exchanged, so taking it back would leave the payment method negative. Delete the later expenses or exchanges first."
   },
   "salaries": {
     "title": "Salaries",
@@ -1602,7 +1603,8 @@
       "settingsMissing": "This employee has no salary settings yet. Save their settings first.",
       "lastRate": "The last salary rate cannot be deleted. Change the salary settings or deactivate the employee instead.",
       "employeeActive": "Deactivate this employee first. Only deactivated employees can be deleted.",
-      "dayCollected": "The money for this day was collected, so the day is closed. Pick another date or ask an owner to reopen it."
+      "dayCollected": "The money for this day was collected, so the day is closed. Pick another date or ask an owner to reopen it.",
+      "insufficientBalance": "The payment method does not hold enough money on this day for this payment."
     }
   },
   "testChecklist": {
