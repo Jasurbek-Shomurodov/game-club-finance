@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildFilteredMoneyReport, buildMoneyReport, expensesFromSource } from './moneyReport';
+import { buildFilteredMoneyReport, buildMoneyReport, expensesFromSource, openingBalanceRange, withOpeningBalances } from './moneyReport';
 
 describe('money report', () => {
   it('carries resolved creator names into report activities', () => {
@@ -77,6 +77,7 @@ describe('money report', () => {
     );
 
     expect(report.paymentMethods.cash).toEqual({
+      opening: 0,
       collected: 1_000_000,
       expenses: 150_000,
       exchanged: 0,
@@ -86,6 +87,7 @@ describe('money report', () => {
     });
     expect(report.paymentMethods.terminal.left).toBe(1_750_000);
     expect(report.paymentMethods.card).toEqual({
+      opening: 0,
       collected: 350_000,
       expenses: 0,
       exchanged: 0,
@@ -378,8 +380,8 @@ describe('expensesFromSource', () => {
     );
 
     expect(report.totalCollected).toBe(1_500_000);
-    expect(report.paymentMethods.cash).toEqual({ collected: 1_000_000, expenses: 0, exchanged: -440_000, exchangedIn: 200_000, exchangedOut: 640_000, left: 560_000 });
-    expect(report.paymentMethods.terminal).toEqual({ collected: 500_000, expenses: 0, exchanged: -200_000, exchangedIn: 0, exchangedOut: 200_000, left: 300_000 });
+    expect(report.paymentMethods.cash).toEqual({ opening: 0, collected: 1_000_000, expenses: 0, exchanged: -440_000, exchangedIn: 200_000, exchangedOut: 640_000, left: 560_000 });
+    expect(report.paymentMethods.terminal).toEqual({ opening: 0, collected: 500_000, expenses: 0, exchanged: -200_000, exchangedIn: 0, exchangedOut: 200_000, left: 300_000 });
     expect(report.usd).toBe(50);
     // Changing 640 000 of cash into $50 keeps Game Club money left at 1 500 000.
     expect(report.gameClubLeft).toBe(1_500_000);
@@ -391,5 +393,34 @@ describe('expensesFromSource', () => {
       { from: 'terminal', to: 'cash', fromAmount: 200_000, toAmount: 200_000, rate: null },
       { from: 'cash', to: 'usd', fromAmount: 640_000, toAmount: 50, rate: 12_800 },
     ]);
+  });
+});
+
+describe('opening balances', () => {
+  it('covers the days of the month before a mid-month start', () => {
+    expect(openingBalanceRange('2026-11-11')).toEqual({ from: '2026-11-01', to: '2026-11-10' });
+    expect(openingBalanceRange('2026-11-02')).toEqual({ from: '2026-11-01', to: '2026-11-01' });
+    expect(openingBalanceRange('2026-11-01')).toBeNull();
+    expect(openingBalanceRange('not a date')).toBeNull();
+  });
+
+  it('keeps an exchange paid with money from earlier in the month from showing as negative', () => {
+    // 1-10 Nov: cash collected and partly spent; 11 Nov: most of it goes into dollars.
+    const opening = buildMoneyReport(
+      [{ date: '2026-11-05', cash_income: 9_600_000, terminal_income: 0, card_income: 0, playstation_income: 0 }],
+      [{ id: 'e1', date: '2026-11-06', amount: 1_128_000, category: 'salary', payment_method: 'cash', comment: '', created_at: '2026-11-06T10:00:00Z' }],
+    ).paymentMethods;
+    const period = buildMoneyReport(
+      [{ date: '2026-11-12', cash_income: 7_288_000, terminal_income: 0, card_income: 0, playstation_income: 0 }],
+      [{ id: 'e2', date: '2026-11-12', amount: 5_135_000, category: 'supplies', payment_method: 'cash', comment: '', created_at: '2026-11-12T10:00:00Z' }],
+      [], [], [],
+      [{ id: 'x1', date: '2026-11-11', from_method: 'cash', to_method: 'usd', from_amount: 7_200_000, to_amount: 600, rate: 12_000, comment: '', created_by: null, created_at: '2026-11-11T14:00:00Z' }],
+    ).paymentMethods;
+    expect(period.cash.left).toBe(-5_047_000);
+
+    const cards = withOpeningBalances(period, opening);
+    expect(cards.cash).toMatchObject({ opening: 8_472_000, collected: 7_288_000, expenses: 5_135_000, exchangedOut: 7_200_000, left: 3_425_000 });
+    expect(cards.terminal).toMatchObject({ opening: 0, left: 0 });
+    expect(withOpeningBalances(period, null)).toBe(period);
   });
 });

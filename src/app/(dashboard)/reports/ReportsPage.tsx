@@ -52,7 +52,11 @@ import {
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import {
   buildFilteredMoneyReport,
+  buildMoneyReport,
   expensesFromSource,
+  openingBalanceRange,
+  withOpeningBalances,
+  type MoneyReport,
   type MoneyReportActivity,
   type MoneyReportCategoryFilter,
   type MoneyReportCashRow,
@@ -94,6 +98,8 @@ const emptyReportRows = {
   stockPurchases: [] as StockPurchaseCostRow[],
   exchanges: [] as MoneyExchangeRow[],
   collections: [] as DailyCashCollection[],
+  /** What each method held when the period began; null when it starts on the 1st or is unknown. */
+  opening: null as MoneyReport['paymentMethods'] | null,
 };
 
 type ReportRange = { from: string; to: string };
@@ -170,6 +176,7 @@ function PaymentCard({
   label,
   data,
   icon: Icon,
+  openingLabel,
   collectedLabel,
   expensesLabel,
   exchangedInLabel,
@@ -179,6 +186,7 @@ function PaymentCard({
   label: string;
   data: MoneyReportPaymentBreakdown;
   icon: LucideIcon;
+  openingLabel: string;
   collectedLabel: string;
   expensesLabel: string;
   exchangedInLabel: string;
@@ -196,6 +204,14 @@ function PaymentCard({
       </p>
       <p className="mt-1 text-xs text-gray-500">{leftLabel}</p>
       <dl className="mt-4 space-y-2 border-t border-gray-100 pt-3 text-sm">
+        {data.opening !== 0 && (
+          <div className="flex items-baseline justify-between gap-3">
+            <dt className="text-gray-500">{openingLabel}</dt>
+            <dd className={cn('shrink-0 font-semibold tabular-nums', data.opening < 0 ? 'text-danger-600' : 'text-gray-900')}>
+              <Money amount={data.opening} currency={null} />
+            </dd>
+          </div>
+        )}
         <div className="flex items-baseline justify-between gap-3">
           <dt className="text-gray-500">{collectedLabel}</dt>
           <dd className="shrink-0 font-semibold tabular-nums text-gray-900">
@@ -323,7 +339,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     if (!selectedClubId || !hasReportsAccess) return emptyReportRows;
 
     const supabase = createClient();
-    const [snapshotResult, exchangeRows, collections, dollarExpenses] = await Promise.all([
+    const [snapshotResult, exchangeRows, collections, dollarExpenses, opening] = await Promise.all([
       supabase.rpc('get_money_report_snapshot', {
         p_club_id: selectedClubId,
         p_range_from: range.from,
@@ -334,6 +350,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       fetchDailyCashCollections(supabase, selectedClubId, range.from, range.to),
       // Dollars spent by expenses (124) are read beside the snapshot, which predates them.
       fetchDollarExpenses(supabase, selectedClubId, range.from, range.to),
+      loadOpening(selectedClubId),
     ]);
 
     if (!snapshotResult.error) {
@@ -346,6 +363,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         stockPurchases: snapshot.stockPurchases ?? [],
         exchanges: await withExchangeCreators(exchangeRows),
         collections,
+        opening,
       };
     }
 
@@ -442,7 +460,28 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         creator_name: row.created_by ? creatorNames.get(row.created_by) ?? null : null,
       })),
       collections,
+      opening,
     };
+
+    /**
+     * Money is counted per month, so a period starting mid-month begins with
+     * what the month's earlier days left in each method. Null before the
+     * snapshot RPC (047) exists: the cards then show the period alone.
+     */
+    async function loadOpening(clubId: string): Promise<MoneyReport['paymentMethods'] | null> {
+      const earlier = openingBalanceRange(range.from);
+      if (!earlier) return null;
+      const [result, earlierExchanges] = await Promise.all([
+        supabase.rpc('get_money_report_snapshot', { p_club_id: clubId, p_range_from: earlier.from, p_range_to: earlier.to }),
+        fetchMoneyExchanges(supabase, clubId, earlier.from, earlier.to),
+      ]);
+      if (result.error) {
+        if (isMissingDatabaseFunction(result.error, 'get_money_report_snapshot')) return null;
+        throw result.error;
+      }
+      const rows = result.data as MoneyReportSnapshotPayload;
+      return buildMoneyReport(rows.cash ?? [], rows.expenses ?? [], rows.debtPayments ?? [], [], [], earlierExchanges).paymentMethods;
+    }
 
     /** The snapshot names its own rows' creators; exchanges need the same lookup. */
     async function withExchangeCreators(rows: MoneyExchangeRow[]): Promise<MoneyExchangeRow[]> {
@@ -482,6 +521,11 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     // Exchanges move Game Club money; a bar-only view has none.
     sourceFilter === 'bar' ? [] : reportRows.exchanges,
   )), [categoryFilter, report, reportRows, sourceFilter]);
+  // The cards start from what each method already held when the period began.
+  const paymentCardData = useMemo(
+    () => withOpeningBalances(report.paymentMethods, reportRows.opening),
+    [report.paymentMethods, reportRows.opening],
+  );
 
   // Dialogs belong to the club they were opened for: close them on a club switch.
   useEffect(() => {
@@ -1072,14 +1116,15 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                   // in this period (recorded before it was turned off), so totals add up.
                   if (card.method === 'playstation') return true;
                   if (enabledPaymentMethods.includes(card.method)) return true;
-                  const data = report.paymentMethods[card.method];
-                  return data.collected !== 0 || data.expenses !== 0 || data.exchangedIn !== 0 || data.exchangedOut !== 0;
+                  const data = paymentCardData[card.method];
+                  return data.opening !== 0 || data.collected !== 0 || data.expenses !== 0 || data.exchangedIn !== 0 || data.exchangedOut !== 0;
                 }).map((card) => (
                   <PaymentCard
                     key={card.method}
                     label={card.label}
                     icon={card.icon}
-                    data={report.paymentMethods[card.method]}
+                    data={paymentCardData[card.method]}
+                    openingLabel={t('openingBalance')}
                     collectedLabel={t('collected')}
                     expensesLabel={t('expenses')}
                     exchangedInLabel={t('exchangedIn')}
@@ -1202,12 +1247,6 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
           size="xl"
         >
           <ExchangeForm
-            available={hasReportsAccess && !loading && !loadFailed ? {
-              cash: report.paymentMethods.cash.left,
-              terminal: report.paymentMethods.terminal.left,
-              card: report.paymentMethods.card.left,
-              usd: report.usd,
-            } : undefined}
             onSaved={async () => {
               setExchangeDialogOpen(false);
               showToast(t('exchangeSaved'));

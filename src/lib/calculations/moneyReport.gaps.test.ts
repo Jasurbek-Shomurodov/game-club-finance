@@ -34,10 +34,10 @@ describe('money report with incomplete rows and exchanges', () => {
   it('counts a missing amount as nothing on every method card', () => {
     expect(report.paymentMethods).toEqual({
       // 2 000 000 collected - 300 000 spent - 840 000 exchanged away = 860 000.
-      cash: { collected: 2_000_000, expenses: 300_000, exchanged: -840_000, exchangedIn: 0, exchangedOut: 840_000, left: 860_000 },
-      terminal: { collected: 80_000, expenses: 0, exchanged: 0, exchangedIn: 0, exchangedOut: 0, left: 80_000 },
-      card: { collected: 0, expenses: 0, exchanged: 200_000, exchangedIn: 200_000, exchangedOut: 0, left: 200_000 },
-      playstation: { collected: 0, expenses: 0, exchanged: 0, exchangedIn: 0, exchangedOut: 0, left: 0 },
+      cash: { opening: 0, collected: 2_000_000, expenses: 300_000, exchanged: -840_000, exchangedIn: 0, exchangedOut: 840_000, left: 860_000 },
+      terminal: { opening: 0, collected: 80_000, expenses: 0, exchanged: 0, exchangedIn: 0, exchangedOut: 0, left: 80_000 },
+      card: { opening: 0, collected: 0, expenses: 0, exchanged: 200_000, exchangedIn: 200_000, exchangedOut: 0, left: 200_000 },
+      playstation: { opening: 0, collected: 0, expenses: 0, exchanged: 0, exchangedIn: 0, exchangedOut: 0, left: 0 },
     });
   });
 
@@ -132,7 +132,7 @@ describe('expenses paid from the club dollars', () => {
   it('lowers the dollars held and no UZS method', () => {
     // 50 bought - 20 spent.
     expect(report.usd).toBe(30);
-    expect(report.paymentMethods.cash).toMatchObject({ collected: 2_000_000, expenses: 300_000, left: 1_060_000 });
+    expect(report.paymentMethods.cash).toMatchObject({ opening: 0, collected: 2_000_000, expenses: 300_000, left: 1_060_000 });
     for (const method of ['terminal', 'card', 'playstation'] as const) {
       expect(report.paymentMethods[method]).toMatchObject({ expenses: 0, left: 0 });
     }
@@ -197,7 +197,7 @@ describe('a day without cash takings', () => {
     );
 
     expect(report.totalCollected).toBe(105_000);
-    expect(report.paymentMethods.cash).toEqual({ collected: 0, expenses: 0, exchanged: 30_000, exchangedIn: 30_000, exchangedOut: 0, left: 30_000 });
+    expect(report.paymentMethods.cash).toEqual({ opening: 0, collected: 0, expenses: 0, exchanged: 30_000, exchangedIn: 30_000, exchangedOut: 0, left: 30_000 });
     expect(report.paymentMethods.terminal.left).toBe(65_000);
     expect(report.paymentMethods.card.left).toBe(5_000);
     expect(report.paymentMethods.playstation.left).toBe(5_000);

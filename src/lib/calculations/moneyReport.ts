@@ -16,6 +16,12 @@ import {
 } from './barMoney';
 
 export interface MoneyReportPaymentBreakdown {
+  /**
+   * Money left in the method from earlier days of the period's first month,
+   * before the period starts; already included in `left`. 0 unless set by
+   * `withOpeningBalances`.
+   */
+  opening: number;
   collected: number;
   expenses: number;
   /** Net money moved in (+) or out (-) by exchanges; PlayStation is never exchanged. */
@@ -152,6 +158,7 @@ function buildPaymentMethods(
   const left = calculateGameClubMoneyLeftByPaymentMethod(cashRows, expenseRows, debtPaymentRows, exchangeRows);
   const flow = exchangeFlowByMethod(exchangeRows);
   const method = (key: 'cash' | 'terminal' | 'card'): MoneyReportPaymentBreakdown => ({
+    opening: 0,
     collected: collected[key],
     expenses: expenses[key],
     exchanged: flow[key].in - flow[key].out,
@@ -165,6 +172,7 @@ function buildPaymentMethods(
     terminal: method('terminal'),
     card: method('card'),
     playstation: {
+      opening: 0,
       collected: collected.playstation,
       expenses: expenses.playstation,
       exchanged: 0,
@@ -412,4 +420,36 @@ export function buildFilteredMoneyReport(
   }
 
   return buildMoneyReport(cashRows, expenseRows, debtPaymentRows, barSalesRows, stockPurchaseRows, exchangeRows);
+}
+
+/**
+ * The days of the month before `from` that a period starting mid-month leaves
+ * out, or null when it starts on the 1st. Money is counted per month, so what
+ * those days left in each method is still there when the period begins.
+ */
+export function openingBalanceRange(from: string): { from: string; to: string } | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(from);
+  if (!match) return null;
+  const day = Number(match[3]);
+  if (day <= 1) return null;
+  const previous = String(day - 1).padStart(2, '0');
+  return { from: `${match[1]}-${match[2]}-01`, to: `${match[1]}-${match[2]}-${previous}` };
+}
+
+/**
+ * Adds what each method held when the period began (the money left by
+ * `openingBalanceRange`) to its card, so an exchange or expense paid with
+ * money collected earlier in the month does not show the method as negative.
+ */
+export function withOpeningBalances(
+  methods: MoneyReport['paymentMethods'],
+  opening: MoneyReport['paymentMethods'] | null,
+): MoneyReport['paymentMethods'] {
+  if (!opening) return methods;
+  const add = (key: keyof MoneyReport['paymentMethods']): MoneyReportPaymentBreakdown => ({
+    ...methods[key],
+    opening: opening[key].left,
+    left: methods[key].left + opening[key].left,
+  });
+  return { cash: add('cash'), terminal: add('terminal'), card: add('card'), playstation: add('playstation') };
 }

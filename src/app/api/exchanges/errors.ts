@@ -15,6 +15,7 @@ export const EXCHANGE_ERROR_CODES = [
   'NOT_FOUND',
   'NOT_AVAILABLE',
   'DAY_COLLECTED',
+  'INSUFFICIENT_BALANCE',
   'SERVER_ERROR',
 ] as const;
 
@@ -30,6 +31,7 @@ const ERRORS: Record<ExchangeErrorCode, { status: number; text: string }> = {
   NOT_FOUND: { status: 404, text: 'Exchange not found' },
   NOT_AVAILABLE: { status: 503, text: 'Exchanges are not set up in the database yet' },
   DAY_COLLECTED: { status: 409, text: 'The money for this day was collected; the day is closed' },
+  INSUFFICIENT_BALANCE: { status: 409, text: 'The payment method does not hold enough money for this exchange' },
   SERVER_ERROR: { status: 500, text: 'Exchange failed' },
 };
 
@@ -40,6 +42,8 @@ export function exchangeErrorCode(error: { code?: string | null; message?: strin
   if (isDayCollectedError(error)) return 'DAY_COLLECTED';
   // The 108 trigger: an exchange needs a note of at least 5 words.
   if (isNoteRequiredError(error)) return 'NOTE_REQUIRED';
+  // The 144 trigger: the "from" method does not hold that much money.
+  if (error.hint === 'INSUFFICIENT_BALANCE' || /insufficient payment method balance/i.test(message)) return 'INSUFFICIENT_BALANCE';
   if (/not enabled for this club/i.test(message)) return 'PAYMENT_METHOD_DISABLED';
   if (/could not find the function|does not exist/i.test(message) || error.code === 'PGRST202') return 'NOT_AVAILABLE';
   if (error.code === '42501') return 'FORBIDDEN';

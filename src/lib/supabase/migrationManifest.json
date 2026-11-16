@@ -4743,5 +4743,19 @@
         "signature": "public.owner_reserve_dollar_exchanges(uuid,date)"
       }
     ]
+  },
+  {
+    "file": "144_exchange_balance_limit.sql",
+    "probes": [
+      {
+        "kind": "trigger",
+        "table": "public.money_exchanges",
+        "name": "enforce_exchange_method_balance"
+      },
+      {
+        "kind": "function",
+        "signature": "public.enforce_exchange_method_balance()"
+      }
+    ]
   }
 ]

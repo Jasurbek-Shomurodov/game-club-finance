@@ -367,7 +367,8 @@
     "bar": "Bar",
     "barCashLeft": "Barda qolgan pul",
     "moneyLeftByPaymentMethod": "To'lov usuli bo'yicha qolgan pul",
-    "moneyLeftDescription": "Yig'ilgan puldan xuddi shu to'lov usulidagi klub xarajatlari ayriladi.",
+    "moneyLeftDescription": "Davr boshidagi qoldiq, yig‘ilgan pul, shu to‘lov usulidagi klub xarajatlari va almashtirishlar hisobga olinadi.",
+    "openingBalance": "Oy boshidan qolgan",
     "collected": "Yig'ildi",
     "left": "Qoldi",
     "cash": "Naqd pul",
@@ -1809,7 +1810,8 @@
       "forbidden": "Bu klubda pul almashtirishga ruxsatingiz yo‘q.",
       "paymentMethodDisabled": "Bu to‘lov usuli klub uchun yoqilmagan.",
       "requestConflict": "Bu almashtirish boshqa qiymatlar bilan saqlangan. Sahifani yangilab, qayta urinib ko‘ring.",
-      "notAvailable": "Almashtirishlar ma’lumotlar bazasida hali sozlanmagan. 092-migratsiyani qo‘llang."
+      "notAvailable": "Almashtirishlar ma’lumotlar bazasida hali sozlanmagan. 092-migratsiyani qo‘llang.",
+      "insufficientBalance": "Bu to'lov usulida bunday summa yo'q. Mavjud summani tekshirib, qayta urinib ko'ring."
     }
   },
   "showcase": {

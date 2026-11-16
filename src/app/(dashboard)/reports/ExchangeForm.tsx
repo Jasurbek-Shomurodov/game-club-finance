@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { ArrowRightLeft, CircleDollarSign, type LucideIcon } from 'lucide-react';
 import { PAYMENT_METHOD_ICONS } from '@/components/paymentMethodIcons';
@@ -22,14 +22,14 @@ import {
   exchangeReceivedAmount,
   type ExchangeMethod,
 } from '@/lib/calculations/moneyExchanges';
-import { mutateFinanceRequest } from '@/lib/supabase/client';
+import { createClient, mutateFinanceRequest } from '@/lib/supabase/client';
+import { fetchExpenseMethodBalances, type ExpenseMethodBalances } from '@/lib/supabase/expenseBalances';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { useCollectedDay } from '@/lib/useCollectedDay';
+import { useClubQuery } from '@/lib/useClubQuery';
 
 interface ExchangeFormProps {
-  /** Money left per method in the report's period; an exchange cannot take more than this. Omit when unknown. */
-  available?: Record<ExchangeMethod, number>;
   onSaved?: () => void | Promise<void>;
 }
 
@@ -40,12 +40,13 @@ const ERROR_KEYS: Record<string, string> = {
   PAYMENT_METHOD_DISABLED: 'paymentMethodDisabled',
   REQUEST_CONFLICT: 'requestConflict',
   NOT_AVAILABLE: 'notAvailable',
+  INSUFFICIENT_BALANCE: 'insufficientBalance',
 };
 
 const METHOD_ICONS: Record<ExchangeMethod, LucideIcon> = { ...PAYMENT_METHOD_ICONS, usd: CircleDollarSign };
 
 /** Moves Game Club money between payment methods, or into and out of dollars at a typed rate. */
-export default function ExchangeForm({ available, onSaved }: ExchangeFormProps) {
+export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
   const t = useTranslations('exchanges');
   const tc = useTranslations('common');
   const { selectedClubId, businessDayStartHour, enabledPaymentMethods } = useClub();
@@ -60,6 +61,14 @@ export default function ExchangeForm({ available, onSaved }: ExchangeFormProps) 
     comment: '',
   });
   const [form, setForm] = useState(emptyForm);
+  // What each method holds for the exchange's month: the same balance the
+  // database enforces (125, 144). Dollars are every dollar still held. Before
+  // migration 125 (null) nothing is limited here.
+  const loadBalances = useCallback(async (): Promise<ExpenseMethodBalances | null> => (
+    selectedClubId ? fetchExpenseMethodBalances(createClient(), selectedClubId, form.date) : null
+  ), [form.date, selectedClubId]);
+  const balanceQuery = useClubQuery<ExpenseMethodBalances | null>(loadBalances, null);
+  const balances = balanceQuery.loading ? null : balanceQuery.data?.balances ?? null;
   // A date whose money was collected is closed (097); say so before saving.
   const dayClosed = useCollectedDay(selectedClubId, form.date);
   const [saving, setSaving] = useState(false);
@@ -97,7 +106,7 @@ export default function ExchangeForm({ available, onSaved }: ExchangeFormProps) 
       // Leaving dollars for som: som amounts are whole, so show what will be saved.
       if (current.from === 'usd' && next.from !== 'usd') next.amount = formatCurrencyInput(current.amount);
       // The amount cannot exceed what the "from" method holds.
-      const limit = available ? Math.max(0, available[next.from]) : null;
+      const limit = balances ? Math.max(0, balances[next.from]) : null;
       if (limit !== null && (field === 'amount' || field === 'from')) {
         const typed = next.from === 'usd' ? parseDecimalInput(next.amount) : parseCurrencyInput(next.amount);
         if (typed > limit) next.amount = next.from === 'usd' ? formatDecimalInput(limit) : formatCurrencyInput(limit);
@@ -111,7 +120,7 @@ export default function ExchangeForm({ available, onSaved }: ExchangeFormProps) 
   const needsRate = exchangeNeedsRate(form.from, form.to);
   const rate = needsRate ? parseDecimalInput(form.rate) : null;
   const received = exchangeReceivedAmount(form.from, form.to, amount, rate);
-  const availableFrom = available ? available[form.from] : null;
+  const availableFrom = balances ? balances[form.from] : null;
   const nothingAvailable = availableFrom !== null && availableFrom <= 0;
   const formatAmount = (method: ExchangeMethod, value: number) => (
     method === 'usd' ? `$${formatUnitCurrency(value)}` : `${formatCurrency(value)} ${tc('currency')}`
@@ -186,6 +195,7 @@ export default function ExchangeForm({ available, onSaved }: ExchangeFormProps) 
           note.reject(form.comment);
           return;
         }
+        if (body?.code === 'INSUFFICIENT_BALANCE') void balanceQuery.reload({ silent: true });
         const key = typeof body?.code === 'string' ? ERROR_KEYS[body.code] : undefined;
         setError(key ? t(`errors.${key}`) : t('saveError'));
         return;
@@ -200,7 +210,10 @@ export default function ExchangeForm({ available, onSaved }: ExchangeFormProps) 
       submitPending.current = false;
       setSaving(false);
     }
-    if (saved) await onSaved?.();
+    if (saved) {
+      void balanceQuery.reload({ silent: true });
+      await onSaved?.();
+    }
   }
 
   return (
