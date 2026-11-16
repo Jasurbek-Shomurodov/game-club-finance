@@ -1,7 +1,9 @@
 import { sumAvailableMoneyResults, type AvailableMoneyByMonth, type AvailableSourceBalance } from './availableMoney';
+import type { MoneyExchangeRow } from './moneyExchanges';
 import {
-  OWNER_WITHDRAWAL_PAYMENT_METHODS,
+  OWNER_RESERVE_METHODS,
   type OwnerReserveEntry,
+  type OwnerReserveMethod,
   type OwnerWithdrawalPaymentMethod,
   type OwnerWithdrawalSource,
 } from '@/types';
@@ -29,18 +31,48 @@ export interface ReserveFlow {
 
 export interface MonthReserve {
   bySource: Record<OwnerWithdrawalSource, ReserveFlow>;
-  byMethod: Record<OwnerWithdrawalPaymentMethod, ReserveFlow>;
+  byMethod: Record<OwnerReserveMethod, ReserveFlow>;
 }
 
 const emptyFlow = (): ReserveFlow => ({ deposited: 0, returned: 0, spent: 0 });
 const methodRecord = <T>(make: () => T) => Object.fromEntries(
-  OWNER_WITHDRAWAL_PAYMENT_METHODS.map((method) => [method, make()]),
-) as Record<OwnerWithdrawalPaymentMethod, T>;
+  OWNER_RESERVE_METHODS.map((method) => [method, make()]),
+) as Record<OwnerReserveMethod, T>;
 
-/** The Game Club method a reserve purchase draws on, bucketed like migration 125; null for Bar. */
-export function reserveExpenseMethod(source: string | null, method: string | null): OwnerWithdrawalPaymentMethod | null {
+/** The Game Club method a reserve purchase draws on, bucketed like migration 125 (dollars apart, 143); null for Bar. */
+export function reserveExpenseMethod(source: string | null, method: string | null): OwnerReserveMethod | null {
   if ((source ?? 'game_club') !== 'game_club') return null;
-  return method === 'cash' || method === 'terminal' || method === 'playstation' ? method : 'card';
+  return method === 'cash' || method === 'terminal' || method === 'playstation' || method === 'usd' ? method : 'card';
+}
+
+/** A reserve entry, or one that stands for a dollar exchange (143) and is undone by deleting it. */
+export type ReserveLedgerEntry = OwnerReserveEntry & { exchange_id?: string | null };
+
+/**
+ * The reserve's dollars (143), as owner_reserve_dollar_exchanges reads them:
+ * an exchange into dollars is a Game Club deposit of the sums paid, and one
+ * out of dollars returns the sums received, both in the exchange's month.
+ * They are undone only by deleting the exchange.
+ */
+export function dollarReserveEntries(exchanges: readonly MoneyExchangeRow[], clubId: string): ReserveLedgerEntry[] {
+  return exchanges.flatMap((row): ReserveLedgerEntry[] => {
+    const bought = row.to_method === 'usd';
+    if (!bought && row.from_method !== 'usd') return [];
+    return [{
+      id: `exchange:${row.id}`,
+      club_id: clubId,
+      kind: bought ? 'deposit' : 'return',
+      period_month: `${row.date.slice(0, 7)}-01`,
+      source: 'game_club',
+      payment_method: 'usd',
+      amount: Number(bought ? row.from_amount : row.to_amount),
+      comment: row.comment || null,
+      collection_date: null,
+      exchange_id: row.id,
+      created_by: row.created_by ?? '',
+      created_at: row.created_at ?? `${row.date}T00:00:00`,
+    }];
+  });
 }
 
 const sideOf = (source: string | null): OwnerWithdrawalSource => (source === 'bar' ? 'bar' : 'game_club');
@@ -115,8 +147,8 @@ export function applyOwnerReserve(
 export interface ReserveBalance extends ReserveFlow {
   /** What the reserve holds now: deposited - returned - spent. */
   held: number;
-  /** Game Club only: what each method holds. */
-  byMethod: Record<OwnerWithdrawalPaymentMethod, number>;
+  /** Game Club only: what each method holds; `usd` is the sums value of the dollars. */
+  byMethod: Record<OwnerReserveMethod, number>;
 }
 
 /** What the reserve holds per side, over all time, as owner_reserve_balance does. */
@@ -146,12 +178,12 @@ export function reserveBalances(
 }
 
 export type ReserveActivity =
-  | { kind: 'deposit' | 'return'; id: string; date: string; source: OwnerWithdrawalSource; amount: number; method: OwnerWithdrawalPaymentMethod | null; note: string | null; createdAt: string; entry: OwnerReserveEntry }
-  | { kind: 'purchase'; id: string; date: string; source: OwnerWithdrawalSource; amount: number; method: OwnerWithdrawalPaymentMethod | null; note: string | null; createdAt: string; category: string };
+  | { kind: 'deposit' | 'return'; id: string; date: string; source: OwnerWithdrawalSource; amount: number; method: OwnerReserveMethod | null; note: string | null; createdAt: string; entry: ReserveLedgerEntry }
+  | { kind: 'purchase'; id: string; date: string; source: OwnerWithdrawalSource; amount: number; method: OwnerReserveMethod | null; note: string | null; createdAt: string; category: string };
 
 /** Every deposit, return and purchase, newest first. Deposits and returns are dated by when they were made. */
 export function reserveActivity(
-  entries: readonly OwnerReserveEntry[],
+  entries: readonly ReserveLedgerEntry[],
   expenses: readonly ReservePaidExpense[],
 ): ReserveActivity[] {
   return [

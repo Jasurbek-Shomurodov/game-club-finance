@@ -4604,18 +4604,6 @@
       },
       {
         "kind": "function",
-        "signature": "public.reserve_expense_method(text,text)"
-      },
-      {
-        "kind": "function",
-        "signature": "public.owner_reserve_balance(uuid,text,text)"
-      },
-      {
-        "kind": "function",
-        "signature": "public.owner_reserve_month_effect(uuid,text,text,date)"
-      },
-      {
-        "kind": "function",
         "signature": "public.guard_reserve_expense()"
       },
       {
@@ -4663,13 +4651,7 @@
   },
   {
     "file": "138_drop_owner_reserve_goals.sql",
-    "probes": [
-      {
-        "kind": "functionBody",
-        "signature": "public.get_owner_reserve_balances(uuid)",
-        "md5": "9e72c8cc86aefcb62b0a51a2d964e145"
-      }
-    ]
+    "probes": []
   },
   {
     "file": "139_backfill_collection_reserve.sql",
@@ -4730,6 +4712,35 @@
       {
         "kind": "function",
         "signature": "public.withdraw_owner_money_all_by_method(uuid,date,numeric,text)"
+      }
+    ]
+  },
+  {
+    "file": "143_dollars_in_reserve.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.reserve_expense_method(text,text)",
+        "md5": "02ebb36c9c5e6f342ca641d82dc9e18a"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.owner_reserve_balance(uuid,text,text)",
+        "md5": "49c4912ebcad2e5017d201044fd5aedf"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.owner_reserve_month_effect(uuid,text,text,date)",
+        "md5": "28eadd81aea4dba56cfe14bc8a1f3f75"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_owner_reserve_balances(uuid)",
+        "md5": "c900bc718d4760c29e2d219e57c7e29a"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_reserve_dollar_exchanges(uuid,date)"
       }
     ]
   }

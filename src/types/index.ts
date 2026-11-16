@@ -22,6 +22,9 @@ export type OwnerWithdrawalSource = (typeof OWNER_WITHDRAWAL_SOURCES)[number];
 /** Game Club money buckets an owner withdrawal can be taken from (migration 066). */
 export const OWNER_WITHDRAWAL_PAYMENT_METHODS = ['cash', 'terminal', 'card', 'playstation'] as const;
 export type OwnerWithdrawalPaymentMethod = (typeof OWNER_WITHDRAWAL_PAYMENT_METHODS)[number];
+/** What the owner reserve holds money in: the Game Club methods, plus the club's US dollars (143). */
+export const OWNER_RESERVE_METHODS = [...OWNER_WITHDRAWAL_PAYMENT_METHODS, 'usd'] as const;
+export type OwnerReserveMethod = (typeof OWNER_RESERVE_METHODS)[number];
 export type MovementType = 'deposit' | 'withdraw' | 'correction';
 export type DebtStatus = 'unpaid' | 'partial' | 'paid';
 
@@ -328,8 +331,8 @@ export interface OwnerReserveEntry {
   /** First day of the month whose owner profit the money leaves or joins. */
   period_month: string;
   source: OwnerWithdrawalSource;
-  /** Required for Game Club; null for Bar. */
-  payment_method: OwnerWithdrawalPaymentMethod | null;
+  /** Required for Game Club; null for Bar. `usd` only on entries made from exchanges (143). */
+  payment_method: OwnerReserveMethod | null;
   amount: number;
   comment: string | null;
   /** The collected business date that made this deposit (137); undone with that collection. */

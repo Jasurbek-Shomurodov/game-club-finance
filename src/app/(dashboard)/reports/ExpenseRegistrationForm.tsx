@@ -118,6 +118,8 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
   const reserveHeld = (method: ExpensePaymentMethod) => {
     if (!reserve) return 0;
     const bucket = reserveExpenseMethod(form.payment_source, method);
+    // Dollar expenses are always the reserve's (143), never a "pay from reserve" choice.
+    if (bucket === 'usd') return 0;
     return bucket ? reserve.game_club[bucket] : reserve.bar.total;
   };
   const balances = !fromReserve && form.payment_source === 'game_club' ? balanceQuery.data?.balances ?? null : null;

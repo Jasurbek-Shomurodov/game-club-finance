@@ -15,7 +15,7 @@ import {
   type OwnerProfitSnapshotPayload,
 } from '@/lib/calculations/ownerProfitSnapshot';
 import type { StockPurchaseCostRow } from '@/lib/calculations/barMoney';
-import { applyOwnerReserve, type ReservePaidExpense } from '@/lib/calculations/ownerReserve';
+import { applyOwnerReserve, dollarReserveEntries, type ReserveLedgerEntry, type ReservePaidExpense } from '@/lib/calculations/ownerReserve';
 import type {
   DailyCashRow,
   DebtPaymentValueRow,
@@ -44,8 +44,8 @@ export interface OwnerMoneyData {
   carryoversSupported: boolean;
   /** Migration 066 is applied: Game Club withdrawals record a payment method. */
   methodsSupported: boolean;
-  /** Owner reserve deposits and returns (136). */
-  reserveEntries: OwnerReserveEntry[];
+  /** Owner reserve deposits and returns (136), and the dollar exchanges that stand for them (143). */
+  reserveEntries: ReserveLedgerEntry[];
   /** Expenses the reserve paid for (136). */
   reserveExpenses: ReservePaidExpense[];
   /** Migration 136 is applied: profit can be set aside in the reserve. */
@@ -107,11 +107,12 @@ export async function fetchOwnerMoney(
       .select('id,club_id,kind,period_month,source,payment_method,amount,comment,collection_date,created_by,created_at')
       .eq('club_id', clubId)
       .order('id')),
+    // Dollar expenses are reserve purchases too: the reserve holds the club's dollars (143).
     fetchAllRows<ReservePaidExpense>(() => supabase
       .from('expenses')
       .select('id,date,amount,payment_source,payment_method,category,comment,created_at')
       .eq('club_id', clubId)
-      .eq('paid_from_reserve', true)
+      .or('paid_from_reserve.eq.true,payment_method.eq.usd')
       .order('id')),
   ]);
 
@@ -142,7 +143,11 @@ export async function fetchOwnerMoney(
     || isMissingDatabaseColumn(reserveExpenseRes.error as { code?: string; message?: string } | null, 'paid_from_reserve');
   const reserveError = reserveMissing ? null : reserveRes.error;
   if (reserveError) throw new Error(reserveError.message);
-  const reserveEntries = reserveMissing ? [] : (reserveRes.data ?? []).map((row) => ({ ...row, amount: Number(row.amount) }));
+  // Exchanges into and out of dollars are the reserve's dollar deposits and returns (143).
+  const reserveEntries = reserveMissing ? [] : [
+    ...(reserveRes.data ?? []).map((row) => ({ ...row, amount: Number(row.amount) })),
+    ...dollarReserveEntries(exchangeRows, clubId),
+  ];
   // Like investments, a failed expense read leaves reserve purchases out instead of failing the page:
   // their months then show less left to take, never more.
   const reserveExpenses = reserveMissing || reserveExpenseRes.error ? [] : (reserveExpenseRes.data ?? []).map((row) => ({ ...row, amount: Number(row.amount) }));

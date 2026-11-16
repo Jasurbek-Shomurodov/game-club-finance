@@ -275,8 +275,8 @@ describe('owner reserve (fund)', () => {
     expect(reserveExpenseMethod('game_club', 'terminal')).toBe('terminal');
     expect(reserveExpenseMethod('game_club', 'playstation')).toBe('playstation');
     expect(reserveExpenseMethod('game_club', 'card')).toBe('card');
-    // Anything else, including no method, is card money, as in migration 125.
-    expect(reserveExpenseMethod('game_club', 'usd')).toBe('card');
+    // Dollars are the reserve's own (143); anything else, including no method, is card money, as in migration 125.
+    expect(reserveExpenseMethod('game_club', 'usd')).toBe('usd');
     expect(reserveExpenseMethod('game_club', null)).toBe('card');
     // An expense without a source is Game Club money.
     expect(reserveExpenseMethod(null, 'cash')).toBe('cash');
@@ -299,10 +299,10 @@ describe('owner reserve (fund)', () => {
     );
     // Cash: 500 - 120 - 80 = 300. Terminal: 300 - 40 = 260. Game Club holds 800 - 120 - 120 = 560.
     expect(balances.game_club).toEqual({
-      deposited: 800, returned: 120, spent: 120, held: 560, byMethod: { cash: 300, terminal: 260, card: 0, playstation: 0 },
+      deposited: 800, returned: 120, spent: 120, held: 560, byMethod: { cash: 300, terminal: 260, card: 0, playstation: 0, usd: 0 },
     });
     // The Bar purchase was paid in cash but touches no Game Club method.
-    expect(balances.bar).toEqual({ deposited: 200, returned: 0, spent: 60, held: 140, byMethod: { cash: 0, terminal: 0, card: 0, playstation: 0 } });
+    expect(balances.bar).toEqual({ deposited: 200, returned: 0, spent: 60, held: 140, byMethod: { cash: 0, terminal: 0, card: 0, playstation: 0, usd: 0 } });
   });
 
   it('adds a month that only has reserve activity, overdrawn by what was set aside from nothing', () => {

@@ -6,7 +6,7 @@ import { EMPTY_OWNER_MONEY, fetchOwnerMoney } from './ownerMoney';
 function query(result: { data: unknown; error: unknown }) {
   const calls: Array<[string, unknown[]]> = [];
   const chain: Record<string, unknown> = {};
-  for (const method of ['select', 'eq', 'not', 'gte', 'lte', 'order', 'range']) {
+  for (const method of ['select', 'eq', 'or', 'not', 'gte', 'lte', 'order', 'range']) {
     chain[method] = vi.fn((...args: unknown[]) => { calls.push([method, args]); return chain; });
   }
   chain.then = (resolve: (value: unknown) => unknown) => Promise.resolve(result).then(resolve);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyOwnerReserve, reserveActivity, reserveBalances, reserveForMonth, planGameClubDepositAll, type ReservePaidExpense } from './ownerReserve';
+import { applyOwnerReserve, dollarReserveEntries, reserveActivity, reserveBalances, reserveForMonth, planGameClubDepositAll, type ReservePaidExpense } from './ownerReserve';
 import { sumAvailableMoneyResults, type AvailableMoneyByMonth } from './availableMoney';
 import type { OwnerReserveEntry } from '@/types';
 
@@ -68,6 +68,36 @@ describe('reserveForMonth', () => {
 describe('reserveActivity', () => {
   it('lists the newest first', () => {
     expect(reserveActivity(entries, purchases).map((row) => row.id)).toEqual(['pcs', 'back', 'oct', 'sep', 'bar']);
+  });
+});
+
+describe('dollarReserveEntries', () => {
+  const row = (id: string, from: 'cash' | 'usd', to: 'cash' | 'usd' | 'card', fromAmount: number, toAmount: number) => ({
+    id, date: '2026-10-31', from_method: from, to_method: to, from_amount: fromAmount, to_amount: toAmount, rate: 12_000,
+  });
+
+  it('turns exchanges into and out of dollars into reserve deposits and returns of the sums', () => {
+    const entries = dollarReserveEntries([
+      row('a', 'cash', 'usd', 1_200_000, 100),
+      row('b', 'usd', 'cash', 10, 125_000),
+      row('c', 'cash', 'card', 5_000, 5_000),
+    ], 'club');
+    expect(entries.map(({ kind, amount, payment_method, period_month, exchange_id }) => ({ kind, amount, payment_method, period_month, exchange_id })))
+      .toEqual([
+        { kind: 'deposit', amount: 1_200_000, payment_method: 'usd', period_month: '2026-10-01', exchange_id: 'a' },
+        { kind: 'return', amount: 125_000, payment_method: 'usd', period_month: '2026-10-01', exchange_id: 'b' },
+      ]);
+  });
+
+  it('lets the reserve pay dollar expenses, so the month keeps only what its methods hold', () => {
+    const entries = dollarReserveEntries([row('a', 'cash', 'usd', 21_243_000, 1_796.92)], 'club');
+    const rent: ReservePaidExpense = {
+      id: 'rent', date: '2026-10-31', amount: 15_000_000, payment_source: 'game_club', payment_method: 'usd',
+      category: 'rent', comment: null, created_at: '2026-10-31T10:00:00Z',
+    };
+    const month = reserveForMonth(entries, [rent], '2026-10');
+    expect(month.byMethod.usd).toEqual({ deposited: 21_243_000, returned: 0, spent: 15_000_000 });
+    expect(reserveBalances(entries, [rent]).game_club.byMethod.usd).toBe(6_243_000);
   });
 });
 

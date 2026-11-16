@@ -67,7 +67,8 @@ export async function fetchReserveHoldings(supabase: SupabaseClient, clubId: str
   const n = (value: number | string | undefined) => Number(value ?? 0);
   return {
     game_club: {
-      total: n(raw.game_club?.total),
+      // A purchase is paid in sums: the reserve's dollars (143) are spent as dollar expenses instead.
+      total: n(raw.game_club?.total) - n(raw.game_club?.usd),
       cash: n(raw.game_club?.cash),
       terminal: n(raw.game_club?.terminal),
       card: n(raw.game_club?.card),

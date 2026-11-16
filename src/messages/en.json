@@ -1292,7 +1292,7 @@
     "availableForMethod": "Available in {method}",
     "noMethodAvailable": "No payment method has Game Club profit left for this month.",
     "dollars": "US dollars",
-    "dollarsHint": "Held {held} · exchange to withdraw",
+    "dollarsHint": "Held {held} · kept in the reserve",
     "unassignedMethod": "No payment method",
     "unassignedMethodHint": "Recorded before methods were tracked. Delete and withdraw again to assign one.",
     "allMigrationRequired": "Withdrawing from all sources requires database migration 142. Apply it before recording a withdrawal.",
@@ -2396,6 +2396,9 @@
     "showHistory": "History · {count}",
     "hideHistory": "Hide history",
     "fromCollection": "From collecting {date}",
+    "fromExchange": "Exchanged into dollars; delete the exchange to undo",
+    "toExchange": "Dollars exchanged back; the money joined the month",
+    "dollarsHeld": "Dollars {amount}",
     "kinds": {
       "deposit": "Put into reserve",
       "return": "Returned to profit",

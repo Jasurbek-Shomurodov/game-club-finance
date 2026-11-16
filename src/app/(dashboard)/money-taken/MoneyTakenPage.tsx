@@ -59,6 +59,7 @@ import {
   OWNER_WITHDRAWAL_PAYMENT_METHODS,
   OWNER_WITHDRAWAL_SOURCES,
   type OwnerProfitCarryover,
+  type OwnerReserveMethod,
   type OwnerWithdrawal,
   type OwnerWithdrawalPaymentMethod,
   type OwnerWithdrawalSource,
@@ -584,8 +585,8 @@ export default function MoneyTakenPage() {
   }
 
   const currency = (amount: number) => `${formatCurrency(amount)} ${tc('currency')}`;
-  const methodLabel = (method: OwnerWithdrawalPaymentMethod) => (
-    method === 'playstation' ? t('playstation') : tc(`paymentMethods.${method}`)
+  const methodLabel = (method: OwnerReserveMethod) => (
+    method === 'playstation' ? t('playstation') : method === 'usd' ? t('dollars') : tc(`paymentMethods.${method}`)
   );
   function withdrawalSourceLabel(row: Pick<OwnerWithdrawal, 'source' | 'payment_method'>) {
     const source = t(`sources.${row.source}`);
@@ -635,16 +636,16 @@ export default function MoneyTakenPage() {
       nested: true,
       hint: t('unassignedMethodHint'),
     }] : []),
-    // Dollars stay inside Game Club profit but left the methods; they cannot be withdrawn.
+    // Dollars go straight into the reserve (143), and the reserve pays dollar expenses.
     ...(monthDollars.usd !== 0 || monthDollars.heldUsd !== 0 ? [{
       key: 'method:usd',
       label: t('dollars'),
       icon: METHOD_ICONS.usd,
-      earned: monthDollars.uzs,
+      earned: monthDollars.uzs + monthReserve.byMethod.usd.spent,
       carried: 0,
-      reserved: 0,
+      reserved: reservedNet(monthReserve.byMethod.usd),
       withdrawn: 0,
-      available: monthDollars.uzs,
+      available: monthDollars.uzs + monthReserve.byMethod.usd.spent - reservedNet(monthReserve.byMethod.usd),
       nested: true,
       hint: t('dollarsHint', {
         held: `${monthDollars.heldUsd < 0 ? '−' : ''}$${formatUnitCurrency(Math.abs(monthDollars.heldUsd))}`,
@@ -1283,6 +1284,7 @@ export default function MoneyTakenPage() {
                     depositAllAmounts={depositAllAmounts}
                     monthLabel={formatYearMonth(form.month, locale)}
                     activity={reserveRows}
+                    dollarsHeld={dollarsForMonth(exchangeRows, currentMonth, dollarExpenses).heldUsd}
                     methodLabel={methodLabel}
                     busyId={reserveBusy}
                     disabled={reserveActionsDisabled}

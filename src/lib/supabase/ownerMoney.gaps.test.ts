@@ -19,7 +19,7 @@ const selected = (read: Read) => String(read.calls.find(([name]) => name === 'se
 function kind(read: Read): string {
   if (read.table === 'expenses') {
     if (has(read, 'eq', 'category', 'investments')) return 'investments';
-    if (has(read, 'eq', 'paid_from_reserve', true)) return 'reserve_expenses';
+    if (has(read, 'or', 'paid_from_reserve.eq.true,payment_method.eq.usd')) return 'reserve_expenses';
     if (has(read, 'eq', 'payment_method', 'usd')) return 'dollar_expenses';
     return 'expenses';
   }
@@ -37,7 +37,7 @@ function fakeClient(answers: Record<string, Result>, rpcs: Record<string, Result
     const read: Read = { table, calls: [] };
     reads.push(read);
     const chain: Record<string, unknown> = {};
-    for (const method of ['select', 'eq', 'not', 'gte', 'lte', 'order', 'range']) {
+    for (const method of ['select', 'eq', 'or', 'not', 'gte', 'lte', 'order', 'range']) {
       chain[method] = (...args: unknown[]) => { read.calls.push([method, args]); return chain; };
     }
     chain.then = (resolve: (value: unknown) => unknown) => Promise.resolve(answers[kind(read)] ?? ok([])).then(resolve);

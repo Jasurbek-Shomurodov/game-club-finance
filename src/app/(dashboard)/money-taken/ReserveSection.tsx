@@ -6,9 +6,9 @@ import { useTranslations } from 'next-intl';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { Badge, Button, EmptyState, IconButton, SectionHeading } from '@/components/PresentationFoundation';
 import type { ReserveActivity, ReserveBalance } from '@/lib/calculations/ownerReserve';
-import { formatCurrency, formatDateOnly } from '@/lib/formatters';
+import { formatCurrency, formatDateOnly, formatUnitCurrency } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
-import { OWNER_WITHDRAWAL_PAYMENT_METHODS, OWNER_WITHDRAWAL_SOURCES, type OwnerWithdrawalPaymentMethod, type OwnerWithdrawalSource } from '@/types';
+import { OWNER_RESERVE_METHODS, OWNER_WITHDRAWAL_SOURCES, type OwnerReserveMethod, type OwnerWithdrawalSource } from '@/types';
 import { SOURCE_ICONS, SOURCE_TINTS } from './profitIcons';
 
 interface ReserveSectionProps {
@@ -18,7 +18,9 @@ interface ReserveSectionProps {
   /** The selected month, e.g. "November 2026". */
   monthLabel: string;
   activity: readonly ReserveActivity[];
-  methodLabel: (method: OwnerWithdrawalPaymentMethod) => string;
+  /** US dollars the club holds now; the reserve keeps them (143). */
+  dollarsHeld: number;
+  methodLabel: (method: OwnerReserveMethod) => string;
   busyId: string | null;
   disabled: boolean;
   onReturn: (source: OwnerWithdrawalSource) => void;
@@ -28,7 +30,7 @@ interface ReserveSectionProps {
 }
 
 /** The owner reserve: what it holds per side, ways to fill and spend it, and and every deposit, return and purchase behind a History toggle. */
-export function ReserveSection({ balances, depositAllAmounts, monthLabel, activity, methodLabel, busyId, disabled, onReturn, onDepositAll, onPay, onDelete }: ReserveSectionProps) {
+export function ReserveSection({ balances, depositAllAmounts, monthLabel, activity, dollarsHeld, methodLabel, busyId, disabled, onReturn, onDepositAll, onPay, onDelete }: ReserveSectionProps) {
   const t = useTranslations('ownerReserve');
   const tc = useTranslations('common');
   const { locale } = useAppLocale();
@@ -47,7 +49,7 @@ export function ReserveSection({ balances, depositAllAmounts, monthLabel, activi
           variant="outline"
           size="sm"
           className="shrink-0 self-start"
-          disabled={disabled || (balances.game_club.held <= 0 && balances.bar.held <= 0)}
+          disabled={disabled || (balances.game_club.held - balances.game_club.byMethod.usd <= 0 && balances.bar.held <= 0)}
           onClick={onPay}
           icon={<ShoppingCart size={16} aria-hidden="true" />}
         >
@@ -60,7 +62,7 @@ export function ReserveSection({ balances, depositAllAmounts, monthLabel, activi
           const SourceIcon = SOURCE_ICONS[source];
           const side = balances[source];
           const methods = source === 'game_club'
-            ? OWNER_WITHDRAWAL_PAYMENT_METHODS.filter((method) => side.byMethod[method] !== 0)
+            ? OWNER_RESERVE_METHODS.filter((method) => side.byMethod[method] !== 0 || (method === 'usd' && dollarsHeld !== 0))
             : [];
           return (
             <div key={source} className="flex min-w-0 flex-col rounded-2xl border border-gray-100 bg-gray-50/40 p-4">
@@ -80,6 +82,9 @@ export function ReserveSection({ balances, depositAllAmounts, monthLabel, activi
                   {methods.map((method) => (
                     <span key={method} className="whitespace-nowrap">
                       {methodLabel(method)} <span className="font-semibold tabular-nums text-gray-700">{formatCurrency(side.byMethod[method])}</span>
+                      {method === 'usd' ? (
+                        <span className="tabular-nums"> ({dollarsHeld < 0 ? '−' : ''}${formatUnitCurrency(Math.abs(dollarsHeld))})</span>
+                      ) : null}
                     </span>
                   ))}
                 </p>
@@ -146,6 +151,9 @@ export function ReserveSection({ balances, depositAllAmounts, monthLabel, activi
                     <Badge size="sm" variant="outline">{t(`sources.${row.source}`)}</Badge>
                     {row.method ? <Badge size="sm" variant="outline">{methodLabel(row.method)}</Badge> : null}
                   </div>
+                  {row.kind !== 'purchase' && row.entry.exchange_id ? (
+                    <p className="mt-1 text-sm leading-5 text-gray-600">{t(row.kind === 'deposit' ? 'fromExchange' : 'toExchange')}</p>
+                  ) : null}
                   {row.kind === 'deposit' && row.entry.collection_date ? (
                     <p className="mt-1 text-sm leading-5 text-gray-600">
                       {t('fromCollection', { date: formatDateOnly(row.entry.collection_date, locale) })}
@@ -167,8 +175,8 @@ export function ReserveSection({ balances, depositAllAmounts, monthLabel, activi
                     {incoming ? '+' : '−'}{formatCurrency(row.amount)}
                     <span className="ml-1 text-xs font-medium text-gray-500">{tc('currency')}</span>
                   </p>
-                  {/* A collection deposit is undone with its collection in Reports. */}
-                  {row.kind === 'purchase' || (row.kind === 'deposit' && row.entry.collection_date) ? (
+                  {/* A collection deposit is undone with its collection in Reports, a dollar entry with its exchange. */}
+                  {row.kind === 'purchase' || row.entry.exchange_id || (row.kind === 'deposit' && row.entry.collection_date) ? (
                     <span aria-hidden="true" className="w-8 shrink-0" />
                   ) : (
                     <IconButton
