@@ -545,7 +545,7 @@ test('OWN-008 profit put into the reserve leaves the month, and a purchase paid 
   await expect(page.getByRole('heading', { level: 1, name: 'Reserve' })).toBeVisible();
   await expect(page.getByText('In the reserve now')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Where the money is' })).toBeVisible();
-  await expect(page.getByText('Paid from reserve', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('list', { name: 'Reserve history' })).toHaveCount(0);
   await page.getByRole('radio', { name: /^History · \d+/ }).click();
   await expect(page).toHaveURL(/\/reserve\?view=history$/);
   const history = page.getByRole('list', { name: 'Reserve history' });
