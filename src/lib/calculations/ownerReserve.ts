@@ -199,6 +199,57 @@ export function reserveActivity(
   ].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
 }
 
+export interface ReserveMonthRow {
+  /** YYYY-MM */
+  month: string;
+  /** Money put in that month: deposits, dollar exchanges included. */
+  deposited: number;
+  /** Money that left: returns to profit plus purchases the reserve paid. */
+  withdrawn: number;
+  /** What each side holds at the end of the month. */
+  gameClubHeld: number;
+  barHeld: number;
+}
+
+/**
+ * Month by month, from the first reserve activity through `throughMonth`:
+ * what went in, what left, and what each side holds at the month's end.
+ * Months with no activity are filled in so the balance line is continuous.
+ */
+export function reserveMonthlySeries(
+  entries: readonly ReserveLedgerEntry[],
+  expenses: readonly ReservePaidExpense[],
+  throughMonth: string,
+): ReserveMonthRow[] {
+  const months = [
+    ...entries.map((entry) => entry.period_month.slice(0, 7)),
+    ...expenses.map((expense) => expense.date.slice(0, 7)),
+  ].filter((month) => month <= throughMonth).sort();
+  if (months.length === 0) return [];
+
+  const rows: ReserveMonthRow[] = [];
+  const held = { game_club: 0, bar: 0 };
+  let [year, month] = months[0].split('-').map(Number);
+  for (;;) {
+    const key = `${year}-${String(month).padStart(2, '0')}`;
+    if (key > throughMonth) break;
+    const { bySource } = reserveForMonth(entries, expenses, key);
+    for (const side of ['game_club', 'bar'] as const) {
+      held[side] += bySource[side].deposited - bySource[side].returned - bySource[side].spent;
+    }
+    rows.push({
+      month: key,
+      deposited: bySource.game_club.deposited + bySource.bar.deposited,
+      withdrawn: bySource.game_club.returned + bySource.game_club.spent + bySource.bar.returned + bySource.bar.spent,
+      gameClubHeld: held.game_club,
+      barHeld: held.bar,
+    });
+    month += 1;
+    if (month > 12) { month = 1; year += 1; }
+  }
+  return rows;
+}
+
 /**
  * Splits everything left of a month's Game Club profit over its payment methods,
  * the way the database limits deposits: no method above what it holds, and

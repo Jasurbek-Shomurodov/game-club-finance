@@ -74,7 +74,7 @@ export function featureForPath(pathname: string): FeatureKey | null {
     return 'dashboard';
   }
   // Owner-only pages that belong to club management.
-  if (normalizedPath === '/test-checklist' || normalizedPath === '/history') return 'team';
+  if (normalizedPath === '/test-checklist' || normalizedPath === '/history' || normalizedPath === '/reserve') return 'team';
 
   return FEATURE_DEFINITIONS.find((feature) =>
     feature.paths.some((path) => normalizedPath === path || normalizedPath.startsWith(`${path}/`)),

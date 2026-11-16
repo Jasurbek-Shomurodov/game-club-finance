@@ -32,7 +32,8 @@
     "promotions": "Aksiyalar",
     "assistant": "AI yordamchi",
     "showcase": "Ommaviy sahifa",
-    "history": "Tahrirlar tarixi"
+    "history": "Tahrirlar tarixi",
+    "reserve": "Jamg'arma"
   },
   "dashboard": {
     "title": "Boshqaruv paneli",
@@ -2431,6 +2432,33 @@
     "payButton": "Jamg'armadan to'lash",
     "payTitle": "Jamg'armadan to'lash",
     "payDescription": "Jamg'arma pulidan to'langan ta'mir yoki xaridni yozing. Bu xarajat, lekin shu oy egasi foydasi o'zgarmaydi.",
-    "paidToast": "Jamg'armadan to'landi."
+    "paidToast": "Jamg'armadan to'landi.",
+    "historyCount": "Tarixda {count} ta yozuv",
+    "openPage": "Grafiklar va tarix"
+  },
+  "reservePage": {
+    "title": "Jamg'arma",
+    "viewSwitcher": "Jamg'arma ko'rinishi",
+    "overview": "Umumiy ko'rinish",
+    "history": "Tarix · {count}",
+    "manage": "Qo'yish yoki to'lash",
+    "totalHeld": "Hozir jamg'armada",
+    "gameClubInSoums": "O'yin klubi so'mda",
+    "inDollars": "Dollarda",
+    "gameClub": "O'yin klubi",
+    "bar": "Bar",
+    "whereTitle": "Pul qayerda",
+    "whereDescription": "Jamg'arma har bir to'lov usulida qancha saqlaydi; dollar sotib olingan so'm bo'yicha.",
+    "allTimeTitle": "Butun vaqt",
+    "allTimeDescription": "Jamg'armadan o'tgan hamma narsa.",
+    "putIn": "Qo'yilgan",
+    "takenOut": "Chiqarilgan",
+    "returned": "Foydaga qaytarilgan",
+    "spent": "Jamg'armadan to'langan",
+    "balanceTitle": "Oylar bo'yicha jamg'arma",
+    "balanceDescription": "Har oy oxirida har bir tomonda qancha bo'lgan.",
+    "flowTitle": "Kirim va chiqim",
+    "flowDescription": "Qo'yilgan va qaytarilgan yoki sarflangan, oylar bo'yicha.",
+    "loadError": "Jamg'armani yuklab bo'lmadi."
   }
 }

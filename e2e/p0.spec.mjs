@@ -531,10 +531,6 @@ test('OWN-008 profit put into the reserve leaves the month, and a purchase paid 
   expect((await tooMuch.json()).code).toBe('RESERVE_INSUFFICIENT');
   await page.reload();
   await expect(row('Cash')).toContainText(uzs(780_000));
-  // The history stays folded until asked for, then lists every entry.
-  await expect(reserve).not.toContainText('Paid from reserve');
-  await reserve.getByRole('button', { name: /^History · \d+/ }).click();
-  await expect(reserve).toContainText('Paid from reserve');
   await expect(reserve).toContainText(uzs(200_000));
 
   // Everything left of the Bar's month goes in with one click, and nothing is left to take.
@@ -543,6 +539,18 @@ test('OWN-008 profit put into the reserve leaves the month, and a purchase paid 
   await expect(page.getByText('Money put into the reserve.')).toBeVisible();
   await expect(row('Bar')).toContainText(uzs(48_000));
   await expect(reserve.getByRole('button', { name: `Put all in · ${uzs(0)}` }).last()).toBeDisabled();
+
+  // The reserve has its own page: an overview of what it holds, and its history on a second tab.
+  await reserve.getByRole('link', { name: 'Charts and history' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Reserve' })).toBeVisible();
+  await expect(page.getByText('In the reserve now')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Where the money is' })).toBeVisible();
+  await expect(page.getByText('Paid from reserve', { exact: true })).toHaveCount(0);
+  await page.getByRole('radio', { name: /^History · \d+/ }).click();
+  await expect(page).toHaveURL(/\/reserve\?view=history$/);
+  const history = page.getByRole('list', { name: 'Reserve history' });
+  await expect(history).toContainText('Paid from reserve');
+  await expect(history).toContainText(uzs(300_000));
 });
 
 test('SAL-007 an employee\'s history is its own page, and every salary tab has its own address', async ({ page, context }) => {

@@ -32,7 +32,8 @@
     "promotions": "Promotions",
     "assistant": "AI Assistant",
     "showcase": "Public page",
-    "history": "Edit history"
+    "history": "Edit history",
+    "reserve": "Reserve"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -2431,6 +2432,33 @@
     "payButton": "Pay from reserve",
     "payTitle": "Pay from reserve",
     "payDescription": "Record a repair or purchase paid with reserve money. It is an expense, but this month's owner profit stays the same.",
-    "paidToast": "Paid from the reserve."
+    "paidToast": "Paid from the reserve.",
+    "historyCount": "{count, plural, one {# entry} other {# entries}} in the history",
+    "openPage": "Charts and history"
+  },
+  "reservePage": {
+    "title": "Reserve",
+    "viewSwitcher": "Reserve view",
+    "overview": "Overview",
+    "history": "History · {count}",
+    "manage": "Put in or pay",
+    "totalHeld": "In the reserve now",
+    "gameClubInSoums": "Game Club in sums",
+    "inDollars": "In dollars",
+    "gameClub": "Game Club",
+    "bar": "Bar",
+    "whereTitle": "Where the money is",
+    "whereDescription": "What the reserve holds in each payment method, dollars at the sums paid for them.",
+    "allTimeTitle": "All time",
+    "allTimeDescription": "Everything that went through the reserve.",
+    "putIn": "Put in",
+    "takenOut": "Taken out",
+    "returned": "Returned to profit",
+    "spent": "Paid from reserve",
+    "balanceTitle": "Reserve over time",
+    "balanceDescription": "What each side held at the end of every month.",
+    "flowTitle": "Money in and out",
+    "flowDescription": "Put in versus returned or spent, month by month.",
+    "loadError": "Could not load the reserve."
   }
 }

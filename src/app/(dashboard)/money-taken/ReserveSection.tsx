@@ -1,12 +1,10 @@
 'use client';
 
-import { ArrowDownToLine, ArrowUpFromLine, ChevronDown, Clock, History, MessageSquareText, PiggyBank, ShoppingCart, Trash2, Undo2 } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowDownToLine, ChartColumn, PiggyBank, ShoppingCart, Undo2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { Badge, Button, EmptyState, IconButton, SectionHeading } from '@/components/PresentationFoundation';
+import { Button, ButtonLink, SectionHeading } from '@/components/PresentationFoundation';
 import type { ReserveActivity, ReserveBalance } from '@/lib/calculations/ownerReserve';
-import { formatCurrency, formatDateOnly, formatUnitCurrency } from '@/lib/formatters';
+import { formatCurrency, formatUnitCurrency } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { OWNER_RESERVE_METHODS, OWNER_WITHDRAWAL_SOURCES, type OwnerReserveMethod, type OwnerWithdrawalSource } from '@/types';
 import { SOURCE_ICONS, SOURCE_TINTS } from './profitIcons';
@@ -26,15 +24,12 @@ interface ReserveSectionProps {
   onReturn: (source: OwnerWithdrawalSource) => void;
   onDepositAll: (source: OwnerWithdrawalSource) => void;
   onPay: () => void;
-  onDelete: (activity: Extract<ReserveActivity, { kind: 'deposit' | 'return' }>) => void;
 }
 
-/** The owner reserve: what it holds per side, ways to fill and spend it, and and every deposit, return and purchase behind a History toggle. */
-export function ReserveSection({ balances, depositAllAmounts, monthLabel, activity, dollarsHeld, methodLabel, busyId, disabled, onReturn, onDepositAll, onPay, onDelete }: ReserveSectionProps) {
+/** The owner reserve on Owner Profit: what it holds per side and ways to fill and spend it; charts and history are on /reserve. */
+export function ReserveSection({ balances, depositAllAmounts, monthLabel, activity, dollarsHeld, methodLabel, busyId, disabled, onReturn, onDepositAll, onPay }: ReserveSectionProps) {
   const t = useTranslations('ownerReserve');
   const tc = useTranslations('common');
-  const { locale } = useAppLocale();
-  const [historyOpen, setHistoryOpen] = useState(false);
 
   return (
     <>
@@ -113,91 +108,14 @@ export function ReserveSection({ balances, depositAllAmounts, monthLabel, activi
         })}
       </div>
 
-      {activity.length === 0 ? (
-        <div className="p-4 sm:p-5">
-          <EmptyState compact title={t('empty')} description={t('emptyHint')} />
-        </div>
-      ) : (
-        <>
-        <div className="px-4 py-3 sm:px-5">
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-expanded={historyOpen}
-            aria-controls="reserve-history"
-            onClick={() => setHistoryOpen((open) => !open)}
-            icon={<History size={15} aria-hidden="true" />}
-          >
-            {t(historyOpen ? 'hideHistory' : 'showHistory', { count: activity.length })}
-            <ChevronDown size={15} aria-hidden="true" className={cn('ml-1 transition-transform', historyOpen && 'rotate-180')} />
-          </Button>
-        </div>
-        {historyOpen ? (
-        <ul id="reserve-history" className="divide-y divide-gray-100 border-t border-gray-100" aria-label={t('activityLabel')}>
-          {activity.map((row) => {
-            const Icon = row.kind === 'deposit' ? ArrowDownToLine : row.kind === 'return' ? ArrowUpFromLine : ShoppingCart;
-            const incoming = row.kind === 'deposit';
-            return (
-              <li key={`${row.kind}:${row.id}`} className="group flex items-start gap-3 px-4 py-3.5 sm:px-5">
-                <span className={cn(
-                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
-                  incoming ? 'bg-primary-50 text-primary-600' : 'bg-gray-100 text-gray-600',
-                )}>
-                  <Icon size={18} aria-hidden="true" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="font-semibold text-gray-900">{t(`kinds.${row.kind}`)}</span>
-                    <Badge size="sm" variant="outline">{t(`sources.${row.source}`)}</Badge>
-                    {row.method ? <Badge size="sm" variant="outline">{methodLabel(row.method)}</Badge> : null}
-                  </div>
-                  {row.kind !== 'purchase' && row.entry.exchange_id ? (
-                    <p className="mt-1 text-sm leading-5 text-gray-600">{t(row.kind === 'deposit' ? 'fromExchange' : 'toExchange')}</p>
-                  ) : null}
-                  {row.kind === 'deposit' && row.entry.collection_date ? (
-                    <p className="mt-1 text-sm leading-5 text-gray-600">
-                      {t('fromCollection', { date: formatDateOnly(row.entry.collection_date, locale) })}
-                    </p>
-                  ) : null}
-                  {row.note ? (
-                    <p className="mt-1 flex gap-1.5 text-sm leading-5 text-gray-600">
-                      <MessageSquareText size={14} aria-hidden="true" className="mt-0.5 shrink-0 text-gray-400" />
-                      <span className="min-w-0 break-words">{row.note}</span>
-                    </p>
-                  ) : null}
-                  <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-400">
-                    <Clock size={12} aria-hidden="true" />
-                    {formatDateOnly(row.date, locale)}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-start gap-3">
-                  <p className={cn('whitespace-nowrap pt-1 text-base font-bold tabular-nums sm:text-lg', incoming ? 'text-primary-600' : 'text-gray-900')}>
-                    {incoming ? '+' : '−'}{formatCurrency(row.amount)}
-                    <span className="ml-1 text-xs font-medium text-gray-500">{tc('currency')}</span>
-                  </p>
-                  {/* A collection deposit is undone with its collection in Reports, a dollar entry with its exchange. */}
-                  {row.kind === 'purchase' || row.entry.exchange_id || (row.kind === 'deposit' && row.entry.collection_date) ? (
-                    <span aria-hidden="true" className="w-8 shrink-0" />
-                  ) : (
-                    <IconButton
-                      variant="danger"
-                      size="sm"
-                      label={`${tc('delete')}: ${t(`kinds.${row.kind}`)} · ${formatCurrency(row.amount)} ${tc('currency')}`}
-                      icon={<Trash2 size={16} />}
-                      loading={busyId === row.id}
-                      disabled={disabled}
-                      onClick={() => onDelete(row)}
-                      className={cn('mt-0.5 transition-opacity', busyId !== row.id && 'sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100')}
-                    />
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-        ) : null}
-        </>
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-5">
+        <p className="text-xs text-gray-500">
+          {activity.length === 0 ? t('empty') : t('historyCount', { count: activity.length })}
+        </p>
+        <ButtonLink href="/reserve" variant="ghost" size="sm" icon={<ChartColumn size={15} aria-hidden="true" />}>
+          {t('openPage')}
+        </ButtonLink>
+      </div>
     </>
   );
 }

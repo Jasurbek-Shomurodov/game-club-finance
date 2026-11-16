@@ -47,6 +47,11 @@ describe('feature permissions', () => {
     expect(canAccessPath('owner', null, '/history')).toBe(true);
     expect(canAccessPath('admin', ['team', 'reports', 'expenses'], '/history')).toBe(false);
     expect(canAccessPath('viewer', null, '/history')).toBe(false);
+    // The owner reserve is owner-only too, even for members who can see Owner Profit.
+    expect(featureForPath('/reserve')).toBe('team');
+    expect(canAccessPath('owner', null, '/reserve')).toBe(true);
+    expect(canAccessPath('admin', null, '/reserve')).toBe(false);
+    expect(canAccessPath('viewer', ['owner_profit'], '/reserve')).toBe(false);
   });
 
   it('guards paths and picks the first allowed destination', () => {

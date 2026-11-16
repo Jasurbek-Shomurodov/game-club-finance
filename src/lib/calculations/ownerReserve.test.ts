@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyOwnerReserve, dollarReserveEntries, reserveActivity, reserveBalances, reserveForMonth, planGameClubDepositAll, type ReservePaidExpense } from './ownerReserve';
+import { applyOwnerReserve, dollarReserveEntries, reserveActivity, reserveMonthlySeries, reserveBalances, reserveForMonth, planGameClubDepositAll, type ReservePaidExpense } from './ownerReserve';
 import { sumAvailableMoneyResults, type AvailableMoneyByMonth } from './availableMoney';
 import type { OwnerReserveEntry } from '@/types';
 
@@ -98,6 +98,35 @@ describe('dollarReserveEntries', () => {
     const month = reserveForMonth(entries, [rent], '2026-10');
     expect(month.byMethod.usd).toEqual({ deposited: 21_243_000, returned: 0, spent: 15_000_000 });
     expect(reserveBalances(entries, [rent]).game_club.byMethod.usd).toBe(6_243_000);
+  });
+});
+
+describe('reserveMonthlySeries', () => {
+  const entry = (month: string, kind: 'deposit' | 'return', amount: number, source: 'game_club' | 'bar' = 'game_club'): OwnerReserveEntry => ({
+    id: `${month}-${kind}-${amount}`, club_id: 'club', kind, period_month: `${month}-01`, source,
+    payment_method: source === 'bar' ? null : 'cash', amount, comment: null, collection_date: null, created_by: 'owner', created_at: `${month}-02T00:00:00Z`,
+  });
+
+  it('fills every month through today and keeps a running balance per side', () => {
+    const purchase: ReservePaidExpense = {
+      id: 'p', date: '2026-10-05', amount: 200, payment_source: 'game_club', payment_method: 'cash',
+      category: 'repair', comment: null, created_at: '2026-10-05T00:00:00Z',
+    };
+    const rows = reserveMonthlySeries(
+      [entry('2026-08', 'deposit', 1_000), entry('2026-10', 'return', 100), entry('2026-10', 'deposit', 50, 'bar'), entry('2027-01', 'deposit', 5)],
+      [purchase],
+      '2026-11',
+    );
+    expect(rows).toEqual([
+      { month: '2026-08', deposited: 1_000, withdrawn: 0, gameClubHeld: 1_000, barHeld: 0 },
+      { month: '2026-09', deposited: 0, withdrawn: 0, gameClubHeld: 1_000, barHeld: 0 },
+      { month: '2026-10', deposited: 50, withdrawn: 300, gameClubHeld: 700, barHeld: 50 },
+      { month: '2026-11', deposited: 0, withdrawn: 0, gameClubHeld: 700, barHeld: 50 },
+    ]);
+  });
+
+  it('is empty without reserve activity', () => {
+    expect(reserveMonthlySeries([], [], '2026-11')).toEqual([]);
   });
 });
 

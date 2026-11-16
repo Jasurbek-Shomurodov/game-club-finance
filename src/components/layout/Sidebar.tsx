@@ -28,6 +28,7 @@ import {
   Gamepad2,
   History,
   PanelLeft,
+  PiggyBank,
   Sparkles,
 } from 'lucide-react';
 import type { Club, UserRole } from '@/types';
@@ -181,6 +182,8 @@ export function Sidebar({
       items: [
         { href: '/reports', icon: BarChart3, label: t('reports'), feature: 'reports' },
         { href: '/money-taken', icon: CircleDollarSign, label: t('moneyTaken'), feature: 'owner_profit' },
+        // The owner reserve shares the owner-only team feature.
+        { href: '/reserve', icon: PiggyBank, label: t('reserve'), feature: 'team' },
         { href: '/debts', icon: Users, label: t('debts'), feature: 'debts' },
         { href: '/salaries', icon: HandCoins, label: t('salaries'), feature: 'salaries' },
       ],
@@ -234,7 +237,9 @@ export function Sidebar({
     // Entry history shares the owner-only team feature.
     const onHistory = pathname === '/history' || pathname.startsWith('/history/');
     if (item.href === '/history') return onHistory;
-    if (item.href === '/team') return activeFeature === 'team' && !onHistory;
+    const onReserve = pathname === '/reserve' || pathname.startsWith('/reserve/');
+    if (item.href === '/reserve') return onReserve;
+    if (item.href === '/team') return activeFeature === 'team' && !onHistory && !onReserve;
     return activeFeature === item.feature;
   }
 

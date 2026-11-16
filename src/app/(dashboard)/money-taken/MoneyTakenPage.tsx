@@ -68,9 +68,8 @@ import { METHOD_ICONS, SOURCE_ICONS, SOURCE_TINTS } from './profitIcons';
 import { WithdrawalHistory, historyCreatedAt, type HistoryRow } from './WithdrawalHistory';
 import { CashShortagesSection } from './CashShortagesSection';
 import { ReserveSection } from './ReserveSection';
-import { planGameClubDepositAll, reserveActivity, reserveBalances, reserveForMonth, reservedNet, type ReserveActivity } from '@/lib/calculations/ownerReserve';
+import { planGameClubDepositAll, reserveActivity, reserveBalances, reserveForMonth, reservedNet } from '@/lib/calculations/ownerReserve';
 import {
-  deleteReserveEntry,
   depositToReserve,
   returnFromReserve,
   type ReserveErrorCode,
@@ -870,28 +869,6 @@ export default function MoneyTakenPage() {
     }
   }
 
-  async function handleDeleteReserve(row: Extract<ReserveActivity, { kind: 'deposit' | 'return' }>) {
-    if (!selectedClubId || reserveBusy) return;
-    const loadBeforeConfirm = currentLoad.current;
-    const confirmed = await confirm({
-      title: tc('delete'),
-      description: tr(row.kind === 'deposit' ? 'deleteDepositConfirm' : 'deleteReturnConfirm', { amount: currency(row.amount) }),
-      confirmLabel: tc('delete'),
-    });
-    if (!confirmed || loadBeforeConfirm !== currentLoad.current) return;
-    setReserveBusy(row.id);
-    try {
-      const failure = await deleteReserveEntry(createClient(), selectedClubId, row.id);
-      if (loadBeforeConfirm !== currentLoad.current) return;
-      showToast(failure ? tr(`errors.${failure}`) : tr('deletedToast'), failure ? 'error' : 'success');
-      await loadData({ silent: true });
-    } catch {
-      showToast(tr('errors.failed'), 'error');
-    } finally {
-      setReserveBusy(null);
-    }
-  }
-
   const shortages = shortageQuery.data;
   const shortageSummaries = summarizeCashShortages(shortages.shortages, shortages.recoveries);
   const monthShortages = cashShortageTotalsForMonth(shortageSummaries, form.month);
@@ -1291,7 +1268,6 @@ export default function MoneyTakenPage() {
                     onReturn={openReturn}
                     onDepositAll={(source) => void handleDepositAll(source)}
                     onPay={() => setReservePayOpen(true)}
-                    onDelete={(row) => void handleDeleteReserve(row)}
                   />
                 </Card>
               ) : null}
