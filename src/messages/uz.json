@@ -2546,7 +2546,10 @@
     "availableBar": "Barda mavjud",
     "exceedsAvailable": "Bu oyda bu yerda faqat {amount} bor. Ko'pi bilan shuncha kiriting.",
     "allCollected": "{month} ning barcha kunlari yig'ilgan. Shu oyda kamomad yozish uchun yig'ish belgisini olib tashlang.",
-    "limitsLoadError": "Bu oydagi pul miqdorini yuklab bo'lmadi. Aloqani tekshirib, qayta urinib ko'ring."
+    "limitsLoadError": "Bu oydagi pul miqdorini yuklab bo'lmadi. Aloqani tekshirib, qayta urinib ko'ring.",
+    "takeAll": "Hammasi",
+    "takeAllLabel": "Barcha mavjud summani kiritish: {amount}",
+    "nothingAvailable": "Bu oyda bu yerda pul qolmagan."
   },
   "ownerReserve": {
     "sectionTitle": "Jamg'arma",

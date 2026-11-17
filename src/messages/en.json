@@ -2546,7 +2546,10 @@
     "availableBar": "Available in Bar",
     "exceedsAvailable": "The month only has {amount} here. Enter at most that.",
     "allCollected": "Every day of {month} is already collected. Remove a collection tick to record a shortage in this month.",
-    "limitsLoadError": "Could not load how much money this month has. Check your connection and try again."
+    "limitsLoadError": "Could not load how much money this month has. Check your connection and try again.",
+    "takeAll": "All",
+    "takeAllLabel": "Fill in all available: {amount}",
+    "nothingAvailable": "This month has no money left here."
   },
   "ownerReserve": {
     "sectionTitle": "Reserve",

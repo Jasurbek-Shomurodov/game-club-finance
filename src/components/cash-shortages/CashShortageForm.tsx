@@ -105,10 +105,30 @@ export function CashShortageForm({ clubId, defaultMonth, today, enabledPaymentMe
   const recoverValid = !employeeId || !recover || (Number.isFinite(recoverValue) && recoverValue >= 0 && (!amountValid || recoverValue <= amountValue));
   const employeeName = employees.find((employee) => employee.id === employeeId)?.name ?? '';
 
+  /** The amount never goes above what the month has: typing more stops at the limit. */
+  function changeAmount(value: string) {
+    const parsed = parseCurrencyInput(value);
+    setAmount(limit !== null && Number.isFinite(parsed) && parsed > limit ? formatCurrencyInput(limit) : value);
+  }
+
+  /** Switching to money that has less trims an amount already typed. */
+  function clampTo(nextSource: OwnerWithdrawalSource, nextMethod: CashShortageMethod) {
+    if (!limits || !amountEntered) return;
+    const nextLimit = shortageLimitFor(limits, nextSource, nextMethod);
+    if (amountValue > nextLimit) setAmount(nextLimit > 0 ? formatCurrencyInput(nextLimit) : '');
+  }
+
+  function changeMethod(next: CashShortageMethod) {
+    setMethod(next);
+    clampTo(source, next);
+  }
+
   function changeSource(next: OwnerWithdrawalSource) {
     setSource(next);
     const nextMethods = shortageMethods(enabledPaymentMethods, next);
-    if (!nextMethods.includes(method)) setMethod(nextMethods[0] ?? 'cash');
+    const nextMethod = nextMethods.includes(method) ? method : nextMethods[0] ?? 'cash';
+    setMethod(nextMethod);
+    clampTo(next, nextMethod);
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -186,7 +206,7 @@ export function CashShortageForm({ clubId, defaultMonth, today, enabledPaymentMe
         <SegmentedControl
           label={t('method')}
           value={method}
-          onChange={setMethod}
+          onChange={changeMethod}
           disabled={saving}
           columns="auto"
           className="grid-cols-2 sm:grid-cols-4"
@@ -195,6 +215,7 @@ export function CashShortageForm({ clubId, defaultMonth, today, enabledPaymentMe
             const held = limits && source === 'game_club' ? limits.gameClub[value] : null;
             return {
               value,
+              disabled: held === 0 && value !== method,
               icon: held === null ? <Icon size={15} aria-hidden="true" /> : undefined,
               label: held === null ? tc(`paymentMethods.${value}`) : (
                 <span className="flex flex-col items-center py-1 leading-tight">
@@ -214,18 +235,34 @@ export function CashShortageForm({ clubId, defaultMonth, today, enabledPaymentMe
         label={`${t('amount')} (${tc('currency')})`}
         htmlFor="shortage-amount"
         required
-        hint={t('amountHint')}
+        hint={limit === 0 ? t('nothingAvailable') : t('amountHint')}
         error={overLimit && limit !== null ? t('exceedsAvailable', { amount: `${formatCurrency(limit)} ${tc('currency')}` }) : undefined}
       >
-        <CurrencyInput
-          id="shortage-amount"
-          required
-          controlSize="lg"
-          value={amount}
-          invalid={overLimit}
-          disabled={saving}
-          onValueChange={setAmount}
-        />
+        <div className="flex gap-2">
+          <CurrencyInput
+            id="shortage-amount"
+            className="flex-1"
+            required
+            controlSize="lg"
+            value={amount}
+            invalid={overLimit}
+            disabled={saving || limit === 0}
+            onValueChange={changeAmount}
+          />
+          {limit !== null && limit > 0 ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="lg"
+              className="shrink-0"
+              disabled={saving}
+              aria-label={t('takeAllLabel', { amount: `${formatCurrency(limit)} ${tc('currency')}` })}
+              onClick={() => setAmount(formatCurrencyInput(limit))}
+            >
+              {t('takeAll')}
+            </Button>
+          ) : null}
+        </div>
       </Field>
 
       <Field label={t('reason')}>
