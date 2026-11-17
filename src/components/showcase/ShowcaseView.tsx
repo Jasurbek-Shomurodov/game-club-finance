@@ -1,15 +1,19 @@
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
+import { formatCurrency } from '@/lib/formatters';
 import { ArrowDown, MonitorPlay, Phone, Send } from 'lucide-react';
 import { lowestHourlyPrice, telHref, totalConsoleCount, totalPcCount, type PublicShowcase } from '@/lib/showcase';
 import { CountUp } from './CountUp';
 import { ContactPanel, GameGrid, HeroBackdrop, Marquee, OfferGrid, SectionTitle, StatGrid, ZoneGrid, riseDelay, type Stat } from './ShowcaseParts';
 import { ShowcaseFooter } from './ShowcaseFooter';
 import { ShowcaseNav } from './ShowcaseNav';
+import { ShowcaseActionBar } from './ShowcaseActionBar';
+import { PriceList, SectionTiles, firstImage } from './ShowcaseSections';
 
 /** The public page of one club: /club/<slug>. */
 export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
   const t = await getTranslations('publicShowcase');
   const tc = await getTranslations('common');
+  const locale = await getLocale();
   const pcCount = totalPcCount(showcase.zones);
   const consoleCount = totalConsoleCount(showcase.zones);
   const pcZones = showcase.zones.filter((zone) => zone.kind === 'pc');
@@ -24,6 +28,7 @@ export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
     showcase.games.length > 0 ? { href: '#games', label: t('navGames') } : null,
     pcZones.length > 0 ? { href: '#zones', label: t('navZones') } : null,
     playstationZones.length > 0 ? { href: '#playstation', label: t('navPlaystation') } : null,
+    showcase.zones.some((zone) => zone.price_per_hour !== null) || showcase.offers.length > 0 ? { href: '#prices', label: t('navPrices') } : null,
     showcase.offers.length > 0 ? { href: '#offers', label: t('navOffers') } : null,
     { href: '#contacts', label: t('navContacts') },
   ].filter((link): link is { href: string; label: string } => link !== null);
@@ -39,9 +44,17 @@ export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
   ] as Array<Stat | null>).filter((stat): stat is Stat => stat !== null);
 
   const headline = showcase.headline ?? showcase.club_name;
+  const sectionTiles = [
+    showcase.games.length > 0 ? { href: '#games', label: t('navGames'), image: firstImage(showcase.games, []) } : null,
+    pcZones.length > 0 ? { href: '#zones', label: t('navZones'), image: firstImage([], pcZones) } : null,
+    playstationZones.length > 0 ? { href: '#playstation', label: t('navPlaystation'), image: firstImage([], playstationZones) } : null,
+    fromPrice !== null ? { href: '#prices', label: t('navPrices'), image: firstImage([], showcase.zones) } : null,
+    showcase.offers.length > 0 ? { href: '#offers', label: t('navOffers'), image: null } : null,
+  ].filter((tile): tile is { href: string; label: string; image: string | null } => tile !== null);
+  const directionsHref = showcase.yandex_maps_url || null;
 
   return (
-    <div id="top" className="sc-root relative min-h-screen">
+    <div id="top" className="sc-root relative min-h-screen pb-24 sm:pb-0">
       <ShowcaseNav clubName={showcase.club_name} links={navLinks} cta={primaryCta} />
 
       <section className="relative isolate flex min-h-[100svh] items-center overflow-hidden pb-20 pt-28">
@@ -91,6 +104,10 @@ export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
         </a>
       </section>
 
+      <div className="relative -mt-8 pb-4 sm:-mt-12">
+        <SectionTiles tiles={sectionTiles} label={t('sectionsLabel')} />
+      </div>
+
       <Marquee items={showcase.games.map((game) => game.title)} />
 
       {showcase.games.length > 0 && (
@@ -134,7 +151,16 @@ export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
         </section>
       )}
 
+      <PriceList zones={showcase.zones} offers={showcase.offers} />
+
       <ContactPanel club={showcase} id="contacts" />
+
+      <ShowcaseActionBar
+        fromPriceLabel={fromPrice !== null ? `${formatCurrency(fromPrice, locale)} ${tc('currency')}` : null}
+        directionsHref={directionsHref}
+        phoneHref={phoneLink}
+        telegramHref={showcase.telegram_url}
+      />
 
       <ShowcaseFooter
         name={showcase.club_name}
