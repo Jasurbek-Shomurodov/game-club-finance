@@ -63,6 +63,7 @@ import {
   markPerformanceRpcMissing,
   shouldTryPerformanceRpc,
 } from '@/lib/supabase/performanceRpc';
+import { closingStockHref, moneyDetailsHref } from '@/lib/detailLinks';
 
 function ChartLoading() {
   return <ChartSkeleton />;
@@ -73,28 +74,29 @@ const IncomeTrendChart = dynamic(
   { ssr: false, loading: ChartLoading },
 );
 
-/** A few figures for one side, under its money-flow Sankey. */
+/** A few figures for one side, under its money-flow Sankey; each opens the records behind it. */
 function FlowFigures({ items, loading }: {
-  items: Array<{ label: string; amount: number; currency: string; tone?: MetricTone; helper?: string }>;
+  items: Array<{ label: string; amount: number; currency: string; tone?: MetricTone; helper?: string; href?: string }>;
   loading: boolean;
 }) {
   return (
     <div className="mt-4 grid gap-2 sm:grid-cols-3">
       {items.map((item) => (
-        <StatTile
-          key={item.label}
-          variant="soft"
-          size="sm"
-          // The note sits behind a "?" so it is reachable by touch, not only by hover.
-          label={(
-            <span className="inline-flex items-center gap-0.5">
-              {item.label}
-              {item.helper && <HelpButton title={item.label} body={item.helper} className="-my-2" />}
-            </span>
+        // The "?" sits beside the tile, not inside its link: a button cannot live in a link.
+        <div key={item.label} className="relative">
+          <StatTile
+            variant="soft"
+            size="sm"
+            href={loading ? undefined : item.href}
+            label={<span className={cn(item.helper && 'pr-7')}>{item.label}</span>}
+            tone={loading ? 'muted' : item.tone}
+            value={loading ? '—' : <MetricMoney amount={item.amount} currency={item.currency} />}
+            className="h-full"
+          />
+          {item.helper && (
+            <HelpButton title={item.label} body={item.helper} className={cn('absolute top-1', item.href && !loading ? 'right-7' : 'right-1')} />
           )}
-          tone={loading ? 'muted' : item.tone}
-          value={loading ? '—' : <MetricMoney amount={item.amount} currency={item.currency} />}
-        />
+        </div>
       ))}
     </div>
   );
@@ -453,9 +455,9 @@ export default function DashboardPage({
                   <FlowFigures
                     loading={loading}
                     items={[
-                      { label: t('totalMoneyLeft'), helper: t('totalMoneyLeftDesc'), amount: totals.gameClubMoneyLeft, currency, tone: toneForAmount(totals.gameClubMoneyLeft) },
-                      { label: t('activeDebts'), helper: t('activeDebtsDesc', { count: totals.activeDebtCount }), amount: totals.activeDebts, currency, tone: totals.activeDebts > 0 ? 'danger' : 'default' },
-                      { label: t('averageDailyIncome'), helper: t('averageDailyClubIncomeDesc'), amount: averageGameClubIncome, currency },
+                      { href: pathIfAllowed('/game-club-money-details') && moneyDetailsHref('game_club', range), label: t('totalMoneyLeft'), helper: t('totalMoneyLeftDesc'), amount: totals.gameClubMoneyLeft, currency, tone: toneForAmount(totals.gameClubMoneyLeft) },
+                      { href: pathIfAllowed('/debts'), label: t('activeDebts'), helper: t('activeDebtsDesc', { count: totals.activeDebtCount }), amount: totals.activeDebts, currency, tone: totals.activeDebts > 0 ? 'danger' : 'default' },
+                      { href: pathIfAllowed('/game-club-money-details') && moneyDetailsHref('game_club', range), label: t('averageDailyIncome'), helper: t('averageDailyClubIncomeDesc'), amount: averageGameClubIncome, currency },
                     ]}
                   />
                 ),
@@ -468,9 +470,9 @@ export default function DashboardPage({
                   <FlowFigures
                     loading={loading}
                     items={[
-                      { label: t('barMoneyLeft'), helper: t('barMoneyLeftDesc'), amount: totals.barIncome, currency, tone: toneForAmount(totals.barIncome) },
-                      { label: t('inventoryValue'), helper: inventoryNote, amount: totals.inventoryValue, currency },
-                      { label: t('averageDailyIncome'), helper: t('averageDailyBarIncomeDesc'), amount: averageBarIncome, currency },
+                      { href: pathIfAllowed('/bar-money-details') && moneyDetailsHref('bar', range), label: t('barMoneyLeft'), helper: t('barMoneyLeftDesc'), amount: totals.barIncome, currency, tone: toneForAmount(totals.barIncome) },
+                      { href: isCurrentMonth ? productsHref : pathIfAllowed('/closing-stock') && closingStockHref(range.to), label: t('inventoryValue'), helper: inventoryNote, amount: totals.inventoryValue, currency },
+                      { href: pathIfAllowed('/bar-money-details') && moneyDetailsHref('bar', range), label: t('averageDailyIncome'), helper: t('averageDailyBarIncomeDesc'), amount: averageBarIncome, currency },
                     ]}
                   />
                 ),
