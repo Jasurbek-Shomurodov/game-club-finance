@@ -102,7 +102,7 @@ for lists the member can open). Picking one opens the list narrowed to it
 through `requestPageSearch` / `usePageSearch`, the same in-memory handoff.
 
 Lists that an accountant may want elsewhere have an **Export** button
-(Reports closeout, Debts, Products). `src/lib/csv.ts` writes the file in the
+(Reports closeout, Monthly Report, Debts, Products). `src/lib/csv.ts` writes the file in the
 browser from the rows already on screen, as filtered: no request, no server
 route. Amounts are bare numbers; the separator follows the app language
 (";" for Russian and Uzbek, where Excel expects it); text typed by people is

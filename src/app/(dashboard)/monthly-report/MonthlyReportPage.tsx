@@ -11,6 +11,7 @@ import {
   Card,
   DataTable,
   EmptyState,
+  Button,
   Field,
   LoadErrorAlert,
   MetricCard,
@@ -30,7 +31,8 @@ import { useClubQuery } from '@/lib/useClubQuery';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { calculateFinancialReportTotals, calculateManualIncome } from '@/lib/calculations/dailyReport';
 import { loadFinanceReportRows, type FinanceReportRows } from '@/lib/supabase/financeReportSnapshot';
-import { BarChart2 } from 'lucide-react';
+import { BarChart2, Download } from 'lucide-react';
+import { csvFileName, csvSeparatorForLocale, downloadCsv, toCsv } from '@/lib/csv';
 
 interface DayRow {
   date: string;
@@ -152,6 +154,22 @@ export default function MonthlyReportPage() {
     [rows],
   );
   const currency = tc('currency');
+
+  /** The table as shown: one row per day, then the totals row. */
+  function exportMonth() {
+    // Bar costs are weighted averages with long fractions: two decimals are plenty in a file.
+    const cells = (row: DayTotals) => [
+      row.manualIncome, row.debtIncome, row.gameClubExpenses, row.gameClubProfit, row.barSales,
+      row.barCost, row.barExpenses, row.barProfit, row.stockPurchaseCost, row.barCashLeft,
+    ].map((amount) => Math.round(amount * 100) / 100);
+    const headers = [
+      t('date'), t('manualIncome'), t('debtIncome'), t('gameClubExpenses'), t('gameClubProfit'), t('barSales'),
+      t('costOfGoodsSold'), t('barExpenses'), t('barProfit'), t('inventoryPurchases'), t('barCashLeft'),
+    ];
+    const body = [...rows.map((row) => [row.date, ...cells(row)]), [t('totals'), ...cells(totals)]];
+    const { from, to } = monthRange(month);
+    downloadCsv(csvFileName('monthly-report', from, to), toCsv(headers, body, csvSeparatorForLocale(locale)));
+  }
   const signed = (amount: number) => (
     <span className={amount >= 0 ? 'font-semibold text-success-600' : 'font-semibold text-danger-600'}>{formatCurrency(amount)}</span>
   );
@@ -176,9 +194,14 @@ export default function MonthlyReportPage() {
         title={t('title')}
         tabs={<ReportsTabs value="month" />}
         action={(
-          <Field label={t('selectMonth')} className="sm:w-72">
-            <MonthPicker value={month} max={businessYearMonth} onChange={setMonth} />
-          </Field>
+          <>
+            <Button variant="outline" onClick={exportMonth} disabled={loading || rows.length === 0} icon={<Download size={16} aria-hidden="true" />}>
+              {tc('export')}
+            </Button>
+            <Field label={t('selectMonth')} className="sm:w-72">
+              <MonthPicker value={month} max={businessYearMonth} onChange={setMonth} />
+            </Field>
+          </>
         )}
       />
 
