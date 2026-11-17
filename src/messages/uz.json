@@ -75,6 +75,7 @@
     "previousMonthInventoryValue": "Oldingi oy qiymati",
     "month": "Oy",
     "vsPreviousMonth": "oldingi oyga nisbatan",
+    "onPaceFor": "Oy yakuniga prognoz",
     "inventoryValueMonthEndDesc": "Oy oxiridagi omborning tannarx bo'yicha qiymati.",
     "lowStockAlertsCount": "{count} ta kam qolgan",
     "vsYesterday": "kechagiga nisbatan",

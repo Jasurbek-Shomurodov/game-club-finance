@@ -400,8 +400,12 @@ test('AUTH-002 switching club shows only that club\'s figures and no row of the 
   await expectDashboardAmount(page, 'Game Club Income', expected.gameClubIncome);
   const arcadeIds = [products.cola.id, products.snickers.id, ...expenses.map(expense => expense.id), ...debts.map(debt => debt.id)];
   const leaked = [];
+  // Only requests sent after the switch count: one the first club's dashboard
+  // started earlier (its restock sales) may still be answering, and rightly holds that club's rows.
+  const sentAfterSwitch = new WeakSet();
+  page.on('request', request => sentAfterSwitch.add(request));
   page.on('response', async response => {
-    if (!response.url().includes('/rest/v1/')) return;
+    if (!response.url().includes('/rest/v1/') || !sentAfterSwitch.has(response.request())) return;
     const body = await response.text().catch(() => '');
     if (arcadeIds.some(id => body.includes(id))) leaked.push(response.url());
   });

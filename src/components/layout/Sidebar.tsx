@@ -7,7 +7,6 @@ import { useTranslations } from 'next-intl';
 import { useEffect, useState, type MouseEvent } from 'react';
 import { cn } from '@/lib/utils';
 import { useSignOut } from './useSignOut';
-import { usePendingTeamCount } from './usePendingTeamCount';
 import {
   LayoutDashboard,
   Wallet,
@@ -51,6 +50,8 @@ interface SidebarProps {
   featureAccess?: FeatureKey[];
   onClose?: () => void;
   onNavigate?: (href: string) => void;
+  /** Open access requests, shown on the Team item; the shell counts them once for the sidebar and the bottom bar. */
+  pendingCount?: number;
 }
 
 interface NavItem {
@@ -138,6 +139,7 @@ export function Sidebar({
   featureAccess = [],
   onClose,
   onNavigate,
+  pendingCount = 0,
 }: SidebarProps) {
   const t = useTranslations('nav');
   const tTeam = useTranslations('team');
@@ -148,8 +150,6 @@ export function Sidebar({
   // Highlight the section, not just the exact path: /salaries/employees/…,
   // /daily-report and the money-details pages all belong to a nav item.
   const activeFeature = featureForPath(pathname);
-  // Re-counted on club change and when the team page approves or rejects someone.
-  const pendingCount = usePendingTeamCount(role === 'owner', selectedClubId);
 
   function allowed(feature: FeatureKey) {
     if (feature === 'reports') return canAccessFeature(role, featureAccess, 'reports') || canAccessFeature(role, featureAccess, 'expenses');

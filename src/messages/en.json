@@ -75,6 +75,7 @@
     "previousMonthInventoryValue": "Previous month value",
     "month": "Month",
     "vsPreviousMonth": "vs the month before",
+    "onPaceFor": "On pace for the month",
     "inventoryValueMonthEndDesc": "Stock value at cost price when the month ended.",
     "lowStockAlertsCount": "{count} low stock alerts",
     "vsYesterday": "vs yesterday",

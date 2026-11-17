@@ -9,6 +9,7 @@ import { Clock3, Gamepad2, LogOut, Menu, ShieldCheck } from 'lucide-react';
 import { useSignOut } from './useSignOut';
 import { Sidebar } from './Sidebar';
 import { BottomNav, useTypingInField } from './BottomNav';
+import { usePendingTeamCount } from './usePendingTeamCount';
 import { Button, Card, EmptyState, IconButton, InlineAlert, PageSkeleton, ThemeToggle, TopBarSlotProvider, useTopBarSlot } from '@/components/PresentationFoundation';
 import { createClient } from '@/lib/supabase/client';
 import { loadUserMemberships, relatedClub, SELECTED_CLUB_COOKIE } from '@/lib/supabase/memberships';
@@ -433,6 +434,8 @@ export function DashboardShell({
   // while a field is being typed in, and pages leave room for it through
   // --bottom-nav (their own sticky bars sit on top of it).
   const typingInField = useTypingInField();
+  // Re-counted on club change and when the team page approves or rejects someone.
+  const pendingTeamCount = usePendingTeamCount(role === 'owner', selectedClubId);
   const bottomNavShown = memberships.length > 0 && !shellError && !clubLoading && !typingInField;
   const pathAllowed = canAccessPath(role, selectedMembership?.featureAccess, pathname);
   const fallbackPath = pathAllowed ? null : defaultPathForAccess(role, selectedMembership?.featureAccess);
@@ -497,6 +500,7 @@ export function DashboardShell({
           onToggleCollapsed={toggleSidebar}
           onClose={() => setSidebarOpen(false)}
           onNavigate={handleNavigate}
+          pendingCount={pendingTeamCount}
         />
 
         <div className={cn('flex min-w-0 flex-1 flex-col transition-[padding] duration-200 ease-linear', sidebarCollapsed ? 'lg:pl-0' : 'lg:pl-64')}>
@@ -558,6 +562,7 @@ export function DashboardShell({
             activePathname={navigatingTo || pathname}
             menuOpen={sidebarOpen}
             onOpenMenu={() => setSidebarOpen(true)}
+            menuBadge={pendingTeamCount}
             onNavigate={handleNavigate}
           />
         )}

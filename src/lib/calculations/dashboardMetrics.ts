@@ -338,6 +338,20 @@ export function calculateAverageDailyIncome(total: number, days: number): number
   return Math.round(total / Math.max(1, days));
 }
 
+/** Fewer entered days than this say too little about the month to project it. */
+export const MIN_PROJECTION_DAYS = 3;
+
+/**
+ * What a month in progress adds up to if the rest of it earns like the days
+ * entered so far: the average of the `elapsedDays` (range start through the
+ * latest entry) times the range's length. Null when there is nothing to
+ * project: too few days, no income, or the range is already complete.
+ */
+export function projectRangeIncome(total: number, elapsedDays: number, rangeDays: number): number | null {
+  if (!(total > 0) || elapsedDays < MIN_PROJECTION_DAYS || elapsedDays >= rangeDays) return null;
+  return Math.round((total / elapsedDays) * rangeDays);
+}
+
 /**
  * Adds each side's running average daily income to a per-day trend: the side's
  * income from the first row through that day, divided by the days so far. Days

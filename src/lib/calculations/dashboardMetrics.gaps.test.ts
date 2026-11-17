@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildPeriodTrend,
   calculateAverageDailyIncome,
+  projectRangeIncome,
   calculateDashboardInventoryValue,
   calculateDashboardTotals,
   calculateGameClubMoneyLeftByPaymentMethod,
@@ -279,5 +280,21 @@ describe('buildPeriodTrend', () => {
   it('is one day for a single-date or reversed range', () => {
     expect(buildPeriodTrend({ from: '2026-10-30', to: '2026-10-30' }, [], [])).toEqual([{ date: '2026-10-30', gameClubIncome: 0, barSales: 0 }]);
     expect(buildPeriodTrend({ from: '2026-10-30', to: '2026-10-20' }, [], [])).toHaveLength(1);
+  });
+});
+
+describe('projectRangeIncome', () => {
+  it('scales the days entered so far to the whole range', () => {
+    // 10 days earned 20m of a 30-day month.
+    expect(projectRangeIncome(20_000_000, 10, 30)).toBe(60_000_000);
+    expect(projectRangeIncome(1_000, 3, 31)).toBe(10_333);
+  });
+
+  it('projects nothing from too few days, no income or a finished range', () => {
+    expect(projectRangeIncome(5_000_000, 2, 30)).toBeNull();
+    expect(projectRangeIncome(0, 10, 30)).toBeNull();
+    expect(projectRangeIncome(-100, 10, 30)).toBeNull();
+    expect(projectRangeIncome(9_000_000, 30, 30)).toBeNull();
+    expect(projectRangeIncome(9_000_000, 31, 30)).toBeNull();
   });
 });

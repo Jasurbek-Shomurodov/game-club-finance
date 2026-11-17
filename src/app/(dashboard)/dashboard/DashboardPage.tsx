@@ -44,8 +44,10 @@ import { SIDE_ICON_CLASS } from '@/components/financial-analysis/analysisFormat'
 import { formatCurrency } from '@/lib/formatters';
 import {
   calculateAverageDailyIncome,
+  countDashboardRangeDays,
   countDashboardRangeDaysThroughDate,
   percentChange,
+  projectRangeIncome,
   withRunningDailyAverages,
 } from '@/lib/calculations/dashboardMetrics';
 import {
@@ -293,6 +295,12 @@ export default function DashboardPage({
   const averageGameClubDayCount = countDashboardRangeDaysThroughDate(range, data.latestDailyCashEntryDate);
   const averageGameClubIncome = calculateAverageDailyIncome(totals.gameClubIncome, averageGameClubDayCount);
   const averageBarIncome = calculateAverageDailyIncome(totals.barSales, averageBarDayCount);
+  // Where the month is heading if the remaining days earn like the entered ones.
+  const rangeDays = countDashboardRangeDays(range);
+  const paceNote = (total: number, elapsedDays: number) => {
+    const projected = isCurrentMonth ? projectRangeIncome(total, elapsedDays, rangeDays) : null;
+    return projected === null ? undefined : `${t('onPaceFor')}: ${formatCurrency(projected)} ${currency}`;
+  };
 
 
   const detailsQuery = new URLSearchParams({ from: range.from, to: range.to }).toString();
@@ -360,6 +368,7 @@ export default function DashboardPage({
               iconClassName={SIDE_ICON_CLASS.gameClub}
               tone="success"
               comparison={comparisonFor(totals.gameClubIncome, previousTotals.gameClubIncome)}
+              helper={paceNote(totals.gameClubIncome, averageGameClubDayCount)}
             />
             <AmountCard
               loading={loading}
@@ -370,6 +379,7 @@ export default function DashboardPage({
               iconClassName={SIDE_ICON_CLASS.bar}
               tone="success"
               comparison={comparisonFor(totals.barSales, previousTotals.barSales)}
+              helper={paceNote(totals.barSales, averageBarDayCount)}
             />
             {/* The game club and the bar are separate businesses: each keeps its own profit. */}
             <AmountCard

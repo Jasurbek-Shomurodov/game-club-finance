@@ -75,6 +75,7 @@
     "previousMonthInventoryValue": "Значение за предыдущий месяц",
     "month": "Месяц",
     "vsPreviousMonth": "к предыдущему месяцу",
+    "onPaceFor": "Прогноз на месяц",
     "inventoryValueMonthEndDesc": "Стоимость склада по себестоимости на конец месяца.",
     "lowStockAlertsCount": "{count} товаров мало",
     "vsYesterday": "vs вчера",

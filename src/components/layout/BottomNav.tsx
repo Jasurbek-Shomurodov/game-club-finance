@@ -52,6 +52,8 @@ interface BottomNavProps {
   activePathname: string;
   menuOpen: boolean;
   onOpenMenu: () => void;
+  /** Something in the menu is waiting (open access requests); shown as a count on the menu button. */
+  menuBadge?: number;
   onNavigate: (href: string) => void;
 }
 
@@ -59,7 +61,7 @@ interface BottomNavProps {
  * Phones only: the everyday screens one tap away at the bottom of the screen,
  * with the full menu behind the last button. Wider screens have the sidebar.
  */
-export function BottomNav({ role, featureAccess, activePathname, menuOpen, onOpenMenu, onNavigate }: BottomNavProps) {
+export function BottomNav({ role, featureAccess, activePathname, menuOpen, onOpenMenu, menuBadge = 0, onNavigate }: BottomNavProps) {
   const t = useTranslations('nav');
   const items = primaryNavItems(role, featureAccess);
 
@@ -99,7 +101,14 @@ export function BottomNav({ role, featureAccess, activePathname, menuOpen, onOpe
         aria-haspopup="dialog"
         className={cn(ITEM_CLASS, 'font-medium text-gray-500 hover:text-gray-950')}
       >
-        <Menu size={20} aria-hidden="true" />
+        <span className="relative">
+          <Menu size={20} aria-hidden="true" />
+          {menuBadge > 0 && (
+            <span className="absolute -right-3 -top-1.5 min-w-4 rounded-full bg-warning-50 px-1 text-center text-[10px] font-semibold leading-4 text-warning-700 ring-1 ring-surface">
+              {menuBadge}
+            </span>
+          )}
+        </span>
         <span className="max-w-full truncate">{t('more')}</span>
       </button>
     </nav>
