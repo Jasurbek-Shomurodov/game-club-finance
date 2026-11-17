@@ -4355,11 +4355,6 @@
         "kind": "constraint",
         "table": "public.salary_rates",
         "name": "salary_rates_kpi_income_pool_check"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.get_salary_profit_snapshot(uuid,date)",
-        "md5": "3ad76fd38885e7d75bf26b6094138bea"
       }
     ]
   },
@@ -4814,6 +4809,16 @@
       {
         "kind": "function",
         "signature": "public.owner_reserve_never_negative()"
+      }
+    ]
+  },
+  {
+    "file": "147_salary_kpi_income_less_discounts.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.get_salary_profit_snapshot(uuid,date)",
+        "md5": "2cbdf8c0fadc09bba7b90b2e45b8b897"
       }
     ]
   }

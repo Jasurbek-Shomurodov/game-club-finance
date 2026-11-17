@@ -21,13 +21,17 @@ export interface SalaryEmployee {
 /**
  * `overall_profit`: profit earned every day (Owner Profit "earned" cash, before withdrawals).
  * `owner_profit`: only money the owner has actually withdrawn.
- * `game_club_income`: each day's Game Club income, before any expense (migration 134).
+ * `game_club_income`: each day's Game Club income less that day's Game Club
+ *   customer discounts (`discount` expenses), before any other expense (134, 147).
  */
 export type KpiBasis = 'owner_profit' | 'overall_profit' | 'game_club_income';
 
 export const KPI_BASES: readonly KpiBasis[] = ['overall_profit', 'owner_profit', 'game_club_income'];
 
-/** One business date's Game Club income (cash + terminal + card + PlayStation). */
+/**
+ * One business date's Game Club income (cash + terminal + card + PlayStation)
+ * less that date's Game Club `discount` expenses (migration 147). Can be negative.
+ */
 export interface SalaryDailyIncome {
   date: string;
   amount: number;
@@ -93,8 +97,9 @@ const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 10
  *    Payment timing therefore cannot change KPI or deduct salary twice.
  *  - owner_profit: the amount the owner withdrew from the ticked pools in the
  *    month; KPI is the percentage of that amount.
- *  - game_club_income: the percentage of each active day's Game Club income,
- *    credited on that day. Nothing is deducted and it forms no group.
+ *  - game_club_income: the percentage of each active day's Game Club income
+ *    less customer discounts, credited on that day. A day below zero earns
+ *    nothing. No other expense is deducted and it forms no group.
  * Groups are independent: overlapping pools are not netted against each other.
  * Current/historical months remain estimates when underlying finance is edited.
  */

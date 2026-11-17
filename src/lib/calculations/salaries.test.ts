@@ -185,6 +185,13 @@ describe('Game Club income KPI basis', () => {
     expect(rows.one[0].kpi).toBe(500000);
     expect(rows.two[0]).toMatchObject({ base: 1000, kpi: 1000, kpiProfit: 10000 });
   });
+  it('earns nothing on a day whose discounts exceed its income, without touching other days', () => {
+    // Migration 147 nets Game Club discounts out of each day, so a day can be negative.
+    const net = [{ date: '2026-09-01', amount: 4705000 }, { date: '2026-09-02', amount: -295000 }];
+    const row = calculate({ rates: [income], dailyIncome: net, monthlyProfit: [profit(0)] }).one[0];
+    expect(row.kpi).toBe(470500);
+    expect(row.kpiByDay).toEqual({ '2026-09-01': 470500 });
+  });
   it('earns nothing without income data, so older databases show no income KPI', () => {
     expect(calculate({ rates: [income] }).one[0].kpi).toBe(0);
   });
