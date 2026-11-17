@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
+import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
   Avatar,
@@ -77,6 +78,7 @@ function productCategory(value: string | null | undefined): string {
 }
 
 export default function ProductsPage() {
+  const sectionTabs = useSectionTabs('bar');
   const t = useTranslations('products');
   const tc = useTranslations('common');
   const { selectedClubId, role: currentRole, businessDayStartHour } = useClub();
@@ -379,6 +381,7 @@ export default function ProductsPage() {
     <div>
       <PageHeader
         title={t('title')}
+        tabs={sectionTabs}
         action={canManageInventory ? (
           <Button onClick={openAdd} icon={<Plus size={16} aria-hidden="true" />}>{t('addProduct')}</Button>
         ) : undefined}

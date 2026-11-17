@@ -8,6 +8,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { ArrowDownToLine, ArrowUpFromLine, ShoppingCart } from 'lucide-react';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
+import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
 import { ChartCard, ChartEmpty } from '@/components/dashboard/ChartCard';
 import {
@@ -45,6 +46,7 @@ const ReserveFlowChart = dynamic(() => loadCharts().then((module) => module.Rese
 type ReserveView = 'overview' | 'history';
 
 export default function ReservePage() {
+  const sectionTabs = useSectionTabs('ownerMoney');
   const t = useTranslations('reservePage');
   const tr = useTranslations('ownerReserve');
   const tm = useTranslations('moneyTaken');
@@ -125,19 +127,23 @@ export default function ReservePage() {
     <PageHeader
       title={t('title')}
       className="mb-0"
-      tabs={(
-        <SegmentedControl
-          variant="tabs"
-          label={t('viewSwitcher')}
-          options={[
-            { value: 'overview', label: t('overview') },
-            { value: 'history', label: t('history', { count: activity.length }) },
-          ]}
-          value={view}
-          onChange={setView}
-        />
-      )}
+      tabs={sectionTabs}
       action={<ButtonLink href="/money-taken" variant="outline" size="sm">{t('manage')}</ButtonLink>}
+    />
+  );
+  // The header tabs switch between Owner Profit and the reserve; this switches the reserve's own two views.
+  const viewSwitch = (
+    <SegmentedControl
+      variant="soft"
+      size="sm"
+      className="max-w-xs"
+      label={t('viewSwitcher')}
+      options={[
+        { value: 'overview', label: t('overview') },
+        { value: 'history', label: t('history', { count: activity.length }) },
+      ]}
+      value={view}
+      onChange={setView}
     />
   );
 
@@ -162,6 +168,7 @@ export default function ReservePage() {
   return (
     <div className="space-y-6">
       {header}
+      {viewSwitch}
       {view === 'overview' ? (
         query.loading ? (
           <>

@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 import { runWithJwtTimingRetry } from '@/lib/supabase/authRetry';
+import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
   Avatar,
@@ -131,6 +132,7 @@ const emptyItemFields = {
 } satisfies Partial<PurchaseForm>;
 
 export default function StockPurchasePage() {
+  const sectionTabs = useSectionTabs('bar');
   const t = useTranslations('stockPurchase');
   const tc = useTranslations('common');
   const { selectedClubId, businessDayStartHour, enabledPaymentMethods, role } = useClub();
@@ -468,6 +470,7 @@ export default function StockPurchasePage() {
     <div className="space-y-5">
       <PageHeader
         title={t('title')}
+        tabs={sectionTabs}
       />
 
       {!canWrite && (

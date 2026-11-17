@@ -6,6 +6,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { History } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import {
@@ -47,6 +48,7 @@ const KNOWN_METHODS = new Set(['cash', 'terminal', 'card', 'playstation', 'usd']
 const KNOWN_SOURCES = new Set(['bar', 'game_club']);
 
 export default function EntryHistoryPage() {
+  const sectionTabs = useSectionTabs('team');
   const t = useTranslations('history');
   const te = useTranslations('expenses.categories');
   const { locale } = useAppLocale();
@@ -131,6 +133,7 @@ export default function EntryHistoryPage() {
     <div className="space-y-6">
       <PageHeader
         title={t('title')}
+        tabs={sectionTabs}
         className="mb-0"
         action={<MonthPicker value={month} max={businessMonth} onChange={setMonth} className="sm:w-56" />}
       />

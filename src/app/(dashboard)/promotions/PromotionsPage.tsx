@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
+import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
   Badge,
@@ -71,6 +72,7 @@ interface PromotionsData {
 const EMPTY_PROMOTIONS: PromotionsData = { promotions: [], products: [] };
 
 export default function PromotionsPage() {
+  const sectionTabs = useSectionTabs('bar');
   const t = useTranslations('promotions');
   const tc = useTranslations('common');
   const { locale } = useAppLocale();
@@ -202,6 +204,7 @@ export default function PromotionsPage() {
     <div className="space-y-5">
       <PageHeader
         title={t('title')}
+        tabs={sectionTabs}
         action={isOwner ? (
           <Button onClick={openAdd} icon={<Plus size={16} aria-hidden="true" />}>{t('addPromotion')}</Button>
         ) : undefined}

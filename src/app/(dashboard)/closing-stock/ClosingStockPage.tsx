@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 import { loadClosingStockDay } from '@/lib/supabase/closingStockQueries';
 import { fetchPromotions } from '@/lib/supabase/promotions';
 import { promotionsForProduct } from '@/lib/promotions';
+import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
   Avatar,
@@ -174,6 +175,7 @@ interface DateSelection {
 }
 
 export default function ClosingStockPage() {
+  const sectionTabs = useSectionTabs('bar');
   const t = useTranslations('closingStock');
   const tRef = useLatestRef(t);
   const tc = useTranslations('common');
@@ -659,6 +661,7 @@ export default function ClosingStockPage() {
 
       <PageHeader
         title={t('title')}
+        tabs={sectionTabs}
         meta={dirty ? <Badge variant="warning" size="sm">{t('unsavedChanges')}</Badge> : undefined}
         action={(
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">

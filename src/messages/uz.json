@@ -33,7 +33,9 @@
     "assistant": "AI yordamchi",
     "showcase": "Ommaviy sahifa",
     "history": "Tahrirlar tarixi",
-    "reserve": "Jamg'arma"
+    "reserve": "Jamg'arma",
+    "bar": "Bar",
+    "sectionTabs": "Bo'lim sahifalari"
   },
   "dashboard": {
     "title": "Boshqaruv paneli",

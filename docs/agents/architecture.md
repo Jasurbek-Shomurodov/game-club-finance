@@ -66,6 +66,17 @@ Navigation visibility and redirects use `src/lib/permissions.ts`. Database RLS
 in migration 033 mirrors those feature gates. A new feature or route may require
 changes in both places.
 
+Screens that belong together share one sidebar item and are joined by tabs
+beside the page title (`src/lib/navigation.ts`, `SectionTabs`): **Bar**
+(closing stock, stock purchase, products, promotions), **Owner Profit** (owner
+profit, reserve) and **Team** (team, edit history). Every tab is still its own
+route with its own page title and feature gate; the sidebar item opens the
+first tab the member can open and is hidden when there is none, and a member
+with a single tab sees no tabs. Add a screen to a section in
+`SECTION_TABS`, pass `useSectionTabs(section)` to its `PageHeader`, and cover
+it in `e2e` (NAV-001). A page with views of its own (the reserve's
+overview/history) switches them in the page body, not in the header.
+
 Sidebar routes use intent-based full prefetching. Do not eagerly prefetch every
 dynamic route on mount: that would execute protected server work for pages the
 user may never visit. During an uncached navigation the current page remains

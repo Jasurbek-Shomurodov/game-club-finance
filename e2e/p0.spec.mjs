@@ -2,7 +2,7 @@
 // against the app's own schema, RLS and RPCs in PGlite (e2e/fake-supabase.mjs). Each test names its catalog cases.
 // Expected figures are worked out from the fixture, never read off the screen.
 import { test, expect } from '@playwright/test';
-import { englishCookie, expectDashboardAmount, expectGameClubExpenses, open, pageText, resetDatabase, restAs, signIn, uzs } from './helpers.mjs';
+import { englishCookie, expectDashboardAmount, expectGameClubExpenses, open, pageText, resetDatabase, restAs, signIn, uzs, openTab } from './helpers.mjs';
 import { clubs, dailyCash, debts, expected, expenses, products, today } from './fixture.mjs';
 import { accounts, pendingAccount, storageStatePath } from './settings.mjs';
 
@@ -318,7 +318,8 @@ test('STOCK-001 STOCK-002 STOCK-003 a purchase and a closing count go through th
   expect(Number(product.current_stock)).toBe(products.water.current_stock + 10);
   expect(Number(product.cost_price)).toBe(products.water.cost_price);
 
-  await open(page, 'Closing Stock');
+  // Purchases and the closing count are two tabs of the Bar section.
+  await openTab(page, 'Closing Stock');
   const closingInput = page.getByRole('textbox', { name: `Closing Stock · ${products.water.name}` });
   await expect(closingInput).toBeVisible();
   // 60 on hand + 10 bought, 65 counted: 5 sold.
@@ -411,7 +412,8 @@ test('AUTH-002 switching club shows only that club\'s figures and no row of the 
   await expectDashboardAmount(page, 'Active Debts', 0);
   await open(page, 'Debts');
   await expect(page.locator('#main-content')).not.toContainText('E2E Alibek');
-  await open(page, 'Products');
+  await open(page, 'Bar', 'Closing Stock');
+  await openTab(page, 'Products');
   await expect(page.locator('#main-content')).toContainText(products.water.name);
   await expect(page.locator('#main-content')).not.toContainText(products.cola.name);
   expect(leaked).toEqual([]);
@@ -788,6 +790,36 @@ test.describe('as an admin', () => {
   });
 });
 
+test('NAV-001 the bar, owner money and team sections each open from one sidebar item and switch by tabs', async ({ page }) => {
+  await page.goto('/dashboard');
+  const nav = page.getByRole('navigation');
+  // The pages inside a section are no longer separate sidebar items.
+  for (const label of ['Closing Stock', 'Stock Purchase', 'Products', 'Promotions', 'Reserve', 'Edit history']) {
+    await expect(nav.getByRole('link', { name: label, exact: true })).toHaveCount(0);
+  }
+  await open(page, 'Bar', 'Closing Stock');
+  await expect(nav.getByRole('link', { name: 'Bar', exact: true })).toHaveAttribute('aria-current', 'page');
+  for (const tab of ['Stock Purchase', 'Products', 'Promotions']) {
+    await openTab(page, tab);
+    await expect(nav.getByRole('link', { name: 'Bar', exact: true })).toHaveAttribute('aria-current', 'page');
+  }
+  await expect(page).toHaveURL(/\/promotions$/);
+
+  await open(page, 'Owner Profit');
+  await openTab(page, 'Reserve');
+  await expect(page).toHaveURL(/\/reserve$/);
+  await expect(nav.getByRole('link', { name: 'Owner Profit', exact: true })).toHaveAttribute('aria-current', 'page');
+  await openTab(page, 'Owner Profit');
+
+  // The Team item carries the count of open access requests, so match it by its start.
+  const team = nav.getByRole('link', { name: /^Team/ });
+  await team.click();
+  await expect(page.getByRole('heading', { name: 'Team', level: 1 })).toBeVisible();
+  await openTab(page, 'Edit history');
+  await expect(page).toHaveURL(/\/history$/);
+  await expect(team).toHaveAttribute('aria-current', 'page');
+});
+
 test.describe('as a viewer', () => {
   test.use({ storageState: storageStatePath('viewer') });
 
@@ -796,7 +828,10 @@ test.describe('as a viewer', () => {
     await page.goto('/stock-purchase');
     await expect(page.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeVisible();
     await expect(page).not.toHaveURL(/stock-purchase/);
-    for (const label of ['Daily Cash', 'Closing Stock', 'Stock Purchase']) await expect(page.getByRole('navigation').getByRole('link', { name: label, exact: true })).toHaveCount(0);
+    await expect(page.getByRole('navigation').getByRole('link', { name: 'Daily Cash', exact: true })).toHaveCount(0);
+    // Of the Bar section a viewer has the catalog only: the item opens it, with no tabs to the write pages.
+    await open(page, 'Bar', 'Products');
+    await expect(page.getByRole('radiogroup', { name: 'Section pages' })).toHaveCount(0);
     await open(page, 'Debts');
     await expect(page.locator('#main-content')).toContainText('E2E Alibek');
     await expect(page.getByRole('button', { name: 'Accept payment' })).toHaveCount(0);
@@ -811,8 +846,8 @@ test.describe('as a viewer', () => {
     const rows = await (await restAs(accounts.owner, 'GET', `expenses?select=id&club_id=eq.${clubs.arcade.id}`)).json();
     // The owner-only health check is refused to a member, not reported as missing migrations.
     expect((await restAs(accounts.viewer, 'POST', 'rpc/get_migration_health', { p_club_id: clubs.arcade.id })).status).toBe(403);
-    // The edit history is owner-only: no nav link, and RLS returns no rows to a member.
-    await expect(page.getByRole('navigation').getByRole('link', { name: 'Edit history', exact: true })).toHaveCount(0);
+    // The edit history is a tab of the owner-only Team section: no nav link, and RLS returns no rows to a member.
+    await expect(page.getByRole('navigation').getByRole('link', { name: 'Team', exact: true })).toHaveCount(0);
     expect(await (await restAs(accounts.viewer, 'GET', `entry_audit_logs?select=id&club_id=eq.${clubs.arcade.id}`)).json()).toEqual([]);
     expect(rows).toHaveLength(expenses.length);
   });

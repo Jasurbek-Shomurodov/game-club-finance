@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
   Avatar,
@@ -69,6 +70,7 @@ const ROLE_BADGE_VARIANT: Record<UserRole, BadgeVariant> = {
 };
 
 export default function TeamPageClient() {
+  const sectionTabs = useSectionTabs('team');
   const t = useTranslations('team');
   const tc = useTranslations('common');
   const { locale } = useAppLocale();
@@ -372,6 +374,7 @@ export default function TeamPageClient() {
     <div>
       <PageHeader
         title={t('title')}
+        tabs={sectionTabs}
         action={(
           <Button onClick={() => setInviteOpen(true)} icon={<UserPlus size={16} aria-hidden="true" />}>
             {t('invite')}

@@ -70,3 +70,9 @@ export async function restAs(account, method, path, body) {
   const token = await accessToken(account);
   return fetch(`${supabaseUrl}/rest/v1/${path}`, { method, headers: { 'content-type': 'application/json', apikey: anonKey, authorization: `Bearer ${token}`, prefer: 'return=representation' }, body: body === undefined ? undefined : JSON.stringify(body) });
 }
+
+/** Switches to another page of the open section with the tabs beside the title, and waits for its heading. */
+export async function openTab(page, tab, heading = tab) {
+  await page.getByRole('radiogroup', { name: 'Section pages' }).getByRole('radio', { name: tab, exact: true }).click();
+  await expect(page.getByRole('heading', { name: heading, level: 1 })).toBeVisible();
+}

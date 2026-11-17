@@ -33,7 +33,9 @@
     "assistant": "AI Assistant",
     "showcase": "Public page",
     "history": "Edit history",
-    "reserve": "Reserve"
+    "reserve": "Reserve",
+    "bar": "Bar",
+    "sectionTabs": "Section pages"
   },
   "dashboard": {
     "title": "Dashboard",
