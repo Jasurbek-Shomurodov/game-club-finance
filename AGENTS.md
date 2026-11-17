@@ -32,6 +32,17 @@ guide relevant to the task; do not load every document or migration by default.
 | Public site domain and admin subdomain | `docs/runbooks/public-domain.md` |
 | Google Maps (Business Profile) posting | `docs/runbooks/google-business-profile.md` |
 
+## Local URLs
+
+The local dev server (`npm run dev`, launch config `web`) runs on port 3000.
+There is no admin subdomain locally:
+
+- Admin app: `http://localhost:3000/dashboard` (other admin pages are paths on
+  the same origin, for example `http://localhost:3000/reserve?view=history`).
+  Open this, not `http://localhost:3000/`, which is the public site.
+- Fetching: send local page and API requests (curl, fetch, browser checks) to
+  `http://localhost:3000/...`, not `admin.pixelgaming.uz`, which is production.
+
 ## Non-negotiable invariants
 
 1. Scope every club-owned read and write to the selected `club_id`. UI state is

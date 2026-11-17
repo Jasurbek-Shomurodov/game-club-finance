@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyOwnerReserve, dollarReserveEntries, reserveActivity, reserveMonthlySeries, reserveBalances, reserveForMonth, planGameClubDepositAll, type ReservePaidExpense } from './ownerReserve';
+import { applyOwnerReserve, dollarReserveEntries, reserveActivity, groupReserveActivityByDay, reserveMonthlySeries, reserveBalances, reserveForMonth, planGameClubDepositAll, type ReservePaidExpense } from './ownerReserve';
 import { sumAvailableMoneyResults, type AvailableMoneyByMonth } from './availableMoney';
 import type { OwnerReserveEntry } from '@/types';
 
@@ -68,6 +68,17 @@ describe('reserveForMonth', () => {
 describe('reserveActivity', () => {
   it('lists the newest first', () => {
     expect(reserveActivity(entries, purchases).map((row) => row.id)).toEqual(['pcs', 'back', 'oct', 'sep', 'bar']);
+  });
+});
+
+describe('groupReserveActivityByDay', () => {
+  it('buckets newest-first activity by day with each day\'s in and out', () => {
+    const days = groupReserveActivityByDay(reserveActivity(entries, purchases));
+    expect(days.map((day) => [day.date, day.rows.map((row) => row.id), day.deposited, day.withdrawn])).toEqual([
+      ['2026-11-05', ['pcs'], 0, 2_500_000],
+      ['2026-10-31', ['back', 'oct'], 2_000_000, 200_000],
+      ['2026-09-30', ['sep', 'bar'], 1_300_000, 0],
+    ]);
   });
 });
 

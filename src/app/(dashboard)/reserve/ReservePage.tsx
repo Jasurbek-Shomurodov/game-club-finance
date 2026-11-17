@@ -252,7 +252,7 @@ export default function ReservePage() {
       ) : query.loading ? (
         <TableSkeleton rows={6} columns={3} />
       ) : (
-        <Card as="section" padding="none" className="overflow-hidden" aria-label={tr('activityLabel')}>
+        <Card as="section" padding="none" className="max-w-4xl overflow-hidden" aria-label={tr('activityLabel')}>
           {activity.length === 0 ? (
             <div className="p-4 sm:p-5"><EmptyState compact title={tr('empty')} description={tr('emptyHint')} /></div>
           ) : (

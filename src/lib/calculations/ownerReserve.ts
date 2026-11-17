@@ -199,6 +199,32 @@ export function reserveActivity(
   ].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
 }
 
+export interface ReserveActivityDay {
+  /** YYYY-MM-DD */
+  date: string;
+  rows: ReserveActivity[];
+  /** Money that went in that day. */
+  deposited: number;
+  /** Money that left that day: returns plus purchases. */
+  withdrawn: number;
+}
+
+/** Activity bucketed by day, keeping the incoming order (newest first), with each day's in and out. */
+export function groupReserveActivityByDay(activity: readonly ReserveActivity[]): ReserveActivityDay[] {
+  const days: ReserveActivityDay[] = [];
+  for (const row of activity) {
+    let day = days[days.length - 1];
+    if (!day || day.date !== row.date) {
+      day = { date: row.date, rows: [], deposited: 0, withdrawn: 0 };
+      days.push(day);
+    }
+    day.rows.push(row);
+    if (row.kind === 'deposit') day.deposited += row.amount;
+    else day.withdrawn += row.amount;
+  }
+  return days;
+}
+
 export interface ReserveMonthRow {
   /** YYYY-MM */
   month: string;
