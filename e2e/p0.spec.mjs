@@ -878,6 +878,28 @@ test('I18N-003 switching language keeps the figures and formats money as 1 000 0
   expect(await pageText(page)).not.toMatch(/\b(dashboard|common|nav)\.[a-zA-Z]+\b/);
 });
 
+test('DASH-010 the month picker shows an earlier month, without the cards about today', async ({ page }) => {
+  await page.goto('/dashboard');
+  const todayCard = page.getByRole('region', { name: 'Today', exact: true });
+  await expect(todayCard).toBeVisible();
+  await expectDashboardAmount(page, 'Game Club Income', expected.gameClubIncome);
+
+  const [year, month] = today.split('-').map(Number);
+  const label = date => new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(date);
+  await page.getByRole('button', { name: label(new Date(Date.UTC(year, month - 1, 1))) }).click();
+  const picker = page.getByRole('dialog', { name: 'Select month' });
+  // Next month cannot be picked; January looks back a year.
+  await expect(picker.getByRole('button', { name: label(new Date(Date.UTC(year, month, 1))) })).toHaveCount(month === 12 ? 0 : 1);
+  if (month < 12) await expect(picker.getByRole('button', { name: label(new Date(Date.UTC(year, month, 1))) })).toBeDisabled();
+  if (month === 1) await picker.getByRole('button', { name: 'Previous year' }).click();
+  await picker.getByRole('button', { name: label(new Date(Date.UTC(year, month - 2, 1))) }).click();
+
+  // The fixture has nothing before this month: the figures are that month's, and today's cards are gone.
+  await expect(todayCard).toHaveCount(0);
+  await expectDashboardAmount(page, 'Game Club Income', 0);
+  await expect(page.getByRole('button', { name: label(new Date(Date.UTC(year, month - 2, 1))) })).toBeVisible();
+});
+
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
 
@@ -890,6 +912,46 @@ test.describe('on a phone', () => {
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), { message: `${path} overflows` }).toBe(0);
     }
     expect(errors).toEqual([]);
+  });
+
+  test('NAV-002 the bottom bar opens the everyday screens, hands the rest to the menu and stays clear of the Save bar', async ({ page }) => {
+    await page.goto('/dashboard');
+    const bar = page.getByRole('navigation', { name: 'Quick navigation' });
+    await expect(bar.getByRole('link')).toHaveText(['Dashboard', 'Daily Cash', 'Bar', 'Reports']);
+    await expect(bar.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page');
+
+    await bar.getByRole('link', { name: 'Daily Cash' }).click();
+    await expect(page.getByRole('heading', { name: 'Daily Cash Entry', level: 1 })).toBeVisible();
+    await expect(bar.getByRole('link', { name: 'Daily Cash' })).toHaveAttribute('aria-current', 'page');
+
+    // The bar steps aside while a field is typed in, and returns afterwards.
+    const field = page.locator('#main-content input:not([type="hidden"]):visible').first();
+    await field.focus();
+    await expect(bar).toHaveCount(0);
+    await field.blur();
+    await expect(bar).toBeVisible();
+
+    await bar.getByRole('link', { name: 'Bar' }).click();
+    await expect(page.getByRole('heading', { name: 'Closing Stock', level: 1 })).toBeVisible();
+    // A section item stays lit on the section's other tabs.
+    await openTab(page, 'Products');
+    await expect(bar.getByRole('link', { name: 'Bar' })).toHaveAttribute('aria-current', 'page');
+
+    // The Save bar of Closing Stock sits on top of the bottom bar, not under it.
+    await openTab(page, 'Closing Stock');
+    const save = page.getByRole('button', { name: 'Save Stock Counts' }).last();
+    await save.scrollIntoViewIfNeeded();
+    const [saveBox, barBox] = [await save.boundingBox(), await bar.boundingBox()];
+    expect(saveBox.y + saveBox.height).toBeLessThanOrEqual(barBox.y + 1);
+    expect(Math.round(barBox.y + barBox.height)).toBe(812);
+
+    // Everything else is in the menu; while it is open there is one set of links.
+    await bar.getByRole('button', { name: 'More' }).click();
+    const menu = page.getByRole('dialog', { name: 'Main navigation' });
+    await expect(bar).toHaveCount(0);
+    await menu.getByRole('link', { name: 'Debts', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Debts', level: 1 })).toBeVisible();
+    await expect(bar.getByRole('link', { name: 'Dashboard' })).not.toHaveAttribute('aria-current', 'page');
   });
 
   test('UI-002 tables are cards on a phone: no cell of a row is off to the side', async ({ page }) => {

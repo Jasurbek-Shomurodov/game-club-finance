@@ -20,6 +20,7 @@ import {
 } from './dashboardMetrics';
 import type { AnalysisLedgers } from './financialAnalysis';
 import { summarizeDebtors, type DashboardDebtor } from './dashboardAttention';
+import { monthRange, previousYearMonth } from '@/lib/utils';
 
 export interface DashboardDebtRow {
   id: string;
@@ -112,8 +113,18 @@ export interface DashboardSnapshotRanges {
  * The ranges one dashboard snapshot covers: the club's current business
  * month, the same elapsed days of the previous month, and last month's
  * closing stock for the inventory comparison.
+ *
+ * With an earlier `month` (YYYY-MM) the snapshot covers that whole month
+ * instead, compared with the whole month before it; its inventory value is
+ * the month's last closing stock, not the live stock. A missing, current or
+ * future month is the current month.
  */
-export function getDashboardSnapshotRanges(businessToday: string): DashboardSnapshotRanges {
+export function getDashboardSnapshotRanges(businessToday: string, month?: string): DashboardSnapshotRanges {
+  if (month && /^\d{4}-\d{2}$/.test(month) && month < businessToday.slice(0, 7)) {
+    const range = monthRange(month);
+    const previousRange = monthRange(previousYearMonth(month));
+    return { period: 'lastMonth', range, previousRange, inventoryComparisonRange: previousRange };
+  }
   const period = 'month' as const;
   const range = getDashboardRange(period, businessToday);
   return {

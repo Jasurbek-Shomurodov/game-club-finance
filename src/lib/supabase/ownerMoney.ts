@@ -142,6 +142,46 @@ export async function fetchOwnerReserve(
   return buildOwnerReserve(clubId, ledgers);
 }
 
+type RowsResult<T> = { data: T[] | null; error: { code?: string; message: string } | null };
+type SnapshotResult = { data: unknown; error: { code?: string; message: string } | null };
+type OwnerMoneyReads = [
+  SnapshotResult,
+  RowsResult<OwnerProfitCarryover>,
+  RowsResult<InvestmentRow>,
+  Awaited<ReturnType<typeof readReserveLedgers>>,
+];
+
+interface OwnerMoneyBundle {
+  snapshot: unknown;
+  carryovers: OwnerProfitCarryover[];
+  investments: InvestmentRow[];
+  exchanges: MoneyExchangeRow[];
+  dollarExpenses: DollarExpense[];
+  reserveEntries: OwnerReserveEntry[];
+  reserveExpenses: ReservePaidExpense[];
+}
+
+/**
+ * The owner money reads as one `get_owner_money_bundle` call (migration 150),
+ * shaped like the separate reads it replaces. Null when the bundle is not
+ * usable, whatever the reason: the caller then makes the separate reads.
+ */
+async function readOwnerMoneyBundle(
+  supabase: SupabaseClient,
+  args: { p_club_id: string; p_through_date: string },
+): Promise<OwnerMoneyReads | null> {
+  const { data, error } = await supabase.rpc('get_owner_money_bundle', args);
+  const bundle = data as Partial<OwnerMoneyBundle> | null;
+  if (error || !bundle || typeof bundle !== 'object' || !bundle.snapshot) return null;
+  const rows = <T,>(value: T[] | undefined): RowsResult<T> => ({ data: value ?? [], error: null });
+  return [
+    { data: bundle.snapshot, error: null },
+    rows(bundle.carryovers),
+    rows(bundle.investments),
+    [bundle.exchanges ?? [], bundle.dollarExpenses ?? [], rows(bundle.reserveEntries), rows(bundle.reserveExpenses)] as OwnerMoneyReads[3],
+  ];
+}
+
 /**
  * Reads every month's owner profit balances, withdrawals and carryovers for one
  * club through `businessToday`. Uses the owner profit snapshot RPC and falls
@@ -157,7 +197,12 @@ export async function fetchOwnerMoney(
   const currentMonth = businessToday.slice(0, 7);
 
   const snapshotArgs = { p_club_id: clubId, p_through_date: businessToday };
-  const [snapshotWithMethods, carryoverRes, investmentRes, reserveLedgers] = await Promise.all([
+  // Migration 150: everything below in one request. Any failure of the bundle
+  // (not deployed yet, or one of its reads refused) falls back to the separate
+  // reads, which decide for themselves what the page can do without.
+  const bundle = await readOwnerMoneyBundle(supabase, snapshotArgs);
+  if (!isCurrent()) return EMPTY_OWNER_MONEY;
+  const [snapshotWithMethods, carryoverRes, investmentRes, reserveLedgers] = bundle ?? await Promise.all([
     // Migration 076: the snapshot's withdrawal rows carry their payment method.
     supabase.rpc('get_owner_profit_snapshot_with_methods', snapshotArgs),
     fetchAllRows<OwnerProfitCarryover>(() => supabase

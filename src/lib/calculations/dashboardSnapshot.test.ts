@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildDashboardDataFromSnapshot, type DashboardSnapshotPayload } from './dashboardSnapshot';
+import { buildDashboardDataFromSnapshot, getDashboardSnapshotRanges, type DashboardSnapshotPayload } from './dashboardSnapshot';
 
 const product = {
   id: 'cola',
@@ -136,5 +136,51 @@ describe('buildDashboardDataFromSnapshot', () => {
     expect(result.totals.gameClubIncome).toBe(250);
     expect(result.ledgers.cashRows.map((row) => row.date)).toEqual(['2026-07-10']);
     expect(result.ledgers.expenseRows.map((row) => row.id)).toEqual(['e2']);
+  });
+});
+
+describe('getDashboardSnapshotRanges', () => {
+  it('covers the current month to date, compared with the same days of last month', () => {
+    expect(getDashboardSnapshotRanges('2026-10-14')).toEqual({
+      period: 'month',
+      range: { from: '2026-10-01', to: '2026-10-31' },
+      previousRange: { from: '2026-09-01', to: '2026-09-14' },
+      inventoryComparisonRange: { from: '2026-09-01', to: '2026-09-30' },
+    });
+  });
+
+  it('covers a whole earlier month, compared with the whole month before it', () => {
+    expect(getDashboardSnapshotRanges('2026-10-14', '2026-03')).toEqual({
+      period: 'lastMonth',
+      range: { from: '2026-03-01', to: '2026-03-31' },
+      previousRange: { from: '2026-02-01', to: '2026-02-28' },
+      inventoryComparisonRange: { from: '2026-02-01', to: '2026-02-28' },
+    });
+    // January looks back across the year.
+    expect(getDashboardSnapshotRanges('2026-10-14', '2026-01').previousRange).toEqual({ from: '2025-12-01', to: '2025-12-31' });
+  });
+
+  it('treats the current month, a future month and nonsense as the current month', () => {
+    const current = getDashboardSnapshotRanges('2026-10-14');
+    for (const month of ['2026-10', '2026-11', '2027-01', '', 'March', '2026-3']) {
+      expect(getDashboardSnapshotRanges('2026-10-14', month)).toEqual(current);
+    }
+  });
+
+  it("values an earlier month's stock at its own last closing count, not the live stock", () => {
+    const ranges = getDashboardSnapshotRanges('2026-10-14', '2026-07');
+    const data = buildDashboardDataFromSnapshot({
+      ...ranges,
+      payload: {
+        cashRows: [], stockRows: [], purchaseRows: [], expenseRows: [], debtRows: [], debtPaymentRows: [],
+        inventoryRows: [
+          { product_id: 'cola', date: '2026-06-30', closing_stock: 10, cost_price: 3_000 },
+          { product_id: 'cola', date: '2026-07-31', closing_stock: 4, cost_price: 3_000 },
+        ],
+        products: [product],
+      },
+    });
+    expect(data.totals.inventoryValue).toBe(12_000);
+    expect(data.inventoryComparisonValue).toBe(30_000);
   });
 });

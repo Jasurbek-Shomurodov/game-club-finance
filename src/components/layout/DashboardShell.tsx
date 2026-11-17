@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl';
 import { Clock3, Gamepad2, LogOut, Menu, ShieldCheck } from 'lucide-react';
 import { useSignOut } from './useSignOut';
 import { Sidebar } from './Sidebar';
+import { BottomNav, useTypingInField } from './BottomNav';
 import { Button, Card, EmptyState, IconButton, InlineAlert, PageSkeleton, ThemeToggle, TopBarSlotProvider, useTopBarSlot } from '@/components/PresentationFoundation';
 import { createClient } from '@/lib/supabase/client';
 import { loadUserMemberships, relatedClub, SELECTED_CLUB_COOKIE } from '@/lib/supabase/memberships';
@@ -428,6 +429,11 @@ export function DashboardShell({
   }
 
   const navigationPending = Boolean(navigatingTo && navigatingTo !== pathname);
+  // Phones get a bottom bar once there is a club to navigate. It steps aside
+  // while a field is being typed in, and pages leave room for it through
+  // --bottom-nav (their own sticky bars sit on top of it).
+  const typingInField = useTypingInField();
+  const bottomNavShown = memberships.length > 0 && !shellError && !clubLoading && !typingInField;
   const pathAllowed = canAccessPath(role, selectedMembership?.featureAccess, pathname);
   const fallbackPath = pathAllowed ? null : defaultPathForAccess(role, selectedMembership?.featureAccess);
 
@@ -462,7 +468,7 @@ export function DashboardShell({
   return (
       <ClubContext.Provider value={clubContextValue}>
       <TopBarSlotProvider>
-      <div className="relative min-h-dvh overflow-x-clip bg-gray-50">
+      <div className={cn('relative min-h-dvh overflow-x-clip bg-gray-50', bottomNavShown && 'max-lg:[--bottom-nav:calc(3.5rem+env(safe-area-inset-bottom))]')}>
         <a
           href="#main-content"
           className="sr-only z-[100] rounded-lg bg-surface px-4 py-2 text-sm font-semibold text-primary-700 shadow-lg focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
@@ -519,7 +525,7 @@ export function DashboardShell({
           </div>
 
           <main id="main-content" ref={mainRef} tabIndex={-1} className="min-w-0 flex-1 overflow-x-clip outline-none">
-            <div className="w-full px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[4.5rem] sm:px-6 lg:px-8 lg:pb-8 lg:pt-2">
+            <div className="w-full px-4 pb-[max(1.5rem,env(safe-area-inset-bottom),calc(var(--bottom-nav,0px)+1rem))] pt-[4.5rem] sm:px-6 lg:px-8 lg:pb-8 lg:pt-2">
               {shellError ? (
                 <InlineAlert
                   variant="danger"
@@ -544,6 +550,17 @@ export function DashboardShell({
             </div>
           </main>
         </div>
+        {/* The open drawer already lists every screen; one set of links at a time. */}
+        {bottomNavShown && !sidebarOpen && (
+          <BottomNav
+            role={role}
+            featureAccess={featureAccess}
+            activePathname={navigatingTo || pathname}
+            menuOpen={sidebarOpen}
+            onOpenMenu={() => setSidebarOpen(true)}
+            onNavigate={handleNavigate}
+          />
+        )}
       </div>
       </TopBarSlotProvider>
       </ClubContext.Provider>

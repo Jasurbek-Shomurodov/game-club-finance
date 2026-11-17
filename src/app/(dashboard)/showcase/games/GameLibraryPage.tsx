@@ -296,7 +296,7 @@ export default function GameLibraryPage() {
       {error && <InlineAlert variant="danger">{error}</InlineAlert>}
 
       {dirty && (
-        <div className="sticky bottom-4 z-20">
+        <div className="sticky bottom-[calc(var(--bottom-nav,0px)+1rem)] z-20">
           <Card padding="sm" className="flex flex-col gap-3 shadow-pop sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-gray-700">{t('libraryPending', { added: diff.toAdd.length, removed: diff.toRemove.length })}</p>
             <div className="flex justify-end gap-2">

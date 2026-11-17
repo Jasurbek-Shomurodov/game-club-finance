@@ -35,7 +35,9 @@
     "history": "Edit history",
     "reserve": "Reserve",
     "bar": "Bar",
-    "sectionTabs": "Section pages"
+    "sectionTabs": "Section pages",
+    "quickNavigation": "Quick navigation",
+    "more": "More"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -71,6 +73,9 @@
     "inventoryValuePeriodDesc": "Stock value at cost price at the end of the selected period",
     "lastMonthInventoryValue": "Last month value",
     "previousMonthInventoryValue": "Previous month value",
+    "month": "Month",
+    "vsPreviousMonth": "vs the month before",
+    "inventoryValueMonthEndDesc": "Stock value at cost price when the month ended.",
     "lowStockAlertsCount": "{count} low stock alerts",
     "vsYesterday": "vs yesterday",
     "vsLastWeek": "vs last week",

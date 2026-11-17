@@ -16,7 +16,7 @@ import type {
 import { isMissingDatabaseFunction } from './errors';
 import { fetchAllRows } from './pagination';
 
-type Ranges = Pick<DashboardSnapshotRanges, 'range' | 'previousRange' | 'inventoryComparisonRange'>;
+type Ranges = Pick<DashboardSnapshotRanges, 'range' | 'previousRange' | 'inventoryComparisonRange'> & Partial<Pick<DashboardSnapshotRanges, 'period'>>;
 
 export interface DashboardSnapshotResult {
   data: DashboardSnapshotPayload | null;
@@ -108,8 +108,10 @@ async function fetchActiveProductsOrdered(supabase: SupabaseClient, clubId: stri
 export async function fetchDashboardSnapshotFromTables(
   supabase: SupabaseClient,
   clubId: string,
-  { range, previousRange, inventoryComparisonRange }: Ranges,
+  { range, previousRange, inventoryComparisonRange, period }: Ranges,
 ): Promise<{ data: DashboardSnapshotPayload | null; error: { message: string } | null }> {
+  // An earlier month's inventory value is its own last closing stock, so its counts are read too.
+  const inventoryTo = period === 'lastMonth' && range.to > inventoryComparisonRange.to ? range.to : inventoryComparisonRange.to;
   const financeFrom = range.from < previousRange.from ? range.from : previousRange.from;
   const financeTo = range.to > previousRange.to ? range.to : previousRange.to;
 
@@ -190,7 +192,7 @@ export async function fetchDashboardSnapshotFromTables(
         .select('product_id,date,closing_stock,cost_price,products(tracks_inventory)')
         .eq('club_id', clubId)
         .gte('date', inventoryComparisonRange.from)
-        .lte('date', inventoryComparisonRange.to)
+        .lte('date', inventoryTo)
         .order('date', { ascending: true })
         .order('product_id', { ascending: true }),
     ),

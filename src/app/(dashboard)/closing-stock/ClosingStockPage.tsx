@@ -1107,7 +1107,7 @@ export default function ClosingStockPage() {
           </Card>
 
           {canSave && rows.length > 0 && (
-            <div className="sticky bottom-0 z-30 -mx-4 border-t border-gray-200 bg-surface/95 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur sm:hidden">
+            <div className="sticky bottom-[var(--bottom-nav,0px)] z-30 -mx-4 border-t border-gray-200 bg-surface/95 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur sm:hidden">
               <Button
                 fullWidth
                 onClick={handleSubmitStockCounts}

@@ -4832,5 +4832,14 @@
         "signature": "public.get_bar_product_sales(uuid,date,date)"
       }
     ]
+  },
+  {
+    "file": "150_owner_money_bundle.sql",
+    "probes": [
+      {
+        "kind": "function",
+        "signature": "public.get_owner_money_bundle(uuid,date)"
+      }
+    ]
   }
 ]

@@ -77,6 +77,15 @@ with a single tab sees no tabs. Add a screen to a section in
 it in `e2e` (NAV-001). A page with views of its own (the reserve's
 overview/history) switches them in the page body, not in the header.
 
+On phones (below `lg`) the shell also shows a bottom bar
+(`components/layout/BottomNav.tsx`): the first four screens of
+`primaryNavItems` the member can open, plus **More**, which opens the menu
+drawer. The bar is not rendered while a field has focus (the keyboard is up)
+or while the drawer is open. The shell publishes its height as the CSS
+variable `--bottom-nav` (0 when the bar is absent or on wider screens); a
+page's own sticky bottom bar must sit at `bottom-[var(--bottom-nav,0px)]`, as
+the Closing Stock Save bar does, never at `bottom-0` (NAV-002).
+
 Reports works the same way with its own tab row (`reports/ReportsTabs.tsx`):
 the closeout, collected and write-off views switch inside `/reports`, and the
 Day and Month tabs open `/daily-report` and `/monthly-report`, which show the
@@ -93,6 +102,11 @@ Above the totals the dashboard shows the current business date's two tasks
 running low and the people who owe the club. All of it is derived from the
 same snapshot (`src/lib/calculations/dashboardAttention.ts`), so it adds no
 request.
+The month picker in the dashboard header loads an earlier month
+(`getDashboardSnapshotRanges(businessToday, month)`): the whole month compared
+with the whole month before it, its inventory valued at the month's last
+closing count. The cards about now (today's tasks, running low, who owes) are
+left out of an earlier month.
 The dashboard keeps only headline totals and the income trend; its chart
 starts only when the intersection observer enables it. Detailed breakdowns
 (sankey money flow, categories, daily and 12-month trends, payment methods,

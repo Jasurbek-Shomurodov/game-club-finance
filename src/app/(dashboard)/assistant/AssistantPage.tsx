@@ -203,7 +203,7 @@ export default function AssistantPage() {
         <div ref={endRef} />
       </div>
 
-      <form onSubmit={onSubmit} className="sticky bottom-0 -mx-1 space-y-2 bg-gray-50 px-1 pb-2 pt-1">
+      <form onSubmit={onSubmit} className="sticky bottom-[var(--bottom-nav,0px)] -mx-1 space-y-2 bg-gray-50 px-1 pb-2 pt-1">
         <div className="flex items-end gap-2">
           <Textarea
             ref={inputRef}

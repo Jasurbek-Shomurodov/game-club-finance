@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accessibleSectionPaths, activeSectionTab, sectionForPath, sectionHome, sectionTabs } from './navigation';
+import { accessibleSectionPaths, activeSectionTab, isPrimaryNavItemActive, primaryNavItems, sectionForPath, sectionHome, sectionTabs } from './navigation';
 
 const hrefs = (tabs: { href: string }[]) => tabs.map((tab) => tab.href);
 
@@ -68,5 +68,55 @@ describe('accessibleSectionPaths', () => {
       '/closing-stock', '/stock-purchase', '/products', '/promotions', '/money-taken', '/reserve', '/team', '/history',
     ]);
     expect(accessibleSectionPaths('viewer', null)).toEqual(['/products', '/money-taken']);
+  });
+});
+
+describe('primaryNavItems', () => {
+  const keys = (items: { key: string }[]) => items.map((item) => item.key);
+
+  it('gives an owner the four everyday screens', () => {
+    const items = primaryNavItems('owner', null);
+    expect(keys(items)).toEqual(['dashboard', 'dailyCash', 'bar', 'reports']);
+    expect(items.map((item) => item.href)).toEqual(['/dashboard', '/daily-cash', '/closing-stock', '/reports']);
+  });
+
+  it('fills the bar with the next screens a member can open', () => {
+    // Only daily cash and debts: no dashboard, bar or reports slot is left empty.
+    expect(keys(primaryNavItems('admin', ['daily_cash', 'debts']))).toEqual(['dailyCash', 'debts', 'salaries']);
+    // Expenses alone still opens Reports.
+    expect(keys(primaryNavItems('admin', ['expenses']))).toEqual(['reports', 'salaries']);
+    // The bar item leads to the first bar tab the member has.
+    expect(primaryNavItems('admin', ['stock_purchase']).find((item) => item.key === 'bar')?.href).toBe('/stock-purchase');
+  });
+
+  it('honours the limit', () => {
+    expect(keys(primaryNavItems('owner', null, 2))).toEqual(['dashboard', 'dailyCash']);
+    expect(keys(primaryNavItems('owner', null, 10))).toEqual(['dashboard', 'dailyCash', 'bar', 'reports', 'moneyTaken', 'debts', 'salaries']);
+  });
+});
+
+describe('isPrimaryNavItemActive', () => {
+  const [dashboard, dailyCash, bar, reports, ownerMoney, debts, salaries] = primaryNavItems('owner', null, 10);
+  const active = (pathname: string) => [dashboard, dailyCash, bar, reports, ownerMoney, debts, salaries]
+    .filter((item) => isPrimaryNavItemActive(item, pathname)).map((item) => item.key);
+
+  it('lights one item per page', () => {
+    expect(active('/dashboard')).toEqual(['dashboard']);
+    expect(active('/daily-cash')).toEqual(['dailyCash']);
+    expect(active('/reports')).toEqual(['reports']);
+    expect(active('/daily-report')).toEqual(['reports']);
+    expect(active('/debts')).toEqual(['debts']);
+    expect(active('/salaries')).toEqual(['salaries']);
+  });
+
+  it('lights a section item on every one of its tabs', () => {
+    for (const path of ['/closing-stock', '/stock-purchase', '/products', '/promotions']) expect(active(path)).toEqual(['bar']);
+    for (const path of ['/money-taken', '/reserve']) expect(active(path)).toEqual(['moneyTaken']);
+  });
+
+  it('lights nothing on screens that live in the menu', () => {
+    expect(active('/financial-analysis')).toEqual([]);
+    expect(active('/team')).toEqual([]);
+    expect(active('/settings')).toEqual([]);
   });
 });

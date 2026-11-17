@@ -22,9 +22,11 @@ import {
   AmountCard,
   ButtonLink,
   ChartSkeleton,
+  Field,
   HelpButton,
   LoadErrorAlert,
   MetricMoney,
+  MonthPicker,
   PageHeader,
   StatTile,
   toneForAmount,
@@ -125,8 +127,13 @@ export default function DashboardPage({
   const { selectedClubId, businessDayStartHour, role, featureAccess } = useClub();
   const { locale } = useAppLocale();
   const businessToday = useBusinessToday(businessDayStartHour);
-  // The dashboard always shows the club's current business month.
-  const snapshotRanges = useMemo(() => getDashboardSnapshotRanges(businessToday), [businessToday]);
+  // The club's current business month unless an earlier one is picked ('' = current,
+  // so the page follows the calendar into a new month by itself).
+  const currentMonth = businessToday.slice(0, 7);
+  const [pickedMonth, setPickedMonth] = useState('');
+  const month = pickedMonth && pickedMonth < currentMonth ? pickedMonth : currentMonth;
+  const isCurrentMonth = month === currentMonth;
+  const snapshotRanges = useMemo(() => getDashboardSnapshotRanges(businessToday, month), [businessToday, month]);
   const { range } = snapshotRanges;
   const initialSnapshotMatches = initialSnapshot?.clubId === selectedClubId
     && initialSnapshot.range.from === range.from
@@ -243,7 +250,7 @@ export default function DashboardPage({
 
   const { totals, previousTotals } = data;
 
-  const incomeComparisonLabel = t('vsLastMonth');
+  const incomeComparisonLabel = isCurrentMonth ? t('vsLastMonth') : t('vsPreviousMonth');
 
   const comparisonFor = (current: number, previous: number, label = incomeComparisonLabel) => {
     const value = percentChange(current, previous);
@@ -273,7 +280,7 @@ export default function DashboardPage({
   const loadSales = useCallback(async (): Promise<ProductSalesRow[]> => (
     fetchBarProductSales(createClient(), selectedClubId, salesPeriodStart(businessToday, RESTOCK_SALES_DAYS), businessToday)
   ), [selectedClubId, businessToday]);
-  const salesQuery = useClubQuery(selectedClubId && canRankRestock ? loadSales : null, NO_SALES);
+  const salesQuery = useClubQuery(selectedClubId && canRankRestock && isCurrentMonth ? loadSales : null, NO_SALES);
   const restock = useMemo(() => buildRestockList(
     data.stockProducts,
     salesQuery.error ? null : buildProductSalesSummary(data.stockProducts, salesQuery.data),
@@ -292,8 +299,9 @@ export default function DashboardPage({
   const periodLabel = `${formatDateShort(range.from, locale)} – ${formatDateShort(range.to, locale)}`;
   const barProfitComparison = comparisonFor(totals.barProfit, previousTotals.barProfit);
   const inventoryHelper = data.hasInventoryComparisonData
-    ? `${t('lastMonthInventoryValue')}: ${formatCurrency(data.inventoryComparisonValue)} ${currency}`
-    : t('lowStockAlertsCount', { count: data.lowStockCount });
+    ? `${isCurrentMonth ? t('lastMonthInventoryValue') : t('previousMonthInventoryValue')}: ${formatCurrency(data.inventoryComparisonValue)} ${currency}`
+    : isCurrentMonth ? t('lowStockAlertsCount', { count: data.lowStockCount }) : '';
+  const inventoryNote = `${isCurrentMonth ? t('inventoryValueDesc') : t('inventoryValueMonthEndDesc')} ${inventoryHelper}`.trim();
 
   // The money flows come from the same snapshot as the cards, so the two always agree.
   const { ledgers } = data;
@@ -309,6 +317,15 @@ export default function DashboardPage({
       <PageHeader
         title={t('title')}
         className="mb-0"
+        action={(
+          <Field label={t('month')} className="sm:w-56">
+            <MonthPicker
+              value={month}
+              max={currentMonth}
+              onChange={(value) => setPickedMonth(value >= currentMonth ? '' : value)}
+            />
+          </Field>
+        )}
       />
 
       {error && (
@@ -320,8 +337,9 @@ export default function DashboardPage({
       {/* After a failed load the figures are unknown, not zero: show only the error. */}
       {!error && (
         <>
-          {/* The shift's two tasks first: they are what the rest of the page is built from. */}
-          <DashboardToday
+          {/* The shift's two tasks first: they are what the rest of the page is built from.
+              They and the lists below describe now, so an earlier month leaves them out. */}
+          {isCurrentMonth && <DashboardToday
             status={todayStatus}
             businessToday={businessToday}
             locale={locale}
@@ -329,7 +347,7 @@ export default function DashboardPage({
             loading={loading}
             cashHref={pathIfAllowed('/daily-cash')}
             stockHref={pathIfAllowed('/closing-stock')}
-          />
+          />}
 
           {/* Headline numbers: the four figures an owner checks first. */}
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -378,7 +396,7 @@ export default function DashboardPage({
             />
           </div>
 
-          <DashboardAttention
+          {isCurrentMonth && <DashboardAttention
             lowStock={restock}
             debtors={data.debtors}
             loading={loading}
@@ -388,7 +406,7 @@ export default function DashboardPage({
               ? { href: stockLinkHref, label: t('runningLowBuy') }
               : productsHref ? { href: productsHref, label: t('runningLowProducts') } : undefined}
             debtsHref={pathIfAllowed('/debts')}
-          />
+          />}
 
           {/* Each business gets its own money flow; tapping a node opens the Sankey behind it. */}
           {loading ? (
@@ -428,7 +446,7 @@ export default function DashboardPage({
                     loading={loading}
                     items={[
                       { label: t('barMoneyLeft'), helper: t('barMoneyLeftDesc'), amount: totals.barIncome, currency, tone: toneForAmount(totals.barIncome) },
-                      { label: t('inventoryValue'), helper: `${t('inventoryValueDesc')} ${inventoryHelper}`, amount: totals.inventoryValue, currency },
+                      { label: t('inventoryValue'), helper: inventoryNote, amount: totals.inventoryValue, currency },
                       { label: t('averageDailyIncome'), helper: t('averageDailyBarIncomeDesc'), amount: averageBarIncome, currency },
                     ]}
                   />

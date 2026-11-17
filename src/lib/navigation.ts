@@ -1,5 +1,6 @@
 import type { UserRole } from '@/types';
-import { canAccessPath } from '@/lib/permissions';
+import { canAccessFeature, canAccessPath, featureForPath, type FeatureKey } from '@/lib/permissions';
+import { DASHBOARD_PATH } from '@/lib/routes';
 
 /** Screens that belong together and share one sidebar item; each stays its own route. */
 export type NavSection = 'bar' | 'ownerMoney' | 'team';
@@ -59,4 +60,55 @@ export function activeSectionTab(tabs: readonly SectionTab[], pathname: string):
 export function accessibleSectionPaths(role: UserRole, explicitAccess: unknown): string[] {
   return (Object.keys(SECTION_TABS) as NavSection[])
     .flatMap((section) => sectionTabs(section, role, explicitAccess).map((tab) => tab.href));
+}
+
+/** A destination of the phone bottom bar. `key` is its label in the `nav` messages. */
+export interface PrimaryNavItem {
+  key: 'dashboard' | 'dailyCash' | 'bar' | 'reports' | 'moneyTaken' | 'debts' | 'salaries';
+  href: string;
+  /** The item stands for a whole section and stays lit on all of its tabs. */
+  section?: NavSection;
+  /** The feature whose pages light the item, for one that is not a section. */
+  feature?: FeatureKey;
+}
+
+/**
+ * The screens a phone keeps one tap away, most used first: the bottom bar
+ * shows the first `limit` this member can open and leaves the rest to the
+ * menu. Someone without the dashboard or the bar gets the next ones instead of
+ * an empty slot.
+ */
+export function primaryNavItems(role: UserRole, explicitAccess: unknown, limit = 4): PrimaryNavItem[] {
+  const can = (feature: FeatureKey) => canAccessFeature(role, explicitAccess, feature);
+  const section = (key: PrimaryNavItem['key'], name: NavSection): PrimaryNavItem[] => {
+    const href = sectionHome(name, role, explicitAccess);
+    return href ? [{ key, href, section: name }] : [];
+  };
+  const items: PrimaryNavItem[] = [
+    ...(can('dashboard') ? [{ key: 'dashboard', href: DASHBOARD_PATH, feature: 'dashboard' } as const] : []),
+    ...(can('daily_cash') ? [{ key: 'dailyCash', href: '/daily-cash', feature: 'daily_cash' } as const] : []),
+    ...section('bar', 'bar'),
+    // Members with only expenses still open Reports, as in the sidebar.
+    ...(can('reports') || can('expenses') ? [{ key: 'reports', href: '/reports', feature: 'reports' } as const] : []),
+    ...section('moneyTaken', 'ownerMoney'),
+    ...(can('debts') ? [{ key: 'debts', href: '/debts', feature: 'debts' } as const] : []),
+    // Everyone sees their own salary.
+    { key: 'salaries', href: '/salaries', feature: 'salaries' },
+  ];
+  return items.slice(0, Math.max(0, limit));
+}
+
+/** Whether `pathname` is one of the pages the bottom bar item stands for. */
+export function isPrimaryNavItemActive(item: PrimaryNavItem, pathname: string): boolean {
+  const section = sectionForPath(pathname);
+  if (item.section) return section === item.section;
+  // A page inside a section lights only that section's item.
+  if (section) return false;
+  const feature = featureForPath(pathname);
+  if (item.key === 'reports') return feature === 'reports' || feature === 'expenses';
+  // Financial Analysis shares the dashboard feature but is its own screen.
+  if (item.key === 'dashboard') {
+    return feature === 'dashboard' && pathname !== '/financial-analysis' && !pathname.startsWith('/financial-analysis/');
+  }
+  return feature === item.feature;
 }

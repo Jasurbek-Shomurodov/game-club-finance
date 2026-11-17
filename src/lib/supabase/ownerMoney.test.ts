@@ -125,3 +125,43 @@ describe('fetchOwnerReserve', () => {
     await expect(fetchOwnerReserve(client({}, () => null), 'club-1', '2026-10-25', () => false)).resolves.toBe(EMPTY_OWNER_RESERVE);
   });
 });
+
+describe('fetchOwnerMoney from the bundle (migration 150)', () => {
+  const bundle = {
+    snapshot: snapshotPayload,
+    carryovers: [{ id: 'c1', from_month: '2026-09-01', to_month: '2026-10-01', source: 'bar', payment_method: null, amount: 100 }],
+    investments: [{ date: '2026-10-03', amount: 2000, payment_source: 'bar' }],
+    exchanges: [],
+    dollarExpenses: [],
+    reserveEntries: [{ id: 'r1', club_id: 'club-1', kind: 'deposit', period_month: '2026-10-01', source: 'bar', payment_method: null, amount: 50 }],
+    reserveExpenses: [],
+  };
+
+  it('builds the same balances from one request and reads no table', async () => {
+    const supabase = client({}, (name) => (name === 'get_owner_money_bundle' ? { data: bundle, error: null } : { data: null, error: { message: 'unexpected' } }));
+
+    const result = await fetchOwnerMoney(supabase, 'club-1', '2026-10-25');
+
+    expect(supabase.rpc).toHaveBeenCalledTimes(1);
+    expect(supabase.rpc).toHaveBeenCalledWith('get_owner_money_bundle', { p_club_id: 'club-1', p_through_date: '2026-10-25' });
+    expect(supabase.from).not.toHaveBeenCalled();
+    expect(result.carryoversSupported).toBe(true);
+    expect(result.methodsSupported).toBe(true);
+    expect(result.reserveSupported).toBe(true);
+    expect(result.investments).toEqual(bundle.investments);
+    expect(result.reserveEntries.map((entry) => entry.id)).toEqual(['r1']);
+    // The bar carryover moves 100 out of September; the reserve holds 50 of October.
+    expect(result.balancesByMonth['2026-09'].bar.available).toBe(200);
+    expect(result.balancesByMonth['2026-10'].bar.available).toBe(200);
+  });
+
+  it('makes the separate reads when the bundle is missing or fails', async () => {
+    for (const error of [{ code: 'PGRST202', message: 'Could not find the function public.get_owner_money_bundle' }, { code: '42501', message: 'permission denied for table expenses' }]) {
+      const supabase = client({}, (name) => (name === 'get_owner_money_bundle' ? { data: null, error } : { data: snapshotPayload, error: null }));
+      const result = await fetchOwnerMoney(supabase, 'club-1', '2026-10-25');
+      expect(supabase.rpc).toHaveBeenCalledWith('get_owner_profit_snapshot_with_methods', { p_club_id: 'club-1', p_through_date: '2026-10-25' });
+      expect(supabase.from).toHaveBeenCalledWith('owner_profit_carryovers');
+      expect(result.balancesByMonth['2026-09'].gameClub.available).toBe(600);
+    }
+  });
+});

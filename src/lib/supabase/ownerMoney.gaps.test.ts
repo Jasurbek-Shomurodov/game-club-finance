@@ -89,8 +89,8 @@ describe('fetchOwnerMoney on the snapshot path', () => {
 
     expect(result.withdrawals.map((row) => [row.id, row.payment_method])).toEqual([['w1', 'terminal'], ['w2', null], ['w3', null]]);
     expect(result.methodsSupported).toBe(true);
-    // One RPC is enough: neither the 050 snapshot nor the method rows are read.
-    expect(rpc).toHaveBeenCalledTimes(1);
+    // After the bundle attempt one RPC is enough: neither the 050 snapshot nor the method rows are read.
+    expect(rpc.mock.calls.map(([name]) => name)).toEqual(['get_owner_money_bundle', 'get_owner_profit_snapshot_with_methods']);
     expect(readOf('withdrawal_methods')).toBeUndefined();
   });
 
@@ -282,9 +282,10 @@ describe('fetchOwnerMoney before migration 076', () => {
 
   it('returns the empty value when superseded while the 050 snapshot loads', async () => {
     const { rpcs, answers } = legacy(payload());
-    const isCurrent = vi.fn().mockReturnValueOnce(true).mockReturnValue(false);
+    // Current after the bundle attempt and after the first reads, superseded after the 050 snapshot.
+    const isCurrent = vi.fn().mockReturnValueOnce(true).mockReturnValueOnce(true).mockReturnValue(false);
     await expect(fetchOwnerMoney(fakeClient(answers, rpcs).supabase, 'club-1', TODAY, isCurrent)).resolves.toBe(EMPTY_OWNER_MONEY);
-    expect(isCurrent).toHaveBeenCalledTimes(2);
+    expect(isCurrent).toHaveBeenCalledTimes(3);
   });
 });
 
