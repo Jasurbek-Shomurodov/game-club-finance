@@ -44,9 +44,11 @@
   },
   "commands": {
     "title": "Qidiruv va buyruqlar",
-    "placeholder": "Sahifa va amallarni qidirish…",
+    "placeholder": "Qidiruv: sahifa, amal, mahsulot, odam…",
     "quickActions": "Tezkor amallar",
     "pages": "Sahifalar",
+    "products": "Mahsulotlar",
+    "debtors": "Qarzdorlar",
     "noResults": "Hech narsa topilmadi. Boshqa so'z bilan urinib ko'ring.",
     "quickAdd": "Tez qo'shish",
     "addExpense": "Xarajat qo'shish",

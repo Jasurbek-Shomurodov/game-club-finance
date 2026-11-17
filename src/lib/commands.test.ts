@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { commandPages, filterCommands, quickActions } from './commands';
-import { consumeQuickAction, requestQuickAction } from './quickActions';
+import { consumePageSearch, consumeQuickAction, requestPageSearch, requestQuickAction } from './quickActions';
 
 const ids = (items: { id: string }[]) => items.map((item) => item.id);
 
@@ -88,5 +88,22 @@ describe('quick action requests', () => {
     expect(consumeQuickAction('debt', 20_000)).toBe(false);
     // The stale request is gone, not waiting for a later visit.
     expect(consumeQuickAction('debt', 20_001)).toBe(false);
+  });
+});
+
+describe('page search requests', () => {
+  it('hand the text to the page they name, once', () => {
+    requestPageSearch('products', 'Cola', 1_000);
+    expect(consumePageSearch('debts', 1_100)).toBeNull();
+    expect(consumePageSearch('products', 1_200)).toBe('Cola');
+    expect(consumePageSearch('products', 1_300)).toBeNull();
+  });
+
+  it('expire, and the latest request wins', () => {
+    requestPageSearch('debts', 'Ali', 1_000);
+    requestPageSearch('debts', 'Bek', 2_000);
+    expect(consumePageSearch('debts', 2_500)).toBe('Bek');
+    requestPageSearch('debts', 'Ali', 1_000);
+    expect(consumePageSearch('debts', 60_000)).toBeNull();
   });
 });

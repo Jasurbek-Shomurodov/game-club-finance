@@ -50,6 +50,7 @@ import { useBusinessToday } from '@/lib/useBusinessToday';
 import { cn } from '@/lib/utils';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { ArrowDown, ArrowUp, Check, Download, ListOrdered, Lock, Package, Pencil, Plus, Trash2 } from 'lucide-react';
+import { usePageSearch } from '@/lib/quickActions';
 import { csvFileName, csvSeparatorForLocale, downloadCsv, toCsv } from '@/lib/csv';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import type { Product } from '@/types';
@@ -99,6 +100,8 @@ export default function ProductsPage() {
   const [salePriceError, setSalePriceError] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [search, setSearch] = useState('');
+  // A product picked in the command palette opens the catalog narrowed to it.
+  usePageSearch('products', setSearch);
   const [stockFilter, setStockFilter] = useState<StockFilter>('all');
   const [reordering, setReordering] = useState(false);
   const [sort, setSort] = useState<ProductSort>('catalog');

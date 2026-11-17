@@ -46,7 +46,7 @@ import { isDayCollectedError } from '@/lib/supabase/dailyCashCollections';
 import { debtPaymentIsRecorded } from '@/lib/supabase/debtPayments';
 import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
-import { useQuickAction } from '@/lib/quickActions';
+import { usePageSearch, useQuickAction } from '@/lib/quickActions';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import { formatCurrency, formatDate, formatNumber, parseCurrencyInput } from '@/lib/formatters';
 import {
@@ -105,6 +105,8 @@ export default function DebtsPage() {
   const [error, setError] = useState('');
   const [showPaid, setShowPaid] = useState(false);
   const [search, setSearch] = useState('');
+  // A person picked in the command palette opens the list narrowed to them.
+  usePageSearch('debts', setSearch);
   const [sort, setSort] = useState<OpenDebtSort>('newest');
   const [paymentsLoading, setPaymentsLoading] = useState(false);
   const [paymentsError, setPaymentsError] = useState('');
@@ -521,7 +523,8 @@ export default function DebtsPage() {
             <MetricCard label={t('paidTotal')} value={<MetricMoney amount={paidTotal} />} />
           </section>
 
-          {debts.length > SEARCH_MIN_DEBTS && (
+          {/* Also while a search is set, so it can always be seen and cleared. */}
+          {(debts.length > SEARCH_MIN_DEBTS || search !== '') && (
             <SearchInput
               className="sm:max-w-sm"
               value={search}

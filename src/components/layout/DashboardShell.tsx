@@ -606,7 +606,7 @@ export function DashboardShell({
         )}
         {shellReady && (
           <>
-            <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} role={role} featureAccess={featureAccess} onNavigate={handleNavigate} />
+            <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} role={role} featureAccess={featureAccess} clubId={selectedClubId} onNavigate={handleNavigate} />
             <QuickAddSheet open={quickAddOpen} onClose={() => setQuickAddOpen(false)} role={role} featureAccess={featureAccess} onNavigate={handleNavigate} />
           </>
         )}

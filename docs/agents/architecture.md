@@ -96,6 +96,10 @@ up with `useQuickAction` (`src/lib/quickActions.ts`): in memory, consumed
 once, expiring after ten seconds, never in the URL. To add an action, add it
 to `quickActions`, give it an icon and `commands.*` copy, and, if it opens a
 form, call `useQuickAction` in the page (CMD-001, NAV-003).
+From two typed letters the palette also lists products and people with an
+open debt by name (`fetchCommandSearchData`, read once per opening and only
+for lists the member can open). Picking one opens the list narrowed to it
+through `requestPageSearch` / `usePageSearch`, the same in-memory handoff.
 
 Lists that an accountant may want elsewhere have an **Export** button
 (Reports closeout, Debts, Products). `src/lib/csv.ts` writes the file in the

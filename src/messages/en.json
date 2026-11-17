@@ -44,9 +44,11 @@
   },
   "commands": {
     "title": "Search and commands",
-    "placeholder": "Search pages and actions…",
+    "placeholder": "Search pages, actions, products, people…",
     "quickActions": "Quick actions",
     "pages": "Pages",
+    "products": "Products",
+    "debtors": "People who owe",
     "noResults": "Nothing matches. Try another word.",
     "quickAdd": "Quick add",
     "addExpense": "Add an expense",

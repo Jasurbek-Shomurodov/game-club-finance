@@ -952,6 +952,21 @@ test('CMD-001 the command palette finds pages and actions from the keyboard', as
   await expect(page.getByRole('dialog', { name: 'Add Debt' })).toBeVisible();
   await page.keyboard.press('Escape');
 
+  // Names too: a person who owes, a product. The list opens narrowed to the one picked.
+  await page.keyboard.press('Control+k');
+  await search.fill('alibek');
+  await expect(palette.getByRole('group', { name: 'People who owe' }).getByRole('option')).toHaveText([/E2E Alibek/]);
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Debts', level: 1 })).toBeVisible();
+  await expect(page.getByRole('searchbox')).toHaveValue('E2E Alibek');
+  await expect(page.locator('#main-content')).not.toContainText('E2E Sardor');
+  await page.keyboard.press('Control+k');
+  await search.fill(products.cola.name);
+  await palette.getByRole('group', { name: 'Products' }).getByRole('option', { name: products.cola.name }).first().click();
+  await expect(page.getByRole('heading', { name: 'Products', level: 1 })).toBeVisible();
+  await expect(page.locator('#main-content')).toContainText(products.cola.name);
+  await expect(page.locator('#main-content')).not.toContainText(products.snickers.name);
+
   await page.keyboard.press('Control+k');
   await search.fill('zzzz');
   await expect(palette.getByRole('status')).toHaveText('Nothing matches. Try another word.');
