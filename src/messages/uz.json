@@ -1466,6 +1466,9 @@
     }
   },
   "common": {
+    "export": "Eksport",
+    "paymentMethod": "To'lov usuli",
+    "recordedBy": "Kim yozgan",
     "uncategorized": "Kategoriyasiz",
     "productCount": "{count} ta mahsulot",
     "pageErrorTitle": "Nimadir noto'g'ri ketdi",

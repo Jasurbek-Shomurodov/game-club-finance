@@ -1466,6 +1466,9 @@
     }
   },
   "common": {
+    "export": "Экспорт",
+    "paymentMethod": "Способ оплаты",
+    "recordedBy": "Кто записал",
     "uncategorized": "Без категории",
     "productCount": "{count, plural, one {# товар} few {# товара} many {# товаров} other {# товара}}",
     "pageErrorTitle": "Что-то пошло не так",

@@ -63,7 +63,8 @@ import {
   type OpenDebtSort,
 } from '@/lib/calculations/debt';
 import { getDebtDateIssue, validateDebtPayment } from '@/lib/validation';
-import { Plus, Users, Wallet } from 'lucide-react';
+import { Download, Plus, Users, Wallet } from 'lucide-react';
+import { csvFileName, csvSeparatorForLocale, downloadCsv, toCsv } from '@/lib/csv';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
 import type { NewDebt, DebtPayment, EntryPaymentMethod } from '@/types';
 
@@ -442,6 +443,21 @@ export default function DebtsPage() {
   const outstandingTotal = unpaid.reduce((sum, debt) => sum + remainingFor(debt), 0);
   const debtorCount = new Set(unpaid.map((debt) => debt.person_name.trim().toLocaleLowerCase())).size;
   const paidTotal = debts.reduce((sum, debt) => sum + (Number(debt.paid_amount) || 0), 0);
+  /** Every debt, open ones first as on the page, with what is still owed. */
+  function exportDebts() {
+    const rows = [...unpaid, ...paid].map((debt) => [
+      debt.person_name,
+      debt.date,
+      Number(debt.amount) || 0,
+      Number(debt.paid_amount) || 0,
+      remainingFor(debt),
+      t(getDebtStatus(debt.amount, debt.paid_amount)),
+      debt.comment ?? '',
+    ]);
+    const headers = [t('personName'), t('date'), t('amount'), t('paidAmount'), t('remaining'), t('status'), t('comment')];
+    downloadCsv(csvFileName('debts', businessToday), toCsv(headers, rows, csvSeparatorForLocale(locale)));
+  }
+
   const activePayments = payDebtId ? payments : [];
   const paymentMethodOptions = enabledPaymentMethods.map((method) => ({
     value: method,
@@ -452,11 +468,20 @@ export default function DebtsPage() {
     <div className="space-y-5">
       <PageHeader
         title={t('title')}
-        action={canManage ? (
-          <Button onClick={() => openAddDebtModal()} icon={<Plus size={16} aria-hidden="true" />}>
-            {t('addDebt')}
-          </Button>
-        ) : undefined}
+        action={(
+          <>
+            {debts.length > 0 && (
+              <Button variant="outline" onClick={exportDebts} icon={<Download size={16} aria-hidden="true" />}>
+                {tc('export')}
+              </Button>
+            )}
+            {canManage && (
+              <Button onClick={() => openAddDebtModal()} icon={<Plus size={16} aria-hidden="true" />}>
+                {t('addDebt')}
+              </Button>
+            )}
+          </>
+        )}
       />
 
       {loading ? (

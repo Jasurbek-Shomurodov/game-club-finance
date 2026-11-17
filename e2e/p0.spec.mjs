@@ -1,6 +1,7 @@
 // P0 cases from .claude/skills/qa/references/cases.md, run in a browser on the fixed fixture (e2e/fixture.mjs)
 // against the app's own schema, RLS and RPCs in PGlite (e2e/fake-supabase.mjs). Each test names its catalog cases.
 // Expected figures are worked out from the fixture, never read off the screen.
+import { readFile } from 'node:fs/promises';
 import { test, expect } from '@playwright/test';
 import { englishCookie, expectDashboardAmount, expectGameClubExpenses, open, pageText, resetDatabase, restAs, signIn, uzs, openTab } from './helpers.mjs';
 import { clubs, dailyCash, debts, expected, expenses, products, today } from './fixture.mjs';
@@ -902,6 +903,23 @@ test('DASH-010 the month picker shows an earlier month, without the cards about 
   await expect(todayCard).toHaveCount(0);
   await expectDashboardAmount(page, 'Game Club Income', 0);
   await expect(page.getByRole('button', { name: label(new Date(Date.UTC(year, month - 2, 1))) })).toBeVisible();
+});
+
+test('EXP-001 Debts export downloads the list as a spreadsheet file', async ({ page }) => {
+  await page.goto('/debts');
+  await expect(page.getByRole('heading', { name: 'Debts', level: 1 })).toBeVisible();
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Export', exact: true }).click(),
+  ]);
+  expect(download.suggestedFilename()).toBe(`debts-${today}.csv`);
+  const lines = (await readFile(await download.path(), 'utf8')).split('\r\n');
+  // A byte-order mark so Excel reads the text, then the header and one row per debt.
+  expect(lines[0]).toBe('\uFEFFPerson Name,Date,Amount,Paid Amount,Remaining,Status,Comment');
+  expect(lines).toHaveLength(debts.length + 1);
+  expect(lines.slice(1).join('\n')).toContain('E2E Alibek');
+  // Amounts are bare numbers a spreadsheet can add up.
+  expect(lines[1].split(',')[2]).toMatch(/^\d+$/);
 });
 
 test('CMD-001 the command palette finds pages and actions from the keyboard', async ({ page }) => {

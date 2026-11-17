@@ -1466,6 +1466,9 @@
     }
   },
   "common": {
+    "export": "Export",
+    "paymentMethod": "Payment method",
+    "recordedBy": "Recorded by",
     "uncategorized": "Uncategorized",
     "productCount": "{count, plural, one {# product} other {# products}}",
     "pageErrorTitle": "Something went wrong",

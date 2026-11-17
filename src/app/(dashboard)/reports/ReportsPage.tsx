@@ -11,6 +11,7 @@ import {
   CircleCheck,
   CircleDollarSign,
   CreditCard,
+  Download,
   Gamepad2,
   Landmark,
   Lock,
@@ -79,6 +80,7 @@ import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { useQuickAction } from '@/lib/quickActions';
+import { csvFileName, csvSeparatorForLocale, downloadCsv, toCsv } from '@/lib/csv';
 import { canAccessFeature } from '@/lib/permissions';
 import { expensePaymentMethods } from '@/lib/paymentMethods';
 import ExpenseRegistrationForm from './ExpenseRegistrationForm';
@@ -854,6 +856,21 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     })),
   ]), [collectionFilter, collectionsByDate, filteredReport.days]);
 
+  /** The entries of the closeout as filtered on screen, one row each; exchanges show what was given. */
+  function exportCloseout() {
+    const rows = closeoutRows.flatMap((row) => (row.kind === 'activity' ? [[
+      row.date,
+      activityTypeLabel(row.activity),
+      categoryLabel(row.activity),
+      row.activity.exchange ? row.activity.exchange.fromAmount : row.activity.amount,
+      row.activity.exchange ? exchangeMethodLabel(row.activity.exchange.from) : paymentLabel(row.activity.paymentMethod),
+      row.activity.comment ?? '',
+      row.activity.createdByName ?? '',
+    ]] : []));
+    const headers = [t('date'), t('type'), t('category'), `${t('amount')} (${tc('currency')})`, tc('paymentMethod'), t('descriptionLabel'), tc('recordedBy')];
+    downloadCsv(csvFileName('reports', range.from, range.to), toCsv(headers, rows, csvSeparatorForLocale(locale)));
+  }
+
   // Owners delete entries and undo ticks; collectors tick dates.
   const showActions = isOwner || canCollect;
   const closeoutColumns: DataTableColumn<CloseoutRow>[] = [
@@ -1134,6 +1151,9 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                 description={t('dailyCloseoutDescription')}
                 action={(
                   <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                    <Button variant="outline" size="sm" onClick={exportCloseout} disabled={loading || closeoutRows.length === 0} icon={<Download size={16} aria-hidden="true" />}>
+                      {tc('export')}
+                    </Button>
                     <SegmentedControl
                       variant="chips"
                       size="sm"

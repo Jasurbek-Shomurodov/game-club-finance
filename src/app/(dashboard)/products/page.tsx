@@ -49,7 +49,9 @@ import { fetchBarProductSales } from '@/lib/supabase/barProductSales';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { cn } from '@/lib/utils';
 import { useClubQuery } from '@/lib/useClubQuery';
-import { ArrowDown, ArrowUp, Check, ListOrdered, Lock, Package, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, Download, ListOrdered, Lock, Package, Pencil, Plus, Trash2 } from 'lucide-react';
+import { csvFileName, csvSeparatorForLocale, downloadCsv, toCsv } from '@/lib/csv';
+import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import type { Product } from '@/types';
 
 type ProductForm = ProductWriteForm;
@@ -83,6 +85,7 @@ export default function ProductsPage() {
   const tc = useTranslations('common');
   const { selectedClubId, role: currentRole, businessDayStartHour } = useClub();
   const businessToday = useBusinessToday(businessDayStartHour);
+  const { locale } = useAppLocale();
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
   const [modalOpen, setModalOpen] = useState(false);
@@ -168,6 +171,25 @@ export default function ProductsPage() {
     return matching;
   }, [products, selectedCategory, search, stockFilter, reordering, sort, sales]);
   // With every category in view, the catalog reads as one section per category.
+  /** The catalog as filtered and sorted on screen, with the 30-day sales beside each product. */
+  function exportProducts() {
+    const rows = filteredProducts.map((product) => {
+      const insight = sales.byProduct.get(product.id);
+      return [
+        product.name,
+        product.category ?? '',
+        product.sale_price,
+        product.cost_price,
+        product.tracks_inventory === false ? '' : product.current_stock,
+        insight?.sold ?? 0,
+        insight?.income ?? 0,
+        product.is_active ? t('active') : t('inactive'),
+      ];
+    });
+    const headers = [t('name'), t('category'), t('salePrice'), t('costPrice'), t('currentStock'), t('soldColumn'), t('salesIncome'), t('active')];
+    downloadCsv(csvFileName('products', businessToday), toCsv(headers, rows, csvSeparatorForLocale(locale)));
+  }
+
   const showSections = !reordering && sort === 'catalog' && !selectedCategory && categoryOptions.length > 0;
   const productSections = useMemo(
     () => (showSections ? groupByCategory(filteredProducts, (product) => product.category) : undefined),
@@ -438,7 +460,12 @@ export default function ProductsPage() {
               <SectionHeading
                 title={t('catalog')}
                 description={<span role="status">{t('resultCount', { count: filteredProducts.length, total: products.length })}</span>}
-                action={canManageInventory ? (
+                action={(
+                  <div className="flex flex-wrap items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={exportProducts} disabled={filteredProducts.length === 0} icon={<Download size={16} aria-hidden="true" />}>
+                    {tc('export')}
+                  </Button>
+                  {canManageInventory && (
                   <Button
                     variant={reordering ? 'primary' : 'outline'}
                     size="sm"
@@ -449,7 +476,9 @@ export default function ProductsPage() {
                   >
                     {t(reordering ? 'finishReordering' : 'reorder')}
                   </Button>
-                ) : undefined}
+                  )}
+                  </div>
+                )}
               />
               {reordering ? (
                 <InlineAlert variant="info">{t('reorderHelp')}</InlineAlert>

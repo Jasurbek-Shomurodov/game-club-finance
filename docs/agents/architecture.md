@@ -97,6 +97,14 @@ once, expiring after ten seconds, never in the URL. To add an action, add it
 to `quickActions`, give it an icon and `commands.*` copy, and, if it opens a
 form, call `useQuickAction` in the page (CMD-001, NAV-003).
 
+Lists that an accountant may want elsewhere have an **Export** button
+(Reports closeout, Debts, Products). `src/lib/csv.ts` writes the file in the
+browser from the rows already on screen, as filtered: no request, no server
+route. Amounts are bare numbers; the separator follows the app language
+(";" for Russian and Uzbek, where Excel expects it); text typed by people is
+escaped so it can never run as a spreadsheet formula. Use `toCsv` and
+`downloadCsv` for any further export rather than a new dependency (EXP-001).
+
 Reports works the same way with its own tab row (`reports/ReportsTabs.tsx`):
 the closeout, collected and write-off views switch inside `/reports`, and the
 Day and Month tabs open `/daily-report` and `/monthly-report`, which show the
