@@ -72,6 +72,11 @@ user may never visit. During an uncached navigation the current page remains
 visible with a slim progress indicator instead of a full-page loading skeleton.
 The dashboard (`/dashboard`) does not prefetch because its server response embeds live
 financial totals that can change while the user edits another screen.
+Above the totals the dashboard shows the current business date's two tasks
+(daily cash, closing stock) with skipped days, and below them the products
+running low and the people who owe the club. All of it is derived from the
+same snapshot (`src/lib/calculations/dashboardAttention.ts`), so it adds no
+request.
 The dashboard keeps only headline totals and the income trend; its chart
 starts only when the intersection observer enables it. Detailed breakdowns
 (sankey money flow, categories, daily and 12-month trends, payment methods,

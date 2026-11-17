@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { EntryAuditLog } from '@/types';
 import { isMissingDatabaseTable } from './errors';
 import { fetchAllRows } from './pagination';
+import { fetchProfileNames } from './profileNames';
 
 export interface EntryHistory {
   logs: EntryAuditLog[];
@@ -46,9 +47,10 @@ export async function fetchEntryHistory(
     .filter((id): id is string => typeof id === 'string'))];
 
   const [profiles, products] = await Promise.all([
-    userIds.length
-      ? supabase.from('profiles').select('id, full_name').in('id', userIds)
-      : Promise.resolve({ data: [], error: null }),
+    fetchProfileNames(supabase, userIds).then(
+      (data) => ({ data, error: null }),
+      (error: { message: string }) => ({ data: new Map<string, string | null>(), error }),
+    ),
     productIds.length
       ? supabase.from('products').select('id, name').eq('club_id', clubId).in('id', productIds)
       : Promise.resolve({ data: [], error: null }),
@@ -58,7 +60,7 @@ export async function fetchEntryHistory(
 
   return {
     logs,
-    names: new Map((profiles.data ?? []).map((row: { id: string; full_name: string }) => [row.id, row.full_name])),
+    names: new Map(Array.from(profiles.data).map(([id, name]) => [id, name ?? ''])),
     products: new Map((products.data ?? []).map((row: { id: string; name: string }) => [row.id, row.name])),
     missing: false,
   };

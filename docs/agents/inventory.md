@@ -200,3 +200,13 @@ closing, leaves live stock alone. This writes `products` only, never saved count
 Test current-day purchases, purchase deletion, historical closings, forward
 stock-chain edits, made-to-order sales, soft deletion, adjustments, weighted
 cost, and the bar-money cutoff. See `docs/agents/testing.md` for commands.
+
+## Sales pace and stock runway
+
+The Products page reads each product's last 30 days of bar sales
+(`get_bar_product_sales`, migration 149; before it the daily counts are summed
+in the browser) and `src/lib/calculations/productSales.ts` turns them into
+units sold, margin and "days left". The pace divides by the days the club
+actually saved a closing count, not by 30: sales exist only on counted days.
+Made-to-order and unsold products have no runway. A failed sales read leaves
+the catalog usable without these columns.

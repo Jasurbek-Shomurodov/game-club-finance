@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isMissingDatabaseTable } from './errors';
 import { fetchAllRows } from './pagination';
+import { fetchProfileNames } from './profileNames';
 
 /** A business date a collector ticked as collected (096). */
 export interface DailyCashCollection {
@@ -32,12 +33,8 @@ export async function fetchDailyCashCollections(
     throw result.error;
   }
   const rows = result.data ?? [];
-  const ids = Array.from(new Set(rows.map((row) => row.collected_by)));
-  if (ids.length === 0) return [];
-  const profiles = await supabase.from('profiles').select('id,full_name').in('id', ids);
-  if (profiles.error) throw profiles.error;
-  const names = new Map(((profiles.data ?? []) as Array<{ id: string; full_name: string }>)
-    .map((profile) => [profile.id, profile.full_name]));
+  if (rows.length === 0) return [];
+  const names = await fetchProfileNames(supabase, rows.map((row) => row.collected_by));
   return rows.map((row) => ({ ...row, collector_name: names.get(row.collected_by) ?? null }));
 }
 

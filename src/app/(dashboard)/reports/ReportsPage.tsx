@@ -86,6 +86,7 @@ import CollectedTab from './CollectedTab';
 import WriteOffsTab from './WriteOffsTab';
 import { fetchDollarExpenses, fetchMoneyExchanges, withDollarAmounts } from '@/lib/supabase/moneyExchanges';
 import { requestCollectionChange } from '@/lib/collectionsApi';
+import { fetchProfileNames } from '@/lib/supabase/profileNames';
 import { fetchDailyCashCollections, type DailyCashCollection } from '@/lib/supabase/dailyCashCollections';
 import type { ExchangeMethod, MoneyExchangeRow } from '@/lib/calculations/moneyExchanges';
 import { EXPENSE_CATEGORIES, MANUAL_EXPENSE_CATEGORIES, isKnownExpenseCategory } from '@/lib/expenseCategories';
@@ -106,11 +107,6 @@ type ReportRange = { from: string; to: string };
 
 function sameRange(a: ReportRange, b: ReportRange): boolean {
   return a.from === b.from && a.to === b.to;
-}
-
-interface ReportProfileRow {
-  id: string;
-  full_name: string;
 }
 
 interface MoneyReportSnapshotPayload {
@@ -433,15 +429,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     ].filter((creatorId): creatorId is string => Boolean(creatorId))));
     // A superseded load skips the creator lookup.
     if (!isCurrent()) return emptyReportRows;
-    const profileResult = creatorIds.length > 0
-      ? await supabase.from('profiles').select('id,full_name').in('id', creatorIds)
-      : { data: [] as ReportProfileRow[], error: null };
-
-    if (profileResult.error) throw profileResult.error;
-
-    const creatorNames = new Map(
-      ((profileResult.data ?? []) as ReportProfileRow[]).map((profile) => [profile.id, profile.full_name]),
-    );
+    const creatorNames = await fetchProfileNames(supabase, creatorIds);
 
     return {
       cash: cashRows.map((row) => ({
@@ -485,11 +473,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
 
     /** The snapshot names its own rows' creators; exchanges need the same lookup. */
     async function withExchangeCreators(rows: MoneyExchangeRow[]): Promise<MoneyExchangeRow[]> {
-      const ids = Array.from(new Set(rows.map((row) => row.created_by).filter((id): id is string => Boolean(id))));
-      if (ids.length === 0) return rows;
-      const { data, error } = await supabase.from('profiles').select('id,full_name').in('id', ids);
-      if (error) throw error;
-      const names = new Map(((data ?? []) as ReportProfileRow[]).map((profile) => [profile.id, profile.full_name]));
+      const names = await fetchProfileNames(supabase, rows.map((row) => row.created_by));
       return rows.map((row) => ({ ...row, creator_name: row.created_by ? names.get(row.created_by) ?? null : null }));
     }
   }, [hasReportsAccess, range.from, range.to, selectedClubId]);

@@ -360,11 +360,12 @@ export default function StockPurchasePage() {
   }
 
   async function reloadAfterMutation(nextPage: number) {
-    await loadProducts({ silent: true });
+    // Independent reads: run them together instead of one after the other.
     if (nextPage === purchasePage) {
-      await loadPurchases();
+      await Promise.all([loadProducts({ silent: true }), loadPurchases()]);
     } else {
       setPurchasePage(nextPage);
+      await loadProducts({ silent: true });
     }
   }
 

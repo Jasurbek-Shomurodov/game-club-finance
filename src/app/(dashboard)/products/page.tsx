@@ -24,6 +24,7 @@ import {
   SearchInput,
   SectionHeading,
   SegmentedControl,
+  StatTile,
   TableSkeleton,
   useConfirm,
   useToast,
@@ -42,6 +43,9 @@ import {
 } from '@/lib/productWrites';
 import { LOW_STOCK_DEFAULT, resolveLowStockThreshold, stockLevel } from '@/lib/calculations/stock';
 import { groupByCategory } from '@/lib/productSections';
+import { buildProductSalesSummary, salesPeriodStart, type ProductSalesRow } from '@/lib/calculations/productSales';
+import { fetchBarProductSales } from '@/lib/supabase/barProductSales';
+import { useBusinessToday } from '@/lib/useBusinessToday';
 import { cn } from '@/lib/utils';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { ArrowDown, ArrowUp, Check, ListOrdered, Lock, Package, Pencil, Plus, Trash2 } from 'lucide-react';
@@ -49,6 +53,11 @@ import type { Product } from '@/types';
 
 type ProductForm = ProductWriteForm;
 type StockFilter = 'all' | 'low' | 'out' | 'inactive';
+type ProductSort = 'catalog' | 'bestSellers' | 'runsOut';
+
+/** Sales pace and stock runway look at this many days ending today. */
+const SALES_PERIOD_DAYS = 30;
+const NO_SALES: ProductSalesRow[] = [];
 
 const NO_PRODUCTS: Product[] = [];
 
@@ -70,7 +79,8 @@ function productCategory(value: string | null | undefined): string {
 export default function ProductsPage() {
   const t = useTranslations('products');
   const tc = useTranslations('common');
-  const { selectedClubId, role: currentRole } = useClub();
+  const { selectedClubId, role: currentRole, businessDayStartHour } = useClub();
+  const businessToday = useBusinessToday(businessDayStartHour);
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
   const [modalOpen, setModalOpen] = useState(false);
@@ -86,6 +96,7 @@ export default function ProductsPage() {
   const [search, setSearch] = useState('');
   const [stockFilter, setStockFilter] = useState<StockFilter>('all');
   const [reordering, setReordering] = useState(false);
+  const [sort, setSort] = useState<ProductSort>('catalog');
   const [movingId, setMovingId] = useState<string | null>(null);
 
   const isOwner = currentRole === 'owner';
@@ -99,6 +110,23 @@ export default function ProductsPage() {
   }, [selectedClubId]);
   const productsQuery = useClubQuery(fetchProducts, NO_PRODUCTS);
   const { data: products, setData: setProducts, loading, error: loadError, reload: loadProducts } = productsQuery;
+  // Sales only decorate the catalog: a failed read leaves the columns empty.
+  const fetchSales = useCallback(async (): Promise<ProductSalesRow[]> => {
+    if (!selectedClubId) return NO_SALES;
+    return fetchBarProductSales(createClient(), selectedClubId, salesPeriodStart(businessToday, SALES_PERIOD_DAYS), businessToday);
+  }, [selectedClubId, businessToday]);
+  const salesQuery = useClubQuery(fetchSales, NO_SALES);
+  const sales = useMemo(() => buildProductSalesSummary(products, salesQuery.data), [products, salesQuery.data]);
+  const hasSales = sales.countedDays > 0;
+  const bestSeller = useMemo(() => {
+    let best: Product | null = null;
+    let bestIncome = 0;
+    for (const product of products) {
+      const income = sales.byProduct.get(product.id)?.income ?? 0;
+      if (income > bestIncome) { best = product; bestIncome = income; }
+    }
+    return best;
+  }, [products, sales]);
   const productIndexById = useMemo(() => new Map(products.map((product, index) => [product.id, index])), [products]);
 
   // An open editor belongs to the previous club's product; never save it
@@ -117,7 +145,7 @@ export default function ProductsPage() {
   const filteredProducts = useMemo(() => {
     if (reordering) return products;
     const query = search.trim().toLocaleLowerCase();
-    return products.filter((product) => {
+    const matching = products.filter((product) => {
       if (selectedCategory && productCategory(product.category) !== selectedCategory) return false;
       if (query && !`${product.name} ${product.category ?? ''}`.toLocaleLowerCase().includes(query)) return false;
       if (stockFilter === 'inactive') return !product.is_active;
@@ -126,9 +154,19 @@ export default function ProductsPage() {
       const level = stockLevel(product.current_stock, product.low_stock_threshold);
       return stockFilter === 'out' ? level === 'out' : level === 'low';
     });
-  }, [products, selectedCategory, search, stockFilter, reordering]);
+    if (sort === 'bestSellers') {
+      const income = (product: Product) => sales.byProduct.get(product.id)?.income ?? 0;
+      return [...matching].sort((a, b) => income(b) - income(a));
+    }
+    if (sort === 'runsOut') {
+      // Products with no runway (unsold or made to order) go last.
+      const days = (product: Product) => sales.byProduct.get(product.id)?.daysLeft ?? Number.POSITIVE_INFINITY;
+      return [...matching].sort((a, b) => days(a) - days(b));
+    }
+    return matching;
+  }, [products, selectedCategory, search, stockFilter, reordering, sort, sales]);
   // With every category in view, the catalog reads as one section per category.
-  const showSections = !reordering && !selectedCategory && categoryOptions.length > 0;
+  const showSections = !reordering && sort === 'catalog' && !selectedCategory && categoryOptions.length > 0;
   const productSections = useMemo(
     () => (showSections ? groupByCategory(filteredProducts, (product) => product.category) : undefined),
     [showSections, filteredProducts],
@@ -324,6 +362,11 @@ export default function ProductsPage() {
     { value: 'out', label: t('outOfStock') },
     { value: 'inactive', label: tc('inactive') },
   ];
+  const sortOptions: Array<{ value: ProductSort; label: string }> = [
+    { value: 'catalog', label: t('sortCatalog') },
+    { value: 'bestSellers', label: t('sortBestSellers') },
+    { value: 'runsOut', label: t('sortRunsOut') },
+  ];
   const categoryChipOptions: SegmentedOption<string>[] = [
     { value: '', label: t('allCategories') },
     ...categoryOptions.map((category) => ({ value: category, label: category })),
@@ -365,6 +408,28 @@ export default function ProductsPage() {
               {t('loadFailed')}
             </LoadErrorAlert>
           )}
+          {hasSales && (
+            <Card as="section" aria-label={t('salesTitle', { days: SALES_PERIOD_DAYS })}>
+              <SectionHeading
+                size="sm"
+                title={t('salesTitle', { days: SALES_PERIOD_DAYS })}
+                description={t('salesDaysCounted', { count: sales.countedDays })}
+              />
+              <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+                <StatTile variant="soft" size="sm" label={t('salesUnits')} value={formatNumber(sales.sold)} />
+                <StatTile variant="soft" size="sm" label={t('salesIncome')} value={formatCurrency(sales.income)} unit={tc('currency')} />
+                <StatTile
+                  variant="soft"
+                  size="sm"
+                  label={sales.marginPercent === null ? t('salesProfit') : `${t('salesProfit')} · ${t('salesMargin', { percent: formatNumber(sales.marginPercent) })}`}
+                  tone={sales.profit < 0 ? 'danger' : 'success'}
+                  value={formatCurrency(sales.profit)}
+                  unit={tc('currency')}
+                />
+                <StatTile variant="soft" size="sm" label={t('salesTop')} value={bestSeller?.name ?? '—'} />
+              </div>
+            </Card>
+          )}
           <Card padding="none" className="overflow-hidden">
             <CardHeader className="space-y-4">
               <SectionHeading
@@ -401,6 +466,9 @@ export default function ProductsPage() {
                   {categoryOptions.length > 0 && (
                     <SegmentedControl variant="chips" label={t('category')} options={categoryChipOptions} value={selectedCategory} onChange={setSelectedCategory} />
                   )}
+                  {hasSales && (
+                    <SegmentedControl variant="chips" label={t('sortLabel')} options={sortOptions} value={sort} onChange={setSort} />
+                  )}
                 </>
               )}
             </CardHeader>
@@ -424,7 +492,7 @@ export default function ProductsPage() {
               stickyHeader
               onRowClick={canManageInventory && !reordering ? openEdit : undefined}
               rowClassName={(r) => (r.is_deleted ? 'cursor-default' : undefined)}
-              minWidth={reordering ? 760 : 640}
+              minWidth={reordering ? 760 : hasSales ? 760 : 640}
               emptyState={(
                 <EmptyState
                   compact
@@ -497,6 +565,22 @@ export default function ProductsPage() {
                   cellClassName: 'text-gray-600',
                   render: (r) => formatUnitCurrency(r.cost_price),
                 },
+                ...(hasSales && !reordering ? [{
+                  key: 'sold',
+                  header: t('soldColumn', { days: SALES_PERIOD_DAYS }),
+                  align: 'right' as const,
+                  className: 'whitespace-nowrap',
+                  render: (r: Product) => {
+                    const insight = sales.byProduct.get(r.id);
+                    if (!insight || insight.sold === 0) return <span className="text-gray-400">—</span>;
+                    return (
+                      <span className="inline-flex flex-col sm:items-end">
+                        <span className="font-medium text-gray-900">{t('stockUnits', { count: formatNumber(insight.sold) })}</span>
+                        <span className="text-xs text-gray-500">{formatCurrency(insight.income)} {tc('currency')}</span>
+                      </span>
+                    );
+                  },
+                }] : []),
                 {
                   key: 'current_stock',
                   header: t('currentStock'),
@@ -506,9 +590,22 @@ export default function ProductsPage() {
                     if (r.tracks_inventory === false) return <Badge variant="outline">{t('madeToOrder')}</Badge>;
                     const quantity = t('stockUnits', { count: formatNumber(r.current_stock) });
                     const level = stockLevel(r.current_stock, r.low_stock_threshold);
-                    if (level === 'out') return <Badge variant="danger">{t('outOfStock')} · {quantity}</Badge>;
-                    if (level === 'low') return <Badge variant="warning">{t('lowStock')} · {quantity}</Badge>;
-                    return <Badge variant="neutral">{quantity}</Badge>;
+                    const badge = level === 'out'
+                      ? <Badge variant="danger">{t('outOfStock')} · {quantity}</Badge>
+                      : level === 'low'
+                        ? <Badge variant="warning">{t('lowStock')} · {quantity}</Badge>
+                        : <Badge variant="neutral">{quantity}</Badge>;
+                    // How long the stock on hand lasts at the recent sales pace.
+                    const daysLeft = r.is_active && level !== 'out' ? sales.byProduct.get(r.id)?.daysLeft ?? null : null;
+                    if (daysLeft === null || reordering) return badge;
+                    return (
+                      <span className="inline-flex flex-col gap-1 sm:items-end">
+                        {badge}
+                        <span className={cn('text-xs', daysLeft <= 3 ? 'font-medium text-warning-700' : 'text-gray-500')}>
+                          {t('daysLeft', { count: formatNumber(daysLeft) })}
+                        </span>
+                      </span>
+                    );
                   },
                 },
                 {

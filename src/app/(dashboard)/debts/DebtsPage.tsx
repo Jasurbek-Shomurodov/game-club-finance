@@ -30,6 +30,7 @@ import {
   SegmentedControl,
   Skeleton,
   PresenceItem,
+  SearchInput,
   useEntryNoteGuard,
   useListPresence,
   useToast,
@@ -74,6 +75,8 @@ function remainingFor(debt: Pick<NewDebt, 'amount' | 'paid_amount'>): number {
   return calculateRemainingDebt(Number(debt.amount) || 0, Number(debt.paid_amount) || 0);
 }
 
+/** A short list needs no search box. */
+const SEARCH_MIN_DEBTS = 6;
 const debtKey = (debt: { id: string }) => debt.id;
 
 export default function DebtsPage() {
@@ -92,6 +95,7 @@ export default function DebtsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [showPaid, setShowPaid] = useState(false);
+  const [search, setSearch] = useState('');
   const [paymentsLoading, setPaymentsLoading] = useState(false);
   const [paymentsError, setPaymentsError] = useState('');
   // Club the open modal belongs to; a submit is refused if the selected club changed meanwhile.
@@ -400,8 +404,19 @@ export default function DebtsPage() {
   const unpaid = useMemo(() => debts.filter((d) => d.status !== 'paid'), [debts]);
   const paid = useMemo(() => debts.filter((d) => d.status === 'paid'), [debts]);
   // A debt paid off folds out of Outstanding and grows into Paid.
-  const unpaidShown = useListPresence(unpaid, debtKey);
-  const paidShown = useListPresence(paid, debtKey);
+  // The search narrows both lists; the totals above always describe every debt.
+  const searchQuery = search.trim().toLocaleLowerCase();
+  const unpaidMatching = useMemo(
+    () => (searchQuery ? unpaid.filter((debt) => debt.person_name.toLocaleLowerCase().includes(searchQuery)) : unpaid),
+    [unpaid, searchQuery],
+  );
+  const paidMatching = useMemo(
+    () => (searchQuery ? paid.filter((debt) => debt.person_name.toLocaleLowerCase().includes(searchQuery)) : paid),
+    [paid, searchQuery],
+  );
+  const matchingRemaining = unpaidMatching.reduce((sum, debt) => sum + remainingFor(debt), 0);
+  const unpaidShown = useListPresence(unpaidMatching, debtKey);
+  const paidShown = useListPresence(paidMatching, debtKey);
   const outstandingTotal = unpaid.reduce((sum, debt) => sum + remainingFor(debt), 0);
   const debtorCount = new Set(unpaid.map((debt) => debt.person_name.trim().toLocaleLowerCase())).size;
   const paidTotal = debts.reduce((sum, debt) => sum + (Number(debt.paid_amount) || 0), 0);
@@ -450,15 +465,30 @@ export default function DebtsPage() {
             <MetricCard label={t('paidTotal')} value={<MetricMoney amount={paidTotal} />} />
           </section>
 
+          {debts.length > SEARCH_MIN_DEBTS && (
+            <SearchInput
+              className="sm:max-w-sm"
+              value={search}
+              onChange={setSearch}
+              placeholder={t('search')}
+            />
+          )}
+
           {unpaid.length > 0 && (
             <Card as="section" padding="none" className="overflow-hidden">
               <CardHeader>
                 <SectionHeading
                   size="sm"
                   title={t('outstanding')}
-                  badge={<Badge variant="neutral" size="sm">{unpaid.length}</Badge>}
+                  badge={<Badge variant="neutral" size="sm">{searchQuery ? `${unpaidMatching.length} / ${unpaid.length}` : unpaid.length}</Badge>}
+                  description={searchQuery && unpaidMatching.length > 0 ? (
+                    <span role="status">{t('searchRemaining')}: <Money amount={matchingRemaining} className="font-semibold text-gray-900" /></span>
+                  ) : undefined}
                 />
               </CardHeader>
+              {searchQuery && unpaidMatching.length === 0 && (
+                <p role="status" className="px-4 py-4 text-sm text-gray-500 sm:px-5">{t('searchNoMatches')}</p>
+              )}
               <ul className="divide-y divide-gray-100">
                 {unpaidShown.map(({ key, item: debt, presence }) => {
                   const remaining = remainingFor(debt);
@@ -517,7 +547,7 @@ export default function DebtsPage() {
                 <SectionHeading
                   size="sm"
                   title={t('paid')}
-                  badge={<Badge variant="neutral" size="sm">{paid.length}</Badge>}
+                  badge={<Badge variant="neutral" size="sm">{searchQuery ? `${paidMatching.length} / ${paid.length}` : paid.length}</Badge>}
                   action={(
                     <Button variant="ghost" size="sm" aria-expanded={showPaid} onClick={() => setShowPaid((value) => !value)}>
                       {showPaid ? t('hidePaid') : t('showPaid')}

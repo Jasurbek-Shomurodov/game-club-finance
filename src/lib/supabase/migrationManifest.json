@@ -918,10 +918,6 @@
         "kind": "column",
         "table": "public.products",
         "column": "sort_order"
-      },
-      {
-        "kind": "relation",
-        "name": "public.idx_products_sort_order"
       }
     ]
   },
@@ -941,10 +937,6 @@
         "kind": "column",
         "table": "public.products",
         "column": "deleted_at"
-      },
-      {
-        "kind": "relation",
-        "name": "public.idx_products_not_deleted"
       }
     ]
   },
@@ -2050,10 +2042,6 @@
       {
         "kind": "relation",
         "name": "public.idx_stock_purchases_club_product_date"
-      },
-      {
-        "kind": "function",
-        "signature": "public.get_stock_opening_balances(uuid,date)"
       }
     ]
   },
@@ -4560,10 +4548,6 @@
         "column": "paid_from_reserve"
       },
       {
-        "kind": "relation",
-        "name": "public.expenses_paid_from_reserve"
-      },
-      {
         "kind": "trigger",
         "table": "public.expenses",
         "name": "expenses_reserve_guard"
@@ -4614,10 +4598,6 @@
         "kind": "column",
         "table": "public.owner_reserve_entries",
         "column": "collection_date"
-      },
-      {
-        "kind": "relation",
-        "name": "public.owner_reserve_entries_collection"
       },
       {
         "kind": "functionBody",
@@ -4824,6 +4804,32 @@
         "kind": "functionBody",
         "signature": "public.unmark_daily_cash_collected(uuid,date)",
         "md5": "dd79c665d49be1ed6c333e5ca3a7e528"
+      }
+    ]
+  },
+  {
+    "file": "149_read_load_and_bar_product_sales.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.idx_expenses_club_reserve_or_usd"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_stock_counts_promotion"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_stock_opening_balances(uuid,date)",
+        "md5": "74b7ed83360113a1a70f84519289ff57"
+      },
+      {
+        "kind": "function",
+        "signature": "public.count_pending_access_requests()"
+      },
+      {
+        "kind": "function",
+        "signature": "public.get_bar_product_sales(uuid,date,date)"
       }
     ]
   }

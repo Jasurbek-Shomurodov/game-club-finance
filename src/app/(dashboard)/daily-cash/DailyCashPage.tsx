@@ -16,6 +16,7 @@ import {
   TrendingUp,
   TriangleAlert,
 } from 'lucide-react';
+import { fetchProfileNames } from '@/lib/supabase/profileNames';
 import { createClient } from '@/lib/supabase/client';
 import { calculateFinancialReportTotals, calculateManualIncome } from '@/lib/calculations/dailyReport';
 import { canAccessFeature, canReadFinancialTotals, canReadStockCounts } from '@/lib/permissions';
@@ -223,15 +224,15 @@ export default function DailyCashPage() {
     const [summaryResult, profileResult] = await Promise.all([
       summaryPromise,
       cashEntry?.created_by
-        ? supabase.from('profiles').select('full_name').eq('id', cashEntry.created_by).maybeSingle()
-        : null,
+        ? fetchProfileNames(supabase, [cashEntry.created_by]).then((names) => names.get(cashEntry.created_by!) ?? '', () => '')
+        : '',
     ]);
     // The loaded entry replaces the form; a superseded load leaves it alone.
     if (isCurrent()) setForm(cashEntry ? entryToForm(cashEntry) : emptyForm(date));
     return {
       entry: cashEntry,
       // The creator name is informational; an unreadable profile shows none.
-      createdByName: profileResult && !profileResult.error ? profileResult.data?.full_name ?? '' : '',
+      createdByName: profileResult,
       financeSummary: summaryResult.summary,
       summaryFailed: summaryResult.failed,
     };

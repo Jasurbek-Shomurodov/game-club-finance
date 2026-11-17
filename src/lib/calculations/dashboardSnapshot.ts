@@ -19,6 +19,8 @@ import {
   type TrendRow,
 } from './dashboardMetrics';
 import type { AnalysisLedgers } from './financialAnalysis';
+import { summarizeDebtors, type DashboardDebtor } from './dashboardAttention';
+import { listLowStockProducts, type LowStockProduct } from './stock';
 
 export interface DashboardDebtRow {
   id: string;
@@ -53,6 +55,14 @@ export interface DashboardData {
   hasInventoryComparisonData: boolean;
   trend: TrendRow[];
   lowStockCount: number;
+  /** Active, tracked products at or below their threshold; out of stock first. */
+  lowStockProducts: LowStockProduct[];
+  /** People with unpaid debts, largest balance first. */
+  debtors: DashboardDebtor[];
+  /** Dates of the period with a saved daily cash entry. */
+  cashEntryDates: string[];
+  /** Dates of the period with a saved closing stock count. */
+  stockEntryDates: string[];
   expenseCategories: Array<{ category: string; value: number }>;
   latestDailyCashEntryDate: string | null;
   latestBarEntryDate: string | null;
@@ -76,6 +86,10 @@ export const emptyDashboardData: DashboardData = {
   hasInventoryComparisonData: false,
   trend: [],
   lowStockCount: 0,
+  lowStockProducts: [],
+  debtors: [],
+  cashEntryDates: [],
+  stockEntryDates: [],
   expenseCategories: [],
   latestDailyCashEntryDate: null,
   latestBarEntryDate: null,
@@ -200,6 +214,10 @@ export function buildDashboardDataFromSnapshot({
       (product) => product.tracks_inventory !== false
         && product.current_stock <= (product.low_stock_threshold ?? 5),
     ).length,
+    lowStockProducts: listLowStockProducts(payload.products),
+    debtors: summarizeDebtors(activeDebts),
+    cashEntryDates: [...new Set(cashRows.map((row) => row.date))].sort(),
+    stockEntryDates: [...new Set(stockRows.map((row) => row.date))].sort(),
     expenseCategories,
     latestDailyCashEntryDate: getLatestRowDateInRange([...cashRows, ...rangeDebts], range),
     latestBarEntryDate: getLatestRowDateInRange(stockRows, range),

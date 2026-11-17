@@ -29,6 +29,10 @@ import {
   toneForAmount,
   type MetricTone,
 } from '@/components/PresentationFoundation';
+import { DashboardAttention } from '@/components/dashboard/DashboardAttention';
+import { DashboardToday } from '@/components/dashboard/DashboardToday';
+import { buildDashboardTodayStatus } from '@/lib/calculations/dashboardAttention';
+import { canAccessPath } from '@/lib/permissions';
 import { MoneyFlowSankeys } from '@/components/financial-analysis/MoneyFlowSankeys';
 import { SIDE_ICON_CLASS } from '@/components/financial-analysis/analysisFormat';
 import { formatCurrency } from '@/lib/formatters';
@@ -104,7 +108,7 @@ export default function DashboardPage({
 }: {
   initialSnapshot?: InitialDashboardSnapshot | null;
 }) {
-  const { selectedClubId, businessDayStartHour } = useClub();
+  const { selectedClubId, businessDayStartHour, role, featureAccess } = useClub();
   const { locale } = useAppLocale();
   const businessToday = useBusinessToday(businessDayStartHour);
   // The dashboard always shows the club's current business month.
@@ -243,6 +247,16 @@ export default function DashboardPage({
     })),
     [data.trend, data.latestDailyCashEntryDate, data.latestBarEntryDate, businessToday, locale],
   );
+  const todayStatus = useMemo(() => buildDashboardTodayStatus({
+    trend: data.trend,
+    cashEntryDates: data.cashEntryDates,
+    stockEntryDates: data.stockEntryDates,
+    businessToday,
+  }), [data.trend, data.cashEntryDates, data.stockEntryDates, businessToday]);
+  /** A link only to pages this member can open. */
+  const pathIfAllowed = (path: string) => (canAccessPath(role, featureAccess, path) ? path : undefined);
+  const stockLinkHref = pathIfAllowed('/stock-purchase');
+  const productsHref = pathIfAllowed('/products');
   const averageBarDayCount = countDashboardRangeDaysThroughDate(range, data.latestBarEntryDate);
   const averageGameClubDayCount = countDashboardRangeDaysThroughDate(range, data.latestDailyCashEntryDate);
   const averageGameClubIncome = calculateAverageDailyIncome(totals.gameClubIncome, averageGameClubDayCount);
@@ -281,6 +295,17 @@ export default function DashboardPage({
       {/* After a failed load the figures are unknown, not zero: show only the error. */}
       {!error && (
         <>
+          {/* The shift's two tasks first: they are what the rest of the page is built from. */}
+          <DashboardToday
+            status={todayStatus}
+            businessToday={businessToday}
+            locale={locale}
+            currency={currency}
+            loading={loading}
+            cashHref={pathIfAllowed('/daily-cash')}
+            stockHref={pathIfAllowed('/closing-stock')}
+          />
+
           {/* Headline numbers: the four figures an owner checks first. */}
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <AmountCard
@@ -327,6 +352,18 @@ export default function DashboardPage({
               helper={t('barNetProfitDesc')}
             />
           </div>
+
+          <DashboardAttention
+            lowStock={data.lowStockProducts}
+            debtors={data.debtors}
+            loading={loading}
+            locale={locale}
+            currency={currency}
+            stockLink={stockLinkHref
+              ? { href: stockLinkHref, label: t('runningLowBuy') }
+              : productsHref ? { href: productsHref, label: t('runningLowProducts') } : undefined}
+            debtsHref={pathIfAllowed('/debts')}
+          />
 
           {/* Each business gets its own money flow; tapping a node opens the Sankey behind it. */}
           {loading ? (

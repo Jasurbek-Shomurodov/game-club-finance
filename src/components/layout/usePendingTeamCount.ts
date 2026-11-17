@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { isMissingDatabaseColumn } from '@/lib/supabase/errors';
+import { isMissingDatabaseColumn, isMissingDatabaseFunction } from '@/lib/supabase/errors';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import { countPendingRequests, TEAM_CHANGED_EVENT } from '@/lib/team';
 
@@ -13,6 +13,12 @@ const FOCUS_REFRESH_MIN_INTERVAL_MS = 60_000;
 
 async function loadPendingCount() {
   const supabase = createClient();
+  // Migration 149 counts in the database; the same rows, without downloading them.
+  const counted = await supabase.rpc('count_pending_access_requests');
+  if (!counted.error) return Number(counted.data ?? 0);
+  if (!isMissingDatabaseFunction(counted.error, 'count_pending_access_requests')) return null;
+
+  // Compatibility path until migration 149 reaches the database.
   const profiles = (columns: string) => fetchAllRows<PendingProfileRow>(() => supabase
     .from('profiles')
     .select(columns)
@@ -41,8 +47,8 @@ async function loadPendingCount() {
  * requests, so the hook stays idle for them.
  *
  * Re-counted when the club changes, when the team page reports a change, and
- * when the window regains focus (at most once a minute: the count reads two
- * tables and changes a few times a month) — not on every navigation.
+ * when the window regains focus (at most once a minute: the count changes a
+ * few times a month) — not on every navigation.
  */
 export function usePendingTeamCount(enabled: boolean, clubId: string) {
   const [count, setCount] = useState(0);

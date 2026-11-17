@@ -114,6 +114,8 @@ visible to every club owner until requests are targeted at a club.
 | `mark_daily_cash_collected` / `unmark_daily_cash_collected` | Collector ticks a business date as collected; only an owner removes a tick (096). 137/139 made a tick deposit the day's Game Club money into the owner reserve; 148 removed that and every collection deposit, so a tick only closes the day. |
 | `record_money_exchange` / `delete_money_exchange` | Record (idempotent) or owner-delete a money exchange (092). |
 | `record_cash_shortage` / `recover_cash_shortage` / `delete_cash_shortage` | Owner records a shortage with its expense and an optional salary-fine recovery (idempotent id), adds more recovery later (never above what is still lost), or deletes it once its live recovery fines are deleted in Salaries (135). |
+| `count_pending_access_requests` | Number of open access requests the caller can see (149), for the Team badge. Security invoker: the caller's RLS on `profiles` and `club_memberships` decides, as it did for the two table reads it replaces. |
+| `get_bar_product_sales` | Each product's sold quantity, bar income, bar cost and counted days between two business dates (149), for the Products page. Security invoker, so the stock-count read policy applies. |
 | `get_public_showcase` | Anonymous read of one published club showcase by slug; null when unpublished or unknown (098, payload shared with `public_showcase_payload` since 099). |
 | `get_public_brand` | Anonymous read of one published brand page with its owner's published clubs (099). |
 
@@ -121,11 +123,30 @@ PostgreSQL functions execute as `PUBLIC` unless restricted. Security-definer
 functions must set a safe `search_path`, validate actor/club access, and have
 explicit grants/revokes. Follow the patterns in the latest migrations.
 
+Migration 149 lowers read load without touching ledger rows: a partial index
+`idx_expenses_club_reserve_or_usd` matching the reserve/dollar predicate of 143
+(replacing `expenses_paid_from_reserve`), `get_stock_opening_balances` probing
+one index entry per product instead of scanning every stock count, the
+`entry_audit_logs` and `cash_shortages` owner-read policies resolved once per
+statement through `current_user_member_clubs`, an index for the
+`daily_stock_counts.promotion_id` foreign key, and three unused indexes
+dropped. `readLoadMigration.test.ts` replays the chain and compares the new
+opening balances with the 057 definition on every date.
+
 ## Pagination and query rules
 
 Supabase commonly caps responses at 1,000 rows. Use `fetchAllRows` for complete
 period/history totals. Build each page of a paginated query with the same
 filters and deterministic ordering.
+
+Author names come from `fetchProfileNames` (`src/lib/supabase/profileNames.ts`),
+which remembers names per client for ten minutes and asks only for ids it has
+not seen. Do not add another `from('profiles').select('id,full_name')` lookup
+after a ledger read.
+
+A read-only RPC called from the browser must be listed in `READ_ONLY_RPCS`
+(`src/lib/supabase/readCache.ts`). Any other RPC is treated as a write: it is
+never cached and clears every cached read before and after it runs.
 
 Always include `club_id` in browser and service-role queries for club-owned
 tables, even when RLS would also filter it.

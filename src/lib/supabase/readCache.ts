@@ -10,6 +10,14 @@ const READ_ONLY_RPCS = new Set([
   'get_salary_profit_snapshot',
   'get_money_report_snapshot',
   'get_finance_report_snapshot',
+  // Stable lookups: treating them as writes cleared every cached read each
+  // time an expense or exchange form opened or changed its date.
+  'get_expense_method_balances',
+  'get_owner_reserve_balances',
+  'get_migration_health',
+  'get_migration_probe_results',
+  'count_pending_access_requests',
+  'get_bar_product_sales',
 ]);
 
 interface CachedResponse {
