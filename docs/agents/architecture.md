@@ -109,6 +109,14 @@ route. Amounts are bare numbers; the separator follows the app language
 escaped so it can never run as a spreadsheet formula. Use `toCsv` and
 `downloadCsv` for any further export rather than a new dependency (EXP-001).
 
+The admin app installs on a phone's home screen: `public/admin.webmanifest`,
+the icons in `public/icons` (drawn by `scripts/generate-app-icons.mjs`) and
+the tags in `src/lib/appInstall.ts`, exported as metadata by the signed-in and
+sign-in layouts only, so the public club pages stay a website. The manifest
+and icons are excluded from `src/proxy.ts`: browsers fetch them without
+cookies. There is no service worker and nothing is cached for offline use, so
+an installed app always shows live figures.
+
 Reports works the same way with its own tab row (`reports/ReportsTabs.tsx`):
 the closeout, collected and write-off views switch inside `/reports`, and the
 Day and Month tabs open `/daily-report` and `/monthly-report`, which show the

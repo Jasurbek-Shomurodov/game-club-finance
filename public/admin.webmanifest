@@ -1,0 +1,22 @@
+{
+  "name": "Game Club Finance",
+  "short_name": "Club Finance",
+  "description": "Daily cash, bar stock, expenses and profit for the club.",
+  "id": "/dashboard",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#101412",
+  "theme_color": "#101412",
+  "icons": [
+    { "src": "/icons/app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/app-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Daily Cash", "url": "/daily-cash", "icons": [{ "src": "/icons/app-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Closing Stock", "url": "/closing-stock", "icons": [{ "src": "/icons/app-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Reports", "url": "/reports", "icons": [{ "src": "/icons/app-192.png", "sizes": "192x192", "type": "image/png" }] }
+  ]
+}

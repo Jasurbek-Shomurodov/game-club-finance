@@ -3,6 +3,10 @@ import { getDashboardBootstrap } from '@/lib/supabase/dashboardBootstrap';
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { PageSkeleton } from '@/components/PresentationFoundation';
+import { APP_INSTALL_METADATA } from '@/lib/appInstall';
+
+// The admin app can be installed on a phone's home screen; see `appInstall.ts`.
+export const metadata = APP_INSTALL_METADATA;
 
 export default function DashboardLayout({
   children,
