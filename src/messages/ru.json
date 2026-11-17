@@ -993,7 +993,15 @@
     "paymentCommentPlaceholder": "Кто и как оплатил? Например: Азиз отдал остаток наличными",
     "search": "Поиск по имени…",
     "searchNoMatches": "Должников с таким именем нет.",
-    "searchRemaining": "Осталось вернуть"
+    "searchRemaining": "Осталось вернуть",
+    "sortLabel": "Сортировка",
+    "sortNewest": "Новые",
+    "sortLargest": "Крупные",
+    "sortOldest": "Старые",
+    "ageDays": "{count, plural, one {# день} few {# дня} many {# дней} other {# дня}}",
+    "oldestDebt": "Самый старый: {count, plural, one {# день} few {# дня} many {# дней} other {# дня}}",
+    "overdueCount": "{count} старше {days} дней",
+    "personTotal": "Открытых долгов: {count}, всего"
   },
   "dailyReport": {
     "title": "Ежедневный отчёт",

@@ -48,3 +48,66 @@ export function latestPaymentDateByDebt(
   }
   return latest;
 }
+
+/** An open debt this many days old is flagged as overdue. */
+export const OVERDUE_DEBT_DAYS = 30;
+
+/** Whole days from the debt's business date to `today` (both ISO `YYYY-MM-DD`); never negative. */
+export function debtAgeDays(date: string, today: string): number {
+  if (!/^\d{4}-\d{2}-\d{2}/.test(date) || !/^\d{4}-\d{2}-\d{2}/.test(today)) return 0;
+  const from = Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)) - 1, Number(date.slice(8, 10)));
+  const to = Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 1, Number(today.slice(8, 10)));
+  const days = Math.round((to - from) / 86_400_000);
+  return Number.isFinite(days) && days > 0 ? days : 0;
+}
+
+export type OpenDebtSort = 'newest' | 'largest' | 'oldest';
+
+interface SortableDebt {
+  id: string | number;
+  date: string;
+  amount: number | string;
+  paid_amount: number | string;
+}
+
+const remainingOf = (debt: SortableDebt) => calculateRemainingDebt(Number(debt.amount) || 0, Number(debt.paid_amount) || 0);
+
+/**
+ * Open debts in the order asked for, as a new array. `newest` keeps the order
+ * they were read in (latest date first); ties keep that order too.
+ */
+export function sortOpenDebts<T extends SortableDebt>(debts: readonly T[], sort: OpenDebtSort): T[] {
+  if (sort === 'newest') return [...debts];
+  return debts
+    .map((debt, index) => ({ debt, index }))
+    .sort((a, b) => (
+      (sort === 'largest' ? remainingOf(b.debt) - remainingOf(a.debt) : a.debt.date.localeCompare(b.debt.date))
+      || a.index - b.index
+    ))
+    .map(({ debt }) => debt);
+}
+
+/** One person under every spelling of their name: case and spacing are ignored. */
+export const debtPersonKey = (name: string | null | undefined) => (name ?? '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('ru');
+
+export interface PersonOpenDebts {
+  remaining: number;
+  count: number;
+}
+
+/** What each person still owes across all their open debts, by `debtPersonKey`. */
+export function openDebtsByPerson(
+  debts: ReadonlyArray<SortableDebt & { person_name: string | null }>,
+): Map<string, PersonOpenDebts> {
+  const byPerson = new Map<string, PersonOpenDebts>();
+  for (const debt of debts) {
+    const remaining = remainingOf(debt);
+    if (remaining <= 0) continue;
+    const key = debtPersonKey(debt.person_name);
+    const person = byPerson.get(key) ?? { remaining: 0, count: 0 };
+    person.remaining += remaining;
+    person.count += 1;
+    byPerson.set(key, person);
+  }
+  return byPerson;
+}

@@ -993,7 +993,15 @@
     "paymentCommentPlaceholder": "Kim va qanday to‘ladi? Masalan: Aziz qolganini naqd to‘ladi",
     "search": "Ism bo'yicha qidirish…",
     "searchNoMatches": "Bunday ismli qarzdor yo'q.",
-    "searchRemaining": "Qaytarilishi kerak"
+    "searchRemaining": "Qaytarilishi kerak",
+    "sortLabel": "Saralash",
+    "sortNewest": "Yangi",
+    "sortLargest": "Katta",
+    "sortOldest": "Eski",
+    "ageDays": "{count} kun",
+    "oldestDebt": "Eng eskisi: {count} kun",
+    "overdueCount": "{count} tasi {days} kundan oshgan",
+    "personTotal": "Ochiq qarzlar: {count} ta, jami"
   },
   "dailyReport": {
     "title": "Kunlik hisobot",

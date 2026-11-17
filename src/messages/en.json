@@ -993,7 +993,15 @@
     "paymentCommentPlaceholder": "Who paid and how? For example: Aziz paid the rest in cash",
     "search": "Search by name…",
     "searchNoMatches": "Nobody with that name owes the club.",
-    "searchRemaining": "Still owed"
+    "searchRemaining": "Still owed",
+    "sortLabel": "Sort",
+    "sortNewest": "Newest",
+    "sortLargest": "Largest",
+    "sortOldest": "Oldest",
+    "ageDays": "{count, plural, one {# day} other {# days}}",
+    "oldestDebt": "Oldest: {count, plural, one {# day} other {# days}}",
+    "overdueCount": "{count} over {days} days",
+    "personTotal": "{count} open debts, in total"
   },
   "dailyReport": {
     "title": "Daily Report",

@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useSyncExternalStore, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -24,6 +24,18 @@ export interface PageHeaderProps {
   className?: string;
 }
 
+const subscribeNever = () => () => {};
+
+/**
+ * False on the server and while its HTML is being hydrated, true afterwards
+ * and on every client-side navigation. A page can hydrate after the shell has
+ * already mounted the top bar; it must still render what the server sent
+ * first, or React throws the server HTML away and rebuilds the page.
+ */
+function useHydrated() {
+  return useSyncExternalStore(subscribeNever, () => true, () => false);
+}
+
 /**
  * Page title block. Every page starts with one of these. Inside the dashboard
  * shell the title moves up into the top bar, and the tabs (right after the
@@ -32,7 +44,8 @@ export interface PageHeaderProps {
  */
 export function PageHeader({ title, tabs, action, meta, back, backLabel, className }: PageHeaderProps) {
   const router = useRouter();
-  const slot = useTopBarSlot();
+  const topBar = useTopBarSlot();
+  const slot = useHydrated() ? topBar : null;
   const inTopBar = Boolean(slot?.title);
   const actionsInTopBar = Boolean(slot?.actions);
   const backClassName =

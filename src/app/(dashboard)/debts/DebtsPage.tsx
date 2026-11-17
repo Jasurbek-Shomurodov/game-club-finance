@@ -28,6 +28,7 @@ import {
   PageHeader,
   SectionHeading,
   SegmentedControl,
+  type SegmentedOption,
   Skeleton,
   PresenceItem,
   SearchInput,
@@ -51,8 +52,14 @@ import {
   calculateRemainingDebt,
   canManageDebts,
   classifyDebtPaymentInsertError,
+  debtAgeDays,
+  debtPersonKey,
   getDebtStatus,
   latestPaymentDateByDebt,
+  openDebtsByPerson,
+  OVERDUE_DEBT_DAYS,
+  sortOpenDebts,
+  type OpenDebtSort,
 } from '@/lib/calculations/debt';
 import { getDebtDateIssue, validateDebtPayment } from '@/lib/validation';
 import { Plus, Users, Wallet } from 'lucide-react';
@@ -96,6 +103,7 @@ export default function DebtsPage() {
   const [error, setError] = useState('');
   const [showPaid, setShowPaid] = useState(false);
   const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<OpenDebtSort>('newest');
   const [paymentsLoading, setPaymentsLoading] = useState(false);
   const [paymentsError, setPaymentsError] = useState('');
   // Club the open modal belongs to; a submit is refused if the selected club changed meanwhile.
@@ -415,7 +423,17 @@ export default function DebtsPage() {
     [paid, searchQuery],
   );
   const matchingRemaining = unpaidMatching.reduce((sum, debt) => sum + remainingFor(debt), 0);
-  const unpaidShown = useListPresence(unpaidMatching, debtKey);
+  const unpaidSorted = useMemo(() => sortOpenDebts(unpaidMatching, sort), [unpaidMatching, sort]);
+  const unpaidShown = useListPresence(unpaidSorted, debtKey);
+  // A person with several open debts sees their whole balance on each of them.
+  const personTotals = useMemo(() => openDebtsByPerson(unpaid), [unpaid]);
+  const oldestUnpaid = unpaid.reduce<NewDebt | null>((oldest, debt) => (!oldest || debt.date < oldest.date ? debt : oldest), null);
+  const overdueCount = unpaid.filter((debt) => debtAgeDays(debt.date, businessToday) >= OVERDUE_DEBT_DAYS).length;
+  const sortOptions: SegmentedOption<OpenDebtSort>[] = [
+    { value: 'newest', label: t('sortNewest') },
+    { value: 'largest', label: t('sortLargest') },
+    { value: 'oldest', label: t('sortOldest') },
+  ];
   const paidShown = useListPresence(paidMatching, debtKey);
   const outstandingTotal = unpaid.reduce((sum, debt) => sum + remainingFor(debt), 0);
   const debtorCount = new Set(unpaid.map((debt) => debt.person_name.trim().toLocaleLowerCase())).size;
@@ -461,7 +479,16 @@ export default function DebtsPage() {
               value={<MetricMoney amount={outstandingTotal} />}
               tone={outstandingTotal > 0 ? 'danger' : 'default'}
             />
-            <MetricCard label={t('debtorsCount')} value={formatNumber(debtorCount)} />
+            <MetricCard
+              label={t('debtorsCount')}
+              value={formatNumber(debtorCount)}
+              helper={oldestUnpaid ? (
+                <>
+                  {t('oldestDebt', { count: debtAgeDays(oldestUnpaid.date, businessToday) })}
+                  {overdueCount > 0 && ` · ${t('overdueCount', { count: overdueCount, days: OVERDUE_DEBT_DAYS })}`}
+                </>
+              ) : undefined}
+            />
             <MetricCard label={t('paidTotal')} value={<MetricMoney amount={paidTotal} />} />
           </section>
 
@@ -486,6 +513,11 @@ export default function DebtsPage() {
                   ) : undefined}
                 />
               </CardHeader>
+              {unpaidMatching.length > 2 && (
+                <div className="border-b border-gray-100 px-4 py-2.5 sm:px-5">
+                  <SegmentedControl variant="chips" label={t('sortLabel')} options={sortOptions} value={sort} onChange={setSort} />
+                </div>
+              )}
               {searchQuery && unpaidMatching.length === 0 && (
                 <p role="status" className="px-4 py-4 text-sm text-gray-500 sm:px-5">{t('searchNoMatches')}</p>
               )}
@@ -493,6 +525,8 @@ export default function DebtsPage() {
                 {unpaidShown.map(({ key, item: debt, presence }) => {
                   const remaining = remainingFor(debt);
                   const status = getDebtStatus(debt.amount, debt.paid_amount);
+                  const age = debtAgeDays(debt.date, businessToday);
+                  const person = personTotals.get(debtPersonKey(debt.person_name));
                   return (
                     <PresenceItem key={key} presence={presence} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:px-5">
                       <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -501,11 +535,18 @@ export default function DebtsPage() {
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="break-words font-semibold text-gray-900">{debt.person_name}</p>
                             <Badge variant={statusVariant(status)} size="sm">{t(status)}</Badge>
+                            {age >= OVERDUE_DEBT_DAYS && <Badge variant="warning" size="sm">{t('ageDays', { count: age })}</Badge>}
                           </div>
                           <p className="mt-0.5 truncate text-xs text-gray-500" title={debt.comment ?? undefined}>
                             {formatDate(debt.date, locale)}
+                            {age > 0 && age < OVERDUE_DEBT_DAYS ? ` · ${t('ageDays', { count: age })}` : ''}
                             {debt.comment ? ` · ${debt.comment}` : ''}
                           </p>
+                          {person && person.count > 1 && (
+                            <p className="mt-0.5 text-xs text-gray-500">
+                              {t('personTotal', { count: person.count })}: <Money amount={person.remaining} className="font-semibold text-gray-700" />
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center justify-between gap-3 sm:justify-end">
