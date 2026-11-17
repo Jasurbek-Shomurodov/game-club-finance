@@ -220,6 +220,8 @@ export function Sidebar({
     ...groups.flatMap((group) => group.items.map((item) => item.href)),
     ...accessibleSectionPaths(role, featureAccess),
   ]));
+  // The day and month reports are tabs of Reports.
+  if (canAccessFeature(role, featureAccess, 'reports')) navHrefs.push('/daily-report', '/monthly-report');
   if (allowed('settings')) navHrefs.push('/settings');
   const navHrefKey = navHrefs.join('|');
   useEffect(() => {

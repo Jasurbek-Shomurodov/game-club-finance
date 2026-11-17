@@ -498,7 +498,9 @@
     "writeOffsCost": "Tannarx bo'yicha zarar",
     "writeOffsNote": "Izoh",
     "writeOffsEmpty": "Bu davrda hisobdan chiqarilgan mahsulot yo'q",
-    "writeOffsLoadError": "Hisobdan chiqarilganlarni yuklab bo'lmadi."
+    "writeOffsLoadError": "Hisobdan chiqarilganlarni yuklab bo'lmadi.",
+    "dayTab": "Kun",
+    "monthTab": "Oy"
   },
   "dailyCash": {
     "title": "Kunlik kassa",

@@ -498,7 +498,9 @@
     "writeOffsCost": "Loss at cost",
     "writeOffsNote": "Note",
     "writeOffsEmpty": "No write-offs in this period",
-    "writeOffsLoadError": "Write-offs could not be loaded."
+    "writeOffsLoadError": "Write-offs could not be loaded.",
+    "dayTab": "Day",
+    "monthTab": "Month"
   },
   "dailyCash": {
     "title": "Daily Cash Entry",

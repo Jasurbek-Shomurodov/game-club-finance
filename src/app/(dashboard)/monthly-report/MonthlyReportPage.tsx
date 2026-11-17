@@ -6,6 +6,7 @@ import { useCallback, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 import { useClub } from '@/components/layout/DashboardShell';
+import { ReportsTabs } from '../reports/ReportsTabs';
 import {
   Card,
   DataTable,
@@ -173,6 +174,7 @@ export default function MonthlyReportPage() {
     <div>
       <PageHeader
         title={t('title')}
+        tabs={<ReportsTabs value="month" />}
         action={(
           <Field label={t('selectMonth')} className="sm:w-72">
             <MonthPicker value={month} max={businessYearMonth} onChange={setMonth} />
@@ -203,6 +205,7 @@ export default function MonthlyReportPage() {
           <p className="text-xs text-gray-500">{t('barCashFormula')}</p>
 
           <DataTable
+            mobileCards
             stickyHeader
             label={t('title')}
             minWidth={1460}

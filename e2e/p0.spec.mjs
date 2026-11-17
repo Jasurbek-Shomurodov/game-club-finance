@@ -790,7 +790,7 @@ test.describe('as an admin', () => {
   });
 });
 
-test('NAV-001 the bar, owner money and team sections each open from one sidebar item and switch by tabs', async ({ page }) => {
+test('NAV-001 the bar, owner money, reports and team sections each open from one sidebar item and switch by tabs', async ({ page }) => {
   await page.goto('/dashboard');
   const nav = page.getByRole('navigation');
   // The pages inside a section are no longer separate sidebar items.
@@ -810,6 +810,18 @@ test('NAV-001 the bar, owner money and team sections each open from one sidebar 
   await expect(page).toHaveURL(/\/reserve$/);
   await expect(nav.getByRole('link', { name: 'Owner Profit', exact: true })).toHaveAttribute('aria-current', 'page');
   await openTab(page, 'Owner Profit');
+
+  // The day and month profit reports are tabs of Reports, next to its own views.
+  await open(page, 'Reports');
+  const reportTabs = page.getByRole('radiogroup', { name: 'Reports view' });
+  await reportTabs.getByRole('radio', { name: 'Day', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Daily Report', level: 1 })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Reports', exact: true })).toHaveAttribute('aria-current', 'page');
+  await reportTabs.getByRole('radio', { name: 'Month', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Monthly Report', level: 1 })).toBeVisible();
+  await reportTabs.getByRole('radio', { name: 'Collected', exact: true }).click();
+  await expect(page).toHaveURL(/\/reports\?view=collected$/);
+  await expect(page.getByRole('heading', { name: 'Reports', level: 1 })).toBeVisible();
 
   // The Team item carries the count of open access requests, so match it by its start.
   const team = nav.getByRole('link', { name: /^Team/ });
@@ -872,7 +884,7 @@ test.describe('on a phone', () => {
   test('UI-001 every core page fits 375 px with no horizontal scroll', async ({ page }) => {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    for (const [path, heading] of [['/', 'Dashboard'], ['/showcase/brand', 'Public page'], ['/daily-cash', 'Daily Cash Entry'], ['/closing-stock', 'Closing Stock'], ['/stock-purchase', 'Stock Purchase'], ['/reports', 'Reports'], ['/debts', 'Debts'], ['/history', 'Edit history'], ['/products', 'Products'], ['/salaries/history', 'History']]) {
+    for (const [path, heading] of [['/', 'Dashboard'], ['/showcase/brand', 'Public page'], ['/daily-cash', 'Daily Cash Entry'], ['/closing-stock', 'Closing Stock'], ['/stock-purchase', 'Stock Purchase'], ['/reports', 'Reports'], ['/debts', 'Debts'], ['/history', 'Edit history'], ['/products', 'Products'], ['/salaries/history', 'History'], ['/daily-report', 'Daily Report'], ['/monthly-report', 'Monthly Report']]) {
       await page.goto(path);
       await expect(page.getByRole('heading', { name: heading, level: 1 })).toBeVisible();
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), { message: `${path} overflows` }).toBe(0);

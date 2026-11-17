@@ -498,7 +498,9 @@
     "writeOffsCost": "Убыток по себестоимости",
     "writeOffsNote": "Комментарий",
     "writeOffsEmpty": "За этот период списаний нет",
-    "writeOffsLoadError": "Не удалось загрузить списания."
+    "writeOffsLoadError": "Не удалось загрузить списания.",
+    "dayTab": "День",
+    "monthTab": "Месяц"
   },
   "dailyCash": {
     "title": "Касса дня",

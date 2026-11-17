@@ -7,6 +7,7 @@ import { useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 import { useClub } from '@/components/layout/DashboardShell';
+import { ReportsTabs } from '../reports/ReportsTabs';
 import {
   Card,
   DataTable,
@@ -110,6 +111,7 @@ export default function DailyReportPage() {
     <div>
       <PageHeader
         title={t('title')}
+        tabs={<ReportsTabs value="day" />}
         action={(
           <Field label={t('date')} className="sm:w-64">
             <DatePicker ariaLabel={t('date')} value={date} max={businessToday} onChange={setDate} />

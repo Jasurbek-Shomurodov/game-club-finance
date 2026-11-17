@@ -77,6 +77,11 @@ with a single tab sees no tabs. Add a screen to a section in
 it in `e2e` (NAV-001). A page with views of its own (the reserve's
 overview/history) switches them in the page body, not in the header.
 
+Reports works the same way with its own tab row (`reports/ReportsTabs.tsx`):
+the closeout, collected and write-off views switch inside `/reports`, and the
+Day and Month tabs open `/daily-report` and `/monthly-report`, which show the
+same row.
+
 Sidebar routes use intent-based full prefetching. Do not eagerly prefetch every
 dynamic route on mount: that would execute protected server work for pages the
 user may never visit. During an uncached navigation the current page remains

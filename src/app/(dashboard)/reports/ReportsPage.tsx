@@ -86,6 +86,7 @@ import CollectedTab from './CollectedTab';
 import WriteOffsTab from './WriteOffsTab';
 import { fetchDollarExpenses, fetchMoneyExchanges, withDollarAmounts } from '@/lib/supabase/moneyExchanges';
 import { requestCollectionChange } from '@/lib/collectionsApi';
+import { ReportsTabs, type ReportsView } from './ReportsTabs';
 import { fetchProfileNames } from '@/lib/supabase/profileNames';
 import { fetchDailyCashCollections, type DailyCashCollection } from '@/lib/supabase/dailyCashCollections';
 import type { ExchangeMethod, MoneyExchangeRow } from '@/lib/calculations/moneyExchanges';
@@ -265,7 +266,6 @@ function requestedSourceFilter(source: string | undefined): ExpenseSourceFilter 
 
 type ExpenseSourceFilter = 'game_club' | 'bar' | null;
 
-type ReportsView = 'closeout' | 'collected' | 'writeOffs';
 
 /** A red edge down the left of every row of a closed (collected) day. */
 const CLOSED_DAY_ROW = '[&>td:first-child]:shadow-[inset_4px_0_0_rgb(var(--c-danger-500))]';
@@ -1009,20 +1009,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     <div className="space-y-5">
       <PageHeader
         title={t('title')}
-        tabs={hasReportsAccess ? (
-          <SegmentedControl
-            variant="tabs"
-            label={t('viewSwitcher')}
-            options={[
-              { value: 'closeout', label: t('title') },
-              { value: 'collected', label: t('collectedTab') },
-              // Write-offs are an owner tool.
-              ...(isOwner ? [{ value: 'writeOffs' as const, label: t('writeOffsTab') }] : []),
-            ]}
-            value={view}
-            onChange={setView}
-          />
-        ) : undefined}
+        tabs={hasReportsAccess ? <ReportsTabs value={view} onSelectView={setView} /> : undefined}
         action={hasReportsAccess || canRegisterExpenses ? (
           <>
             {/* Without Reports access the expense form is inline, below. */}
