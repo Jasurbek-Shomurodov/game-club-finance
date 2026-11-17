@@ -529,6 +529,9 @@
     "writeOffsNote": "Izoh",
     "writeOffsEmpty": "Bu davrda hisobdan chiqarilgan mahsulot yo'q",
     "writeOffsLoadError": "Hisobdan chiqarilganlarni yuklab bo'lmadi.",
+    "writeOffDetails": "Hisobdan chiqarish tafsilotlari",
+    "writeOffsUnitCost": "Bir dona tannarxi",
+    "writeOffsOpenDay": "Shu kungi qoldiqni ochish",
     "dayTab": "Kun",
     "monthTab": "Oy"
   },

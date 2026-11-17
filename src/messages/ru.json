@@ -529,6 +529,9 @@
     "writeOffsNote": "Комментарий",
     "writeOffsEmpty": "За этот период списаний нет",
     "writeOffsLoadError": "Не удалось загрузить списания.",
+    "writeOffDetails": "Детали списания",
+    "writeOffsUnitCost": "Себестоимость за шт.",
+    "writeOffsOpenDay": "Открыть остатки за этот день",
     "dayTab": "День",
     "monthTab": "Месяц"
   },

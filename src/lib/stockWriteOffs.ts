@@ -115,6 +115,18 @@ export interface StockWriteOffEntry {
   cost: number;
 }
 
+/** Badge tone for a write-off's reason: shortages read as danger, expiry as a warning. */
+export function writeOffKindVariant(kind: StockWriteOffReportKind): 'danger' | 'warning' | 'neutral' {
+  if (kind === 'shortage') return 'danger';
+  if (kind === 'expired') return 'warning';
+  return 'neutral';
+}
+
+/** Cost price per unit the write-off was valued at, or null when no units were written off. */
+export function writeOffUnitCost(entry: Pick<StockWriteOffEntry, 'cost' | 'quantity'>): number | null {
+  return entry.quantity > 0 ? entry.cost / entry.quantity : null;
+}
+
 export interface StockWriteOffTotals {
   quantity: number;
   cost: number;

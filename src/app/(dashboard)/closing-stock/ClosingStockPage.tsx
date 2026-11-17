@@ -4,6 +4,7 @@
 
 import { Fragment, useState, useEffect, useCallback, useMemo, useRef, type KeyboardEvent } from 'react';
 import { useTranslations } from 'next-intl';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { loadClosingStockDay } from '@/lib/supabase/closingStockQueries';
 import { fetchPromotions } from '@/lib/supabase/promotions';
@@ -185,7 +186,12 @@ export default function ClosingStockPage() {
   // Unsaved edits are never discarded by a day rollover; the clock catches up
   // once they are saved or discarded.
   const today = useBusinessToday(businessDayStartHour, { paused: dirty });
-  const [dateSelection, setDateSelection] = useState<DateSelection>({ clubId: selectedClubId, date: null });
+  // `?date=YYYY-MM-DD` (from a Reports write-off, for example) opens that day's counts.
+  const searchParams = useSearchParams();
+  const [dateSelection, setDateSelection] = useState<DateSelection>(() => {
+    const requested = searchParams.get('date');
+    return { clubId: selectedClubId, date: requested && /^\d{4}-\d{2}-\d{2}$/.test(requested) ? requested : null };
+  });
   // Switching clubs resets to that club's business day in the same render, so
   // the page loads once for the new club instead of once per stale date.
   const date = dateSelection.clubId === selectedClubId && dateSelection.date && dateSelection.date <= today

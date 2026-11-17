@@ -10,6 +10,8 @@ import {
   rowWriteOff,
   StockWriteOffError,
   summarizeStockWriteOffs,
+  writeOffKindVariant,
+  writeOffUnitCost,
 } from './stockWriteOffs';
 
 function product(overrides: Partial<Product> = {}): Product {
@@ -186,5 +188,19 @@ describe('write-offs with incomplete data', () => {
       ['2026-11-12', 'Milk'],
     ]);
     expect(summary.total).toEqual({ quantity: 5, cost: 13_000 });
+  });
+});
+
+describe('write-off details', () => {
+  it('gives each reason its badge tone', () => {
+    expect(writeOffKindVariant('shortage')).toBe('danger');
+    expect(writeOffKindVariant('expired')).toBe('warning');
+    expect(writeOffKindVariant('other')).toBe('neutral');
+  });
+
+  it('values one unit at the saved cost, keeping fractions', () => {
+    expect(writeOffUnitCost({ cost: 130_000, quantity: 26 })).toBe(5_000);
+    expect(writeOffUnitCost({ cost: 10, quantity: 3 })).toBeCloseTo(3.333, 3);
+    expect(writeOffUnitCost({ cost: 0, quantity: 0 })).toBeNull();
   });
 });

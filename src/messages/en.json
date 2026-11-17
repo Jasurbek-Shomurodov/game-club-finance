@@ -529,6 +529,9 @@
     "writeOffsNote": "Note",
     "writeOffsEmpty": "No write-offs in this period",
     "writeOffsLoadError": "Write-offs could not be loaded.",
+    "writeOffDetails": "Write-off details",
+    "writeOffsUnitCost": "Cost per unit",
+    "writeOffsOpenDay": "Open this day's stock count",
     "dayTab": "Day",
     "monthTab": "Month"
   },
