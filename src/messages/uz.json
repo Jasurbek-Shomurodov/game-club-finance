@@ -795,7 +795,11 @@
     "suggestTotal": "Hammasi",
     "soldRecently": "{days} kunda sotildi",
     "stockLasts": "Zaxira yetadi",
-    "daysCount": "taxminan {count} kun"
+    "daysCount": "taxminan {count} kun",
+    "purchaseDetails": "Xarid tafsilotlari",
+    "purchaseMarginPerUnit": "Bir donadan ustama",
+    "purchaseRecordedAt": "Yozilgan",
+    "purchaseOpenDay": "Shu kungi qoldiqni ochish"
   },
   "products": {
     "loadFailed": "Mahsulotlarni yuklab boʻlmadi. Internet aloqasini tekshirib, qayta urinib koʻring.",
@@ -857,7 +861,10 @@
     "sortLabel": "Saralash",
     "sortCatalog": "Katalog tartibi",
     "sortBestSellers": "Ko'p sotilganlar",
-    "sortRunsOut": "Tez tugaydiganlar"
+    "sortRunsOut": "Tez tugaydiganlar",
+    "marginPerUnit": "Bir donadan ustama",
+    "runsOut": "Tugaydi",
+    "buyThisProduct": "Shu mahsulotni xarid qilish"
   },
   "promotions": {
     "title": "Aksiyalar",
@@ -1036,7 +1043,10 @@
     "ageDays": "{count} kun",
     "oldestDebt": "Eng eskisi: {count} kun",
     "overdueCount": "{count} tasi {days} kundan oshgan",
-    "personTotal": "Ochiq qarzlar: {count} ta, jami"
+    "personTotal": "Ochiq qarzlar: {count} ta, jami",
+    "detailsAge": "Muddati",
+    "detailsRecordedAt": "Yozilgan",
+    "detailsNoPayments": "Hali to'lov yo'q"
   },
   "dailyReport": {
     "title": "Kunlik hisobot",
@@ -1724,7 +1734,8 @@
       "employeeActive": "Avval xodimni faolsizlantiring. Faqat faolsizlantirilgan xodimni o‘chirish mumkin.",
       "dayCollected": "Bu kunning puli olindi, kun yopilgan. Boshqa sanani tanlang yoki egasidan kunni qayta ochishni so‘rang.",
       "insufficientBalance": "Bu kunda to‘lov usulida bu to‘lov uchun yetarli pul yo‘q."
-    }
+    },
+    "openInReports": "Hisobotda ochish"
   },
   "testChecklist": {
     "title": "Tizim tekshiruvlari",
@@ -2292,7 +2303,8 @@
     "sources": {
       "bar": "Bar",
       "game_club": "Klub"
-    }
+    },
+    "openRecord": "Ochish"
   },
   "googleBusiness": {
     "loadFailed": "Google ulanishini yuklab bo‘lmadi.",

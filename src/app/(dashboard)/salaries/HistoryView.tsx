@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import Link from 'next/link';
 import { Users } from 'lucide-react';
 import {
   Badge,
@@ -19,6 +20,7 @@ import { buildSalaryCalendar, shiftYearMonth } from '@/lib/calculations/salaryCa
 import { canDeleteSalaryRate, dailyBasePay, rateInForce, type SalaryEmployee, type SalaryEntry, type SalaryMonth, type SalaryRate } from '@/lib/calculations/salaries';
 import { formatCurrency, formatDateOnly, formatDateTime, formatYearMonth } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
+import { dayRange, reportsHref } from '@/lib/detailLinks';
 import { SalaryCalendar } from './SalaryCalendar';
 import { useSalaryText, type DeletionTarget } from './shared';
 
@@ -80,6 +82,13 @@ export function HistoryView({
     .sort((a, b) => b.effective_date.localeCompare(a.effective_date));
   // In the club-wide history each row names its employee.
   const employeePrefix = (id: string) => (historyEmployee ? '' : `${employees.find((e) => e.id === id)?.name ?? ''} · `);
+  /** On the all-staff history the name opens that employee's own history. */
+  const employeeLink = (id: string) => (historyEmployee ? null : (
+    <>
+      <Link href={`/salaries/employees/${id}`} className="hover:underline">{employees.find((e) => e.id === id)?.name ?? ''}</Link>
+      {' · '}
+    </>
+  ));
   const deleterName = (id?: string | null) => (id ? deleterNames[id] : undefined);
 
   return (
@@ -136,7 +145,7 @@ export function HistoryView({
             </div>
           </aside>
         </div>
-        <div>
+        <div id="salary-transactions">
           <SectionHeading
             size="sm"
             title={t('transactions')}
@@ -150,7 +159,7 @@ export function HistoryView({
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="success" size="sm">{t('kpi')}</Badge>
-                    <span className="font-semibold text-gray-900">{employeePrefix(id)}{selectedDate ? formatDateOnly(selectedDate, locale) : formatYearMonth(calendarMonth, locale)}</span>
+                    <span className="font-semibold text-gray-900">{employeeLink(id)}{selectedDate ? formatDateOnly(selectedDate, locale) : formatYearMonth(calendarMonth, locale)}</span>
                   </div>
                   <p className="mt-1 text-xs text-gray-500">{t(selectedDate ? 'calendarKpiDay' : 'calendarKpiMonth')}{rate ? ` · ${Number(rate.kpi_percent)}% (${kpiSummary(rate)})` : ''}</p>
                 </div>
@@ -162,9 +171,24 @@ export function HistoryView({
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={ENTRY_BADGE[entry.kind]} size="sm">{t(entry.kind)}</Badge>
-                    <span className="font-semibold text-gray-900">{employeePrefix(entry.employee_id)}{formatDateOnly(entry.date, locale)}</span>
+                    <span className="font-semibold text-gray-900">{employeeLink(entry.employee_id)}{formatDateOnly(entry.date, locale)}</span>
                   </div>
-                  {entry.payment_method && <p className="mt-1 text-xs text-gray-500">{tc(`paymentMethods.${entry.payment_method}`)} · {tp(`paymentSources.${entry.payment_source}`)}</p>}
+                  {entry.payment_method && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      {tc(`paymentMethods.${entry.payment_method}`)} · {tp(`paymentSources.${entry.payment_source}`)}
+                      {entry.kind === 'payment' && !entry.deleted_at && (
+                        <>
+                          {' · '}
+                          <Link
+                            href={reportsHref(dayRange(entry.date), { category: 'expense:salary', source: entry.payment_source === 'bar' ? 'bar' : 'game_club' })}
+                            className="font-medium text-primary-700 hover:underline"
+                          >
+                            {t('openInReports')}
+                          </Link>
+                        </>
+                      )}
+                    </p>
+                  )}
                   {entry.comment && <p className="mt-1.5 whitespace-pre-line break-words text-gray-600">{entry.comment}</p>}
                   {entry.delete_reason && <p className="mt-1 break-words text-xs text-gray-500">{t('deleteReason')}: {entry.delete_reason}</p>}
                   {deleterName(entry.deleted_by) && <p className="mt-0.5 break-words text-xs text-gray-500">{t('deletedBy')}: {deleterName(entry.deleted_by)}</p>}
@@ -192,6 +216,11 @@ export function HistoryView({
             dense
             minWidth={640}
             keyExtractor={(month) => month.month}
+            onRowClick={(month) => {
+              setCalendarMonth(month.month);
+              setSelectedDate('');
+              document.getElementById('salary-transactions')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
             data={[...months].reverse()}
             columns={[
               { key: 'month', header: t('month'), render: (month) => formatYearMonth(month.month, locale) },

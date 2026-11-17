@@ -110,6 +110,37 @@ export function auditEntryDate(row: Record<string, unknown>): string | null {
   return null;
 }
 
+/**
+ * The page where an audited record lives now, for its day where the page takes one;
+ * null when there is no page to open.
+ */
+export function auditRecordHref(table: string, date: string | null): string | null {
+  const day = date ? `?${new URLSearchParams({ from: date, to: date }).toString()}` : '';
+  switch (table) {
+    case 'daily_cash_entries':
+    case 'daily_cash_collections':
+      return `/reports${day}`;
+    case 'expenses':
+      return `/reports${day}${day ? '&' : '?'}category=expense`;
+    case 'money_exchanges':
+      return `/reports${day}${day ? '&' : '?'}category=exchange`;
+    case 'debt_payments':
+      return `/reports${day}${day ? '&' : '?'}category=debt_payment`;
+    case 'stock_purchases':
+      return date ? `/closing-stock?date=${encodeURIComponent(date)}` : '/stock-purchase';
+    case 'owner_withdrawals':
+    case 'owner_profit_carryovers':
+    case 'cash_shortages':
+      return '/money-taken';
+    case 'new_debts':
+      return '/debts';
+    case 'owner_reserve_entries':
+      return '/reserve?view=history';
+    default:
+      return null;
+  }
+}
+
 export interface AuditLogFilter {
   table: AuditedTable | 'all';
   action: EntryAuditLog['action'] | 'all';

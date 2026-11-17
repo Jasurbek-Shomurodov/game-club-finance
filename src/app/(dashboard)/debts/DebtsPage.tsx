@@ -49,7 +49,9 @@ import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { usePageSearch, useQuickAction } from '@/lib/quickActions';
 import { fetchAllRows } from '@/lib/supabase/pagination';
-import { formatCurrency, formatDate, formatNumber, parseCurrencyInput } from '@/lib/formatters';
+import { formatCurrency, formatDate, formatDateTime, formatNumber, parseCurrencyInput } from '@/lib/formatters';
+import { dayRange, reportsHref } from '@/lib/detailLinks';
+import Link from 'next/link';
 import {
   calculateRemainingDebt,
   canManageDebts,
@@ -64,7 +66,7 @@ import {
   type OpenDebtSort,
 } from '@/lib/calculations/debt';
 import { getDebtDateIssue, validateDebtPayment } from '@/lib/validation';
-import { Download, Plus, Users, Wallet } from 'lucide-react';
+import { ChevronRight, Download, Plus, Users, Wallet } from 'lucide-react';
 import { csvFileName, csvSeparatorForLocale, downloadCsv, toCsv } from '@/lib/csv';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
 import type { NewDebt, DebtPayment, EntryPaymentMethod } from '@/types';
@@ -102,6 +104,8 @@ export default function DebtsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [payDebtId, setPayDebtId] = useState<string | null>(null);
   const [payments, setPayments] = useState<DebtPayment[]>([]);
+  /** The debt whose details sheet is open (read-only, with its payments). */
+  const [detailDebtId, setDetailDebtId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [showPaid, setShowPaid] = useState(false);
@@ -257,6 +261,23 @@ export default function DebtsPage() {
     paymentsRequestSequence.current += 1;
     setPaymentsLoading(false);
     setPayDebtId(null);
+  }
+
+  function openDetail(debtId: string) {
+    if (!selectedClubId) return;
+    setDetailDebtId(debtId);
+    setPayments([]);
+    void loadPayments(debtId, selectedClubId);
+  }
+
+  function retryDetailPayments() {
+    if (detailDebtId && selectedClubId) void loadPayments(detailDebtId, selectedClubId);
+  }
+
+  function closeDetail() {
+    paymentsRequestSequence.current += 1;
+    setPaymentsLoading(false);
+    setDetailDebtId(null);
   }
 
   function openAddDebtModal(personName = '') {
@@ -464,6 +485,7 @@ export default function DebtsPage() {
   }
 
   const activePayments = payDebtId ? payments : [];
+  const detailDebt = detailDebtId ? debts.find((d) => d.id === detailDebtId) ?? null : null;
   const paymentMethodOptions = enabledPaymentMethods.map((method) => ({
     value: method,
     label: tc(`paymentMethods.${method}`),
@@ -564,7 +586,7 @@ export default function DebtsPage() {
                   const person = personTotals.get(debtPersonKey(debt.person_name));
                   return (
                     <PresenceItem key={key} presence={presence} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:px-5">
-                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <button type="button" onClick={() => openDetail(debt.id)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
                         <Avatar name={debt.person_name} />
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
@@ -583,7 +605,8 @@ export default function DebtsPage() {
                             </p>
                           )}
                         </div>
-                      </div>
+                        <ChevronRight size={15} aria-hidden="true" className="shrink-0 text-gray-300 sm:hidden" />
+                      </button>
                       <div className="flex items-center justify-between gap-3 sm:justify-end">
                         <div className="text-right">
                           <p className={cn('font-semibold tabular-nums', remaining > 0 ? 'text-danger-600' : 'text-gray-900')}>
@@ -634,7 +657,8 @@ export default function DebtsPage() {
               {showPaid && (
                 <ul className="divide-y divide-gray-100">
                   {paidShown.map(({ key, item: debt, presence }) => (
-                    <PresenceItem key={key} presence={presence} className="flex items-center gap-3 px-4 py-3 sm:px-5">
+                    <PresenceItem key={key} presence={presence} className="px-4 py-3 sm:px-5">
+                      <button type="button" onClick={() => openDetail(debt.id)} className="flex w-full items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
                       <Avatar name={debt.person_name} size="sm" tone="neutral" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium text-gray-700">{debt.person_name}</p>
@@ -645,6 +669,8 @@ export default function DebtsPage() {
                       </div>
                       <span className="shrink-0 font-semibold tabular-nums text-gray-500"><Money amount={debt.amount} /></span>
                       <Badge variant="success" size="sm">{t('paid')}</Badge>
+                      <ChevronRight size={15} aria-hidden="true" className="shrink-0 text-gray-300" />
+                      </button>
                     </PresenceItem>
                   ))}
                 </ul>
@@ -653,6 +679,111 @@ export default function DebtsPage() {
           )}
         </>
       )}
+
+      <Modal
+        open={Boolean(detailDebt)}
+        onClose={closeDetail}
+        title={detailDebt?.person_name ?? ''}
+        footer={detailDebt ? (
+          <div className="flex w-full flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-2">
+              {canManage && remainingFor(detailDebt) > 0 && (
+                <Button
+                  icon={<Wallet size={14} aria-hidden="true" />}
+                  onClick={() => {
+                    const id = detailDebt.id;
+                    closeDetail();
+                    openPayModal(id);
+                  }}
+                >
+                  {t('acceptPayment')}
+                </Button>
+              )}
+              {canManage && (
+                <Button
+                  variant="outline"
+                  icon={<Plus size={14} aria-hidden="true" />}
+                  onClick={() => {
+                    const name = detailDebt.person_name;
+                    closeDetail();
+                    openAddDebtModal(name);
+                  }}
+                >
+                  {t('addDebt')}
+                </Button>
+              )}
+            </div>
+            <Button variant="secondary" onClick={closeDetail}>{tc('close')}</Button>
+          </div>
+        ) : undefined}
+      >
+        {detailDebt && (() => {
+          const status = getDebtStatus(detailDebt.amount, detailDebt.paid_amount);
+          const person = personTotals.get(debtPersonKey(detailDebt.person_name));
+          const facts: Array<{ label: string; value: React.ReactNode }> = [
+            { label: t('date'), value: formatDate(detailDebt.date, locale) },
+            { label: t('amount'), value: <Money amount={detailDebt.amount} /> },
+            { label: t('paidAmount'), value: <Money amount={detailDebt.paid_amount} /> },
+            { label: t('detailsAge'), value: t('ageDays', { count: debtAgeDays(detailDebt.date, businessToday) }) },
+            ...(person && person.count > 1 ? [{ label: t('personTotal', { count: person.count }), value: <Money amount={person.remaining} /> }] : []),
+            { label: t('detailsRecordedAt'), value: formatDateTime(detailDebt.created_at, locale) },
+            ...(detailDebt.comment ? [{ label: t('comment'), value: detailDebt.comment }] : []),
+          ];
+          return (
+            <div className="space-y-5">
+              <div>
+                <Badge variant={statusVariant(status)} size="sm">{t(status)}</Badge>
+                <p className={cn('mt-2 text-2xl font-bold tabular-nums', remainingFor(detailDebt) > 0 ? 'text-danger-600' : 'text-gray-900')}>
+                  <Money amount={remainingFor(detailDebt)} currencyClassName="text-sm font-medium text-gray-500" />
+                </p>
+                <p className="text-xs text-gray-500">{t('remaining')}</p>
+              </div>
+              <dl className="divide-y divide-gray-100 rounded-xl border border-gray-100 text-sm">
+                {facts.map((fact) => (
+                  <div key={fact.label} className="flex items-start justify-between gap-4 px-4 py-2.5">
+                    <dt className="shrink-0 text-gray-500">{fact.label}</dt>
+                    <dd className="min-w-0 break-words text-right font-medium text-gray-900">{fact.value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase text-gray-500">{t('debtPayments')}</p>
+                {paymentsLoading ? (
+                  <div role="status" aria-label={t('paymentsLoading')} className="space-y-2">
+                    <Skeleton className="h-9 w-full rounded-lg bg-gray-100" />
+                  </div>
+                ) : paymentsError ? (
+                  <LoadErrorAlert retrying={paymentsLoading} onRetry={retryDetailPayments}>
+                    {paymentsError}
+                  </LoadErrorAlert>
+                ) : payments.length === 0 ? (
+                  <p className="text-sm text-gray-500">{t('detailsNoPayments')}</p>
+                ) : (
+                  <ul className="divide-y divide-gray-100 rounded-lg border border-gray-100">
+                    {payments.map((p) => (
+                      <li key={p.id}>
+                        <Link
+                          href={reportsHref(dayRange(p.date), { category: 'debt_payment' })}
+                          className="flex items-center justify-between gap-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 focus-visible:bg-primary-50 focus-visible:outline-none"
+                        >
+                          <span className="min-w-0">
+                            {formatDate(p.date, locale)} · {tc.has(`paymentMethods.${p.payment_method}`) ? tc(`paymentMethods.${p.payment_method as EntryPaymentMethod}`) : p.payment_method}
+                            {p.comment ? <span className="block break-words text-xs text-gray-500">{p.comment}</span> : null}
+                          </span>
+                          <span className="flex shrink-0 items-center gap-1 font-medium text-success-600">
+                            +<Money amount={p.amount} />
+                            <ChevronRight size={14} aria-hidden="true" className="text-gray-300" />
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
 
       <Modal
         open={addOpen}

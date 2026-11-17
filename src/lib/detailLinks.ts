@@ -51,3 +51,15 @@ export function debtsSearchHref(base: string, name: string | null | undefined): 
   const trimmed = name?.trim();
   return trimmed ? `${base}?${new URLSearchParams({ search: trimmed }).toString()}` : base;
 }
+
+/** Where a money-details line opens: the closing count for bar sales and purchases, otherwise that day in Reports. */
+export function moneyDetailLineHref(
+  side: MoneySide,
+  date: string,
+  line: { kind: 'purchase' } | { kind: 'expense'; category: string } | { kind: 'collected'; key: string },
+): string {
+  if (line.kind === 'purchase') return closingStockHref(date);
+  if (line.kind === 'expense') return reportsHref(dayRange(date), { category: `expense:${line.category}`, source: side });
+  if (line.key === 'barSales') return closingStockHref(date);
+  return reportsHref(dayRange(date), { category: line.key === 'debtPayments' ? 'debt_payment' : 'income' });
+}

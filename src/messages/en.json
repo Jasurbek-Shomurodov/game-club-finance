@@ -795,7 +795,11 @@
     "suggestTotal": "All of it",
     "soldRecently": "Sold in {days} days",
     "stockLasts": "Stock lasts",
-    "daysCount": "{count, plural, one {about # day} other {about # days}}"
+    "daysCount": "{count, plural, one {about # day} other {about # days}}",
+    "purchaseDetails": "Purchase details",
+    "purchaseMarginPerUnit": "Margin per unit",
+    "purchaseRecordedAt": "Recorded",
+    "purchaseOpenDay": "Open this day's stock count"
   },
   "products": {
     "loadFailed": "Could not load products. Check your connection and try again.",
@@ -857,7 +861,10 @@
     "sortLabel": "Sort",
     "sortCatalog": "Catalog order",
     "sortBestSellers": "Best sellers",
-    "sortRunsOut": "Runs out first"
+    "sortRunsOut": "Runs out first",
+    "marginPerUnit": "Margin per unit",
+    "runsOut": "Runs out",
+    "buyThisProduct": "Buy this product"
   },
   "promotions": {
     "title": "Promotions",
@@ -1036,7 +1043,10 @@
     "ageDays": "{count, plural, one {# day} other {# days}}",
     "oldestDebt": "Oldest: {count, plural, one {# day} other {# days}}",
     "overdueCount": "{count} over {days} days",
-    "personTotal": "{count} open debts, in total"
+    "personTotal": "{count} open debts, in total",
+    "detailsAge": "Age",
+    "detailsRecordedAt": "Recorded",
+    "detailsNoPayments": "No payments yet"
   },
   "dailyReport": {
     "title": "Daily Report",
@@ -1724,7 +1734,8 @@
       "employeeActive": "Deactivate this employee first. Only deactivated employees can be deleted.",
       "dayCollected": "The money for this day was collected, so the day is closed. Pick another date or ask an owner to reopen it.",
       "insufficientBalance": "The payment method does not hold enough money on this day for this payment."
-    }
+    },
+    "openInReports": "Open in Reports"
   },
   "testChecklist": {
     "title": "System sanity checks",
@@ -2292,7 +2303,8 @@
     "sources": {
       "bar": "Bar",
       "game_club": "Game Club"
-    }
+    },
+    "openRecord": "Open"
   },
   "googleBusiness": {
     "loadFailed": "Could not load the Google connection.",

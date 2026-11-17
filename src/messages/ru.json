@@ -795,7 +795,11 @@
     "suggestTotal": "Всё вместе",
     "soldRecently": "Продано за {days} дн.",
     "stockLasts": "Запаса хватит",
-    "daysCount": "примерно на {count} дн."
+    "daysCount": "примерно на {count} дн.",
+    "purchaseDetails": "Детали закупки",
+    "purchaseMarginPerUnit": "Наценка за шт.",
+    "purchaseRecordedAt": "Записано",
+    "purchaseOpenDay": "Открыть остатки за этот день"
   },
   "products": {
     "loadFailed": "Не удалось загрузить товары. Проверьте подключение и попробуйте снова.",
@@ -857,7 +861,10 @@
     "sortLabel": "Сортировка",
     "sortCatalog": "Как в каталоге",
     "sortBestSellers": "Лидеры продаж",
-    "sortRunsOut": "Скоро закончатся"
+    "sortRunsOut": "Скоро закончатся",
+    "marginPerUnit": "Наценка за шт.",
+    "runsOut": "Закончится",
+    "buyThisProduct": "Закупить этот товар"
   },
   "promotions": {
     "title": "Акции",
@@ -1036,7 +1043,10 @@
     "ageDays": "{count, plural, one {# день} few {# дня} many {# дней} other {# дня}}",
     "oldestDebt": "Самый старый: {count, plural, one {# день} few {# дня} many {# дней} other {# дня}}",
     "overdueCount": "{count} старше {days} дней",
-    "personTotal": "Открытых долгов: {count}, всего"
+    "personTotal": "Открытых долгов: {count}, всего",
+    "detailsAge": "Срок",
+    "detailsRecordedAt": "Записано",
+    "detailsNoPayments": "Оплат пока нет"
   },
   "dailyReport": {
     "title": "Ежедневный отчёт",
@@ -1724,7 +1734,8 @@
       "employeeActive": "Сначала деактивируйте сотрудника. Удалить можно только деактивированного.",
       "dayCollected": "Деньги за этот день забраны, день закрыт. Выберите другую дату или попросите владельца открыть день.",
       "insufficientBalance": "На этот день у способа оплаты нет столько денег для этой выплаты."
-    }
+    },
+    "openInReports": "Открыть в отчётах"
   },
   "testChecklist": {
     "title": "Проверки целостности",
@@ -2292,7 +2303,8 @@
     "sources": {
       "bar": "Бар",
       "game_club": "Клуб"
-    }
+    },
+    "openRecord": "Открыть"
   },
   "googleBusiness": {
     "loadFailed": "Не удалось загрузить подключение Google.",

@@ -42,6 +42,7 @@ import { BulkStockUpdateModal } from './BulkStockUpdateModal';
 import { StockWriteOffModal, type StockWriteOffInput } from './StockWriteOffModal';
 import { groupByCategory } from '@/lib/productSections';
 import { calendarTodayIso, isoDateParam, todayIso } from '@/lib/utils';
+import { dayRange, moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { formatCurrency, formatDateOnly, formatNumber, formatUnitCurrency } from '@/lib/formatters';
@@ -74,7 +75,8 @@ import {
   type BulkStockOrderSummary,
   type StorageLike,
 } from '@/lib/closingStock';
-import { applyStockWriteOff, notifyStockWriteOff, rowWriteOff, StockWriteOffError } from '@/lib/stockWriteOffs';
+import { applyStockWriteOff, notifyStockWriteOff, rowWriteOff, StockWriteOffError, writeOffKindVariant, type StockWriteOffEntry } from '@/lib/stockWriteOffs';
+import { WriteOffDetailsModal } from '@/components/WriteOffDetailsModal';
 import {
   CalendarX,
   Gift,
@@ -203,6 +205,7 @@ export default function ClosingStockPage() {
   const [saving, setSaving] = useState(false);
   const [bulkUpdateOpen, setBulkUpdateOpen] = useState(false);
   const [writeOffOpen, setWriteOffOpen] = useState(false);
+  const [viewedWriteOff, setViewedWriteOff] = useState<StockWriteOffEntry | null>(null);
   const [error, setError] = useState('');
   const [invalidProductId, setInvalidProductId] = useState<string | null>(null);
   const { showToast, toastElement } = useToast();
@@ -624,15 +627,16 @@ export default function ClosingStockPage() {
     return result.ok ? null : result.message ?? tc('error');
   }
 
-  const kpis: Array<{ label: string; value: string; unit?: string; tone?: 'default' | 'success' | 'danger' }> = [
+  const day = dayRange(date);
+  const kpis: Array<{ label: string; value: string; unit?: string; tone?: 'default' | 'success' | 'danger'; href?: string }> = [
     { label: t('totalProducts'), value: formatNumber(rows.length) },
-    { label: t('stockPurchased'), value: formatNumber(totals.added), unit: t('pcs') },
+    { href: '/stock-purchase', label: t('stockPurchased'), value: formatNumber(totals.added), unit: t('pcs') },
     { label: t('totalSold'), value: formatNumber(totals.sold), unit: t('pcs') },
-    { label: t('barIncomeEst'), value: formatCurrency(totals.income), unit: tc('currency'), tone: 'success' },
-    { label: t('barProfitEst'), value: formatCurrency(totals.profit), unit: tc('currency'), tone: totals.profit < 0 ? 'danger' : 'success' },
-    { label: t('promoCost'), value: formatCurrency(totals.giveawayCost), unit: tc('currency'), tone: totals.giveawayCost > 0 ? 'danger' : 'default' },
+    { href: moneyDetailsHref('bar', day), label: t('barIncomeEst'), value: formatCurrency(totals.income), unit: tc('currency'), tone: 'success' },
+    { href: moneyDetailsHref('bar', day), label: t('barProfitEst'), value: formatCurrency(totals.profit), unit: tc('currency'), tone: totals.profit < 0 ? 'danger' : 'success' },
+    { href: '/promotions', label: t('promoCost'), value: formatCurrency(totals.giveawayCost), unit: tc('currency'), tone: totals.giveawayCost > 0 ? 'danger' : 'default' },
     // Write-offs are an owner tool: only owners see their cost and badges.
-    ...(isOwner ? [{ label: t('writeOffCost'), value: formatCurrency(totals.writeOffCost), unit: tc('currency'), tone: totals.writeOffCost > 0 ? 'danger' as const : 'default' as const }] : []),
+    ...(isOwner ? [{ href: reportsHref(day, { view: 'writeOffs' }), label: t('writeOffCost'), value: formatCurrency(totals.writeOffCost), unit: tc('currency'), tone: totals.writeOffCost > 0 ? 'danger' as const : 'default' as const }] : []),
     { label: t('stockValue'), value: formatCurrency(totals.stockValue), unit: tc('currency') },
   ];
   const categoryChipOptions = [{ value: '', label: tc('all') }, ...categoryOptions.map((category) => ({ value: category, label: category }))];
@@ -655,6 +659,7 @@ export default function ClosingStockPage() {
         onClose={() => setBulkUpdateOpen(false)}
         onSave={handleBulkStockSave}
       />
+      <WriteOffDetailsModal entry={viewedWriteOff} onClose={() => setViewedWriteOff(null)} />
       {canWriteOff && (
         <StockWriteOffModal
           open={writeOffOpen}
@@ -787,6 +792,7 @@ export default function ClosingStockPage() {
                 {kpis.map((kpi) => (
                   <StatTile
                     key={kpi.label}
+                    href={dirty ? undefined : kpi.href}
                     variant="flat"
                     size="sm"
                     label={kpi.label}
@@ -954,15 +960,28 @@ export default function ClosingStockPage() {
                                   </Badge>
                                 )}
                                 {writeOff && (
-                                  <Badge
-                                    variant={writeOff.kind === 'expired' ? 'warning' : 'danger'}
-                                    size="sm"
-                                    className="mt-1"
-                                    icon={<PackageMinus size={12} aria-hidden="true" />}
-                                    title={writeOff.note || undefined}
+                                  <button
+                                    type="button"
+                                    className="mt-1 block rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                                    onClick={() => setViewedWriteOff({
+                                      date,
+                                      productId: row.product.id,
+                                      productName: row.product.name,
+                                      kind: writeOff.kind,
+                                      note: writeOff.note,
+                                      quantity: writeOff.quantity,
+                                      cost: writeOff.quantity * Number(row.product.cost_price),
+                                    })}
                                   >
-                                    {t(`writeOffKinds.${writeOff.kind}`)} −{formatNumber(writeOff.quantity)}
-                                  </Badge>
+                                    <Badge
+                                      variant={writeOffKindVariant(writeOff.kind)}
+                                      size="sm"
+                                      icon={<PackageMinus size={12} aria-hidden="true" />}
+                                      title={writeOff.note || undefined}
+                                    >
+                                      {t(`writeOffKinds.${writeOff.kind}`)} −{formatNumber(writeOff.quantity)}
+                                    </Badge>
+                                  </button>
                                 )}
                                 <p className="mt-1 text-xs text-gray-500 max-sm:hidden">{t('costLabel')} {formatUnitCurrency(row.product.cost_price)} {tc('currency')}</p>
                               </div>

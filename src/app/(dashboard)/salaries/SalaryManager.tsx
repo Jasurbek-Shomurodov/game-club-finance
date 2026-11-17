@@ -520,6 +520,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
       {!loadError && view !== 'history' && (
         <div className={cn(metricGridClassName, 'sm:grid-cols-3 sm:gap-4')}>
           <MetricCard
+            href={view === 'employees' ? undefined : '/salaries/employees'}
             label={t('activeEmployees')}
             value={String(activeCount)}
             trendLabel={upcomingCount ? t('upcomingCount', { count: upcomingCount }) : undefined}
@@ -527,6 +528,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
             loading={loading}
           />
           <MetricCard
+            href="/salaries/history"
             label={t(isAdvance ? 'advance' : 'totalDue')}
             value={<MetricMoney amount={Math.abs(dueValue)} />}
             icon={Wallet}
@@ -534,6 +536,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
             tone={dueValue > 0 ? 'warning' : 'default'}
           />
           <MetricCard
+            href="/salaries/history"
             label={t('earnedThisMonth')}
             value={<MetricMoney amount={thisMonth?.earned ?? 0} />}
             trendLabel={t('paidThisMonth', { amount: `${formatCurrency(thisMonth?.paid ?? 0)} ${tc('currency')}` })}

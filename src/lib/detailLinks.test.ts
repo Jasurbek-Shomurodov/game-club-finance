@@ -4,6 +4,7 @@ import {
   dailyReportHref,
   dayRange,
   debtsSearchHref,
+  moneyDetailLineHref,
   moneyDetailsHref,
   reportsHref,
   stockPurchaseHref,
@@ -39,5 +40,21 @@ describe('detail links', () => {
     expect(debtsSearchHref('/debts', 'Ali Valiyev')).toBe('/debts?search=Ali+Valiyev');
     expect(debtsSearchHref('/debts', '  ')).toBe('/debts');
     expect(debtsSearchHref('/debts', null)).toBe('/debts');
+  });
+});
+
+describe('money details lines', () => {
+  it('opens purchases and bar sales in closing stock', () => {
+    expect(moneyDetailLineHref('bar', '2026-11-05', { kind: 'purchase' })).toBe('/closing-stock?date=2026-11-05');
+    expect(moneyDetailLineHref('bar', '2026-11-05', { kind: 'collected', key: 'barSales' })).toBe('/closing-stock?date=2026-11-05');
+  });
+
+  it('opens expenses and income on that day in reports', () => {
+    expect(moneyDetailLineHref('bar', '2026-11-05', { kind: 'expense', category: 'rent' }))
+      .toBe('/reports?from=2026-11-05&to=2026-11-05&category=expense%3Arent&source=bar');
+    expect(moneyDetailLineHref('game_club', '2026-11-05', { kind: 'collected', key: 'cash' }))
+      .toBe('/reports?from=2026-11-05&to=2026-11-05&category=income');
+    expect(moneyDetailLineHref('game_club', '2026-11-05', { kind: 'collected', key: 'debtPayments' }))
+      .toBe('/reports?from=2026-11-05&to=2026-11-05&category=debt_payment');
   });
 });

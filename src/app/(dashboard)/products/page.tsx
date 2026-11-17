@@ -22,6 +22,7 @@ import {
   LoadErrorAlert,
   Modal,
   PageHeader,
+  ButtonLink,
   SearchInput,
   SectionHeading,
   SegmentedControl,
@@ -43,13 +44,15 @@ import {
   type ProductWriteForm,
 } from '@/lib/productWrites';
 import { LOW_STOCK_DEFAULT, resolveLowStockThreshold, stockLevel } from '@/lib/calculations/stock';
+import { stockPurchaseHref } from '@/lib/detailLinks';
+import { canAccessPath } from '@/lib/permissions';
 import { groupByCategory } from '@/lib/productSections';
 import { buildProductSalesSummary, salesPeriodStart, type ProductSalesRow } from '@/lib/calculations/productSales';
 import { fetchBarProductSales } from '@/lib/supabase/barProductSales';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { cn } from '@/lib/utils';
 import { useClubQuery } from '@/lib/useClubQuery';
-import { ArrowDown, ArrowUp, Check, Download, ListOrdered, Lock, Package, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ChevronRight, Download, ListOrdered, Lock, Package, Pencil, Plus, Trash2 } from 'lucide-react';
 import { usePageSearch } from '@/lib/quickActions';
 import { csvFileName, csvSeparatorForLocale, downloadCsv, toCsv } from '@/lib/csv';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
@@ -84,13 +87,15 @@ export default function ProductsPage() {
   const sectionTabs = useSectionTabs('bar');
   const t = useTranslations('products');
   const tc = useTranslations('common');
-  const { selectedClubId, role: currentRole, businessDayStartHour } = useClub();
+  const { selectedClubId, role: currentRole, businessDayStartHour, featureAccess } = useClub();
   const businessToday = useBusinessToday(businessDayStartHour);
   const { locale } = useAppLocale();
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  /** Product shown read-only, for members who cannot edit the catalog. */
+  const [viewingId, setViewingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm());
   const [loadedCostPrice, setLoadedCostPrice] = useState<PrefilledAmount | null>(null);
   const [loadedSalePrice, setLoadedSalePrice] = useState<PrefilledAmount | null>(null);
@@ -135,6 +140,7 @@ export default function ProductsPage() {
     }
     return best;
   }, [products, sales]);
+  const viewingProduct = viewingId ? products.find((product) => product.id === viewingId) ?? null : null;
   const productIndexById = useMemo(() => new Map(products.map((product, index) => [product.id, index])), [products]);
 
   // An open editor belongs to the previous club's product; never save it
@@ -454,7 +460,13 @@ export default function ProductsPage() {
                   value={formatCurrency(sales.profit)}
                   unit={tc('currency')}
                 />
-                <StatTile variant="soft" size="sm" label={t('salesTop')} value={bestSeller?.name ?? '—'} />
+                <StatTile
+                  variant="soft"
+                  size="sm"
+                  label={t('salesTop')}
+                  value={bestSeller?.name ?? '—'}
+                  onClick={bestSeller ? () => (canManageInventory ? openEdit(bestSeller) : setViewingId(bestSeller.id)) : undefined}
+                />
               </div>
             </Card>
           )}
@@ -525,7 +537,7 @@ export default function ProductsPage() {
                 ),
               }))}
               stickyHeader
-              onRowClick={canManageInventory && !reordering ? openEdit : undefined}
+              onRowClick={reordering ? undefined : canManageInventory ? openEdit : (product) => setViewingId(product.id)}
               rowClassName={(r) => (r.is_deleted ? 'cursor-default' : undefined)}
               minWidth={reordering ? 760 : hasSales ? 760 : 640}
               emptyState={(
@@ -765,6 +777,51 @@ export default function ProductsPage() {
       </Modal>
 
       {toastElement}
+      <Modal open={Boolean(viewingProduct)} onClose={() => setViewingId(null)} title={viewingProduct?.name ?? ''}>
+        {viewingProduct && (() => {
+          const insight = sales.byProduct.get(viewingProduct.id);
+          const tracked = viewingProduct.tracks_inventory !== false;
+          const currency = tc('currency');
+          const facts: Array<{ label: string; value: string }> = [
+            ...(viewingProduct.category ? [{ label: t('category'), value: viewingProduct.category }] : []),
+            { label: t('salePrice'), value: `${formatCurrency(viewingProduct.sale_price)} ${currency}` },
+            { label: t('costPrice'), value: `${formatUnitCurrency(viewingProduct.cost_price)} ${currency}` },
+            { label: t('marginPerUnit'), value: `${formatUnitCurrency(viewingProduct.sale_price - viewingProduct.cost_price)} ${currency}` },
+            tracked
+              ? { label: t('currentStock'), value: t('stockUnits', { count: formatNumber(viewingProduct.current_stock) }) }
+              : { label: t('currentStock'), value: t('madeToOrder') },
+            ...(tracked ? [{ label: t('lowStockThreshold'), value: formatNumber(resolveLowStockThreshold(viewingProduct.low_stock_threshold)) }] : []),
+            ...(insight ? [
+              { label: t('soldColumn', { days: SALES_PERIOD_DAYS }), value: t('stockUnits', { count: formatNumber(insight.sold) }) },
+              { label: t('salesIncome'), value: `${formatCurrency(insight.income)} ${currency}` },
+              { label: t('salesProfit'), value: `${formatCurrency(insight.profit)} ${currency}` },
+              ...(insight.daysLeft !== null ? [{ label: t('runsOut'), value: t('daysLeft', { count: formatNumber(insight.daysLeft) }) }] : []),
+            ] : []),
+          ];
+          return (
+            <div className="space-y-5">
+              <dl className="divide-y divide-gray-100 rounded-xl border border-gray-100 text-sm">
+                {facts.map((fact) => (
+                  <div key={fact.label} className="flex items-start justify-between gap-4 px-4 py-2.5">
+                    <dt className="shrink-0 text-gray-500">{fact.label}</dt>
+                    <dd className="min-w-0 break-words text-right font-medium tabular-nums text-gray-900">{fact.value}</dd>
+                  </div>
+                ))}
+              </dl>
+              {tracked && currentRole && canAccessPath(currentRole, featureAccess, '/stock-purchase') && (
+                <ButtonLink
+                  href={stockPurchaseHref({ id: viewingProduct.id, shortfall: 0 })}
+                  variant="secondary"
+                  className="w-full"
+                  iconRight={<ChevronRight size={15} aria-hidden="true" />}
+                >
+                  {t('buyThisProduct')}
+                </ButtonLink>
+              )}
+            </div>
+          );
+        })()}
+      </Modal>
       {confirmDialog}
     </div>
   );

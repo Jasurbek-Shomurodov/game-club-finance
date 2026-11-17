@@ -19,7 +19,8 @@ import {
 import { fetchProfileNames } from '@/lib/supabase/profileNames';
 import { createClient } from '@/lib/supabase/client';
 import { calculateFinancialReportTotals, calculateManualIncome } from '@/lib/calculations/dailyReport';
-import { canAccessFeature, canReadFinancialTotals, canReadStockCounts } from '@/lib/permissions';
+import { canAccessFeature, canAccessPath, canReadFinancialTotals, canReadStockCounts } from '@/lib/permissions';
+import { closingStockHref, dayRange, moneyDetailsHref } from '@/lib/detailLinks';
 import ExpenseRegistrationForm from '../reports/ExpenseRegistrationForm';
 import { CashShortageForm } from '@/components/cash-shortages/CashShortageForm';
 import { fetchCashShortages, type ShortageEmployee } from '@/lib/supabase/cashShortages';
@@ -163,6 +164,8 @@ export default function DailyCashPage() {
   const tr = useTranslations('reports');
   const tsh = useTranslations('cashShortages');
   const { selectedClubId, role: currentRole, businessDayStartHour, enabledPaymentMethods, featureAccess } = useClub();
+  /** A summary figure opens its details only on a page this member may open. */
+  const linkIfAllowed = (href: string) => (currentRole && canAccessPath(currentRole, featureAccess, href.split('?')[0]) ? href : undefined);
   const { locale } = useAppLocale();
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
@@ -604,13 +607,13 @@ export default function DailyCashPage() {
           <Card as="section">
             <SectionHeading size="sm" title={t('daySummary')} description={formatDateOnly(form.date, locale)} />
             <div className="mt-4 grid gap-2 sm:grid-cols-3 xl:grid-cols-1">
-              <StatTile variant="soft" size="sm" label={t('barSales')} value={formatCurrency(barSummary.sales)} unit={tc('currency')} />
+              <StatTile variant="soft" size="sm" href={linkIfAllowed(closingStockHref(form.date))} label={t('barSales')} value={formatCurrency(barSummary.sales)} unit={tc('currency')} />
               {/* Bar and game club profit need the expense and debt ledgers, read only for these members. */}
               {canSeeNetProfit && (
-                <StatTile variant="soft" size="sm" label={t('barProfit')} value={formatCurrency(barSummary.profit)} unit={tc('currency')} tone={toneForAmount(barSummary.profit)} />
+                <StatTile variant="soft" size="sm" href={linkIfAllowed(moneyDetailsHref('bar', dayRange(form.date)))} label={t('barProfit')} value={formatCurrency(barSummary.profit)} unit={tc('currency')} tone={toneForAmount(barSummary.profit)} />
               )}
               {canSeeNetProfit && financeSummary && (
-                <StatTile variant="soft" size="sm" label={t('gameClubProfit')} value={formatCurrency(gameClubProfit)} unit={tc('currency')} tone={toneForAmount(gameClubProfit)} />
+                <StatTile variant="soft" size="sm" href={linkIfAllowed(moneyDetailsHref('game_club', dayRange(form.date)))} label={t('gameClubProfit')} value={formatCurrency(gameClubProfit)} unit={tc('currency')} tone={toneForAmount(gameClubProfit)} />
               )}
             </div>
           </Card>

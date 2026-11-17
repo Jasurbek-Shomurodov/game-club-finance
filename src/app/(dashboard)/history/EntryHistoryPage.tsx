@@ -4,7 +4,8 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { History } from 'lucide-react';
+import Link from 'next/link';
+import { ChevronRight, History } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
@@ -24,6 +25,7 @@ import {
 import {
   AUDITED_TABLES,
   auditEntryDate,
+  auditRecordHref,
   auditFieldChanges,
   auditFieldKind,
   filterAuditLogs,
@@ -95,6 +97,7 @@ export default function EntryHistoryPage() {
     const changes = auditFieldChanges(log);
     const entryDate = auditEntryDate(log.old_row);
     const author = log.old_row.created_by;
+    const recordHref = auditRecordHref(log.table_name, entryDate);
     return (
       <Card as="li" key={log.id} padding="sm" className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -103,6 +106,12 @@ export default function EntryHistoryPage() {
           </Badge>
           <span className="font-semibold text-gray-900">{t(`tables.${log.table_name}`)}</span>
           {entryDate ? <span className="text-sm text-gray-500">· {formatDateOnly(entryDate, locale)}</span> : null}
+          {recordHref ? (
+            <Link href={recordHref} className="ml-auto inline-flex items-center gap-0.5 text-sm font-medium text-primary-700 hover:underline">
+              {t('openRecord')}
+              <ChevronRight size={14} aria-hidden="true" />
+            </Link>
+          ) : null}
         </div>
         <p className="text-sm text-gray-600">
           {t('changedBy', { name: personName(log.changed_by), time: formatDateTime(log.changed_at, locale) })}

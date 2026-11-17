@@ -29,6 +29,8 @@ export interface DataTableGroup<T> {
   rows: T[];
 }
 
+const NESTED_CONTROLS = 'a, button, input, select, textarea, label, [role="button"], [role="checkbox"]';
+
 export interface DataTableProps<T> {
   columns: DataTableColumn<T>[];
   data: T[];
@@ -120,7 +122,12 @@ export function DataTable<T>({
     <tr
       key={keyExtractor(row)}
       {...presenceProps(presence)}
-      onClick={onRowClick ? () => onRowClick(row) : undefined}
+      onClick={onRowClick ? (event) => {
+        // A button or link inside the row does its own thing, not open the row.
+        const control = (event.target as Element).closest(NESTED_CONTROLS);
+        if (control && control !== event.currentTarget && event.currentTarget.contains(control)) return;
+        onRowClick(row);
+      } : undefined}
       onKeyDown={onRowClick ? (event) => {
         if (event.target !== event.currentTarget) return;
         if (event.key === 'Enter' || event.key === ' ') {

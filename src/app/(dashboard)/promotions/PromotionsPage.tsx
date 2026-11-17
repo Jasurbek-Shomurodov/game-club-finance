@@ -236,6 +236,7 @@ export default function PromotionsPage() {
             mobileCards
             data={promotions}
             keyExtractor={(row) => row.id}
+            onRowClick={isOwner ? openEdit : undefined}
             label={t('list')}
             columns={[
               {

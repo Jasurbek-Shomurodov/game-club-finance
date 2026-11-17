@@ -3,7 +3,8 @@
 // Shared breakdown page for /bar-money-details and /game-club-money-details.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarDays, ChevronDown } from 'lucide-react';
+import { CalendarDays, ChevronDown, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
@@ -23,6 +24,7 @@ import {
 } from '@/components/PresentationFoundation';
 import { formatDateShort, formatNumber } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
+import { moneyDetailLineHref } from '@/lib/detailLinks';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useClubQuery } from '@/lib/useClubQuery';
 import type { MoneyDetailCollectedKey, MoneyDetailLine, MoneyDetailRow } from '@/lib/calculations/moneyDetails';
@@ -61,6 +63,7 @@ export function inRangeQuery<T extends { gte: (column: string, value: string) =>
 
 export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, loadRows, labels }: MoneyDetailsPageProps) {
   const pathname = usePathname();
+  const side = variant === 'bar' ? 'bar' as const : 'game_club' as const;
   const t = useTranslations('dashboard');
   const te = useTranslations('expenses');
   const { locale } = useAppLocale();
@@ -245,16 +248,19 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
                       <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">{labels.collectedLabel}</h3>
                       <Money amount={row.collectedTotal} showPlus className="text-sm font-semibold text-success-600" currencyClassName="text-xs text-gray-500" />
                     </div>
-                    <dl className="divide-y divide-gray-100">
+                    <ul className="divide-y divide-gray-100">
                       {row.collected.map((item) => (
-                        <div key={item.key} className="flex items-baseline justify-between gap-3 py-2">
-                          <dt className="min-w-0 break-words text-sm text-gray-700">{collectedLabel(item.key)}</dt>
-                          <dd className="shrink-0 text-sm font-semibold text-gray-950">
-                            <Money amount={item.amount} currencyClassName="text-xs text-gray-500" />
-                          </dd>
-                        </div>
+                        <li key={item.key}>
+                          <Link href={moneyDetailLineHref(side, row.date, { kind: 'collected', key: item.key })} className="-mx-2 flex items-baseline justify-between gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-gray-50 focus-visible:bg-primary-50 focus-visible:outline-none">
+                            <span className="min-w-0 break-words text-sm text-gray-700">{collectedLabel(item.key)}</span>
+                            <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-gray-950">
+                              <Money amount={item.amount} currencyClassName="text-xs text-gray-500" />
+                              <ChevronRight size={14} aria-hidden="true" className="self-center text-gray-300" />
+                            </span>
+                          </Link>
+                        </li>
                       ))}
-                    </dl>
+                    </ul>
                   </section>
 
                   <section className="border-t border-gray-100 p-4 sm:p-5 lg:border-t-0">
@@ -265,7 +271,8 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
                     {row.deductions.length ? (
                       <ul className="divide-y divide-gray-100">
                         {row.deductions.map((line, index) => (
-                          <li key={`${line.kind}-${index}`} className="flex items-baseline justify-between gap-3 py-2">
+                          <li key={`${line.kind}-${index}`}>
+                            <Link href={moneyDetailLineHref(side, row.date, line)} className="-mx-2 flex items-baseline justify-between gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-gray-50 focus-visible:bg-primary-50 focus-visible:outline-none">
                             <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
                               {variant === 'bar' && (
                                 <Badge variant="neutral" size="sm">
@@ -274,7 +281,11 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
                               )}
                               <span className="min-w-0 break-words text-sm leading-5 text-gray-700">{deductionLabel(line)}</span>
                             </div>
-                            <span className="shrink-0 text-sm font-semibold text-danger-600">− <Money amount={line.amount} currencyClassName="text-xs text-gray-500" /></span>
+                            <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-danger-600">
+                              − <Money amount={line.amount} currencyClassName="text-xs text-gray-500" />
+                              <ChevronRight size={14} aria-hidden="true" className="self-center text-gray-300" />
+                            </span>
+                            </Link>
                           </li>
                         ))}
                       </ul>

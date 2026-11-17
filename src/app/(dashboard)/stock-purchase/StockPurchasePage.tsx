@@ -26,6 +26,7 @@ import {
   InlineAlert,
   Input,
   LoadErrorAlert,
+  Modal,
   PageHeader,
   SearchInput,
   SectionHeading,
@@ -60,6 +61,7 @@ import {
 import {
   formatCurrency,
   formatDateOnly,
+  formatDateTime,
   formatNumber,
   formatUnitCurrency,
   parseCurrencyInput,
@@ -84,6 +86,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
+import { closingStockHref } from '@/lib/detailLinks';
 import { PAYMENT_METHODS, type EntryPaymentMethod, type Product, type StockPurchase } from '@/types';
 
 const PURCHASES_PAGE_SIZE = 10;
@@ -170,6 +173,7 @@ export default function StockPurchasePage() {
 
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedPurchase, setSelectedPurchase] = useState<PurchaseWithProduct | null>(null);
   const [formError, setFormError] = useState('');
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -792,6 +796,7 @@ export default function StockPurchasePage() {
             bare
             label={t('recentPurchases')}
             keyExtractor={(row) => row.id}
+            onRowClick={setSelectedPurchase}
             data={purchases}
             minWidth={980}
             className={purchasesLoading ? 'opacity-60 transition-opacity' : 'transition-opacity'}
@@ -876,6 +881,72 @@ export default function StockPurchasePage() {
       </Card>
 
       {toastElement}
+      <Modal open={Boolean(selectedPurchase)} onClose={() => setSelectedPurchase(null)} title={t('purchaseDetails')}
+        footer={selectedPurchase ? (
+          <div className="flex w-full flex-wrap items-center justify-between gap-2">
+            {canWrite ? (
+              <Button
+                variant="danger"
+                icon={<Trash2 size={16} />}
+                loading={deletingId === selectedPurchase.id}
+                disabled={Boolean(deletingId)}
+                onClick={() => {
+                  const row = selectedPurchase;
+                  setSelectedPurchase(null);
+                  void handleDeletePurchase(row);
+                }}
+              >
+                {tc('delete')}
+              </Button>
+            ) : <span />}
+            <Button variant="secondary" onClick={() => setSelectedPurchase(null)}>{tc('close')}</Button>
+          </div>
+        ) : undefined}
+      >
+        {selectedPurchase && (() => {
+          const sale = selectedPurchase.sale_price ?? selectedPurchase.products?.sale_price ?? null;
+          const total = selectedPurchase.quantity * selectedPurchase.cost_price;
+          const facts: Array<{ label: string; value: string }> = [
+            { label: t('date'), value: formatDateOnly(selectedPurchase.date, locale) },
+            { label: t('quantity'), value: `${formatNumber(selectedPurchase.quantity)} ${t('pcs')}` },
+            { label: `${t('costPrice')} (${t('perPcs')})`, value: `${formatUnitCurrency(selectedPurchase.cost_price)} ${currency}` },
+            ...(sale !== null ? [
+              { label: `${t('salePrice')} (${t('perPcs')})`, value: `${formatCurrency(sale)} ${currency}` },
+              { label: t('purchaseMarginPerUnit'), value: `${formatUnitCurrency(sale - selectedPurchase.cost_price)} ${currency}` },
+            ] : []),
+            {
+              label: t('payment'),
+              value: tc.has(`paymentMethods.${selectedPurchase.payment_method}`)
+                ? tc(`paymentMethods.${selectedPurchase.payment_method}` as Parameters<typeof tc>[0])
+                : selectedPurchase.payment_method,
+            },
+            { label: t('purchaseRecordedAt'), value: formatDateTime(selectedPurchase.created_at, locale) },
+            ...(selectedPurchase.comment ? [{ label: t('comment'), value: selectedPurchase.comment }] : []),
+          ];
+          return (
+            <div className="space-y-5">
+              <div>
+                <p className="text-lg font-semibold text-gray-900">{selectedPurchase.products?.name ?? '—'}</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-gray-900">
+                  {formatCurrency(total)} <span className="text-sm font-medium text-gray-500">{currency}</span>
+                </p>
+                <p className="text-xs text-gray-500">{t('totalCostHeader')}</p>
+              </div>
+              <dl className="divide-y divide-gray-100 rounded-xl border border-gray-100 text-sm">
+                {facts.map((fact) => (
+                  <div key={fact.label} className="flex items-start justify-between gap-4 px-4 py-2.5">
+                    <dt className="shrink-0 text-gray-500">{fact.label}</dt>
+                    <dd className="min-w-0 break-words text-right font-medium text-gray-900">{fact.value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <ButtonLink href={closingStockHref(selectedPurchase.date)} variant="secondary" className="w-full" iconRight={<ChevronRight size={15} aria-hidden="true" />}>
+                {t('purchaseOpenDay')}
+              </ButtonLink>
+            </div>
+          );
+        })()}
+      </Modal>
       {confirmDialog}
     </div>
   );

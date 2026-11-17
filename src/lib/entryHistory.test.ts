@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { auditEntryDate, auditFieldChanges, auditFieldKind, filterAuditLogs } from './entryHistory';
+import { auditEntryDate, auditRecordHref, auditFieldChanges, auditFieldKind, filterAuditLogs } from './entryHistory';
 
 describe('auditFieldChanges', () => {
   it('lists only the visible fields an edit changed', () => {
@@ -73,5 +73,25 @@ describe('filterAuditLogs', () => {
     expect(filterAuditLogs(logs, { table: 'expenses', action: 'all' })).toHaveLength(2);
     expect(filterAuditLogs(logs, { table: 'all', action: 'update' })).toHaveLength(2);
     expect(filterAuditLogs(logs, { table: 'expenses', action: 'delete' })).toEqual([logs[0]]);
+  });
+});
+
+describe('auditRecordHref', () => {
+  it('opens a day-based record on its day', () => {
+    expect(auditRecordHref('expenses', '2026-11-05')).toBe('/reports?from=2026-11-05&to=2026-11-05&category=expense');
+    expect(auditRecordHref('daily_cash_entries', '2026-11-05')).toBe('/reports?from=2026-11-05&to=2026-11-05');
+    expect(auditRecordHref('debt_payments', null)).toBe('/reports?category=debt_payment');
+    expect(auditRecordHref('stock_purchases', '2026-11-05')).toBe('/closing-stock?date=2026-11-05');
+    expect(auditRecordHref('stock_purchases', null)).toBe('/stock-purchase');
+  });
+
+  it('opens owner money, debts and the reserve on their pages', () => {
+    expect(auditRecordHref('owner_withdrawals', '2026-11-01')).toBe('/money-taken');
+    expect(auditRecordHref('new_debts', '2026-11-01')).toBe('/debts');
+    expect(auditRecordHref('owner_reserve_entries', null)).toBe('/reserve?view=history');
+  });
+
+  it('has nowhere to go for an unknown table', () => {
+    expect(auditRecordHref('mystery', '2026-11-01')).toBeNull();
   });
 });

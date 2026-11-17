@@ -61,6 +61,10 @@ export default function ReservePage() {
   const { showToast } = useToast();
   const { confirm, confirmDialog } = useConfirm();
   const [view, setView] = useState<ReserveView>(() => (searchParams.get('view') === 'history' ? 'history' : 'overview'));
+  const showHistory = () => {
+    setView('history');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const [busyId, setBusyId] = useState<string | null>(null);
 
   // Keep the tab shareable.
@@ -190,9 +194,9 @@ export default function ReservePage() {
                 </p>
               ) : null}
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <StatTile variant="soft" icon={ArrowDownToLine} label={t('putIn')} value={formatCurrency(totals.deposited)} unit={currency} tone="success" />
-                <StatTile variant="soft" icon={ArrowUpFromLine} label={t('returned')} value={formatCurrency(totals.returned)} unit={currency} />
-                <StatTile variant="soft" icon={ShoppingCart} label={t('spent')} value={formatCurrency(totals.spent)} unit={currency} />
+                <StatTile variant="soft" onClick={showHistory} icon={ArrowDownToLine} label={t('putIn')} value={formatCurrency(totals.deposited)} unit={currency} tone="success" />
+                <StatTile variant="soft" onClick={showHistory} icon={ArrowUpFromLine} label={t('returned')} value={formatCurrency(totals.returned)} unit={currency} />
+                <StatTile variant="soft" onClick={showHistory} icon={ShoppingCart} label={t('spent')} value={formatCurrency(totals.spent)} unit={currency} />
               </div>
             </Card>
 
