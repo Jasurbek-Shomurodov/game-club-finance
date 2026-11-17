@@ -116,6 +116,9 @@ sign-in layouts only, so the public club pages stay a website. The manifest
 and icons are excluded from `src/proxy.ts`: browsers fetch them without
 cookies. There is no service worker and nothing is cached for offline use, so
 an installed app always shows live figures.
+While the browser reports no connection the shell shows a notice above the
+page (`useOnline` in `DashboardShell`): saving will fail and the figures may
+be stale, and the page says so instead of failing silently (NET-001).
 
 Reports works the same way with its own tab row (`reports/ReportsTabs.tsx`):
 the closeout, collected and write-off views switch inside `/reports`, and the

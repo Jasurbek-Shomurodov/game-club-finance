@@ -164,6 +164,24 @@ function TopBarActionsSlot() {
   );
 }
 
+function subscribeOnline(change: () => void) {
+  window.addEventListener('online', change);
+  window.addEventListener('offline', change);
+  return () => {
+    window.removeEventListener('online', change);
+    window.removeEventListener('offline', change);
+  };
+}
+
+/**
+ * Whether the browser reports a network connection. A club's Wi-Fi drops now
+ * and then; without a word about it a save simply fails and a page keeps
+ * showing figures from before. True on the server and until told otherwise.
+ */
+function useOnline() {
+  return useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
+}
+
 function subscribeDesktop(change: () => void) {
   const query = window.matchMedia(DESKTOP_QUERY);
   query.addEventListener('change', change);
@@ -454,6 +472,7 @@ export function DashboardShell({
   // Phones get a bottom bar once there is a club to navigate. It steps aside
   // while a field is being typed in, and pages leave room for it through
   // --bottom-nav (their own sticky bars sit on top of it).
+  const online = useOnline();
   const typingInField = useTypingInField();
   // Re-counted on club change and when the team page approves or rejects someone.
   const pendingTeamCount = usePendingTeamCount(role === 'owner', selectedClubId);
@@ -567,6 +586,11 @@ export function DashboardShell({
 
           <main id="main-content" ref={mainRef} tabIndex={-1} className="min-w-0 flex-1 overflow-x-clip outline-none">
             <div className="w-full px-4 pb-[max(1.5rem,env(safe-area-inset-bottom),calc(var(--bottom-nav,0px)+1rem))] pt-[4.5rem] sm:px-6 lg:px-8 lg:pb-8 lg:pt-2">
+              {!online && (
+                <InlineAlert variant="warning" title={tn('offlineTitle')} className="mb-4">
+                  {tn('offlineBody')}
+                </InlineAlert>
+              )}
               {shellError ? (
                 <InlineAlert
                   variant="danger"

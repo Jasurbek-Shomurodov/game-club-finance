@@ -40,7 +40,9 @@
     "more": "Yana",
     "search": "Qidiruv",
     "openSearch": "Qidiruv va buyruqlar",
-    "quickAdd": "Tez qo'shish"
+    "quickAdd": "Tez qo'shish",
+    "offlineTitle": "Internet aloqasi yo'q",
+    "offlineBody": "Ekrandagi raqamlar eskirgan bo'lishi mumkin, aloqa tiklanmaguncha hech narsa saqlanmaydi."
   },
   "commands": {
     "title": "Qidiruv va buyruqlar",

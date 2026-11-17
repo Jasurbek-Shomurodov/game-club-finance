@@ -905,6 +905,18 @@ test('DASH-010 the month picker shows an earlier month, without the cards about 
   await expect(page.getByRole('button', { name: label(new Date(Date.UTC(year, month - 2, 1))) })).toBeVisible();
 });
 
+test('NET-001 losing the connection is said on the page, and the notice leaves when it returns', async ({ page, context }) => {
+  await page.goto('/debts');
+  await expect(page.getByRole('heading', { name: 'Debts', level: 1 })).toBeVisible();
+  await expect(page.getByText('You are offline')).toHaveCount(0);
+  await context.setOffline(true);
+  await expect(page.getByRole('alert').filter({ hasText: 'You are offline' })).toBeVisible();
+  // The page already loaded stays on screen under the notice.
+  await expect(page.locator('#main-content')).toContainText('E2E Alibek');
+  await context.setOffline(false);
+  await expect(page.getByText('You are offline')).toHaveCount(0);
+});
+
 test('EXP-001 Debts export downloads the list as a spreadsheet file', async ({ page }) => {
   await page.goto('/debts');
   await expect(page.getByRole('heading', { name: 'Debts', level: 1 })).toBeVisible();

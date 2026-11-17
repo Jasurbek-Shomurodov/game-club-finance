@@ -40,7 +40,9 @@
     "more": "More",
     "search": "Search",
     "openSearch": "Search and commands",
-    "quickAdd": "Quick add"
+    "quickAdd": "Quick add",
+    "offlineTitle": "You are offline",
+    "offlineBody": "The figures on screen may be out of date, and nothing can be saved until the connection is back."
   },
   "commands": {
     "title": "Search and commands",
