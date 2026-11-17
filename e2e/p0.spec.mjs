@@ -904,6 +904,43 @@ test('DASH-010 the month picker shows an earlier month, without the cards about 
   await expect(page.getByRole('button', { name: label(new Date(Date.UTC(year, month - 2, 1))) })).toBeVisible();
 });
 
+test('CMD-001 the command palette finds pages and actions from the keyboard', async ({ page }) => {
+  await page.goto('/dashboard');
+  await expect(page.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeVisible();
+  await page.keyboard.press('Control+k');
+  const palette = page.getByRole('dialog', { name: 'Search and commands' });
+  const search = palette.getByRole('combobox');
+  await expect(search).toBeFocused();
+  // Nothing typed: the quick actions, then every page.
+  await expect(palette.getByRole('option').first()).toHaveText('Add an expense');
+  await expect(palette.getByRole('option', { name: 'Edit history' })).toHaveCount(1);
+
+  await search.fill('month');
+  await expect(palette.getByRole('option')).toHaveText(['Monthly Report']);
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Monthly Report', level: 1 })).toBeVisible();
+  await expect(palette).toHaveCount(0);
+
+  // The button in the top bar opens it too; arrows move, Enter runs the action and its form opens.
+  await page.getByRole('button', { name: 'Search and commands' }).click();
+  await expect(search).toHaveValue('');
+  await search.fill('deb');
+  await expect(palette.getByRole('option')).toHaveText(['Add a debt', 'Debts']);
+  await page.keyboard.press('ArrowDown');
+  await expect(palette.getByRole('option', { name: 'Debts' })).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Debts', level: 1 })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Add Debt' })).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await page.keyboard.press('Control+k');
+  await search.fill('zzzz');
+  await expect(palette.getByRole('status')).toHaveText('Nothing matches. Try another word.');
+  await page.keyboard.press('Escape');
+  await expect(palette).toHaveCount(0);
+});
+
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
 
@@ -921,7 +958,8 @@ test.describe('on a phone', () => {
   test('NAV-002 the bottom bar opens the everyday screens, hands the rest to the menu and stays clear of the Save bar', async ({ page }) => {
     await page.goto('/dashboard');
     const bar = page.getByRole('navigation', { name: 'Quick navigation' });
-    await expect(bar.getByRole('link')).toHaveText(['Dashboard', 'Daily Cash', 'Bar', 'Reports']);
+    // Three screens around the quick-add button; Reports and the rest are in the menu.
+    await expect(bar.getByRole('link')).toHaveText(['Dashboard', 'Daily Cash', 'Bar']);
     await expect(bar.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page');
 
     await bar.getByRole('link', { name: 'Daily Cash' }).click();
@@ -956,6 +994,29 @@ test.describe('on a phone', () => {
     await menu.getByRole('link', { name: 'Debts', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Debts', level: 1 })).toBeVisible();
     await expect(bar.getByRole('link', { name: 'Dashboard' })).not.toHaveAttribute('aria-current', 'page');
+  });
+
+  test('NAV-003 the quick-add button opens a form from anywhere', async ({ page }) => {
+    await page.goto('/dashboard');
+    const bar = page.getByRole('navigation', { name: 'Quick navigation' });
+    await bar.getByRole('button', { name: 'Quick add' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Quick add' });
+    await expect(sheet.getByRole('button').filter({ hasText: /\S/ })).toHaveText(['Add an expense', "Enter today's cash", 'Count closing stock', 'Record a stock purchase', 'Add a debt']);
+    await sheet.getByRole('button', { name: 'Add an expense' }).click();
+    await expect(page.getByRole('heading', { name: 'Reports', level: 1 })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Register Expense' })).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    // Already on the page: the form still opens.
+    await bar.getByRole('button', { name: 'Quick add' }).click();
+    await page.getByRole('dialog', { name: 'Quick add' }).getByRole('button', { name: 'Add an expense' }).click();
+    await expect(page.getByRole('dialog', { name: 'Register Expense' })).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    // A later visit does not reopen it.
+    await page.goto('/reports');
+    await expect(page.getByRole('heading', { name: 'Reports', level: 1 })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Register Expense' })).toHaveCount(0);
   });
 
   test('UI-002 tables are cards on a phone: no cell of a row is off to the side', async ({ page }) => {

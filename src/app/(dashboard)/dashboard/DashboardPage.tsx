@@ -291,6 +291,13 @@ export default function DashboardPage({
   const pathIfAllowed = (path: string) => (canAccessPath(role, featureAccess, path) ? path : undefined);
   const stockLinkHref = pathIfAllowed('/stock-purchase');
   const productsHref = pathIfAllowed('/products');
+  // The month so far, day by day, as the small line beside each income figure.
+  const sparkDays = useMemo(
+    () => data.trend.filter((row) => row.date <= businessToday),
+    [data.trend, businessToday],
+  );
+  const gameClubSpark = useMemo(() => sparkDays.map((row) => row.gameClubIncome), [sparkDays]);
+  const barSpark = useMemo(() => sparkDays.map((row) => row.barSales), [sparkDays]);
   const averageBarDayCount = countDashboardRangeDaysThroughDate(range, data.latestBarEntryDate);
   const averageGameClubDayCount = countDashboardRangeDaysThroughDate(range, data.latestDailyCashEntryDate);
   const averageGameClubIncome = calculateAverageDailyIncome(totals.gameClubIncome, averageGameClubDayCount);
@@ -369,6 +376,7 @@ export default function DashboardPage({
               tone="success"
               comparison={comparisonFor(totals.gameClubIncome, previousTotals.gameClubIncome)}
               helper={paceNote(totals.gameClubIncome, averageGameClubDayCount)}
+              sparkline={gameClubSpark}
             />
             <AmountCard
               loading={loading}
@@ -380,6 +388,7 @@ export default function DashboardPage({
               tone="success"
               comparison={comparisonFor(totals.barSales, previousTotals.barSales)}
               helper={paceNote(totals.barSales, averageBarDayCount)}
+              sparkline={barSpark}
             />
             {/* The game club and the bar are separate businesses: each keeps its own profit. */}
             <AmountCard

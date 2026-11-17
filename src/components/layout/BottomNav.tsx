@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useEffect, useState, type ElementType, type MouseEvent } from 'react';
-import { BarChart3, CircleDollarSign, HandCoins, LayoutDashboard, Menu, Package, Users, Wallet } from 'lucide-react';
+import { BarChart3, CircleDollarSign, HandCoins, LayoutDashboard, Menu, Package, Plus, Users, Wallet } from 'lucide-react';
 import type { UserRole } from '@/types';
 import type { FeatureKey } from '@/lib/permissions';
 import { DASHBOARD_PATH } from '@/lib/routes';
@@ -54,6 +54,8 @@ interface BottomNavProps {
   onOpenMenu: () => void;
   /** Something in the menu is waiting (open access requests); shown as a count on the menu button. */
   menuBadge?: number;
+  /** Opens the quick-add sheet; without it (nothing this member can add) the bar shows one more screen instead. */
+  onQuickAdd?: () => void;
   onNavigate: (href: string) => void;
 }
 
@@ -61,24 +63,41 @@ interface BottomNavProps {
  * Phones only: the everyday screens one tap away at the bottom of the screen,
  * with the full menu behind the last button. Wider screens have the sidebar.
  */
-export function BottomNav({ role, featureAccess, activePathname, menuOpen, onOpenMenu, menuBadge = 0, onNavigate }: BottomNavProps) {
+export function BottomNav({ role, featureAccess, activePathname, menuOpen, onOpenMenu, menuBadge = 0, onQuickAdd, onNavigate }: BottomNavProps) {
   const t = useTranslations('nav');
-  const items = primaryNavItems(role, featureAccess);
+  // With the "+" in the middle there is room for three screens around it.
+  const items = primaryNavItems(role, featureAccess, onQuickAdd ? 3 : 4);
+  const addAfter = onQuickAdd ? Math.min(2, items.length) : -1;
 
   function handleClick(event: MouseEvent<HTMLAnchorElement>, href: string) {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.altKey || event.ctrlKey || event.shiftKey) return;
     onNavigate(href);
   }
 
+  const quickAdd = onQuickAdd && (
+    <button
+      key="quick-add"
+      type="button"
+      onClick={onQuickAdd}
+      aria-label={t('quickAdd')}
+      aria-haspopup="dialog"
+      className="flex min-h-14 w-16 shrink-0 items-center justify-center focus-visible:outline-none [&:focus-visible>span]:ring-2 [&:focus-visible>span]:ring-primary-500 [&:focus-visible>span]:ring-offset-2"
+    >
+      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-600 text-on-accent shadow-pop transition active:scale-95">
+        <Plus size={22} strokeWidth={2.5} aria-hidden="true" />
+      </span>
+    </button>
+  );
+
   return (
     <nav
       aria-label={t('quickNavigation')}
       className="fixed inset-x-0 bottom-0 z-30 flex border-t border-gray-200 bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
     >
-      {items.map((item) => {
+      {items.map((item, index) => {
         const Icon = ICONS[item.key];
         const active = isPrimaryNavItemActive(item, activePathname);
-        return (
+        const link = (
           <Link
             key={item.key}
             href={item.href}
@@ -92,7 +111,9 @@ export function BottomNav({ role, featureAccess, activePathname, menuOpen, onOpe
             <span className="max-w-full truncate">{t(item.key)}</span>
           </Link>
         );
+        return index === addAfter ? [quickAdd, link] : link;
       })}
+      {addAfter === items.length && quickAdd}
       <button
         type="button"
         onClick={onOpenMenu}

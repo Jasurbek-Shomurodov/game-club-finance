@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/formatters';
 import { RollingText } from './RollingText';
 import { Skeleton } from './Skeleton';
+import { Sparkline } from './Sparkline';
 
 export type MetricTone = 'default' | 'success' | 'danger' | 'primary' | 'warning' | 'muted';
 
@@ -122,6 +123,8 @@ export interface AmountCardProps {
   comparisonGoodWhen?: 'up' | 'down';
   subMetric?: { label: string; amount: number | null; unavailableLabel?: string };
   helper?: string;
+  /** The amount day by day, drawn as a small trend line beside it; needs at least two values. */
+  sparkline?: readonly number[];
   loading?: boolean;
   /** Colour of the amount; use success for money in, danger for money out. */
   tone?: MetricTone;
@@ -138,6 +141,7 @@ export function AmountCard({
   comparisonGoodWhen = 'up',
   subMetric,
   helper,
+  sparkline,
   loading = false,
   tone = 'default',
 }: AmountCardProps) {
@@ -158,9 +162,12 @@ export function AmountCard({
           <Skeleton className="h-3 w-12 bg-gray-100" />
         </div>
       ) : (
-        <p className={cn('mt-2', metricValueClassName, metricToneClassName[tone])}>
-          <MetricMoney amount={amount} currency={currency} />
-        </p>
+        <div className="mt-2 flex items-end justify-between gap-3">
+          <p className={cn('min-w-0', metricValueClassName, metricToneClassName[tone])}>
+            <MetricMoney amount={amount} currency={currency} />
+          </p>
+          {sparkline && <Sparkline values={sparkline} className={cn('mb-1 max-[380px]:hidden', metricToneClassName[tone])} />}
+        </div>
       )}
       {!loading && comparison ? (
         comparison.value === null ? (

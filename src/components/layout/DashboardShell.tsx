@@ -5,11 +5,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, createContext, useContext, type RefObject } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Clock3, Gamepad2, LogOut, Menu, ShieldCheck } from 'lucide-react';
+import { Clock3, Gamepad2, LogOut, Menu, Search, ShieldCheck } from 'lucide-react';
 import { useSignOut } from './useSignOut';
 import { Sidebar } from './Sidebar';
 import { BottomNav, useTypingInField } from './BottomNav';
 import { usePendingTeamCount } from './usePendingTeamCount';
+import { CommandPalette, QuickAddSheet } from './CommandPalette';
+import { quickActions } from '@/lib/commands';
 import { Button, Card, EmptyState, IconButton, InlineAlert, PageSkeleton, ThemeToggle, TopBarSlotProvider, useTopBarSlot } from '@/components/PresentationFoundation';
 import { createClient } from '@/lib/supabase/client';
 import { loadUserMemberships, relatedClub, SELECTED_CLUB_COOKIE } from '@/lib/supabase/memberships';
@@ -182,15 +184,23 @@ function childrenWidth(element: Element | null | undefined, gap: number) {
  * Whether the page's actions would overflow the top bar's one line. Worked out
  * from the widths everything needs wherever the actions sit now (bar or page),
  * with a little slack so the answer doesn't flicker at the edge.
+ *
+ * Tabs and actions do not measure the same in the page as in the bar, so near
+ * the edge the two places can each claim the other one fits. Moving them out
+ * is therefore final until the bar is resized or another page opens: a change
+ * of content alone may only ever make the bar crowded, never roomy again.
+ * Without that the actions bounced between bar and page on every frame.
  */
-function useTopBarCrowded(barRef: RefObject<HTMLElement | null>, enabled: boolean) {
+function useTopBarCrowded(barRef: RefObject<HTMLElement | null>, enabled: boolean, pathname: string) {
   const [crowded, setCrowded] = useState(false);
 
   useEffect(() => {
     const bar = barRef.current;
     if (!enabled || !bar) return;
+    // A new page starts in the bar and is measured there.
+    setCrowded(false);
 
-    const check = () => {
+    const check = (mayRelax: boolean) => {
       const actions = document.querySelector('[data-page-actions]');
       const tabs = document.querySelector('[data-page-tabs]');
       if (!actions && !tabs) return;
@@ -204,19 +214,19 @@ function useTopBarCrowded(barRef: RefObject<HTMLElement | null>, enabled: boolea
       const needed = titleWidth + ownWidth + childrenWidth(actions, 8) + 13 + 12 * (visibleItems - 1);
       const style = getComputedStyle(bar);
       const room = bar.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-      setCrowded((previous) => (previous ? needed + 8 > room : needed > room));
+      setCrowded((previous) => (previous ? !mayRelax || needed + 8 > room : needed > room));
     };
 
-    const resized = new ResizeObserver(check);
-    const changed = new MutationObserver(check);
+    const resized = new ResizeObserver(() => check(true));
+    const changed = new MutationObserver(() => check(false));
     resized.observe(bar);
     changed.observe(bar, { childList: true, subtree: true });
-    check();
+    check(false);
     return () => {
       resized.disconnect();
       changed.disconnect();
     };
-  }, [barRef, enabled]);
+  }, [barRef, enabled, pathname]);
 
   return enabled && crowded;
 }
@@ -238,9 +248,11 @@ export function DashboardShell({
   const initialMemberships = useMemo(() => membershipOptions(initialMembershipRows), [initialMembershipRows]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
   const topBarRef = useRef<HTMLDivElement>(null);
   const isDesktop = useIsDesktop();
-  const topBarCrowded = useTopBarCrowded(topBarRef, isDesktop);
+  const topBarCrowded = useTopBarCrowded(topBarRef, isDesktop, pathname);
   const [profileRole, setProfileRole] = useState<UserRole>(initialProfileRole);
   const [fullName, setFullName] = useState(initialFullName || initialEmail);
   const [userId, setUserId] = useState(initialUserId);
@@ -387,6 +399,8 @@ export function DashboardShell({
     // Back/Forward and redirects), and move focus to the new page content.
     setNavigatingTo('');
     setSidebarOpen(false);
+    setPaletteOpen(false);
+    setQuickAddOpen(false);
     if (window.matchMedia('(max-width: 1023px)').matches) {
       mainRef.current?.focus({ preventScroll: true });
     }
@@ -411,9 +425,16 @@ export function DashboardShell({
   useEffect(() => {
     // ⌘B / Ctrl+B toggles the sidebar (the mobile drawer on small screens).
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key.toLowerCase() !== 'b' || !(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
-      event.preventDefault();
-      toggleSidebar();
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
+      const key = event.key.toLowerCase();
+      if (key === 'b') {
+        event.preventDefault();
+        toggleSidebar();
+      } else if (key === 'k') {
+        // ⌘K / Ctrl+K opens the command palette from anywhere, and closes it again.
+        event.preventDefault();
+        setPaletteOpen((open) => !open);
+      }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -436,7 +457,9 @@ export function DashboardShell({
   const typingInField = useTypingInField();
   // Re-counted on club change and when the team page approves or rejects someone.
   const pendingTeamCount = usePendingTeamCount(role === 'owner', selectedClubId);
-  const bottomNavShown = memberships.length > 0 && !shellError && !clubLoading && !typingInField;
+  const shellReady = memberships.length > 0 && !shellError && !clubLoading;
+  const bottomNavShown = shellReady && !typingInField;
+  const hasQuickActions = useMemo(() => quickActions(role, featureAccess).length > 0, [role, featureAccess]);
   const pathAllowed = canAccessPath(role, selectedMembership?.featureAccess, pathname);
   const fallbackPath = pathAllowed ? null : defaultPathForAccess(role, selectedMembership?.featureAccess);
 
@@ -525,7 +548,21 @@ export function DashboardShell({
               <p className="truncate text-sm font-semibold text-gray-950">{selectedClub?.name ?? tn('appName')}</p>
             </div>
             {isDesktop && !topBarCrowded && <TopBarActionsSlot />}
-            <ThemeToggle className="ml-auto shrink-0" />
+            {shellReady && (
+              <button
+                type="button"
+                onClick={() => setPaletteOpen(true)}
+                aria-label={tn('openSearch')}
+                aria-haspopup="dialog"
+                title={tn('openSearch')}
+                className="ml-auto flex h-10 shrink-0 items-center gap-2 rounded-xl border border-gray-200 bg-surface px-2.5 text-sm text-gray-500 transition hover:border-gray-300 hover:text-gray-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 max-lg:w-10 max-lg:justify-center max-lg:border-0 max-lg:bg-transparent max-lg:px-0"
+              >
+                <Search size={17} aria-hidden="true" />
+                <span className="max-lg:hidden">{tn('search')}</span>
+                <kbd className="rounded-md border border-gray-200 px-1.5 py-0.5 text-[11px] font-medium text-gray-400 max-lg:hidden">⌘K</kbd>
+              </button>
+            )}
+            <ThemeToggle className={cn('shrink-0', !shellReady && 'ml-auto')} />
           </div>
 
           <main id="main-content" ref={mainRef} tabIndex={-1} className="min-w-0 flex-1 overflow-x-clip outline-none">
@@ -563,8 +600,15 @@ export function DashboardShell({
             menuOpen={sidebarOpen}
             onOpenMenu={() => setSidebarOpen(true)}
             menuBadge={pendingTeamCount}
+            onQuickAdd={hasQuickActions ? () => setQuickAddOpen(true) : undefined}
             onNavigate={handleNavigate}
           />
+        )}
+        {shellReady && (
+          <>
+            <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} role={role} featureAccess={featureAccess} onNavigate={handleNavigate} />
+            <QuickAddSheet open={quickAddOpen} onClose={() => setQuickAddOpen(false)} role={role} featureAccess={featureAccess} onNavigate={handleNavigate} />
+          </>
         )}
       </div>
       </TopBarSlotProvider>

@@ -46,6 +46,7 @@ import { isDayCollectedError } from '@/lib/supabase/dailyCashCollections';
 import { debtPaymentIsRecorded } from '@/lib/supabase/debtPayments';
 import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
+import { useQuickAction } from '@/lib/quickActions';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import { formatCurrency, formatDate, formatNumber, parseCurrencyInput } from '@/lib/formatters';
 import {
@@ -265,6 +266,9 @@ export default function DebtsPage() {
     setFormClubId(selectedClubId || null);
     setAddOpen(true);
   }
+
+  // Reached through "Add a debt" in the quick-add sheet or the command palette.
+  useQuickAction('debt', () => openAddDebtModal(), canManage && Boolean(selectedClubId));
 
   async function handleAddDebt(e: React.FormEvent) {
     e.preventDefault();

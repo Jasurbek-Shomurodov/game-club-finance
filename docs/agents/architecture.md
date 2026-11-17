@@ -86,6 +86,17 @@ variable `--bottom-nav` (0 when the bar is absent or on wider screens); a
 page's own sticky bottom bar must sit at `bottom-[var(--bottom-nav,0px)]`, as
 the Closing Stock Save bar does, never at `bottom-0` (NAV-002).
 
+Two surfaces reach any screen or frequent task without the menu, both fed by
+`src/lib/commands.ts` (`quickActions`, `commandPages`, access-filtered):
+the command palette (`components/layout/CommandPalette.tsx`; ⌘K / Ctrl+K or
+the top bar's search button) and, on phones, the quick-add sheet behind the
+bottom bar's "+". An action that should open a form on arrival (add expense,
+add debt) calls `requestQuickAction` before navigating and the page picks it
+up with `useQuickAction` (`src/lib/quickActions.ts`): in memory, consumed
+once, expiring after ten seconds, never in the URL. To add an action, add it
+to `quickActions`, give it an icon and `commands.*` copy, and, if it opens a
+form, call `useQuickAction` in the page (CMD-001, NAV-003).
+
 Reports works the same way with its own tab row (`reports/ReportsTabs.tsx`):
 the closeout, collected and write-off views switch inside `/reports`, and the
 Day and Month tabs open `/daily-report` and `/monthly-report`, which show the

@@ -37,7 +37,23 @@
     "bar": "Bar",
     "sectionTabs": "Bo'lim sahifalari",
     "quickNavigation": "Tezkor navigatsiya",
-    "more": "Yana"
+    "more": "Yana",
+    "search": "Qidiruv",
+    "openSearch": "Qidiruv va buyruqlar",
+    "quickAdd": "Tez qo'shish"
+  },
+  "commands": {
+    "title": "Qidiruv va buyruqlar",
+    "placeholder": "Sahifa va amallarni qidirish…",
+    "quickActions": "Tezkor amallar",
+    "pages": "Sahifalar",
+    "noResults": "Hech narsa topilmadi. Boshqa so'z bilan urinib ko'ring.",
+    "quickAdd": "Tez qo'shish",
+    "addExpense": "Xarajat qo'shish",
+    "enterCash": "Bugungi kassani kiritish",
+    "countStock": "Qoldiqni sanash",
+    "recordPurchase": "Xaridni yozish",
+    "addDebt": "Qarz qo'shish"
   },
   "dashboard": {
     "title": "Boshqaruv paneli",

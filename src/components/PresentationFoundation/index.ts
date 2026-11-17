@@ -10,7 +10,7 @@
  *                    SegmentedControl, DatePicker, DateRangePicker, MonthPicker
  * Feedback:          InlineAlert, LoadErrorAlert, Toast/useToast, Modal, Drawer, ConfirmDialog/useConfirm, EmptyState, Disclosure, HelpButton,
  *                    Badge, Spinner, skeletons
- * Data display:      MetricCard, AmountCard, StatTile, DataTable
+ * Data display:      MetricCard, AmountCard, StatTile, DataTable, Sparkline
  * Misc:              LanguageSwitcher, ThemeToggle
  */
 export { Avatar, initialsOf } from './Avatar';
@@ -64,4 +64,5 @@ export { Toast, useToast, type ToastType } from './Toast';
 export { stickyOffsetBelow, useElementHeight } from './useElementHeight';
 export { Money } from './Money';
 export { RollingText, rollingColumns } from './RollingText';
+export { Sparkline, sparklinePaths, type SparklineProps } from './Sparkline';
 export { PresenceCell, PresenceItem, mergePresence, presenceProps, useListPresence, type Presence, type PresenceEntry } from './listPresence';

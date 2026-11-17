@@ -37,7 +37,23 @@
     "bar": "Bar",
     "sectionTabs": "Section pages",
     "quickNavigation": "Quick navigation",
-    "more": "More"
+    "more": "More",
+    "search": "Search",
+    "openSearch": "Search and commands",
+    "quickAdd": "Quick add"
+  },
+  "commands": {
+    "title": "Search and commands",
+    "placeholder": "Search pages and actions…",
+    "quickActions": "Quick actions",
+    "pages": "Pages",
+    "noResults": "Nothing matches. Try another word.",
+    "quickAdd": "Quick add",
+    "addExpense": "Add an expense",
+    "enterCash": "Enter today's cash",
+    "countStock": "Count closing stock",
+    "recordPurchase": "Record a stock purchase",
+    "addDebt": "Add a debt"
   },
   "dashboard": {
     "title": "Dashboard",

@@ -78,6 +78,7 @@ import { cn } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
+import { useQuickAction } from '@/lib/quickActions';
 import { canAccessFeature } from '@/lib/permissions';
 import { expensePaymentMethods } from '@/lib/paymentMethods';
 import ExpenseRegistrationForm from './ExpenseRegistrationForm';
@@ -289,6 +290,9 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   // Collectors tick a date once they have the money; only an owner can undo it.
   const canCollect = canAccessFeature(role, featureAccess, 'collection');
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
+  // Reached through "Add an expense" in the quick-add sheet or the command palette.
+  // Without Reports access the form is already on the page.
+  useQuickAction('expense', () => setExpenseDialogOpen(true), hasReportsAccess && canRegisterExpenses);
   const [exchangeDialogOpen, setExchangeDialogOpen] = useState(false);
   const businessToday = useBusinessToday(businessDayStartHour);
   // A club switch opens the current month; a business-day rollover moves the
