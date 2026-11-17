@@ -31,7 +31,7 @@ import {
   useToast,
   type SegmentedOption,
 } from '@/components/PresentationFoundation';
-import { formatCurrency, formatNumber, formatUnitCurrency } from '@/lib/formatters';
+import { cleanQuantityInput, formatCurrency, formatNumber, formatUnitCurrency } from '@/lib/formatters';
 import { fetchProductsOrdered, isMissingSortOrder, updateProductSortOrders } from '@/lib/supabase/products';
 import {
   buildProductInsertPayload,
@@ -695,7 +695,7 @@ export default function ProductsPage() {
                 inputMode="numeric"
                 value={form.current_stock}
                 disabled={!isOwner || Boolean(editingId) || !form.tracks_inventory}
-                onChange={(e) => set('current_stock', e.target.value.replace(/\D/g, ''))}
+                onChange={(e) => set('current_stock', cleanQuantityInput(e.target.value))}
               />
             </Field>
             <Field label={t('lowStockThreshold')} htmlFor="product-low-stock">
@@ -705,7 +705,7 @@ export default function ProductsPage() {
                 inputMode="numeric"
                 value={form.low_stock_threshold}
                 disabled={!form.tracks_inventory}
-                onChange={(e) => set('low_stock_threshold', e.target.value.replace(/\D/g, ''))}
+                onChange={(e) => set('low_stock_threshold', cleanQuantityInput(e.target.value))}
               />
             </Field>
           </div>

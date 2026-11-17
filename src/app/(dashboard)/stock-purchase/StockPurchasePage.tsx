@@ -53,6 +53,7 @@ import {
   formatNumber,
   formatUnitCurrency,
   parseCurrencyInput,
+  cleanQuantityInput,
 } from '@/lib/formatters';
 import {
   calculateWeightedAverageCost,
@@ -528,7 +529,7 @@ export default function StockPurchasePage() {
                 trailingAddon={t('pcs')}
                 value={form.quantity}
                 disabled={formDisabled}
-                onChange={(event) => set('quantity', event.target.value.replace(/\D/g, ''))}
+                onChange={(event) => set('quantity', cleanQuantityInput(event.target.value))}
                 required
               />
             </Field>

@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   capitalizeFirst,
   MAX_MONEY_INPUT_DIGITS,
+  MAX_QUANTITY,
+  cleanQuantityInput,
   exceedsCurrencyInputLimit,
   exceedsDecimalInputLimit,
   extractCurrencyDigits,
@@ -309,5 +311,13 @@ describe('formatPhone', () => {
     expect(normalizePhone(' ')).toBeNull();
     expect(normalizePhone('+')).toBeNull();
     expect(normalizePhone('+998914071228')).toBe('+998 91 407 12 28');
+  });
+});
+
+describe('quantity input cap', () => {
+  it('keeps digits only, up to six', () => {
+    expect(cleanQuantityInput('12a3')).toBe('123');
+    expect(cleanQuantityInput('1234567890')).toBe('123456');
+    expect(MAX_QUANTITY).toBe(999_999);
   });
 });

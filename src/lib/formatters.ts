@@ -292,6 +292,15 @@ export function formatUnitCurrency(amount: number, locale = 'ru-UZ'): string {
  */
 export const MAX_MONEY_INPUT_DIGITS = 10;
 
+/** Most digits a typed item quantity may have: 999 999 pieces. */
+export const MAX_QUANTITY_INPUT_DIGITS = 6;
+export const MAX_QUANTITY = 10 ** MAX_QUANTITY_INPUT_DIGITS - 1;
+
+/** A typed whole quantity: digits only, capped at `MAX_QUANTITY_INPUT_DIGITS`. */
+export function cleanQuantityInput(value: string): string {
+  return value.replace(/\D/g, '').slice(0, MAX_QUANTITY_INPUT_DIGITS);
+}
+
 /** Digits of typed text as a whole-UZS amount, before the length cap. */
 function uncappedCurrencyDigits(value: string): string {
   // A pasted "1 500,50" or "1500.50" is 1 500 UZS, not 150 050: drop a

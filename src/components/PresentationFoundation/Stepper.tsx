@@ -2,6 +2,7 @@
 
 import type { KeyboardEvent } from 'react';
 import { Minus, Plus } from 'lucide-react';
+import { MAX_QUANTITY, cleanQuantityInput } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { IconButton } from './IconButton';
 
@@ -36,12 +37,13 @@ export function Stepper({
   decreaseLabel,
   increaseLabel,
   min = 0,
-  max = null,
+  max: maxProp = null,
   disabled = false,
   invalid = false,
   size = 'md',
   className,
 }: StepperProps) {
+  const max = maxProp === null ? MAX_QUANTITY : Math.min(maxProp, MAX_QUANTITY);
   const numeric = Number(value || 0) || 0;
   return (
     <div className={cn('inline-flex items-center gap-1.5', className)}>
@@ -63,7 +65,7 @@ export function Stepper({
         disabled={disabled}
         onKeyDown={preventNonIntegerKeys}
         onWheel={(event) => event.currentTarget.blur()}
-        onChange={(event) => onChange(event.target.value.replace(/\D/g, ''))}
+        onChange={(event) => onChange(cleanQuantityInput(event.target.value))}
         className={cn(
           'rounded-xl border bg-surface text-center font-bold tabular-nums text-gray-900 outline-none transition focus:ring-2 disabled:bg-gray-50 disabled:text-gray-400',
           size === 'sm' ? 'h-8 w-14 text-base sm:text-sm' : 'h-10 w-20 text-base sm:text-sm',
@@ -76,7 +78,7 @@ export function Stepper({
         size={size}
         label={increaseLabel}
         icon={<Plus size={size === 'sm' ? 15 : 18} strokeWidth={2.5} />}
-        disabled={disabled || (max !== null && numeric >= max)}
+        disabled={disabled || numeric >= max}
         onClick={() => onStep(1)}
       />
     </div>

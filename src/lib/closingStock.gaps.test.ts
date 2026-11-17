@@ -678,3 +678,12 @@ describe('typed number guards', () => {
     for (const value of ['--3', '3-', '1.5', '+3', '- 3', 'abc']) expect(isSignedWholeNumberInput(value)).toBe(false);
   });
 });
+
+describe('whole-number input cap', () => {
+  it('rejects quantities longer than six digits', () => {
+    expect(isWholeNumberInput('999999')).toBe(true);
+    expect(isWholeNumberInput('1000000')).toBe(false);
+    expect(isSignedWholeNumberInput('-999999')).toBe(true);
+    expect(isSignedWholeNumberInput('-1000000')).toBe(false);
+  });
+});

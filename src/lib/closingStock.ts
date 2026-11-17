@@ -1,4 +1,5 @@
 import type { Product } from '../types';
+import { MAX_QUANTITY_INPUT_DIGITS } from './formatters';
 import {
   calculateAvailableStock,
   calculateClosingStockDefaults,
@@ -1304,12 +1305,12 @@ export function buildClosingStockUpserts({
 
 /** True for an empty string or a non-negative whole number typed by the user. */
 export function isWholeNumberInput(value: string): boolean {
-  return value === '' || /^\d+$/.test(value);
+  return value === '' || (/^\d+$/.test(value) && value.length <= MAX_QUANTITY_INPUT_DIGITS);
 }
 
 /** True for an empty string, a lone minus, or a signed whole number typed by the user. */
 export function isSignedWholeNumberInput(value: string): boolean {
-  return value === '' || value === '-' || /^-?\d+$/.test(value);
+  return value === '' || value === '-' || (/^-?\d+$/.test(value) && value.replace('-', '').length <= MAX_QUANTITY_INPUT_DIGITS);
 }
 
 /**

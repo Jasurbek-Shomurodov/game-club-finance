@@ -31,7 +31,7 @@ import {
   useToast,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { formatCurrency, formatCurrencyInput, formatDateOnly, formatNumber, formatUnitCurrency } from '@/lib/formatters';
+import { cleanQuantityInput, formatCurrency, formatCurrencyInput, formatDateOnly, formatNumber, formatUnitCurrency } from '@/lib/formatters';
 import { fetchActiveProductsOrdered } from '@/lib/supabase/products';
 import { fetchPromotions } from '@/lib/supabase/promotions';
 import {
@@ -342,7 +342,7 @@ export default function PromotionsPage() {
                 type="text"
                 inputMode="numeric"
                 value={form.free_quantity}
-                onChange={(e) => set('free_quantity', e.target.value.replace(/\D/g, ''))}
+                onChange={(e) => set('free_quantity', cleanQuantityInput(e.target.value))}
               />
             </Field>
             <Field label={t('minSpend')} htmlFor="promotion-min-spend" hint={t('minSpendHint')}>
