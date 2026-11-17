@@ -95,6 +95,12 @@ export function SegmentedControl<T extends string>({
   // indicator would vanish behind them mid-glide; only soft and tabs slide.
   const slides = variant === 'soft' || isTabs;
   const box = useIndicatorBox(slides, selectedIndex, buttonsRef, group);
+  // A scrolling tab row keeps the selected tab in sight (it may sit past the edge on a phone).
+  useLayoutEffect(() => {
+    const button = buttonsRef.current[selectedIndex];
+    if (!isTabs || !group || !button || group.scrollWidth <= group.clientWidth) return;
+    group.scrollTo({ left: button.offsetLeft - (group.clientWidth - button.offsetWidth) / 2 });
+  }, [group, isTabs, selectedIndex]);
 
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     const keys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'];
@@ -124,7 +130,8 @@ export function SegmentedControl<T extends string>({
         isChips
           ? 'flex flex-wrap gap-2'
           : isTabs
-            ? 'flex flex-wrap items-center gap-x-3 gap-y-1'
+            // Phones: one row that scrolls sideways instead of dropping the last tab onto a line of its own.
+            ? 'flex items-center gap-x-3 max-sm:-mx-1 max-sm:overflow-x-auto max-sm:px-1 max-sm:[scrollbar-width:none] sm:flex-wrap sm:gap-y-1 max-sm:[&::-webkit-scrollbar]:hidden'
             : cn('grid', variant === 'soft' ? 'gap-1 rounded-xl bg-gray-100 p-1' : 'gap-2'),
         className,
       )}

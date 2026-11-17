@@ -25,7 +25,7 @@ export function toneForAmount(amount: number, positive: MetricTone = 'success'):
 
 // Big numbers: tight tracking, one line where the width allows, and a
 // smaller step on phones so "68 314 000 сум" never wraps mid-number.
-const metricValueClassName = 'break-words text-xl font-bold leading-none tracking-tight tabular-nums sm:text-2xl';
+const metricValueClassName = 'break-words text-xl font-bold leading-none tracking-tight tabular-nums max-[400px]:text-lg sm:text-2xl';
 
 /**
  * Grid for a row of MetricCards. Phones get two cards to a line (an odd last
@@ -42,7 +42,7 @@ export function MetricMoney({ amount, currency }: { amount: number; currency?: s
   const tc = useTranslations('common');
   return (
     <>
-      <RollingText text={formatCurrency(amount)} />{' '}
+      <span className="whitespace-nowrap"><RollingText text={formatCurrency(amount)} /></span>{' '}
       <span className="text-sm font-medium tracking-normal text-gray-500">{currency ?? tc('currency')}</span>
     </>
   );

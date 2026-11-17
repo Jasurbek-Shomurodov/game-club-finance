@@ -22,7 +22,8 @@ export function Money({ amount, currency, signed = false, showPlus = false, clas
   const unit = currency === undefined ? tc('currency') : currency;
   return (
     <span className={cn('tabular-nums', signed && amount < 0 && 'text-danger-600', className)}>
-      {showPlus && amount > 0 ? '+' : ''}{formatCurrency(amount)}
+      {/* The thousands separators are spaces: the number itself never breaks across lines. */}
+      <span className="whitespace-nowrap">{showPlus && amount > 0 ? '+' : ''}{formatCurrency(amount)}</span>
       {unit ? <span className={cn('ml-1 font-medium', currencyClassName)}>{unit}</span> : null}
     </span>
   );
