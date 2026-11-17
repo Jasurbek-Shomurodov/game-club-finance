@@ -530,6 +530,7 @@
   },
   "dailyCash": {
     "title": "Kunlik kassa",
+    "daySummary": "Kun yakuni",
     "description": "To'lov usullari bo'yicha kunlik daromadni kiriting",
     "cashIncome": "Naqd pul",
     "terminalIncome": "Terminal",

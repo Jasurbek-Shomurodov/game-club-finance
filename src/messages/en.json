@@ -530,6 +530,7 @@
   },
   "dailyCash": {
     "title": "Daily Cash Entry",
+    "daySummary": "This day",
     "description": "Enter daily income by payment method",
     "cashIncome": "Cash Income",
     "terminalIncome": "Terminal Income",

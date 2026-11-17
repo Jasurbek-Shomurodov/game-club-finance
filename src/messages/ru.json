@@ -530,6 +530,7 @@
   },
   "dailyCash": {
     "title": "Касса дня",
+    "daySummary": "Итоги дня",
     "description": "Введите дневной доход по методам оплаты",
     "cashIncome": "Наличные",
     "terminalIncome": "Терминал",

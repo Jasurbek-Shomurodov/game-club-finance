@@ -509,6 +509,8 @@ export default function DailyCashPage() {
         </LoadErrorAlert>
       )}
 
+      {/* Wide screens: the form on the left, what the day adds up to beside it. */}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,400px)] xl:items-start">
       <Card as="form" onSubmit={handleSave} aria-busy={saving || undefined}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
@@ -542,7 +544,7 @@ export default function DailyCashPage() {
           <InlineAlert variant="warning" className="mt-4">{t('entryLocked')}</InlineAlert>
         )}
 
-        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
           {paymentCards.filter((card) => card.visible).map((card) => (
             <PaymentField
               key={card.key}
@@ -565,27 +567,6 @@ export default function DailyCashPage() {
               <Money amount={total} currencyClassName="text-sm font-medium text-gray-500" />
             </p>
           </div>
-        )}
-
-        {summaryFailed || loadFailed ? (
-          !loadFailed && canSeeBarSales && (
-            <LoadErrorAlert className="mt-3" retrying={saving} onRetry={() => void refreshSummary(form.date)}>
-              {t('summaryLoadError')}
-            </LoadErrorAlert>
-          )
-        ) : canSeeBarSales && (
-          <Card tone="muted" padding="sm" className="mt-3">
-            <div className={`grid grid-cols-1 divide-y divide-gray-200 sm:divide-x sm:divide-y-0 ${canSeeNetProfit ? 'sm:grid-cols-3' : ''}`}>
-              <StatTile variant="flat" size="sm" className="py-2 sm:pr-4 sm:py-0" label={t('barSales')} value={formatCurrency(barSummary.sales)} unit={tc('currency')} />
-              {/* Bar and game club profit need the expense and debt ledgers, read only for these members. */}
-              {canSeeNetProfit && (
-                <StatTile variant="flat" size="sm" className="py-2 sm:px-4 sm:py-0" label={t('barProfit')} value={formatCurrency(barSummary.profit)} unit={tc('currency')} tone={toneForAmount(barSummary.profit)} />
-              )}
-              {canSeeNetProfit && financeSummary && (
-                <StatTile variant="flat" size="sm" className="py-2 sm:px-4 sm:py-0" label={t('gameClubProfit')} value={formatCurrency(gameClubProfit)} unit={tc('currency')} tone={toneForAmount(gameClubProfit)} />
-              )}
-            </div>
-          </Card>
         )}
 
         <Field label={t('commentOptional')} htmlFor="daily-cash-comment" className="mt-6">
@@ -612,6 +593,29 @@ export default function DailyCashPage() {
         </div>
       </Card>
 
+      <div className="space-y-4 xl:sticky xl:top-16">
+        {summaryFailed || loadFailed ? (
+          !loadFailed && canSeeBarSales && (
+            <LoadErrorAlert retrying={saving} onRetry={() => void refreshSummary(form.date)}>
+              {t('summaryLoadError')}
+            </LoadErrorAlert>
+          )
+        ) : canSeeBarSales && (
+          <Card as="section">
+            <SectionHeading size="sm" title={t('daySummary')} description={formatDateOnly(form.date, locale)} />
+            <div className="mt-4 grid gap-2 sm:grid-cols-3 xl:grid-cols-1">
+              <StatTile variant="soft" size="sm" label={t('barSales')} value={formatCurrency(barSummary.sales)} unit={tc('currency')} />
+              {/* Bar and game club profit need the expense and debt ledgers, read only for these members. */}
+              {canSeeNetProfit && (
+                <StatTile variant="soft" size="sm" label={t('barProfit')} value={formatCurrency(barSummary.profit)} unit={tc('currency')} tone={toneForAmount(barSummary.profit)} />
+              )}
+              {canSeeNetProfit && financeSummary && (
+                <StatTile variant="soft" size="sm" label={t('gameClubProfit')} value={formatCurrency(gameClubProfit)} unit={tc('currency')} tone={toneForAmount(gameClubProfit)} />
+              )}
+            </div>
+          </Card>
+        )}
+
       {entry && (
         <Card as="section" padding="lg">
           <SectionHeading
@@ -625,7 +629,7 @@ export default function DailyCashPage() {
             ) : undefined}
           />
 
-          <div className={`mt-4 grid grid-cols-2 gap-3 ${savedBreakdownGrid[Math.min(savedBreakdown.length + 1, 5)]}`}>
+          <div className={`mt-4 grid grid-cols-2 gap-3 xl:!grid-cols-2 ${savedBreakdownGrid[Math.min(savedBreakdown.length + 1, 5)]}`}>
             {savedBreakdown.map((item) => (
               <StatTile key={item.label} label={item.label} value={formatCurrency(item.amount)} unit={tc('currency')} variant="soft" size="sm" />
             ))}
@@ -653,6 +657,8 @@ export default function DailyCashPage() {
           </InlineAlert>
         </Card>
       )}
+      </div>
+      </div>
 
       <Modal
         open={expenseDialogOpen}
