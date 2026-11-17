@@ -1,15 +1,18 @@
+import { mutateFinanceRequest } from '@/lib/supabase/client';
 import type { ReserveErrorCode } from '@/lib/supabase/ownerReserve';
 import type { OwnerWithdrawalPaymentMethod, OwnerWithdrawalSource } from '@/types';
 
 /**
  * Browser side of /api/reserve. Reserve changes go through the server so the
  * club's Telegram group hears about every deposit, return and deletion.
+ * mutateFinanceRequest clears the browser read cache, so the reload after a
+ * move shows it.
  */
 
 const CODES: readonly ReserveErrorCode[] = ['exceeds_available', 'insufficient', 'already_used', 'migration_required', 'forbidden', 'failed'];
 
 async function send(method: 'POST' | 'DELETE', body: unknown): Promise<ReserveErrorCode | null> {
-  const response = await fetch('/api/reserve', {
+  const response = await mutateFinanceRequest('/api/reserve', {
     method,
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),

@@ -1,4 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const { mutateFinanceRequest } = vi.hoisted(() => ({ mutateFinanceRequest: vi.fn() }));
+vi.mock('@/lib/supabase/client', () => ({ mutateFinanceRequest }));
+
 import { requestReserveDelete, requestReserveMove, type ReserveMoveRequest } from './ownerReserveRequests';
 
 const move: ReserveMoveRequest = {
@@ -9,14 +13,14 @@ const move: ReserveMoveRequest = {
   parts: [{ id: 'part-1', method: 'cash', amount: 500000 }],
 };
 
+// Reserve writes go through mutateFinanceRequest so the browser read cache is cleared.
 function stubFetch(response: Response) {
-  const fetchMock = vi.fn().mockResolvedValue(response);
-  vi.stubGlobal('fetch', fetchMock);
-  return fetchMock;
+  mutateFinanceRequest.mockResolvedValue(response);
+  return mutateFinanceRequest;
 }
 
 afterEach(() => {
-  vi.unstubAllGlobals();
+  mutateFinanceRequest.mockReset();
 });
 
 describe('requestReserveMove', () => {
