@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownToLine, CalendarArrowUp, HandCoins, Layers, PiggyBank, TriangleAlert, TrendingUp, Undo2, Wallet, type LucideIcon } from 'lucide-react';
+import { ArrowDownToLine, CalendarArrowUp, HandCoins, Layers, PackageMinus, PiggyBank, TriangleAlert, TrendingUp, Undo2, Wallet, type LucideIcon } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useClub } from '@/components/layout/DashboardShell';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
@@ -68,12 +68,12 @@ import { METHOD_ICONS, SOURCE_ICONS, SOURCE_TINTS } from './profitIcons';
 import { WithdrawalHistory, historyCreatedAt, type HistoryRow } from './WithdrawalHistory';
 import { CashShortagesSection } from './CashShortagesSection';
 import { ReserveSection } from './ReserveSection';
+import { BarWriteOffsSection } from './BarWriteOffsSection';
+import { fetchAllRows } from '@/lib/supabase/pagination';
+import { parseWriteOffReason, summarizeStockWriteOffs, type StockWriteOffCountRow } from '@/lib/stockWriteOffs';
 import { planGameClubDepositAll, reserveActivity, reserveBalances, reserveForMonth, reservedNet } from '@/lib/calculations/ownerReserve';
-import {
-  depositToReserve,
-  returnFromReserve,
-  type ReserveErrorCode,
-} from '@/lib/supabase/ownerReserve';
+import type { ReserveErrorCode } from '@/lib/supabase/ownerReserve';
+import { requestReserveMove } from '@/lib/ownerReserveRequests';
 import { CashShortageForm } from '@/components/cash-shortages/CashShortageForm';
 import ExpenseRegistrationForm from '../reports/ExpenseRegistrationForm';
 import {
@@ -120,6 +120,8 @@ const emptyForm = (month: string) => ({
   amount: '',
 });
 
+const EMPTY_WRITE_OFFS: StockWriteOffCountRow[] = [];
+
 export default function MoneyTakenPage() {
   const t = useTranslations('moneyTaken');
   const tc = useTranslations('common');
@@ -156,6 +158,28 @@ export default function MoneyTakenPage() {
     selectedClubId && isOwner ? fetchCashShortages(createClient(), selectedClubId) : EMPTY_CASH_SHORTAGES
   ), [isOwner, selectedClubId]);
   const shortageQuery = useClubQuery(loadShortages, EMPTY_CASH_SHORTAGES);
+  // Bar write-offs already sit in bar cost (migration 141); they are listed here
+  // so the month's loss is visible beside what the owner can take. Owner-only, like the tool.
+  const loadWriteOffs = useCallback(async (): Promise<StockWriteOffCountRow[]> => {
+    if (!selectedClubId || !isOwner) return EMPTY_WRITE_OFFS;
+    const { from, to } = monthRange(form.month);
+    const { data, error: writeOffError } = await fetchAllRows<StockWriteOffCountRow>(() => createClient()
+      .from('daily_stock_counts')
+      .select('date,product_id,adjustment_quantity,adjustment_reason,cost_price,products(name)')
+      .eq('club_id', selectedClubId)
+      .gte('date', from)
+      .lte('date', to)
+      .lt('adjustment_quantity', 0)
+      .order('date', { ascending: false })
+      .order('product_id', { ascending: true }));
+    if (writeOffError) throw writeOffError;
+    return data ?? EMPTY_WRITE_OFFS;
+  }, [form.month, isOwner, selectedClubId]);
+  const writeOffQuery = useClubQuery(loadWriteOffs, EMPTY_WRITE_OFFS);
+  // Only shortage/expired write-offs reach bar cost; older free-text corrections ("other") do not.
+  const writeOffSummary = useMemo(() => summarizeStockWriteOffs(
+    writeOffQuery.data.filter((row) => parseWriteOffReason(row.adjustment_reason).kind !== 'other'),
+  ), [writeOffQuery.data]);
   const tsh = useTranslations('cashShortages');
   const tr = useTranslations('ownerReserve');
   const [returnTarget, setReturnTarget] = useState<OwnerWithdrawalSource | null>(null);
@@ -464,13 +488,12 @@ export default function MoneyTakenPage() {
     mutationPending.current = true;
     setSaving('reserve');
     try {
-      const failure = await depositToReserve(createClient(), selectedClubId, {
-        id: crypto.randomUUID(),
+      const failure = await requestReserveMove(selectedClubId, {
+        kind: 'deposit',
         month: form.month,
         source: form.source,
-        method: form.source === 'game_club' ? (form.paymentMethod || null) : null,
-        amount,
         comment: form.comment,
+        parts: [{ id: crypto.randomUUID(), method: form.source === 'game_club' ? (form.paymentMethod || null) : null, amount }],
       });
       if (operationLoad !== currentLoad.current) return;
       if (failure) {
@@ -797,13 +820,12 @@ export default function MoneyTakenPage() {
     setReserveBusy('return');
     setReserveError(null);
     try {
-      const failure = await returnFromReserve(createClient(), selectedClubId, {
-        id: reserveRequestId.current,
+      const failure = await requestReserveMove(selectedClubId, {
+        kind: 'return',
         month: form.month,
         source: returnTarget,
-        method: returnTarget === 'game_club' ? returnMethod : null,
-        amount: Math.round(returnValue),
         comment: '',
+        parts: [{ id: reserveRequestId.current, method: returnTarget === 'game_club' ? returnMethod : null, amount: Math.round(returnValue) }],
       });
       if (operationLoad !== currentLoad.current) return;
       if (failure) {
@@ -843,20 +865,16 @@ export default function MoneyTakenPage() {
       : depositAllPlan.game_club;
     mutationPending.current = true;
     setReserveBusy(`all:${source}`);
-    let failure: ReserveErrorCode | null = null;
     try {
-      // One deposit per Game Club method, so each keeps its own reserve balance.
-      for (const part of parts) {
-        failure = await depositToReserve(createClient(), selectedClubId, {
-          id: crypto.randomUUID(),
-          month: form.month,
-          source,
-          method: part.method,
-          amount: part.amount,
-          comment: '',
-        });
-        if (failure || loadBeforeConfirm !== currentLoad.current) break;
-      }
+      // One deposit per Game Club method, so each keeps its own reserve balance;
+      // sent together so the club's group gets a single message.
+      const failure = await requestReserveMove(selectedClubId, {
+        kind: 'deposit',
+        month: form.month,
+        source,
+        comment: '',
+        parts: parts.map((part) => ({ id: crypto.randomUUID(), method: part.method, amount: part.amount })),
+      });
       if (loadBeforeConfirm !== currentLoad.current) return;
       showToast(failure ? tr(`errors.${failure}`) : tr('depositedToast'), failure ? 'error' : 'success');
       await loadData({ silent: true });
@@ -1059,6 +1077,15 @@ export default function MoneyTakenPage() {
                               <span>{tsh('heroLost')}</span>
                               <span className="whitespace-nowrap font-semibold tabular-nums text-danger-600">
                                 {formatCurrency(monthShortages[side.source].lost)}
+                              </span>
+                            </p>
+                          ) : null}
+                          {side.source === 'bar' && writeOffSummary.total.cost > 0 ? (
+                            <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
+                              <PackageMinus size={13} aria-hidden="true" className="shrink-0 text-danger-500" />
+                              <span>{t('heroWriteOffs')}</span>
+                              <span className="whitespace-nowrap font-semibold tabular-nums text-danger-600">
+                                {formatCurrency(writeOffSummary.total.cost)}
                               </span>
                             </p>
                           ) : null}
@@ -1287,6 +1314,12 @@ export default function MoneyTakenPage() {
                 </Card>
               ) : null}
 
+              {isOwner && !loading && !writeOffQuery.loading && !writeOffQuery.error ? (
+                <Card as="section" padding="none" className="overflow-hidden">
+                  <BarWriteOffsSection month={form.month} summary={writeOffSummary} />
+                </Card>
+              ) : null}
+
               {loading ? (
                 <TableSkeleton rows={5} columns={4} />
               ) : (
@@ -1296,6 +1329,7 @@ export default function MoneyTakenPage() {
                     currentMonth={currentMonth}
                     withdrawals={withdrawals}
                     investments={investments}
+                    reserveEntries={reserveEntries}
                     isOwner={isOwner}
                     deletingId={deletingId}
                     deleteDisabled={loading || !!error || saving !== null || deletingId !== null}

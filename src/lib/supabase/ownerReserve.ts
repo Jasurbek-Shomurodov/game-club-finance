@@ -30,8 +30,14 @@ export interface ReserveMoveInput {
   comment: string;
 }
 
-async function move(supabase: SupabaseClient, clubId: string, rpcName: string, input: ReserveMoveInput): Promise<ReserveErrorCode | null> {
-  const { error } = await supabase.rpc(rpcName, {
+export interface ReserveMoveResult {
+  failure: ReserveErrorCode | null;
+  /** False when the id was already recorded, so a retried request is not reported twice. */
+  created: boolean;
+}
+
+async function move(supabase: SupabaseClient, clubId: string, rpcName: string, input: ReserveMoveInput): Promise<ReserveMoveResult> {
+  const { data, error } = await supabase.rpc(rpcName, {
     p_club_id: clubId,
     p_id: input.id,
     p_period_month: `${input.month}-01`,
@@ -40,13 +46,13 @@ async function move(supabase: SupabaseClient, clubId: string, rpcName: string, i
     p_amount: input.amount,
     p_comment: input.comment.trim() || null,
   });
-  return error ? reserveErrorCode(error, rpcName) : null;
+  return error ? { failure: reserveErrorCode(error, rpcName), created: false } : { failure: null, created: data !== false };
 }
 
-/** Sets owner profit aside in the reserve instead of withdrawing it. */
+/** Sets owner profit aside in the reserve instead of withdrawing it. Server-side: /api/reserve. */
 export const depositToReserve = (supabase: SupabaseClient, clubId: string, input: ReserveMoveInput) => move(supabase, clubId, 'move_owner_profit_to_reserve', input);
 
-/** Gives reserve money back to a month's owner profit, where it can be withdrawn. */
+/** Gives reserve money back to a month's owner profit, where it can be withdrawn. Server-side: /api/reserve. */
 export const returnFromReserve = (supabase: SupabaseClient, clubId: string, input: ReserveMoveInput) => move(supabase, clubId, 'return_owner_reserve', input);
 
 export async function deleteReserveEntry(supabase: SupabaseClient, clubId: string, entryId: string): Promise<ReserveErrorCode | null> {

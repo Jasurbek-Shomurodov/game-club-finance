@@ -11,7 +11,7 @@ const move = { id: 'id', month: '2026-11', source: 'game_club' as const, method:
 describe('reserve RPC wrappers', () => {
   it('sends the month as its first day, trims the note, and drops the method on the Bar side', async () => {
     const { supabase, rpc } = client({});
-    expect(await depositToReserve(supabase, 'club', move)).toBeNull();
+    expect(await depositToReserve(supabase, 'club', move)).toEqual({ failure: null, created: true });
     expect(rpc).toHaveBeenCalledWith('move_owner_profit_to_reserve', {
       p_club_id: 'club', p_id: 'id', p_period_month: '2026-11-01', p_source: 'game_club', p_payment_method: 'cash', p_amount: 500_000, p_comment: 'For new PCs',
     });
@@ -20,7 +20,8 @@ describe('reserve RPC wrappers', () => {
   });
 
   it('maps database refusals to what the page says', async () => {
-    expect(await depositToReserve(client({ error: { hint: 'reserve_exceeds_available' } }).supabase, 'club', move)).toBe('exceeds_available');
+    expect((await depositToReserve(client({ error: { hint: 'reserve_exceeds_available' } }).supabase, 'club', move)).failure).toBe('exceeds_available');
+    expect(await depositToReserve(client({ data: false }).supabase, 'club', move)).toEqual({ failure: null, created: false });
     expect(await deleteReserveEntry(client({ error: { hint: 'reserve_already_used' } }).supabase, 'club', 'id')).toBe('already_used');
     expect(await deleteReserveEntry(client({ error: { code: '42501' } }).supabase, 'club', 'id')).toBe('forbidden');
     expect(reserveErrorCode({ hint: 'reserve_insufficient' }, 'x')).toBe('insufficient');
@@ -56,7 +57,7 @@ describe('reserve RPC wrappers', () => {
   });
 
   it('reports a missing migration and an overdrawn return', async () => {
-    expect(await depositToReserve(client({ error: { code: 'PGRST202', message: 'not found' } }).supabase, 'club', move)).toBe('migration_required');
-    expect(await returnFromReserve(client({ error: { hint: 'reserve_insufficient' } }).supabase, 'club', move)).toBe('insufficient');
+    expect((await depositToReserve(client({ error: { code: 'PGRST202', message: 'not found' } }).supabase, 'club', move)).failure).toBe('migration_required');
+    expect((await returnFromReserve(client({ error: { hint: 'reserve_insufficient' } }).supabase, 'club', move)).failure).toBe('insufficient');
   });
 });

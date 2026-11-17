@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyOwnerReserve, dollarReserveEntries, reserveActivity, groupReserveActivityByDay, reserveMonthlySeries, reserveBalances, reserveForMonth, planGameClubDepositAll, type ReservePaidExpense } from './ownerReserve';
+import { applyOwnerReserve, dollarReserveEntries, reserveActivity, groupReserveActivityByDay, reserveMonthlySeries, reserveDailySeries, reserveBalances, reserveForMonth, planGameClubDepositAll, type ReservePaidExpense } from './ownerReserve';
 import { sumAvailableMoneyResults, type AvailableMoneyByMonth } from './availableMoney';
 import type { OwnerReserveEntry } from '@/types';
 
@@ -138,6 +138,38 @@ describe('reserveMonthlySeries', () => {
 
   it('is empty without reserve activity', () => {
     expect(reserveMonthlySeries([], [], '2026-11')).toEqual([]);
+  });
+});
+
+describe('reserveDailySeries', () => {
+  const entry = (day: string, kind: 'deposit' | 'return', amount: number, source: 'game_club' | 'bar' = 'game_club'): OwnerReserveEntry => ({
+    id: `${day}-${kind}-${amount}`, club_id: 'club', kind, period_month: `${day.slice(0, 7)}-01`, source,
+    payment_method: source === 'bar' ? null : 'cash', amount, comment: null, collection_date: null, created_by: 'owner', created_at: `${day}T10:00:00Z`,
+  });
+
+  it('fills every day through today with each side\'s running balance', () => {
+    const purchase: ReservePaidExpense = {
+      id: 'p', date: '2026-10-31', amount: 200, payment_source: 'game_club', payment_method: 'cash',
+      category: 'repair', comment: null, created_at: '2026-10-31T09:00:00Z',
+    };
+    const rows = reserveDailySeries(
+      [entry('2026-10-30', 'deposit', 1_000), entry('2026-11-01', 'return', 100), entry('2026-11-01', 'deposit', 50, 'bar')],
+      [purchase],
+      '2026-11-02',
+    );
+    expect(rows).toEqual([
+      { date: '2026-10-30', gameClubHeld: 1_000, barHeld: 0 },
+      { date: '2026-10-31', gameClubHeld: 800, barHeld: 0 },
+      { date: '2026-11-01', gameClubHeld: 700, barHeld: 50 },
+      { date: '2026-11-02', gameClubHeld: 700, barHeld: 50 },
+    ]);
+  });
+
+  it('counts activity dated after today on today, and is empty without activity', () => {
+    expect(reserveDailySeries([entry('2026-11-05', 'deposit', 10)], [], '2026-11-03')).toEqual([
+      { date: '2026-11-03', gameClubHeld: 10, barHeld: 0 },
+    ]);
+    expect(reserveDailySeries([], [], '2026-11-03')).toEqual([]);
   });
 });
 

@@ -43,6 +43,13 @@ migration 135). Without it the notice is not sent at all; it never falls back to
 the club group (`ownerChatId` in `clubChat.ts`). Create a Telegram group with
 only the owners and the bot, then set its id here and redeploy.
 
+The club group also gets instant notices from the routes that save money
+changes (daily cash, expenses, exchanges, collections, salaries). Owner reserve changes go
+through `/api/reserve` for this reason: every deposit, return to profit and
+deleted entry posts one message naming the month whose profit the money left or
+joined. "Put all in" sends one message for all its method parts. Purchases paid
+from the reserve are expenses and are announced by `/api/expenses`.
+
 Supported target keys are `pixel`, `main`, and `bunker`. `CRON_SECRET` must be a
 header-safe random string of at least 16 characters and must match the value
 stored in Supabase Vault.

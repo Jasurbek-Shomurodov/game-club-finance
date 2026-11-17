@@ -159,3 +159,19 @@ export function summarizeStockWriteOffs(rows: StockWriteOffCountRow[]): StockWri
   summary.entries.sort((a, b) => b.date.localeCompare(a.date) || a.productName.localeCompare(b.productName));
   return summary;
 }
+
+/**
+ * Asks the server to tell the club's Telegram group about the write-off just
+ * saved for this product and day; the server reads the saved count itself.
+ */
+export async function notifyStockWriteOff(clubId: string, date: string, productId: string): Promise<void> {
+  try {
+    await fetch('/api/stock-write-offs', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ clubId, date, productId }),
+    });
+  } catch {
+    // Notices are best-effort.
+  }
+}

@@ -72,7 +72,7 @@ import {
   type BulkStockOrderSummary,
   type StorageLike,
 } from '@/lib/closingStock';
-import { applyStockWriteOff, rowWriteOff, StockWriteOffError } from '@/lib/stockWriteOffs';
+import { applyStockWriteOff, notifyStockWriteOff, rowWriteOff, StockWriteOffError } from '@/lib/stockWriteOffs';
 import {
   CalendarX,
   Gift,
@@ -607,7 +607,12 @@ export default function ClosingStockPage() {
       return tc('error');
     }
 
+    const previousQuantity = rowWriteOff(rows.find((row) => row.product.id === writeOff.productId) ?? { adjustmentQuantity: '', adjustmentReason: '' })?.quantity ?? 0;
     const result = await persistStockCounts(nextRows, writeOff.quantity > 0 ? t('writeOffSaved') : t('writeOffRemoved'));
+    if (result.ok && selectedClubId && (writeOff.quantity > 0 || previousQuantity > 0)) {
+      // Best-effort: the club's group hears about it; a failed notice never undoes the save.
+      void notifyStockWriteOff(selectedClubId, date, writeOff.productId);
+    }
     return result.ok ? null : result.message ?? tc('error');
   }
 

@@ -1,16 +1,18 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { CalendarArrowUp, CalendarDays, ChevronDown, Clock, History, Layers, MessageSquareText, Sprout, Trash2 } from 'lucide-react';
+import { CalendarArrowUp, CalendarDays, ChevronDown, Clock, History, Layers, MessageSquareText, PiggyBank, Sprout, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { Badge, EmptyState, IconButton, SectionHeading, SegmentedControl } from '@/components/PresentationFoundation';
+import { reserveForMonth, reservedNet } from '@/lib/calculations/ownerReserve';
 import { investedBySourceForMonth, withdrawnBySourceForMonth, type InvestmentRow } from '@/lib/calculations/ownerProfitSnapshot';
 import { capitalizeFirst, formatCurrency, formatDateTime, formatYearMonth } from '@/lib/formatters';
 import { cn, previousYearMonth } from '@/lib/utils';
 import {
   OWNER_WITHDRAWAL_SOURCES,
   type OwnerProfitCarryover,
+  type OwnerReserveEntry,
   type OwnerWithdrawal,
   type OwnerWithdrawalPaymentMethod,
   type OwnerWithdrawalSource,
@@ -36,6 +38,8 @@ interface WithdrawalHistoryProps {
   withdrawals: readonly OwnerWithdrawal[];
   /** `investments` expenses, shown per month beside what was withdrawn. */
   investments: readonly InvestmentRow[];
+  /** Reserve deposits and returns, shown per month as what that month's profit put aside (net). */
+  reserveEntries: readonly OwnerReserveEntry[];
   isOwner: boolean;
   deletingId: string | null;
   deleteDisabled: boolean;
@@ -51,6 +55,7 @@ export function WithdrawalHistory({
   currentMonth,
   withdrawals,
   investments,
+  reserveEntries,
   isOwner,
   deletingId,
   deleteDisabled,
@@ -78,13 +83,18 @@ export function WithdrawalHistory({
   const forFilter = (totals: Record<OwnerWithdrawalSource, number>) => (filter === 'all'
     ? OWNER_WITHDRAWAL_SOURCES.reduce((sum, source) => sum + totals[source], 0)
     : totals[filter]);
-  // Withdrawn and invested per month for the chosen source: this and last month always, then every month with history.
+  const reservedBySource = (month: string): Record<OwnerWithdrawalSource, number> => {
+    const { bySource } = reserveForMonth(reserveEntries, [], month);
+    return { game_club: reservedNet(bySource.game_club), bar: reservedNet(bySource.bar) };
+  };
+  // Withdrawn, invested and reserved per month for the chosen source: this and last month always, then every month with history.
   const monthTotals = [...new Set([currentMonth, lastMonth, ...rows.map((row) => row.month)])]
     .sort((a, b) => b.localeCompare(a))
     .map((month) => ({
       month,
       amount: forFilter(withdrawnBySourceForMonth(withdrawals, month)),
       invested: forFilter(investedBySourceForMonth(investments, month)),
+      reserved: forFilter(reservedBySource(month)),
     }));
   const monthLabel = (month: string) => (month === currentMonth
     ? t('summaryThisMonth')
@@ -121,7 +131,7 @@ export function WithdrawalHistory({
         <div>
           <p className="text-xs font-medium text-gray-500">{t('withdrawnByMonth')}</p>
           <ul className="-mx-1 mt-2 flex gap-2 overflow-x-auto px-1 pb-1">
-            {monthTotals.map(({ month, amount, invested }) => {
+            {monthTotals.map(({ month, amount, invested, reserved }) => {
               const hasRows = months.some((group) => group.month === month);
               return (
                 <li key={month} className="shrink-0">
@@ -146,6 +156,11 @@ export function WithdrawalHistory({
                       {t('historyMonthInvested')}
                       <span className="font-semibold tabular-nums text-gray-700">{formatCurrency(invested)}</span>
                     </span>
+                    <span className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-[11px] text-gray-500">
+                      <PiggyBank size={11} aria-hidden="true" />
+                      {t('historyMonthReserved')}
+                      <span className="font-semibold tabular-nums text-gray-700">{formatCurrency(reserved)}</span>
+                    </span>
                   </button>
                 </li>
               );
@@ -168,6 +183,8 @@ export function WithdrawalHistory({
             const total = sides.reduce((sum, source) => sum + totals[source], 0);
             const investedTotals = investedBySourceForMonth(investments, month);
             const invested = forFilter(investedTotals);
+            const reservedTotals = reservedBySource(month);
+            const reserved = forFilter(reservedTotals);
             // Every source in the filter, even at 0, so all month rows read the same.
             const legend = OWNER_WITHDRAWAL_SOURCES.filter((source) => filter === 'all' || filter === source);
 
@@ -187,6 +204,16 @@ export function WithdrawalHistory({
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold text-gray-900">{capitalizeFirst(formatYearMonth(month, locale), locale)}</span>
                       <span className="block text-xs text-gray-500">{t('historyEntries', { count: monthRows.length })}</span>
+                    </span>
+                    <span className="hidden text-right sm:block sm:min-w-[9rem]">
+                      <span className="flex items-center justify-end gap-1 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                        <PiggyBank size={12} aria-hidden="true" />
+                        {t('historyMonthReserved')}
+                      </span>
+                      <span className="block whitespace-nowrap text-base font-semibold leading-tight tabular-nums text-gray-700">
+                        {formatCurrency(reserved)}
+                        <span className="ml-1 text-xs font-medium text-gray-500">{tc('currency')}</span>
+                      </span>
                     </span>
                     <span className="text-right sm:min-w-[9rem]">
                         <span className="flex items-center justify-end gap-1 text-[11px] font-medium uppercase tracking-wide text-gray-500">
@@ -236,6 +263,11 @@ export function WithdrawalHistory({
                             <Sprout size={11} aria-hidden="true" />
                             {t('historyMonthInvested')}
                             <span className="font-semibold tabular-nums text-gray-700">{formatCurrency(investedTotals[source])}</span>
+                          </span>
+                          <span className="ml-1 inline-flex items-center gap-1 text-gray-500">
+                            <PiggyBank size={11} aria-hidden="true" />
+                            {t('historyMonthReserved')}
+                            <span className="font-semibold tabular-nums text-gray-700">{formatCurrency(reservedTotals[source])}</span>
                           </span>
                         </span>
                       ))}

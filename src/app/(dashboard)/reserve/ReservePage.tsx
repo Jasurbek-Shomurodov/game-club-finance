@@ -25,11 +25,11 @@ import {
   useToast,
 } from '@/components/PresentationFoundation';
 import { dollarsForMonth } from '@/lib/calculations/moneyExchanges';
-import { reserveActivity, reserveBalances, reserveMonthlySeries } from '@/lib/calculations/ownerReserve';
+import { reserveActivity, reserveBalances, reserveDailySeries, reserveMonthlySeries } from '@/lib/calculations/ownerReserve';
 import { formatCurrency, formatUnitCurrency } from '@/lib/formatters';
 import { createClient } from '@/lib/supabase/client';
 import { EMPTY_OWNER_MONEY, fetchOwnerMoney } from '@/lib/supabase/ownerMoney';
-import { deleteReserveEntry } from '@/lib/supabase/ownerReserve';
+import { requestReserveDelete } from '@/lib/ownerReserveRequests';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { cn } from '@/lib/utils';
@@ -86,6 +86,7 @@ export default function ReservePage() {
   const balances = useMemo(() => reserveBalances(reserveEntries, reserveExpenses), [reserveEntries, reserveExpenses]);
   const activity = useMemo(() => reserveActivity(reserveEntries, reserveExpenses), [reserveEntries, reserveExpenses]);
   const series = useMemo(() => reserveMonthlySeries(reserveEntries, reserveExpenses, currentMonth), [reserveEntries, reserveExpenses, currentMonth]);
+  const dailySeries = useMemo(() => reserveDailySeries(reserveEntries, reserveExpenses, businessToday), [reserveEntries, reserveExpenses, businessToday]);
   const dollarsHeld = useMemo(() => dollarsForMonth(exchangeRows, currentMonth, dollarExpenses).heldUsd, [exchangeRows, currentMonth, dollarExpenses]);
 
   const currency = tc('currency');
@@ -128,7 +129,7 @@ export default function ReservePage() {
     if (!confirmed || loadBeforeConfirm !== currentLoad.current) return;
     setBusyId(row.id);
     try {
-      const failure = await deleteReserveEntry(createClient(), selectedClubId, row.id);
+      const failure = await requestReserveDelete(selectedClubId, row.id);
       if (loadBeforeConfirm !== currentLoad.current) return;
       showToast(failure ? tr(`errors.${failure}`) : tr('deletedToast'), failure ? 'error' : 'success');
       await query.reload({ silent: true });
@@ -242,7 +243,7 @@ export default function ReservePage() {
             </div>
 
             <ChartCard title={t('balanceTitle')} description={t('balanceDescription')}>
-              {series.length === 0 ? <ChartEmpty title={tr('empty')} /> : <ReserveBalanceChart rows={series} locale={locale} currency={currency} />}
+              {dailySeries.length === 0 ? <ChartEmpty title={tr('empty')} /> : <ReserveBalanceChart rows={dailySeries} locale={locale} currency={currency} />}
             </ChartCard>
             <ChartCard title={t('flowTitle')} description={t('flowDescription')}>
               {series.length === 0 ? <ChartEmpty title={tr('empty')} /> : <ReserveFlowChart rows={series} locale={locale} currency={currency} />}

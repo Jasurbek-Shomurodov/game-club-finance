@@ -5,8 +5,8 @@ import type { ReactElement } from 'react';
 import { useTranslations } from 'next-intl';
 import { chartColors, chartTooltipStyle, formatAxis } from '@/components/dashboard/ChartCard';
 import { axisProps, LegendItem } from '@/components/financial-analysis/AnalysisTimeCharts';
-import { capitalizeFirst, formatCurrency, formatMonthShort, formatYearMonth } from '@/lib/formatters';
-import type { ReserveMonthRow } from '@/lib/calculations/ownerReserve';
+import { capitalizeFirst, formatCurrency, formatDateOnly, formatDateShort, formatMonthShort, formatYearMonth } from '@/lib/formatters';
+import type { ReserveDayRow, ReserveMonthRow } from '@/lib/calculations/ownerReserve';
 
 interface ChartProps {
   rows: ReserveMonthRow[];
@@ -28,8 +28,11 @@ const money = (currency: string, names: Record<string, string>) => (
   (value: unknown, name: unknown) => [`${formatCurrency(Number(value))} ${currency}`, names[String(name)] ?? String(name)] as [string, string]
 );
 
-/** What each side of the reserve held at the end of every month. */
-export function ReserveBalanceChart({ rows, locale, currency }: ChartProps) {
+const dayTick = (locale: string) => (date: string) => formatDateShort(date, locale);
+const dayTitle = (locale: string) => (date: unknown) => formatDateOnly(String(date), locale);
+
+/** What each side of the reserve held at the end of every day. */
+export function ReserveBalanceChart({ rows, locale, currency }: { rows: ReserveDayRow[]; locale: string; currency: string }) {
   const t = useTranslations('reservePage');
   const names: Record<string, string> = { gameClubHeld: t('gameClub'), barHeld: t('bar') };
   // A side that never held anything is left out rather than drawn as a line along zero.
@@ -54,11 +57,11 @@ export function ReserveBalanceChart({ rows, locale, currency }: ChartProps) {
             </linearGradient>
           </defs>
           <CartesianGrid stroke={chartColors.grid} vertical={false} />
-          <XAxis dataKey="month" {...axisProps} axisLine={{ stroke: chartColors.grid }} minTickGap={12} tickFormatter={tick(locale)} />
+          <XAxis dataKey="date" {...axisProps} axisLine={{ stroke: chartColors.grid }} minTickGap={24} tickFormatter={dayTick(locale)} />
           <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
-          <Tooltip {...chartTooltipStyle} labelFormatter={title(locale)} formatter={money(currency, names)} />
-          {showGameClub ? <Area dataKey="gameClubHeld" stackId="held" type="monotone" stroke={chartColors.primary} strokeWidth={2} fill="url(#reserve-gameClub)" /> : null}
-          {showBar ? <Area dataKey="barHeld" stackId="held" type="monotone" stroke={chartColors.orange} strokeWidth={2} fill="url(#reserve-bar)" /> : null}
+          <Tooltip {...chartTooltipStyle} labelFormatter={dayTitle(locale)} formatter={money(currency, names)} />
+          {showGameClub ? <Area dataKey="gameClubHeld" stackId="held" type="stepAfter" stroke={chartColors.primary} strokeWidth={2} fill="url(#reserve-gameClub)" /> : null}
+          {showBar ? <Area dataKey="barHeld" stackId="held" type="stepAfter" stroke={chartColors.orange} strokeWidth={2} fill="url(#reserve-bar)" /> : null}
         </AreaChart>
       </Frame>
     </>

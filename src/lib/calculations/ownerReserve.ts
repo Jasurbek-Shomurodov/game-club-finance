@@ -276,6 +276,49 @@ export function reserveMonthlySeries(
   return rows;
 }
 
+export interface ReserveDayRow {
+  /** YYYY-MM-DD */
+  date: string;
+  /** What each side holds at the end of the day. */
+  gameClubHeld: number;
+  barHeld: number;
+}
+
+const nextIsoDay = (date: string) => {
+  const next = new Date(`${date}T00:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return next.toISOString().slice(0, 10);
+};
+
+/**
+ * Day by day, from the first reserve activity through `throughDate` (the
+ * club's business today): what each side holds at the end of the day. Days are
+ * those of the history list, so the line moves on the day a row appears there.
+ */
+export function reserveDailySeries(
+  entries: readonly ReserveLedgerEntry[],
+  expenses: readonly ReservePaidExpense[],
+  throughDate: string,
+): ReserveDayRow[] {
+  const change = new Map<string, { game_club: number; bar: number }>();
+  for (const row of reserveActivity(entries, expenses)) {
+    const day = row.date > throughDate ? throughDate : row.date;
+    const delta = change.get(day) ?? { game_club: 0, bar: 0 };
+    delta[row.source] += row.kind === 'deposit' ? row.amount : -row.amount;
+    change.set(day, delta);
+  }
+  if (change.size === 0) return [];
+
+  const rows: ReserveDayRow[] = [];
+  const held = { game_club: 0, bar: 0 };
+  for (let day = [...change.keys()].sort()[0]; day <= throughDate; day = nextIsoDay(day)) {
+    const delta = change.get(day);
+    if (delta) { held.game_club += delta.game_club; held.bar += delta.bar; }
+    rows.push({ date: day, gameClubHeld: held.game_club, barHeld: held.bar });
+  }
+  return rows;
+}
+
 /**
  * Splits everything left of a month's Game Club profit over its payment methods,
  * the way the database limits deposits: no method above what it holds, and
