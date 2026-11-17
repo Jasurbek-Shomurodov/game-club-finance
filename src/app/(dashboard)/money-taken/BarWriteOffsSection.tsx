@@ -1,11 +1,13 @@
 'use client';
 
-import { ArrowRight, Clock, MessageSquareText, PackageMinus } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowRight, ChevronRight, Clock, MessageSquareText, PackageMinus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { Badge, ButtonLink, EmptyState, SectionHeading } from '@/components/PresentationFoundation';
 import { capitalizeFirst, formatCurrency, formatDateOnly, formatNumber, formatYearMonth } from '@/lib/formatters';
-import type { StockWriteOffSummary } from '@/lib/stockWriteOffs';
+import { WriteOffDetailsModal } from '@/components/WriteOffDetailsModal';
+import { writeOffEntryKey, writeOffKindVariant, type StockWriteOffEntry, type StockWriteOffSummary } from '@/lib/stockWriteOffs';
 import { monthRange } from '@/lib/utils';
 
 interface BarWriteOffsSectionProps {
@@ -20,6 +22,7 @@ export function BarWriteOffsSection({ month, summary }: BarWriteOffsSectionProps
   const tcs = useTranslations('closingStock');
   const tc = useTranslations('common');
   const { locale } = useAppLocale();
+  const [selected, setSelected] = useState<StockWriteOffEntry | null>(null);
   const { from, to } = monthRange(month);
   const kinds = (['shortage', 'expired'] as const).filter((kind) => summary.byKind[kind].quantity > 0);
 
@@ -72,32 +75,40 @@ export function BarWriteOffsSection({ month, summary }: BarWriteOffsSectionProps
           </dl>
           <ul className="divide-y divide-gray-100">
             {summary.entries.map((entry) => (
-              <li key={`${entry.date}:${entry.productId}`} className="flex items-start gap-3 px-4 py-3.5 sm:px-5">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="font-semibold text-gray-900">{entry.productName || tcs('unknownProduct')}</span>
-                    <Badge size="sm" variant={entry.kind === 'expired' ? 'warning' : 'danger'}>{tcs(`writeOffKinds.${entry.kind}`)}</Badge>
-                  </div>
-                  {entry.note ? (
-                    <p className="mt-1 flex gap-1.5 text-sm leading-5 text-gray-600">
-                      <MessageSquareText size={14} aria-hidden="true" className="mt-0.5 shrink-0 text-gray-400" />
-                      <span className="min-w-0 break-words">{entry.note}</span>
+              <li key={writeOffEntryKey(entry)}>
+                <button
+                  type="button"
+                  onClick={() => setSelected(entry)}
+                  className="flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors hover:bg-gray-50/80 focus-visible:bg-primary-50 focus-visible:outline-none sm:px-5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-semibold text-gray-900">{entry.productName || tcs('unknownProduct')}</span>
+                      <Badge size="sm" variant={writeOffKindVariant(entry.kind)}>{tcs(`writeOffKinds.${entry.kind}`)}</Badge>
+                    </div>
+                    {entry.note ? (
+                      <p className="mt-1 flex gap-1.5 text-sm leading-5 text-gray-600">
+                        <MessageSquareText size={14} aria-hidden="true" className="mt-0.5 shrink-0 text-gray-400" />
+                        <span className="min-w-0 break-words">{entry.note}</span>
+                      </p>
+                    ) : null}
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-400">
+                      <Clock size={12} aria-hidden="true" />
+                      {formatDateOnly(entry.date, locale)} · {formatNumber(entry.quantity)} {tcs('pcs')}
                     </p>
-                  ) : null}
-                  <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-400">
-                    <Clock size={12} aria-hidden="true" />
-                    {formatDateOnly(entry.date, locale)} · {formatNumber(entry.quantity)} {tcs('pcs')}
+                  </div>
+                  <p className="whitespace-nowrap pt-1 text-right text-base font-bold tabular-nums text-danger-600">
+                    −{formatCurrency(entry.cost)}
+                    <span className="ml-1 text-xs font-medium text-gray-500">{tc('currency')}</span>
                   </p>
-                </div>
-                <p className="whitespace-nowrap pt-1 text-right text-base font-bold tabular-nums text-danger-600">
-                  −{formatCurrency(entry.cost)}
-                  <span className="ml-1 text-xs font-medium text-gray-500">{tc('currency')}</span>
-                </p>
+                  <ChevronRight size={16} aria-hidden="true" className="mt-1.5 shrink-0 text-gray-400" />
+                </button>
               </li>
             ))}
           </ul>
         </>
       )}
+      <WriteOffDetailsModal entry={selected} onClose={() => setSelected(null)} />
     </>
   );
 }

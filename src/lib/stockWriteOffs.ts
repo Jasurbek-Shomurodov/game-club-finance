@@ -115,6 +115,11 @@ export interface StockWriteOffEntry {
   cost: number;
 }
 
+/** Stable list key: one count row per product per day, so date and product identify a write-off. */
+export function writeOffEntryKey(entry: Pick<StockWriteOffEntry, 'date' | 'productId'>): string {
+  return `${entry.date}:${entry.productId}`;
+}
+
 /** Badge tone for a write-off's reason: shortages read as danger, expiry as a warning. */
 export function writeOffKindVariant(kind: StockWriteOffReportKind): 'danger' | 'warning' | 'neutral' {
   if (kind === 'shortage') return 'danger';

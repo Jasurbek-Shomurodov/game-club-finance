@@ -41,7 +41,7 @@ import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { BulkStockUpdateModal } from './BulkStockUpdateModal';
 import { StockWriteOffModal, type StockWriteOffInput } from './StockWriteOffModal';
 import { groupByCategory } from '@/lib/productSections';
-import { calendarTodayIso, todayIso } from '@/lib/utils';
+import { calendarTodayIso, isoDateParam, todayIso } from '@/lib/utils';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { formatCurrency, formatDateOnly, formatNumber, formatUnitCurrency } from '@/lib/formatters';
@@ -188,10 +188,10 @@ export default function ClosingStockPage() {
   const today = useBusinessToday(businessDayStartHour, { paused: dirty });
   // `?date=YYYY-MM-DD` (from a Reports write-off, for example) opens that day's counts.
   const searchParams = useSearchParams();
-  const [dateSelection, setDateSelection] = useState<DateSelection>(() => {
-    const requested = searchParams.get('date');
-    return { clubId: selectedClubId, date: requested && /^\d{4}-\d{2}-\d{2}$/.test(requested) ? requested : null };
-  });
+  const [dateSelection, setDateSelection] = useState<DateSelection>(() => ({
+    clubId: selectedClubId,
+    date: isoDateParam(searchParams.get('date')),
+  }));
   // Switching clubs resets to that club's business day in the same render, so
   // the page loads once for the new club instead of once per stale date.
   const date = dateSelection.clubId === selectedClubId && dateSelection.date && dateSelection.date <= today

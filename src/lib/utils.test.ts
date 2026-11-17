@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   businessDayDate,
   calendarTodayIso,
+  isoDateParam,
   currentYearMonth,
   monthRange,
   nextYearMonth,
@@ -74,5 +75,19 @@ describe('serverTodayIso', () => {
     expect(serverTodayIso(new Date(Date.UTC(2026, 6, 4, 0, 30)), 6)).toBe('2026-07-03');
     // 01:00 UTC = 06:00 Tashkent: the new business day has started.
     expect(serverTodayIso(new Date(Date.UTC(2026, 6, 4, 1, 0)), 6)).toBe('2026-07-04');
+  });
+});
+
+describe('isoDateParam', () => {
+  it('keeps a real calendar date', () => {
+    expect(isoDateParam('2026-11-05')).toBe('2026-11-05');
+  });
+
+  it('drops missing, malformed and impossible dates', () => {
+    expect(isoDateParam(null)).toBeNull();
+    expect(isoDateParam('')).toBeNull();
+    expect(isoDateParam('2026-11')).toBeNull();
+    expect(isoDateParam('2026-02-30')).toBeNull();
+    expect(isoDateParam('5 November')).toBeNull();
   });
 });

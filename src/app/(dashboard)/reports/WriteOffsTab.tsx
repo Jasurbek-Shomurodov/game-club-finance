@@ -2,18 +2,16 @@
 
 import { cn } from '@/lib/utils';
 import { useCallback, useMemo, useState } from 'react';
-import { ArrowRight, CalendarX, PackageMinus, PackageX } from 'lucide-react';
+import { CalendarX, PackageMinus, PackageX } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import {
   Badge,
-  ButtonLink,
   Card,
   CardHeader,
   DataTable,
   EmptyState,
   LoadErrorAlert,
   MetricCard,
-  Modal,
   Money,
   SectionHeading,
   TableSkeleton,
@@ -24,14 +22,15 @@ import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { createClient } from '@/lib/supabase/client';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import { useClubQuery } from '@/lib/useClubQuery';
-import { formatDateOnly, formatNumber, formatUnitCurrency } from '@/lib/formatters';
+import { formatDateOnly, formatNumber } from '@/lib/formatters';
+import { WriteOffDetailsModal } from '@/components/WriteOffDetailsModal';
 import {
   summarizeStockWriteOffs,
   type StockWriteOffCountRow,
   type StockWriteOffEntry,
   type StockWriteOffReportKind,
+  writeOffEntryKey,
   writeOffKindVariant,
-  writeOffUnitCost,
 } from '@/lib/stockWriteOffs';
 
 const EMPTY: StockWriteOffCountRow[] = [];
@@ -39,7 +38,6 @@ const EMPTY: StockWriteOffCountRow[] = [];
 /** Reports' Write-offs tab: bar stock that went missing or expired in the period, at cost. */
 export default function WriteOffsTab({ clubId, from, to }: { clubId: string | null; from: string; to: string }) {
   const t = useTranslations('reports');
-  const tc = useTranslations('common');
   const tcs = useTranslations('closingStock');
   const { locale } = useAppLocale();
 
@@ -60,7 +58,6 @@ export default function WriteOffsTab({ clubId, from, to }: { clubId: string | nu
   const query = useClubQuery(clubId ? load : null, EMPTY);
   const summary = useMemo(() => summarizeStockWriteOffs(query.data), [query.data]);
   const [selected, setSelected] = useState<StockWriteOffEntry | null>(null);
-  const unitCost = selected ? writeOffUnitCost(selected) : null;
 
   const kindLabel = (kind: StockWriteOffReportKind) => tcs(`writeOffKinds.${kind}`);
   const loss = (amount: number) => (
@@ -161,49 +158,13 @@ export default function WriteOffsTab({ clubId, from, to }: { clubId: string | nu
             minWidth={720}
             columns={columns}
             data={summary.entries}
-            keyExtractor={(row) => `${row.date}:${row.productId}`}
+            keyExtractor={writeOffEntryKey}
             onRowClick={setSelected}
             emptyState={<EmptyState compact icon={PackageMinus} title={t('writeOffsEmpty')} />}
           />
         )}
       </Card>
-      <Modal open={Boolean(selected)} onClose={() => setSelected(null)} title={t('writeOffDetails')}>
-        {selected && (
-          <div className="space-y-5">
-            <div>
-              <Badge variant={writeOffKindVariant(selected.kind)}>{kindLabel(selected.kind)}</Badge>
-              <p className="mt-3 text-lg font-semibold text-gray-900">{selected.productName || tcs('unknownProduct')}</p>
-              <p className="mt-1 text-2xl font-bold tracking-tight tabular-nums text-danger-600">
-                <Money amount={selected.cost} currencyClassName="text-sm font-medium tracking-normal text-gray-500" />
-              </p>
-            </div>
-            <dl className="divide-y divide-gray-100 rounded-xl border border-gray-200 px-4">
-              {[
-                { label: t('date'), value: formatDateOnly(selected.date, locale) },
-                { label: t('writeOffsQuantity'), value: t('writeOffsUnits', { count: formatNumber(selected.quantity) }) },
-                {
-                  label: t('writeOffsUnitCost'),
-                  value: unitCost === null ? '—' : `${formatUnitCurrency(unitCost)} ${tc('currency')}`,
-                },
-                { label: t('writeOffsNote'), value: selected.note || '—' },
-              ].map((item) => (
-                <div key={item.label} className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 py-3 text-sm">
-                  <dt className="text-gray-500">{item.label}</dt>
-                  <dd className="break-words text-right font-semibold tabular-nums text-gray-900">{item.value}</dd>
-                </div>
-              ))}
-            </dl>
-            <ButtonLink
-              href={`/closing-stock?date=${selected.date}`}
-              variant="secondary"
-              className="w-full"
-              iconRight={<ArrowRight size={15} aria-hidden="true" />}
-            >
-              {t('writeOffsOpenDay')}
-            </ButtonLink>
-          </div>
-        )}
-      </Modal>
+      <WriteOffDetailsModal entry={selected} onClose={() => setSelected(null)} />
     </>
   );
 }

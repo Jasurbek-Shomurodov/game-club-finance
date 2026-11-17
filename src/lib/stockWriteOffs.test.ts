@@ -10,6 +10,7 @@ import {
   rowWriteOff,
   StockWriteOffError,
   summarizeStockWriteOffs,
+  writeOffEntryKey,
   writeOffKindVariant,
   writeOffUnitCost,
 } from './stockWriteOffs';
@@ -192,6 +193,10 @@ describe('write-offs with incomplete data', () => {
 });
 
 describe('write-off details', () => {
+  it('keys an entry by its day and product', () => {
+    expect(writeOffEntryKey({ date: '2026-11-05', productId: 'vafli' })).toBe('2026-11-05:vafli');
+  });
+
   it('gives each reason its badge tone', () => {
     expect(writeOffKindVariant('shortage')).toBe('danger');
     expect(writeOffKindVariant('expired')).toBe('warning');

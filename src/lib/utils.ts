@@ -95,3 +95,10 @@ export function monthRange(yearMonth: string): { from: string; to: string } {
   const to = isoDate(toDate);
   return { from, to };
 }
+
+/** A `YYYY-MM-DD` value from a URL parameter, or null when it is missing or not a real calendar date. */
+export function isoDateParam(value: string | null | undefined): string | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value ? value : null;
+}
