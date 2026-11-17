@@ -1,5 +1,5 @@
-import { timingSafeEqual } from 'node:crypto';
 import type { NextRequest } from 'next/server';
+import { cronAuthorizationStatus } from '@/lib/cronAuth';
 import { createServiceClient } from '@/lib/supabase/service';
 import { serverTodayIso } from '@/lib/utils';
 import {
@@ -35,8 +35,6 @@ export const maxDuration = 60;
 // Stop starting new build/Telegram attempts once less than this much of
 // maxDuration remains, leaving time to record the outcome in the ledger.
 const FINALIZE_RESERVE_MS = 15_000;
-const MIN_CRON_SECRET_LENGTH = 16;
-const CRON_SECRET_PATTERN = /^[A-Za-z0-9._~-]+$/;
 
 function jsonNoStore(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
@@ -97,36 +95,6 @@ function filterTargets(
   }
 
   return [selectedTarget];
-}
-
-function bearerMatches(authorization: string | null, secret: string): boolean {
-  const expected = Buffer.from(`Bearer ${secret}`);
-  const actual = Buffer.from(authorization ?? '');
-  // timingSafeEqual requires equal lengths; compare against itself on a
-  // mismatch so the rejection costs the same as a full comparison.
-  if (actual.length !== expected.length) {
-    timingSafeEqual(expected, expected);
-    return false;
-  }
-  return timingSafeEqual(actual, expected);
-}
-
-function cronAuthorizationStatus(
-  request: NextRequest,
-): 'authorized' | 'unauthorized' | 'invalid_configuration' {
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (
-    !cronSecret
-    || cronSecret.length < MIN_CRON_SECRET_LENGTH
-    || !CRON_SECRET_PATTERN.test(cronSecret)
-  ) {
-    return 'invalid_configuration';
-  }
-
-  return bearerMatches(request.headers.get('authorization'), cronSecret)
-    ? 'authorized'
-    : 'unauthorized';
 }
 
 function logDeliveryEvent(

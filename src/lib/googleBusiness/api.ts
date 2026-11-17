@@ -191,3 +191,21 @@ export async function createPhoto(
     body: JSON.stringify({ mediaFormat: 'PHOTO', locationAssociation: { category }, sourceUrl }),
   });
 }
+
+/** One page of the listing's reviews, newest first. */
+export async function listReviews(accessToken: string, locationPath: string, pageToken?: string, fetchImpl: Fetch = fetch) {
+  const params = new URLSearchParams({ pageSize: '50', orderBy: 'updateTime desc' });
+  if (pageToken) params.set('pageToken', pageToken);
+  return googleJson<{ reviews?: unknown[]; nextPageToken?: string }>(
+    fetchImpl, `${locationPath}/reviews?${params}`, { headers: bearer(accessToken) },
+  );
+}
+
+/** Creates or replaces the owner's reply; `reviewName` is the review's full resource name. */
+export async function replyToReview(accessToken: string, reviewName: string, comment: string, fetchImpl: Fetch = fetch) {
+  return googleJson<{ comment?: string; updateTime?: string }>(fetchImpl, `https://mybusiness.googleapis.com/v4/${reviewName}/reply`, {
+    method: 'PUT',
+    headers: { ...bearer(accessToken), 'content-type': 'application/json' },
+    body: JSON.stringify({ comment }),
+  });
+}

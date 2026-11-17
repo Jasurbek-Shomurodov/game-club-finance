@@ -4855,5 +4855,91 @@
         "signature": "public.cash_shortage_limits(uuid,date)"
       }
     ]
+  },
+  {
+    "file": "152_google_review_auto_replies.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.google_business_connections",
+        "column": "review_auto_reply"
+      },
+      {
+        "kind": "relation",
+        "name": "public.google_review_replies"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_replies",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_replies",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_replies",
+        "column": "review_name"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_replies",
+        "column": "reviewer_name"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_replies",
+        "column": "star_rating"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_replies",
+        "column": "review_comment"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_replies",
+        "column": "review_time"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_replies",
+        "column": "reply_comment"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_replies",
+        "column": "replied_at"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.google_review_replies",
+        "name": "google_review_replies_review_name_format"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.google_review_replies",
+        "name": "google_review_replies_star_rating_range"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.google_review_replies",
+        "name": "google_review_replies_reply_not_blank"
+      },
+      {
+        "kind": "relation",
+        "name": "public.google_review_replies_review_name_key"
+      },
+      {
+        "kind": "relation",
+        "name": "public.google_review_replies_club_replied_idx"
+      },
+      {
+        "kind": "function",
+        "signature": "public.invoke_game_club_google_review_replies()"
+      }
+    ]
   }
 ]

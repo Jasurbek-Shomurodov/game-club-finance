@@ -2437,7 +2437,16 @@
     "error_phone_invalid": "Введите номер телефона, например +998 90 123 45 67.",
     "error_website_invalid": "Введите адрес сайта, начинающийся с https://.",
     "error_hours_invalid": "Проверьте часы работы.",
-    "error_nothing_changed": "Ничего не изменилось."
+    "error_nothing_changed": "Ничего не изменилось.",
+    "reviewsTitle": "Ответы на отзывы",
+    "reviewsDescription": "Каждый день в 10:00 клуб отвечает на новые отзывы в Google. ИИ пишет каждый ответ на языке отзыва.",
+    "autoReply": "Автоматически отвечать на новые отзывы",
+    "autoReplyHint": "Включать и выключать могут только владельцы.",
+    "autoReplyOn": "Автоответы включены",
+    "autoReplyOff": "Автоответы выключены",
+    "reviewsEmpty": "Ответов пока нет",
+    "reviewNoText": "Только оценка, без текста",
+    "replyLabel": "Наш ответ"
   },
   "privacy": {
     "metaTitle": "Политика конфиденциальности – Pixel Gaming",

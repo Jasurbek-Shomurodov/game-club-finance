@@ -2437,7 +2437,16 @@
     "error_phone_invalid": "Telefon raqamini kiriting, masalan +998 90 123 45 67.",
     "error_website_invalid": "https:// bilan boshlanadigan sayt manzilini kiriting.",
     "error_hours_invalid": "Ish vaqtini tekshiring.",
-    "error_nothing_changed": "Hech narsa o‘zgarmadi."
+    "error_nothing_changed": "Hech narsa o‘zgarmadi.",
+    "reviewsTitle": "Sharhlarga javoblar",
+    "reviewsDescription": "Har kuni soat 10:00 da klub Google’dagi yangi sharhlarga javob beradi. Har bir javobni sun’iy intellekt sharh tilida yozadi.",
+    "autoReply": "Yangi sharhlarga avtomatik javob berish",
+    "autoReplyHint": "Faqat egalar yoqishi yoki o‘chirishi mumkin.",
+    "autoReplyOn": "Avtomatik javoblar yoqilgan",
+    "autoReplyOff": "Avtomatik javoblar o‘chirilgan",
+    "reviewsEmpty": "Hozircha javoblar yo‘q",
+    "reviewNoText": "Faqat baho, matnsiz",
+    "replyLabel": "Bizning javob"
   },
   "privacy": {
     "metaTitle": "Maxfiylik siyosati – Pixel Gaming",

@@ -1,5 +1,6 @@
 import type { ListingError, ListingField, ListingInfo, ListingInfoForm } from '@/lib/googleBusiness/listing';
 import type { GoogleLocationOption, GooglePostError, GooglePostSummary } from '@/lib/googleBusiness/posts';
+import type { ReviewReplyRecord } from '@/lib/googleBusiness/reviews';
 
 export interface GoogleConnectionStatus {
   configured: boolean;
@@ -44,6 +45,10 @@ export const googleBusinessApi = {
   listing: (clubId: string) => call<{ listing: ListingInfo }>(`${BASE}/listing?clubId=${encodeURIComponent(clubId)}`),
   saveListing: (clubId: string, form: ListingInfoForm, fields: ListingField[]) =>
     call<{ listing: ListingInfo }>(`${BASE}/listing`, { method: 'PATCH', body: JSON.stringify({ clubId, form, fields }) }),
+  reviewReplies: (clubId: string) =>
+    call<{ autoReply: boolean; replies: ReviewReplyRecord[] }>(`${BASE}/reviews?clubId=${encodeURIComponent(clubId)}`),
+  setAutoReply: (clubId: string, autoReply: boolean) =>
+    call<{ autoReply: boolean }>(`${BASE}/reviews`, { method: 'PATCH', body: JSON.stringify({ clubId, autoReply }) }),
   connectUrl: (clubId: string) => `${BASE}/connect?clubId=${encodeURIComponent(clubId)}`,
 };
 

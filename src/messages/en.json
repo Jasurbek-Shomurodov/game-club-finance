@@ -2437,7 +2437,16 @@
     "error_phone_invalid": "Enter a phone number, for example +998 90 123 45 67.",
     "error_website_invalid": "Enter a website starting with https://.",
     "error_hours_invalid": "Check the opening hours.",
-    "error_nothing_changed": "Nothing has changed."
+    "error_nothing_changed": "Nothing has changed.",
+    "reviewsTitle": "Review replies",
+    "reviewsDescription": "Every day at 10:00 the club replies to new Google reviews. The AI writes each reply in the review’s language.",
+    "autoReply": "Reply to new reviews automatically",
+    "autoReplyHint": "Only owners can turn this on or off.",
+    "autoReplyOn": "Automatic replies are on",
+    "autoReplyOff": "Automatic replies are off",
+    "reviewsEmpty": "No replies yet",
+    "reviewNoText": "Rating only, no text",
+    "replyLabel": "Our reply"
   },
   "privacy": {
     "metaTitle": "Privacy policy – Pixel Gaming",

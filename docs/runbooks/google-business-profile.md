@@ -35,6 +35,37 @@ post / photo -> /api/google-business/posts|photos (showcase feature check)
   would end the new one too. Connecting a different account revokes the old
   account's token.
 
+## Daily review replies
+
+Supabase Cron (migration `152_google_review_auto_replies.sql`, job
+`game-club-google-review-replies`) calls `/api/cron/google-review-replies`
+every day at `05:00 UTC` (10:00 Tashkent), with the same Vault secret and
+`CRON_SECRET` as the Telegram report.
+
+```text
+cron -> /api/cron/google-review-replies (CRON_SECRET)
+  -> every connection with a chosen listing and review_auto_reply = true
+  -> v4 reviews.list (up to 3 pages of 50) -> reviews with no reply
+  -> AI writes a reply in the review's language (src/lib/googleBusiness/reviews.ts prompt)
+  -> v4 reviews.updateReply -> google_review_replies (one row per review)
+```
+
+- Replies are written by the assistant's model chain (`ASSISTANT_PROVIDER`,
+  `ANTHROPIC_API_KEY` or `GEMINI_API_KEY`, optional `ASSISTANT_MODEL`). Without
+  a model key the run answers 503 and posts nothing. Reviews are public, so the
+  free Gemini tier is allowed here.
+- Each run posts at most 10 replies per listing, oldest first, and stops
+  starting new ones 15 seconds before the 60-second limit; a backlog clears
+  over the following days.
+- A quota, expired-access or permission error stops that club's run and the
+  next club continues. A review whose reply could not be written or posted is
+  tried again the next day.
+- Auto replies are on by default. Owners turn them off under **Public page →
+  Google Maps → Review replies**, which also lists the last 20 replies.
+- To run it by hand: `curl -H "Authorization: Bearer $CRON_SECRET"
+  https://admin.pixelgaming.uz/api/cron/google-review-replies`. The JSON lists
+  per club how many reviews were replied, failed and are still waiting.
+
 ## One-time setup
 
 1. **Business Profile API access.** In Google Cloud, create a project. Then

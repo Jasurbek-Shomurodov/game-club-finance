@@ -33,6 +33,7 @@ import { ShowcaseTabs } from '../ShowcaseTabs';
 import { GoogleListingCard } from './GoogleListingCard';
 import { GooglePhotoCard } from './GooglePhotoCard';
 import { GooglePostComposer } from './GooglePostComposer';
+import { GoogleReviewRepliesCard } from './GoogleReviewRepliesCard';
 import { errorMessageKey, googleBusinessApi, type GoogleConnectionStatus } from './googleBusinessApi';
 
 const EMPTY: GoogleConnectionStatus = { configured: true, connection: null };
@@ -237,6 +238,7 @@ export default function GoogleBusinessPage() {
                 }}
               />
               <GooglePhotoCard clubId={selectedClubId} onAdded={() => showToast(t('photoAdded'))} />
+              <GoogleReviewRepliesCard clubId={selectedClubId} isOwner={isOwner} />
               <Card>
                 <CardHeader>
                   <SectionHeading title={t('recentTitle')} description={t('recentDescription')} />
