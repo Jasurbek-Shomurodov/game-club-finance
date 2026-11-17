@@ -104,19 +104,13 @@ export function ReserveHistoryList({ activity, methodLabel, busyId, disabled, on
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium leading-5 text-gray-900">{title}</span>
-                        <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs leading-4 text-gray-500">
-                          {title !== kindLabel ? <><span>{kindLabel}</span><span aria-hidden="true">·</span></> : null}
-                          <span>{t(`sources.${row.source}`)}</span>
-                          {row.method ? <Badge size="sm" variant="outline" className="sm:hidden">{methodLabel(row.method)}</Badge> : null}
-                        </span>
-                        {month ? (
-                          <span className="mt-1 flex">
-                            <Badge size="sm" variant="neutral" icon={<CalendarRange size={12} aria-hidden="true" />}>{month}</Badge>
+                        {/* One pot: which side or method the money came from is only in the details. */}
+                        {title !== kindLabel || month ? (
+                          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-gray-500">
+                            {title !== kindLabel ? <span>{kindLabel}</span> : null}
+                            {month ? <Badge size="sm" variant="neutral" icon={<CalendarRange size={12} aria-hidden="true" />}>{month}</Badge> : null}
                           </span>
                         ) : null}
-                      </span>
-                      <span className="hidden w-24 shrink-0 sm:block">
-                        {row.method ? <Badge size="sm" variant="outline">{methodLabel(row.method)}</Badge> : null}
                       </span>
                       <span className={cn(
                         'shrink-0 whitespace-nowrap text-right text-base font-bold tabular-nums sm:w-40',
@@ -189,8 +183,11 @@ function ReserveEntryDetails({ row, title, month, methodLabel, categoryLabel, bu
   if (row.kind === 'purchase') facts.push({ label: t('details.paidOn'), value: formatDateOnly(row.date, locale) });
   facts.push({ label: t('details.madeOn'), value: formatDateTime(row.createdAt, locale) });
   if (collectionDate) facts.push({ label: t('details.collectionDay'), value: formatDateOnly(collectionDate, locale) });
-  facts.push({ label: t('details.side'), value: t(`sources.${row.source}`) });
-  if (row.method) facts.push({ label: t('details.method'), value: methodLabel(row.method) });
+  // The reserve is one pot; where the money came from is kept for reference only.
+  facts.push({
+    label: t(row.kind === 'deposit' ? 'details.takenFrom' : row.kind === 'return' ? 'details.returnedTo' : 'details.paidWith'),
+    value: [t(`sources.${row.source}`), row.method && methodLabel(row.method)].filter(Boolean).join(' · '),
+  });
   if (row.kind === 'purchase') facts.push({ label: t('details.category'), value: categoryLabel(row.category) });
   if (row.note && row.note !== title) facts.push({ label: t('details.note'), value: row.note });
 

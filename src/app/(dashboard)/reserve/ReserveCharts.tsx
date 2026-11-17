@@ -31,40 +31,25 @@ const money = (currency: string, names: Record<string, string>) => (
 const dayTick = (locale: string) => (date: string) => formatDateShort(date, locale);
 const dayTitle = (locale: string) => (date: unknown) => formatDateOnly(String(date), locale);
 
-/** What each side of the reserve held at the end of every day. */
+/** What the reserve held at the end of every day, as one pot whatever side the money came from. */
 export function ReserveBalanceChart({ rows, locale, currency }: { rows: ReserveDayRow[]; locale: string; currency: string }) {
   const t = useTranslations('reservePage');
-  const names: Record<string, string> = { gameClubHeld: t('gameClub'), barHeld: t('bar') };
-  // A side that never held anything is left out rather than drawn as a line along zero.
-  const showBar = rows.some((row) => row.barHeld !== 0);
-  const showGameClub = rows.some((row) => row.gameClubHeld !== 0) || !showBar;
   return (
-    <>
-      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium text-gray-500">
-        {showGameClub ? <LegendItem color={chartColors.primary} label={names.gameClubHeld} /> : null}
-        {showBar ? <LegendItem color={chartColors.orange} label={names.barHeld} /> : null}
-      </div>
-      <Frame>
-        <AreaChart accessibilityLayer data={rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
-          <defs>
-            <linearGradient id="reserve-gameClub" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={chartColors.primary} stopOpacity={0.35} />
-              <stop offset="100%" stopColor={chartColors.primary} stopOpacity={0.04} />
-            </linearGradient>
-            <linearGradient id="reserve-bar" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={chartColors.orange} stopOpacity={0.35} />
-              <stop offset="100%" stopColor={chartColors.orange} stopOpacity={0.04} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid stroke={chartColors.grid} vertical={false} />
-          <XAxis dataKey="date" {...axisProps} axisLine={{ stroke: chartColors.grid }} minTickGap={24} tickFormatter={dayTick(locale)} />
-          <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
-          <Tooltip {...chartTooltipStyle} labelFormatter={dayTitle(locale)} formatter={money(currency, names)} />
-          {showGameClub ? <Area dataKey="gameClubHeld" stackId="held" type="stepAfter" stroke={chartColors.primary} strokeWidth={2} fill="url(#reserve-gameClub)" /> : null}
-          {showBar ? <Area dataKey="barHeld" stackId="held" type="stepAfter" stroke={chartColors.orange} strokeWidth={2} fill="url(#reserve-bar)" /> : null}
-        </AreaChart>
-      </Frame>
-    </>
+    <Frame>
+      <AreaChart accessibilityLayer data={rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
+        <defs>
+          <linearGradient id="reserve-held" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={chartColors.primary} stopOpacity={0.35} />
+            <stop offset="100%" stopColor={chartColors.primary} stopOpacity={0.04} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid stroke={chartColors.grid} vertical={false} />
+        <XAxis dataKey="date" {...axisProps} axisLine={{ stroke: chartColors.grid }} minTickGap={24} tickFormatter={dayTick(locale)} />
+        <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
+        <Tooltip {...chartTooltipStyle} labelFormatter={dayTitle(locale)} formatter={money(currency, { held: t('totalHeld') })} />
+        <Area dataKey="held" type="stepAfter" stroke={chartColors.primary} strokeWidth={2} fill="url(#reserve-held)" />
+      </AreaChart>
+    </Frame>
   );
 }
 

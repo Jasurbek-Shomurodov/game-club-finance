@@ -147,7 +147,7 @@ describe('reserveDailySeries', () => {
     payment_method: source === 'bar' ? null : 'cash', amount, comment: null, collection_date: null, created_by: 'owner', created_at: `${day}T10:00:00Z`,
   });
 
-  it('fills every day through today with each side\'s running balance', () => {
+  it('fills every day through today with the whole reserve\'s running balance', () => {
     const purchase: ReservePaidExpense = {
       id: 'p', date: '2026-10-31', amount: 200, payment_source: 'game_club', payment_method: 'cash',
       category: 'repair', comment: null, created_at: '2026-10-31T09:00:00Z',
@@ -158,16 +158,29 @@ describe('reserveDailySeries', () => {
       '2026-11-02',
     );
     expect(rows).toEqual([
-      { date: '2026-10-30', gameClubHeld: 1_000, barHeld: 0 },
-      { date: '2026-10-31', gameClubHeld: 800, barHeld: 0 },
-      { date: '2026-11-01', gameClubHeld: 700, barHeld: 50 },
-      { date: '2026-11-02', gameClubHeld: 700, barHeld: 50 },
+      { date: '2026-10-30', held: 1_000 },
+      { date: '2026-10-31', held: 800 },
+      { date: '2026-11-01', held: 750 },
+      { date: '2026-11-02', held: 750 },
+    ]);
+  });
+
+  it('shows a purchase recorded before the money that paid for it as an empty reserve, never a negative one', () => {
+    const rent: ReservePaidExpense = {
+      id: 'rent', date: '2026-10-31', amount: 15_000_000, payment_source: 'game_club', payment_method: 'usd',
+      category: 'rent', comment: null, created_at: '2026-11-08T16:17:00Z',
+    };
+    expect(reserveDailySeries([entry('2026-11-02', 'deposit', 16_863_000)], [rent], '2026-11-03')).toEqual([
+      { date: '2026-10-31', held: 0 },
+      { date: '2026-11-01', held: 0 },
+      { date: '2026-11-02', held: 1_863_000 },
+      { date: '2026-11-03', held: 1_863_000 },
     ]);
   });
 
   it('counts activity dated after today on today, and is empty without activity', () => {
     expect(reserveDailySeries([entry('2026-11-05', 'deposit', 10)], [], '2026-11-03')).toEqual([
-      { date: '2026-11-03', gameClubHeld: 10, barHeld: 0 },
+      { date: '2026-11-03', held: 10 },
     ]);
     expect(reserveDailySeries([], [], '2026-11-03')).toEqual([]);
   });

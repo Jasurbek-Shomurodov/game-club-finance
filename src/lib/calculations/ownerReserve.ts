@@ -279,9 +279,8 @@ export function reserveMonthlySeries(
 export interface ReserveDayRow {
   /** YYYY-MM-DD */
   date: string;
-  /** What each side holds at the end of the day. */
-  gameClubHeld: number;
-  barHeld: number;
+  /** What the reserve holds at the end of the day, as one pot, never below zero. */
+  held: number;
 }
 
 const nextIsoDay = (date: string) => {
@@ -292,29 +291,31 @@ const nextIsoDay = (date: string) => {
 
 /**
  * Day by day, from the first reserve activity through `throughDate` (the
- * club's business today): what each side holds at the end of the day. Days are
- * those of the history list, so the line moves on the day a row appears there.
+ * club's business today): what the reserve holds at the end of the day. Days
+ * are those of the history list, so the line moves on the day a row appears
+ * there. A purchase can be dated before the deposits that paid for it were
+ * recorded (October rent paid on the 31st from money put in on 2 November), so
+ * the running total can dip below zero; the reserve never held less than
+ * nothing, so such days show as empty and the total catches up when the money
+ * is recorded.
  */
 export function reserveDailySeries(
   entries: readonly ReserveLedgerEntry[],
   expenses: readonly ReservePaidExpense[],
   throughDate: string,
 ): ReserveDayRow[] {
-  const change = new Map<string, { game_club: number; bar: number }>();
+  const change = new Map<string, number>();
   for (const row of reserveActivity(entries, expenses)) {
     const day = row.date > throughDate ? throughDate : row.date;
-    const delta = change.get(day) ?? { game_club: 0, bar: 0 };
-    delta[row.source] += row.kind === 'deposit' ? row.amount : -row.amount;
-    change.set(day, delta);
+    change.set(day, (change.get(day) ?? 0) + (row.kind === 'deposit' ? row.amount : -row.amount));
   }
   if (change.size === 0) return [];
 
   const rows: ReserveDayRow[] = [];
-  const held = { game_club: 0, bar: 0 };
+  let running = 0;
   for (let day = [...change.keys()].sort()[0]; day <= throughDate; day = nextIsoDay(day)) {
-    const delta = change.get(day);
-    if (delta) { held.game_club += delta.game_club; held.bar += delta.bar; }
-    rows.push({ date: day, gameClubHeld: held.game_club, barHeld: held.bar });
+    running += change.get(day) ?? 0;
+    rows.push({ date: day, held: Math.max(0, running) });
   }
   return rows;
 }

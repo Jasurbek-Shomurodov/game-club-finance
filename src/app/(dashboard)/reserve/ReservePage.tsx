@@ -32,9 +32,7 @@ import { EMPTY_OWNER_MONEY, fetchOwnerMoney } from '@/lib/supabase/ownerMoney';
 import { requestReserveDelete } from '@/lib/ownerReserveRequests';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useClubQuery } from '@/lib/useClubQuery';
-import { cn } from '@/lib/utils';
-import { OWNER_RESERVE_METHODS, type OwnerReserveMethod } from '@/types';
-import { METHOD_ICONS, SOURCE_ICONS, SOURCE_TINTS } from '../money-taken/profitIcons';
+import type { OwnerReserveMethod } from '@/types';
 import { ReserveHistoryList, type DeletableReserveActivity } from './ReserveHistoryList';
 
 function ChartLoading() {
@@ -100,23 +98,6 @@ export default function ReservePage() {
     method === 'playstation' ? tm('playstation') : method === 'usd' ? tm('dollars') : tc(`paymentMethods.${method}`)
   );
   const dollars = `${dollarsHeld < 0 ? '−' : ''}$${formatUnitCurrency(Math.abs(dollarsHeld))}`;
-  // Where the money is: each Game Club method, then the Bar.
-  const holdings = [
-    ...OWNER_RESERVE_METHODS
-      .filter((method) => balances.game_club.byMethod[method] !== 0 || (method === 'usd' && dollarsHeld !== 0))
-      .map((method) => ({
-        key: method,
-        label: methodLabel(method),
-        icon: METHOD_ICONS[method],
-        amount: balances.game_club.byMethod[method],
-        note: method === 'usd' ? dollars : null,
-        tint: SOURCE_TINTS.game_club,
-      })),
-    ...(balances.bar.held !== 0 ? [{
-      key: 'bar', label: tr('sources.bar'), icon: SOURCE_ICONS.bar, amount: balances.bar.held, note: null, tint: SOURCE_TINTS.bar,
-    }] : []),
-  ];
-  const largest = Math.max(1, ...holdings.map((row) => Math.abs(row.amount)));
 
   async function handleDelete(row: DeletableReserveActivity) {
     if (!selectedClubId || busyId) return;
@@ -189,58 +170,24 @@ export default function ReservePage() {
           </>
         ) : (
           <>
+            {/* One pot: the reserve does not care which side or method the money came from. */}
             <Card as="section" aria-labelledby="reserve-total">
               <p id="reserve-total" className="text-xs font-medium text-gray-500">{t('totalHeld')}</p>
               <p className="mt-1 break-words text-3xl font-bold leading-none tracking-tight tabular-nums text-gray-950 sm:text-4xl">
                 {formatCurrency(total)}
                 <span className="ml-1.5 text-base font-medium tracking-normal text-gray-500">{currency}</span>
               </p>
+              {dollarsHeld !== 0 ? (
+                <p className="mt-2 text-sm text-gray-500">
+                  {t('includesDollars', { dollars, amount: `${formatCurrency(balances.game_club.byMethod.usd)} ${currency}` })}
+                </p>
+              ) : null}
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <StatTile variant="soft" icon={SOURCE_ICONS.game_club} label={t('gameClubInSoums')} value={formatCurrency(balances.game_club.held - balances.game_club.byMethod.usd)} unit={currency} />
-                <StatTile variant="soft" icon={METHOD_ICONS.usd} label={t('inDollars')} value={dollars} unit={`${formatCurrency(balances.game_club.byMethod.usd)} ${currency}`} />
-                <StatTile variant="soft" icon={SOURCE_ICONS.bar} label={t('bar')} value={formatCurrency(balances.bar.held)} unit={currency} />
+                <StatTile variant="soft" icon={ArrowDownToLine} label={t('putIn')} value={formatCurrency(totals.deposited)} unit={currency} tone="success" />
+                <StatTile variant="soft" icon={ArrowUpFromLine} label={t('returned')} value={formatCurrency(totals.returned)} unit={currency} />
+                <StatTile variant="soft" icon={ShoppingCart} label={t('spent')} value={formatCurrency(totals.spent)} unit={currency} />
               </div>
             </Card>
-
-            <div className="grid gap-6 lg:grid-cols-2">
-              <ChartCard title={t('whereTitle')} description={t('whereDescription')}>
-                {holdings.length === 0 ? <ChartEmpty title={tr('empty')} /> : (
-                  <ul className="mt-4 space-y-3">
-                    {holdings.map((row) => {
-                      const Icon = row.icon;
-                      return (
-                        <li key={row.key}>
-                          <div className="flex items-center justify-between gap-3 text-sm">
-                            <span className="flex min-w-0 items-center gap-2 font-medium text-gray-800">
-                              <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', row.tint.bubble)}>
-                                <Icon size={15} aria-hidden="true" />
-                              </span>
-                              <span className="truncate">{row.label}</span>
-                            </span>
-                            <span className="shrink-0 text-right tabular-nums">
-                              <span className="font-semibold text-gray-950">{formatCurrency(row.amount)}</span>
-                              <span className="ml-1 text-xs text-gray-500">{currency}</span>
-                              {row.note ? <span className="block text-xs text-gray-500">{row.note}</span> : null}
-                            </span>
-                          </div>
-                          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-100">
-                            <div className={cn('h-full rounded-full', row.tint.bar)} style={{ width: `${Math.max(0, row.amount) / largest * 100}%` }} />
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </ChartCard>
-
-              <ChartCard title={t('allTimeTitle')} description={t('allTimeDescription')}>
-                <div className="mt-4 grid gap-3">
-                  <StatTile icon={ArrowDownToLine} label={t('putIn')} value={formatCurrency(totals.deposited)} unit={currency} tone="success" />
-                  <StatTile icon={ArrowUpFromLine} label={t('returned')} value={formatCurrency(totals.returned)} unit={currency} />
-                  <StatTile icon={ShoppingCart} label={t('spent')} value={formatCurrency(totals.spent)} unit={currency} />
-                </div>
-              </ChartCard>
-            </div>
 
             <ChartCard title={t('balanceTitle')} description={t('balanceDescription')}>
               {dailySeries.length === 0 ? <ChartEmpty title={tr('empty')} /> : <ReserveBalanceChart rows={dailySeries} locale={locale} currency={currency} />}
