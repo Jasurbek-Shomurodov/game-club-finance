@@ -761,7 +761,17 @@
     "previousPage": "Oldingi",
     "nextPage": "Keyingi",
     "reset": "Qayta o'rnatish",
-    "outOfStock": "Omborda yoʻq"
+    "outOfStock": "Omborda yoʻq",
+    "suggestTitle": "Sotib olish tavsiyasi",
+    "suggestDesc": "Oxirgi {days} kunlik sotuv sur'ati bo'yicha bir haftalik zaxira. Formani to'ldirish uchun bosing.",
+    "suggestLeft": "{count} ta qoldi",
+    "suggestSold": "{days} kunda {count} ta sotildi",
+    "suggestBuy": "{count} dona olish",
+    "suggestMore": "yana {count} ta mahsulot yetishmaydi",
+    "suggestTotal": "Hammasi",
+    "soldRecently": "{days} kunda sotildi",
+    "stockLasts": "Zaxira yetadi",
+    "daysCount": "taxminan {count} kun"
   },
   "products": {
     "loadFailed": "Mahsulotlarni yuklab boʻlmadi. Internet aloqasini tekshirib, qayta urinib koʻring.",

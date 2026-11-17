@@ -172,3 +172,41 @@ export function buildRestockList(
     || a.name.localeCompare(b.name, 'ru')
   ));
 }
+
+export interface PurchaseSuggestion extends RestockItem {
+  /** What `shortfall` units cost at the product's current cost price. */
+  cost: number;
+}
+
+export interface PurchaseSuggestions {
+  /** The most needed products, most units missing first. */
+  items: PurchaseSuggestion[];
+  /** Products with a shortfall that did not fit in `items`. */
+  more: number;
+  /** Cost of every suggested purchase, the ones beyond `items` included. */
+  totalCost: number;
+}
+
+/**
+ * What to buy to cover the next `horizonDays` at the recent pace: the restock
+ * list narrowed to products whose sales show units missing, each with what
+ * that quantity costs. A shelf that is empty but did not sell is left to the
+ * low-stock badges: there is no pace to size an order from. Without sales
+ * data nothing is suggested.
+ */
+export function buildPurchaseSuggestions(
+  products: ReadonlyArray<RestockProduct & { cost_price: number | string | null }>,
+  summary: ProductSalesSummary | null,
+  limit = 6,
+  horizonDays = 7,
+): PurchaseSuggestions {
+  const costById = new Map(products.map((product) => [product.id, amount(product.cost_price)]));
+  const needed = buildRestockList(products, summary, horizonDays)
+    .filter((item) => item.shortfall > 0)
+    .map((item) => ({ ...item, cost: item.shortfall * (costById.get(item.id) ?? 0) }));
+  return {
+    items: needed.slice(0, Math.max(0, limit)),
+    more: Math.max(0, needed.length - Math.max(0, limit)),
+    totalCost: needed.reduce((sum, item) => sum + item.cost, 0),
+  };
+}

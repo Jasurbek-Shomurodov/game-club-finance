@@ -2,7 +2,7 @@
 
 // Route: /stock-purchase
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
 import { runWithJwtTimingRetry } from '@/lib/supabase/authRetry';
@@ -38,6 +38,15 @@ import {
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useClubQuery } from '@/lib/useClubQuery';
+import { canReadStockCounts } from '@/lib/permissions';
+import { fetchBarProductSales } from '@/lib/supabase/barProductSales';
+import {
+  buildProductSalesSummary,
+  buildPurchaseSuggestions,
+  salesPeriodStart,
+  type ProductSalesRow,
+  type PurchaseSuggestion,
+} from '@/lib/calculations/productSales';
 import { fetchActiveProductsOrdered, fetchProductIdsByName } from '@/lib/supabase/products';
 import { recordStockPurchase } from '@/lib/supabase/stockPurchases';
 import {
@@ -132,11 +141,15 @@ const emptyItemFields = {
   sale_prefill: null,
 } satisfies Partial<PurchaseForm>;
 
+/** Suggestions are sized from the sales of this many days ending today, to cover the next week. */
+const SUGGESTION_SALES_DAYS = 30;
+const NO_SALES: ProductSalesRow[] = [];
+
 export default function StockPurchasePage() {
   const sectionTabs = useSectionTabs('bar');
   const t = useTranslations('stockPurchase');
   const tc = useTranslations('common');
-  const { selectedClubId, businessDayStartHour, enabledPaymentMethods, role } = useClub();
+  const { selectedClubId, businessDayStartHour, enabledPaymentMethods, role, featureAccess } = useClub();
   const canWrite = role === 'owner' || role === 'admin';
   const { locale } = useAppLocale();
   const { showToast, toastElement } = useToast();
@@ -267,7 +280,21 @@ export default function StockPurchasePage() {
       : { ...prev, payment_method: defaultPaymentMethod(enabledPaymentMethods) }));
   }, [enabledPaymentMethods]);
 
+  // What to buy: only for someone who records purchases and may read the counts
+  // the pace comes from. A failed sales read just leaves the suggestions out.
+  const canSuggest = canWrite && canReadStockCounts(role, featureAccess);
+  const loadSales = useCallback(async (): Promise<ProductSalesRow[]> => (
+    fetchBarProductSales(createClient(), selectedClubId, salesPeriodStart(businessToday, SUGGESTION_SALES_DAYS), businessToday)
+  ), [selectedClubId, businessToday]);
+  const salesQuery = useClubQuery(selectedClubId && canSuggest ? loadSales : null, NO_SALES);
+  const salesSummary = useMemo(
+    () => (salesQuery.error || salesQuery.loading ? null : buildProductSalesSummary(products, salesQuery.data)),
+    [products, salesQuery.data, salesQuery.error, salesQuery.loading],
+  );
+  const suggestions = useMemo(() => buildPurchaseSuggestions(products, salesSummary), [products, salesSummary]);
+
   const selectedProduct = products.find((product) => product.id === form.product_id) ?? null;
+  const selectedInsight = selectedProduct ? salesSummary?.byProduct.get(selectedProduct.id) : undefined;
   const quantity = parseQuantity(form.quantity);
   const costPrice = resolvePrefilledAmount(form.cost_price, form.cost_prefill);
   const salePrice = form.sale_price
@@ -360,6 +387,13 @@ export default function StockPurchasePage() {
         sale_prefill: salePrefill,
       };
     });
+  }
+
+  /** Puts a suggested product and its quantity into the form; prices come from the product as usual. */
+  function applySuggestion(item: PurchaseSuggestion) {
+    selectProduct(item.id);
+    setForm((prev) => ({ ...prev, quantity: String(item.shortfall) }));
+    document.getElementById('stock-purchase-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   async function reloadAfterMutation(nextPage: number) {
@@ -659,11 +693,55 @@ export default function StockPurchasePage() {
                 <StatTile variant="flat" size="sm" label={t('currentStock')} value={formatNumber(selectedProduct.current_stock)} unit={t('pcs')} tone={selectedProductLevel === 'out' ? 'danger' : selectedProductLevel === 'low' ? 'warning' : 'default'} />
                 <StatTile variant="flat" size="sm" label={t('lowStockAlert')} value={formatNumber(resolveLowStockThreshold(selectedProduct.low_stock_threshold))} unit={t('pcs')} />
                 <StatTile variant="flat" size="sm" label={t('stockValue')} value={formatCurrency(selectedProduct.current_stock * selectedProduct.cost_price)} unit={currency} className="col-span-2 border-t border-gray-200 pt-3" />
+                {selectedInsight && (
+                  <>
+                    <StatTile variant="flat" size="sm" label={t('soldRecently', { days: SUGGESTION_SALES_DAYS })} value={formatNumber(selectedInsight.sold)} unit={t('pcs')} className="border-t border-gray-200 pt-3" />
+                    <StatTile variant="flat" size="sm" label={t('stockLasts')} value={selectedInsight.daysLeft === null || selectedProduct.current_stock <= 0 ? '—' : t('daysCount', { count: selectedInsight.daysLeft })} className="border-t border-gray-200 pt-3" />
+                  </>
+                )}
               </div>
             </Card>
           </Card>
         )}
       </div>
+
+      {/* Below the form: it arrives after the sales load and must not push the form down. */}
+      {suggestions.items.length > 0 && (
+        <Card as="section" padding="none" className="overflow-hidden" aria-label={t('suggestTitle')}>
+          <CardHeader>
+            <SectionHeading
+              size="sm"
+              title={t('suggestTitle')}
+              badge={<Badge variant="neutral" size="sm">{suggestions.items.length + suggestions.more}</Badge>}
+              description={t('suggestDesc', { days: SUGGESTION_SALES_DAYS })}
+            />
+          </CardHeader>
+          <ul className="divide-y divide-gray-100">
+            {suggestions.items.map((item) => (
+              <li key={item.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:px-5">
+                <div className="min-w-0 flex-1">
+                  <p className="break-words font-semibold text-gray-900">{item.name}</p>
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    {item.currentStock > 0 ? t('suggestLeft', { count: formatNumber(item.currentStock) }) : t('outOfStock')}
+                    {' · '}
+                    {t('suggestSold', { count: formatNumber(item.sold ?? 0), days: SUGGESTION_SALES_DAYS })}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between gap-3 sm:justify-end">
+                  <p className="text-sm tabular-nums text-gray-600">≈ {formatCurrency(item.cost)} {currency}</p>
+                  <Button type="button" size="sm" variant="outline" onClick={() => applySuggestion(item)} disabled={saving}>
+                    {t('suggestBuy', { count: formatNumber(item.shortfall) })}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <CardFooter className="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-600">
+            <span>{suggestions.more > 0 ? t('suggestMore', { count: suggestions.more }) : ''}</span>
+            <span>{t('suggestTotal')}: <span className="font-semibold tabular-nums text-gray-900">≈ {formatCurrency(suggestions.totalCost)} {currency}</span></span>
+          </CardFooter>
+        </Card>
+      )}
 
       <Card as="section" padding="none" className="overflow-hidden">
         <CardHeader>

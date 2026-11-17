@@ -210,3 +210,9 @@ units sold, margin and "days left". The pace divides by the days the club
 actually saved a closing count, not by 30: sales exist only on counted days.
 Made-to-order and unsold products have no runway. A failed sales read leaves
 the catalog usable without these columns.
+
+Stock Purchase reuses the same 30-day sales for its **Suggested to buy** list
+(`buildPurchaseSuggestions`): products whose stock does not cover the next
+seven days at that pace, with the missing quantity and its cost at the current
+cost price. Tapping one only fills the form; nothing is recorded until the
+purchase is saved. A product that did not sell is never suggested.

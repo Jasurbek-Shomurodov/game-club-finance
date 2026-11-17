@@ -761,7 +761,17 @@
     "previousPage": "Previous",
     "nextPage": "Next",
     "reset": "Reset",
-    "outOfStock": "Out of stock"
+    "outOfStock": "Out of stock",
+    "suggestTitle": "Suggested to buy",
+    "suggestDesc": "Enough for the next week at the pace of the last {days} days. Tap one to fill in the form.",
+    "suggestLeft": "{count} left",
+    "suggestSold": "sold {count} in {days} days",
+    "suggestBuy": "Buy {count} pcs",
+    "suggestMore": "+{count} more products are short",
+    "suggestTotal": "All of it",
+    "soldRecently": "Sold in {days} days",
+    "stockLasts": "Stock lasts",
+    "daysCount": "{count, plural, one {about # day} other {about # days}}"
   },
   "products": {
     "loadFailed": "Could not load products. Check your connection and try again.",

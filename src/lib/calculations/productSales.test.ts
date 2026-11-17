@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildProductSalesSummary, buildRestockList, salesPeriodStart, sumProductSalesRows } from './productSales';
+import { buildProductSalesSummary, buildPurchaseSuggestions, buildRestockList, salesPeriodStart, sumProductSalesRows } from './productSales';
 
 const products = [
   { id: 'cola', current_stock: 20, tracks_inventory: true },
@@ -128,5 +128,53 @@ describe('buildRestockList', () => {
         { id: 'chips', name: 'Chips', currentStock: 3, level: 'low', sold: null, shortfall: 0, daysLeft: null },
       ]);
     }
+  });
+});
+
+describe('buildPurchaseSuggestions', () => {
+  const shelf = [
+    { id: 'cola', name: 'Cola', current_stock: 2, low_stock_threshold: 5, cost_price: 6_000 },
+    { id: 'chips', name: 'Chips', current_stock: 0, low_stock_threshold: 5, cost_price: '5000.5' },
+    { id: 'gum', name: 'Gum', current_stock: 0, low_stock_threshold: 5, cost_price: 1_000 },
+    { id: 'water', name: 'Water', current_stock: 40, low_stock_threshold: 5, cost_price: 2_000 },
+    { id: 'tea', name: 'Tea', current_stock: 0, low_stock_threshold: 5, cost_price: 3_000, tracks_inventory: false },
+  ];
+  // Ten counted days: cola 3 a day, chips 1 a day, water 2 a day, gum never sold.
+  const sales = buildProductSalesSummary(shelf, [
+    { product_id: 'cola', sold_quantity: 30, bar_income: 300_000, bar_cost: 180_000, days_counted: 10 },
+    { product_id: 'chips', sold_quantity: 10, bar_income: 80_000, bar_cost: 50_000, days_counted: 10 },
+    { product_id: 'water', sold_quantity: 20, bar_income: 100_000, bar_cost: 40_000, days_counted: 10 },
+    { product_id: 'tea', sold_quantity: 50, bar_income: 250_000, bar_cost: 100_000, days_counted: 10 },
+  ]);
+
+  it('suggests a week of each selling product that is short, with its cost', () => {
+    const { items, more, totalCost } = buildPurchaseSuggestions(shelf, sales);
+    // Cola needs 21 and has 2; chips need 7 and have none. Water covers the week,
+    // gum did not sell and tea is made to order.
+    expect(items.map((item) => [item.name, item.shortfall, item.cost])).toEqual([
+      ['Cola', 19, 114_000],
+      ['Chips', 7, 35_003.5],
+    ]);
+    expect(more).toBe(0);
+    expect(totalCost).toBe(149_003.5);
+  });
+
+  it('keeps the total for everything when the list is cut short', () => {
+    const { items, more, totalCost } = buildPurchaseSuggestions(shelf, sales, 1);
+    expect(items.map((item) => item.name)).toEqual(['Cola']);
+    expect(more).toBe(1);
+    expect(totalCost).toBe(149_003.5);
+  });
+
+  it('sizes the order to the horizon asked for', () => {
+    expect(buildPurchaseSuggestions(shelf, sales, 6, 14).items.map((item) => [item.name, item.shortfall])).toEqual([
+      ['Cola', 40],
+      ['Chips', 14],
+    ]);
+  });
+
+  it('suggests nothing without sales to size an order from', () => {
+    expect(buildPurchaseSuggestions(shelf, null)).toEqual({ items: [], more: 0, totalCost: 0 });
+    expect(buildPurchaseSuggestions(shelf, buildProductSalesSummary(shelf, []))).toEqual({ items: [], more: 0, totalCost: 0 });
   });
 });

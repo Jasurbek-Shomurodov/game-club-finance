@@ -761,7 +761,17 @@
     "previousPage": "Назад",
     "nextPage": "Вперёд",
     "reset": "Сбросить",
-    "outOfStock": "Нет в наличии"
+    "outOfStock": "Нет в наличии",
+    "suggestTitle": "Что докупить",
+    "suggestDesc": "Запас на неделю по темпу продаж за последние {days} дн. Нажмите, чтобы заполнить форму.",
+    "suggestLeft": "осталось {count}",
+    "suggestSold": "продано {count} за {days} дн.",
+    "suggestBuy": "Купить {count} шт",
+    "suggestMore": "ещё товаров не хватает: {count}",
+    "suggestTotal": "Всё вместе",
+    "soldRecently": "Продано за {days} дн.",
+    "stockLasts": "Запаса хватит",
+    "daysCount": "примерно на {count} дн."
   },
   "products": {
     "loadFailed": "Не удалось загрузить товары. Проверьте подключение и попробуйте снова.",
