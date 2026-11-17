@@ -24,6 +24,7 @@
     "test:e2e": "playwright test",
     "test:e2e:full": "node e2e/build.mjs && playwright test",
     "ci:watch": "sh scripts/watch-ci.sh",
+    "audit:prod": "node scripts/audit-prod.mjs",
     "migrations:manifest": "tsx scripts/generate-migration-manifest.ts"
   },
   "dependencies": {

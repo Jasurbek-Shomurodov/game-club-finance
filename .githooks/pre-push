@@ -29,8 +29,8 @@ while read -r local_ref local_sha remote_ref remote_sha; do
 done
 [ -z "$tip" ] && exit 0
 
-echo "pre-push: npm audit"
-npm audit --omit=dev --audit-level=high
+echo "pre-push: dependency audit"
+npm run --silent audit:prod
 
 # Apply pending migrations to the database in .env.local before the push goes out,
 # from the commit being pushed. Skips when the push changes no migration. Requires

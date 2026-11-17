@@ -20,8 +20,9 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      # Fails on a known high or critical vulnerability in a package the app ships.
-      - run: npm audit --omit=dev --audit-level=high
+      # Fails on a known high or critical vulnerability in a package the app ships,
+      # except the advisories accepted with a reason in scripts/audit-prod.mjs.
+      - run: npm run audit:prod
       - run: npm run typecheck
       - run: npm run lint
       # Every test, including the PGlite (embedded PostgreSQL in WebAssembly)

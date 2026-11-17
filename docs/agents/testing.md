@@ -27,7 +27,7 @@ uncommitted work in the tree neither fails nor passes them:
 
 - `pre-commit`: typecheck, lint, and `npm run test:coverage` with the coverage
   floor (about a minute).
-- `pre-push`: `npm audit --omit=dev --audit-level=high`, then
+- `pre-push`: `npm run audit:prod` (the dependency audit below), then
   `npm run test:e2e:full` on the pushed commit when the push changes `src/`,
   `migrations/`, `e2e/` or the build setup (about two minutes; docs- and
   scripts-only pushes skip it).
@@ -40,7 +40,7 @@ before anything else.
 ## CI and the coverage floor
 
 `.github/workflows/checks.yml` runs on every push and pull request: `npm ci`,
-`npm audit --omit=dev --audit-level=high`, typecheck, lint, `npm run
+`npm run audit:prod`, typecheck, lint, `npm run
 test:coverage`, and the production build with placeholder Supabase values; a
 second job, `e2e`, runs the browser P0 suite described below.
 `test:coverage` runs the whole suite under v8 coverage (the PGlite tests need no
@@ -54,6 +54,11 @@ when the script reports that coverage is above the floor or that a listed file
 is now tested, raise the numbers or shorten the list in the same change as the
 new tests. A high or critical audit finding in a shipped dependency also fails
 the job; fix it by updating the dependency, not by relaxing the audit.
+`scripts/audit-prod.mjs` is `npm audit --omit=dev` at that level with one
+difference: an advisory listed in its `ACCEPTED_ADVISORIES` does not fail it.
+That list is for an advisory with no patched release that cannot reach
+production, accepted by the owner, with the reason and the condition for
+removing it written beside the id. Every other advisory still fails.
 
 ## Browser P0 suite (Playwright on a fake Supabase)
 
