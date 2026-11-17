@@ -67,6 +67,81 @@ export const EMPTY_OWNER_MONEY: OwnerMoneyData = {
   reserveSupported: false,
 };
 
+/** The reserve fields of `OwnerMoneyData`: all the Reserve page shows. */
+export type OwnerReserveData = Pick<OwnerMoneyData, 'reserveEntries' | 'reserveExpenses' | 'exchangeRows' | 'dollarExpenses' | 'reserveSupported'>;
+
+export const EMPTY_OWNER_RESERVE: OwnerReserveData = {
+  reserveEntries: [],
+  reserveExpenses: [],
+  exchangeRows: [],
+  dollarExpenses: [],
+  reserveSupported: false,
+};
+
+/** The four reads behind the reserve, started together. A failed exchange read rejects. */
+function readReserveLedgers(supabase: SupabaseClient, clubId: string, businessToday: string) {
+  return Promise.all([
+    // Exchanges move money between methods (092); neither balance source includes them.
+    fetchMoneyExchanges(supabase, clubId, '2000-01-01', businessToday),
+    // Like investments, a failed read leaves dollar spending out instead of failing the page.
+    fetchDollarExpenses(supabase, clubId, '2000-01-01', businessToday).catch(() => [] as DollarExpense[]),
+    fetchAllRows<OwnerReserveEntry>(() => supabase
+      .from('owner_reserve_entries')
+      .select('id,club_id,kind,period_month,source,payment_method,amount,comment,collection_date,created_by,created_at')
+      .eq('club_id', clubId)
+      .order('id')),
+    // Dollar expenses are reserve purchases too: the reserve holds the club's dollars (143).
+    fetchAllRows<ReservePaidExpense>(() => supabase
+      .from('expenses')
+      .select('id,date,amount,payment_source,payment_method,category,comment,created_at')
+      .eq('club_id', clubId)
+      .or('paid_from_reserve.eq.true,payment_method.eq.usd')
+      .order('id')),
+  ]);
+}
+
+/** Turns the raw reserve reads into the reserve's entries and purchases. Throws a failed entries read. */
+function buildOwnerReserve(
+  clubId: string,
+  [exchangeRows, dollarExpenses, reserveRes, reserveExpenseRes]: Awaited<ReturnType<typeof readReserveLedgers>>,
+): OwnerReserveData {
+  // Before migration 136 there is no reserve: nothing is set aside.
+  const reserveMissing = isMissingDatabaseTable(reserveRes.error as { code?: string; message?: string } | null, 'owner_reserve_entries')
+    || isMissingDatabaseColumn(reserveExpenseRes.error as { code?: string; message?: string } | null, 'paid_from_reserve');
+  const reserveError = reserveMissing ? null : reserveRes.error;
+  if (reserveError) throw new Error(reserveError.message);
+  return {
+    // Exchanges into and out of dollars are the reserve's dollar deposits and returns (143).
+    reserveEntries: reserveMissing ? [] : [
+      ...(reserveRes.data ?? []).map((row) => ({ ...row, amount: Number(row.amount) })),
+      ...dollarReserveEntries(exchangeRows, clubId),
+    ],
+    // Like investments, a failed expense read leaves reserve purchases out instead of failing the page:
+    // their months then show less left to take, never more.
+    reserveExpenses: reserveMissing || reserveExpenseRes.error ? [] : (reserveExpenseRes.data ?? []).map((row) => ({ ...row, amount: Number(row.amount) })),
+    exchangeRows,
+    dollarExpenses,
+    reserveSupported: !reserveMissing,
+  };
+}
+
+/**
+ * The owner reserve alone: its deposits, returns, purchases and dollars. The
+ * Reserve page needs none of the monthly profit balances, so this skips the
+ * owner profit snapshot (the heaviest read of `fetchOwnerMoney`), the
+ * carryovers and the investments. A superseded load returns the empty value.
+ */
+export async function fetchOwnerReserve(
+  supabase: SupabaseClient,
+  clubId: string,
+  businessToday: string,
+  isCurrent: () => boolean = () => true,
+): Promise<OwnerReserveData> {
+  const ledgers = await readReserveLedgers(supabase, clubId, businessToday);
+  if (!isCurrent()) return EMPTY_OWNER_RESERVE;
+  return buildOwnerReserve(clubId, ledgers);
+}
+
 /**
  * Reads every month's owner profit balances, withdrawals and carryovers for one
  * club through `businessToday`. Uses the owner profit snapshot RPC and falls
@@ -82,7 +157,7 @@ export async function fetchOwnerMoney(
   const currentMonth = businessToday.slice(0, 7);
 
   const snapshotArgs = { p_club_id: clubId, p_through_date: businessToday };
-  const [snapshotWithMethods, carryoverRes, exchangeRows, investmentRes, dollarExpenses, reserveRes, reserveExpenseRes] = await Promise.all([
+  const [snapshotWithMethods, carryoverRes, investmentRes, reserveLedgers] = await Promise.all([
     // Migration 076: the snapshot's withdrawal rows carry their payment method.
     supabase.rpc('get_owner_profit_snapshot_with_methods', snapshotArgs),
     fetchAllRows<OwnerProfitCarryover>(() => supabase
@@ -91,8 +166,6 @@ export async function fetchOwnerMoney(
       .eq('club_id', clubId)
       .lte('from_month', `${currentMonth}-01`)
       .order('id')),
-    // Exchanges move money between methods (092); neither balance source includes them.
-    fetchMoneyExchanges(supabase, clubId, '2000-01-01', businessToday),
     fetchAllRows<InvestmentRow>(() => supabase
       .from('expenses')
       .select('date,amount,payment_source')
@@ -100,20 +173,7 @@ export async function fetchOwnerMoney(
       .eq('category', 'investments')
       .lte('date', businessToday)
       .order('id')),
-    // Like investments, a failed read leaves dollar spending out instead of failing the page.
-    fetchDollarExpenses(supabase, clubId, '2000-01-01', businessToday).catch(() => [] as DollarExpense[]),
-    fetchAllRows<OwnerReserveEntry>(() => supabase
-      .from('owner_reserve_entries')
-      .select('id,club_id,kind,period_month,source,payment_method,amount,comment,collection_date,created_by,created_at')
-      .eq('club_id', clubId)
-      .order('id')),
-    // Dollar expenses are reserve purchases too: the reserve holds the club's dollars (143).
-    fetchAllRows<ReservePaidExpense>(() => supabase
-      .from('expenses')
-      .select('id,date,amount,payment_source,payment_method,category,comment,created_at')
-      .eq('club_id', clubId)
-      .or('paid_from_reserve.eq.true,payment_method.eq.usd')
-      .order('id')),
+    readReserveLedgers(supabase, clubId, businessToday),
   ]);
 
   // A superseded load stops early; useClubQuery discards whatever it returns.
@@ -138,19 +198,7 @@ export async function fetchOwnerMoney(
   const carryoversMissing = isMissingDatabaseTable(carryoverRes.error as { code?: string; message?: string } | null, 'owner_profit_carryovers');
   if (carryoverRes.error && !carryoversMissing) throw new Error(carryoverRes.error.message);
   const carryovers = (carryoverRes.data ?? []).map((row) => ({ ...row, amount: Number(row.amount) }));
-  // Before migration 136 there is no reserve: nothing is set aside.
-  const reserveMissing = isMissingDatabaseTable(reserveRes.error as { code?: string; message?: string } | null, 'owner_reserve_entries')
-    || isMissingDatabaseColumn(reserveExpenseRes.error as { code?: string; message?: string } | null, 'paid_from_reserve');
-  const reserveError = reserveMissing ? null : reserveRes.error;
-  if (reserveError) throw new Error(reserveError.message);
-  // Exchanges into and out of dollars are the reserve's dollar deposits and returns (143).
-  const reserveEntries = reserveMissing ? [] : [
-    ...(reserveRes.data ?? []).map((row) => ({ ...row, amount: Number(row.amount) })),
-    ...dollarReserveEntries(exchangeRows, clubId),
-  ];
-  // Like investments, a failed expense read leaves reserve purchases out instead of failing the page:
-  // their months then show less left to take, never more.
-  const reserveExpenses = reserveMissing || reserveExpenseRes.error ? [] : (reserveExpenseRes.data ?? []).map((row) => ({ ...row, amount: Number(row.amount) }));
+  const { reserveEntries, reserveExpenses, exchangeRows, dollarExpenses, reserveSupported } = buildOwnerReserve(clubId, reserveLedgers);
   const withCarryovers = (byMonth: AvailableMoneyByMonth) => applyOwnerReserve(
     applyOwnerProfitCarryovers(byMonth, carryovers, currentMonth), reserveEntries, reserveExpenses, currentMonth,
   );
@@ -173,7 +221,7 @@ export async function fetchOwnerMoney(
     methodsSupported: !methodsMissing,
     reserveEntries,
     reserveExpenses,
-    reserveSupported: !reserveMissing,
+    reserveSupported,
   };
 
   if (!snapshotResult.error && snapshotResult.data?.paymentMethodBalancesByMonth) {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { EMPTY_OWNER_MONEY, fetchOwnerMoney } from './ownerMoney';
+import { EMPTY_OWNER_MONEY, EMPTY_OWNER_RESERVE, fetchOwnerMoney, fetchOwnerReserve } from './ownerMoney';
 
 /** A chainable query that records its filters and resolves to `result`. */
 function query(result: { data: unknown; error: unknown }) {
@@ -71,5 +71,57 @@ describe('fetchOwnerMoney', () => {
   it('throws a snapshot error that is not a missing function', async () => {
     const supabase = client({}, () => ({ data: null, error: { code: '42501', message: 'permission denied' } }));
     await expect(fetchOwnerMoney(supabase, 'club-1', '2026-10-25')).rejects.toThrow('permission denied');
+  });
+});
+
+describe('fetchOwnerReserve', () => {
+  const entry = { id: 'r1', club_id: 'club-1', kind: 'deposit', period_month: '2026-10-01', source: 'bar', payment_method: null, amount: '500', comment: null, collection_date: null, created_by: 'u1', created_at: '2026-10-05T10:00:00Z' };
+  const purchase = { id: 'e1', date: '2026-10-06', amount: '120', payment_source: 'bar', payment_method: 'cash', category: 'equipment', comment: null, created_at: '2026-10-06T10:00:00Z' };
+
+  it('reads only the reserve ledgers, never the owner profit snapshot', async () => {
+    const entries = query({ data: [entry], error: null });
+    const expenses = query({ data: [purchase], error: null });
+    const supabase = client({ owner_reserve_entries: entries, expenses }, () => ({ data: snapshotPayload, error: null }));
+
+    const result = await fetchOwnerReserve(supabase, 'club-1', '2026-10-25');
+
+    expect(supabase.rpc).not.toHaveBeenCalled();
+    const tables = (supabase.from as ReturnType<typeof vi.fn>).mock.calls.map(([table]) => table).sort();
+    expect(tables).toEqual(['expenses', 'expenses', 'money_exchanges', 'owner_reserve_entries']);
+    expect(entries.calls).toContainEqual(['eq', ['club_id', 'club-1']]);
+    expect(result.reserveSupported).toBe(true);
+    expect(result.reserveEntries).toEqual([{ ...entry, amount: 500 }]);
+    expect(result.reserveExpenses).toEqual([{ ...purchase, amount: 120 }]);
+  });
+
+  it('agrees with the reserve fields of fetchOwnerMoney', async () => {
+    const tables = () => ({
+      owner_reserve_entries: query({ data: [entry], error: null }),
+      expenses: query({ data: [purchase], error: null }),
+    });
+    const rpc = () => ({ data: snapshotPayload, error: null });
+    const reserve = await fetchOwnerReserve(client(tables(), rpc), 'club-1', '2026-10-25');
+    const money = await fetchOwnerMoney(client(tables(), rpc), 'club-1', '2026-10-25');
+    expect(reserve).toEqual({
+      reserveEntries: money.reserveEntries,
+      reserveExpenses: money.reserveExpenses,
+      exchangeRows: money.exchangeRows,
+      dollarExpenses: money.dollarExpenses,
+      reserveSupported: money.reserveSupported,
+    });
+  });
+
+  it('has no reserve before migration 136 and throws any other entries error', async () => {
+    const missing = client({
+      owner_reserve_entries: query({ data: null, error: { code: '42P01', message: 'relation "public.owner_reserve_entries" does not exist' } }),
+    }, () => null);
+    await expect(fetchOwnerReserve(missing, 'club-1', '2026-10-25')).resolves.toMatchObject({ reserveSupported: false, reserveEntries: [], reserveExpenses: [] });
+
+    const denied = client({ owner_reserve_entries: query({ data: null, error: { code: '42501', message: 'reserve denied' } }) }, () => null);
+    await expect(fetchOwnerReserve(denied, 'club-1', '2026-10-25')).rejects.toThrow('reserve denied');
+  });
+
+  it('stops early when the load is superseded', async () => {
+    await expect(fetchOwnerReserve(client({}, () => null), 'club-1', '2026-10-25', () => false)).resolves.toBe(EMPTY_OWNER_RESERVE);
   });
 });

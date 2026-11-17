@@ -28,7 +28,7 @@ import { dollarsForMonth } from '@/lib/calculations/moneyExchanges';
 import { reserveActivity, reserveBalances, reserveDailySeries, reserveMonthlySeries } from '@/lib/calculations/ownerReserve';
 import { formatCurrency, formatUnitCurrency } from '@/lib/formatters';
 import { createClient } from '@/lib/supabase/client';
-import { EMPTY_OWNER_MONEY, fetchOwnerMoney } from '@/lib/supabase/ownerMoney';
+import { EMPTY_OWNER_RESERVE, fetchOwnerReserve } from '@/lib/supabase/ownerMoney';
 import { requestReserveDelete } from '@/lib/ownerReserveRequests';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useClubQuery } from '@/lib/useClubQuery';
@@ -73,9 +73,9 @@ export default function ReservePage() {
   }, [pathname, searchParams, view]);
 
   const load = useCallback(async (isCurrent: () => boolean) => (
-    selectedClubId && isOwner ? fetchOwnerMoney(createClient(), selectedClubId, businessToday, isCurrent) : EMPTY_OWNER_MONEY
+    selectedClubId && isOwner ? fetchOwnerReserve(createClient(), selectedClubId, businessToday, isCurrent) : EMPTY_OWNER_RESERVE
   ), [businessToday, isOwner, selectedClubId]);
-  const query = useClubQuery(load, EMPTY_OWNER_MONEY);
+  const query = useClubQuery(load, EMPTY_OWNER_RESERVE);
   const { reserveEntries, reserveExpenses, exchangeRows, dollarExpenses, reserveSupported } = query.data;
   // A club switch or business-day rollover replaces the loader; a delete confirmed under the old one is stale.
   const currentLoad = useRef(load);
