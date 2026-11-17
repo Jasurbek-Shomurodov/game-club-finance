@@ -12,6 +12,7 @@ app_paths='^(src/|migrations/|e2e/|playwright\.config|next\.config|tsconfig\.jso
 
 tip=""
 run_e2e=""
+run_migrations=""
 while read -r local_ref local_sha remote_ref remote_sha; do
   [ "$local_sha" = "$zero" ] && continue # deleting a remote branch
   tip=$local_sha
@@ -22,11 +23,32 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   if [ -z "$base" ] || git diff --name-only "$base" "$local_sha" | grep -Eq "$app_paths"; then
     run_e2e=1
   fi
+  if [ -z "$base" ] || git diff --name-only "$base" "$local_sha" | grep -Eq '^migrations/'; then
+    run_migrations=1
+  fi
 done
 [ -z "$tip" ] && exit 0
 
 echo "pre-push: npm audit"
 npm audit --omit=dev --audit-level=high
+
+# Apply pending migrations to the database in .env.local before the push goes out,
+# from the commit being pushed. Skips when the push changes no migration. Requires
+# SUPABASE_DB_URL in .env.local; scripts/db-migrate.sh refuses gaps and records each
+# applied version. Skip with `git push --no-verify`.
+if [ -n "$run_migrations" ]; then
+  root=$(git rev-parse --show-toplevel)
+  db_url=$(set -a; . "$root/.env.local"; printf %s "${SUPABASE_DB_URL:-}")
+  if [ -z "$db_url" ]; then
+    echo "pre-push: SUPABASE_DB_URL is not set in .env.local; cannot apply migrations" >&2
+    exit 1
+  fi
+  migdir=$(mktemp -d "${TMPDIR:-/tmp}/game-club-migrations.XXXXXX")
+  git archive "$tip" migrations | tar -x -C "$migdir"
+  echo "pre-push: applying pending migrations"
+  MIGRATIONS_DIR="$migdir/migrations" bash "$root/scripts/db-migrate.sh" "$db_url"
+  rm -rf "$migdir"
+fi
 
 if [ -z "$run_e2e" ]; then
   echo "pre-push: no app change, skipping the browser suite"
