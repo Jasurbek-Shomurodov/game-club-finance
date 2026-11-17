@@ -43,7 +43,9 @@ const KNOWN_FIELDS = new Set([
   'date', 'period_month', 'from_month', 'to_month', 'amount', 'cash_income', 'terminal_income', 'card_income',
   'playstation_income', 'from_amount', 'to_amount', 'rate', 'cost_price', 'sale_price', 'quantity', 'product_id',
   'payment_method', 'from_method', 'to_method', 'payment_source', 'source', 'category', 'comment', 'person_name',
+  'kind', 'collection_date', 'usd_amount', 'usd_rate', 'paid_from_reserve',
 ]);
+const KNOWN_KINDS = new Set(['deposit', 'return']);
 const KNOWN_METHODS = new Set(['cash', 'terminal', 'card', 'playstation', 'usd']);
 const KNOWN_SOURCES = new Set(['bar', 'game_club']);
 
@@ -80,6 +82,8 @@ export default function EntryHistoryPage() {
       case 'source': return KNOWN_SOURCES.has(text) ? t(`sources.${text}`) : text;
       case 'category': return isKnownExpenseCategory(text) || text === 'other' ? te(text) : text;
       case 'product': return products.get(text) ?? t('unknownProduct');
+      case 'entryKind': return KNOWN_KINDS.has(text) ? t(`kinds.${text}`) : text;
+      case 'yesNo': return value === true || text === 'true' ? t('yes') : t('no');
       default: return text;
     }
   }

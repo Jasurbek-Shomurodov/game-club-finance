@@ -38,6 +38,16 @@ describe('auditEntryDate', () => {
   });
 });
 
+describe('auditFieldKind for reserve and dollar fields', () => {
+  it('knows how to show every field the reserve and dollar expenses log', () => {
+    expect(auditFieldKind('kind')).toBe('entryKind');
+    expect(auditFieldKind('collection_date')).toBe('date');
+    expect(auditFieldKind('usd_amount')).toBe('unitMoney');
+    expect(auditFieldKind('usd_rate')).toBe('unitMoney');
+    expect(auditFieldKind('paid_from_reserve')).toBe('yesNo');
+  });
+});
+
 describe('auditFieldKind', () => {
   it('knows money, dates, methods and falls back to text', () => {
     expect(auditFieldKind('cash_income')).toBe('money');

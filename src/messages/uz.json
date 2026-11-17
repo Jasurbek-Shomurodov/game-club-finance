@@ -2256,8 +2256,19 @@
       "source": "Manba",
       "category": "Kategoriya",
       "comment": "Izoh",
-      "person_name": "Shaxs"
+      "person_name": "Shaxs",
+      "kind": "Turi",
+      "collection_date": "Inkassatsiya kuni",
+      "usd_amount": "Dollar",
+      "usd_rate": "Dollar kursi",
+      "paid_from_reserve": "Zaxiradan to'langan"
     },
+    "kinds": {
+      "deposit": "Zaxiraga qo'yilgan",
+      "return": "Foydaga qaytarilgan"
+    },
+    "yes": "Ha",
+    "no": "Yo'q",
     "methods": {
       "cash": "Naqd",
       "terminal": "Terminal",

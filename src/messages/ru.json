@@ -2256,8 +2256,19 @@
       "source": "Источник",
       "category": "Категория",
       "comment": "Заметка",
-      "person_name": "Человек"
+      "person_name": "Человек",
+      "kind": "Тип",
+      "collection_date": "День инкассации",
+      "usd_amount": "Доллары",
+      "usd_rate": "Курс доллара",
+      "paid_from_reserve": "Оплачено из резерва"
     },
+    "kinds": {
+      "deposit": "Внесено в резерв",
+      "return": "Возвращено в прибыль"
+    },
+    "yes": "Да",
+    "no": "Нет",
     "methods": {
       "cash": "Наличные",
       "terminal": "Терминал",

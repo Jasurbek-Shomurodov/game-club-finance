@@ -2256,8 +2256,19 @@
       "source": "Source",
       "category": "Category",
       "comment": "Note",
-      "person_name": "Person"
+      "person_name": "Person",
+      "kind": "Type",
+      "collection_date": "Collected day",
+      "usd_amount": "Dollars",
+      "usd_rate": "Dollar rate",
+      "paid_from_reserve": "Paid from the reserve"
     },
+    "kinds": {
+      "deposit": "Put into the reserve",
+      "return": "Returned to profit"
+    },
+    "yes": "Yes",
+    "no": "No",
     "methods": {
       "cash": "Cash",
       "terminal": "Terminal",

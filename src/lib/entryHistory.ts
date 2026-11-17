@@ -37,7 +37,7 @@ const HIDDEN_FIELDS = new Set([
   'promotion_id',
 ]);
 
-export type AuditFieldKind = 'money' | 'unitMoney' | 'quantity' | 'date' | 'month' | 'method' | 'source' | 'category' | 'product' | 'text';
+export type AuditFieldKind = 'money' | 'unitMoney' | 'quantity' | 'date' | 'month' | 'method' | 'source' | 'category' | 'product' | 'entryKind' | 'yesNo' | 'text';
 
 const FIELD_KINDS: Record<string, AuditFieldKind> = {
   cash_income: 'money',
@@ -63,6 +63,12 @@ const FIELD_KINDS: Record<string, AuditFieldKind> = {
   source: 'source',
   category: 'category',
   product_id: 'product',
+  // Owner reserve entries (136, 137) and dollar or reserve-paid expenses (124, 136).
+  kind: 'entryKind',
+  collection_date: 'date',
+  usd_amount: 'unitMoney',
+  usd_rate: 'unitMoney',
+  paid_from_reserve: 'yesNo',
 };
 
 export function auditFieldKind(field: string): AuditFieldKind {
