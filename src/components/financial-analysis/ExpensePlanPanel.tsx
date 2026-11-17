@@ -1,6 +1,7 @@
 'use client';
 
 import type { LucideIcon } from 'lucide-react';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { ChartCard } from '@/components/dashboard/ChartCard';
 import { formatCurrency } from '@/lib/formatters';
@@ -29,12 +30,12 @@ function Difference({ difference, currency, signed = false, className }: {
   );
 }
 
-function PlanRow({ row, currency, locale }: { row: ExpensePlanRow; currency: string; locale: string }) {
+function PlanRow({ row, currency, locale, href }: { row: ExpensePlanRow; currency: string; locale: string; href?: string }) {
   const t = useTranslations('financialAnalysis');
   const used = row.usedPct ?? (row.actual > 0 ? 100 : 0);
   const over = row.difference > 0;
-  return (
-    <li className="py-3">
+  const body = (
+    <>
       <div className="flex items-baseline justify-between gap-3">
         <span className="min-w-0 truncate text-sm font-semibold text-gray-950">
           {row.preset.name}
@@ -62,18 +63,34 @@ function PlanRow({ row, currency, locale }: { row: ExpensePlanRow; currency: str
         </span>
         <span className="tabular-nums">{formatShare(row.usedPct, locale)}</span>
       </p>
+    </>
+  );
+  return (
+    <li>
+      {href ? (
+        <Link
+          href={href}
+          className="-mx-2 block rounded-lg px-2 py-3 transition-colors hover:bg-gray-50 focus-visible:bg-primary-50 focus-visible:outline-none"
+        >
+          {body}
+        </Link>
+      ) : (
+        <div className="py-3">{body}</div>
+      )}
     </li>
   );
 }
 
 /** Planned against actual spending for one side of the club; never combined with the other side. */
-export function ExpensePlanPanel({ title, icon: Icon, iconClassName, side, currency, locale }: {
+export function ExpensePlanPanel({ title, icon: Icon, iconClassName, side, currency, locale, rowHref }: {
   title: string;
   icon: LucideIcon;
   iconClassName: string;
   side: ExpensePlanSide;
   currency: string;
   locale: string;
+  /** Where a planned line opens: the expenses paid against it. */
+  rowHref?: (row: ExpensePlanRow) => string;
 }) {
   const t = useTranslations('financialAnalysis');
   return (
@@ -98,7 +115,7 @@ export function ExpensePlanPanel({ title, icon: Icon, iconClassName, side, curre
         </div>
       </dl>
       <ul className="mt-1 divide-y divide-gray-100">
-        {side.rows.map((row) => <PlanRow key={row.preset.id} row={row} currency={currency} locale={locale} />)}
+        {side.rows.map((row) => <PlanRow key={row.preset.id} row={row} currency={currency} locale={locale} href={rowHref?.(row)} />)}
       </ul>
     </ChartCard>
   );

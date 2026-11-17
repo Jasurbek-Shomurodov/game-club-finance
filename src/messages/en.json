@@ -1062,7 +1062,8 @@
     "loadError": "Could not load the daily report. Check your connection and try again.",
     "gameClubExpenses": "Game club expenses",
     "gameClubProfit": "Game club profit",
-    "barProfit": "Bar profit"
+    "barProfit": "Bar profit",
+    "expenseDetails": "Expense details"
   },
   "monthlyReport": {
     "title": "Monthly Report",
@@ -1433,7 +1434,16 @@
     "takeAll": "Take all",
     "takeAllLabel": "Fill in all available: {amount}",
     "recordButtonAmount": "Withdraw {amount}",
-    "withdrawnOfEarned": "Withdrawn {withdrawn} of {earned} earned"
+    "withdrawnOfEarned": "Withdrawn {withdrawn} of {earned} earned",
+    "entryDetails": "Details",
+    "detailsWithdrawalTitle": "Profit withdrawal",
+    "detailsCarryoverTitle": "Moved to next month",
+    "detailsProfitMonth": "Profit month",
+    "detailsMovedTo": "Moved to",
+    "detailsTakenFrom": "Taken from",
+    "detailsMadeOn": "Recorded",
+    "detailsChangedOn": "Last changed",
+    "detailsComment": "Comment"
   },
   "calendar": {
     "selectDate": "Select date",
@@ -2509,7 +2519,14 @@
       "migration_required": "Shortages need database migration 135. Apply it first.",
       "forbidden": "Only the club owner can record shortages.",
       "failed": "Could not save. Check your connection and try again."
-    }
+    },
+    "detailsDate": "Day",
+    "detailsTakenFrom": "Missing from",
+    "detailsEmployee": "Employee",
+    "detailsRecordedAt": "Recorded",
+    "detailsComment": "Comment",
+    "detailsOpenDay": "Open this day's report",
+    "detailsOpenEmployee": "Open employee"
   },
   "ownerReserve": {
     "sectionTitle": "Reserve",

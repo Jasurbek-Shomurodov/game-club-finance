@@ -1062,7 +1062,8 @@
     "loadError": "Kunlik hisobotni yuklab bo'lmadi. Internet aloqasini tekshirib, qayta urinib ko'ring.",
     "gameClubExpenses": "Klub xarajatlari",
     "gameClubProfit": "Klub foydasi",
-    "barProfit": "Bar foydasi"
+    "barProfit": "Bar foydasi",
+    "expenseDetails": "Xarajat tafsilotlari"
   },
   "monthlyReport": {
     "title": "Oylik hisobot",
@@ -1433,7 +1434,16 @@
     "takeAll": "Hammasi",
     "takeAllLabel": "Mavjud summaning hammasini kiritish: {amount}",
     "recordButtonAmount": "{amount} olish",
-    "withdrawnOfEarned": "{earned} daromaddan {withdrawn} yechilgan"
+    "withdrawnOfEarned": "{earned} daromaddan {withdrawn} yechilgan",
+    "entryDetails": "Tafsilotlar",
+    "detailsWithdrawalTitle": "Foydani yechib olish",
+    "detailsCarryoverTitle": "Keyingi oyga o'tkazildi",
+    "detailsProfitMonth": "Foyda oyi",
+    "detailsMovedTo": "O'tkazilgan oy",
+    "detailsTakenFrom": "Qayerdan",
+    "detailsMadeOn": "Yozilgan",
+    "detailsChangedOn": "O'zgartirilgan",
+    "detailsComment": "Izoh"
   },
   "calendar": {
     "selectDate": "Sanani tanlang",
@@ -2509,7 +2519,14 @@
       "migration_required": "Kamomadlar uchun 135-ma'lumotlar bazasi migratsiyasi kerak. Avval uni qo'llang.",
       "forbidden": "Kamomadni faqat klub egasi yoza oladi.",
       "failed": "Saqlab bo'lmadi. Internetni tekshirib, qayta urinib ko'ring."
-    }
+    },
+    "detailsDate": "Kun",
+    "detailsTakenFrom": "Qayerdan yo'qolgan",
+    "detailsEmployee": "Xodim",
+    "detailsRecordedAt": "Yozilgan",
+    "detailsComment": "Izoh",
+    "detailsOpenDay": "Shu kungi hisobotni ochish",
+    "detailsOpenEmployee": "Xodimni ochish"
   },
   "ownerReserve": {
     "sectionTitle": "Jamg'arma",

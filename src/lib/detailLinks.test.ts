@@ -1,0 +1,43 @@
+import { describe, expect, it } from 'vitest';
+import {
+  closingStockHref,
+  dailyReportHref,
+  dayRange,
+  debtsSearchHref,
+  moneyDetailsHref,
+  reportsHref,
+  stockPurchaseHref,
+} from './detailLinks';
+
+const november = { from: '2026-11-01', to: '2026-11-30' };
+
+describe('detail links', () => {
+  it('opens each side’s money details for the period', () => {
+    expect(moneyDetailsHref('game_club', november)).toBe('/game-club-money-details?from=2026-11-01&to=2026-11-30');
+    expect(moneyDetailsHref('bar', dayRange('2026-11-05'))).toBe('/bar-money-details?from=2026-11-05&to=2026-11-05');
+  });
+
+  it('narrows reports to a category, the paying side and a tab', () => {
+    expect(reportsHref(november)).toBe('/reports?from=2026-11-01&to=2026-11-30');
+    expect(reportsHref(november, { category: 'expense:salary', source: 'bar' }))
+      .toBe('/reports?from=2026-11-01&to=2026-11-30&category=expense%3Asalary&source=bar');
+    expect(reportsHref(november, { view: 'writeOffs', source: null })).toBe('/reports?from=2026-11-01&to=2026-11-30&view=writeOffs');
+  });
+
+  it('opens a day in closing stock and the daily report', () => {
+    expect(closingStockHref('2026-11-05')).toBe('/closing-stock?date=2026-11-05');
+    expect(dailyReportHref('2026-11-05')).toBe('/daily-report?date=2026-11-05');
+  });
+
+  it('prefills the purchase form with the missing units', () => {
+    expect(stockPurchaseHref({ id: 'cola', shortfall: 12 })).toBe('/stock-purchase?product=cola&quantity=12');
+    expect(stockPurchaseHref({ id: 'cola', shortfall: 2.5 })).toBe('/stock-purchase?product=cola&quantity=3');
+    expect(stockPurchaseHref({ id: 'cola', shortfall: 0 })).toBe('/stock-purchase?product=cola');
+  });
+
+  it('filters debts to a person when there is a name', () => {
+    expect(debtsSearchHref('/debts', 'Ali Valiyev')).toBe('/debts?search=Ali+Valiyev');
+    expect(debtsSearchHref('/debts', '  ')).toBe('/debts');
+    expect(debtsSearchHref('/debts', null)).toBe('/debts');
+  });
+});

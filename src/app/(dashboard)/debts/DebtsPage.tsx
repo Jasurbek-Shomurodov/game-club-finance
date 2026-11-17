@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
@@ -104,7 +105,9 @@ export default function DebtsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [showPaid, setShowPaid] = useState(false);
-  const [search, setSearch] = useState('');
+  // `?search=<name>` (from the dashboard's debtors list) opens the page filtered to that person.
+  const searchParams = useSearchParams();
+  const [search, setSearch] = useState(() => searchParams.get('search') ?? '');
   // A person picked in the command palette opens the list narrowed to them.
   usePageSearch('debts', setSearch);
   const [sort, setSort] = useState<OpenDebtSort>('newest');

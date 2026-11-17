@@ -1,12 +1,14 @@
 'use client';
 
-import { Clock, MessageSquareText, Plus, TriangleAlert, Trash2, Undo2, UserRound } from 'lucide-react';
+import { ChevronRight, Clock, MessageSquareText, Plus, TriangleAlert, Trash2, Undo2, UserRound } from 'lucide-react';
+import { useState } from 'react';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { Badge, Button, EmptyState, IconButton, SectionHeading } from '@/components/PresentationFoundation';
+import { Badge, Button, ButtonLink, EmptyState, IconButton, Modal, SectionHeading } from '@/components/PresentationFoundation';
 import { SHORTAGE_METHOD_ICONS } from '@/components/cash-shortages/CashShortageForm';
 import { cashShortageTotalsForMonth, recoverableAmount, type CashShortageSummary } from '@/lib/calculations/cashShortages';
-import { capitalizeFirst, formatCurrency, formatDateOnly, formatYearMonth } from '@/lib/formatters';
+import { capitalizeFirst, formatCurrency, formatDateOnly, formatDateTime, formatYearMonth } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { OWNER_WITHDRAWAL_SOURCES } from '@/types';
 import { SOURCE_ICONS, SOURCE_TINTS } from './profitIcons';
@@ -28,6 +30,8 @@ export function CashShortagesSection({ month, summaries, employeeNames, busyId, 
   const t = useTranslations('cashShortages');
   const tc = useTranslations('common');
   const { locale } = useAppLocale();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = summaries.find((row) => row.shortage.id === selectedId) ?? null;
   const monthRows = summaries.filter((row) => row.shortage.date.slice(0, 7) === month);
   const totals = cashShortageTotalsForMonth(summaries, month);
   const sides = OWNER_WITHDRAWAL_SOURCES.filter((source) => totals[source].amount > 0);
@@ -105,17 +109,24 @@ export function CashShortagesSection({ month, summaries, employeeNames, busyId, 
                   <TriangleAlert size={18} aria-hidden="true" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="font-semibold text-gray-900">{t(`reasons.${shortage.reason}`)}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(shortage.id)}
+                    className="-mx-1 flex flex-wrap items-center gap-1.5 rounded-md px-1 text-left hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                  >
+                    <span className="font-semibold text-gray-900 underline-offset-2 group-hover:underline">{t(`reasons.${shortage.reason}`)}</span>
                     <Badge size="sm" variant="outline">{t(`sources.${shortage.payment_source}`)}</Badge>
                     <Badge size="sm" variant="outline" icon={<MethodIcon size={12} aria-hidden="true" />}>
                       {tc(`paymentMethods.${shortage.payment_method}`)}
                     </Badge>
-                  </div>
+                    <ChevronRight size={14} aria-hidden="true" className="text-gray-300" />
+                  </button>
                   {employee ? (
                     <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-700">
                       <UserRound size={14} aria-hidden="true" className="shrink-0 text-gray-400" />
-                      {employee}
+                      {shortage.employee_id ? (
+                        <Link href={`/salaries/employees/${shortage.employee_id}`} className="hover:underline">{employee}</Link>
+                      ) : employee}
                     </p>
                   ) : null}
                   <p className="mt-1 flex gap-1.5 text-sm leading-5 text-gray-600">
@@ -169,6 +180,84 @@ export function CashShortagesSection({ month, summaries, employeeNames, busyId, 
           })}
         </ul>
       )}
+
+      {selected ? (
+        <Modal
+          open
+          onClose={() => setSelectedId(null)}
+          size="md"
+          title={t(`reasons.${selected.shortage.reason}`)}
+          footer={(
+            <div className="flex w-full flex-wrap items-center justify-between gap-3">
+              <div className="flex gap-2">
+                <Button
+                  variant="danger"
+                  icon={<Trash2 size={16} />}
+                  loading={busyId === selected.shortage.id}
+                  disabled={disabled}
+                  onClick={() => {
+                    onDelete(selected);
+                    setSelectedId(null);
+                  }}
+                >
+                  {tc('delete')}
+                </Button>
+                {recoverableAmount(selected) > 0 ? (
+                  <Button
+                    variant="outline"
+                    icon={<Undo2 size={15} aria-hidden="true" />}
+                    disabled={disabled}
+                    onClick={() => {
+                      onRecover(selected);
+                      setSelectedId(null);
+                    }}
+                  >
+                    {t('recoverButton')}
+                  </Button>
+                ) : null}
+              </div>
+              <Button variant="secondary" onClick={() => setSelectedId(null)}>{tc('close')}</Button>
+            </div>
+          )}
+        >
+          <p className="text-2xl font-bold tabular-nums text-danger-600">−{money(Number(selected.shortage.amount))}</p>
+          <dl className="mt-5 divide-y divide-gray-100 rounded-xl border border-gray-100 text-sm">
+            {[
+              { label: t('detailsDate'), value: formatDateOnly(selected.shortage.date, locale) },
+              {
+                label: t('detailsTakenFrom'),
+                value: `${t(`sources.${selected.shortage.payment_source}`)} · ${tc(`paymentMethods.${selected.shortage.payment_method}`)}`,
+              },
+              ...(selected.shortage.employee_id
+                ? [{ label: t('detailsEmployee'), value: employeeNames[selected.shortage.employee_id] ?? t('removedEmployee') }]
+                : []),
+              { label: t('recoveredShort'), value: `${formatCurrency(selected.recovered)} ${tc('currency')}` },
+              { label: t('lostShort'), value: `${formatCurrency(selected.lost)} ${tc('currency')}` },
+              { label: t('detailsRecordedAt'), value: formatDateTime(selected.shortage.created_at, locale) },
+              ...(selected.shortage.comment ? [{ label: t('detailsComment'), value: selected.shortage.comment }] : []),
+            ].map((fact) => (
+              <div key={fact.label} className="flex items-start justify-between gap-4 px-4 py-2.5">
+                <dt className="shrink-0 text-gray-500">{fact.label}</dt>
+                <dd className="min-w-0 break-words text-right font-medium text-gray-900">{fact.value}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <ButtonLink
+              href={`/reports?from=${selected.shortage.date}&to=${selected.shortage.date}`}
+              variant="secondary"
+              className="flex-1"
+            >
+              {t('detailsOpenDay')}
+            </ButtonLink>
+            {selected.shortage.employee_id ? (
+              <ButtonLink href={`/salaries/employees/${selected.shortage.employee_id}`} variant="secondary" className="flex-1">
+                {t('detailsOpenEmployee')}
+              </ButtonLink>
+            ) : null}
+          </div>
+        </Modal>
+      ) : null}
     </>
   );
 }

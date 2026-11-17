@@ -3,6 +3,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { CalendarCheck, CircleCheck, Hourglass, WalletCards } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { useRouter } from 'next/navigation';
 import {
   Card,
   CardHeader,
@@ -20,6 +21,7 @@ import { summarizeCollectedMoney, type CollectedDay, type CollectionMark } from 
 import type { MoneyReportDay } from '@/lib/calculations/moneyReport';
 import { formatDateOnly, formatDateTime, formatNumber } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
+import { dayRange, moneyDetailsHref } from '@/lib/detailLinks';
 
 type Method = 'cash' | 'terminal' | 'card' | 'playstation';
 
@@ -36,6 +38,7 @@ export default function CollectedTab({
   loading: boolean;
 }) {
   const t = useTranslations('reports');
+  const router = useRouter();
   const tc = useTranslations('common');
   const { locale } = useAppLocale();
   const summary = useMemo(() => summarizeCollectedMoney(days, collections), [collections, days]);
@@ -153,6 +156,7 @@ export default function CollectedTab({
             columns={columns}
             data={summary.days}
             keyExtractor={(row) => row.date}
+            onRowClick={(row) => router.push(moneyDetailsHref('game_club', dayRange(row.date)))}
             footer={summary.days.length > 0 ? footer : undefined}
             emptyState={<EmptyState compact title={t('collectedEmpty')} />}
           />

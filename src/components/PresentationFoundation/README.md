@@ -29,7 +29,7 @@ import { Button, Card, Field, Input, InlineAlert, PageHeader } from '@/component
 | Dialogs | `Modal`, `Drawer` (animated side panel) |
 | Collapsible help or secondary list | `Disclosure` (native `<details>` with a chevron summary) |
 | "What is this?" beside a heading | `HelpButton` (a `?` that opens a `Modal`; blank lines in `body` start paragraphs) |
-| KPI numbers | `MetricCard` (formatted value), `AmountCard` (money with comparison and an optional `sparkline`), `StatTile` (compact) |
+| KPI numbers | `MetricCard` (formatted value), `AmountCard` (money with comparison and an optional `sparkline`), `StatTile` (compact). Pass `href` (the records behind the figure, built with `@/lib/detailLinks`) or `onClick` (a details sheet) to make one tappable; leave both out for a plain figure |
 | Tiny trend line | `Sparkline` (shape only, takes the text colour; pass at least two values) |
 | Tables | `DataTable` (supports totals row, sticky header, empty state; pass `label` so keyboard users can scroll wide tables; pass `mobileCards` so phones get one card per row instead of a sideways scroll) |
 | Nothing to show | `EmptyState` |

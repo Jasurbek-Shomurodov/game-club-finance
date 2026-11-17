@@ -1,12 +1,14 @@
 'use client';
 
-import { ArrowRight, PackageOpen, Users } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowRight, ChevronRight, PackageOpen, Users } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { ReactNode } from 'react';
 import { Badge, ButtonLink, Card, SectionHeading, Skeleton } from '@/components/PresentationFoundation';
 import { formatCurrency, formatDateShort, formatNumber } from '@/lib/formatters';
 import type { DashboardDebtor } from '@/lib/calculations/dashboardAttention';
 import type { RestockItem } from '@/lib/calculations/productSales';
+import { debtsSearchHref, stockPurchaseHref } from '@/lib/detailLinks';
 
 /** Rows shown before the rest collapse into "+N more". */
 const MAX_ROWS = 5;
@@ -71,6 +73,24 @@ export function DashboardAttention({ lowStock, debtors, loading, locale, currenc
       {label}
     </ButtonLink>
   );
+  /** A row opens what it is about when there is a page to open; otherwise it stays a plain line. */
+  const row = (key: string, href: string | undefined, children: ReactNode) => (
+    <li key={key}>
+      {href ? (
+        <Link
+          href={href}
+          className="-mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-gray-50 focus-visible:bg-primary-50 focus-visible:outline-none"
+        >
+          {children}
+          <ChevronRight size={15} aria-hidden="true" className="shrink-0 text-gray-300" />
+        </Link>
+      ) : (
+        <div className="flex items-center justify-between gap-3 py-2">{children}</div>
+      )}
+    </li>
+  );
+  const productHref = (product: RestockItem) => (stockLink?.href?.startsWith('/stock-purchase') ? stockPurchaseHref(product) : stockLink?.href);
+  const debtorHref = (debtor: DashboardDebtor) => (debtsHref ? debtsSearchHref(debtsHref, debtor.name) : undefined);
   const more = (total: number) => (total > MAX_ROWS ? t('attentionMore', { count: total - MAX_ROWS }) : null);
 
   return (
@@ -85,8 +105,8 @@ export function DashboardAttention({ lowStock, debtors, loading, locale, currenc
         more={more(lowStock.length)}
       >
         {lowStock.slice(0, MAX_ROWS).map((product) => (
-          <li key={product.id} className="flex items-center justify-between gap-3 py-2">
-            <div className="min-w-0">
+          row(product.id, productHref(product), <>
+            <div className="min-w-0 flex-1">
               <p className="break-words text-sm font-medium text-gray-900">{product.name}</p>
               {/* What it sold is shown only when the period's sales were read. */}
               {product.sold !== null && (
@@ -103,7 +123,7 @@ export function DashboardAttention({ lowStock, debtors, loading, locale, currenc
                   ? t('runningLowDays', { count: formatNumber(product.currentStock), days: formatNumber(product.daysLeft) })
                   : t('runningLowLeft', { count: formatNumber(product.currentStock) })}
             </Badge>
-          </li>
+          </>)
         ))}
       </AttentionCard>
 
@@ -117,8 +137,8 @@ export function DashboardAttention({ lowStock, debtors, loading, locale, currenc
         more={more(debtors.length)}
       >
         {debtors.slice(0, MAX_ROWS).map((debtor) => (
-          <li key={debtor.name} className="flex items-center justify-between gap-3 py-2">
-            <div className="min-w-0">
+          row(debtor.name, debtorHref(debtor), <>
+            <div className="min-w-0 flex-1">
               <p className="break-words text-sm font-medium text-gray-900">{debtor.name || t('debtorNoName')}</p>
               <p className="text-xs text-gray-500">
                 {t('debtorSince', { date: formatDateShort(debtor.oldestDate, locale) })}
@@ -128,7 +148,7 @@ export function DashboardAttention({ lowStock, debtors, loading, locale, currenc
             <p className="shrink-0 text-sm font-semibold tabular-nums text-danger-600">
               {formatCurrency(debtor.remaining)} <span className="font-medium text-gray-500">{currency}</span>
             </p>
-          </li>
+          </>)
         ))}
       </AttentionCard>
     </div>

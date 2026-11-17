@@ -1,8 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownToLine, CalendarArrowUp, HandCoins, Layers, PackageMinus, PiggyBank, TriangleAlert, TrendingUp, Undo2, Wallet, type LucideIcon } from 'lucide-react';
+import { ArrowDownToLine, CalendarArrowUp, ChevronRight, HandCoins, Layers, PackageMinus, PiggyBank, TriangleAlert, TrendingUp, Undo2, Wallet, type LucideIcon } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
@@ -91,6 +93,7 @@ import {
   summarizeCashShortages,
   type CashShortageSummary,
 } from '@/lib/calculations/cashShortages';
+import { moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
 
 type MoneySource = OwnerWithdrawalSource | 'all';
 
@@ -626,6 +629,16 @@ export default function MoneyTakenPage() {
     return { value: source, label: t(`sources.${source}`), icon: <Icon size={16} aria-hidden="true" /> };
   });
 
+  const router = useRouter();
+  const monthBounds = monthRange(form.month);
+  const sideDetailsHref = (source: 'game_club' | 'bar') => moneyDetailsHref(source, monthBounds);
+  /** A breakdown row opens the records behind it for the month on screen. */
+  const breakdownHref = (key: string) => {
+    if (key === 'bar') return sideDetailsHref('bar');
+    if (key === 'method:usd') return reportsHref(monthBounds, { category: 'exchange' });
+    if (key === 'method:unassigned') return `/money-taken#withdrawal-history`;
+    return sideDetailsHref('game_club');
+  };
   const breakdownRows: BreakdownRow[] = [
     {
       key: 'game_club',
@@ -1009,18 +1022,22 @@ export default function MoneyTakenPage() {
                       {formatCurrency(overall.available)}
                       <span className="ml-2 text-base font-medium tracking-normal text-gray-500">{tc('currency')}</span>
                     </p>
-                    <dl className="mt-4 flex flex-wrap gap-2 text-[13px]">
-                      <div className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1">
-                        <TrendingUp size={14} aria-hidden="true" className="shrink-0 text-gray-400" />
-                        <dt className="text-gray-500">{t('earnedBeforeWithdrawals')}</dt>
-                        <dd className="font-semibold tabular-nums text-gray-900">{formatCurrency(overall.earned)}</dd>
+                    <div className="mt-4 flex flex-wrap gap-2 text-[13px]">
+                      <div>
+                        <Link href={`/financial-analysis?month=${form.month}`} className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 transition-colors hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+                          <TrendingUp size={14} aria-hidden="true" className="shrink-0 text-gray-400" />
+                          <span className="text-gray-500">{t('earnedBeforeWithdrawals')}</span>
+                          <span className="font-semibold tabular-nums text-gray-900">{formatCurrency(overall.earned)}</span>
+                        </Link>
                       </div>
-                      <div className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1">
-                        <HandCoins size={14} aria-hidden="true" className="shrink-0 text-gray-400" />
-                        <dt className="text-gray-500">{t('monthlyWithdrawn')}</dt>
-                        <dd className="font-semibold tabular-nums text-gray-900">{formatCurrency(overall.withdrawn)}</dd>
+                      <div>
+                        <a href="#withdrawal-history" className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 transition-colors hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+                          <HandCoins size={14} aria-hidden="true" className="shrink-0 text-gray-400" />
+                          <span className="text-gray-500">{t('monthlyWithdrawn')}</span>
+                          <span className="font-semibold tabular-nums text-gray-900">{formatCurrency(overall.withdrawn)}</span>
+                        </a>
                       </div>
-                    </dl>
+                    </div>
                   </>
                 )}
               </div>
@@ -1031,7 +1048,12 @@ export default function MoneyTakenPage() {
                   // How much of what the month earned has already been taken out.
                   const withdrawnShare = side.earned > 0 ? Math.min(100, Math.round((side.withdrawn / side.earned) * 100)) : 0;
                   return (
-                    <div key={side.source} className="min-w-0 rounded-2xl border border-gray-100 bg-gray-50/40 p-4">
+                    <Link
+                      key={side.source}
+                      href={sideDetailsHref(side.source)}
+                      className="group relative block min-w-0 rounded-2xl border border-gray-100 bg-gray-50/40 p-4 transition-[border-color,background-color] hover:border-gray-200 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                    >
+                      <ChevronRight size={15} aria-hidden="true" className="absolute right-3 top-4 text-gray-300 group-hover:text-gray-500" />
                       <div className="flex items-center gap-2.5">
                         <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', SOURCE_TINTS[side.source].bubble)}>
                           <SourceIcon size={16} aria-hidden="true" />
@@ -1100,7 +1122,7 @@ export default function MoneyTakenPage() {
                           ) : null}
                         </>
                       )}
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
@@ -1279,6 +1301,7 @@ export default function MoneyTakenPage() {
                     columns={breakdownColumns}
                     data={breakdownRows}
                     keyExtractor={(row) => row.key}
+                    onRowClick={(row) => router.push(breakdownHref(row.key))}
                     rowClassName={(row) => (row.nested ? 'bg-gray-50/40' : undefined)}
                   />
                 )}
@@ -1326,7 +1349,7 @@ export default function MoneyTakenPage() {
               {loading ? (
                 <TableSkeleton rows={5} columns={4} />
               ) : (
-                <Card as="section" padding="none" className="h-fit overflow-hidden">
+                <Card as="section" padding="none" id="withdrawal-history" className="h-fit scroll-mt-20 overflow-hidden">
                   <WithdrawalHistory
                     rows={historyRows}
                     currentMonth={currentMonth}

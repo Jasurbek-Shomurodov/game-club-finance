@@ -107,7 +107,8 @@ function ProfitStats({ items }: { items: Array<{ label: string; value: string; h
   );
 }
 
-export function OverallAnalysis({ businessToday }: { businessToday: string }) {
+/** `onOpenMonth` switches to the monthly view for a month tapped in the table. */
+export function OverallAnalysis({ businessToday, onOpenMonth }: { businessToday: string; onOpenMonth?: (month: string) => void }) {
   const { selectedClubId, role, featureAccess } = useClub();
   const { locale } = useAppLocale();
   const t = useTranslations('financialAnalysis');
@@ -489,6 +490,7 @@ export function OverallAnalysis({ businessToday }: { businessToday: string }) {
                 columns={columns}
                 data={tableRows}
                 keyExtractor={(row) => row.month}
+                onRowClick={onOpenMonth ? (row) => onOpenMonth(row.month) : undefined}
                 label={t('tableTitle')}
                 dense
               />

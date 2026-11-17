@@ -370,6 +370,7 @@ export default function DashboardPage({
               loading={loading}
               currency={currency}
               label={t('gameClubIncome')}
+              href={pathIfAllowed(`/game-club-money-details`) && `/game-club-money-details?${detailsQuery}`}
               amount={totals.gameClubIncome}
               icon={MonitorSmartphone}
               iconClassName={SIDE_ICON_CLASS.gameClub}
@@ -382,6 +383,7 @@ export default function DashboardPage({
               loading={loading}
               currency={currency}
               label={t('barSales')}
+              href={pathIfAllowed(`/bar-money-details`) && `/bar-money-details?${detailsQuery}`}
               amount={totals.barSales}
               icon={ShoppingBag}
               iconClassName={SIDE_ICON_CLASS.bar}
@@ -395,6 +397,7 @@ export default function DashboardPage({
               loading={loading}
               currency={currency}
               label={t('gameClubNetProfit')}
+              href={pathIfAllowed(`/game-club-money-details`) && `/game-club-money-details?${detailsQuery}`}
               amount={totals.gameClubProfit}
               icon={totals.gameClubProfit < 0 ? ArrowDownRight : ArrowUpRight}
               iconClassName={SIDE_ICON_CLASS.gameClub}
@@ -406,6 +409,7 @@ export default function DashboardPage({
               loading={loading}
               currency={currency}
               label={t('barNetProfit')}
+              href={pathIfAllowed(`/bar-money-details`) && `/bar-money-details?${detailsQuery}`}
               amount={totals.barProfit}
               icon={totals.barProfit < 0 ? ArrowDownRight : ArrowUpRight}
               iconClassName={SIDE_ICON_CLASS.bar}

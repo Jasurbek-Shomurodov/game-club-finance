@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { runWithJwtTimingRetry } from '@/lib/supabase/authRetry';
 import { useSectionTabs } from '@/components/layout/SectionTabs';
@@ -158,6 +159,11 @@ export default function StockPurchasePage() {
   // An untouched form date follows the business day across midnight; a date
   // the user picked is never replaced.
   const dateTouched = useRef(false);
+  // `?product=<id>&quantity=<n>` (from the dashboard's running-low list) opens the form on that product.
+  const searchParams = useSearchParams();
+  const linkedProduct = useRef<{ id: string; quantity: string } | null>(
+    searchParams.get('product') ? { id: searchParams.get('product') ?? '', quantity: searchParams.get('quantity') ?? '' } : null,
+  );
   // Client id reused across retries of one submit, so a save whose response was
   // lost is recorded once. Cleared on edit and on success.
   const purchaseRequestId = useRef<string | null>(null);
@@ -395,6 +401,19 @@ export default function StockPurchasePage() {
     setForm((prev) => ({ ...prev, quantity: String(item.shortfall) }));
     document.getElementById('stock-purchase-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+
+  useEffect(() => {
+    const linked = linkedProduct.current;
+    if (!linked || !canWrite || !products.some((product) => product.id === linked.id)) return;
+    linkedProduct.current = null;
+    selectProduct(linked.id);
+    if (/^\d+$/.test(linked.quantity) && Number(linked.quantity) > 0) {
+      setForm((prev) => ({ ...prev, quantity: linked.quantity }));
+    }
+    document.getElementById('stock-purchase-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // selectProduct reads the current products; it runs once, when they first arrive.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, canWrite]);
 
   async function reloadAfterMutation(nextPage: number) {
     // Independent reads: run them together instead of one after the other.

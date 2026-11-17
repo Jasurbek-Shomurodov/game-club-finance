@@ -1,5 +1,6 @@
 import type { ElementType, ReactNode } from 'react';
-import { ArrowDown, ArrowUp, type LucideIcon } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowDown, ArrowUp, ChevronRight, type LucideIcon } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/formatters';
@@ -48,7 +49,36 @@ export function MetricMoney({ amount, currency }: { amount: number; currency?: s
   );
 }
 
-export interface MetricCardProps {
+/** Makes a card open more detail: a link with `href`, a button with `onClick`, otherwise a plain box. */
+export interface TappableCardProps {
+  /** Where tapping the card goes (a page with the records behind the figure). */
+  href?: string;
+  /** Tapping the card opens something in place, such as a details sheet. */
+  onClick?: () => void;
+}
+
+const tappableClassName =
+  'group relative block w-full text-left transition-[border-color,box-shadow,background-color] hover:border-gray-300 hover:shadow-md ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 active:scale-[0.99]';
+
+function CardShell({ href, onClick, className, children }: TappableCardProps & { className: string; children: ReactNode }) {
+  const chevron = (
+    <ChevronRight
+      size={15}
+      aria-hidden="true"
+      className="absolute right-3 top-3.5 text-gray-300 transition-colors group-hover:text-gray-500 sm:top-4"
+    />
+  );
+  if (href) {
+    return <Link href={href} className={cn(className, tappableClassName)}>{children}{chevron}</Link>;
+  }
+  if (onClick) {
+    return <button type="button" onClick={onClick} className={cn(className, tappableClassName)}>{children}{chevron}</button>;
+  }
+  return <div className={className}>{children}</div>;
+}
+
+export interface MetricCardProps extends TappableCardProps {
   label: ReactNode;
   /** Already formatted value (money, count, percentage); a string rolls into place. */
   value: ReactNode;
@@ -74,10 +104,16 @@ export function MetricCard({
   helper,
   loading = false,
   className,
+  href,
+  onClick,
 }: MetricCardProps) {
   const tc = useTranslations('common');
   return (
-    <div className={cn('min-w-0 rounded-2xl border border-gray-200 bg-surface px-3.5 py-3.5 shadow-card sm:px-5 sm:py-4', className)}>
+    <CardShell
+      href={href}
+      onClick={onClick}
+      className={cn('min-w-0 rounded-2xl border border-gray-200 bg-surface px-3.5 py-3.5 shadow-card sm:px-5 sm:py-4', (href || onClick) && 'pr-8', className)}
+    >
       <div className="flex items-center gap-2">
         {Icon && <Icon size={15} className={cn('shrink-0 text-gray-400', iconClassName)} aria-hidden="true" />}
         <p className="min-w-0 break-words text-[13px] font-medium text-gray-500">{label}</p>
@@ -106,11 +142,11 @@ export function MetricCard({
         </p>
       )}
       {!loading && helper && <p className="mt-1.5 text-xs leading-5 text-gray-500">{helper}</p>}
-    </div>
+    </CardShell>
   );
 }
 
-export interface AmountCardProps {
+export interface AmountCardProps extends TappableCardProps {
   label: string;
   amount: number;
   icon: ElementType;
@@ -144,6 +180,8 @@ export function AmountCard({
   sparkline,
   loading = false,
   tone = 'default',
+  href,
+  onClick,
 }: AmountCardProps) {
   const tc = useTranslations('common');
   const currency = currencyProp ?? tc('currency');
@@ -151,7 +189,11 @@ export function AmountCard({
   const isGood = comparisonGoodWhen === 'up' ? isPositive : typeof comparison?.value === 'number' && comparison.value <= 0;
 
   return (
-    <div className="flex min-w-0 flex-col rounded-2xl border border-gray-200 bg-surface p-4 text-left shadow-card sm:p-5">
+    <CardShell
+      href={href}
+      onClick={onClick}
+      className={cn('flex min-w-0 flex-col rounded-2xl border border-gray-200 bg-surface p-4 text-left shadow-card sm:p-5', (href || onClick) && 'pr-8 sm:pr-8')}
+    >
       <div className="flex items-center gap-2">
         <Icon size={15} className={cn('shrink-0 text-gray-400', iconClassName)} aria-hidden="true" />
         <p className="min-w-0 break-words text-[13px] font-medium text-gray-500">{label}</p>
@@ -196,11 +238,11 @@ export function AmountCard({
           </p>
         </div>
       ) : null}
-    </div>
+    </CardShell>
   );
 }
 
-export interface StatTileProps {
+export interface StatTileProps extends TappableCardProps {
   label: ReactNode;
   value: ReactNode;
   unit?: ReactNode;
@@ -226,14 +268,20 @@ export function StatTile({
   size = 'md',
   align = 'left',
   className,
+  href,
+  onClick,
 }: StatTileProps) {
   return (
-    <div
+    <CardShell
+      href={href}
+      onClick={onClick}
       className={cn(
         'min-w-0 rounded-xl',
         variant === 'card' && 'border border-gray-200 bg-surface px-4 py-3',
         variant === 'soft' && 'bg-gray-50 px-4 py-3',
         align === 'center' && 'text-center',
+        (href || onClick) && 'pr-8',
+        (href || onClick) && variant === 'flat' && 'rounded-lg hover:bg-gray-50',
         className,
       )}
     >
@@ -245,6 +293,6 @@ export function StatTile({
         {value}
         {unit && <span className="ml-1 text-xs font-medium tracking-normal text-gray-500">{unit}</span>}
       </p>
-    </div>
+    </CardShell>
   );
 }

@@ -1062,7 +1062,8 @@
     "loadError": "Не удалось загрузить дневной отчёт. Проверьте подключение и повторите попытку.",
     "gameClubExpenses": "Расходы клуба",
     "gameClubProfit": "Прибыль клуба",
-    "barProfit": "Прибыль бара"
+    "barProfit": "Прибыль бара",
+    "expenseDetails": "Детали расхода"
   },
   "monthlyReport": {
     "title": "Месячный отчёт",
@@ -1433,7 +1434,16 @@
     "takeAll": "Всё",
     "takeAllLabel": "Подставить всю доступную сумму: {amount}",
     "recordButtonAmount": "Снять {amount}",
-    "withdrawnOfEarned": "Снято {withdrawn} из {earned} заработанного"
+    "withdrawnOfEarned": "Снято {withdrawn} из {earned} заработанного",
+    "entryDetails": "Подробности",
+    "detailsWithdrawalTitle": "Вывод прибыли",
+    "detailsCarryoverTitle": "Перенос на следующий месяц",
+    "detailsProfitMonth": "Месяц прибыли",
+    "detailsMovedTo": "Перенесено в",
+    "detailsTakenFrom": "Откуда",
+    "detailsMadeOn": "Записано",
+    "detailsChangedOn": "Изменено",
+    "detailsComment": "Комментарий"
   },
   "calendar": {
     "selectDate": "Выберите дату",
@@ -2509,7 +2519,14 @@
       "migration_required": "Для недостач нужна миграция базы данных 135. Сначала примените её.",
       "forbidden": "Записывать недостачи может только владелец клуба.",
       "failed": "Не удалось сохранить. Проверьте подключение и попробуйте ещё раз."
-    }
+    },
+    "detailsDate": "День",
+    "detailsTakenFrom": "Откуда пропало",
+    "detailsEmployee": "Сотрудник",
+    "detailsRecordedAt": "Записано",
+    "detailsComment": "Комментарий",
+    "detailsOpenDay": "Открыть отчёт за этот день",
+    "detailsOpenEmployee": "Открыть сотрудника"
   },
   "ownerReserve": {
     "sectionTitle": "Резерв",

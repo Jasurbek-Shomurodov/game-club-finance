@@ -1,10 +1,10 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { CalendarArrowUp, CalendarDays, ChevronDown, Clock, History, Layers, MessageSquareText, PiggyBank, Sprout, Trash2 } from 'lucide-react';
+import { CalendarArrowUp, CalendarDays, ChevronDown, ChevronRight, Clock, History, Layers, MessageSquareText, PiggyBank, Sprout, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { Badge, EmptyState, IconButton, SectionHeading, SegmentedControl } from '@/components/PresentationFoundation';
+import { Badge, Button, EmptyState, IconButton, Modal, SectionHeading, SegmentedControl } from '@/components/PresentationFoundation';
 import { reserveForMonth, reservedNet } from '@/lib/calculations/ownerReserve';
 import { investedBySourceForMonth, withdrawnBySourceForMonth, type InvestmentRow } from '@/lib/calculations/ownerProfitSnapshot';
 import { capitalizeFirst, formatCurrency, formatDateTime, formatYearMonth } from '@/lib/formatters';
@@ -69,6 +69,7 @@ export function WithdrawalHistory({
   const baseId = useId();
   const [filter, setFilter] = useState<SourceFilter>('all');
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
+  const [selected, setSelected] = useState<HistoryRow | null>(null);
 
   const entry = (row: HistoryRow) => (row.kind === 'withdrawal' ? row.withdrawal : row.carryover);
   const visibleRows = filter === 'all' ? rows : rows.filter((row) => entry(row).source === filter);
@@ -283,6 +284,12 @@ export function WithdrawalHistory({
                       const MethodIcon = item.payment_method ? METHOD_ICONS[item.payment_method] : null;
                       return (
                         <li key={`${row.kind}:${row.id}`} className="group flex items-start gap-3 px-4 py-3.5 transition hover:bg-gray-50/70 sm:px-5">
+                          <button
+                            type="button"
+                            onClick={() => setSelected(row)}
+                            aria-label={`${t('entryDetails')}: ${deleteLabel(row)}`}
+                            className="flex min-w-0 flex-1 items-start gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                          >
                           <span
                             className={cn(
                               'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
@@ -318,16 +325,18 @@ export function WithdrawalHistory({
                             </p>
                           </div>
 
-                          <div className="flex shrink-0 items-start gap-3">
                             <p
                               className={cn(
-                                'whitespace-nowrap pt-1 text-right text-base font-bold tabular-nums sm:text-lg',
+                                'shrink-0 whitespace-nowrap pt-1 text-right text-base font-bold tabular-nums sm:text-lg',
                                 row.kind === 'carryover' ? 'text-gray-600' : 'text-gray-900',
                               )}
                             >
                               {formatCurrency(item.amount)}
                               <span className="ml-1 text-xs font-medium text-gray-500">{tc('currency')}</span>
                             </p>
+                            <ChevronRight size={15} aria-hidden="true" className="mt-2 shrink-0 text-gray-300" />
+                          </button>
+                          <div className="flex shrink-0 items-start gap-3">
                             {isOwner ? (
                               <IconButton
                                 variant="danger"
@@ -354,6 +363,68 @@ export function WithdrawalHistory({
           })}
         </div>
       )}
+
+      {selected ? (() => {
+        const item = entry(selected);
+        const facts: Array<{ label: string; value: string }> = [
+          {
+            label: t('detailsProfitMonth'),
+            value: capitalizeFirst(formatYearMonth(selected.month, locale), locale),
+          },
+        ];
+        if (selected.kind === 'carryover') {
+          facts.push({ label: t('detailsMovedTo'), value: capitalizeFirst(formatYearMonth(selected.carryover.to_month.slice(0, 7), locale), locale) });
+        }
+        facts.push({
+          label: t('detailsTakenFrom'),
+          value: [t(`sources.${item.source}`), item.payment_method && methodLabel(item.payment_method)].filter(Boolean).join(' · '),
+        });
+        facts.push({ label: t('detailsMadeOn'), value: formatDateTime(item.created_at, locale) });
+        if (selected.kind === 'withdrawal' && selected.withdrawal.updated_at && selected.withdrawal.updated_at !== selected.withdrawal.created_at) {
+          facts.push({ label: t('detailsChangedOn'), value: formatDateTime(selected.withdrawal.updated_at, locale) });
+        }
+        if (item.comment) facts.push({ label: t('detailsComment'), value: item.comment });
+        return (
+          <Modal
+            open
+            onClose={() => setSelected(null)}
+            size="md"
+            title={selected.kind === 'carryover' ? t('detailsCarryoverTitle') : t('detailsWithdrawalTitle')}
+            footer={(
+              <div className="flex w-full items-center justify-between gap-3">
+                {isOwner ? (
+                  <Button
+                    variant="danger"
+                    icon={<Trash2 size={16} />}
+                    loading={deletingId === selected.id}
+                    disabled={deleteDisabled}
+                    onClick={() => {
+                      onDelete(selected);
+                      setSelected(null);
+                    }}
+                  >
+                    {tc('delete')}
+                  </Button>
+                ) : <span />}
+                <Button variant="secondary" onClick={() => setSelected(null)}>{tc('close')}</Button>
+              </div>
+            )}
+          >
+            <p className="text-2xl font-bold tabular-nums text-gray-900">
+              {formatCurrency(item.amount)}
+              <span className="ml-1 text-sm font-medium text-gray-500">{tc('currency')}</span>
+            </p>
+            <dl className="mt-5 divide-y divide-gray-100 rounded-xl border border-gray-100">
+              {facts.map((fact) => (
+                <div key={fact.label} className="flex items-start justify-between gap-4 px-4 py-2.5 text-sm">
+                  <dt className="shrink-0 text-gray-500">{fact.label}</dt>
+                  <dd className="min-w-0 break-words text-right font-medium text-gray-900">{fact.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </Modal>
+        );
+      })() : null}
     </>
   );
 }

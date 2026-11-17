@@ -81,7 +81,7 @@ export function Indicator({ icon, iconClassName, label, value, helper, meter, to
 }
 
 /** Money in, spent and accounting profit for one side of the club; the two sides are never added together. */
-export function SourceCards({ title, icon, iconClassName, incomeLabel, now, before, loading, currency, compare, description }: {
+export function SourceCards({ title, icon, iconClassName, incomeLabel, now, before, loading, currency, compare, description, detailsHref, spentHref }: {
   title: string;
   icon: LucideIcon;
   /** The side's colour, so club and bar cards are told apart at a glance. */
@@ -94,6 +94,10 @@ export function SourceCards({ title, icon, iconClassName, incomeLabel, now, befo
   /** Leave out (with `before`) where there is no earlier period to compare with. */
   compare?: (now: number, before: number) => { value: number | null; label: string };
   description?: string;
+  /** The side's money details for the same period, opened from its income and profit. */
+  detailsHref?: string;
+  /** The expenses behind "spent". */
+  spentHref?: string;
 }) {
   const t = useTranslations('financialAnalysis');
   return (
@@ -102,6 +106,7 @@ export function SourceCards({ title, icon, iconClassName, incomeLabel, now, befo
         <AmountCard
           loading={loading}
           currency={currency}
+          href={detailsHref}
           label={incomeLabel}
           amount={now.income}
           icon={icon}
@@ -112,6 +117,7 @@ export function SourceCards({ title, icon, iconClassName, incomeLabel, now, befo
         <AmountCard
           loading={loading}
           currency={currency}
+          href={spentHref}
           label={t('spent')}
           amount={now.spent}
           icon={ArrowDownRight}
@@ -123,6 +129,7 @@ export function SourceCards({ title, icon, iconClassName, incomeLabel, now, befo
         <AmountCard
           loading={loading}
           currency={currency}
+          href={detailsHref}
           label={t('profit')}
           amount={now.left}
           icon={Wallet}

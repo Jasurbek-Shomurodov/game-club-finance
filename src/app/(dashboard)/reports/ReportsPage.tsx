@@ -3,11 +3,13 @@
 // Route: /reports
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 import {
   ArrowRightLeft,
   Banknote,
   Check,
+  ChevronRight,
   CircleCheck,
   CircleDollarSign,
   CreditCard,
@@ -94,6 +96,7 @@ import { fetchProfileNames } from '@/lib/supabase/profileNames';
 import { fetchDailyCashCollections, type DailyCashCollection } from '@/lib/supabase/dailyCashCollections';
 import type { ExchangeMethod, MoneyExchangeRow } from '@/lib/calculations/moneyExchanges';
 import { EXPENSE_CATEGORIES, MANUAL_EXPENSE_CATEGORIES, isKnownExpenseCategory } from '@/lib/expenseCategories';
+import { moneyDetailsHref } from '@/lib/detailLinks';
 
 const emptyReportRows = {
   cash: [] as MoneyReportCashRow[],
@@ -154,15 +157,21 @@ function SummaryCard({
   icon,
   tone,
   loading = false,
+  href,
+  onClick,
 }: {
   label: string;
   value: number;
   icon: LucideIcon;
   tone: MetricTone;
   loading?: boolean;
+  href?: string;
+  onClick?: () => void;
 }) {
   return (
     <MetricCard
+      href={href}
+      onClick={onClick}
       label={label}
       value={<Money amount={value} currencyClassName="text-sm font-medium tracking-normal text-gray-500" />}
       tone={tone}
@@ -182,7 +191,9 @@ function PaymentCard({
   exchangedInLabel,
   exchangedOutLabel,
   leftLabel,
+  href,
 }: {
+  href: string;
   label: string;
   data: MoneyReportPaymentBreakdown;
   icon: LucideIcon;
@@ -194,7 +205,12 @@ function PaymentCard({
   leftLabel: string;
 }) {
   return (
-    <Card as="article">
+    <Link
+      href={href}
+      className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+    >
+    <Card as="article" className="relative h-full transition-[border-color,box-shadow] group-hover:border-gray-300 group-hover:shadow-md">
+      <ChevronRight size={15} aria-hidden="true" className="absolute right-3 top-4 text-gray-300 group-hover:text-gray-500" />
       <div className="flex items-center gap-2">
         <Icon size={15} className="shrink-0 text-gray-400" aria-hidden="true" />
         <h3 className="text-[13px] font-medium text-gray-500">{label}</h3>
@@ -242,6 +258,7 @@ function PaymentCard({
         )}
       </dl>
     </Card>
+    </Link>
   );
 }
 
@@ -323,6 +340,13 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     }
   }, [view]);
   const [sourceFilter, setSourceFilter] = useState<ExpenseSourceFilter>(() => requestedSourceFilter(requestedSource));
+  /** A summary card narrows the closeout to the entries behind its figure and scrolls to them. */
+  const showCloseout = (category: MoneyReportCategoryFilter, source: ExpenseSourceFilter) => {
+    setCategoryFilter(category);
+    setSourceFilter(source);
+    setCollectionFilter('all');
+    document.getElementById('report-closeout')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   useEffect(() => {
     setSourceFilter(requestedSourceFilter(requestedSource));
   }, [requestedSource]);
@@ -1095,10 +1119,10 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       {hasReportsAccess && !loadFailed && view === 'closeout' && (
         <>
           <section className={cn(metricGridClassName, 'sm:grid-cols-2 xl:grid-cols-4')}>
-            <SummaryCard loading={loading} label={t('totalCollected')} value={report.totalCollected} icon={WalletCards} tone="success" />
-            <SummaryCard loading={loading} label={t('gameClubExpenses')} value={report.gameClubExpenses} icon={ReceiptText} tone="danger" />
-            <SummaryCard loading={loading} label={t('gameClubLeft')} value={report.gameClubLeft} icon={CircleDollarSign} tone={toneForAmount(report.gameClubLeft, 'default')} />
-            <SummaryCard loading={loading} label={t('barCashLeft')} value={report.barLeft} icon={Banknote} tone={toneForAmount(report.barLeft, 'default')} />
+            <SummaryCard loading={loading} onClick={() => showCloseout('income', null)} label={t('totalCollected')} value={report.totalCollected} icon={WalletCards} tone="success" />
+            <SummaryCard loading={loading} onClick={() => showCloseout('expense', 'game_club')} label={t('gameClubExpenses')} value={report.gameClubExpenses} icon={ReceiptText} tone="danger" />
+            <SummaryCard loading={loading} href={moneyDetailsHref('game_club', range)} label={t('gameClubLeft')} value={report.gameClubLeft} icon={CircleDollarSign} tone={toneForAmount(report.gameClubLeft, 'default')} />
+            <SummaryCard loading={loading} href={moneyDetailsHref('bar', range)} label={t('barCashLeft')} value={report.barLeft} icon={Banknote} tone={toneForAmount(report.barLeft, 'default')} />
           </section>
 
           <section>
@@ -1117,6 +1141,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                 }).map((card) => (
                   <PaymentCard
                     key={card.method}
+                    href={moneyDetailsHref('game_club', range)}
                     label={card.label}
                     icon={card.icon}
                     data={paymentCardData[card.method]}
@@ -1129,7 +1154,13 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                   />
                 ))}
                 {report.usd !== 0 && (
-                  <Card as="article">
+                  <button
+                    type="button"
+                    onClick={() => showCloseout('exchange', null)}
+                    className="group block rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                  >
+                  <Card as="article" className="relative h-full transition-[border-color,box-shadow] group-hover:border-gray-300 group-hover:shadow-md">
+                    <ChevronRight size={15} aria-hidden="true" className="absolute right-3 top-4 text-gray-300 group-hover:text-gray-500" />
                     <div className="flex items-center gap-2">
                       <CircleDollarSign size={15} className="shrink-0 text-gray-400" aria-hidden="true" />
                       <h3 className="text-[13px] font-medium text-gray-500">{t('usd')}</h3>
@@ -1139,12 +1170,13 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                     </p>
                     <p className="mt-1 text-xs text-gray-500">{t('usdHeld')}</p>
                   </Card>
+                  </button>
                 )}
               </div>
             )}
           </section>
 
-          <Card as="section" padding="none" className="overflow-hidden">
+          <Card as="section" padding="none" className="scroll-mt-20 overflow-hidden" id="report-closeout">
             <CardHeader>
               <SectionHeading
                 title={t('dailyCloseout')}

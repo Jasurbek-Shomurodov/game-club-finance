@@ -3,8 +3,9 @@
 // Route: /daily-report
 
 import { cn } from '@/lib/utils';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useClub } from '@/components/layout/DashboardShell';
 import { ReportsTabs } from '../reports/ReportsTabs';
@@ -17,6 +18,7 @@ import {
   LoadErrorAlert,
   MetricCard,
   MetricGridSkeleton,
+  Modal,
   Money,
   PageHeader,
   SectionHeading,
@@ -30,10 +32,14 @@ import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { formatCurrency, formatNumber } from '@/lib/formatters';
+import { isoDateParam } from '@/lib/utils';
+import { useAppLocale } from '@/components/i18n/AppLocaleContext';
+import { PaymentDetails } from '@/components/financial-analysis/PaymentDetails';
 import { calculateFinancialReportTotals, calculateManualIncome } from '@/lib/calculations/dailyReport';
 import { loadFinanceReportRows, type FinanceStockCountRow } from '@/lib/supabase/financeReportSnapshot';
-import { FileText, TrendingUp, TrendingDown, DollarSign, Users } from 'lucide-react';
+import { ChevronRight, FileText, TrendingUp, TrendingDown, DollarSign, Users } from 'lucide-react';
 import type { DailyCashEntry, Expense, StockPurchase } from '@/types';
+import { closingStockHref, dayRange, moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
 
 interface DailyReportData {
   cashEntry: DailyCashEntry | null;
@@ -53,6 +59,17 @@ export default function DailyReportPage() {
 
   const businessToday = useBusinessToday(businessDayStartHour);
   const [date, setDate] = useBusinessPeriod(businessToday, selectedClubId);
+  const router = useRouter();
+  const { locale } = useAppLocale();
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  // `?date=YYYY-MM-DD` (from a Monthly Report row) opens that day once.
+  const searchParams = useSearchParams();
+  const linkedDate = useRef(isoDateParam(searchParams.get('date')));
+  useEffect(() => {
+    const linked = linkedDate.current;
+    linkedDate.current = null;
+    if (linked && linked <= businessToday) setDate(linked);
+  }, [businessToday, setDate]);
 
   const loadReport = useCallback(async () => {
     if (!selectedClubId) return EMPTY_REPORT;
@@ -83,19 +100,23 @@ export default function DailyReportPage() {
 
   const hasData = cashEntry !== null || stockCounts.length > 0 || stockPurchases.length > 0 || expenses.length > 0 || debtIncome > 0;
   const currency = tc('currency');
+  const expenseLabel = (category: string) => (te.has(`categories.${category}`) ? te(`categories.${category}` as Parameters<typeof te>[0]) : category);
 
   // The game club and the bar are separate businesses: one row each, never added together.
+  const day = dayRange(date);
+  const gameClubHref = moneyDetailsHref('game_club', day);
+  const barHref = moneyDetailsHref('bar', day);
   const kpis = [
-    { label: t('manualIncome'), amount: manualIncome, icon: TrendingUp, tone: 'success' as const },
-    { label: t('debtIncome'), amount: debtIncome, icon: Users, tone: 'warning' as const },
-    { label: t('gameClubExpenses'), amount: reportTotals.gameClubExpenses, icon: TrendingDown, tone: 'danger' as const },
-    { label: t('gameClubProfit'), amount: reportTotals.gameClubProfit, icon: DollarSign, tone: toneForAmount(reportTotals.gameClubProfit) },
-    { label: t('barSales'), amount: reportTotals.barSales, icon: TrendingUp, tone: 'success' as const },
-    { label: t('costOfGoodsSold'), amount: reportTotals.barCost, icon: TrendingDown, tone: 'danger' as const },
-    { label: t('barExpenses'), amount: reportTotals.barExpenses, icon: TrendingDown, tone: 'danger' as const },
-    { label: t('barProfit'), amount: reportTotals.barProfit, icon: DollarSign, tone: toneForAmount(reportTotals.barProfit) },
-    { label: t('inventoryPurchases'), amount: reportTotals.stockPurchaseCost, icon: TrendingDown, tone: 'danger' as const },
-    { label: t('barCashLeft'), amount: reportTotals.barCashLeft, icon: DollarSign, tone: toneForAmount(reportTotals.barCashLeft) },
+    { href: reportsHref(day, { category: 'income' }), label: t('manualIncome'), amount: manualIncome, icon: TrendingUp, tone: 'success' as const },
+    { href: reportsHref(day, { category: 'debt_payment' }), label: t('debtIncome'), amount: debtIncome, icon: Users, tone: 'warning' as const },
+    { href: reportsHref(day, { category: 'expense', source: 'game_club' }), label: t('gameClubExpenses'), amount: reportTotals.gameClubExpenses, icon: TrendingDown, tone: 'danger' as const },
+    { href: gameClubHref, label: t('gameClubProfit'), amount: reportTotals.gameClubProfit, icon: DollarSign, tone: toneForAmount(reportTotals.gameClubProfit) },
+    { href: closingStockHref(date), label: t('barSales'), amount: reportTotals.barSales, icon: TrendingUp, tone: 'success' as const },
+    { href: closingStockHref(date), label: t('costOfGoodsSold'), amount: reportTotals.barCost, icon: TrendingDown, tone: 'danger' as const },
+    { href: reportsHref(day, { category: 'expense', source: 'bar' }), label: t('barExpenses'), amount: reportTotals.barExpenses, icon: TrendingDown, tone: 'danger' as const },
+    { href: barHref, label: t('barProfit'), amount: reportTotals.barProfit, icon: DollarSign, tone: toneForAmount(reportTotals.barProfit) },
+    { href: barHref, label: t('inventoryPurchases'), amount: reportTotals.stockPurchaseCost, icon: TrendingDown, tone: 'danger' as const },
+    { href: barHref, label: t('barCashLeft'), amount: reportTotals.barCashLeft, icon: DollarSign, tone: toneForAmount(reportTotals.barCashLeft) },
   ];
 
   const cashBreakdown = cashEntry
@@ -136,7 +157,7 @@ export default function DailyReportPage() {
         <div className="space-y-6">
           <div className={cn(metricGridClassName, 'sm:grid-cols-2 sm:gap-4 lg:grid-cols-4')}>
             {kpis.map((kpi) => (
-              <MetricCard key={kpi.label} label={kpi.label} value={<MetricMoney amount={kpi.amount} currency={currency} />} icon={kpi.icon} tone={kpi.tone} />
+              <MetricCard key={kpi.label} href={kpi.href} label={kpi.label} value={<MetricMoney amount={kpi.amount} currency={currency} />} icon={kpi.icon} tone={kpi.tone} />
             ))}
           </div>
           <p className="text-xs text-gray-500">{t('barCashFormula')}</p>
@@ -146,7 +167,7 @@ export default function DailyReportPage() {
               <SectionHeading size="sm" title={t('cashEntry')} />
               <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
                 {cashBreakdown.map((item) => (
-                  <StatTile key={item.label} label={item.label} value={formatCurrency(item.amount)} unit={currency} variant="soft" size="sm" />
+                  <StatTile key={item.label} href={reportsHref(day, { category: 'income' })} label={item.label} value={formatCurrency(item.amount)} unit={currency} variant="soft" size="sm" />
                 ))}
               </div>
               {cashEntry.comment && <p className="mt-3 text-sm text-gray-500">{cashEntry.comment}</p>}
@@ -165,6 +186,7 @@ export default function DailyReportPage() {
                 label={t('stockSummary')}
                 minWidth={680}
                 keyExtractor={(row) => row.id}
+                onRowClick={() => router.push(closingStockHref(date))}
                 data={stockCounts}
                 columns={[
                   { key: 'product', header: t('product'), className: 'sticky left-0 z-10 bg-gray-50', cellClassName: 'bg-surface', render: (row) => <span className="font-medium text-gray-900">{row.product_name ?? row.product_id}</span> },
@@ -189,12 +211,21 @@ export default function DailyReportPage() {
               <SectionHeading size="sm" title={t('expensesList')} />
               <ul className="mt-3 divide-y divide-gray-100">
                 {expenses.map((e) => (
-                  <li key={e.id} className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:justify-between">
-                    <span className="text-gray-600">
-                      {te.has(`categories.${e.category}`) ? te(`categories.${e.category}` as Parameters<typeof te>[0]) : e.category}
-                      {e.comment ? ` · ${e.comment}` : ''}
-                    </span>
-                    <span className="font-medium text-danger-600"><Money amount={e.amount} /></span>
+                  <li key={e.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedExpense(e)}
+                      className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-2 rounded-lg px-2 py-2 text-left text-sm transition-colors hover:bg-gray-50 focus-visible:bg-primary-50 focus-visible:outline-none"
+                    >
+                      <span className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:justify-between">
+                        <span className="text-gray-600">
+                          {expenseLabel(e.category)}
+                          {e.comment ? ` · ${e.comment}` : ''}
+                        </span>
+                        <span className="font-medium text-danger-600"><Money amount={e.amount} /></span>
+                      </span>
+                      <ChevronRight size={15} aria-hidden="true" className="shrink-0 text-gray-300" />
+                    </button>
                   </li>
                 ))}
                 <li className="flex flex-col gap-1 pt-3 text-sm font-semibold sm:flex-row sm:justify-between">
@@ -210,6 +241,12 @@ export default function DailyReportPage() {
           )}
         </div>
       )}
+
+      <Modal open={Boolean(selectedExpense)} onClose={() => setSelectedExpense(null)} title={t('expenseDetails')}>
+        {selectedExpense && (
+          <PaymentDetails row={selectedExpense} labelFor={expenseLabel} locale={locale} currency={currency} />
+        )}
+      </Modal>
     </div>
   );
 }

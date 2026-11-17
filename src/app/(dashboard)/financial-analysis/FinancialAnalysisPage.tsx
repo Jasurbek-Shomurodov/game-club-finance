@@ -61,6 +61,7 @@ import { CategoryDrawer } from '@/components/financial-analysis/CategoryDrawer';
 import { Indicator, Section, SourceCards } from '@/components/financial-analysis/AnalysisSections';
 import { OverallAnalysis } from '@/components/financial-analysis/OverallAnalysis';
 import { categoryColors, formatShare, SIDE_ICON_CLASS } from '@/components/financial-analysis/analysisFormat';
+import { moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
 
 function ChartLoading() {
   return <ChartSkeleton />;
@@ -170,7 +171,16 @@ export default function FinancialAnalysisPage() {
       />
       {view === 'monthly'
         ? <MonthlyAnalysis range={range} businessToday={businessToday} />
-        : <OverallAnalysis businessToday={businessToday} />}
+        : (
+          <OverallAnalysis
+            businessToday={businessToday}
+            onOpenMonth={(nextMonth) => {
+              setMonth(nextMonth);
+              setView('monthly');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        )}
     </div>
   );
 }
@@ -330,6 +340,8 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
         <>
           <SourceCards
             title={td('gameClub')}
+            detailsHref={moneyDetailsHref('game_club', range)}
+            spentHref={reportsHref(range, { category: 'expense', source: 'game_club' })}
             icon={MonitorSmartphone}
             iconClassName={SIDE_ICON_CLASS.gameClub}
             incomeLabel={t('moneyIn')}
@@ -341,6 +353,8 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
           />
           <SourceCards
             title={td('bar')}
+            detailsHref={moneyDetailsHref('bar', range)}
+            spentHref={reportsHref(range, { category: 'expense', source: 'bar' })}
             icon={ShoppingBag}
             iconClassName={SIDE_ICON_CLASS.bar}
             incomeLabel={t('barSalesIn')}
@@ -412,6 +426,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
                         icon={MonitorSmartphone}
                         iconClassName={SIDE_ICON_CLASS.gameClub}
                         side={plans.gameClub}
+                        rowHref={(row) => reportsHref(range, { category: `expense:${row.preset.category}`, source: row.preset.payment_source })}
                         currency={currency}
                         locale={locale}
                       />
@@ -422,6 +437,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
                         icon={ShoppingBag}
                         iconClassName={SIDE_ICON_CLASS.bar}
                         side={plans.bar}
+                        rowHref={(row) => reportsHref(range, { category: `expense:${row.preset.category}`, source: row.preset.payment_source })}
                         currency={currency}
                         locale={locale}
                       />

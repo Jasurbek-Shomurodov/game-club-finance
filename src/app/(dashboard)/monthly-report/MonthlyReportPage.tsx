@@ -4,6 +4,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useClub } from '@/components/layout/DashboardShell';
 import { ReportsTabs } from '../reports/ReportsTabs';
@@ -33,6 +34,7 @@ import { calculateFinancialReportTotals, calculateManualIncome } from '@/lib/cal
 import { loadFinanceReportRows, type FinanceReportRows } from '@/lib/supabase/financeReportSnapshot';
 import { BarChart2, Download } from 'lucide-react';
 import { csvFileName, csvSeparatorForLocale, downloadCsv, toCsv } from '@/lib/csv';
+import { dailyReportHref, moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
 
 interface DayRow {
   date: string;
@@ -125,6 +127,7 @@ export default function MonthlyReportPage() {
   // Business dates are ISO strings, so the business month is their YYYY-MM prefix.
   const businessYearMonth = useBusinessToday(businessDayStartHour).slice(0, 7);
   const [month, setMonth] = useBusinessPeriod(businessYearMonth, selectedClubId);
+  const router = useRouter();
 
   const loadRows = useCallback(async () => {
     if (!selectedClubId) return [];
@@ -176,16 +179,19 @@ export default function MonthlyReportPage() {
   const danger = (amount: number) => <span className="text-danger-600">{formatCurrency(amount)}</span>;
 
   // The game club and the bar are separate businesses: one row each, never added together.
+  const monthBounds = monthRange(month);
+  const gameClubHref = moneyDetailsHref('game_club', monthBounds);
+  const barHref = moneyDetailsHref('bar', monthBounds);
   const summaryCards = [
-    { label: t('gameClubIncome'), amount: totals.manualIncome + totals.debtIncome, tone: 'success' as const },
-    { label: t('gameClubExpenses'), amount: totals.gameClubExpenses, tone: 'danger' as const },
-    { label: t('gameClubProfit'), amount: totals.gameClubProfit, tone: toneForAmount(totals.gameClubProfit) },
-    { label: t('inventoryPurchases'), amount: totals.stockPurchaseCost, tone: 'danger' as const },
-    { label: t('barSales'), amount: totals.barSales, tone: 'success' as const },
-    { label: t('costOfGoodsSold'), amount: totals.barCost, tone: 'danger' as const },
-    { label: t('barExpenses'), amount: totals.barExpenses, tone: 'danger' as const },
-    { label: t('barProfit'), amount: totals.barProfit, tone: toneForAmount(totals.barProfit) },
-    { label: t('barCashLeft'), amount: totals.barCashLeft, tone: toneForAmount(totals.barCashLeft) },
+    { href: gameClubHref, label: t('gameClubIncome'), amount: totals.manualIncome + totals.debtIncome, tone: 'success' as const },
+    { href: reportsHref(monthBounds, { category: 'expense', source: 'game_club' }), label: t('gameClubExpenses'), amount: totals.gameClubExpenses, tone: 'danger' as const },
+    { href: gameClubHref, label: t('gameClubProfit'), amount: totals.gameClubProfit, tone: toneForAmount(totals.gameClubProfit) },
+    { href: barHref, label: t('inventoryPurchases'), amount: totals.stockPurchaseCost, tone: 'danger' as const },
+    { href: barHref, label: t('barSales'), amount: totals.barSales, tone: 'success' as const },
+    { href: barHref, label: t('costOfGoodsSold'), amount: totals.barCost, tone: 'danger' as const },
+    { href: reportsHref(monthBounds, { category: 'expense', source: 'bar' }), label: t('barExpenses'), amount: totals.barExpenses, tone: 'danger' as const },
+    { href: barHref, label: t('barProfit'), amount: totals.barProfit, tone: toneForAmount(totals.barProfit) },
+    { href: barHref, label: t('barCashLeft'), amount: totals.barCashLeft, tone: toneForAmount(totals.barCashLeft) },
   ];
 
   return (
@@ -222,7 +228,7 @@ export default function MonthlyReportPage() {
         <div className="space-y-4">
           <div className={cn(metricGridClassName, 'sm:grid-cols-2 sm:gap-4 lg:grid-cols-4')}>
             {summaryCards.map((card) => (
-              <MetricCard key={card.label} label={card.label} value={<MetricMoney amount={card.amount} currency={currency} />} tone={card.tone} />
+              <MetricCard key={card.label} href={card.href} label={card.label} value={<MetricMoney amount={card.amount} currency={currency} />} tone={card.tone} />
             ))}
           </div>
           <p className="text-xs text-gray-500">{t('barCashFormula')}</p>
@@ -233,6 +239,7 @@ export default function MonthlyReportPage() {
             label={t('title')}
             minWidth={1460}
             keyExtractor={(row) => row.date}
+            onRowClick={(row) => router.push(dailyReportHref(row.date))}
             data={rows}
             columns={[
               { key: 'date', header: t('date'), className: 'sticky left-0 z-[25] bg-gray-50', cellClassName: 'z-10 bg-surface', render: (row) => <span className="font-medium text-gray-700">{formatDate(row.date, locale)}</span> },
