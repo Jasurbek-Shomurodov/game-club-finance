@@ -20,7 +20,6 @@ import {
 } from './dashboardMetrics';
 import type { AnalysisLedgers } from './financialAnalysis';
 import { summarizeDebtors, type DashboardDebtor } from './dashboardAttention';
-import { listLowStockProducts, type LowStockProduct } from './stock';
 
 export interface DashboardDebtRow {
   id: string;
@@ -48,6 +47,10 @@ export interface DashboardSnapshotPayload {
   products: Product[];
 }
 
+/** A product as the dashboard's restock list reads it; the rest of the row stays on the server. */
+export type DashboardStockProduct = Pick<Product, 'id' | 'name' | 'current_stock' | 'tracks_inventory' | 'is_active' | 'is_deleted'>
+  & { low_stock_threshold: number | null };
+
 export interface DashboardData {
   totals: DashboardTotals;
   previousTotals: DashboardTotals;
@@ -55,8 +58,8 @@ export interface DashboardData {
   hasInventoryComparisonData: boolean;
   trend: TrendRow[];
   lowStockCount: number;
-  /** Active, tracked products at or below their threshold; out of stock first. */
-  lowStockProducts: LowStockProduct[];
+  /** The catalog fields the restock list needs (`buildRestockList`). */
+  stockProducts: DashboardStockProduct[];
   /** People with unpaid debts, largest balance first. */
   debtors: DashboardDebtor[];
   /** Dates of the period with a saved daily cash entry. */
@@ -86,7 +89,7 @@ export const emptyDashboardData: DashboardData = {
   hasInventoryComparisonData: false,
   trend: [],
   lowStockCount: 0,
-  lowStockProducts: [],
+  stockProducts: [],
   debtors: [],
   cashEntryDates: [],
   stockEntryDates: [],
@@ -214,7 +217,15 @@ export function buildDashboardDataFromSnapshot({
       (product) => product.tracks_inventory !== false
         && product.current_stock <= (product.low_stock_threshold ?? 5),
     ).length,
-    lowStockProducts: listLowStockProducts(payload.products),
+    stockProducts: payload.products.map((product) => ({
+      id: product.id,
+      name: product.name,
+      current_stock: product.current_stock,
+      low_stock_threshold: product.low_stock_threshold ?? null,
+      tracks_inventory: product.tracks_inventory,
+      is_active: product.is_active,
+      is_deleted: product.is_deleted,
+    })),
     debtors: summarizeDebtors(activeDebts),
     cashEntryDates: [...new Set(cashRows.map((row) => row.date))].sort(),
     stockEntryDates: [...new Set(stockRows.map((row) => row.date))].sort(),

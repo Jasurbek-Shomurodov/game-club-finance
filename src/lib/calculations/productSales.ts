@@ -1,3 +1,5 @@
+import { stockLevel, type StockLevel } from './stock';
+
 /** One product's bar sales over a period, as `get_bar_product_sales` returns them. */
 export interface ProductSalesRow {
   product_id: string;
@@ -112,4 +114,61 @@ export function sumProductSalesRows(
     entry.row.days_counted = entry.dates.size;
   }
   return [...byProduct.values()].map((entry) => entry.row);
+}
+
+export interface RestockItem {
+  id: string;
+  name: string;
+  currentStock: number;
+  level: StockLevel;
+  /** Units sold in the period; null when its sales are not known. */
+  sold: number | null;
+  /** Units missing to cover `horizonDays` at the recent pace; 0 when the stock covers it or nothing sold. */
+  shortfall: number;
+  /** Whole days the stock lasts at that pace; null when it did not sell or the pace is unknown. */
+  daysLeft: number | null;
+}
+
+interface RestockProduct extends StockedProduct {
+  name: string;
+  low_stock_threshold: number | string | null;
+  is_active?: boolean | null;
+  is_deleted?: boolean | null;
+}
+
+/**
+ * What to buy, most urgent first: products on sale that are out of stock, at
+ * or below their low-stock level, or will run out within `horizonDays` at
+ * their recent pace. They are ordered by how many units are missing to cover
+ * those days, so an empty shelf of a best seller comes before one of a product
+ * that sold twice a month, and both before an empty shelf nobody buys from.
+ * A product that was out of stock for the whole period shows no sales and so
+ * ranks low: the list measures demand that was seen, not demand that was lost.
+ * Without sales data (`summary` null) it is the plain low-stock list, lowest
+ * stock first.
+ */
+export function buildRestockList(
+  products: ReadonlyArray<RestockProduct>,
+  summary: ProductSalesSummary | null,
+  horizonDays = 7,
+): RestockItem[] {
+  const known = summary !== null && summary.countedDays > 0;
+  const items: RestockItem[] = [];
+  for (const product of products) {
+    if (product.is_active === false || product.is_deleted === true || product.tracks_inventory === false) continue;
+    const currentStock = amount(product.current_stock);
+    const threshold = product.low_stock_threshold === null ? null : Number(product.low_stock_threshold);
+    const level = stockLevel(currentStock, threshold);
+    const insight = known ? summary.byProduct.get(product.id) : undefined;
+    const daysLeft = insight?.daysLeft ?? null;
+    if (level === 'ok' && (daysLeft === null || daysLeft > horizonDays)) continue;
+    const shortfall = Math.max(0, Math.ceil((insight?.perDay ?? 0) * horizonDays - Math.max(0, currentStock)));
+    items.push({ id: product.id, name: product.name, currentStock, level, sold: known ? insight?.sold ?? 0 : null, shortfall, daysLeft });
+  }
+  return items.sort((a, b) => (
+    b.shortfall - a.shortfall
+    || (b.sold ?? 0) - (a.sold ?? 0)
+    || a.currentStock - b.currentStock
+    || a.name.localeCompare(b.name, 'ru')
+  ));
 }

@@ -168,7 +168,11 @@
     "debtorNoName": "Ismsiz",
     "debtorSince": "{date} dan",
     "debtorCount": "{count} ta qarz",
-    "attentionMore": "Yana {count} ta"
+    "attentionMore": "Yana {count} ta",
+    "runningLowNoSales": "30 kunda sotilmagan",
+    "runningLowDays": "{count} ta qoldi · taxminan {days} kunga",
+    "runningLowSold": "30 kunda {count} ta sotilgan",
+    "runningLowNeed": "bir haftaga yana taxminan {count} ta kerak"
   },
   "financialAnalysis": {
     "title": "Moliyaviy tahlil",

@@ -168,7 +168,11 @@
     "debtorNoName": "No name",
     "debtorSince": "since {date}",
     "debtorCount": "{count} debts",
-    "attentionMore": "+{count} more"
+    "attentionMore": "+{count} more",
+    "runningLowNoSales": "no sales in 30 days",
+    "runningLowDays": "{count} left · about {days} days",
+    "runningLowSold": "sold {count} in 30 days",
+    "runningLowNeed": "about {count} more needed for a week"
   },
   "financialAnalysis": {
     "title": "Financial Analysis",

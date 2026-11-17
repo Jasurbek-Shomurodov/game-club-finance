@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { Badge, ButtonLink, Card, SectionHeading, Skeleton } from '@/components/PresentationFoundation';
 import { formatCurrency, formatDateShort, formatNumber } from '@/lib/formatters';
 import type { DashboardDebtor } from '@/lib/calculations/dashboardAttention';
-import type { LowStockProduct } from '@/lib/calculations/stock';
+import type { RestockItem } from '@/lib/calculations/productSales';
 
 /** Rows shown before the rest collapse into "+N more". */
 const MAX_ROWS = 5;
@@ -54,7 +54,8 @@ function AttentionCard({ title, icon, count, loading, empty, action, more, child
  * so the cards add no request.
  */
 export function DashboardAttention({ lowStock, debtors, loading, locale, currency, stockLink, debtsHref }: {
-  lowStock: LowStockProduct[];
+  /** What to buy, most urgent first (`buildRestockList`). */
+  lowStock: RestockItem[];
   debtors: DashboardDebtor[];
   loading: boolean;
   locale: string;
@@ -84,10 +85,23 @@ export function DashboardAttention({ lowStock, debtors, loading, locale, currenc
         more={more(lowStock.length)}
       >
         {lowStock.slice(0, MAX_ROWS).map((product) => (
-          <li key={product.name} className="flex items-center justify-between gap-3 py-2">
-            <p className="min-w-0 break-words text-sm font-medium text-gray-900">{product.name}</p>
-            <Badge variant={product.level === 'out' ? 'danger' : 'warning'} size="sm">
-              {product.level === 'out' ? t('runningLowOut') : t('runningLowLeft', { count: formatNumber(product.currentStock) })}
+          <li key={product.id} className="flex items-center justify-between gap-3 py-2">
+            <div className="min-w-0">
+              <p className="break-words text-sm font-medium text-gray-900">{product.name}</p>
+              {/* What it sold is shown only when the period's sales were read. */}
+              {product.sold !== null && (
+                <p className="text-xs text-gray-500">
+                  {product.sold > 0 ? t('runningLowSold', { count: formatNumber(product.sold) }) : t('runningLowNoSales')}
+                  {product.shortfall > 0 ? ` · ${t('runningLowNeed', { count: formatNumber(product.shortfall) })}` : ''}
+                </p>
+              )}
+            </div>
+            <Badge variant={product.level === 'out' ? 'danger' : 'warning'} size="sm" className="shrink-0">
+              {product.level === 'out'
+                ? t('runningLowOut')
+                : product.daysLeft !== null
+                  ? t('runningLowDays', { count: formatNumber(product.currentStock), days: formatNumber(product.daysLeft) })
+                  : t('runningLowLeft', { count: formatNumber(product.currentStock) })}
             </Badge>
           </li>
         ))}

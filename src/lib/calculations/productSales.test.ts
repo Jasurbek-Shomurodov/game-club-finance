@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildProductSalesSummary, salesPeriodStart, sumProductSalesRows } from './productSales';
+import { buildProductSalesSummary, buildRestockList, salesPeriodStart, sumProductSalesRows } from './productSales';
 
 const products = [
   { id: 'cola', current_stock: 20, tracks_inventory: true },
@@ -64,5 +64,69 @@ describe('sumProductSalesRows', () => {
       { product_id: 'cola', sold_quantity: 5, bar_income: 50, bar_cost: 12, days_counted: 2 },
       { product_id: 'chips', sold_quantity: 1, bar_income: 8, bar_cost: 5, days_counted: 1 },
     ]);
+  });
+});
+
+describe('buildRestockList', () => {
+  const catalog = [
+    { id: 'cola', name: 'Cola', current_stock: 0, low_stock_threshold: 5, tracks_inventory: true, is_active: true },
+    { id: 'water', name: 'Water', current_stock: 12, low_stock_threshold: 5, tracks_inventory: true, is_active: true },
+    { id: 'chips', name: 'Chips', current_stock: 3, low_stock_threshold: 5, tracks_inventory: true, is_active: true },
+    { id: 'gum', name: 'Gum', current_stock: 0, low_stock_threshold: null, tracks_inventory: true, is_active: true },
+    { id: 'tea', name: 'Tea', current_stock: 200, low_stock_threshold: 5, tracks_inventory: true, is_active: true },
+    { id: 'coffee', name: 'Coffee', current_stock: 0, low_stock_threshold: 5, tracks_inventory: false, is_active: true },
+    { id: 'old', name: 'Old', current_stock: 0, low_stock_threshold: 5, tracks_inventory: true, is_active: false },
+    { id: 'gone', name: 'Gone', current_stock: 0, low_stock_threshold: 5, tracks_inventory: true, is_active: true, is_deleted: true },
+  ];
+  const summary = buildProductSalesSummary(catalog, [
+    { product_id: 'cola', sold_quantity: 50, bar_income: 500, bar_cost: 300, days_counted: 10 },
+    { product_id: 'water', sold_quantity: 40, bar_income: 200, bar_cost: 100, days_counted: 10 },
+    { product_id: 'chips', sold_quantity: 2, bar_income: 16, bar_cost: 10, days_counted: 10 },
+    { product_id: 'tea', sold_quantity: 10, bar_income: 50, bar_cost: 20, days_counted: 10 },
+    { product_id: 'coffee', sold_quantity: 30, bar_income: 300, bar_cost: 60, days_counted: 10 },
+  ]);
+
+  it('orders by the units missing for the coming week, then by what sold', () => {
+    expect(buildRestockList(catalog, summary).map((item) => [item.name, item.level, item.shortfall, item.sold, item.daysLeft])).toEqual([
+      // 5 a day and nothing on the shelf: 35 short for the week.
+      ['Cola', 'out', 35, 50, 0],
+      // Above its low-stock level, but 12 units at 4 a day are gone in 3 days: 16 short.
+      ['Water', 'ok', 16, 40, 3],
+      // Below its level yet enough for the week at 2 sold in the period.
+      ['Chips', 'low', 0, 2, 15],
+      // Nothing sold in the period: listed, but after everything that sells.
+      ['Gum', 'out', 0, 0, null],
+    ]);
+  });
+
+  it('ranks a busy product that is nearly out above an empty shelf that barely sold', () => {
+    const products = [
+      { id: 'rare', name: 'Rare', current_stock: 0, low_stock_threshold: 5, is_active: true },
+      { id: 'busy', name: 'Busy', current_stock: 6, low_stock_threshold: 5, is_active: true },
+    ];
+    const sales = buildProductSalesSummary(products, [
+      { product_id: 'rare', sold_quantity: 1, bar_income: 10, bar_cost: 5, days_counted: 30 },
+      { product_id: 'busy', sold_quantity: 90, bar_income: 900, bar_cost: 500, days_counted: 30 },
+    ]);
+    expect(buildRestockList(products, sales).map((item) => [item.name, item.shortfall])).toEqual([['Busy', 15], ['Rare', 1]]);
+  });
+
+  it('leaves out healthy stock, made-to-order, inactive and archived products', () => {
+    const names = buildRestockList(catalog, summary).map((item) => item.name);
+    for (const name of ['Tea', 'Coffee', 'Old', 'Gone']) expect(names).not.toContain(name);
+  });
+
+  it('respects the horizon for products above their low-stock level', () => {
+    expect(buildRestockList(catalog, summary, 2).map((item) => item.name)).toEqual(['Cola', 'Chips', 'Gum']);
+  });
+
+  it('is the plain low-stock list, lowest stock first, when sales are unknown', () => {
+    for (const unknown of [null, buildProductSalesSummary(catalog, [])]) {
+      expect(buildRestockList(catalog, unknown)).toEqual([
+        { id: 'cola', name: 'Cola', currentStock: 0, level: 'out', sold: null, shortfall: 0, daysLeft: null },
+        { id: 'gum', name: 'Gum', currentStock: 0, level: 'out', sold: null, shortfall: 0, daysLeft: null },
+        { id: 'chips', name: 'Chips', currentStock: 3, level: 'low', sold: null, shortfall: 0, daysLeft: null },
+      ]);
+    }
   });
 });

@@ -168,7 +168,11 @@
     "debtorNoName": "Без имени",
     "debtorSince": "с {date}",
     "debtorCount": "долгов: {count}",
-    "attentionMore": "Ещё {count}"
+    "attentionMore": "Ещё {count}",
+    "runningLowNoSales": "нет продаж за 30 дней",
+    "runningLowDays": "Осталось {count} · примерно на {days} дн.",
+    "runningLowSold": "продано {count} за 30 дней",
+    "runningLowNeed": "на неделю нужно ещё около {count}"
   },
   "financialAnalysis": {
     "title": "Финансовый анализ",
