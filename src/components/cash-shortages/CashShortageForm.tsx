@@ -1,22 +1,31 @@
 'use client';
 
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import { Banknote, CircleHelp, CreditCard, Gamepad2, HandCoins, MonitorSmartphone, TriangleAlert, Wine, type LucideIcon } from 'lucide-react';
 import {
   Button,
   CurrencyInput,
-  DatePicker,
   Field,
   InlineAlert,
+  MonthPicker,
   NoteField,
   SegmentedControl,
   Select,
   useEntryNoteGuard,
 } from '@/components/PresentationFoundation';
 import { recordCashShortage } from '@/lib/cashShortageApi';
-import type { ShortageEmployee, ShortageErrorCode } from '@/lib/supabase/cashShortages';
-import { formatCurrency, formatCurrencyInput, parseCurrencyInput } from '@/lib/formatters';
+import { createClient } from '@/lib/supabase/client';
+import {
+  fetchShortageLimits,
+  shortageLimitFor,
+  type ShortageEmployee,
+  type ShortageErrorCode,
+  type ShortageLimits,
+} from '@/lib/supabase/cashShortages';
+import { monthRange } from '@/lib/utils';
+import { formatCurrency, formatCurrencyInput, formatDateOnly, formatYearMonth, parseCurrencyInput } from '@/lib/formatters';
+import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { CASH_SHORTAGE_REASONS, type CashShortageMethod, type CashShortageReason, type OwnerWithdrawalSource } from '@/types';
 
 export const SHORTAGE_METHOD_ICONS: Record<CashShortageMethod, LucideIcon> = {
@@ -34,9 +43,10 @@ export function shortageMethods(enabled: readonly string[], source: OwnerWithdra
 
 interface CashShortageFormProps {
   clubId: string;
-  defaultDate: string;
-  /** The club business date: a shortage is never dated after it. */
-  maxDate: string;
+  /** YYYY-MM the form opens on. */
+  defaultMonth: string;
+  /** The club business date: a shortage is never in a later month, nor dated after it. */
+  today: string;
   enabledPaymentMethods: readonly string[];
   employees: readonly ShortageEmployee[];
   onSaved: () => void | Promise<void>;
@@ -44,11 +54,21 @@ interface CashShortageFormProps {
 }
 
 /** Records money missing from the till, optionally taking part back from the responsible employee's salary. */
-export function CashShortageForm({ clubId, defaultDate, maxDate, enabledPaymentMethods, employees, onSaved, onCancel }: CashShortageFormProps) {
+/**
+ * Records money missing from the till in a month, optionally taking part back
+ * from the responsible employee's salary. The amount can never exceed what that
+ * month still has in the chosen money (migration 151 refuses it as well).
+ */
+export function CashShortageForm({ clubId, defaultMonth, today, enabledPaymentMethods, employees, onSaved, onCancel }: CashShortageFormProps) {
   const t = useTranslations('cashShortages');
   const tc = useTranslations('common');
   const note = useEntryNoteGuard();
-  const [date, setDate] = useState(defaultDate);
+  const { locale } = useAppLocale();
+  const maxMonth = today.slice(0, 7);
+  const [month, setMonth] = useState(defaultMonth > maxMonth ? maxMonth : defaultMonth);
+  // undefined while loading; null before migration 151 (no limit known).
+  const [limits, setLimits] = useState<ShortageLimits | null | undefined>(undefined);
+  const [limitsFailed, setLimitsFailed] = useState(false);
   const [source, setSource] = useState<OwnerWithdrawalSource>('game_club');
   const [method, setMethod] = useState<CashShortageMethod>(() => shortageMethods(enabledPaymentMethods, 'game_club')[0] ?? 'cash');
   const [amount, setAmount] = useState('');
@@ -61,9 +81,26 @@ export function CashShortageForm({ clubId, defaultDate, maxDate, enabledPaymentM
   // One id per submit attempt, so a retry after a lost response is saved once.
   const requestIds = useRef<{ shortage: string; recovery: string } | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    setLimits(undefined);
+    setLimitsFailed(false);
+    fetchShortageLimits(createClient(), clubId, month)
+      .then((result) => { if (!cancelled) setLimits(result); })
+      .catch(() => { if (!cancelled) setLimitsFailed(true); });
+    return () => { cancelled = true; };
+  }, [clubId, month]);
+
   const methods = shortageMethods(enabledPaymentMethods, source);
+  const limit = limits ? shortageLimitFor(limits, source, method) : null;
+  // Before 151 the shortage is dated inside the month as before: today, or the month's last day.
+  const date = limits ? limits.date : month === maxMonth ? today : monthRange(month).to;
+  const allCollected = limits !== undefined && limits !== null && limits.date === null;
   const amountValue = parseCurrencyInput(amount);
-  const amountValid = Number.isFinite(amountValue) && amountValue > 0;
+  const amountEntered = Number.isFinite(amountValue) && amountValue > 0;
+  const overLimit = amountEntered && limit !== null && amountValue > limit;
+  const amountValid = amountEntered && !overLimit;
+  const limitsReady = limits !== undefined && !limitsFailed && !allCollected;
   const recoverValue = recover ? parseCurrencyInput(recover) : 0;
   const recoverValid = !employeeId || !recover || (Number.isFinite(recoverValue) && recoverValue >= 0 && (!amountValid || recoverValue <= amountValue));
   const employeeName = employees.find((employee) => employee.id === employeeId)?.name ?? '';
@@ -76,7 +113,7 @@ export function CashShortageForm({ clubId, defaultDate, maxDate, enabledPaymentM
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (saving || !amountValid || !recoverValid) return;
+    if (saving || !amountValid || !recoverValid || !limitsReady || !date) return;
     if (!note.check(comment)) return;
     requestIds.current ??= { shortage: crypto.randomUUID(), recovery: crypto.randomUUID() };
     setSaving(true);
@@ -85,7 +122,7 @@ export function CashShortageForm({ clubId, defaultDate, maxDate, enabledPaymentM
       const failure = await recordCashShortage(clubId, {
         id: requestIds.current.shortage,
         recoveryId: requestIds.current.recovery,
-        date,
+        date: date ?? today,
         source,
         method,
         amount: Math.round(amountValue),
@@ -119,8 +156,8 @@ export function CashShortageForm({ clubId, defaultDate, maxDate, enabledPaymentM
   return (
     <form onSubmit={handleSubmit} className="space-y-4" aria-busy={saving || undefined}>
       <div className="grid gap-4 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
-        <Field label={t('date')}>
-          <DatePicker ariaLabel={t('date')} value={date} max={maxDate} disabled={saving} onChange={setDate} />
+        <Field label={t('month')} hint={date && limits ? t('datedOn', { date: formatDateOnly(date, locale) }) : undefined}>
+          <MonthPicker value={month} max={maxMonth} disabled={saving} onChange={setMonth} />
         </Field>
         <Field label={t('source')}>
           <SegmentedControl
@@ -136,7 +173,16 @@ export function CashShortageForm({ clubId, defaultDate, maxDate, enabledPaymentM
         </Field>
       </div>
 
-      <Field label={t('method')} required>
+      <Field
+        label={t('method')}
+        required
+        hint={limit !== null ? (
+          <>
+            {source === 'bar' ? t('availableBar') : t('availableMethod', { method: tc(`paymentMethods.${method}`) })}:{' '}
+            <span className="font-semibold tabular-nums text-success-600">{formatCurrency(limit)} {tc('currency')}</span>
+          </>
+        ) : undefined}
+      >
         <SegmentedControl
           label={t('method')}
           value={method}
@@ -146,13 +192,40 @@ export function CashShortageForm({ clubId, defaultDate, maxDate, enabledPaymentM
           className="grid-cols-2 sm:grid-cols-4"
           options={methods.map((value) => {
             const Icon = SHORTAGE_METHOD_ICONS[value];
-            return { value, label: tc(`paymentMethods.${value}`), icon: <Icon size={15} aria-hidden="true" /> };
+            const held = limits && source === 'game_club' ? limits.gameClub[value] : null;
+            return {
+              value,
+              icon: held === null ? <Icon size={15} aria-hidden="true" /> : undefined,
+              label: held === null ? tc(`paymentMethods.${value}`) : (
+                <span className="flex flex-col items-center py-1 leading-tight">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Icon size={15} aria-hidden="true" />
+                    {tc(`paymentMethods.${value}`)}
+                  </span>
+                  <span className="mt-0.5 text-[11px] font-normal tabular-nums opacity-80">{formatCurrency(held)}</span>
+                </span>
+              ),
+            };
           })}
         />
       </Field>
 
-      <Field label={`${t('amount')} (${tc('currency')})`} htmlFor="shortage-amount" required hint={t('amountHint')}>
-        <CurrencyInput id="shortage-amount" required controlSize="lg" value={amount} disabled={saving} onValueChange={setAmount} />
+      <Field
+        label={`${t('amount')} (${tc('currency')})`}
+        htmlFor="shortage-amount"
+        required
+        hint={t('amountHint')}
+        error={overLimit && limit !== null ? t('exceedsAvailable', { amount: `${formatCurrency(limit)} ${tc('currency')}` }) : undefined}
+      >
+        <CurrencyInput
+          id="shortage-amount"
+          required
+          controlSize="lg"
+          value={amount}
+          invalid={overLimit}
+          disabled={saving}
+          onValueChange={setAmount}
+        />
       </Field>
 
       <Field label={t('reason')}>
@@ -225,6 +298,8 @@ export function CashShortageForm({ clubId, defaultDate, maxDate, enabledPaymentM
         disabled={saving}
       />
 
+      {allCollected ? <InlineAlert variant="warning">{t('allCollected', { month: formatYearMonth(month, locale) })}</InlineAlert> : null}
+      {limitsFailed ? <InlineAlert variant="danger">{t('limitsLoadError')}</InlineAlert> : null}
       {error ? <InlineAlert variant="danger">{t(`errors.${error}`)}</InlineAlert> : null}
 
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -232,7 +307,7 @@ export function CashShortageForm({ clubId, defaultDate, maxDate, enabledPaymentM
         <Button
           type="submit"
           variant="danger"
-          disabled={!amountValid || !recoverValid}
+          disabled={!amountValid || !recoverValid || !limitsReady || !date}
           loading={saving}
           loadingLabel={tc('saving')}
           icon={<TriangleAlert size={17} aria-hidden="true" />}

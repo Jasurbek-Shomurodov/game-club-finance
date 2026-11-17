@@ -4,8 +4,11 @@ import {
   EMPTY_CASH_SHORTAGES,
   deleteCashShortage,
   fetchCashShortages,
+  fetchShortageLimits,
   recoverCashShortage,
   shortageErrorCode,
+  shortageLimitFor,
+  shortageLimitsFromRows,
 } from './cashShortages';
 
 type Result = { data: unknown; error: unknown };
@@ -116,6 +119,7 @@ describe('shortageErrorCode', () => {
     expect(shortageErrorCode({ code: 'P0001', hint: 'shortage_recovery_too_large' }, 'recover_cash_shortage')).toBe('recovery_too_large');
     expect(shortageErrorCode({ code: 'P0001', hint: 'shortage_no_employee' }, 'recover_cash_shortage')).toBe('no_employee');
     expect(shortageErrorCode({ code: 'P0001', hint: 'shortage_has_recoveries' }, 'delete_cash_shortage')).toBe('has_recoveries');
+    expect(shortageErrorCode({ code: '23514', hint: 'shortage_exceeds_available' }, 'record_cash_shortage')).toBe('exceeds_available');
     expect(shortageErrorCode({ code: '42501', message: 'Only owners can record shortages' }, 'record_cash_shortage')).toBe('forbidden');
     expect(shortageErrorCode({ code: 'XX000', message: 'boom' }, 'record_cash_shortage')).toBe('failed');
     expect(shortageErrorCode({}, 'record_cash_shortage')).toBe('failed');
@@ -153,5 +157,39 @@ describe('shortage RPC wrappers', () => {
     expect(await deleteCashShortage(rpcClient({ hint: 'shortage_has_recoveries' }).supabase, 'club-1', 's')).toBe('has_recoveries');
     expect(await deleteCashShortage(rpcClient({ code: '42501' }).supabase, 'club-1', 's')).toBe('forbidden');
     expect(await deleteCashShortage(rpcClient({ hint: 'day_collected' }).supabase, 'club-1', 's')).toBe('day_collected');
+  });
+});
+
+describe('shortage limits', () => {
+  const rows = [
+    { source: 'game_club', payment_method: 'cash', available: '993211', shortage_date: '2026-10-29' },
+    { source: 'game_club', payment_method: 'terminal', available: 120000, shortage_date: '2026-10-29' },
+    { source: 'game_club', payment_method: 'card', available: '-5', shortage_date: '2026-10-29' },
+    { source: 'game_club', payment_method: 'playstation', available: null, shortage_date: '2026-10-29' },
+    { source: 'bar', payment_method: null, available: '450000', shortage_date: '2026-10-29' },
+  ];
+
+  it('reads what each method and the bar still have, never below zero, and the day it is dated', () => {
+    const limits = shortageLimitsFromRows(rows);
+    expect(limits).toEqual({ gameClub: { cash: 993211, terminal: 120000, card: 0, playstation: 0 }, bar: 450000, date: '2026-10-29' });
+    expect(shortageLimitFor(limits, 'game_club', 'terminal')).toBe(120000);
+    expect(shortageLimitFor(limits, 'bar', 'cash')).toBe(450000);
+  });
+
+  it('has no day when every day of the month is collected', () => {
+    expect(shortageLimitsFromRows(rows.map((row) => ({ ...row, shortage_date: null }))).date).toBeNull();
+  });
+
+  it('asks for the month and has no limit before migration 151', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: rows, error: null });
+    const limits = await fetchShortageLimits({ rpc } as unknown as SupabaseClient, 'club-1', '2026-10');
+    expect(rpc).toHaveBeenCalledWith('cash_shortage_limits', { p_club_id: 'club-1', p_month: '2026-10-01' });
+    expect(limits?.gameClub.cash).toBe(993211);
+
+    const missing = vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST202', message: 'Could not find the function public.cash_shortage_limits' } });
+    expect(await fetchShortageLimits({ rpc: missing } as unknown as SupabaseClient, 'club-1', '2026-10')).toBeNull();
+
+    const failing = vi.fn().mockResolvedValue({ data: null, error: { code: 'XX000', message: 'boom' } });
+    await expect(fetchShortageLimits({ rpc: failing } as unknown as SupabaseClient, 'club-1', '2026-10')).rejects.toMatchObject({ message: 'boom' });
   });
 });

@@ -690,8 +690,8 @@ export default function DailyCashPage() {
           {shortageDialog ? (
             <CashShortageForm
               clubId={selectedClubId}
-              defaultDate={form.date}
-              maxDate={businessToday}
+              defaultMonth={form.date.slice(0, 7)}
+              today={businessToday}
               enabledPaymentMethods={enabledPaymentMethods}
               employees={shortageDialog.employees}
               onCancel={() => setShortageDialog(null)}

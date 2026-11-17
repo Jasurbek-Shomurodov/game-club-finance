@@ -45,7 +45,7 @@ beforeAll(async () => {
     update public.clubs set enabled_payment_methods = array['cash','terminal'] where id = '${club}';
     insert into public.club_memberships (club_id, user_id, role) values ('${club}','${owner}','owner'), ('${club}','${admin}','admin');
     insert into public.daily_cash_entries (club_id, date, cash_income, terminal_income, card_income, playstation_income, created_by)
-      values ('${club}','2024-08-02',1000,0,0,0,'${owner}');
+      values ('${club}','2024-08-02',100000,0,0,0,'${owner}');
     insert into public.salary_employees (id, club_id, name, joined_on, created_by)
       values ('${employee}','${club}','Izzat','2024-01-01','${owner}');
   `);
@@ -66,7 +66,7 @@ const recovered = async (n: number) => Number((await db.query<{ total: string }>
 )).rows[0].total);
 
 describe('cash shortages (135)', () => {
-  it('records the shortage with one linked expense, even above what the method holds, and saves a retry once', async () => {
+  it('records the shortage with one linked expense and saves a retry once', async () => {
     expect((await record(1)).rows[0].record_cash_shortage).toBe(true);
     expect((await record(1)).rows[0].record_cash_shortage).toBe(false);
     const expenses = await expenseFor(1);

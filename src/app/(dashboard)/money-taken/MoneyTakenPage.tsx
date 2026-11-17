@@ -1384,9 +1384,8 @@ export default function MoneyTakenPage() {
           <CashShortageForm
             key={form.month}
             clubId={selectedClubId}
-            // Inside the month on the page: today in the current month, else its last day.
-            defaultDate={form.month === currentMonth ? businessToday : monthRange(form.month).to}
-            maxDate={businessToday}
+            defaultMonth={form.month}
+            today={businessToday}
             enabledPaymentMethods={enabledPaymentMethods}
             employees={shortages.employees.filter((employee) => !employee.hidden)}
             onCancel={() => setShortageFormOpen(false)}

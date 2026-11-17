@@ -2530,7 +2530,8 @@
       "has_recoveries": "Avval «Ish haqi» bo'limida bu kamomadni qoplagan jarimalarni o'chiring.",
       "migration_required": "Kamomadlar uchun 135-ma'lumotlar bazasi migratsiyasi kerak. Avval uni qo'llang.",
       "forbidden": "Kamomadni faqat klub egasi yoza oladi.",
-      "failed": "Saqlab bo'lmadi. Internetni tekshirib, qayta urinib ko'ring."
+      "failed": "Saqlab bo'lmadi. Internetni tekshirib, qayta urinib ko'ring.",
+      "exceeds_available": "Bu oyda qolgan puldan ko'p. Kichikroq summa kiriting."
     },
     "detailsDate": "Kun",
     "detailsTakenFrom": "Qayerdan yo'qolgan",
@@ -2538,7 +2539,14 @@
     "detailsRecordedAt": "Yozilgan",
     "detailsComment": "Izoh",
     "detailsOpenDay": "Shu kungi hisobotni ochish",
-    "detailsOpenEmployee": "Xodimni ochish"
+    "detailsOpenEmployee": "Xodimni ochish",
+    "month": "Oy",
+    "datedOn": "{date} sanasiga yoziladi — oyning hali yig'ilmagan oxirgi kuni.",
+    "availableMethod": "Mavjud ({method})",
+    "availableBar": "Barda mavjud",
+    "exceedsAvailable": "Bu oyda bu yerda faqat {amount} bor. Ko'pi bilan shuncha kiriting.",
+    "allCollected": "{month} ning barcha kunlari yig'ilgan. Shu oyda kamomad yozish uchun yig'ish belgisini olib tashlang.",
+    "limitsLoadError": "Bu oydagi pul miqdorini yuklab bo'lmadi. Aloqani tekshirib, qayta urinib ko'ring."
   },
   "ownerReserve": {
     "sectionTitle": "Jamg'arma",

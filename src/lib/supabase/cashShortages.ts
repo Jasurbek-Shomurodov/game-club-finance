@@ -62,6 +62,7 @@ export type ShortageErrorCode =
   | 'recovery_too_large'
   | 'no_employee'
   | 'has_recoveries'
+  | 'exceeds_available'
   | 'migration_required'
   | 'forbidden'
   | 'failed';
@@ -74,8 +75,53 @@ export function shortageErrorCode(error: { code?: string | null; message?: strin
   if (error.hint === 'shortage_recovery_too_large') return 'recovery_too_large';
   if (error.hint === 'shortage_no_employee') return 'no_employee';
   if (error.hint === 'shortage_has_recoveries') return 'has_recoveries';
+  if (error.hint === 'shortage_exceeds_available') return 'exceeds_available';
   if (error.code === '42501') return 'forbidden';
   return 'failed';
+}
+
+/** What a shortage in one month may take, and the day it is dated (migration 151). */
+export interface ShortageLimits {
+  /** Game Club: per method, what the month still has in it. */
+  gameClub: Record<CashShortageMethod, number>;
+  /** Bar: what the month still has; the bar keeps no per-method balance. */
+  bar: number;
+  /** The month's latest day, up to today, not ticked as collected; null when every day is collected. */
+  date: string | null;
+}
+
+interface ShortageLimitRow {
+  source: string;
+  payment_method: string | null;
+  available: number | string | null;
+  shortage_date: string | null;
+}
+
+/** Reads the rows of cash_shortage_limits into per-side limits. */
+export function shortageLimitsFromRows(rows: readonly ShortageLimitRow[]): ShortageLimits {
+  const limits: ShortageLimits = { gameClub: { cash: 0, terminal: 0, card: 0, playstation: 0 }, bar: 0, date: null };
+  for (const row of rows) {
+    const available = Math.max(0, Number(row.available) || 0);
+    if (row.source === 'bar') limits.bar = available;
+    else if (row.payment_method && row.payment_method in limits.gameClub) limits.gameClub[row.payment_method as CashShortageMethod] = available;
+    limits.date ??= row.shortage_date ? row.shortage_date.slice(0, 10) : null;
+  }
+  return limits;
+}
+
+/** The most a shortage from this side and method may be. */
+export function shortageLimitFor(limits: ShortageLimits, source: OwnerWithdrawalSource, method: CashShortageMethod): number {
+  return source === 'bar' ? limits.bar : limits.gameClub[method];
+}
+
+/** Limits for a month (YYYY-MM); null before migration 151, when the database sets no limit. */
+export async function fetchShortageLimits(supabase: SupabaseClient, clubId: string, month: string): Promise<ShortageLimits | null> {
+  const { data, error } = await supabase.rpc('cash_shortage_limits', { p_club_id: clubId, p_month: `${month}-01` });
+  if (error) {
+    if (isMissingDatabaseFunction(error, 'cash_shortage_limits')) return null;
+    throw error;
+  }
+  return shortageLimitsFromRows((data ?? []) as ShortageLimitRow[]);
 }
 
 export interface RecordShortageInput {

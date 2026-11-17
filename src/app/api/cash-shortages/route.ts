@@ -20,6 +20,7 @@ const STATUS: Record<ShortageErrorCode, number> = {
   recovery_too_large: 409,
   no_employee: 400,
   has_recoveries: 409,
+  exceeds_available: 409,
   migration_required: 503,
   forbidden: 403,
   failed: 500,

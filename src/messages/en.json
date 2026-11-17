@@ -2530,7 +2530,8 @@
       "has_recoveries": "Delete the salary fines that recover this shortage in Salaries first.",
       "migration_required": "Shortages need database migration 135. Apply it first.",
       "forbidden": "Only the club owner can record shortages.",
-      "failed": "Could not save. Check your connection and try again."
+      "failed": "Could not save. Check your connection and try again.",
+      "exceeds_available": "That is more than the month still has in this money. Enter a smaller amount."
     },
     "detailsDate": "Day",
     "detailsTakenFrom": "Missing from",
@@ -2538,7 +2539,14 @@
     "detailsRecordedAt": "Recorded",
     "detailsComment": "Comment",
     "detailsOpenDay": "Open this day's report",
-    "detailsOpenEmployee": "Open employee"
+    "detailsOpenEmployee": "Open employee",
+    "month": "Month",
+    "datedOn": "Recorded under {date}, the month's latest day not yet collected.",
+    "availableMethod": "Available in {method}",
+    "availableBar": "Available in Bar",
+    "exceedsAvailable": "The month only has {amount} here. Enter at most that.",
+    "allCollected": "Every day of {month} is already collected. Remove a collection tick to record a shortage in this month.",
+    "limitsLoadError": "Could not load how much money this month has. Check your connection and try again."
   },
   "ownerReserve": {
     "sectionTitle": "Reserve",

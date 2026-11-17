@@ -4464,10 +4464,6 @@
       },
       {
         "kind": "function",
-        "signature": "public.record_cash_shortage(uuid,uuid,date,text,text,numeric,text,uuid,text,numeric,uuid)"
-      },
-      {
-        "kind": "function",
         "signature": "public.recover_cash_shortage(uuid,uuid,uuid,numeric)"
       },
       {
@@ -4839,6 +4835,24 @@
       {
         "kind": "function",
         "signature": "public.get_owner_money_bundle(uuid,date)"
+      }
+    ]
+  },
+  {
+    "file": "151_cash_shortage_monthly_limit.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.record_cash_shortage(uuid,uuid,date,text,text,numeric,text,uuid,text,numeric,uuid)",
+        "md5": "042aa9ba2b0100056ecc31d82d71724c"
+      },
+      {
+        "kind": "function",
+        "signature": "public.cash_shortage_day(uuid,date)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.cash_shortage_limits(uuid,date)"
       }
     ]
   }
