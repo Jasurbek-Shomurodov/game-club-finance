@@ -22,6 +22,7 @@ import {
   AmountCard,
   ButtonLink,
   ChartSkeleton,
+  HelpButton,
   LoadErrorAlert,
   MetricMoney,
   PageHeader,
@@ -77,7 +78,13 @@ function FlowFigures({ items, loading }: {
           key={item.label}
           variant="soft"
           size="sm"
-          label={<span title={item.helper}>{item.label}</span>}
+          // The note sits behind a "?" so it is reachable by touch, not only by hover.
+          label={(
+            <span className="inline-flex items-center gap-0.5">
+              {item.label}
+              {item.helper && <HelpButton title={item.label} body={item.helper} className="-my-2" />}
+            </span>
+          )}
           tone={loading ? 'muted' : item.tone}
           value={loading ? '—' : <MetricMoney amount={item.amount} currency={item.currency} />}
         />

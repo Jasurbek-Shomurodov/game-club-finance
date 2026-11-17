@@ -4,9 +4,14 @@ import { loadDailyCashSummary } from './dailyCashSummary';
 import { calculateFinancialReportTotals } from '../calculations/dailyReport';
 import { canReadFinancialTotals } from '../permissions';
 
-function database(failTable?: string) {
+type RpcResult = { data: unknown; error: { code?: string; message: string } | null };
+/** Before migration 049 the snapshot function does not exist, so the table reads run. */
+const MISSING_RPC: RpcResult = { data: null, error: { code: 'PGRST202', message: 'Could not find the function public.get_finance_report_snapshot' } };
+
+function database(failTable?: string, rpcResult: RpcResult = MISSING_RPC) {
   const requests: Array<{table: string; filters: Record<string,string>; from: number}> = [];
-  const db = { from(table: string) {
+  const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
+  const db = { async rpc(name: string, args: Record<string, unknown>) { rpcCalls.push({ name, args }); return rpcResult; }, from(table: string) {
     const filters: Record<string,string> = {};
     const query = {
       select() { return query; },
@@ -24,7 +29,7 @@ function database(failTable?: string) {
       },
     };return query;
   }} as unknown as SupabaseClient;
-  return {db,requests};
+  return {db,requests,rpcCalls};
 }
 it('includes all expenses, salary payments and new debt principal in each side\'s daily profit',async()=>{
   const {db,requests}=database();
@@ -47,4 +52,32 @@ it('does not request profit inputs for restricted daily-cash users',async()=>{
 });
 it.each(['expenses','new_debts','daily_stock_counts'])('does not silently show incomplete profit if %s fails',async(table)=>{
   await expect(loadDailyCashSummary(database(table).db,'club-a','2026-09-26',true)).rejects.toThrow('read failed');
+});
+
+it('reads the three profit inputs in one snapshot call when the function exists', async () => {
+  const { db, requests, rpcCalls } = database(undefined, { data: {
+    stockTotalRows: [{ date: '2026-09-26', bar_income: '300000', bar_cost: '100000' }],
+    expenseRows: [{ amount: '100000', payment_source: 'game_club' }, { amount: '50000', payment_source: 'bar' }],
+    debtRows: [{ id: 'd1', date: '2026-09-26', amount: '20000' }],
+  }, error: null });
+  const summary = await loadDailyCashSummary(db, 'club-a', '2026-09-26', true);
+  expect(rpcCalls).toEqual([{ name: 'get_finance_report_snapshot', args: {
+    p_club_id: 'club-a', p_range_from: '2026-09-26', p_range_to: '2026-09-26', p_sections: ['stock_totals', 'expenses', 'debts'],
+  } }]);
+  expect(requests).toEqual([]);
+  // The same figures as the table reads in the first test.
+  expect(calculateFinancialReportTotals({ ...summary, manualIncome: 1000000 }))
+    .toMatchObject({ gameClubExpenses: 100000, barExpenses: 50000, debtIncome: 20000, gameClubProfit: 920000, barProfit: 150000 });
+});
+
+it('never calls the snapshot for restricted daily-cash users', async () => {
+  const { db, rpcCalls } = database();
+  await loadDailyCashSummary(db, 'club-a', '2026-09-26', false);
+  expect(rpcCalls).toEqual([]);
+});
+
+it('does not fall back to table reads when the snapshot fails for another reason', async () => {
+  const { db, requests } = database(undefined, { data: null, error: { code: '42501', message: 'snapshot denied' } });
+  await expect(loadDailyCashSummary(db, 'club-a', '2026-09-26', true)).rejects.toThrow('snapshot denied');
+  expect(requests).toEqual([]);
 });
