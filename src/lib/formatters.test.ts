@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   capitalizeFirst,
+  MAX_MONEY_INPUT_DIGITS,
+  exceedsCurrencyInputLimit,
+  exceedsDecimalInputLimit,
   extractCurrencyDigits,
   formatCurrency,
   formatPhone,
@@ -212,6 +215,9 @@ describe('decimal inputs', () => {
     expect(parseDecimalInput('1,500.50')).toBe(1500.5);
     expect(parseDecimalInput('1.500,50')).toBe(1500.5);
     expect(parseDecimalInput('1,500,000')).toBe(1500000);
+    expect(parseDecimalInput('123456789012,34')).toBe(1234567890.34);
+    expect(exceedsDecimalInputLimit('12345678901')).toBe(true);
+    expect(exceedsDecimalInputLimit('1 234 567 890,12')).toBe(false);
     expect(parseDecimalInput('12 650,5')).toBe(12650.5);
   });
 
@@ -267,7 +273,12 @@ describe('currency input helpers', () => {
   });
 
   it('caps input length and strips leading zeros', () => {
-    expect(extractCurrencyDigits('9'.repeat(30))).toHaveLength(15);
+    expect(extractCurrencyDigits('9'.repeat(30))).toHaveLength(MAX_MONEY_INPUT_DIGITS);
+    expect(formatCurrencyInput('432324234234234')).toBe('4 323 242 342');
+    expect(parseCurrencyInput('99999999999')).toBe(9_999_999_999);
+    expect(exceedsCurrencyInputLimit('9 999 999 9990')).toBe(true);
+    expect(exceedsCurrencyInputLimit('9 999 999 999')).toBe(false);
+    expect(exceedsCurrencyInputLimit('9 999 999 999,50')).toBe(false);
     expect(formatCurrencyInput('007')).toBe('7');
     expect(formatCurrencyInput('0')).toBe('0');
   });

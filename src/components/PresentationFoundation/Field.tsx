@@ -13,7 +13,13 @@ import {
 } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { formatCurrencyInput, formatDecimalInput } from '@/lib/formatters';
+import {
+  MAX_MONEY_INPUT_DIGITS,
+  exceedsCurrencyInputLimit,
+  exceedsDecimalInputLimit,
+  formatCurrencyInput,
+  formatDecimalInput,
+} from '@/lib/formatters';
 
 /** Shared text-control styling; exported so bespoke controls can match it. */
 export const controlClassName =
@@ -131,6 +137,25 @@ function caretAfterCharacters(formatted: string, count: number) {
   return formatted.length;
 }
 
+function isAtCurrencyLimit(value: string) {
+  return value.replace(/\D/g, '').length >= MAX_MONEY_INPUT_DIGITS;
+}
+
+function isAtDecimalLimit(value: string) {
+  return (value.split(',')[0] ?? '').replace(/\D/g, '').length >= MAX_MONEY_INPUT_DIGITS;
+}
+
+/**
+ * Leaves a controlled input on its current value and puts the caret back where
+ * it was before the rejected keystroke; React restores the text itself.
+ */
+function ignoreChange(input: HTMLInputElement) {
+  const caret = Math.max(0, (input.selectionStart ?? input.value.length) - 1);
+  requestAnimationFrame(() => {
+    if (document.activeElement === input) input.setSelectionRange(caret, caret);
+  });
+}
+
 /** Restores the caret once a reformatted `value` lands; `pendingCaretRef` holds its logical place. */
 function useKeptCaret(
   value: string,
@@ -174,6 +199,11 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(fu
       value={value}
       onChange={(event) => {
         const raw = event.target.value;
+        // A full field ignores further digits instead of dropping its last one.
+        if (exceedsCurrencyInputLimit(raw) && isAtCurrencyLimit(value)) {
+          ignoreChange(event.target);
+          return;
+        }
         const caret = event.target.selectionStart ?? raw.length;
         const formatted = formatCurrencyInput(raw);
         // Digits before the caret, capped by what survived formatting (decimals, length cap).
@@ -210,6 +240,11 @@ export const DecimalInput = forwardRef<HTMLInputElement, DecimalInputProps>(func
       value={value}
       onChange={(event) => {
         const raw = event.target.value;
+        // A full field ignores further digits instead of dropping its last one.
+        if (exceedsDecimalInputLimit(raw) && isAtDecimalLimit(value)) {
+          ignoreChange(event.target);
+          return;
+        }
         const caret = event.target.selectionStart ?? raw.length;
         const formatted = formatDecimalInput(raw);
         // The decimal separator counts too, or the next digit would land before it.

@@ -285,6 +285,26 @@ export function formatUnitCurrency(amount: number, locale = 'ru-UZ'): string {
   }).format(amount).replace(/[\u00a0\u202f]/g, ' ');
 }
 
+/**
+ * Most digits a typed money amount may have: 9 999 999 999 UZS. Larger values
+ * are typos (a club never records ten billion in one entry) and would distort
+ * totals, so inputs stop accepting digits past this.
+ */
+export const MAX_MONEY_INPUT_DIGITS = 10;
+
+/** Digits of typed text as a whole-UZS amount, before the length cap. */
+function uncappedCurrencyDigits(value: string): string {
+  // A pasted "1 500,50" or "1500.50" is 1 500 UZS, not 150 050: drop a
+  // trailing one- or two-digit decimal part before keeping the digits. Three
+  // digits after a separator ("1,500") is a thousands group and is kept.
+  return value.replace(/[.,]\d{1,2}\s*$/, '').replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+}
+
+/** True when typed text has more whole-UZS digits than a money input accepts. */
+export function exceedsCurrencyInputLimit(value: string): boolean {
+  return uncappedCurrencyDigits(value).length > MAX_MONEY_INPUT_DIGITS;
+}
+
 export function extractCurrencyDigits(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return '';
 
@@ -296,12 +316,7 @@ export function extractCurrencyDigits(value: string | number | null | undefined)
     return String(Math.max(0, Math.round(value)));
   }
 
-  // A pasted "1 500,50" or "1500.50" is 1 500 UZS, not 150 050: drop a
-  // trailing one- or two-digit decimal part before keeping the digits. Three
-  // digits after a separator ("1,500") is a thousands group and is kept.
-  const digits = String(value).replace(/[.,]\d{1,2}\s*$/, '').replace(/\D/g, '');
-  // Keep within Number.MAX_SAFE_INTEGER so parsing never loses precision.
-  return digits.replace(/^0+(?=\d)/, '').slice(0, 15);
+  return uncappedCurrencyDigits(String(value)).slice(0, MAX_MONEY_INPUT_DIGITS);
 }
 
 export function parseCurrencyInput(value: string | number | null | undefined): number {
@@ -315,7 +330,7 @@ export function formatCurrencyInput(value: string | number | null | undefined): 
   return formatCurrency(Number(digits));
 }
 
-const MAX_DECIMAL_WHOLE_DIGITS = 13;
+const MAX_DECIMAL_WHOLE_DIGITS = MAX_MONEY_INPUT_DIGITS;
 const MAX_DECIMAL_FRACTION_DIGITS = 2;
 
 /**
@@ -326,7 +341,10 @@ const MAX_DECIMAL_FRACTION_DIGITS = 2;
  * like the thousands "12,345", and reading it so would multiply the value.
  * Further fraction digits are ignored.
  */
-function decimalParts(value: string | number | null | undefined): { whole: string; fraction: string | null } {
+function decimalParts(
+  value: string | number | null | undefined,
+  wholeDigitCap = MAX_DECIMAL_WHOLE_DIGITS,
+): { whole: string; fraction: string | null } {
   if (value === null || value === undefined) return { whole: '', fraction: null };
   if (typeof value === 'number' && !Number.isFinite(value)) return { whole: '', fraction: null };
   const text = String(typeof value === 'number' ? Math.max(0, value) : value).replace(/[^\d.,]/g, '');
@@ -339,7 +357,7 @@ function decimalParts(value: string | number | null | undefined): { whole: strin
   });
   const whole = (decimalAt === undefined ? text : text.slice(0, decimalAt)).replace(/\D/g, '').replace(/^0+(?=\d)/, '');
   return {
-    whole: whole.slice(0, MAX_DECIMAL_WHOLE_DIGITS),
+    whole: whole.slice(0, wholeDigitCap),
     fraction: decimalAt === undefined ? null : text.slice(decimalAt + 1).replace(/\D/g, '').slice(0, MAX_DECIMAL_FRACTION_DIGITS),
   };
 }
@@ -350,6 +368,11 @@ export function formatDecimalInput(value: string | number | null | undefined): s
   if (!whole && fraction === null) return '';
   const grouped = formatCurrency(Number(whole || '0'));
   return fraction === null ? grouped : `${grouped},${fraction}`;
+}
+
+/** True when typed text has more whole digits than a decimal input accepts. */
+export function exceedsDecimalInputLimit(value: string): boolean {
+  return decimalParts(value, Infinity).whole.length > MAX_DECIMAL_WHOLE_DIGITS;
 }
 
 export function parseDecimalInput(value: string | number | null | undefined): number {
