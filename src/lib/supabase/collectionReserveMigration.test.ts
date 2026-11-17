@@ -4,7 +4,10 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-/** Migrations 137 and 139 on the full replayed schema: collected money goes into the reserve. */
+/**
+ * Migrations 137 and 139 put collected money into the reserve; 148 takes it
+ * back out and stops collecting from touching the reserve.
+ */
 
 const migrationsDir = resolve(process.cwd(), 'migrations');
 const readMigration = (name: string) => readFileSync(resolve(migrationsDir, name), 'utf8')
@@ -34,7 +37,8 @@ beforeAll(async () => {
     create function net.http_post(url text, body jsonb default '{}', params jsonb default '{}', headers jsonb default '{}', timeout_milliseconds int default 1000) returns bigint language sql as $$ select 1::bigint $$;
     grant usage on schema public, auth, extensions, cron, net to authenticated, anon, service_role;
   `);
-  for (const name of readdirSync(migrationsDir).filter((file) => file.endsWith('.sql')).sort()) {
+  // 148 is applied by the tests below, on top of what 137 and 139 left.
+  for (const name of readdirSync(migrationsDir).filter((file) => file.endsWith('.sql') && file < '148').sort()) {
     await db.exec(readMigration(name));
   }
   await db.exec(`
@@ -115,5 +119,42 @@ describe('collected money goes into the reserve (137)', () => {
     await db.exec(readMigration('139_backfill_collection_reserve.sql'));
     expect(await collectionDeposits('2024-08-03')).toEqual([['cash', 150]]);
     expect(await available()).toBe(0);
+  });
+});
+
+describe('collecting leaves the reserve alone (148)', () => {
+  const migration148 = readMigration('148_collection_leaves_reserve_alone.sql');
+
+  it('refuses to remove collection deposits the reserve already spent', async () => {
+    await call(
+      `insert into public.expenses (id, club_id, date, amount, category, payment_method, payment_source, comment, created_by, paid_from_reserve)
+       values ($1,$2,'2024-08-05',900,'equipment','cash','game_club','Two new gaming PCs for hall',$3,true)`, [id(2), club, owner],
+    );
+    await expect(db.exec(migration148)).rejects.toThrow(/already spent or returned/);
+    expect(await collectionDeposits('2024-08-02')).toEqual([['cash', 850]]);
+    await db.query('delete from public.expenses where id = $1', [id(2)]);
+  });
+
+  it('removes every collection deposit, returning the money to owner profit', async () => {
+    expect(await reserve()).toBe(1000);
+    await db.exec(migration148);
+    expect(await collectionDeposits('2024-08-02')).toEqual([]);
+    expect(await collectionDeposits('2024-08-03')).toEqual([]);
+    expect(await reserve()).toBe(0);
+    expect(await available()).toBe(1000);
+    // The days stay collected.
+    expect((await db.query('select date from public.daily_cash_collections order by date')).rows).toHaveLength(2);
+    await db.exec(migration148);
+    expect(await reserve()).toBe(0);
+  });
+
+  it('collects and un-collects a day without any reserve entry', async () => {
+    await unmark('2024-08-03');
+    expect((await mark('2024-08-03', admin)).rows[0]).toEqual({ ticked: true });
+    expect(await collectionDeposits('2024-08-03')).toEqual([]);
+    expect(await reserve()).toBe(0);
+    expect(await available()).toBe(1000);
+    await unmark('2024-08-03');
+    expect((await db.query('select 1 from public.daily_cash_collections where date = $1', ['2024-08-03'])).rows).toEqual([]);
   });
 });

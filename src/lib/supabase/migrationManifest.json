@@ -4621,11 +4621,6 @@
       },
       {
         "kind": "functionBody",
-        "signature": "public.unmark_daily_cash_collected(uuid,date)",
-        "md5": "ec0ed47d95fed4fe2fd2a1bef92d407f"
-      },
-      {
-        "kind": "functionBody",
         "signature": "public.delete_owner_reserve_entry(uuid,uuid)",
         "md5": "4bf6290574b15c9436634c434e026107"
       },
@@ -4778,11 +4773,6 @@
         "name": "owner_reserve_never_negative"
       },
       {
-        "kind": "functionBody",
-        "signature": "public.mark_daily_cash_collected(uuid,date)",
-        "md5": "be526fc9800170b1a0d2e31bbc384818"
-      },
-      {
         "kind": "function",
         "signature": "public.method_daily_lowest_balance(uuid,text,date)"
       },
@@ -4819,6 +4809,21 @@
         "kind": "functionBody",
         "signature": "public.get_salary_profit_snapshot(uuid,date)",
         "md5": "2cbdf8c0fadc09bba7b90b2e45b8b897"
+      }
+    ]
+  },
+  {
+    "file": "148_collection_leaves_reserve_alone.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.mark_daily_cash_collected(uuid,date)",
+        "md5": "74079ae6af6f7d93b3c3cd0e0c7b92ac"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.unmark_daily_cash_collected(uuid,date)",
+        "md5": "dd79c665d49be1ed6c333e5ca3a7e528"
       }
     ]
   }

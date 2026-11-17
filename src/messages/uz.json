@@ -430,7 +430,7 @@
     "dateUpdateError": "Sanani o'zgartirib bo'lmadi. Qayta urinib ko'ring.",
     "addedAt": "{time} da qo'shilgan",
     "collectionMark": "Olindi deb belgilash",
-    "collectionMarkConfirm": "{date} uchun pulni olganingizni tasdiqlang. Klub puli egasi jamg'armasiga o‘tadi. Kun yopiladi: daromad yoki xarajat qo‘shib, o‘zgartirib yoki o‘chirib bo‘lmaydi. Buni faqat egasi bekor qila oladi.",
+    "collectionMarkConfirm": "{date} uchun pulni olganingizni tasdiqlang. Kun yopiladi: daromad yoki xarajat qo‘shib, o‘zgartirib yoki o‘chirib bo‘lmaydi. Buni faqat egasi bekor qila oladi.",
     "collectionUndo": "Yig‘ishni bekor qilish",
     "collectionUndoConfirm": "{date} olinmagan deb belgilansinmi?",
     "collectedBy": "Oldi: {name}",

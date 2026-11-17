@@ -124,16 +124,13 @@ describe('a payment method never goes negative on any day (146)', () => {
     await expense('2024-08-20', 10);
   });
 
-  it('collects only what the method still holds, and never fails', async () => {
-    // 20 Aug took in 90 net, but the month's earlier days leave the cash at 40.
+  it('collects a day even when the method is short, without touching the reserve (148)', async () => {
     const result = await signedIn(() => db.query<{ ticked: boolean }>(
       'select mark_daily_cash_collected($1, $2) as ticked', [club, '2024-08-20'],
     ));
     expect(result.rows[0].ticked).toBe(true);
-    const deposits = await db.query<{ payment_method: string; amount: string }>(
-      `select payment_method, amount from owner_reserve_entries where collection_date = '2024-08-20'`,
-    );
-    expect(deposits.rows).toEqual([{ payment_method: 'cash', amount: '40.00' }]);
+    const deposits = await db.query(`select 1 from owner_reserve_entries where collection_date = '2024-08-20'`);
+    expect(deposits.rows).toEqual([]);
   });
 });
 

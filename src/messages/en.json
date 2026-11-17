@@ -430,7 +430,7 @@
     "dateUpdateError": "Could not change the date. Try again.",
     "addedAt": "Added at {time}",
     "collectionMark": "Mark as collected",
-    "collectionMarkConfirm": "Confirm that you have collected the money for {date}. Its Game Club money goes into the owner reserve. The day will be closed: no income or expense can be added, changed or deleted. Only an owner can undo this.",
+    "collectionMarkConfirm": "Confirm that you have collected the money for {date}. The day will be closed: no income or expense can be added, changed or deleted. Only an owner can undo this.",
     "collectionUndo": "Undo collection",
     "collectionUndoConfirm": "Mark {date} as not collected?",
     "collectedBy": "Collected by {name}",
