@@ -50,6 +50,13 @@ describe('entry change notices', () => {
     expect(text).not.toContain('💬');
   });
 
+  it('says a deleted reserve purchase gave its money back to the reserve', () => {
+    const text = buildExpenseDeletedNotice({ ...expense, paid_from_reserve: true, payment_method: 'cash' }, 'Owner');
+    expect(text.split('\n')[0]).toMatch(/^🗑 Удалён расход из резерва, деньги вернулись в резерв: /);
+    expect(text).toContain('Резерв · ');
+    expect(text).toContain(' · Сумы · ');
+  });
+
   it('keeps the dollars of a dollar expense', () => {
     const usd = { ...expense, payment_method: 'usd', usd_amount: '100', usd_rate: '12850' };
     expect(buildExpenseDeletedNotice(usd, 'Owner')).toContain('$100 по курсу 12 850');
@@ -70,7 +77,7 @@ describe('entry change notices', () => {
       date: '2026-10-24', from_method: 'cash', to_method: 'usd', from_amount: '1280000', to_amount: '100', comment: 'сейф',
     }, 'Owner').split('\n')).toEqual([
       '🗑 Удалён обмен: 1 280 000 сум → $100',
-      'Наличные → Доллары · 24 октября',
+      'Наличные → Доллары · доллары вышли из резерва · 24 октября',
       '💬 сейф',
       'Удалил(а) Owner',
     ]);

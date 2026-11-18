@@ -1,10 +1,10 @@
 import { formatCurrency } from '../formatters';
 import type { ExchangeMethod } from '../calculations/moneyExchanges';
 import { targetChatId } from './clubChat';
-import { exchangeAmounts, exchangeMethods } from './exchangeNotification';
+import { exchangeAmounts, exchangeMethods, exchangeReserveNote } from './exchangeNotification';
 import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
-import { expenseDollars, expenseMethod } from './expenseNotification';
-import { commentLine, details, lines, noticeDate, source, sum } from './messageParts';
+import { expenseDollars, expenseFromReserve, expenseMethod, expenseSource } from './expenseNotification';
+import { commentLine, details, lines, noticeDate, sum } from './messageParts';
 import { sendTelegramMessage } from './sendDailyFinanceReport';
 
 /**
@@ -24,18 +24,21 @@ export interface ExpenseNoticeRow {
   payment_source: string | null;
   usd_amount?: number | string | null;
   usd_rate?: number | string | null;
+  paid_from_reserve?: boolean | null;
 }
 
+const paymentLabel = (expense: ExpenseNoticeRow) => expenseMethod(expense.payment_method, expenseDollars(expense), expenseFromReserve(expense));
+
 const expenseDetails = (expense: ExpenseNoticeRow) => details(
-  source(expense.payment_source),
+  expenseSource(expense.payment_source, expenseFromReserve(expense)),
   category(expense.category),
-  expenseMethod(expense.payment_method, expenseDollars(expense)),
+  paymentLabel(expense),
   noticeDate(expense.date),
 );
 
 export function buildExpenseDeletedNotice(expense: ExpenseNoticeRow, deletedBy: string): string {
   return lines(
-    `🗑 Удалён расход: ${sum(Number(expense.amount))}`,
+    `🗑 Удалён расход${expenseFromReserve(expense) ? ' из резерва, деньги вернулись в резерв' : ''}: ${sum(Number(expense.amount))}`,
     expenseDetails(expense),
     commentLine(expense.comment),
     `Удалил(а) ${deletedBy}`,
@@ -46,14 +49,14 @@ export function buildExpenseDeletedNotice(expense: ExpenseNoticeRow, deletedBy: 
 export function buildExpenseChangedNotice(before: ExpenseNoticeRow, after: ExpenseNoticeRow, changedBy: string): string {
   const changes: Array<[string, string, string]> = [
     ['Сумма', sum(Number(before.amount)), sum(Number(after.amount))],
-    ['Источник', source(before.payment_source), source(after.payment_source)],
+    ['Источник', expenseSource(before.payment_source, expenseFromReserve(before)), expenseSource(after.payment_source, expenseFromReserve(after))],
     ['Категория', category(before.category), category(after.category)],
-    ['Оплата', expenseMethod(before.payment_method, expenseDollars(before)), expenseMethod(after.payment_method, expenseDollars(after))],
+    ['Оплата', paymentLabel(before), paymentLabel(after)],
     ['Дата', noticeDate(before.date), noticeDate(after.date)],
   ];
   const commentChanged = (before.comment ?? '') !== (after.comment ?? '');
   return lines(
-    `✏️ Изменён расход: ${sum(Number(after.amount))}`,
+    `✏️ Изменён расход${expenseFromReserve(after) ? ' из резерва' : ''}: ${sum(Number(after.amount))}`,
     expenseDetails(after),
     ...changes.filter(([, old, now]) => old !== now).map(([label, old, now]) => `${label}: ${old} → ${now}`),
     commentChanged ? `Комментарий: ${before.comment || '—'} → ${after.comment || '—'}` : commentLine(after.comment),
@@ -73,7 +76,13 @@ export interface ExchangeNoticeRow {
 export function buildExchangeDeletedNotice(exchange: ExchangeNoticeRow, deletedBy: string): string {
   return lines(
     `🗑 Удалён обмен: ${exchangeAmounts(exchange.from_method, Number(exchange.from_amount), exchange.to_method, Number(exchange.to_amount))}`,
-    details(exchangeMethods(exchange.from_method, exchange.to_method), noticeDate(exchange.date)),
+    details(
+      exchangeMethods(exchange.from_method, exchange.to_method),
+      // Undoing it reverses the reserve move it made (143).
+      exchangeReserveNote(exchange.from_method, exchange.to_method)
+        && (exchange.to_method === 'usd' ? 'доллары вышли из резерва' : 'доллары вернулись в резерв'),
+      noticeDate(exchange.date),
+    ),
     commentLine(exchange.comment),
     `Удалил(а) ${deletedBy}`,
   );

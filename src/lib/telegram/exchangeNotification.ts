@@ -34,11 +34,18 @@ export const exchangeMethods = (from: ExchangeMethod, to: ExchangeMethod) => (
   `${EXCHANGE_METHOD_LABELS[from]} → ${EXCHANGE_METHOD_LABELS[to]}`
 );
 
+/** Dollars are the owner reserve's (143): buying them puts money in, selling them takes it out. */
+export const exchangeReserveNote = (from: ExchangeMethod, to: ExchangeMethod) => (
+  to === 'usd' ? 'доллары в резерв' : from === 'usd' ? 'доллары из резерва' : null
+);
+
 export function buildExchangeNotification(input: ExchangeNotificationInput): string {
+  const reserve = exchangeReserveNote(input.from, input.to);
   return lines(
-    `🔄 Обмен: ${exchangeAmounts(input.from, input.fromAmount, input.to, input.toAmount)}`,
+    `${reserve ? '🏦' : '🔄'} Обмен: ${exchangeAmounts(input.from, input.fromAmount, input.to, input.toAmount)}`,
     details(
       exchangeMethods(input.from, input.to),
+      reserve,
       input.rate !== null && `курс ${formatUnitCurrency(input.rate)}`,
       noticeDate(input.date),
     ),

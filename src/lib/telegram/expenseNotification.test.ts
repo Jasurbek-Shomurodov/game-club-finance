@@ -31,8 +31,21 @@ describe('buildExpenseNotification', () => {
       addedBy: 'A', amount: 1_285_000, category: 'repair', comment: null, date: '2026-09-01',
       paymentMethod: 'usd', paymentSource: 'game_club', dollars: { amount: 100, rate: 12850 },
     });
-    expect(message).toContain('Игровой клуб · Ремонт · $100 по курсу 12 850 · 1 сентября');
-    expect(message.split('\n')[0]).toBe('💸 Расход: 1 285 000 сум');
+    // Dollars are the reserve's own money (143), so it says the reserve paid.
+    expect(message).toContain('Резерв · Ремонт · $100 по курсу 12 850 · 1 сентября');
+    expect(message.split('\n')[0]).toBe('🏦 Расход из резерва: 1 285 000 сум');
+  });
+
+  it('says the reserve paid in sums, never the cash the row is stored in', () => {
+    const message = buildExpenseNotification({
+      addedBy: 'Owner', amount: 3_000_000, category: 'equipment', comment: 'Два новых игровых компьютера', date: '2026-11-18',
+      paymentMethod: 'cash', paymentSource: 'game_club', fromReserve: true,
+    });
+    expect(message.split('\n')).toEqual([
+      '🏦 Расход из резерва: 3 000 000 сум',
+      'Резерв · Оборудование · Сумы · 18 ноября',
+      'Owner: Два новых игровых компьютера',
+    ]);
   });
 });
 
