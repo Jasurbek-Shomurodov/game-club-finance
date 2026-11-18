@@ -18,9 +18,25 @@ export interface ReviewReplyClub {
   locationPath: string;
 }
 
+export interface ReviewListPage {
+  reviews?: unknown[];
+  nextPageToken?: string;
+  averageRating?: number;
+  totalReviewCount?: number;
+}
+
+/** One review the run handled, for the daily Telegram image. */
+export interface ReviewReplyResult {
+  starRating: number | null;
+  reviewerName: string | null;
+  comment: string | null;
+  reply: string | null;
+  status: 'published' | 'failed';
+}
+
 export interface ReviewReplyDeps {
   accessToken(club: ReviewReplyClub): Promise<string>;
-  listReviews(accessToken: string, locationPath: string, pageToken?: string): Promise<{ reviews?: unknown[]; nextPageToken?: string }>;
+  listReviews(accessToken: string, locationPath: string, pageToken?: string): Promise<ReviewListPage>;
   repliedReviewNames(clubId: string): Promise<Set<string>>;
   writeReply(review: GoogleReview, clubName: string): Promise<string | null>;
   postReply(accessToken: string, reviewName: string, reply: string): Promise<unknown>;
@@ -38,6 +54,10 @@ export interface ClubReplyOutcome {
   /** Reviews whose reply could not be written or posted this run. */
   failed: number;
   error?: GoogleApiErrorCode | 'FAILED';
+  /** The listing's rating and review count as Google reports them, when read. */
+  averageRating: number | null;
+  totalReviewCount: number | null;
+  results: ReviewReplyResult[];
 }
 
 /** Errors that end the club's run: every later call would fail the same way. */
@@ -45,9 +65,15 @@ const STOPPING: readonly GoogleApiErrorCode[] = ['RECONNECT', 'QUOTA', 'FORBIDDE
 
 async function readReviews(deps: ReviewReplyDeps, accessToken: string, locationPath: string) {
   const reviews: GoogleReview[] = [];
+  let averageRating: number | null = null;
+  let totalReviewCount: number | null = null;
   let pageToken: string | undefined;
   for (let page = 0; page < REVIEW_PAGES; page += 1) {
     const body = await deps.listReviews(accessToken, locationPath, pageToken);
+    if (page === 0) {
+      averageRating = Number.isFinite(body.averageRating) ? Number(body.averageRating) : null;
+      totalReviewCount = Number.isFinite(body.totalReviewCount) ? Number(body.totalReviewCount) : null;
+    }
     for (const raw of body.reviews ?? []) {
       const review = parseReview(raw);
       if (review) reviews.push(review);
@@ -55,19 +81,26 @@ async function readReviews(deps: ReviewReplyDeps, accessToken: string, locationP
     pageToken = body.nextPageToken;
     if (!pageToken) break;
   }
-  return reviews;
+  return { reviews, averageRating, totalReviewCount };
 }
 
 export async function replyToClubReviews(club: ReviewReplyClub, deps: ReviewReplyDeps): Promise<ClubReplyOutcome> {
-  const outcome: ClubReplyOutcome = { clubId: club.clubId, replied: 0, remaining: 0, failed: 0 };
+  const outcome: ClubReplyOutcome = {
+    clubId: club.clubId, replied: 0, remaining: 0, failed: 0, averageRating: null, totalReviewCount: null, results: [],
+  };
+  const result = (review: GoogleReview, status: ReviewReplyResult['status'], reply: string | null) => {
+    outcome.results.push({ starRating: review.starRating, reviewerName: review.reviewerName, comment: review.comment, reply, status });
+  };
   let pending: GoogleReview[] = [];
   try {
     const accessToken = await deps.accessToken(club);
-    const [reviews, replied] = await Promise.all([
+    const [listing, replied] = await Promise.all([
       readReviews(deps, accessToken, club.locationPath),
       deps.repliedReviewNames(club.clubId),
     ]);
-    pending = reviewsNeedingReply(reviews, replied);
+    outcome.averageRating = listing.averageRating;
+    outcome.totalReviewCount = listing.totalReviewCount;
+    pending = reviewsNeedingReply(listing.reviews, replied);
 
     for (const review of pending.slice(0, MAX_REPLIES_PER_CLUB)) {
       if (!deps.hasTime()) break;
@@ -77,6 +110,7 @@ export async function replyToClubReviews(club: ReviewReplyClub, deps: ReviewRepl
       });
       if (!reply) {
         outcome.failed += 1;
+        result(review, 'failed', null);
         continue;
       }
       try {
@@ -85,9 +119,11 @@ export async function replyToClubReviews(club: ReviewReplyClub, deps: ReviewRepl
         if (error instanceof GoogleApiError && STOPPING.includes(error.code)) throw error;
         deps.log('reply_post_failed', { clubId: club.clubId, review: review.name, error: error instanceof Error ? error.message : String(error) });
         outcome.failed += 1;
+        result(review, 'failed', null);
         continue;
       }
       outcome.replied += 1;
+      result(review, 'published', reply);
       // The reply is on Google; a failed record only hides it from the admin list.
       await deps.recordReply(club.clubId, review, reply).catch((error: unknown) => {
         deps.log('reply_record_failed', { clubId: club.clubId, review: review.name, error: error instanceof Error ? error.message : String(error) });

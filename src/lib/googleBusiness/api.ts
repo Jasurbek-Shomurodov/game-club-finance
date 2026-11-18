@@ -205,7 +205,7 @@ export async function createVideo(accessToken: string, locationPath: string, sou
 export async function listReviews(accessToken: string, locationPath: string, pageToken?: string, fetchImpl: Fetch = fetch) {
   const params = new URLSearchParams({ pageSize: '50', orderBy: 'updateTime desc' });
   if (pageToken) params.set('pageToken', pageToken);
-  return googleJson<{ reviews?: unknown[]; nextPageToken?: string }>(
+  return googleJson<{ reviews?: unknown[]; nextPageToken?: string; averageRating?: number; totalReviewCount?: number }>(
     fetchImpl, `${locationPath}/reviews?${params}`, { headers: bearer(accessToken) },
   );
 }

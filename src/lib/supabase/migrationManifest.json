@@ -5008,5 +5008,99 @@
   {
     "file": "159_showcase_bucket_videos.sql",
     "probes": []
+  },
+  {
+    "file": "160_google_review_digests.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.google_review_digests"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_digests",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_digests",
+        "column": "digest_date"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_digests",
+        "column": "average_rating"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_digests",
+        "column": "total_review_count"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_digests",
+        "column": "replied"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_digests",
+        "column": "failed"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_digests",
+        "column": "remaining"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_digests",
+        "column": "error"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_digests",
+        "column": "results"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_digests",
+        "column": "telegram_chat_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_digests",
+        "column": "send_attempted_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_digests",
+        "column": "telegram_message_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_digests",
+        "column": "sent_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.google_review_digests",
+        "column": "send_error"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.google_review_digests",
+        "name": "google_review_digests_rating_range"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.google_review_digests",
+        "name": "google_review_digests_counts_not_negative"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.google_review_digests",
+        "name": "google_review_digests_results_array"
+      }
+    ]
   }
 ]

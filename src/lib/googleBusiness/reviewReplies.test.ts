@@ -29,7 +29,11 @@ describe('replyToClubReviews', () => {
   it('replies to unanswered reviews, oldest first, and records each', async () => {
     const d = deps();
     const outcome = await replyToClubReviews(CLUB, d);
-    expect(outcome).toEqual({ clubId: 'club-1', replied: 2, remaining: 0, failed: 0 });
+    expect(outcome).toMatchObject({ clubId: 'club-1', replied: 2, remaining: 0, failed: 0 });
+    expect(outcome.results.map((r) => [r.comment, r.status, r.reply])).toEqual([
+      ['review 1', 'published', 'Thanks for review 1'],
+      ['review 2', 'published', 'Thanks for review 2'],
+    ]);
     expect(vi.mocked(d.postReply).mock.calls.map((call) => call[1])).toEqual([
       'accounts/1/locations/2/reviews/1',
       'accounts/1/locations/2/reviews/2',
@@ -47,6 +51,12 @@ describe('replyToClubReviews', () => {
     expect(outcome.replied).toBe(1);
   });
 
+  it('keeps the rating and review count from the first page', async () => {
+    const listReviews = vi.fn().mockResolvedValueOnce({ reviews: [], averageRating: 4.7, totalReviewCount: 120 });
+    const outcome = await replyToClubReviews(CLUB, deps({ listReviews }));
+    expect(outcome).toMatchObject({ averageRating: 4.7, totalReviewCount: 120, results: [] });
+  });
+
   it('caps the replies per run and reports what is left', async () => {
     const reviews = Array.from({ length: MAX_REPLIES_PER_CLUB + 3 }, (_, index) => rawReview(String(index + 1)));
     const outcome = await replyToClubReviews(CLUB, deps({ listReviews: async () => ({ reviews }) }));
@@ -58,6 +68,7 @@ describe('replyToClubReviews', () => {
     const postReply = vi.fn().mockRejectedValueOnce(new GoogleApiError('INVALID', 'bad'));
     const outcome = await replyToClubReviews(CLUB, deps({ writeReply, postReply }));
     expect(outcome).toMatchObject({ replied: 0, failed: 2, remaining: 2 });
+    expect(outcome.results.map((r) => r.status)).toEqual(['failed', 'failed']);
     expect(outcome.error).toBeUndefined();
   });
 

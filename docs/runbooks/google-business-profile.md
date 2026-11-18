@@ -53,15 +53,29 @@ cron -> /api/cron/google-review-replies (CRON_SECRET)
   -> v4 reviews.list (up to 3 pages of 50) -> reviews with no reply
   -> AI writes a reply in the review's language (src/lib/googleBusiness/reviews.ts prompt)
   -> v4 reviews.updateReply -> google_review_replies (one row per review)
+  -> per club with a Telegram group: google_review_digests row (claims the day)
+  -> "AI bot" image (src/lib/googleBusiness/reviewDigestImage.ts) -> sendPhoto
 ```
+
+- After replying, each club whose `TELEGRAM_*_CLUB_ID` maps to a
+  `TELEGRAM_*_CHAT_ID` group gets one Russian image a day: rating and review
+  count with the change since the previous image, how many replies were sent
+  and still wait, and each review with the reply posted. Text in scripts the
+  bundled Noto Sans cannot draw (Chinese, Arabic) is described instead.
+- The day's `google_review_digests` row (migration
+  `160_google_review_digests.sql`) is inserted before sending, so a repeated
+  or timed-out run never posts the image twice; a failed send is kept in
+  `send_error` and not retried. Without `TELEGRAM_BOT_TOKEN` no image is sent.
+  The JSON's `digest` per club is `sent`, `held` (already sent today),
+  `skipped` (no group) or `failed`.
 
 - Replies are written by the assistant's model chain (`ASSISTANT_PROVIDER`,
   `ANTHROPIC_API_KEY` or `GEMINI_API_KEY`, optional `ASSISTANT_MODEL`). Without
   a model key the run answers 503 and posts nothing. Reviews are public, so the
   free Gemini tier is allowed here.
 - Each run posts at most 10 replies per listing, oldest first, and stops
-  starting new ones 15 seconds before the 60-second limit; a backlog clears
-  over the following days.
+  starting new ones 20 seconds before the 60-second limit, leaving time for
+  the Telegram images; a backlog clears over the following days.
 - A quota, expired-access or permission error stops that club's run and the
   next club continues. A review whose reply could not be written or posted is
   tried again the next day.
