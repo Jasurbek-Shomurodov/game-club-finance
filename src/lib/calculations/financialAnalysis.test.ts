@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildPlaystationDaily,
   BAR_COST_TARGET,
   OTHER_CATEGORY,
   buildCategoryComparison,
@@ -292,5 +293,32 @@ describe('buildPaymentMethodFlow', () => {
   it('reaches the analysis through its options', () => {
     const analysis = buildFinancialAnalysis(range, rows, { exchangeRows: [exchange('cash', 'card', 2_000_000, 2_000_000)] });
     expect(analysis.paymentMethods.find((row) => row.method === 'card')?.exchanged).toBe(2_000_000);
+  });
+});
+
+describe('buildPlaystationDaily', () => {
+  it('lists PlayStation money each day through today, with its running total', () => {
+    const rows = buildPlaystationDaily(
+      { from: '2026-11-01', to: '2026-11-30' },
+      [
+        { date: '2026-11-01', cash_income: 100, terminal_income: 0, card_income: 0, playstation_income: 20_000 },
+        { date: '2026-11-03', cash_income: 100, terminal_income: 0, card_income: 0, playstation_income: 30_000 },
+        { date: '2026-11-03', cash_income: 0, terminal_income: 0, card_income: 0, playstation_income: null as never },
+        { date: '2026-11-05', cash_income: 0, terminal_income: 0, card_income: 0, playstation_income: 99_000 },
+      ],
+      '2026-11-04',
+    );
+    expect(rows).toEqual([
+      { date: '2026-11-01', amount: 20_000, running: 20_000 },
+      { date: '2026-11-02', amount: 0, running: 20_000 },
+      { date: '2026-11-03', amount: 30_000, running: 50_000 },
+      { date: '2026-11-04', amount: 0, running: 50_000 },
+    ]);
+  });
+
+  it('keeps the first day of a period that has not started yet', () => {
+    expect(buildPlaystationDaily({ from: '2026-12-01', to: '2026-12-31' }, [], '2026-11-18')).toEqual([
+      { date: '2026-12-01', amount: 0, running: 0 },
+    ]);
   });
 });

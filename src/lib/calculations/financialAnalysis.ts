@@ -358,6 +358,36 @@ export function buildFinancialAnalysis(
   };
 }
 
+export interface PlaystationDayRow {
+  date: string;
+  /** PlayStation money collected that day. */
+  amount: number;
+  /** PlayStation money from the period's first day through this one. */
+  running: number;
+}
+
+/**
+ * PlayStation money day by day through `throughDate`, with its running total.
+ * It is collected with each day's cash, so it reads the same cash rows as
+ * Game Club income; days after `throughDate` have no data yet and are left out.
+ */
+export function buildPlaystationDaily(
+  range: { from: string; to: string },
+  cashRows: readonly DailyCashRow[],
+  throughDate: string,
+): PlaystationDayRow[] {
+  const byDate = new Map<string, number>();
+  for (const row of cashRows) byDate.set(row.date, (byDate.get(row.date) ?? 0) + Number(row.playstation_income ?? 0));
+  let running = 0;
+  return datesInRange(range)
+    .filter((date, index) => index === 0 || date <= throughDate)
+    .map((date) => {
+      const amount = byDate.get(date) ?? 0;
+      running += amount;
+      return { date, amount, running };
+    });
+}
+
 export interface MonthlyAnalysisRow {
   month: string;
   gameClubIncome: number;

@@ -18,6 +18,7 @@ import {
   SPENDING_GROUPS,
   type DailyAnalysisRow,
   type MonthlyAnalysisRow,
+  type PlaystationDayRow,
 } from '@/lib/calculations/financialAnalysis';
 import { SPENDING_GROUP_COLORS } from './analysisFormat';
 
@@ -140,6 +141,39 @@ export function MonthlyTrendChart({ data, locale, currency }: { data: MonthlyAna
             <Bar dataKey="barSales" fill={chartColors.orange} radius={[3, 3, 0, 0]} maxBarSize={20} />
             <Line dataKey="gameClubLeft" type="monotone" stroke={chartColors.success} strokeWidth={2.5} dot={data.length <= 24 ? { r: 3 } : false} />
             <Line dataKey="barLeft" type="monotone" stroke={chartColors.purple} strokeWidth={2.5} dot={data.length <= 24 ? { r: 3 } : false} />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+    </>
+  );
+}
+
+/** PlayStation money each day as bars, with the period's running total as a line on its own axis. */
+export function PlaystationDailyChart({ data, locale, currency }: { data: PlaystationDayRow[]; locale: string; currency: string }) {
+  const t = useTranslations('financialAnalysis');
+  const names: Record<string, string> = { amount: t('playstationDay'), running: t('playstationRunning') };
+  const chartData = data.map((row) => ({ ...row, label: formatDateShort(row.date, locale) }));
+
+  return (
+    <>
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium text-gray-500">
+        <LegendItem color={chartColors.purple} label={names.amount} />
+        <LegendItem color={chartColors.primary} label={names.running} line />
+      </div>
+      <div className="mt-3 h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart accessibilityLayer data={chartData} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barCategoryGap="20%">
+            <CartesianGrid stroke={chartColors.grid} vertical={false} />
+            <XAxis dataKey="label" {...axisProps} axisLine={{ stroke: chartColors.grid }} minTickGap={16} />
+            <YAxis yAxisId="day" {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
+            <YAxis yAxisId="running" orientation="right" {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
+            <Tooltip
+              {...chartTooltipStyle}
+              cursor={{ fill: chartColors.cursor }}
+              formatter={(value, name) => [`${formatCurrency(Number(value))} ${currency}`, names[String(name)] ?? String(name)]}
+            />
+            <Bar yAxisId="day" dataKey="amount" fill={chartColors.purple} fillOpacity={0.85} radius={[3, 3, 0, 0]} maxBarSize={18} />
+            <Line yAxisId="running" dataKey="running" type="monotone" stroke={chartColors.primary} strokeWidth={2.5} dot={false} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>

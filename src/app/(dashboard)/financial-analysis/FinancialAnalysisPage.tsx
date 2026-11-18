@@ -42,10 +42,12 @@ import {
   buildCategoryDetail,
   buildFinancialAnalysis,
   buildMonthlyAnalysis,
+  buildPlaystationDaily,
   visiblePaymentMethodRows,
   type AnalysisLedgers,
   type MonthlyAnalysisRow,
   type PaymentMethodFlowRow,
+  type PlaystationDayRow,
 } from '@/lib/calculations/financialAnalysis';
 import { buildExpensePlanSummary, type ExpensePlanSummary } from '@/lib/calculations/expensePlans';
 import type { MoneyExchangeRow } from '@/lib/calculations/moneyExchanges';
@@ -72,6 +74,10 @@ function ChartLoading() {
 const loadTimeCharts = () => import('@/components/financial-analysis/AnalysisTimeCharts');
 const DailyFlowChart = dynamic(
   () => loadTimeCharts().then((module) => module.DailyFlowChart),
+  { ssr: false, loading: ChartLoading },
+);
+const PlaystationDailyChart = dynamic(
+  () => loadTimeCharts().then((module) => module.PlaystationDailyChart),
   { ssr: false, loading: ChartLoading },
 );
 const MonthlyTrendChart = dynamic(
@@ -292,6 +298,11 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
     [analysis.daily, businessToday],
   );
   const previousAnalysis = useMemo(() => buildFinancialAnalysis(previousRange, previous), [previous, previousRange]);
+  // PlayStation money, collected with each day's cash: how it grows day over day in the period.
+  const playstationDays = useMemo(
+    () => buildPlaystationDaily(range, current.cashRows, businessToday),
+    [range, current.cashRows, businessToday],
+  );
   const comparison = useMemo(
     () => buildCategoryComparison(current.expenseRows, previous.expenseRows),
     [current.expenseRows, previous.expenseRows],
@@ -492,6 +503,20 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
                     : <ChartEmpty title={t('empty')} className="mt-4" />}
                 </ChartCard>
 
+                <ChartCard title={t('playstationTitle')} description={t('playstationDesc')}>
+                  <PlaystationFigures
+                    total={analysis.totals.playstationIncome}
+                    previous={previousAnalysis.totals.playstationIncome}
+                    gameClubIncome={analysis.totals.gameClubIncome}
+                    days={playstationDays}
+                    locale={locale}
+                    currency={currency}
+                  />
+                  {analysis.totals.playstationIncome > 0
+                    ? <PlaystationDailyChart data={playstationDays} locale={locale} currency={currency} />
+                    : <ChartEmpty title={t('playstationEmpty')} className="mt-4" />}
+                </ChartCard>
+
                 <ChartCard title={t('monthlyTitle')} description={t('monthlyDesc')}>
                   {monthlyError ? (
                     <LoadErrorAlert className="mt-4" retrying={monthlyQuery.loading} onRetry={() => void monthlyQuery.reload()}>
@@ -538,5 +563,51 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
         currency={currency}
       />
     </>
+  );
+}
+
+/** The period's PlayStation money, its change, its daily average over the days with money, and its share of Game Club income. */
+function PlaystationFigures({ total, previous, gameClubIncome, days, locale, currency }: {
+  total: number;
+  previous: number;
+  gameClubIncome: number;
+  days: PlaystationDayRow[];
+  locale: string;
+  currency: string;
+}) {
+  const t = useTranslations('financialAnalysis');
+  const change = percentChange(total, previous);
+  const daysWithMoney = days.filter((day) => day.amount > 0).length;
+  const share = gameClubIncome > 0 ? (total / gameClubIncome) * 100 : null;
+  const items = [
+    {
+      label: t('playstationTotal'),
+      value: `${formatCurrency(total)} ${currency}`,
+      helper: change === null ? t('playstationNoComparison') : t('playstationVsPrevious', { change: `${change > 0 ? '+' : ''}${formatShare(change, locale)}` }),
+      tone: change === null ? 'text-gray-500' : change < 0 ? 'text-danger-600' : 'text-success-600',
+    },
+    {
+      label: t('playstationAverage'),
+      value: daysWithMoney ? `${formatCurrency(Math.round(total / daysWithMoney))} ${currency}` : '—',
+      helper: t('playstationDaysWithMoney', { count: daysWithMoney }),
+      tone: 'text-gray-500',
+    },
+    {
+      label: t('playstationShare'),
+      value: formatShare(share, locale),
+      helper: t('playstationShareHelper'),
+      tone: 'text-gray-500',
+    },
+  ];
+  return (
+    <dl className="mt-3 grid gap-3 sm:grid-cols-3">
+      {items.map((item) => (
+        <div key={item.label}>
+          <dt className="text-xs text-gray-500">{item.label}</dt>
+          <dd className="mt-0.5 text-base font-semibold tabular-nums text-gray-950">{item.value}</dd>
+          <dd className={cn('text-xs', item.tone)}>{item.helper}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
