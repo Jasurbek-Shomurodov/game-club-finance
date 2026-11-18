@@ -701,5 +701,8 @@ describe('PlayStation in the daily report', () => {
     const noChange = formatRussianDailyFinanceReport({ ...base, monthPlaystationIncome: 90_000, averageDailyPlaystationIncome: 30_000, averageDailyPlaystationIncomeChange: null });
     expect(noChange).toContain('🕹 Средние продажи PlayStation в день: 30 000 UZS\n');
     expect(formatRussianDailyFinanceReport(base)).not.toContain('PlayStation за месяц');
+    // The bar's average per day sits with its other month figures, like the club's and PlayStation's.
+    expect(formatRussianDailyFinanceReport({ ...base, averageDailyBarSales: 625_824, averageDailyBarSalesChange: 8 }))
+      .toContain('🍫 Средние продажи бара в день: 625 824 UZS (+8% к прошлому месяцу)');
   });
 });

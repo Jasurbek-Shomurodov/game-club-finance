@@ -559,12 +559,13 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
 
   // Daily income per business and monthly trend.
   const chartsY = barFlowY + barFlow.height + 24;
-  const chartsHeight = 400;
+  // Three tiles (club, PlayStation, bar), each with its day and its average per day.
+  const chartsHeight = 560;
 
   // PlayStation, part of club income, tracked on its own: daily sales and their running average.
   const playstationY = chartsY + chartsHeight + 24;
   const showPlaystation = input.monthDailyPlaystationIncome !== undefined;
-  const playstationHeight = showPlaystation ? 380 : 0;
+  const playstationHeight = showPlaystation ? 360 : 0;
 
   // Club and bar breakdown cards.
   const clubExpenseRows = limitCategories(input.gameClubExpenseCategories, 5);
@@ -663,25 +664,18 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
 
     ${card(PAGE_X, chartsY, 440, chartsHeight)}
     <text x="${PAGE_X + 28}" y="${chartsY + 50}" font-size="19" font-weight="800" fill="${INK}">ДОХОД ЗА ДЕНЬ</text>
-    ${card(PAGE_X + 20, chartsY + 80, 400, 140, '#EEF4FF', '#C7D7FB')}
-    ${iconTile(PAGE_X + 40, chartsY + 102, 56, BLUE, GLYPH_GAMEPAD)}
-    <text x="${PAGE_X + 116}" y="${chartsY + 126}" font-size="18" font-weight="800" fill="${BLUE}">КЛУБ</text>
-    ${moneyText(PAGE_X + 116, chartsY + 166, input.gameClubIncome, 28, BLUE)}
-    <text x="${PAGE_X + 116}" y="${chartsY + 196}" font-size="16" fill="${MUTED}">компьютеры, PlayStation, долги</text>
-    ${card(PAGE_X + 20, chartsY + 240, 400, 140, '#FFF3E8', '#FBD5B5')}
-    ${iconTile(PAGE_X + 40, chartsY + 262, 56, ORANGE, GLYPH_CUP)}
-    <text x="${PAGE_X + 116}" y="${chartsY + 286}" font-size="18" font-weight="800" fill="${ORANGE}">БАР</text>
-    ${moneyText(PAGE_X + 116, chartsY + 326, input.barSales, 28, ORANGE)}
-    <text x="${PAGE_X + 116}" y="${chartsY + 356}" font-size="16" fill="${MUTED}">продажи бара</text>
+    ${incomeTile(PAGE_X + 20, chartsY + 72, 'КЛУБ', BLUE, '#EEF4FF', '#C7D7FB', GLYPH_GAMEPAD, input.gameClubIncome, input.averageDailyGameClubIncome, input.averageDailyGameClubIncomeChange)}
+    ${incomeTile(PAGE_X + 20, chartsY + 232, 'PLAYSTATION', PURPLE, '#F7F3FF', '#DDD0FB', GLYPH_GAMEPAD, input.playstationIncome, input.averageDailyPlaystationIncome, input.averageDailyPlaystationIncomeChange)}
+    ${incomeTile(PAGE_X + 20, chartsY + 392, 'БАР', ORANGE, '#FFF3E8', '#FBD5B5', GLYPH_CUP, input.barSales, input.averageDailyBarSales, input.averageDailyBarSalesChange)}
 
     ${card(PAGE_X + 464, chartsY, PAGE_WIDTH - 464, chartsHeight)}
     <text x="${PAGE_X + 492}" y="${chartsY + 50}" font-size="19" font-weight="800" fill="${INK}">ДИНАМИКА ДОХОДА КЛУБА ЗА МЕСЯЦ</text>
-    ${incomeChart(dailyPoints, PAGE_X + 580, chartsY + 84, PAGE_WIDTH - 464 - 146, 170)}
-    ${card(PAGE_X + 488, chartsY + 306, PAGE_WIDTH - 512, 76, '#F8FAFC')}
-    <text x="${PAGE_X + 512}" y="${chartsY + 338}" font-size="17" fill="${TEXT}">Средний доход клуба / день</text>
-    ${moneyText(PAGE_X + 512, chartsY + 370, input.averageDailyGameClubIncome, 26, PURPLE)}
-    ${changeBadge(WIDTH - PAGE_X - 196, chartsY + 340, input.averageDailyGameClubIncomeChange, 20)}
-    <text x="${WIDTH - PAGE_X - 196}" y="${chartsY + 366}" font-size="16" fill="${MUTED}">к прошлому месяцу</text>
+    ${incomeChart(dailyPoints, PAGE_X + 580, chartsY + 84, PAGE_WIDTH - 464 - 146, 330)}
+    ${card(PAGE_X + 488, chartsY + 466, PAGE_WIDTH - 512, 76, '#F8FAFC')}
+    <text x="${PAGE_X + 512}" y="${chartsY + 498}" font-size="17" fill="${TEXT}">Средний доход клуба / день</text>
+    ${moneyText(PAGE_X + 512, chartsY + 530, input.averageDailyGameClubIncome, 26, PURPLE)}
+    ${changeBadge(WIDTH - PAGE_X - 196, chartsY + 500, input.averageDailyGameClubIncomeChange, 20)}
+    <text x="${WIDTH - PAGE_X - 196}" y="${chartsY + 526}" font-size="16" fill="${MUTED}">к прошлому месяцу</text>
 
     ${showPlaystation ? playstationSection(input, playstationY, playstationHeight) : ''}
 
@@ -729,29 +723,40 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
 </svg>`;
 }
 
-function playstationSection(input: DailyFinanceReportInput, y: number, height: number): string {
-  const chartLeft = PAGE_X + 580;
-  const chartWidth = PAGE_WIDTH - 464 - 146;
-  return `${card(PAGE_X, y, 440, height, '#F7F3FF', '#DDD0FB')}
-    ${iconTile(PAGE_X + 28, y + 28, 64, PURPLE, GLYPH_GAMEPAD)}
-    <text x="${PAGE_X + 112}" y="${y + 58}" font-size="22" font-weight="800" fill="${PURPLE}">PLAYSTATION</text>
-    <text x="${PAGE_X + 112}" y="${y + 84}" font-size="16" fill="${MUTED}">часть дохода клуба</text>
-    <text x="${PAGE_X + 28}" y="${y + 136}" font-size="17" fill="${TEXT}">За день</text>
-    ${moneyText(PAGE_X + 28, y + 170, input.playstationIncome, 26, PURPLE)}
-    <text x="${PAGE_X + 28}" y="${y + 222}" font-size="17" fill="${TEXT}">С начала месяца</text>
-    ${moneyText(PAGE_X + 28, y + 256, input.monthPlaystationIncome ?? 0, 26, PURPLE)}
-    <text x="${PAGE_X + 28}" y="${y + 308}" font-size="17" fill="${TEXT}">Средние продажи / день</text>
-    ${moneyText(PAGE_X + 28, y + 342, input.averageDailyPlaystationIncome ?? 0, 26, INK)}
-    ${changeBadge(PAGE_X + 300, y + 316, input.averageDailyPlaystationIncomeChange, 18)}
-    <text x="${PAGE_X + 300}" y="${y + 342}" font-size="15" fill="${MUTED}">к прошл. месяцу</text>
+/** One business's (or PlayStation's) money today, with its average per day this month and the change. */
+function incomeTile(
+  x: number,
+  y: number,
+  label: string,
+  color: string,
+  fill: string,
+  border: string,
+  glyph: string,
+  today: number,
+  averagePerDay: number | undefined,
+  change: number | null | undefined,
+): string {
+  return `${card(x, y, 400, 144, fill, border)}
+    ${iconTile(x + 20, y + 22, 56, color, glyph)}
+    <text x="${x + 96}" y="${y + 44}" font-size="18" font-weight="800" fill="${color}">${escapeXml(label)}</text>
+    ${moneyText(x + 96, y + 82, today, 28, color)}
+    <text x="${x + 96}" y="${y + 114}" font-size="15" fill="${MUTED}">в среднем / день</text>
+    <text x="${x + 96}" y="${y + 134}" font-size="17" font-weight="800" fill="${INK}">${escapeXml(averagePerDay === undefined ? '—' : `${amount(averagePerDay)} UZS`)}</text>
+    ${changeBadge(x + 300, y + 134, change, 17)}`;
+}
 
-    ${card(PAGE_X + 464, y, PAGE_WIDTH - 464, height)}
-    <text x="${PAGE_X + 492}" y="${y + 50}" font-size="19" font-weight="800" fill="${INK}">ПРОДАЖИ PLAYSTATION ЗА МЕСЯЦ</text>
-    <rect x="${WIDTH - PAGE_X - 400}" y="${y + 36}" width="16" height="16" rx="3" fill="${PURPLE}" fill-opacity="0.8"/>
-    <text x="${WIDTH - PAGE_X - 376}" y="${y + 50}" font-size="16" fill="${MUTED}">за день</text>
-    <line x1="${WIDTH - PAGE_X - 290}" y1="${y + 44}" x2="${WIDTH - PAGE_X - 262}" y2="${y + 44}" stroke="${INK}" stroke-width="4" stroke-linecap="round"/>
-    <text x="${WIDTH - PAGE_X - 252}" y="${y + 50}" font-size="16" fill="${MUTED}">средние продажи / день</text>
-    ${playstationChart(input.monthDailyPlaystationIncome ?? [], chartLeft, y + 96, chartWidth, height - 170)}`;
+/** PlayStation money each day this month, with the running average per day. */
+function playstationSection(input: DailyFinanceReportInput, y: number, height: number): string {
+  const chartLeft = PAGE_X + 116;
+  const chartWidth = PAGE_WIDTH - 116 - 40;
+  return `${card(PAGE_X, y, PAGE_WIDTH, height)}
+    ${iconTile(PAGE_X + 28, y + 24, 44, PURPLE, GLYPH_GAMEPAD)}
+    <text x="${PAGE_X + 88}" y="${y + 54}" font-size="19" font-weight="800" fill="${INK}">ПРОДАЖИ PLAYSTATION ЗА МЕСЯЦ</text>
+    <rect x="${WIDTH - PAGE_X - 400}" y="${y + 40}" width="16" height="16" rx="3" fill="${PURPLE}" fill-opacity="0.8"/>
+    <text x="${WIDTH - PAGE_X - 376}" y="${y + 54}" font-size="16" fill="${MUTED}">за день</text>
+    <line x1="${WIDTH - PAGE_X - 290}" y1="${y + 48}" x2="${WIDTH - PAGE_X - 262}" y2="${y + 48}" stroke="${INK}" stroke-width="4" stroke-linecap="round"/>
+    <text x="${WIDTH - PAGE_X - 252}" y="${y + 54}" font-size="16" fill="${MUTED}">средние продажи / день</text>
+    ${playstationChart(input.monthDailyPlaystationIncome ?? [], chartLeft, y + 96, chartWidth, height - 160)}`;
 }
 
 export async function renderDailyFinanceReportPng(input: DailyFinanceReportInput): Promise<Buffer> {

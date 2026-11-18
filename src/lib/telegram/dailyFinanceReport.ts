@@ -69,6 +69,9 @@ export interface DailyFinanceReportInput {
   /** Month-to-date PlayStation money per counted day, the same days as the club's average. */
   averageDailyPlaystationIncome?: number;
   averageDailyPlaystationIncomeChange?: number | null;
+  /** Month-to-date bar sales per day through the bar's latest closing count. */
+  averageDailyBarSales?: number;
+  averageDailyBarSalesChange?: number | null;
   /** PlayStation money per calendar day from the first of the month through the report date. */
   monthDailyPlaystationIncome?: DailyFinanceIncomePoint[];
   /** Active tracked products that are out of stock or at/below their threshold. */
@@ -297,12 +300,15 @@ function promoGiveawayLines(items: DailyFinancePromoGiveaway[] | undefined): str
 /** The month's PlayStation money, its daily average and how that average moved since last month. */
 function playstationMonthLines(input: DailyFinanceReportInput): string[] {
   if (input.monthPlaystationIncome === undefined || input.averageDailyPlaystationIncome === undefined) return [];
-  const change = input.averageDailyPlaystationIncomeChange;
-  const changeText = change === null || change === undefined ? '' : ` (${change > 0 ? '+' : ''}${change}% к прошлому месяцу)`;
   return [
     `🕹 PlayStation за месяц: ${money(input.monthPlaystationIncome)}`,
-    `🕹 Средние продажи PlayStation в день: ${money(input.averageDailyPlaystationIncome)}${changeText}`,
+    `🕹 Средние продажи PlayStation в день: ${money(input.averageDailyPlaystationIncome)}${changeSuffix(input.averageDailyPlaystationIncomeChange)}`,
   ];
+}
+
+/** " (+12% к прошлому месяцу)", or nothing when last month gives no comparison. */
+function changeSuffix(change: number | null | undefined): string {
+  return change === null || change === undefined ? '' : ` (${change > 0 ? '+' : ''}${change}% к прошлому месяцу)`;
 }
 
 function percent(value: number, total: number): string {
@@ -513,6 +519,19 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
     debtRows: previousMonthDebtRows,
     stockRows: [],
   }).gameClub;
+  // The bar counts its days through its own latest closing count, as on the dashboard.
+  const barDayCount = getAverageIncomeDayCounts(monthRange, {
+    cashRows: [],
+    debtRows: [],
+    stockRows: rows.monthStockRows ?? rows.stockRows,
+  }).bar;
+  const previousBarDayCount = getAverageIncomeDayCounts(previousMonthRange, {
+    cashRows: [],
+    debtRows: [],
+    stockRows: rows.previousMonthStockRows ?? [],
+  }).bar;
+  const averageDailyBarSales = calculateAverageDailyIncome(monthTotals.barSales, barDayCount);
+  const previousAverageDailyBarSales = calculateAverageDailyIncome(previousMonthTotals.barSales, previousBarDayCount);
   const previousAverageDailyGameClubIncome = calculateAverageDailyIncome(
     previousMonthTotals.gameClubIncome,
     previousAverageDayCount,
@@ -590,6 +609,8 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
     monthPlaystationIncome: monthTotals.playstationIncome,
     averageDailyPlaystationIncome,
     averageDailyPlaystationIncomeChange: percentChange(averageDailyPlaystationIncome, previousAverageDailyPlaystationIncome),
+    averageDailyBarSales,
+    averageDailyBarSalesChange: percentChange(averageDailyBarSales, previousAverageDailyBarSales),
     monthDailyPlaystationIncome: buildDailyPlaystationIncomeSeries(rows.monthCashRows ?? rows.cashRows, monthRange),
     lowStockProducts: rows.lowStockProductRows === undefined
       ? undefined
@@ -637,6 +658,9 @@ export function formatRussianDailyFinanceReport(input: DailyFinanceReportInput):
     `💰 Остаток денег клуба за месяц: ${money(input.gameClubMoneyLeft)}`,
     `📈 Средний дневной доход клуба за месяц: ${money(input.averageDailyGameClubIncome)}`,
     ...playstationMonthLines(input),
+    ...(input.averageDailyBarSales === undefined
+      ? []
+      : [`🍫 Средние продажи бара в день: ${money(input.averageDailyBarSales)}${changeSuffix(input.averageDailyBarSalesChange)}`]),
     `🧾 Остаток денег бара за месяц: ${money(input.barMoneyLeft)}`,
     '',
     `📦 Стоимость склада: ${money(input.inventoryValue)}`,
