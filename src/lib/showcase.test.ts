@@ -41,6 +41,7 @@ import {
   applyPlaystationModel,
   playstationModel,
   switchZoneKind,
+  groupShowcaseOffers,
 } from './showcase';
 
 describe('slugifyClubName', () => {
@@ -449,5 +450,51 @@ describe('openStatus', () => {
     expect(openStatus('Every day', evening)).toBeNull();
     expect(openStatus(null, evening)).toBeNull();
     expect(openStatus('25:00 - 99:00', evening)).toBeNull();
+  });
+});
+
+describe('groupShowcaseOffers', () => {
+  const offer = (id: string, title: string, badge: string | null, price: number, description: string | null = null) =>
+    ({ id, title, badge, price, description, time_window: null });
+  const offers = [
+    offer('v21', 'VIP · 2+1 hours', '2+1', 60000, 'Pay for 2 hours in VIP, play 3.'),
+    offer('p1', 'Pro · 1 hour', 'PRO', 20000),
+    offer('p21', 'Pro · 2+1 hours', '2+1', 40000, 'Pay for 2 hours in Pro, play 3.'),
+    offer('p32', 'Pro · 3+2 hours', '3+2', 60000),
+    offer('p7', 'Pro · 7 hours', '7H', 100000),
+    offer('s21', 'Standard · 2+1 hours', '2+1', 30000, 'Pay for 2 hours, play 3.'),
+    offer('s32', 'Standard · 3+2 hours', '3+2', 45000),
+    offer('s7', 'Standard · 7 hours', '7h', 60000),
+    offer('vn', 'VIP · Night', 'NIGHT', 70000),
+    offer('combo', 'Combo: 7 hours + ZarKebab set', 'COMBO', 85000),
+  ];
+
+  it('keeps single-hour rates apart from the packages', () => {
+    expect(groupShowcaseOffers(offers).hourly).toEqual([{ id: 'p1', zone: 'Pro', price: 20000, time_window: null }]);
+  });
+
+  it('merges one package kind across zones in display order', () => {
+    const { packages } = groupShowcaseOffers(offers);
+    expect(packages.map((group) => [group.badge, group.title, group.options.map((option) => `${option.zone} ${option.price}`)])).toEqual([
+      ['2+1', '2+1 hours', ['VIP 60000', 'Pro 40000', 'Standard 30000']],
+      ['3+2', '3+2 hours', ['Pro 60000', 'Standard 45000']],
+      ['7H', '7 hours', ['Pro 100000', 'Standard 60000']],
+    ]);
+    expect(packages[0].description).toBe('Pay for 2 hours, play 3.');
+  });
+
+  it('leaves combos and badges without a length as plain offers', () => {
+    expect(groupShowcaseOffers(offers).others.map((item) => item.id)).toEqual(['vn', 'combo']);
+  });
+
+  it('shows a package offered in one zone only as a plain offer', () => {
+    const { packages, others } = groupShowcaseOffers([offer('a', 'VIP · 2+1 hours', '2+1', 1), offer('b', 'Pro · 3+2 hours', '3+2', 2)]);
+    expect(packages).toEqual([]);
+    expect(others.map((item) => item.id)).toEqual(['a', 'b']);
+  });
+
+  it('does not take 10 hours or 1+1 for a single hour', () => {
+    const { hourly } = groupShowcaseOffers([offer('a', 'VIP · 10 hours', '10H', 1), offer('b', 'Pro · 1+1 hours', '1+1', 2)]);
+    expect(hourly).toEqual([]);
   });
 });

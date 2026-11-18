@@ -484,6 +484,88 @@ export interface PublicShowcaseOffer {
   time_window: string | null;
 }
 
+/** One zone's price inside a package type, e.g. "Pro" in the 2+1 package. */
+export interface ShowcaseOfferOption {
+  id: string;
+  zone: string | null;
+  price: number | null;
+  time_window: string | null;
+}
+
+/** Offers of one package type (same badge) across zones, so prices sit side by side. */
+export interface ShowcaseOfferGroup {
+  key: string;
+  badge: string;
+  title: string;
+  description: string | null;
+  options: ShowcaseOfferOption[];
+}
+
+export interface GroupedShowcaseOffers {
+  /** Single-hour rates ("Pro · 1 hour"), kept apart from the packages. */
+  hourly: ShowcaseOfferOption[];
+  packages: ShowcaseOfferGroup[];
+  /** Combos and anything that is not a "Zone · length" package. */
+  others: PublicShowcaseOffer[];
+}
+
+const TITLE_SEPARATOR = /\s+[·•|—–-]\s+/;
+
+function splitOfferTitle(title: string): { zone: string | null; length: string } {
+  const parts = title.split(TITLE_SEPARATOR);
+  if (parts.length < 2) return { zone: null, length: title };
+  return { zone: parts[0], length: parts.slice(1).join(' · ') };
+}
+
+/**
+ * Lays out a club's offers for comparison: single-hour rates in their own row,
+ * packages of the same kind (same badge, like "2+1") merged into one card that
+ * lists every zone's price, and everything else (combos) as it is. Display
+ * order follows the first offer of each kind.
+ */
+export function groupShowcaseOffers(offers: PublicShowcaseOffer[]): GroupedShowcaseOffers {
+  const hourly: ShowcaseOfferOption[] = [];
+  const packages: ShowcaseOfferGroup[] = [];
+  const others: PublicShowcaseOffer[] = [];
+  const byBadge = new Map<string, ShowcaseOfferGroup>();
+
+  for (const offer of offers) {
+    const { zone, length } = splitOfferTitle(offer.title);
+    const option = { id: offer.id, zone, price: offer.price, time_window: offer.time_window };
+    if (zone && /^1(?!\d|[.,+])/.test(length)) {
+      hourly.push(option);
+      continue;
+    }
+    const badge = offer.badge?.trim();
+    if (!zone || !badge || !/\d/.test(badge)) {
+      others.push(offer);
+      continue;
+    }
+    const key = badge.toLocaleUpperCase();
+    const group = byBadge.get(key);
+    if (group) {
+      group.options.push(option);
+      // The zone-free wording ("Pay for 2 hours, play 3.") is the shortest one.
+      if (offer.description && (!group.description || offer.description.length < group.description.length)) {
+        group.description = offer.description;
+      }
+    } else {
+      const created = { key, badge, title: length, description: offer.description, options: [option] };
+      byBadge.set(key, created);
+      packages.push(created);
+    }
+  }
+
+  // A kind offered in one zone only has nothing to compare: show it as a plain card.
+  const compared = packages.filter((group) => group.options.length > 1);
+  const single = new Set(packages.filter((group) => group.options.length === 1).map((group) => group.options[0].id));
+  return {
+    hourly,
+    packages: compared,
+    others: offers.filter((offer) => single.has(offer.id) || others.includes(offer)),
+  };
+}
+
 export interface PublicShowcase {
   club_name: string;
   logo_url: string | null;
