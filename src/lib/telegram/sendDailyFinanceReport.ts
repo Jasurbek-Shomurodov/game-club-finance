@@ -529,7 +529,7 @@ function retryDelayMs(attempt: number, retryAfterSeconds: number | null, baseDel
 interface TelegramRequestOptions {
   botToken: string;
   chatId: string;
-  endpoint: 'sendMessage' | 'sendPhoto';
+  endpoint: 'sendMessage' | 'sendPhoto' | 'sendMediaGroup';
   buildRequest: (destinationChatId: string) => Omit<RequestInit, 'signal'>;
   maxAttempts?: number;
   timeoutMs?: number;
@@ -599,7 +599,12 @@ async function sendTelegramRequest({
         method: 'POST',
         signal: controller.signal,
       });
-      const payload = await response.json().catch(() => null) as TelegramSuccess | TelegramErrorPayload | null;
+      const rawPayload = await response.json().catch(() => null) as TelegramSuccess | TelegramErrorPayload | { ok: true; result: unknown[] } | null;
+      // sendMediaGroup answers with every message of the album; the first one
+      // (the one carrying the caption) identifies the delivery.
+      const payload = (rawPayload && 'result' in rawPayload && Array.isArray(rawPayload.result)
+        ? { ...rawPayload, result: rawPayload.result[0] }
+        : rawPayload) as TelegramSuccess | TelegramErrorPayload | null;
       const finishedAt = new Date().toISOString();
 
       if (response.ok && isTelegramSuccess(payload)) {
@@ -804,6 +809,41 @@ export function sendTelegramPhoto({
       form.set('chat_id', destinationChatId);
       form.set('photo', new Blob([new Uint8Array(imagePng)], { type: 'image/png' }), imageFileName);
       form.set('caption', truncateTelegramText(caption, TELEGRAM_CAPTION_MAX_LENGTH));
+      form.set('disable_notification', 'false');
+      return { body: form };
+    },
+  });
+}
+
+/**
+ * Several PNGs as one Telegram album. The caption sits on the first photo,
+ * which is the message the result identifies.
+ */
+export function sendTelegramPhotoAlbum({
+  photos,
+  caption,
+  ...options
+}: TelegramCommonSendOptions & {
+  photos: Array<{ png: Buffer; fileName: string }>;
+  caption: string;
+}): Promise<TelegramSendResult> {
+  if (photos.length < 2 || photos.length > 10) {
+    throw new Error('A Telegram album holds 2 to 10 photos');
+  }
+  return sendTelegramRequest({
+    ...options,
+    endpoint: 'sendMediaGroup',
+    buildRequest: (destinationChatId) => {
+      const form = new FormData();
+      form.set('chat_id', destinationChatId);
+      form.set('media', JSON.stringify(photos.map((_, index) => ({
+        type: 'photo',
+        media: `attach://photo${index}`,
+        ...(index === 0 ? { caption: truncateTelegramText(caption, TELEGRAM_CAPTION_MAX_LENGTH) } : {}),
+      }))));
+      photos.forEach((photo, index) => {
+        form.set(`photo${index}`, new Blob([new Uint8Array(photo.png)], { type: 'image/png' }), photo.fileName);
+      });
       form.set('disable_notification', 'false');
       return { body: form };
     },

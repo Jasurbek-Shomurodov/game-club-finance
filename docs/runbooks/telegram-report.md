@@ -99,18 +99,25 @@ cost is already inside bar cost, so no total changes.
 ## Bar write-offs image
 
 When bar stock was written off or corrected on the report date, the cron sends
-one more photo right after the main report ("Списания и корректировки бара",
-`buildStockAdjustmentsReportSvg`): tiles for недостача, просрочка and
+the report and a second image ("Списания и корректировки бара",
+`buildStockAdjustmentsReportSvg`) together as one two-photo album
+(`sendTelegramPhotoAlbum`, Telegram `sendMediaGroup`, caption on the first
+photo): tiles for недостача, просрочка and
 корректировка, then each product with its reason, note, units and value at
 cost. Days with neither send nothing extra, and the main report image no longer
 carries the write-off card (the caption and text fallback keep their totals).
 `getStockWriteOffRows` reads report-date `daily_stock_counts` rows with a
 non-zero adjustment; `summarizeStockWriteOffsForReport` keeps shortage/expired
 and `summarizeStockCorrectionsForReport` keeps `correction` reasons, so older
-free-text adjustments are not listed. The extra photo is best-effort: it is
-sent once (one attempt) only after the report was delivered and the ledger
-finalized, a failure is logged as `telegram_report_write_offs_image_failed`,
-and the result reports `writeOffsImageSent`. It is not retried by recovery runs.
+free-text adjustments are not listed. The album is the report's one delivery: the ledger records it as `photo` with
+`photoCount: 2`, and retries resend the whole album. Only when the report image
+itself falls back to text is the write-offs image sent after it, once and
+best-effort (failure logged as `telegram_report_write_offs_image_failed`). The
+result reports `writeOffsImageSent`.
+
+Corrections send no instant group notice when saved
+(`shouldNotifyStockAdjustment`; `/api/stock-write-offs` also skips them); they
+appear only in this album. Write-offs still send their instant notice.
 
 ## Low-stock section
 

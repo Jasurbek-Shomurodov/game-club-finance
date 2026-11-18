@@ -237,6 +237,20 @@ export function summarizeStockWriteOffs(rows: StockWriteOffCountRow[]): StockWri
 }
 
 /**
+ * Whether saving `next` over `previous` deserves an instant group notice.
+ * Write-offs do; corrections only appear in the daily report's album, so a
+ * change that only records, raises or removes a correction sends nothing.
+ */
+export function shouldNotifyStockAdjustment(
+  previous: Pick<RowStockAdjustment, 'sign'> | null,
+  next: { kind: StockAdjustmentKind; quantity: number },
+): boolean {
+  const nextIsWriteOff = next.quantity > 0 && next.kind !== 'correction';
+  const previousIsWriteOff = previous?.sign === -1;
+  return nextIsWriteOff || previousIsWriteOff;
+}
+
+/**
  * Asks the server to tell the club's Telegram group about the write-off just
  * saved for this product and day; the server reads the saved count itself.
  */

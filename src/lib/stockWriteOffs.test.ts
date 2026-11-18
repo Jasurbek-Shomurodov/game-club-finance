@@ -5,6 +5,7 @@ import { buildClosingStockUpserts, closingStockRowTotalsInput, validateClosingSt
 import {
   applyStockWriteOff,
   rowStockAdjustment,
+  shouldNotifyStockAdjustment,
   formatWriteOffReason,
   isWriteOffAddition,
   maxWriteOffQuantity,
@@ -275,5 +276,16 @@ describe('stock corrections', () => {
 
   it('gives corrections a success badge', () => {
     expect(writeOffKindVariant('correction')).toBe('success');
+  });
+});
+
+describe('shouldNotifyStockAdjustment', () => {
+  it('notifies write-offs but keeps corrections for the daily album', () => {
+    expect(shouldNotifyStockAdjustment(null, { kind: 'shortage', quantity: 2 })).toBe(true);
+    expect(shouldNotifyStockAdjustment({ sign: -1 }, { kind: 'shortage', quantity: 0 })).toBe(true);
+    expect(shouldNotifyStockAdjustment({ sign: -1 }, { kind: 'correction', quantity: 3 })).toBe(true);
+    expect(shouldNotifyStockAdjustment(null, { kind: 'correction', quantity: 3 })).toBe(false);
+    expect(shouldNotifyStockAdjustment({ sign: 1 }, { kind: 'correction', quantity: 5 })).toBe(false);
+    expect(shouldNotifyStockAdjustment({ sign: 1 }, { kind: 'correction', quantity: 0 })).toBe(false);
   });
 });

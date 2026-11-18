@@ -7,6 +7,7 @@ import {
   getPromoGiveawayRows,
   sendTelegramMessage,
   sendTelegramPhoto,
+  sendTelegramPhotoAlbum,
   TELEGRAM_MESSAGE_MAX_LENGTH,
   truncateTelegramText,
 } from './sendDailyFinanceReport';
@@ -559,6 +560,44 @@ describe('sendTelegramPhoto', () => {
     expect(photo).toBeInstanceOf(Blob);
     expect((photo as File).name).toBe('daily-finance.png');
     expect((photo as Blob).type).toBe('image/png');
+  });
+});
+
+describe('sendTelegramPhotoAlbum', () => {
+  it('sends both PNGs as one album with the caption on the first photo', async () => {
+    const message = (id: number) => ({ message_id: id, chat: { id: -1006, title: 'Pixel', type: 'supergroup' }, date: 1_787_799_540 });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true, result: [message(60), message(61)] }),
+    } as Response);
+
+    const result = await sendTelegramPhotoAlbum({
+      botToken: 'test-token',
+      chatId: '-1006',
+      photos: [
+        { png: Buffer.from([0x89, 0x50]), fileName: 'report.png' },
+        { png: Buffer.from([0x89, 0x51]), fileName: 'write-offs.png' },
+      ],
+      caption: 'Отчёт',
+      fetchImpl: fetchMock,
+    });
+
+    expect(result.result.message_id).toBe(60);
+    expect(String(fetchMock.mock.calls[0][0])).toMatch(/\/sendMediaGroup$/);
+    const form = fetchMock.mock.calls[0][1]?.body as FormData;
+    expect(JSON.parse(String(form.get('media')))).toEqual([
+      { type: 'photo', media: 'attach://photo0', caption: 'Отчёт' },
+      { type: 'photo', media: 'attach://photo1' },
+    ]);
+    expect((form.get('photo0') as File).name).toBe('report.png');
+    expect((form.get('photo1') as File).name).toBe('write-offs.png');
+  });
+
+  it('refuses an album of one photo', () => {
+    expect(() => sendTelegramPhotoAlbum({
+      botToken: 't', chatId: '-1', caption: '', photos: [{ png: Buffer.from([1]), fileName: 'a.png' }],
+    })).toThrow('2 to 10 photos');
   });
 });
 

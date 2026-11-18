@@ -14,6 +14,7 @@ import {
   previousClubBusinessDateIso,
   sendTelegramMessage,
   sendTelegramPhoto,
+  sendTelegramPhotoAlbum,
   TelegramSendError,
 } from '@/lib/telegram/sendDailyFinanceReport';
 import {
@@ -536,7 +537,21 @@ export async function GET(request: NextRequest) {
 
       try {
         const deliveryType = report.imagePng ? 'photo' : 'text';
-        const telegram = report.imagePng
+        // With write-offs or corrections that day, the report and their image
+        // go out together as one album of two photos.
+        const album = Boolean(report.imagePng && report.adjustmentsImage);
+        const telegram = report.imagePng && report.adjustmentsImage
+          ? await sendTelegramPhotoAlbum({
+              botToken,
+              chatId: report.chatId,
+              photos: [
+                { png: report.imagePng, fileName: report.imageFileName },
+                { png: report.adjustmentsImage.png, fileName: report.adjustmentsImage.fileName },
+              ],
+              caption: report.caption,
+              deadlineAt,
+            })
+          : report.imagePng
           ? await sendTelegramPhoto({
               botToken,
               chatId: report.chatId,
@@ -553,6 +568,7 @@ export async function GET(request: NextRequest) {
             });
         const telegramResult = {
           deliveryType,
+          ...(album ? { photoCount: 2 } : {}),
           messageId: telegram.result.message_id,
           chatId: telegram.result.chat.id,
           chatTitle: telegram.result.chat.title ?? null,
@@ -593,11 +609,10 @@ export async function GET(request: NextRequest) {
           attempts: telegram.attempts.length,
         });
 
-        // The day's write-offs and corrections follow as one more image, only
-        // when there were any. It is sent once, right after the report this
-        // invocation delivered; a failure is logged and never fails the report.
-        let writeOffsImageSent = false;
-        if (report.adjustmentsImage) {
+        // When the report itself fell back to text, the write-offs image
+        // follows it once; a failure is logged and never fails the report.
+        let writeOffsImageSent = album;
+        if (report.adjustmentsImage && !album) {
           try {
             await sendTelegramPhoto({
               botToken,

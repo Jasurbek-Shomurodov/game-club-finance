@@ -75,7 +75,7 @@ import {
   type BulkStockOrderSummary,
   type StorageLike,
 } from '@/lib/closingStock';
-import { applyStockWriteOff, notifyStockWriteOff, rowStockAdjustment, StockWriteOffError, writeOffKindVariant, type StockWriteOffEntry } from '@/lib/stockWriteOffs';
+import { applyStockWriteOff, notifyStockWriteOff, rowStockAdjustment, shouldNotifyStockAdjustment, StockWriteOffError, writeOffKindVariant, type StockWriteOffEntry } from '@/lib/stockWriteOffs';
 import { WriteOffDetailsModal } from '@/components/WriteOffDetailsModal';
 import {
   CalendarX,
@@ -620,9 +620,9 @@ export default function ClosingStockPage() {
       return tc('error');
     }
 
-    const previousQuantity = rowStockAdjustment(rows.find((row) => row.product.id === writeOff.productId) ?? { adjustmentQuantity: '', adjustmentReason: '' })?.quantity ?? 0;
+    const previous = rowStockAdjustment(rows.find((row) => row.product.id === writeOff.productId) ?? { adjustmentQuantity: '', adjustmentReason: '' });
     const result = await persistStockCounts(nextRows, writeOff.quantity > 0 ? t('writeOffSaved') : t('writeOffRemoved'));
-    if (result.ok && selectedClubId && (writeOff.quantity > 0 || previousQuantity > 0)) {
+    if (result.ok && selectedClubId && shouldNotifyStockAdjustment(previous, writeOff)) {
       // Best-effort: the club's group hears about it; a failed notice never undoes the save.
       void notifyStockWriteOff(selectedClubId, date, writeOff.productId);
     }

@@ -36,6 +36,7 @@ import {
   applyStockWriteOff,
   notifyStockWriteOff,
   rowStockAdjustment,
+  shouldNotifyStockAdjustment,
   StockWriteOffError,
   writeOffKindVariant,
   type RowStockAdjustment,
@@ -139,7 +140,9 @@ export default function WriteOffsPage() {
       });
       if (error) return saveErrorMessage(error);
       showToast(input.quantity > 0 ? tcs('writeOffSaved') : tcs('writeOffRemoved'));
-      void notifyStockWriteOff(selectedClubId, today, input.productId);
+      if (shouldNotifyStockAdjustment(rowStockAdjustment(row), input)) {
+        void notifyStockWriteOff(selectedClubId, today, input.productId);
+      }
       void query.reload({ silent: true });
       return null;
     } catch {
