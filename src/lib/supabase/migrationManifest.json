@@ -4557,10 +4557,6 @@
         "kind": "functionBody",
         "signature": "public.enforce_expense_method_balance()",
         "md5": "479431182755c349f65b987246874660"
-      },
-      {
-        "kind": "function",
-        "signature": "public.move_owner_profit_to_reserve(uuid,uuid,date,text,text,numeric,text)"
       }
     ]
   },
@@ -4717,10 +4713,6 @@
       },
       {
         "kind": "function",
-        "signature": "public.method_daily_lowest_balance(uuid,text,date)"
-      },
-      {
-        "kind": "function",
         "signature": "public.assert_method_never_negative(uuid,text,date)"
       },
       {
@@ -4738,10 +4730,6 @@
       {
         "kind": "function",
         "signature": "public.daily_cash_never_negative()"
-      },
-      {
-        "kind": "function",
-        "signature": "public.owner_reserve_never_negative()"
       }
     ]
   },
@@ -4792,12 +4780,7 @@
   },
   {
     "file": "150_owner_money_bundle.sql",
-    "probes": [
-      {
-        "kind": "function",
-        "signature": "public.get_owner_money_bundle(uuid,date)"
-      }
-    ]
+    "probes": []
   },
   {
     "file": "151_cash_shortage_monthly_limit.sql",
@@ -4941,11 +4924,6 @@
       },
       {
         "kind": "functionBody",
-        "signature": "public.return_owner_reserve(uuid,uuid,date,text,text,numeric,text)",
-        "md5": "b56f3c419451fd0996ec5a9b3af7ea7a"
-      },
-      {
-        "kind": "functionBody",
         "signature": "public.delete_owner_reserve_entry(uuid,uuid)",
         "md5": "26ab3b5f2a02263ea16ad3373ec8302a"
       },
@@ -4990,10 +4968,6 @@
         "kind": "functionBody",
         "signature": "public.get_salary_profit_snapshot(uuid,date)",
         "md5": "36e0a367c6c4aecb52cf649a188b60ab"
-      },
-      {
-        "kind": "function",
-        "signature": "public.get_reserve_moves(uuid,date,date)"
       }
     ]
   },
@@ -5106,5 +5080,57 @@
   {
     "file": "161_google_review_replies_with_reports.sql",
     "probes": []
+  },
+  {
+    "file": "162_reserve_entry_date.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.owner_reserve_entries",
+        "column": "entry_date"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.owner_reserve_entries",
+        "name": "fill_owner_reserve_entry_date"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_reserve_entries",
+        "name": "owner_reserve_entries_entry_date_in_month"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.method_daily_lowest_balance(uuid,text,date)",
+        "md5": "e7ae27d83cdd6ac285b7ae3919d7e935"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.owner_reserve_never_negative()",
+        "md5": "eb3ba3e84c3b89bd26a92f26d3a6b4a7"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_owner_money_bundle(uuid,date)",
+        "md5": "a24d46221de0a782ee9656fac0fd0dda"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_reserve_moves(uuid,date,date)",
+        "md5": "70befe0ad0718893baefc589e86c7799"
+      },
+      {
+        "kind": "function",
+        "signature": "public.fill_owner_reserve_entry_date()"
+      },
+      {
+        "kind": "function",
+        "signature": "public.move_owner_profit_to_reserve(uuid,uuid,date,text,text,numeric,text,date)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.return_owner_reserve(uuid,uuid,date,text,text,numeric,text,date)"
+      }
+    ]
   }
 ]

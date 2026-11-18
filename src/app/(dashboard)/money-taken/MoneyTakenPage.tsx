@@ -20,6 +20,7 @@ import {
   LoadErrorAlert,
   Modal,
   MonthPicker,
+  DatePicker,
   NoteField,
   PageHeader,
   SectionHeading,
@@ -194,6 +195,8 @@ export default function MoneyTakenPage() {
   const [reservePayOpen, setReservePayOpen] = useState(false);
   const [reserveError, setReserveError] = useState<ReserveErrorCode | null>(null);
   const [reserveBusy, setReserveBusy] = useState<string | null>(null);
+  /** The day a deposit moved the money; '' or a day outside the selected month means the default. */
+  const [reserveDate, setReserveDate] = useState('');
   const reserveRequestId = useRef<string | null>(null);
   const [shortageFormOpen, setShortageFormOpen] = useState(false);
   const [recoverTarget, setRecoverTarget] = useState<CashShortageSummary | null>(null);
@@ -343,6 +346,10 @@ export default function MoneyTakenPage() {
   const canCarry = carryoversSupported && carrySourceSelected && amountValid;
   // The reserve keeps money per source (and Game Club method), like carryovers.
   const canReserve = reserveSupported && carrySourceSelected && amountValid;
+  // A deposit is dated inside its month, never after today: by default today, or a past month's last day.
+  const reserveMonthRange = monthRange(form.month);
+  const reserveDateMax = reserveMonthRange.to < businessToday ? reserveMonthRange.to : businessToday;
+  const depositDate = reserveDate.slice(0, 7) === form.month && reserveDate <= reserveDateMax ? reserveDate : reserveDateMax;
 
   function setField(field: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -499,6 +506,7 @@ export default function MoneyTakenPage() {
       const failure = await requestReserveMove(selectedClubId, {
         kind: 'deposit',
         month: form.month,
+        date: depositDate,
         source: form.source,
         comment: form.comment,
         parts: [{ id: crypto.randomUUID(), method: form.source === 'game_club' ? (form.paymentMethod || null) : null, amount }],
@@ -1318,6 +1326,16 @@ export default function MoneyTakenPage() {
                       ) : null}
                       {reserveSupported ? (
                         <>
+                          <Field label={tr('depositDate')} hint={tr('depositDateHint')}>
+                            <DatePicker
+                              ariaLabel={tr('depositDate')}
+                              value={depositDate}
+                              min={reserveMonthRange.from}
+                              max={reserveDateMax}
+                              disabled={loading || saving !== null}
+                              onChange={setReserveDate}
+                            />
+                          </Field>
                           <Button
                             type="button"
                             variant="outline"

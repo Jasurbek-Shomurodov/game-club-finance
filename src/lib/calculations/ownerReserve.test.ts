@@ -69,6 +69,14 @@ describe('reserveActivity', () => {
   it('lists the newest first', () => {
     expect(reserveActivity(entries, purchases).map((row) => row.id)).toEqual(['pcs', 'back', 'oct', 'sep', 'bar']);
   });
+
+  it('dates a deposit by the day the money moved, else the day it was made kept inside its month', () => {
+    const rows = reserveActivity([
+      entry('ps5', { period_month: '2026-11-01', entry_date: '2026-11-11', created_at: '2026-11-18T08:46:00Z' }),
+      entry('late', { period_month: '2026-10-01', created_at: '2026-11-17T07:11:00Z' }),
+    ], []);
+    expect(rows.map((row) => [row.id, row.date])).toEqual([['ps5', '2026-11-11'], ['late', '2026-10-31']]);
+  });
 });
 
 describe('groupReserveActivityByDay', () => {

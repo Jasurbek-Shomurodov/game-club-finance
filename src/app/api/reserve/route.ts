@@ -19,6 +19,7 @@ import { OWNER_WITHDRAWAL_PAYMENT_METHODS, OWNER_WITHDRAWAL_SOURCES, type OwnerW
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+const DAY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 const isId = (value: unknown): value is string => typeof value === 'string' && UUID.test(value);
 const isAmount = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0;
 const isSource = (value: unknown): value is OwnerWithdrawalSource => OWNER_WITHDRAWAL_SOURCES.includes(value as OwnerWithdrawalSource);
@@ -47,6 +48,8 @@ interface MoveBody {
   clubId: string;
   kind: 'deposit' | 'return';
   month: string;
+  /** The day in `month` the money moved; the database checks it is not in the future. */
+  date: string | null;
   source: OwnerWithdrawalSource;
   comment: string;
   parts: Array<{ id: string; method: OwnerWithdrawalPaymentMethod | null; amount: number }>;
@@ -56,6 +59,7 @@ function parseMove(body: Record<string, unknown> | null): MoveBody | null {
   if (!body || !isId(body.clubId) || (body.kind !== 'deposit' && body.kind !== 'return')
     || typeof body.month !== 'string' || !MONTH.test(body.month) || !isSource(body.source)
     || (body.comment != null && (typeof body.comment !== 'string' || body.comment.length > 300))
+    || (body.date != null && (typeof body.date !== 'string' || !DAY.test(body.date) || body.date.slice(0, 7) !== body.month))
     || !Array.isArray(body.parts) || body.parts.length === 0 || body.parts.length > OWNER_WITHDRAWAL_PAYMENT_METHODS.length) {
     return null;
   }
@@ -68,7 +72,7 @@ function parseMove(body: Record<string, unknown> | null): MoveBody | null {
     if (source === 'game_club' ? !isMethod(part.method) : part.method != null) return null;
     parts.push({ id: part.id, method: source === 'game_club' ? part.method as OwnerWithdrawalPaymentMethod : null, amount: part.amount });
   }
-  return { clubId: body.clubId, kind: body.kind, month: body.month, source, comment: typeof body.comment === 'string' ? body.comment : '', parts };
+  return { clubId: body.clubId, kind: body.kind, month: body.month, date: typeof body.date === 'string' ? body.date : null, source, comment: typeof body.comment === 'string' ? body.comment : '', parts };
 }
 
 /**
@@ -91,7 +95,7 @@ export async function POST(request: Request) {
   let failure: ReserveErrorCode | null = null;
   for (const part of body.parts) {
     const result = await write(supabase, body.clubId, {
-      id: part.id, month: body.month, source: body.source, method: part.method, amount: part.amount, comment: body.comment,
+      id: part.id, month: body.month, date: body.date, source: body.source, method: part.method, amount: part.amount, comment: body.comment,
     });
     if (result.failure) {
       failure = result.failure;

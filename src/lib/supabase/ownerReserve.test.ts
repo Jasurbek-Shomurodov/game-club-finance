@@ -19,6 +19,20 @@ describe('reserve RPC wrappers', () => {
     expect(rpc).toHaveBeenLastCalledWith('return_owner_reserve', expect.objectContaining({ p_source: 'bar', p_payment_method: null, p_comment: null }));
   });
 
+  it('sends the day the money moved, and records it without one before migration 162', async () => {
+    const { supabase, rpc } = client({});
+    await depositToReserve(supabase, 'club', { ...move, date: '2026-11-11' });
+    expect(rpc).toHaveBeenLastCalledWith('move_owner_profit_to_reserve', expect.objectContaining({ p_date: '2026-11-11' }));
+
+    const missing = { code: 'PGRST202', message: 'Could not find the function public.move_owner_profit_to_reserve' };
+    const old = vi.fn()
+      .mockResolvedValueOnce({ data: null, error: missing })
+      .mockResolvedValueOnce({ data: true, error: null });
+    const result = await depositToReserve({ rpc: old } as unknown as SupabaseClient, 'club', { ...move, date: '2026-11-11' });
+    expect(result).toEqual({ failure: null, created: true });
+    expect(old).toHaveBeenLastCalledWith('move_owner_profit_to_reserve', expect.not.objectContaining({ p_date: expect.anything() }));
+  });
+
   it('maps database refusals to what the page says', async () => {
     expect((await depositToReserve(client({ error: { hint: 'reserve_exceeds_available' } }).supabase, 'club', move)).failure).toBe('exceeds_available');
     expect(await depositToReserve(client({ data: false }).supabase, 'club', move)).toEqual({ failure: null, created: false });

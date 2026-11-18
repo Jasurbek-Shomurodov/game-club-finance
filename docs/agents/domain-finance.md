@@ -251,6 +251,13 @@ expenses, out of "Game Club expenses" and the daily expense figure; there,
 collected minus Game Club expenses is Game Club left, and the purchase is still
 listed in the closeout table.
 
+A deposit or return also has the business day the money moved,
+`entry_date` (migration 162), always inside its `period_month`. The owner
+picks it when depositing (for example the day of the purchase it pays for).
+By default it is the day it is recorded, kept inside its month, which is how
+every row was dated before 162. Reports, the never-negative check and the
+Reserve history take the method's money out of the till on that day.
+
 Collecting does not touch the reserve (migration 148). The reserve changes only
 when the owner moves owner profit in or out of it (136), when money is exchanged
 into or out of dollars (143), or when it pays for a purchase. Ticking a date as

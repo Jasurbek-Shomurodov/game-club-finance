@@ -2620,6 +2620,8 @@
     "depositButtonAmount": "{amount} jamg'armaga qo'yish",
     "depositChooseSource": "Jamg'armaga pul qo'yish uchun O'yin klubi yoki Barni tanlang.",
     "depositHint": "Pul keyinga klubda qoladi. U shu oy foydasidan chiqadi, lekin yechib olinmaydi.",
+    "depositDate": "Jamg'armaga qo'yilgan sana",
+    "depositDateHint": "Pul jamg'armaga o'tgan kun, masalan, u to'laydigan xarid kuni.",
     "depositedToast": "Pul jamg'armaga qo'yildi.",
     "returnButton": "Foydaga qaytarish",
     "empty": "Jamg'armada hozircha hech narsa yo'q.",

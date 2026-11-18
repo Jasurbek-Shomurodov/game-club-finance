@@ -28,6 +28,8 @@ export interface ReserveMoveInput {
   method: OwnerWithdrawalPaymentMethod | null;
   amount: number;
   comment: string;
+  /** YYYY-MM-DD in `month`: the day the money moved (162). Omitted: the day it is recorded. */
+  date?: string | null;
 }
 
 export interface ReserveMoveResult {
@@ -37,7 +39,7 @@ export interface ReserveMoveResult {
 }
 
 async function move(supabase: SupabaseClient, clubId: string, rpcName: string, input: ReserveMoveInput): Promise<ReserveMoveResult> {
-  const { data, error } = await supabase.rpc(rpcName, {
+  const args = {
     p_club_id: clubId,
     p_id: input.id,
     p_period_month: `${input.month}-01`,
@@ -45,7 +47,10 @@ async function move(supabase: SupabaseClient, clubId: string, rpcName: string, i
     p_payment_method: input.source === 'game_club' ? input.method : null,
     p_amount: input.amount,
     p_comment: input.comment.trim() || null,
-  });
+  };
+  let { data, error } = await supabase.rpc(rpcName, input.date ? { ...args, p_date: input.date } : args);
+  // Before migration 162 the RPC takes no date: record it on the day it is made, as before.
+  if (error && input.date && isMissingDatabaseFunction(error, rpcName)) ({ data, error } = await supabase.rpc(rpcName, args));
   return error ? { failure: reserveErrorCode(error, rpcName), created: false } : { failure: null, created: data !== false };
 }
 

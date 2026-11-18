@@ -106,6 +106,16 @@ describe('/api/reserve', () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  it('passes the day the money moved, and refuses one outside the month', async () => {
+    const { rpc } = mockSupabase();
+    expect((await flush(POST(request('POST', { ...deposit, date: '2026-10-11' })))).status).toBe(200);
+    expect(rpc).toHaveBeenNthCalledWith(1, 'move_owner_profit_to_reserve', expect.objectContaining({ p_date: '2026-10-11' }));
+    rpc.mockClear();
+    expect((await POST(request('POST', { ...deposit, date: '2026-11-11' }))).status).toBe(400);
+    expect((await POST(request('POST', { ...deposit, date: '11.10.2026' }))).status).toBe(400);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it('deletes an entry, then tells the group where its money went back', async () => {
     const { rpc } = mockSupabase({ entry: {
       kind: 'deposit', period_month: '2026-10-01', source: 'game_club', payment_method: 'cash', amount: '649200', comment: null,

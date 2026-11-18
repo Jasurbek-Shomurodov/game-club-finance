@@ -2620,6 +2620,8 @@
     "depositButtonAmount": "Put {amount} into reserve",
     "depositChooseSource": "Choose Game Club or Bar to put money into the reserve.",
     "depositHint": "Keeps the money in the club for later. It leaves this month's profit but is not withdrawn.",
+    "depositDate": "Reserve date",
+    "depositDateHint": "The day the money went into the reserve, such as the day of the purchase it pays for.",
     "depositedToast": "Money put into the reserve.",
     "returnButton": "Return to profit",
     "empty": "Nothing in the reserve yet.",

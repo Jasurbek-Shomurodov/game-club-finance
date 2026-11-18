@@ -68,6 +68,7 @@ export function dollarReserveEntries(exchanges: readonly MoneyExchangeRow[], clu
       amount: Number(bought ? row.from_amount : row.to_amount),
       comment: row.comment || null,
       collection_date: null,
+      entry_date: row.date,
       exchange_id: row.id,
       created_by: row.created_by ?? '',
       created_at: row.created_at ?? `${row.date}T00:00:00`,
@@ -181,14 +182,27 @@ export type ReserveActivity =
   | { kind: 'deposit' | 'return'; id: string; date: string; source: OwnerWithdrawalSource; amount: number; method: OwnerReserveMethod | null; note: string | null; createdAt: string; entry: ReserveLedgerEntry }
   | { kind: 'purchase'; id: string; date: string; source: OwnerWithdrawalSource; amount: number; method: OwnerReserveMethod | null; note: string | null; createdAt: string; category: string };
 
-/** Every deposit, return and purchase, newest first. Deposits and returns are dated by when they were made. */
+/**
+ * The day a deposit or return moved money: its own date (162), else, as the
+ * database dated it before, the day it was recorded, kept inside its month.
+ */
+export function reserveEntryDate(entry: Pick<ReserveLedgerEntry, 'entry_date' | 'created_at' | 'period_month'>): string {
+  if (entry.entry_date) return entry.entry_date.slice(0, 10);
+  const recorded = entry.created_at.slice(0, 10);
+  const monthStart = entry.period_month.slice(0, 10);
+  const [year, month] = monthStart.split('-').map(Number);
+  const monthEnd = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+  return recorded < monthStart ? monthStart : recorded > monthEnd ? monthEnd : recorded;
+}
+
+/** Every deposit, return and purchase, newest first. Deposits and returns are dated by the day the money moved. */
 export function reserveActivity(
   entries: readonly ReserveLedgerEntry[],
   expenses: readonly ReservePaidExpense[],
 ): ReserveActivity[] {
   return [
     ...entries.map((entry): ReserveActivity => ({
-      kind: entry.kind, id: entry.id, date: entry.created_at.slice(0, 10), source: entry.source, amount: Number(entry.amount),
+      kind: entry.kind, id: entry.id, date: reserveEntryDate(entry), source: entry.source, amount: Number(entry.amount),
       method: entry.payment_method, note: entry.comment, createdAt: entry.created_at, entry,
     })),
     ...expenses.map((expense): ReserveActivity => ({

@@ -85,9 +85,10 @@ function readReserveLedgers(supabase: SupabaseClient, clubId: string, businessTo
     fetchMoneyExchanges(supabase, clubId, '2000-01-01', businessToday),
     // Like investments, a failed read leaves dollar spending out instead of failing the page.
     fetchDollarExpenses(supabase, clubId, '2000-01-01', businessToday).catch(() => [] as DollarExpense[]),
+    // Every column, so entry_date (162) comes back where the database has it and is simply absent before.
     fetchAllRows<OwnerReserveEntry>(() => supabase
       .from('owner_reserve_entries')
-      .select('id,club_id,kind,period_month,source,payment_method,amount,comment,collection_date,created_by,created_at')
+      .select('*')
       .eq('club_id', clubId)
       .order('id')),
     // Dollar expenses are reserve purchases too: the reserve holds the club's dollars (143).

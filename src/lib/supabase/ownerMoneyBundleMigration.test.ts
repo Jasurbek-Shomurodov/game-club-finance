@@ -71,9 +71,9 @@ beforeAll(async () => {
       ('${id(21)}','${club}','2026-09-15','cash','card',300000,300000,null,'paid cash into the card','${owner}'),
       ('${id(22)}','${club}','2026-11-15','cash','card',1000,1000,null,'after the through date','${owner}'),
       ('${id(23)}','${otherClub}','2026-10-01','cash','card',2000,2000,null,'other club exchange','${otherOwner}');
-    insert into public.owner_reserve_entries (id, club_id, kind, period_month, source, payment_method, amount, comment, created_by) values
-      ('${id(30)}','${club}','deposit','2026-09-01','game_club','cash',150000,'set aside','${owner}'),
-      ('${id(31)}','${otherClub}','deposit','2026-09-01','bar',null,9000,'other club','${otherOwner}');
+    insert into public.owner_reserve_entries (id, club_id, kind, period_month, source, payment_method, amount, comment, entry_date, created_by) values
+      ('${id(30)}','${club}','deposit','2026-09-01','game_club','cash',150000,'set aside','2026-09-30','${owner}'),
+      ('${id(31)}','${otherClub}','deposit','2026-09-01','bar',null,9000,'other club','2026-09-30','${otherOwner}');
     set session_replication_role = origin;
     -- Supabase's default privileges; row level security still decides the rows.
     grant select on all tables in schema public to authenticated;
@@ -109,7 +109,7 @@ describe('migration 150: owner money bundle', () => {
       ['comment', 'created_at', 'created_by', 'date', 'from_amount', 'from_method', 'id', 'rate', 'to_amount', 'to_method'],
     );
     expect(Object.keys(result.reserveEntries[0]).sort()).toEqual(
-      ['amount', 'club_id', 'collection_date', 'comment', 'created_at', 'created_by', 'id', 'kind', 'payment_method', 'period_month', 'source'],
+      ['amount', 'club_id', 'collection_date', 'comment', 'created_at', 'created_by', 'entry_date', 'id', 'kind', 'payment_method', 'period_month', 'source'],
     );
     expect(Object.keys(result.reserveExpenses[0]).sort()).toEqual(
       ['amount', 'category', 'comment', 'created_at', 'date', 'id', 'payment_method', 'payment_source'],

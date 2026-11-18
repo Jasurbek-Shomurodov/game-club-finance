@@ -26,6 +26,8 @@ export interface ReserveMoveRequest {
   kind: 'deposit' | 'return';
   /** YYYY-MM whose owner profit the money leaves (deposit) or joins (return). */
   month: string;
+  /** YYYY-MM-DD in `month`: the day the money moved. Omitted: the day it is recorded. */
+  date?: string | null;
   source: OwnerWithdrawalSource;
   comment: string;
   /** One per Game Club method (Bar: a single part without a method). */
