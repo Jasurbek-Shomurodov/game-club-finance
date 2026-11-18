@@ -145,7 +145,7 @@ function telegramDigestDeps(supabase: ReturnType<typeof createServiceClient>): R
     },
     render: renderReviewDigestPng,
     async send(chatId, png, caption, fileName) {
-      const result = await sendTelegramPhoto({ botToken, chatId, imagePng: png, imageFileName: fileName, caption, maxAttempts: 2, timeoutMs: 8_000 });
+      const result = await sendTelegramPhoto({ botToken, chatId, imagePng: png, imageFileName: fileName, caption, maxAttempts: 3, timeoutMs: 6_000 });
       return result.result.message_id ?? null;
     },
     async complete(clubId, date, result) {
