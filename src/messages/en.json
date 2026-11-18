@@ -937,7 +937,8 @@
     "selectCategory": "Select a category",
     "paymentSources": {
       "game_club": "Game Club money",
-      "bar": "Bar money"
+      "bar": "Bar money",
+      "reserve": "Reserve"
     },
     "categories": {
       "rent": "Rent",
@@ -987,11 +988,12 @@
     "overBalance": "Only {amount} is left in this payment method.",
     "balancesHelp": "Each method shows the Game Club money it holds for the expense month; dollars show every dollar held.",
     "balancesLoadError": "Could not load what each payment method holds.",
-    "payFrom": "Pay from",
-    "payFromMonth": "This month's money",
-    "payFromReserve": "Reserve",
-    "reserveHint": "The reserve pays: this month's profit and method balances stay as they are.",
-    "reserveEmptyHint": "The reserve is empty. Put part of a month's profit aside on Owner Profit to pay from it."
+    "reserveHint": "The reserve pays from its own sums and dollars: Game Club and Bar money stay as they are.",
+    "reserveEmptyHint": "The reserve is empty. Put part of a month's profit aside on Owner Profit to pay from it.",
+    "reserveMethods": {
+      "sums": "UZS",
+      "usd": "US dollars"
+    }
   },
   "debts": {
     "title": "Debts",

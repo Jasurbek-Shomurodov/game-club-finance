@@ -16,6 +16,8 @@ import { EXPENSE_PAYMENT_METHODS, type Expense, type ExpensePaymentMethod } from
 import { expenseErrorCode, expenseErrorResponse } from './errors';
 
 const PAYMENT_SOURCES = ['game_club', 'bar'] as const;
+/** A reserve purchase in sums (155) is stored in cash: the column needs a method, the reserve has none. */
+const RESERVE_SUMS_METHOD = 'cash';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isId = (value: unknown): value is string => typeof value === 'string' && UUID.test(value);
 
@@ -36,7 +38,11 @@ interface ExpenseRequestBody {
   /** Dollar expenses (124) only: dollars spent and UZS per dollar; `amount` is then computed from them. */
   usdAmount?: unknown;
   usdRate?: unknown;
-  /** Owner reserve (136) pays instead of the month's money; owners only, never dollars. */
+  /**
+   * The owner reserve's sums (136, one pot since 155) pay instead of Game Club
+   * or Bar money; owners only. Dollars are always the reserve's, so they never
+   * set this. The reserve has no payment methods: the row is stored in cash.
+   */
   fromReserve?: unknown;
 }
 
@@ -172,7 +178,9 @@ export async function POST(request: Request) {
   if (body.date > serverTodayIso(new Date(), club.business_day_start_hour)) {
     return expenseErrorResponse('INVALID_REQUEST');
   }
-  if (!expensePaymentMethods(normalizePaymentMethods(club.enabled_payment_methods), body.paymentSource).includes(body.paymentMethod)) {
+  // The reserve's sums are not a club payment method, so the club's methods do not limit them.
+  if (body.fromReserve !== true
+    && !expensePaymentMethods(normalizePaymentMethods(club.enabled_payment_methods), body.paymentSource).includes(body.paymentMethod)) {
     return expenseErrorResponse('PAYMENT_METHOD_DISABLED');
   }
   // Every manual expense says what the money was for (also enforced by 108).
@@ -188,7 +196,7 @@ export async function POST(request: Request) {
     date: body.date,
     amount,
     category: body.category.trim(),
-    payment_method: body.paymentMethod,
+    payment_method: body.fromReserve === true ? RESERVE_SUMS_METHOD : body.paymentMethod,
     payment_source: body.paymentSource,
     comment: typeof body.comment === 'string' && body.comment.trim() ? body.comment.trim() : null,
     created_by: user.id,

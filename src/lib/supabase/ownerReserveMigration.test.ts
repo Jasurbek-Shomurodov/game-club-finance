@@ -91,7 +91,8 @@ describe('owner reserve (136)', () => {
     expect(await expenseLimit()).toBe(400);
     await expect(purchase(11, 101)).rejects.toMatchObject({ hint: 'reserve_insufficient' });
     await expect(purchase(12, 50, admin)).rejects.toMatchObject({ code: '42501' });
-    await expect(purchase(13, 50, owner, 'terminal')).rejects.toMatchObject({ hint: 'reserve_insufficient' });
+    // One pot since 155: the method a purchase is stored in does not limit it, what the reserve holds does.
+    await expect(purchase(13, 101, owner, 'terminal')).rejects.toMatchObject({ hint: 'reserve_insufficient' });
     await expect(db.query('update public.expenses set amount = 400 where id = $1', [id(10)])).rejects.toMatchObject({ hint: 'reserve_expense_locked' });
     await expect(db.query('update public.expenses set paid_from_reserve = false where id = $1', [id(10)])).rejects.toMatchObject({ hint: 'reserve_expense_locked' });
   });

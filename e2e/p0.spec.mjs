@@ -122,7 +122,7 @@ test('EXP-010 a Game Club expense can be paid from PlayStation money, a Bar expe
   await expectGameClubExpenses(page, expected.gameClubExpenses + 25_000);
 });
 
-test('EXP-011 a Game Club expense can be paid from US dollars at an entered rate, up to the dollars held', async ({ page }) => {
+test('EXP-011 an expense can be paid from the reserve US dollars at an entered rate, up to the dollars held', async ({ page }) => {
   const bought = await restAs(accounts.owner, 'POST', 'rpc/record_money_exchange', {
     p_id: crypto.randomUUID(), p_club_id: clubs.arcade.id, p_date: today, p_from_method: 'cash', p_to_method: 'usd',
     p_from_amount: 1_000_000, p_rate: 12_500, p_comment: 'Cash moved into dollars for parts',
@@ -131,7 +131,11 @@ test('EXP-011 a Game Club expense can be paid from US dollars at an entered rate
   await page.goto('/reports');
   await page.getByRole('button', { name: 'Register Expense' }).click();
   const dialog = page.getByRole('dialog', { name: 'Register Expense' });
-  const dollars = dialog.getByRole('radio', { name: 'US dollars' });
+  // Dollars are the reserve's own money, apart from Game Club and Bar: only the reserve offers them.
+  await expect(dialog.getByRole('radio', { name: /US dollars/ })).toHaveCount(0);
+  await dialog.getByRole('radio', { name: 'Reserve', exact: true }).click();
+  await expect(dialog.getByRole('radio', { name: /UZS/ })).toBeVisible();
+  const dollars = dialog.getByRole('radio', { name: /US dollars/ });
   await expect(dollars).toContainText('$80');
   await dollars.click();
   // The rate starts from the latest exchange.

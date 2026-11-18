@@ -33,7 +33,7 @@ describe('reserve RPC wrappers', () => {
     const holdings = await fetchReserveHoldings(client({ data: {
       game_club: { total: '750000', cash: '450000', terminal: '300000', card: 0, playstation: 0 }, bar: { total: '0' },
     } }).supabase, 'club');
-    expect(holdings).toEqual({ game_club: { total: 750_000, cash: 450_000, terminal: 300_000, card: 0, playstation: 0 }, bar: { total: 0 } });
+    expect(holdings).toEqual({ sums: 750_000, game_club: { total: 750_000, cash: 450_000, terminal: 300_000, card: 0, playstation: 0 }, bar: { total: 0 } });
     expect(await fetchReserveHoldings(client({ error: { code: '42501' } }).supabase, 'club')).toBeNull();
   });
 
@@ -45,9 +45,17 @@ describe('reserve RPC wrappers', () => {
 
   it('counts a side or method missing from the payload as holding nothing', async () => {
     expect(await fetchReserveHoldings(client({ data: { game_club: { total: '450000', cash: 450_000 } } }).supabase, 'club'))
-      .toEqual({ game_club: { total: 450_000, cash: 450_000, terminal: 0, card: 0, playstation: 0 }, bar: { total: 0 } });
+      .toEqual({ sums: 450_000, game_club: { total: 450_000, cash: 450_000, terminal: 0, card: 0, playstation: 0 }, bar: { total: 0 } });
     expect(await fetchReserveHoldings(client({ data: { bar: { total: '120000' } } }).supabase, 'club'))
-      .toEqual({ game_club: { total: 0, cash: 0, terminal: 0, card: 0, playstation: 0 }, bar: { total: 120_000 } });
+      .toEqual({ sums: 120_000, game_club: { total: 0, cash: 0, terminal: 0, card: 0, playstation: 0 }, bar: { total: 120_000 } });
+  });
+
+  it('reads the reserve sums as one pot from 155, both sides and no dollars', async () => {
+    const holdings = await fetchReserveHoldings(client({ data: {
+      sums: '900000', game_club: { total: '1200000', cash: '400000', usd: '500000' }, bar: { total: '200000' },
+    } }).supabase, 'club');
+    expect(holdings?.sums).toBe(900_000);
+    expect(holdings?.game_club.total).toBe(700_000);
   });
 
   it('deletes an entry through the RPC scoped to the club', async () => {

@@ -61,6 +61,8 @@ export async function deleteReserveEntry(supabase: SupabaseClient, clubId: strin
 }
 
 export interface ReserveHoldings {
+  /** Every sum the reserve holds, both sides and all methods but dollars: what a reserve purchase can spend (155). */
+  sums: number;
   game_club: Record<'total' | OwnerWithdrawalPaymentMethod, number>;
   bar: { total: number };
 }
@@ -69,12 +71,15 @@ export interface ReserveHoldings {
 export async function fetchReserveHoldings(supabase: SupabaseClient, clubId: string): Promise<ReserveHoldings | null> {
   const { data, error } = await supabase.rpc('get_owner_reserve_balances', { p_club_id: clubId });
   if (error || !data) return null;
-  const raw = data as { game_club?: Record<string, number | string>; bar?: Record<string, number | string> };
+  const raw = data as { sums?: number | string; game_club?: Record<string, number | string>; bar?: Record<string, number | string> };
   const n = (value: number | string | undefined) => Number(value ?? 0);
+  // A purchase is paid in sums: the reserve's dollars (143) are spent as dollar expenses instead.
+  const gameClubSums = n(raw.game_club?.total) - n(raw.game_club?.usd);
   return {
+    // Before 155 the database has no pot; the same sum is what it would report.
+    sums: raw.sums === undefined ? gameClubSums + n(raw.bar?.total) : n(raw.sums),
     game_club: {
-      // A purchase is paid in sums: the reserve's dollars (143) are spent as dollar expenses instead.
-      total: n(raw.game_club?.total) - n(raw.game_club?.usd),
+      total: gameClubSums,
       cash: n(raw.game_club?.cash),
       terminal: n(raw.game_club?.terminal),
       card: n(raw.game_club?.card),

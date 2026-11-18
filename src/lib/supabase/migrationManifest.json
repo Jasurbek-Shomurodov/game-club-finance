@@ -4575,15 +4575,7 @@
       },
       {
         "kind": "function",
-        "signature": "public.guard_reserve_expense()"
-      },
-      {
-        "kind": "function",
         "signature": "public.move_owner_profit_to_reserve(uuid,uuid,date,text,text,numeric,text)"
-      },
-      {
-        "kind": "function",
-        "signature": "public.return_owner_reserve(uuid,uuid,date,text,text,numeric,text)"
       }
     ]
   },
@@ -4594,11 +4586,6 @@
         "kind": "column",
         "table": "public.owner_reserve_entries",
         "column": "collection_date"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.delete_owner_reserve_entry(uuid,uuid)",
-        "md5": "4bf6290574b15c9436634c434e026107"
       },
       {
         "kind": "function",
@@ -4689,11 +4676,6 @@
         "kind": "functionBody",
         "signature": "public.owner_reserve_month_effect(uuid,text,text,date)",
         "md5": "28eadd81aea4dba56cfe14bc8a1f3f75"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.get_owner_reserve_balances(uuid)",
-        "md5": "c900bc718d4760c29e2d219e57c7e29a"
       },
       {
         "kind": "function",
@@ -4967,6 +4949,43 @@
         "kind": "functionBody",
         "signature": "public.get_salary_profit_snapshot(uuid,date)",
         "md5": "74d65f4d9e1aab72a96c99fe40ed8689"
+      }
+    ]
+  },
+  {
+    "file": "155_reserve_one_pot.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.guard_reserve_expense()",
+        "md5": "355b2fd6845ccae01025398cdf36759a"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.return_owner_reserve(uuid,uuid,date,text,text,numeric,text)",
+        "md5": "b56f3c419451fd0996ec5a9b3af7ea7a"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.delete_owner_reserve_entry(uuid,uuid)",
+        "md5": "26ab3b5f2a02263ea16ad3373ec8302a"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_owner_reserve_balances(uuid)",
+        "md5": "0d4860b5b5683af2817f6ed20eb2edea"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_reserve_sums_held(uuid)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_reserve_bucket_net(uuid,text,text)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.lock_owner_reserve(uuid)"
       }
     ]
   }
