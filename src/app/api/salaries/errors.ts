@@ -21,6 +21,7 @@ export const SALARY_ERROR_CODES = [
   'EMPLOYEE_ACTIVE',
   'DAY_COLLECTED',
   'INSUFFICIENT_BALANCE',
+  'ALREADY_ABSENT',
   'SERVER_ERROR',
 ] as const;
 
@@ -42,6 +43,7 @@ export const SALARY_ERROR_TEXT: Record<SalaryErrorCode, string> = {
   EMPLOYEE_ACTIVE: 'Deactivate the employee first',
   DAY_COLLECTED: 'The money for this day was collected; the day is closed',
   INSUFFICIENT_BALANCE: 'The payment method does not hold enough money for this payment',
+  ALREADY_ABSENT: 'The employee is already marked absent on this day',
   SERVER_ERROR: 'Salary change failed',
 };
 
@@ -61,6 +63,7 @@ const STATUS: Record<SalaryErrorCode, number> = {
   EMPLOYEE_ACTIVE: 409,
   DAY_COLLECTED: 409,
   INSUFFICIENT_BALANCE: 409,
+  ALREADY_ABSENT: 409,
   SERVER_ERROR: 500,
 };
 
@@ -77,9 +80,11 @@ export function salaryErrorCode(error: { code?: string | null; message?: string 
   if (isInsufficientBalanceError(error)) return 'INSUFFICIENT_BALANCE';
   if (error.code === '42501') return /club owner/i.test(message) ? 'OWNER_ONLY' : 'FORBIDDEN';
   if (error.code === '23514') return 'CHECK_FAILED';
-  if (error.code === '23505') return 'REQUEST_CONFLICT';
+  // The 153 one-absence-per-day index, reached only by a concurrent duplicate.
+  if (error.code === '23505') return /absence/i.test(message) ? 'ALREADY_ABSENT' : 'REQUEST_CONFLICT';
   // Payroll RPCs raise plain exceptions (P0001) for business-rule rejections.
   if (error.code && error.code !== 'P0001') return 'SERVER_ERROR';
+  if (/already marked absent/i.test(message)) return 'ALREADY_ABSENT';
   if (/payment method is not enabled/i.test(message)) return 'PAYMENT_METHOD_DISABLED';
   if (/already been used for a different entry/i.test(message)) return 'REQUEST_CONFLICT';
   if (/invalid payroll date|cannot start before|cannot start after|must start on the current business date|must start on or after/i.test(message)) return 'INVALID_DATE';

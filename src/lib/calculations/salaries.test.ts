@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applySalaryPaymentChanges, calculateSalaries, combineSalaryMonths, dailyBasePay, deactivatedFrom, deactivationCancelsRates, displayedRate, earliestActivationDate, earliestDeactivationDate, employeeStatus, maxSalaryPayment, rateInForce, salaryBalance, salaryEarnings, salaryPaymentsBySource, scheduledDeactivation, canDeleteSalaryRate, type SalaryEmployee, type SalaryEntry, type SalaryRate } from './salaries';
+import { absentDates, applySalaryPaymentChanges, calculateSalaries, combineSalaryMonths, dailyBasePay, deactivatedFrom, deactivationCancelsRates, displayedRate, earliestActivationDate, earliestDeactivationDate, employeeStatus, maxSalaryPayment, rateInForce, salaryBalance, salaryEarnings, salaryPaymentsBySource, scheduledDeactivation, canDeleteSalaryRate, type SalaryEmployee, type SalaryEntry, type SalaryRate } from './salaries';
 
 const employee: SalaryEmployee = { id: 'one', club_id: 'club', name: 'Employee', job_title: '', joined_on: '2026-09-01' };
 const rate: SalaryRate = { id: 'rate', employee_id: 'one', effective_date: '2026-09-01', salary_type: 'daily', amount: 100, kpi_percent: 10, active: true };
@@ -24,6 +24,19 @@ describe('salary accrual and owner profit after all salary costs', () => {
     const later = calculate({ throughDate: '2026-10-01', entries: [entry('payment', 500, '2026-10-01')], monthlyProfit: [profit(12000), profit(-500, '2026-10')] }).one;
     expect(later[0].paid).toBe(0);
     expect(later[1]).toMatchObject({ base: 100, paid: 500, kpi: 0, balance: -400 });
+  });
+  it('a "did not come" day earns no base pay, and a deleted one restores it', () => {
+    const absent = calculate({ entries: [entry('absence', 0, '2026-09-05')], monthlyProfit: [profit(0)] }).one[0];
+    expect(absent).toMatchObject({ base: 900, earned: 900 });
+    const deleted = calculate({ entries: [{ ...entry('absence', 0, '2026-09-05'), deleted_at: '2026-09-06' }], monthlyProfit: [profit(0)] }).one[0];
+    expect(deleted.base).toBe(1000);
+    const monthly = calculate({ rates: [{ ...rate, salary_type: 'monthly', amount: 3000, kpi_percent: 0 }], entries: [entry('absence', 0, '2026-09-02'), entry('absence', 0, '2026-09-20')], monthlyProfit: [] }).one[0];
+    expect(monthly.base).toBe(900); // 10 days of 100, one absent; the 20th is after the through date
+  });
+  it('lists only live absences of the employee', () => {
+    const other = { ...entry('absence', 0, '2026-09-03'), employee_id: 'two' };
+    expect([...absentDates([entry('absence', 0, '2026-09-02'), entry('fine', 50, '2026-09-04'), other], 'one')]).toEqual(['2026-09-02']);
+    expect(dailyBasePay(employee, [rate], '2026-09-02', new Set(['2026-09-02']))).toBeUndefined();
   });
   it('bonuses add and fines deduct, including the effect on after-salary profit', () => {
     const row = calculate({ entries: [entry('bonus', 300), entry('fine', 80)] }).one[0];

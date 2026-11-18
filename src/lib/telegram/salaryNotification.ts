@@ -13,8 +13,8 @@ export type SalaryNotificationInput = {
   | { event: 'kpi_changed'; kpi: number; kpiSettings: KpiSettings; date?: string }
   | { event: 'deactivated'; date?: string }
   | { event: 'activated'; date?: string }
-  | { event: 'payment' | 'bonus' | 'fine'; amount: number; date: string; comment: string | null; paymentMethod?: string | null; paymentSource?: string | null }
-  | { event: 'entry_deleted'; kind: 'payment' | 'bonus' | 'fine'; amount: number; date: string; reason: string }
+  | { event: 'payment' | 'bonus' | 'fine' | 'absence'; amount: number; date: string; comment: string | null; paymentMethod?: string | null; paymentSource?: string | null }
+  | { event: 'entry_deleted'; kind: 'payment' | 'bonus' | 'fine' | 'absence'; amount: number; date: string; reason: string }
   | { event: 'rate_deleted'; effectiveDate: string; reason: string }
   | { event: 'employee_deleted'; reason: string }
 );
@@ -28,7 +28,7 @@ const BASES = {
 } as const;
 const ENTRY_TITLES = { payment: 'Зарплата', bonus: 'Премия', fine: 'Штраф' } as const;
 const ENTRY_ICONS = { payment: '💵', bonus: '🎁', fine: '⚠️' } as const;
-const DELETED_TITLES = { payment: 'Удалена зарплата', bonus: 'Удалена премия', fine: 'Удалён штраф' } as const;
+const DELETED_TITLES = { payment: 'Удалена зарплата', bonus: 'Удалена премия', fine: 'Удалён штраф', absence: 'Удалён невыход' } as const;
 
 const salary = (amount: number, type: 'daily' | 'monthly') => `${sum(amount)} ${PER[type]}`;
 
@@ -68,9 +68,11 @@ export function buildSalaryNotification(input: SalaryNotificationInput, today = 
       return lines(`⏸ Сотрудник деактивирован: ${input.employee}`, `С ${noticeDate(input.date ?? today)}`, by);
     case 'activated':
       return lines(`▶️ Сотрудник активирован: ${input.employee}`, `С ${noticeDate(input.date ?? today)}`, by);
+    case 'absence':
+      return lines(`🚫 Не пришёл(а) на работу: ${input.employee}`, `${noticeDate(input.date)} · без оплаты за день`, authorLine(by, input.comment));
     case 'entry_deleted':
       return lines(
-        `🗑 ${DELETED_TITLES[input.kind]} ${input.employee}: ${sum(input.amount)}`,
+        `🗑 ${DELETED_TITLES[input.kind]} ${input.employee}${input.kind === 'absence' ? '' : `: ${sum(input.amount)}`}`,
         details(noticeDate(input.date), `причина: ${input.reason}`),
         `Удалил(а) ${by}`,
       );

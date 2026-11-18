@@ -17,14 +17,14 @@ import {
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { buildSalaryCalendar, shiftYearMonth } from '@/lib/calculations/salaryCalendar';
-import { canDeleteSalaryRate, dailyBasePay, rateInForce, type SalaryEmployee, type SalaryEntry, type SalaryMonth, type SalaryRate } from '@/lib/calculations/salaries';
+import { absentDates, canDeleteSalaryRate, dailyBasePay, rateInForce, type SalaryEmployee, type SalaryEntry, type SalaryMonth, type SalaryRate } from '@/lib/calculations/salaries';
 import { formatCurrency, formatDateOnly, formatDateTime, formatYearMonth } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { dayRange, reportsHref } from '@/lib/detailLinks';
 import { SalaryCalendar } from './SalaryCalendar';
 import { useSalaryText, type DeletionTarget } from './shared';
 
-const ENTRY_BADGE: Record<SalaryEntry['kind'], BadgeVariant> = { payment: 'warning', bonus: 'info', fine: 'danger' };
+const ENTRY_BADGE: Record<SalaryEntry['kind'], BadgeVariant> = { payment: 'warning', bonus: 'info', fine: 'danger', absence: 'neutral' };
 
 export interface HistoryViewProps {
   /** Requested employee id from the route; without it the history covers the whole club. */
@@ -63,10 +63,11 @@ export function HistoryView({
   const staff = useMemo(() => (historyEmployee ? [historyEmployee] : employees), [historyEmployee, employees]);
   // Each day's base pay, summed over the club in the club-wide history; a raise shows from its effective date.
   const calendarDays = useMemo(() => {
-    const earnedOn = (date: string) => staff.reduce((sum, employee) => sum + (dailyBasePay(employee, rates, date) ?? 0), 0);
+    const absent = new Map(staff.map((employee) => [employee.id, absentDates(entries, employee.id)]));
+    const earnedOn = (date: string) => staff.reduce((sum, employee) => sum + (dailyBasePay(employee, rates, date, absent.get(employee.id)) ?? 0), 0);
     const kpiByDay = Object.assign({}, ...months.map((month) => month.kpiByDay));
     return buildSalaryCalendar(calendarMonth, historyEntries, today, earnedOn, kpiByDay);
-  }, [calendarMonth, historyEntries, today, staff, rates, months]);
+  }, [calendarMonth, historyEntries, entries, today, staff, rates, months]);
 
   if (loading) return <TableSkeleton rows={6} columns={7} />;
   if (employeeId && !loadError && !historyEmployee) return <Card><EmptyState icon={Users} title={t('employeeNotFound')} /></Card>;
@@ -194,11 +195,11 @@ export function HistoryView({
                   {deleterName(entry.deleted_by) && <p className="mt-0.5 break-words text-xs text-gray-500">{t('deletedBy')}: {deleterName(entry.deleted_by)}</p>}
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
-                  <strong className={cn('whitespace-nowrap tabular-nums', entry.kind === 'bonus' ? 'text-primary-700' : entry.kind === 'fine' ? 'text-danger-600' : 'text-gray-900')}>{entry.kind === 'bonus' ? '+' : '−'}{currency(Number(entry.amount))}</strong>
+                  <strong className={cn('whitespace-nowrap tabular-nums', entry.kind === 'bonus' ? 'text-primary-700' : entry.kind === 'fine' ? 'text-danger-600' : 'text-gray-900')}>{entry.kind === 'absence' ? t('absenceNoPay') : `${entry.kind === 'bonus' ? '+' : '−'}${currency(Number(entry.amount))}`}</strong>
                   {entry.deleted_at ? (
                     <Badge variant="neutral" size="sm">{t('deleted')} · {formatDateTime(entry.deleted_at, locale)}</Badge>
                   ) : isOwner && (
-                    <Button variant="dangerOutline" size="sm" disabled={saving} onClick={() => onDelete({ id: entry.id, employeeId: entry.employee_id, kind: 'entry', label: `${employeePrefix(entry.employee_id)}${t(entry.kind)} · ${formatDateOnly(entry.date, locale)} · ${currency(Number(entry.amount))}` })}>
+                    <Button variant="dangerOutline" size="sm" disabled={saving} onClick={() => onDelete({ id: entry.id, employeeId: entry.employee_id, kind: 'entry', label: `${employeePrefix(entry.employee_id)}${t(entry.kind)} · ${formatDateOnly(entry.date, locale)}${entry.kind === 'absence' ? '' : ` · ${currency(Number(entry.amount))}`}` })}>
                       {t('delete')}
                     </Button>
                   )}

@@ -133,6 +133,15 @@ describe('POST /api/salaries', () => {
     expect(mocks.sendTelegramMessage).toHaveBeenCalledTimes(1);
   });
 
+  it('records a "did not come" day only with a zero amount', async () => {
+    const absence = { action: 'record_entry', clubId: CLUB, employeeId: EMPLOYEE, requestId: REQUEST, date: '2026-10-01', kind: 'absence', amount: 0, comment: '' };
+    const { rpc } = mockSupabase();
+    expect((await post(absence)).status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('record_salary_entry_with_status', expect.objectContaining({ p_kind: 'absence', p_amount: 0, p_payment_method: null }));
+    expect((await post({ ...absence, amount: 100 })).status).toBe(400);
+    expect((await post({ ...absence, kind: 'bonus' })).status).toBe(400);
+  });
+
   it('deletes records through the audited RPC', async () => {
     const { rpc } = mockSupabase();
     const response = await post({ action: 'delete_record', clubId: CLUB, employeeId: EMPLOYEE, recordId: REQUEST, kind: 'entry', reason: '  Paid twice  ' });

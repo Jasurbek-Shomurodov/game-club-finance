@@ -16,6 +16,7 @@ const KINDS: { kind: SalaryEntryKind; sign: string; chip: string; dot: string }[
   { kind: 'payment', sign: '', chip: 'border-warning-100 bg-warning-50 text-warning-700', dot: 'bg-warning-500' },
   { kind: 'bonus', sign: '+', chip: 'border-primary-100 bg-primary-50 text-primary-700', dot: 'bg-primary-500' },
   { kind: 'fine', sign: '−', chip: 'border-danger-100 bg-danger-50 text-danger-700', dot: 'bg-danger-500' },
+  { kind: 'absence', sign: '', chip: 'border-gray-200 bg-gray-50 text-gray-600', dot: 'bg-gray-400' },
 ];
 
 export interface SalaryCalendarProps {
@@ -87,7 +88,7 @@ export function SalaryCalendar({ month, days, selectedDate, onMonthChange, onSel
                 {KINDS.map(({ kind, sign, chip }) => day.totals[kind] !== undefined && (
                   <span key={kind} className={cn('hidden rounded-lg border px-1.5 py-1 text-[11px] leading-tight sm:block', chip, !day.inMonth && 'opacity-60')}>
                     <span className="block font-medium">{t(kind)}</span>
-                    <span className="block break-words font-bold tabular-nums">{sign}{formatCurrency(day.totals[kind]!)}</span>
+                    {kind !== 'absence' && <span className="block break-words font-bold tabular-nums">{sign}{formatCurrency(day.totals[kind]!)}</span>}
                   </span>
                 ))}
                 {/* Phones: seven columns leave no room for amounts, so a day shows the legend's marks
@@ -110,7 +111,7 @@ export function SalaryCalendar({ month, days, selectedDate, onMonthChange, onSel
             {selectedDay.earned !== undefined && <span>{t('calendarEarned')}: <strong className="tabular-nums text-success-700">+{formatCurrency(selectedDay.earned)}</strong></span>}
             {selectedDay.kpi !== undefined && <span>{t('kpi')}: <strong className="tabular-nums text-success-700">+{formatCurrency(selectedDay.kpi)}</strong></span>}
             {KINDS.map(({ kind, sign }) => selectedDay.totals[kind] !== undefined && (
-              <span key={kind}>{t(kind)}: <strong className="tabular-nums text-gray-900">{sign}{formatCurrency(selectedDay.totals[kind]!)}</strong></span>
+              <span key={kind}>{kind === 'absence' ? <strong className="text-gray-900">{t(kind)}</strong> : <>{t(kind)}: <strong className="tabular-nums text-gray-900">{sign}{formatCurrency(selectedDay.totals[kind]!)}</strong></>}</span>
             ))}
             {selectedDay.earned === undefined && selectedDay.kpi === undefined && selectedDay.count === 0 && <span>{t('calendarRecords', { count: 0 })}</span>}
           </dd>

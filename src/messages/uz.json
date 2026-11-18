@@ -1579,7 +1579,7 @@
     "earnedThisMonth": "Ish haqi · shu oy",
     "paidThisMonth": "Shu oy to‘langan: {amount}",
     "howItWorks": "Ish haqi va KPI qanday hisoblanadi",
-    "baseHelp": "Kunlik ish haqi har bir faol kalendar kuni uchun, bugunni ham qo‘shib hisoblanadi. Oylik ish haqi shu oydagi kunlar soniga bo‘linadi va faol kunlar uchun hisoblanadi. Nofaol qilish belgilangan sanadan hisoblashni to‘xtatadi.",
+    "baseHelp": "Kunlik ish haqi har bir faol kalendar kuni uchun, bugunni ham qo‘shib hisoblanadi. Oylik ish haqi shu oydagi kunlar soniga bo‘linadi va faol kunlar uchun hisoblanadi. Nofaol qilish belgilangan sanadan hisoblashni to‘xtatadi. «Kelmadi» deb belgilangan kun uchun asosiy maosh hisoblanmaydi.",
     "kpiHelp": "KPI — foydadan foiz. Har bir xodim uchun Umumiy foyda (har kuni ishlanadi, ega yechishlaridan oldin va barcha ish haqi xarajatlaridan keyin) yoki Ega foydasi (faqat oy davomida ega yechgan pul) tanlanadi, manba — O‘yin klubi, Bar yoki ikkalasi. Zarar KPI keltirmaydi. Foiz faol kunlar va stavka o‘zgarishlariga qarab o‘lchanadi. O‘yin klubi daromadi — O‘yin klubining har kungi daromadidan o‘sha kungi mijozlarga chegirma va bonuslar ayirilgandan keyingi foiz, boshqa xarajatlar ayirilmaydi. Mijozlarga chegirma va bonuslar har qanday bazada ayiriladi.",
     "estimateHelp": "Qoldiqlar joriy ish sanasigacha hisoblanadi. Daromad yoki xarajat o‘zgarishi oldingi KPIga ta’sir qilishi mumkin. Oy qatori shu oydagi o‘zgarishni, xodim qoldig‘i esa barcha oylarni ko‘rsatadi. Summalar so‘mda.",
     "paymentHelp": "To‘lov xodim qoldig‘ini kamaytiradi va tanlangan manbadan ish haqi xarajatini yaratadi. Ish haqi KPI dan ikki marta ayrilmaydi. Qoldiqdan ortiq to‘lov avans hisoblanadi. Tahrirlash huquqi bilan xato yozuvlarni xodim tarixidan o‘chirish mumkin.",
@@ -1609,6 +1609,7 @@
     "payment": "To‘lov",
     "bonus": "Mukofot",
     "fine": "Jarima",
+    "absence": "Kelmadi",
     "date": "Sana",
     "comment": "Izoh",
     "monthlyBreakdown": "Oylar bo‘yicha ish haqi hisobi",
@@ -1640,9 +1641,12 @@
     "paymentHint": "To‘lov xodimga qarzni kamaytiradi.",
     "bonusHint": "Mukofot xodimga to‘lanadigan summani oshiradi.",
     "fineHint": "Jarima xodimga to‘lanadigan summani kamaytiradi.",
+    "absenceHint": "Xodim ishga kelmadi: bu kun uchun asosiy maosh hisoblanmaydi. KPI o‘zgarmaydi. Yozuvni o‘chirish kunlik to‘lovni qaytaradi.",
     "record_payment": "To‘lovni kiritish",
     "record_bonus": "Mukofot qo‘shish",
     "record_fine": "Jarima qo‘shish",
+    "record_absence": "Kelmadi deb belgilash",
+    "absenceNoPay": "Kun uchun to‘lov yo‘q",
     "selectRole": "Lavozimni tanlang",
     "roles": {
       "Manager": "Menejer",
@@ -1665,7 +1669,7 @@
     "deleteReason": "Oʻchirish sababi",
     "deletedBy": "Oʻchirgan",
     "deleteReasonPlaceholder": "Bu yozuv nima uchun oʻchirilmoqda?",
-    "recordOperations": "To‘lov / mukofot / jarima kiritish",
+    "recordOperations": "To‘lov / bonus / jarima / kelmaganlikni yozish",
     "deactivate": "Faolsizlantirish",
     "kpiBasis": "KPI asosi",
     "kpiBasisOverall": "Umumiy foyda (har kuni hisoblanadi)",
@@ -1733,7 +1737,8 @@
       "lastRate": "Oxirgi maosh stavkasini o‘chirib bo‘lmaydi. Maosh sozlamalarini o‘zgartiring yoki xodimni nofaol qiling.",
       "employeeActive": "Avval xodimni faolsizlantiring. Faqat faolsizlantirilgan xodimni o‘chirish mumkin.",
       "dayCollected": "Bu kunning puli olindi, kun yopilgan. Boshqa sanani tanlang yoki egasidan kunni qayta ochishni so‘rang.",
-      "insufficientBalance": "Bu kunda to‘lov usulida bu to‘lov uchun yetarli pul yo‘q."
+      "insufficientBalance": "Bu kunda to‘lov usulida bu to‘lov uchun yetarli pul yo‘q.",
+      "alreadyAbsent": "Bu xodim shu kuni allaqachon kelmadi deb belgilangan."
     },
     "openInReports": "Hisobotda ochish"
   },

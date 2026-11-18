@@ -63,7 +63,8 @@ export interface SalaryEntry {
   id: string;
   employee_id: string;
   date: string;
-  kind: 'payment' | 'bonus' | 'fine';
+  /** `absence` (migration 153): a "did not come" day with amount 0; that day earns no base pay. */
+  kind: 'payment' | 'bonus' | 'fine' | 'absence';
   amount: number;
   comment: string;
   payment_method: string | null;
@@ -126,6 +127,7 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, da
     const elapsedDays = differenceInCalendarDays(parseISO(end), parseISO(from)) + 1;
     const monthEntries = entries.filter((e) => !e.deleted_at && e.date >= from && e.date <= end);
     const rows = employees.map((employee) => {
+      const absent = absentDates(monthEntries, employee.id);
       let base = 0;
       let weightedPercent = 0;
       let activeDays = 0;
@@ -143,7 +145,11 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, da
         const next = terms[index + 1]?.effective_date;
         const inclusiveDays = differenceInCalendarDays(parseISO(end), parseISO(start)) + 1;
         const days = Math.max(0, next ? Math.min(inclusiveDays, differenceInCalendarDays(parseISO(next), parseISO(start))) : inclusiveDays);
-        base += Number(rate.amount) * days / (rate.salary_type === 'monthly' ? daysInMonth : 1);
+        let paidDays = days;
+        for (let day = 0; day < days && absent.size; day += 1) {
+          if (absent.has(format(addDays(parseISO(start), day), 'yyyy-MM-dd'))) paidDays -= 1;
+        }
+        base += Number(rate.amount) * paidDays / (rate.salary_type === 'monthly' ? daysInMonth : 1);
         const share = Number(rate.kpi_percent) * days / elapsedDays;
         weightedPercent += share;
         activeDays += days;
@@ -221,6 +227,11 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, da
     }
   }
   return result;
+}
+
+/** Days an employee is marked as not having come in (live `absence` entries). */
+export function absentDates(entries: SalaryEntry[], employeeId: string): Set<string> {
+  return new Set(entries.filter((e) => e.kind === 'absence' && !e.deleted_at && e.employee_id === employeeId).map((e) => e.date));
 }
 
 function spreadKpiOverDays(kpi: number, spans: { start: string; days: number; perDay: number }[]): Record<string, number> {
@@ -311,10 +322,10 @@ export function rateInForce(rates: SalaryRate[], employeeId: string, date: strin
 /**
  * Base pay earned on one day: the daily rate in force, or a monthly rate split
  * evenly over that month's days, the same proration `calculateSalaries` uses.
- * Undefined before joining or while inactive.
+ * Undefined before joining, while inactive, or on a day marked absent.
  */
-export function dailyBasePay(employee: SalaryEmployee, rates: SalaryRate[], date: string): number | undefined {
-  if (date < employee.joined_on) return undefined;
+export function dailyBasePay(employee: SalaryEmployee, rates: SalaryRate[], date: string, absent?: Set<string>): number | undefined {
+  if (date < employee.joined_on || absent?.has(date)) return undefined;
   const rate = rateInForce(rates, employee.id, date);
   if (!rate?.active) return undefined;
   if (rate.salary_type === 'daily') return money(Number(rate.amount));

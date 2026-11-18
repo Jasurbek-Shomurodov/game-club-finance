@@ -258,8 +258,10 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
     const allowed = dialog === 'entry' ? canEdit : isOwner;
     if (!allowed || mutating.current) return;
     if ((dialog === 'entry' || setupMode !== 'new') && !targetEmployee) return;
-    const amount = dialog === 'employee' && setupMode === 'kpi' ? Number(employeeForm.kpi) : parseCurrencyInput(dialog === 'employee' ? employeeForm.amount : entryForm.amount);
-    if (!Number.isFinite(amount) || amount >= 100000000000000 || (dialog === 'employee' ? amount < 0 : amount <= 0)) {
+    // A "did not come" day carries no amount.
+    const absence = dialog === 'entry' && entryForm.kind === 'absence';
+    const amount = absence ? 0 : dialog === 'employee' && setupMode === 'kpi' ? Number(employeeForm.kpi) : parseCurrencyInput(dialog === 'employee' ? employeeForm.amount : entryForm.amount);
+    if (!absence && (!Number.isFinite(amount) || amount >= 100000000000000 || (dialog === 'employee' ? amount < 0 : amount <= 0))) {
       setError(tc('invalidAmount'));
       return;
     }

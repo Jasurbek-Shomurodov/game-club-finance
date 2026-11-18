@@ -73,7 +73,7 @@ export interface OperationsFormsProps {
   onSubmit: (event: FormEvent, dialog: FormDialog) => void;
 }
 
-/** Payment/bonus/fine form for salary editors, and the employee setup form for owners. */
+/** Payment/bonus/fine/absence form for salary editors, and the employee setup form for owners. */
 export function OperationsForms(props: OperationsFormsProps) {
   const { isOwner } = props;
   return (
@@ -102,7 +102,7 @@ function OperationForm({
     value: mode,
     label: t(mode === 'new' ? 'addEmployee' : mode === 'salary' ? 'changeSalary' : mode === 'kpi' ? 'changeKpi' : 'editEmployee'),
   }));
-  const entryKindOptions = (['payment', 'bonus', 'fine'] as const).map((kind) => ({ value: kind, label: t(kind) }));
+  const entryKindOptions = (['payment', 'bonus', 'fine', 'absence'] as const).map((kind) => ({ value: kind, label: t(kind) }));
   const title = dialog === 'entry'
     ? t('recordOperations')
     : t(setupMode === 'new' ? 'addEmployee' : setupMode === 'salary' ? 'changeSalary' : setupMode === 'kpi' ? 'changeKpi' : 'editEmployee');
@@ -205,10 +205,12 @@ function OperationForm({
     return (
       <>
         <StatTile className="sm:col-span-2" variant="soft" label={t('balance')} value={formatCurrency(balance)} unit={tc('currency')} tone="primary" />
-        <Field label={t('amount')} htmlFor="salary-entry-amount" required>
-          <CurrencyInput id="salary-entry-amount" required value={entryForm.amount} onValueChange={(value) => setEntryForm({ ...entryForm, amount: value })} />
-        </Field>
-        <Field label={t('date')}>
+        {entryForm.kind !== 'absence' && (
+          <Field label={t('amount')} htmlFor="salary-entry-amount" required>
+            <CurrencyInput id="salary-entry-amount" required value={entryForm.amount} onValueChange={(value) => setEntryForm({ ...entryForm, amount: value })} />
+          </Field>
+        )}
+        <Field label={t('date')} className={entryForm.kind === 'absence' ? 'sm:col-span-2' : undefined}>
           <DatePicker ariaLabel={t('date')} min={selected?.joined_on} max={today} disabled={savingTarget === 'entry'} value={entryForm.date} onChange={(date) => setEntryForm({ ...entryForm, date })} />
         </Field>
         {entryForm.kind === 'payment' && (

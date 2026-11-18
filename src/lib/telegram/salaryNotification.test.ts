@@ -13,6 +13,10 @@ describe('buildSalaryNotification', () => {
     ]);
   });
 
+  it('announces a "did not come" day without an amount', () => {
+    expect(buildSalaryNotification({ ...base, event: 'absence', amount: 0, date: '2026-10-01', comment: null }).split('\n')[0]).toContain('Не пришёл(а) на работу');
+    expect(buildSalaryNotification({ ...base, event: 'entry_deleted', kind: 'absence', amount: 0, date: '2026-10-01', reason: 'ошибка' }).split('\n')[0]).not.toContain(':');
+  });
   it('gives bonuses and fines only their date', () => {
     expect(buildSalaryNotification({ ...base, event: 'bonus', amount: 1000, date: '2026-10-01', comment: null }).split('\n')).toEqual([
       '🎁 Премия Izzat: 1 000 сум', '1 октября', 'Owner',

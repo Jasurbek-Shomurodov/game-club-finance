@@ -196,7 +196,9 @@ export async function POST(request: Request) {
       }
       case 'record_entry': {
         if (!isId(body.requestId) || !isDate(body.date) || !isNumber(body.amount)
-          || (body.kind !== 'payment' && body.kind !== 'bonus' && body.kind !== 'fine')) throw new BadRequest();
+          || (body.kind !== 'payment' && body.kind !== 'bonus' && body.kind !== 'fine' && body.kind !== 'absence')
+          // A "did not come" day carries no amount (migration 153).
+          || ((body.kind === 'absence') !== (body.amount === 0))) throw new BadRequest();
         const comment = text(body.comment, 1000);
         if (comment === null) throw new BadRequest();
         const paymentMethod = body.kind === 'payment' && typeof body.paymentMethod === 'string' ? body.paymentMethod : null;
@@ -242,7 +244,7 @@ export async function POST(request: Request) {
         if (rpcResult.error && isMissingDatabaseFunction(rpcResult.error, 'delete_salary_record')) {
           rpcResult = await supabase.rpc('delete_salary_record', deleteParams);
         }
-        const record = lookup.data as { kind?: 'payment' | 'bonus' | 'fine'; amount?: number | string; date?: string; effective_date?: string } | null;
+        const record = lookup.data as { kind?: 'payment' | 'bonus' | 'fine' | 'absence'; amount?: number | string; date?: string; effective_date?: string } | null;
         if (record?.kind && record.date) {
           notification = { event: 'entry_deleted', kind: record.kind, amount: Number(record.amount), date: record.date, reason };
         } else if (record?.effective_date) {

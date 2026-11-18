@@ -4941,5 +4941,29 @@
         "signature": "public.invoke_game_club_google_review_replies()"
       }
     ]
+  },
+  {
+    "file": "153_salary_absences.sql",
+    "probes": [
+      {
+        "kind": "constraint",
+        "table": "public.salary_entries",
+        "name": "salary_entries_kind_check"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.salary_entries",
+        "name": "salary_entries_amount_check"
+      },
+      {
+        "kind": "relation",
+        "name": "public.salary_entries_one_absence_per_day"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.record_salary_entry_with_status(uuid,uuid,uuid,date,text,numeric,text,text,text)",
+        "md5": "19bf0896e77e575be0c975f4676db15f"
+      }
+    ]
   }
 ]

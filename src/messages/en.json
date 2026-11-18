@@ -1579,7 +1579,7 @@
     "earnedThisMonth": "Salary cost · this month",
     "paidThisMonth": "Paid this month: {amount}",
     "howItWorks": "How salary and KPI are calculated",
-    "baseHelp": "Daily salary accrues for each active calendar day, including today. Monthly salary is divided by the days in that month and accrues for active days. Deactivation stops accrual from its effective date.",
+    "baseHelp": "Daily salary accrues for each active calendar day, including today. Monthly salary is divided by the days in that month and accrues for active days. Deactivation stops accrual from its effective date. A day marked “Did not come” earns no base salary.",
     "kpiHelp": "KPI is a percentage of profit. Each employee uses either Overall profit (earned every day, before owner withdrawals, after all salary costs) or Owner profit (only what the owner withdrew that month), taken from Game Club, Bar or both. A loss earns no KPI. The percentage is weighted by active days and rate changes within each month. Game Club income takes the percentage of each day's Game Club income minus that day's customer discounts and bonuses, before any other expense. Every basis subtracts customer discounts and bonuses.",
     "estimateHelp": "Balances are live estimates through the current business date. Changes to income or expenses can change past KPI. Monthly rows show that month’s net movement; the employee balance includes all months. Amounts are in UZS.",
     "paymentHelp": "A payment reduces the employee balance and creates a salary expense from the selected source. It does not deduct salary twice from KPI. Payments above the balance are advances. Mistaken records can be deleted from employee history with editing access.",
@@ -1609,6 +1609,7 @@
     "payment": "Payment",
     "bonus": "Bonus",
     "fine": "Fine",
+    "absence": "Did not come",
     "date": "Date",
     "comment": "Comment",
     "monthlyBreakdown": "Monthly salary breakdown",
@@ -1640,9 +1641,12 @@
     "paymentHint": "A payment reduces the amount owed to the employee.",
     "bonusHint": "A bonus increases the amount owed to the employee.",
     "fineHint": "A fine reduces the amount owed to the employee.",
+    "absenceHint": "The employee did not come to work: no base salary is earned for this day. KPI does not change. Deleting the record restores the day's pay.",
     "record_payment": "Record payment",
     "record_bonus": "Record bonus",
     "record_fine": "Record fine",
+    "record_absence": "Mark as not come",
+    "absenceNoPay": "No pay for the day",
     "selectRole": "Select a role",
     "roles": {
       "Manager": "Manager",
@@ -1665,7 +1669,7 @@
     "deleteReason": "Reason for deleting",
     "deletedBy": "Deleted by",
     "deleteReasonPlaceholder": "Why is this record being deleted?",
-    "recordOperations": "Record payment / bonus / fine",
+    "recordOperations": "Record payment / bonus / fine / absence",
     "deactivate": "Deactivate",
     "kpiBasis": "KPI basis",
     "kpiBasisOverall": "Overall profit (calculated every day)",
@@ -1733,7 +1737,8 @@
       "lastRate": "The last salary rate cannot be deleted. Change the salary settings or deactivate the employee instead.",
       "employeeActive": "Deactivate this employee first. Only deactivated employees can be deleted.",
       "dayCollected": "The money for this day was collected, so the day is closed. Pick another date or ask an owner to reopen it.",
-      "insufficientBalance": "The payment method does not hold enough money on this day for this payment."
+      "insufficientBalance": "The payment method does not hold enough money on this day for this payment.",
+      "alreadyAbsent": "This employee is already marked as not come on this day."
     },
     "openInReports": "Open in Reports"
   },
