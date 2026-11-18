@@ -29,7 +29,7 @@ export type ExpenseErrorCode = (typeof EXPENSE_ERROR_CODES)[number];
 const ERRORS: Record<ExpenseErrorCode, { status: number; text: string }> = {
   UNAUTHORIZED: { status: 401, text: 'Unauthorized' },
   INVALID_REQUEST: { status: 400, text: 'Invalid expense data' },
-  NOTE_REQUIRED: { status: 400, text: 'The note must have at least 5 words' },
+  NOTE_REQUIRED: { status: 400, text: 'The note must have at least 3 words' },
   FORBIDDEN: { status: 403, text: 'Forbidden' },
   PAYMENT_METHOD_DISABLED: { status: 400, text: 'Payment method is not enabled for this club' },
   CHECK_FAILED: { status: 400, text: 'The values were rejected' },
@@ -54,7 +54,7 @@ export function expenseErrorCode(error: { code?: string | null; message?: string
   const message = error.message ?? '';
   // The 097 trigger: the day's money was collected, so the day is closed.
   if (isDayCollectedError(error)) return 'DAY_COLLECTED';
-  // The 108 trigger: a manual expense needs a note of at least 5 words.
+  // The 108 trigger: a manual expense needs a note of at least 3 words.
   if (isNoteRequiredError(error)) return 'NOTE_REQUIRED';
   if (/salary payments cannot be (deleted|edited)/i.test(message)) return 'SALARY_PAYMENT_IMMUTABLE';
   // The 135 trigger: a shortage's expense moves and goes only with its shortage.

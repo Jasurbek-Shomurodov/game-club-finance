@@ -2579,7 +2579,7 @@
     "deleteConfirm": "{amount} kamomadni ({reason}) o'chirasizmi? Pul o'sha kun summalariga qaytadi.",
     "deletedToast": "Kamomad o'chirildi.",
     "errors": {
-      "note_required": "Nima bo'lganini kamida 5 so'z bilan yozing.",
+      "note_required": "Nima bo'lganini kamida 3 so'z bilan yozing.",
       "day_collected": "Bu kunning puli allaqachon yig'ilgan va kun yopilgan. Boshqa sanani tanlang yoki yig'ish belgisini olib tashlang.",
       "recovery_too_large": "Bu hali qoplanmagan summadan ko'p.",
       "no_employee": "Ish haqidan ushlab qolish uchun avval javobgarni tanlang.",

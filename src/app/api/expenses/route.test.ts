@@ -376,12 +376,12 @@ describe('expense creation route', () => {
     expect(writeQuery.insert).toHaveBeenCalledOnce();
   });
 
-  it('requires a note of at least five words before the database', async () => {
+  it('requires a note of at least three words before the database', async () => {
     const { writeQuery } = mockCreate();
-    for (const comment of [undefined, null, '', '   ', 'non', 'suv for the bar']) {
+    for (const comment of [undefined, null, '', '   ', 'non', 'suv bar']) {
       const response = await create({ ...body, comment });
       expect(response.status).toBe(400);
-      expect(await response.json()).toEqual({ error: 'The note must have at least 5 words', code: 'NOTE_REQUIRED' });
+      expect(await response.json()).toEqual({ error: 'The note must have at least 3 words', code: 'NOTE_REQUIRED' });
     }
     expect(writeQuery.insert).not.toHaveBeenCalled();
     expect(writeQuery.upsert).not.toHaveBeenCalled();
@@ -389,7 +389,7 @@ describe('expense creation route', () => {
 
   it('reports the database note rule with its own code', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    mockCreate({ upserted: null, insertError: { message: 'The note must have at least 5 words.', code: '23514' } });
+    mockCreate({ upserted: null, insertError: { message: 'The note must have at least 3 words.', code: '23514' } });
     const response = await create(body);
     expect(response.status).toBe(400);
     expect((await response.json()).code).toBe('NOTE_REQUIRED');

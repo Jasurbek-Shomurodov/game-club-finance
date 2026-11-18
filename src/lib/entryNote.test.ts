@@ -20,17 +20,18 @@ describe('entry note', () => {
     expect(countNoteWords('non,suv,choy')).toBe(1);
   });
 
-  it('requires at least five words', () => {
-    expect(MIN_NOTE_WORDS).toBe(5);
-    expect(validateEntryNote('naushnik')).toEqual({ valid: false, words: 1, required: 5 });
-    expect(validateEntryNote('bought two bottles of water')).toEqual({ valid: true, words: 5, required: 5 });
-    expect(validateEntryNote(null)).toEqual({ valid: false, words: 0, required: 5 });
-    expect(validateEntryNote(42)).toEqual({ valid: false, words: 0, required: 5 });
+  it('requires at least three words', () => {
+    expect(MIN_NOTE_WORDS).toBe(3);
+    expect(validateEntryNote('naushnik')).toEqual({ valid: false, words: 1, required: 3 });
+    expect(validateEntryNote('bought water bottles')).toEqual({ valid: true, words: 3, required: 3 });
+    expect(validateEntryNote('bought water')).toEqual({ valid: false, words: 2, required: 3 });
+    expect(validateEntryNote(null)).toEqual({ valid: false, words: 0, required: 3 });
+    expect(validateEntryNote(42)).toEqual({ valid: false, words: 0, required: 3 });
   });
 
   it('recognises the database refusal', () => {
     expect(isNoteRequiredError({ hint: 'note_required', message: 'x' })).toBe(true);
-    expect(isNoteRequiredError({ message: 'The note must have at least 5 words.' })).toBe(true);
+    expect(isNoteRequiredError({ message: 'The note must have at least 3 words.' })).toBe(true);
     expect(isNoteRequiredError({ hint: 'day_collected', message: 'closed' })).toBe(false);
     expect(isNoteRequiredError(null)).toBe(false);
   });

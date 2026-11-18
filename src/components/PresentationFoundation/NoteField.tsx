@@ -94,7 +94,7 @@ export interface NoteFieldProps {
   className?: string;
 }
 
-/** Required, auto-growing note with a live "2 of 5 words" count. */
+/** Required, auto-growing note with a live "2 of 3 words" count. */
 export function NoteField({ guard, id, label, value, onChange, placeholder, maxLength, disabled, className }: NoteFieldProps) {
   const t = useTranslations('common.entryNote');
   const { valid, words, required } = validateEntryNote(value);

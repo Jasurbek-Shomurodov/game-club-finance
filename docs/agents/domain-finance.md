@@ -166,11 +166,11 @@ The preset category check must list every manual expense category;
 
 ## Required notes
 
-Every new manual spending entry carries a note of at least 5 words (`MIN_NOTE_WORDS`
+Every new manual spending entry carries a note of at least 3 words (`MIN_NOTE_WORDS`
 in `src/lib/entryNote.ts`): expenses, money exchanges, new debts, debt payments
 and owner withdrawals. Forms use `NoteField` + `useEntryNoteGuard` (a popup and
-a live "2 of 5" count), `/api/expenses` and `/api/exchanges` answer
-`NOTE_REQUIRED` (400), and migration 108's `require_entry_note` insert trigger
+a live "2 of 3" count), `/api/expenses` and `/api/exchanges` answer
+`NOTE_REQUIRED` (400), and migration 108's `require_entry_note` insert trigger (3 words since 163)
 refuses the rest (SQLSTATE 23514, hint `note_required`, `isNoteRequiredError`).
 Payroll expenses (`salary_entry_id`), daily income, stock purchases and profit
 carryovers are exempt. Existing rows with short notes stay valid.

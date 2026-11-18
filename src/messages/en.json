@@ -2579,7 +2579,7 @@
     "deleteConfirm": "Delete the shortage of {amount} ({reason})? The money returns to that day's figures.",
     "deletedToast": "Shortage deleted.",
     "errors": {
-      "note_required": "Describe what happened in at least 5 words.",
+      "note_required": "Describe what happened in at least 3 words.",
       "day_collected": "That day's money was already collected and the day is closed. Choose another date or remove the collection tick.",
       "recovery_too_large": "That is more than is still lost.",
       "no_employee": "Choose who is responsible before recovering from salary.",

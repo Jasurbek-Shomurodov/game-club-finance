@@ -76,13 +76,13 @@ test('EXP-001 XAPP-001 an expense saves once and lowers net profit by its amount
   await dialog.locator('#expense-category').selectOption('cleaning');
   const posts = [];
   page.on('request', request => { if (request.method() === 'POST' && request.url().endsWith('/api/expenses')) posts.push(request.url()); });
-  // A note of fewer than 5 words is refused with a popup, before any request.
+  // A note of fewer than 3 words is refused with a popup, before any request.
   await dialog.locator('#expense-comment').fill('cleaning');
   await dialog.getByRole('button', { name: 'Save Expense' }).click();
   const notePopup = page.getByRole('dialog', { name: 'Please add a note' });
-  await expect(notePopup).toContainText('So far: 1 of 5 words.');
+  await expect(notePopup).toContainText('So far: 1 of 3 words.');
   await notePopup.getByRole('button', { name: 'Write the note' }).click();
-  await expect(dialog.getByText('Write at least 5 words (1 of 5)')).toBeVisible();
+  await expect(dialog.getByText('Write at least 3 words (1 of 3)')).toBeVisible();
   expect(posts).toHaveLength(0);
   await dialog.locator('#expense-comment').fill('Cleaning service for both halls');
   await dialog.getByRole('button', { name: 'Save Expense' }).click();

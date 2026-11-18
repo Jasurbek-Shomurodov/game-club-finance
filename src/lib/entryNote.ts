@@ -1,10 +1,10 @@
 /**
  * Every manual spending entry (expense, money exchange, debt, debt payment and
  * owner withdrawal) carries a note of at least MIN_NOTE_WORDS words, so the
- * owner can later tell what the money was for. Migration 108 enforces the same
+ * owner can later tell what the money was for. Migrations 108 and 163 enforce the same
  * rule on insert; its count is never stricter than this one.
  */
-export const MIN_NOTE_WORDS = 5;
+export const MIN_NOTE_WORDS = 3;
 
 /** Database hint of the 108 trigger that refuses a short note. */
 export const NOTE_REQUIRED_HINT = 'note_required';

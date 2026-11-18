@@ -95,9 +95,9 @@ describe('POST /api/exchanges', () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it('requires a note of at least five words', async () => {
+  it('requires a note of at least three words', async () => {
     const { rpc } = mockSupabase();
-    for (const comment of [null, '', 'rent', 'dollars for the rent']) {
+    for (const comment of [null, '', 'rent', 'rent dollars']) {
       const response = await call(POST, { ...purchase, comment });
       expect(response.status).toBe(400);
       expect(await response.json()).toMatchObject({ code: 'NOTE_REQUIRED' });
