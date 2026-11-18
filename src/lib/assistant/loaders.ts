@@ -173,7 +173,7 @@ export function createDatasetLoader(context: AssistantDataContext) {
         if (query.dataset === 'expenses') return { table: expensesTable(rows.expenseRows, query.category), period: range };
         const analysis = buildFinancialAnalysis(range!, rows);
         if (query.dataset === 'summary') return { table: summaryTable(analysis), period: range };
-        if (query.dataset === 'daily') return { table: dailyTable(analysis.daily), period: range };
+        if (query.dataset === 'daily') return { table: dailyTable(analysis.daily, rows.cashRows), period: range };
         return { table: categoriesTable(analysis), period: range };
       }
       case 'money': {
@@ -189,7 +189,7 @@ export function createDatasetLoader(context: AssistantDataContext) {
         const months = clampMonths(query.months);
         const window = trendWindow(context.businessToday, months);
         const rows = await ledgers(window);
-        return { table: monthlyTable(buildMonthlyAnalysis(context.businessToday, rows, months)), period: window };
+        return { table: monthlyTable(buildMonthlyAnalysis(context.businessToday, rows, months), rows.cashRows), period: window };
       }
       case 'product_sales': {
         const result = await loadFinanceReportRows(context.supabase, context.clubId, range!.from, range!.to, 'day');

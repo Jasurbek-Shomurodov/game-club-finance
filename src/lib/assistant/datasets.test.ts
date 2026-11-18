@@ -153,3 +153,33 @@ describe('dataset labels', () => {
     }
   });
 });
+
+describe('PlayStation in the assistant datasets', () => {
+  const cashRows = [
+    { date: '2026-11-01', cash_income: 1_000_000, terminal_income: 0, card_income: 0, playstation_income: 30_000 },
+    { date: '2026-11-02', cash_income: 1_000_000, terminal_income: 0, card_income: 0, playstation_income: 0 },
+    { date: '2026-11-03', cash_income: 1_000_000, terminal_income: 0, card_income: 0, playstation_income: 60_000 },
+  ];
+  const ledgers = { cashRows, stockRows: [], purchaseRows: [], expenseRows: [], debtRows: [], debtPaymentRows: [] };
+
+  it('gives the PlayStation average per day and its share of game-club income', async () => {
+    const { buildFinancialAnalysis } = await import('@/lib/calculations/financialAnalysis');
+    const { summaryTable } = await import('./datasets');
+    const rows = summaryTable(buildFinancialAnalysis({ from: '2026-11-01', to: '2026-11-03' }, ledgers)).rows;
+    const metric = (name: string) => rows.find((row) => row.metric === name)?.value;
+    expect(metric('playstation')).toBe(90_000);
+    // Three counted game-club days.
+    expect(metric('playstationAverageDailyIncome')).toBe(30_000);
+    expect(metric('playstationSharePct')).toBe(2.9);
+  });
+
+  it('adds PlayStation money to each day and each month', async () => {
+    const { buildFinancialAnalysis, buildMonthlyAnalysis } = await import('@/lib/calculations/financialAnalysis');
+    const { dailyTable, monthlyTable } = await import('./datasets');
+    const daily = dailyTable(buildFinancialAnalysis({ from: '2026-11-01', to: '2026-11-03' }, ledgers).daily, cashRows);
+    expect(daily.columns.map((column) => column.key)).toContain('playstation');
+    expect(daily.rows.map((row) => row.playstation)).toEqual([30_000, 0, 60_000]);
+    const monthly = monthlyTable(buildMonthlyAnalysis('2026-11-03', ledgers, 2), cashRows);
+    expect(monthly.rows.map((row) => [row.month, row.playstation])).toEqual([['2026-10', 0], ['2026-11', 90_000]]);
+  });
+});

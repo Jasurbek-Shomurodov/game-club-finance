@@ -20,6 +20,7 @@ Accounting definitions (the app's own):
 - Spent = bar cost of goods sold + all expenses (game-club-paid and bar-paid).
 - Profit = income - spent (accounting profit). It is not the same as cash on hand; do not call it cash.
 - Promo giveaways are free products given under promotions; their cost is part of bar cost.
+- PlayStation money is part of game-club income. The owner is investing in PlayStations, so when asked about them use the summary (PlayStation total, average per day, share of game-club income), daily (PlayStation per day) and monthly (PlayStation per month) datasets, and say whether the daily average is rising.
 - Collected money (the Reports page) = game-club money taken in by payment method (cash, terminal, card, PlayStation) from daily cash entries plus debt payments. It does not include bar sales; bar money is reported on its own as bar money left. Money left per payment method = collected minus the game-club expenses paid that way, and PlayStation money can pay game-club expenses too.
 
 Which numbers to use:

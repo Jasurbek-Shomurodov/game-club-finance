@@ -1,5 +1,5 @@
 import type { UserRole } from '@/types';
-import type { ExpenseRow } from '@/lib/calculations/dashboardMetrics';
+import type { DailyCashRow, ExpenseRow } from '@/lib/calculations/dashboardMetrics';
 import type { DailyAnalysisRow, FinancialAnalysis, MonthlyAnalysisRow } from '@/lib/calculations/financialAnalysis';
 import type { MoneyReport } from '@/lib/calculations/moneyReport';
 import { listLowStockProducts, stockLevel, resolveLowStockThreshold } from '@/lib/calculations/stock';
@@ -88,6 +88,13 @@ export function summaryTable(analysis: FinancialAnalysis): DataTable {
     ['gameClubLeft', indicators.gameClub.left, 'money'],
     ['gameClubMarginPct', indicators.gameClub.marginPct, 'percent'],
     ['gameClubAverageDailyIncome', indicators.gameClub.averageDailyIncome, 'money'],
+    // PlayStation is part of game-club income, tracked on its own over the same counted days.
+    ['playstationAverageDailyIncome', analysis.dayCounts
+      ? Math.round(source('playstation') / Math.max(1, analysis.dayCounts.gameClub))
+      : null, 'money'],
+    ['playstationSharePct', indicators.gameClub.income > 0
+      ? Math.round((source('playstation') / indicators.gameClub.income) * 1000) / 10
+      : null, 'percent'],
     ['barSales', indicators.bar.income, 'money'],
     ['barCost', totals.barCost, 'money'],
     ['barExpenses', totals.barExpenses, 'money'],
@@ -137,12 +144,21 @@ export function moneyTable(report: MoneyReport): DataTable {
   };
 }
 
-export function dailyTable(rows: DailyAnalysisRow[]): DataTable {
+/** PlayStation money per date, collected with each day's cash. */
+function playstationByDate(cashRows: readonly DailyCashRow[]): Map<string, number> {
+  const byDate = new Map<string, number>();
+  for (const row of cashRows) byDate.set(row.date, (byDate.get(row.date) ?? 0) + amount(row.playstation_income));
+  return byDate;
+}
+
+export function dailyTable(rows: DailyAnalysisRow[], cashRows: readonly DailyCashRow[] = []): DataTable {
+  const playstation = playstationByDate(cashRows);
   return {
     dataset: 'daily',
     columns: [
       { key: 'date', type: 'date' },
       { key: 'gameClubIncome', type: 'money' },
+      { key: 'playstation', type: 'money' },
       { key: 'gameClubExpenses', type: 'money' },
       { key: 'gameClubLeft', type: 'money' },
       { key: 'barSales', type: 'money' },
@@ -153,6 +169,7 @@ export function dailyTable(rows: DailyAnalysisRow[]): DataTable {
     rows: rows.map((row) => ({
       date: row.date,
       gameClubIncome: row.gameClubIncome,
+      playstation: playstation.get(row.date) ?? 0,
       gameClubExpenses: row.gameClubExpenses,
       gameClubLeft: row.gameClubIncome - row.gameClubExpenses,
       barSales: row.barSales,
@@ -163,12 +180,17 @@ export function dailyTable(rows: DailyAnalysisRow[]): DataTable {
   };
 }
 
-export function monthlyTable(rows: MonthlyAnalysisRow[]): DataTable {
+export function monthlyTable(rows: MonthlyAnalysisRow[], cashRows: readonly DailyCashRow[] = []): DataTable {
+  const playstation = new Map<string, number>();
+  for (const [date, value] of playstationByDate(cashRows)) {
+    playstation.set(date.slice(0, 7), (playstation.get(date.slice(0, 7)) ?? 0) + value);
+  }
   return {
     dataset: 'monthly',
     columns: [
       { key: 'month', type: 'month' },
       { key: 'gameClubIncome', type: 'money' },
+      { key: 'playstation', type: 'money' },
       { key: 'gameClubLeft', type: 'money' },
       { key: 'barSales', type: 'money' },
       { key: 'barLeft', type: 'money' },
@@ -176,6 +198,7 @@ export function monthlyTable(rows: MonthlyAnalysisRow[]): DataTable {
     rows: rows.map((row) => ({
       month: row.month.slice(0, 7),
       gameClubIncome: row.gameClubIncome,
+      playstation: playstation.get(row.month.slice(0, 7)) ?? 0,
       gameClubLeft: row.gameClubLeft,
       barSales: row.barSales,
       barLeft: row.barLeft,

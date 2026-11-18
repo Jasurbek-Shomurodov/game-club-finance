@@ -1882,6 +1882,7 @@
       "expenses": "Expenses",
       "left": "Left",
       "gameClubIncome": "Game club income",
+      "playstation": "PlayStation",
       "gameClubLeft": "Game club profit",
       "barLeft": "Bar profit"
     },
@@ -1907,6 +1908,8 @@
       "gameClubLeft": "Game club profit",
       "gameClubMarginPct": "Game club margin, %",
       "gameClubAverageDailyIncome": "Game club average daily income",
+      "playstationAverageDailyIncome": "PlayStation average daily income",
+      "playstationSharePct": "PlayStation share of game club income, %",
       "barSpent": "Bar spent (cost of goods + expenses)",
       "barLeft": "Bar profit",
       "barAverageDailySales": "Bar average daily sales"

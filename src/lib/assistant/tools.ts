@@ -10,10 +10,10 @@ import type { AssistantLocale } from './locales';
 const MAX_EXPORT_DATASETS = 6;
 
 const DATASET_HELP: Record<AssistantDataset, string> = {
-  summary: 'headline totals for the period: income by source, bar cost, expenses, accounting profit, margins, daily averages',
+  summary: 'headline totals for the period: income by source (computers, playstation, debts), bar cost, expenses, accounting profit, margins, daily averages including PlayStation average per day and its share of game-club income',
   money: 'the Reports page figures: money collected, expenses and money left per payment method (cash, terminal, card, playstation), then gameClub, bar and total rows; collected excludes bar sales; use it for cash/terminal/card questions and for how much money came in',
-  daily: 'one row per day: income, bar cost, game-club and bar expenses, total spent, profit',
-  monthly: 'one row per month for the last N months (use `months`, max 24): income, spent, profit; use it for month-over-month comparisons',
+  daily: 'one row per day: game-club income with its PlayStation money, bar cost, game-club and bar expenses, total spent, profit; use it for day-over-day PlayStation growth',
+  monthly: 'one row per month for the last N months (use `months`, max 24): game-club income with its PlayStation money, profit, bar sales; use it for month-over-month comparisons, PlayStation included',
   categories: 'expenses grouped by category with share of all expenses',
   expenses: 'every expense row (date, category, amount, payment method, paid from game club or bar, comment); optional `category` filter',
   product_sales: 'bar sales per product: sold quantity, promo giveaways, sales, cost, profit; best sellers first',

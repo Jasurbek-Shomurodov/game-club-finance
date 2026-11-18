@@ -1882,6 +1882,7 @@
       "expenses": "Расходы",
       "left": "Осталось",
       "gameClubIncome": "Доход игрового клуба",
+      "playstation": "PlayStation",
       "gameClubLeft": "Прибыль игрового клуба",
       "barLeft": "Прибыль бара"
     },
@@ -1907,6 +1908,8 @@
       "gameClubLeft": "Прибыль игрового клуба",
       "gameClubMarginPct": "Маржа игрового клуба, %",
       "gameClubAverageDailyIncome": "Средний дневной доход игрового клуба",
+      "playstationAverageDailyIncome": "Средний дневной доход PlayStation",
+      "playstationSharePct": "Доля PlayStation в доходе игрового клуба, %",
       "barSpent": "Расходы бара (себестоимость + расходы)",
       "barLeft": "Прибыль бара",
       "barAverageDailySales": "Средние дневные продажи бара"

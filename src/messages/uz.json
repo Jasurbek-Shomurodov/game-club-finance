@@ -1882,6 +1882,7 @@
       "expenses": "Xarajatlar",
       "left": "Qoldi",
       "gameClubIncome": "O'yin klubi daromadi",
+      "playstation": "PlayStation",
       "gameClubLeft": "O'yin klubi foydasi",
       "barLeft": "Bar foydasi"
     },
@@ -1907,6 +1908,8 @@
       "gameClubLeft": "O'yin klubi foydasi",
       "gameClubMarginPct": "O'yin klubi marjasi, %",
       "gameClubAverageDailyIncome": "O'yin klubining o'rtacha kunlik daromadi",
+      "playstationAverageDailyIncome": "PlayStation o'rtacha kunlik daromadi",
+      "playstationSharePct": "PlayStation'ning o'yin klubi daromadidagi ulushi, %",
       "barSpent": "Bar sarfi (tannarx + xarajatlar)",
       "barLeft": "Bar foydasi",
       "barAverageDailySales": "Barning o'rtacha kunlik savdosi"

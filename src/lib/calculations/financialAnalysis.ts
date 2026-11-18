@@ -132,6 +132,8 @@ export interface FinancialAnalysis {
   largest: ExpenseRow[];
   daily: DailyAnalysisRow[];
   paymentMethods: PaymentMethodFlowRow[];
+  /** Days each side counts for its daily average, through its latest entry; PlayStation uses the game club's. */
+  dayCounts?: { gameClub: number; bar: number };
 }
 
 const sum = <T>(rows: T[], pick: (row: T) => number) => rows.reduce((total, row) => total + pick(row), 0);
@@ -343,10 +345,12 @@ export function buildFinancialAnalysis(
   const totals = analysisTotals(ledgers);
   const categories = groupExpensesByCategory(ledgers.expenseRows);
   const topCategories = foldCategories(categories);
+  const dayCounts = getAverageIncomeDayCounts(range, ledgers);
   return {
     totals,
     // Same "average daily income" as the dashboard: each side through its latest entry.
-    indicators: buildAnalysisIndicators(totals, getAverageIncomeDayCounts(range, ledgers)),
+    indicators: buildAnalysisIndicators(totals, dayCounts),
+    dayCounts,
     sources: incomeSources(totals),
     categories,
     topCategories,
