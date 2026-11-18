@@ -31,13 +31,7 @@ import {
   toneForAmount,
   type MetricTone,
 } from '@/components/PresentationFoundation';
-import { DashboardAttention } from '@/components/dashboard/DashboardAttention';
-import { DashboardToday } from '@/components/dashboard/DashboardToday';
-import { buildDashboardTodayStatus } from '@/lib/calculations/dashboardAttention';
-import { canAccessPath, canReadStockCounts } from '@/lib/permissions';
-import { buildProductSalesSummary, buildRestockList, salesPeriodStart, type ProductSalesRow } from '@/lib/calculations/productSales';
-import { fetchBarProductSales } from '@/lib/supabase/barProductSales';
-import { useClubQuery } from '@/lib/useClubQuery';
+import { canAccessPath } from '@/lib/permissions';
 import { MoneyFlowSankeys } from '@/components/financial-analysis/MoneyFlowSankeys';
 import { SIDE_ICON_CLASS } from '@/components/financial-analysis/analysisFormat';
 import { formatCurrency } from '@/lib/formatters';
@@ -100,10 +94,6 @@ function FlowFigures({ items, loading }: {
     </div>
   );
 }
-
-/** The restock list ranks products by their sales over this many days ending today. */
-const RESTOCK_SALES_DAYS = 30;
-const NO_SALES: ProductSalesRow[] = [];
 
 export interface InitialDashboardSnapshot {
   clubId: string;
@@ -271,26 +261,8 @@ export default function DashboardPage({
     })),
     [data.trend, data.latestDailyCashEntryDate, data.latestBarEntryDate, businessToday, locale],
   );
-  const todayStatus = useMemo(() => buildDashboardTodayStatus({
-    trend: data.trend,
-    cashEntryDates: data.cashEntryDates,
-    stockEntryDates: data.stockEntryDates,
-    businessToday,
-  }), [data.trend, data.cashEntryDates, data.stockEntryDates, businessToday]);
-  // Sales only rank the restock list: without them (no access, or a failed
-  // read) it is the plain low-stock list from the snapshot.
-  const canRankRestock = canReadStockCounts(role, featureAccess);
-  const loadSales = useCallback(async (): Promise<ProductSalesRow[]> => (
-    fetchBarProductSales(createClient(), selectedClubId, salesPeriodStart(businessToday, RESTOCK_SALES_DAYS), businessToday)
-  ), [selectedClubId, businessToday]);
-  const salesQuery = useClubQuery(selectedClubId && canRankRestock && isCurrentMonth ? loadSales : null, NO_SALES);
-  const restock = useMemo(() => buildRestockList(
-    data.stockProducts,
-    salesQuery.error ? null : buildProductSalesSummary(data.stockProducts, salesQuery.data),
-  ), [data.stockProducts, salesQuery.data, salesQuery.error]);
   /** A link only to pages this member can open. */
   const pathIfAllowed = (path: string) => (canAccessPath(role, featureAccess, path) ? path : undefined);
-  const stockLinkHref = pathIfAllowed('/stock-purchase');
   const productsHref = pathIfAllowed('/products');
   // The month so far, day by day, as the small line beside each income figure.
   const sparkDays = useMemo(
@@ -361,18 +333,6 @@ export default function DashboardPage({
       {/* After a failed load the figures are unknown, not zero: show only the error. */}
       {!error && (
         <>
-          {/* The shift's two tasks first: they are what the rest of the page is built from.
-              They and the lists below describe now, so an earlier month leaves them out. */}
-          {isCurrentMonth && <DashboardToday
-            status={todayStatus}
-            businessToday={businessToday}
-            locale={locale}
-            currency={currency}
-            loading={loading}
-            cashHref={pathIfAllowed('/daily-cash')}
-            stockHref={pathIfAllowed('/closing-stock')}
-          />}
-
           {/* Headline numbers: the figures an owner checks first. */}
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
             <AmountCard
@@ -441,18 +401,6 @@ export default function DashboardPage({
               helper={t('barNetProfitDesc')}
             />
           </div>
-
-          {isCurrentMonth && <DashboardAttention
-            lowStock={restock}
-            debtors={data.debtors}
-            loading={loading}
-            locale={locale}
-            currency={currency}
-            stockLink={stockLinkHref
-              ? { href: stockLinkHref, label: t('runningLowBuy') }
-              : productsHref ? { href: productsHref, label: t('runningLowProducts') } : undefined}
-            debtsHref={pathIfAllowed('/debts')}
-          />}
 
           {/* Each business gets its own money flow; tapping a node opens the Sankey behind it. */}
           {loading ? (

@@ -924,10 +924,8 @@ test('I18N-003 switching language keeps the figures and formats money as 1 000 0
   expect(await pageText(page)).not.toMatch(/\b(dashboard|common|nav)\.[a-zA-Z]+\b/);
 });
 
-test('DASH-010 the month picker shows an earlier month, without the cards about today', async ({ page }) => {
+test('DASH-010 the month picker shows an earlier month', async ({ page }) => {
   await page.goto('/dashboard');
-  const todayCard = page.getByRole('region', { name: 'Today', exact: true });
-  await expect(todayCard).toBeVisible();
   await expectDashboardAmount(page, 'Game Club Income', expected.gameClubIncome);
 
   const [year, month] = today.split('-').map(Number);
@@ -940,8 +938,7 @@ test('DASH-010 the month picker shows an earlier month, without the cards about 
   if (month === 1) await picker.getByRole('button', { name: 'Previous year' }).click();
   await picker.getByRole('button', { name: label(new Date(Date.UTC(year, month - 2, 1))) }).click();
 
-  // The fixture has nothing before this month: the figures are that month's, and today's cards are gone.
-  await expect(todayCard).toHaveCount(0);
+  // The fixture has nothing before this month: the figures are that month's.
   await expectDashboardAmount(page, 'Game Club Income', 0);
   await expect(page.getByRole('button', { name: label(new Date(Date.UTC(year, month - 2, 1))) })).toBeVisible();
 });
