@@ -5,6 +5,7 @@ import { buildClosingStockUpserts, closingStockRowTotalsInput, validateClosingSt
 import {
   applyStockWriteOff,
   formatWriteOffReason,
+  isWriteOffAddition,
   maxWriteOffQuantity,
   parseWriteOffReason,
   rowWriteOff,
@@ -207,5 +208,23 @@ describe('write-off details', () => {
     expect(writeOffUnitCost({ cost: 130_000, quantity: 26 })).toBe(5_000);
     expect(writeOffUnitCost({ cost: 10, quantity: 3 })).toBeCloseTo(3.333, 3);
     expect(writeOffUnitCost({ cost: 0, quantity: 0 })).toBeNull();
+  });
+});
+
+describe('isWriteOffAddition', () => {
+  it('allows recording a write-off or adding to one of the same reason', () => {
+    expect(isWriteOffAddition(null, { kind: 'shortage', quantity: 2 })).toBe(true);
+    const current = { kind: 'expired' as const, quantity: 2, note: 'sour' };
+    expect(isWriteOffAddition(current, { kind: 'expired', quantity: 2 })).toBe(true);
+    expect(isWriteOffAddition(current, { kind: 'expired', quantity: 5 })).toBe(true);
+  });
+
+  it('treats reducing, removing, switching or replacing another adjustment as owner-only', () => {
+    const current = { kind: 'expired' as const, quantity: 2, note: '' };
+    expect(isWriteOffAddition(current, { kind: 'expired', quantity: 1 })).toBe(false);
+    expect(isWriteOffAddition(current, { kind: 'expired', quantity: 0 })).toBe(false);
+    expect(isWriteOffAddition(current, { kind: 'shortage', quantity: 3 })).toBe(false);
+    expect(isWriteOffAddition({ kind: 'other', quantity: 1, note: 'broken' }, { kind: 'shortage', quantity: 2 })).toBe(false);
+    expect(isWriteOffAddition(null, { kind: 'shortage', quantity: 0 })).toBe(false);
   });
 });

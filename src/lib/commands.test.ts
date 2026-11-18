@@ -29,8 +29,8 @@ describe('commandPages', () => {
 
   it('lists every screen for an owner, section tabs included', () => {
     expect(hrefs(commandPages('owner', null))).toEqual([
-      '/dashboard', '/financial-analysis', '/assistant', '/daily-cash', '/closing-stock', '/stock-purchase', '/products',
-      '/promotions', '/reports', '/daily-report', '/monthly-report', '/money-taken', '/reserve', '/debts', '/salaries',
+      '/dashboard', '/financial-analysis', '/assistant', '/daily-cash', '/closing-stock', '/write-offs', '/stock-purchase',
+      '/products', '/promotions', '/reports', '/daily-report', '/monthly-report', '/money-taken', '/reserve', '/debts', '/salaries',
       '/showcase', '/team', '/history', '/settings',
     ]);
   });

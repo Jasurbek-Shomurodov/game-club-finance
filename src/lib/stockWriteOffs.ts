@@ -8,8 +8,8 @@ import {
 /**
  * Bar write-offs: units that left stock without a sale because they went
  * missing (kamomad) or spoiled (eskirgan). A write-off is recorded through the
- * existing owner-only inventory adjustment of the day's stock count as a
- * negative adjustment whose reason carries the kind:
+ * inventory adjustment of the day's stock count as a negative adjustment whose
+ * reason carries the kind:
  *
  *   adjustment_quantity = -quantity
  *   adjustment_reason   = "shortage" | "expired" [": note"]
@@ -46,6 +46,21 @@ export function rowWriteOff(row: Pick<ClosingStockRowData, 'adjustmentQuantity' 
   const adjustment = normalizeStockAdjustment(row.adjustmentQuantity);
   if (adjustment >= 0) return null;
   return { quantity: -adjustment, ...parseWriteOffReason(row.adjustmentReason) };
+}
+
+/**
+ * Whether setting a row's write-off to `next` only records one or adds to it:
+ * the change an admin may make (migration 164). Reducing or removing a
+ * write-off, switching its reason, or replacing another adjustment stays with
+ * the owner. Mirrors `stock_write_off_is_addition` in the database.
+ */
+export function isWriteOffAddition(
+  current: RowWriteOff | null,
+  next: { kind: StockWriteOffKind; quantity: number },
+): boolean {
+  if (next.quantity <= 0) return false;
+  if (!current) return true;
+  return current.kind === next.kind && next.quantity >= current.quantity;
 }
 
 export class StockWriteOffError extends Error {

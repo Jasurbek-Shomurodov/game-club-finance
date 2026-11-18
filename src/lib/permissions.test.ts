@@ -56,6 +56,10 @@ describe('feature permissions', () => {
 
   it('guards paths and picks the first allowed destination', () => {
     expect(canAccessPath('admin', ['reports'], '/expenses')).toBe(false);
+    // Write-offs belong to the bar: whoever can open Closing Stock opens them.
+    expect(canAccessPath('admin', null, '/write-offs')).toBe(true);
+    expect(canAccessPath('admin', ['reports'], '/write-offs')).toBe(false);
+    expect(canAccessPath('viewer', null, '/write-offs')).toBe(false);
     expect(canAccessPath('admin', ['reports'], '/reports')).toBe(true);
     expect(canAccessPath('admin', ['expenses'], '/reports')).toBe(true);
     expect(canAccessPath('admin', ['expenses'], '/income')).toBe(false);

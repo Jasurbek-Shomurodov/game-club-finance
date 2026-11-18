@@ -434,9 +434,10 @@ export default function ClosingStockPage() {
   );
 
   const bulkRows = useMemo(() => rows.filter((row) => !isReadOnlyClosingStockProduct(row.product)), [rows]);
-  // Write-offs remove tracked stock; the save RPC lets only owners record them.
+  // Write-offs remove tracked stock. Anyone who saves the day's counts records
+  // them; only owners reduce or remove one (migration 164).
   const writeOffRows = useMemo(() => bulkRows.filter((row) => row.product.tracks_inventory !== false), [bulkRows]);
-  const canWriteOff = isOwner && canSave;
+  const canWriteOff = (isOwner || isAdmin) && canSave;
 
   // Promotions active on the selected date, so staff see what to give away.
   const activePromotions = useMemo(
@@ -664,6 +665,8 @@ export default function ClosingStockPage() {
         <StockWriteOffModal
           open={writeOffOpen}
           rows={writeOffRows}
+          canChangeRecorded={isOwner}
+          showCost={isOwner}
           saving={saving}
           onClose={() => setWriteOffOpen(false)}
           onSave={handleWriteOffSave}

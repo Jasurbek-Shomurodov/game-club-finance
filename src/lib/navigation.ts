@@ -8,13 +8,14 @@ export type NavSection = 'bar' | 'ownerMoney' | 'team';
 export interface SectionTab {
   href: string;
   /** Key in the `nav` messages. */
-  labelKey: 'closingStock' | 'stockPurchase' | 'products' | 'promotions' | 'moneyTaken' | 'reserve' | 'team' | 'history';
+  labelKey: 'closingStock' | 'writeOffs' | 'stockPurchase' | 'products' | 'promotions' | 'moneyTaken' | 'reserve' | 'team' | 'history';
 }
 
 /** Tabs of each section, in the order they are shown. The first one a member can open is the section's home. */
 const SECTION_TABS: Record<NavSection, readonly SectionTab[]> = {
   bar: [
     { href: '/closing-stock', labelKey: 'closingStock' },
+    { href: '/write-offs', labelKey: 'writeOffs' },
     { href: '/stock-purchase', labelKey: 'stockPurchase' },
     { href: '/products', labelKey: 'products' },
     { href: '/promotions', labelKey: 'promotions' },

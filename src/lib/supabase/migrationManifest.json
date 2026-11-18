@@ -4617,11 +4617,6 @@
         "md5": "9f722f1b7bba1966234d19e606b846a0"
       },
       {
-        "kind": "functionBody",
-        "signature": "public.save_closing_stock_counts(uuid,date,jsonb)",
-        "md5": "fe2a91fab2416a9032fe9569d8e70a58"
-      },
-      {
         "kind": "function",
         "signature": "public.stock_write_off_quantity(numeric,text)"
       }
@@ -5136,6 +5131,20 @@
         "kind": "functionBody",
         "signature": "public.record_cash_shortage(uuid,uuid,date,text,text,numeric,text,uuid,text,numeric,uuid)",
         "md5": "347567f5b0e57fb844681e8f5235a993"
+      }
+    ]
+  },
+  {
+    "file": "164_write_offs_for_admins.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.save_closing_stock_counts(uuid,date,jsonb)",
+        "md5": "39cbdaf0d5ffb6ee994bc59b5243db87"
+      },
+      {
+        "kind": "function",
+        "signature": "public.stock_write_off_is_addition(numeric,text,numeric,text)"
       }
     ]
   }

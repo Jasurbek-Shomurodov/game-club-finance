@@ -5,7 +5,7 @@ const hrefs = (tabs: { href: string }[]) => tabs.map((tab) => tab.href);
 
 describe('sectionTabs', () => {
   it('shows an owner every tab of every section', () => {
-    expect(hrefs(sectionTabs('bar', 'owner', null))).toEqual(['/closing-stock', '/stock-purchase', '/products', '/promotions']);
+    expect(hrefs(sectionTabs('bar', 'owner', null))).toEqual(['/closing-stock', '/write-offs', '/stock-purchase', '/products', '/promotions']);
     expect(hrefs(sectionTabs('ownerMoney', 'owner', null))).toEqual(['/money-taken', '/reserve']);
     expect(hrefs(sectionTabs('team', 'owner', null))).toEqual(['/team', '/history']);
   });
@@ -20,8 +20,8 @@ describe('sectionTabs', () => {
   it('follows feature access tab by tab', () => {
     // A viewer reads the catalog only.
     expect(hrefs(sectionTabs('bar', 'viewer', null))).toEqual(['/products']);
-    // Promotions share the closing-stock feature.
-    expect(hrefs(sectionTabs('bar', 'admin', ['closing_stock']))).toEqual(['/closing-stock', '/promotions']);
+    // Write-offs and promotions share the closing-stock feature.
+    expect(hrefs(sectionTabs('bar', 'admin', ['closing_stock']))).toEqual(['/closing-stock', '/write-offs', '/promotions']);
     expect(hrefs(sectionTabs('bar', 'admin', ['stock_purchase', 'inventory']))).toEqual(['/stock-purchase', '/products']);
     expect(sectionTabs('bar', 'admin', ['dashboard'])).toEqual([]);
   });
@@ -65,7 +65,7 @@ describe('activeSectionTab', () => {
 describe('accessibleSectionPaths', () => {
   it('lists every tab route the member can open', () => {
     expect(accessibleSectionPaths('owner', null)).toEqual([
-      '/closing-stock', '/stock-purchase', '/products', '/promotions', '/money-taken', '/reserve', '/team', '/history',
+      '/closing-stock', '/write-offs', '/stock-purchase', '/products', '/promotions', '/money-taken', '/reserve', '/team', '/history',
     ]);
     expect(accessibleSectionPaths('viewer', null)).toEqual(['/products', '/money-taken']);
   });
@@ -110,7 +110,7 @@ describe('isPrimaryNavItemActive', () => {
   });
 
   it('lights a section item on every one of its tabs', () => {
-    for (const path of ['/closing-stock', '/stock-purchase', '/products', '/promotions']) expect(active(path)).toEqual(['bar']);
+    for (const path of ['/closing-stock', '/write-offs', '/stock-purchase', '/products', '/promotions']) expect(active(path)).toEqual(['bar']);
     for (const path of ['/money-taken', '/reserve']) expect(active(path)).toEqual(['moneyTaken']);
   });
 

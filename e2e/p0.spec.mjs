@@ -784,7 +784,7 @@ test.describe('a new sign-up with no club', () => {
 test.describe('as an admin', () => {
   test.use({ storageState: storageStatePath('admin') });
 
-  test('STOCK-009 write-offs are owner-only: an admin sees no button, cost, badge or Reports tab', async ({ page }) => {
+  test('STOCK-009 an admin records and adds to a write-off on its own page but cannot reduce it or see its cost', async ({ page }) => {
     // The owner writes off 2 colas: 62 counted becomes 60, 12 still sold.
     const saved = await restAs(accounts.owner, 'POST', 'rpc/save_closing_stock_counts', {
       p_club_id: clubs.arcade.id,
@@ -793,13 +793,42 @@ test.describe('as an admin', () => {
     });
     expect(saved.status).toBe(200);
 
+    // Closing Stock keeps its button for admins too; the cost and badges stay owner-only.
     await page.goto('/closing-stock');
     await expect(page.getByRole('heading', { name: 'Closing Stock', level: 1 })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Bulk Update' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Write-off' })).toHaveCount(0);
-    const text = await pageText(page);
-    expect(text).not.toContain('Write-offs');
-    expect(text).not.toContain('Shortage');
+    await expect(page.getByRole('button', { name: 'Write-off' })).toBeVisible();
+    expect(await pageText(page)).not.toContain('Shortage');
+
+    // Write-offs is a tab of the bar section.
+    await openTab(page, 'Write-offs');
+    await expect(page).toHaveURL(/\/write-offs$/);
+    await expect(page.getByRole('cell', { name: products.cola.name })).toBeVisible();
+    expect(await pageText(page)).not.toContain('Loss at cost');
+
+    await page.getByRole('button', { name: 'Write off bar stock' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.locator('#write-off-product').selectOption(products.cola.id);
+    // Reducing the owner's write-off is refused before it reaches the database.
+    await dialog.getByRole('textbox', { name: 'Quantity (pcs)' }).fill('1');
+    await expect(dialog.getByRole('button', { name: 'Update write-off' })).toBeDisabled();
+    await expect(dialog.getByRole('button', { name: /^Remove write-off/ })).toHaveCount(0);
+    await dialog.getByRole('textbox', { name: 'Quantity (pcs)' }).fill('3');
+    await dialog.locator('#write-off-note').fill('E2E one more missing');
+    await dialog.getByRole('button', { name: 'Update write-off' }).click();
+    await expect(page.getByText('Write-off saved')).toBeVisible();
+
+    const [count] = await (await restAs(accounts.owner, 'GET', `daily_stock_counts?select=adjustment_quantity,adjustment_reason,closing_stock,sold_quantity,writeoff_cost&club_id=eq.${clubs.arcade.id}&product_id=eq.${products.cola.id}&date=eq.${today}`)).json();
+    expect({ ...count, adjustment_quantity: Number(count.adjustment_quantity), closing_stock: Number(count.closing_stock), sold_quantity: Number(count.sold_quantity), writeoff_cost: Number(count.writeoff_cost) }).toEqual({
+      adjustment_quantity: -3, adjustment_reason: 'shortage: E2E one more missing', closing_stock: expected.colaStock - 3, sold_quantity: 12, writeoff_cost: 3 * products.cola.cost_price,
+    });
+
+    // The database refuses a reduction from an admin, whatever the browser sends.
+    const reduced = await restAs(accounts.admin, 'POST', 'rpc/save_closing_stock_counts', {
+      p_club_id: clubs.arcade.id,
+      p_date: today,
+      p_counts: [{ product_id: products.cola.id, closing_stock: expected.colaStock - 1, sold_quantity: 12, adjustment_quantity: -1, adjustment_reason: 'shortage', giveaway_quantity: 0 }],
+    });
+    expect(reduced.status).toBe(403);
 
     await page.goto('/reports?view=writeOffs');
     await expect(page.getByRole('heading', { name: 'Reports', level: 1 })).toBeVisible();

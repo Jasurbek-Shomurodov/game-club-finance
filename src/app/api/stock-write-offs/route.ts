@@ -1,5 +1,7 @@
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { canAccessFeature } from '@/lib/permissions';
+import type { UserRole } from '@/types';
 import { parseWriteOffReason } from '@/lib/stockWriteOffs';
 import { normalizeStockAdjustment } from '@/lib/closingStock';
 import { actorName } from '@/lib/telegram/actorName';
@@ -11,9 +13,10 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isId = (value: unknown): value is string => typeof value === 'string' && UUID.test(value);
 
 /**
- * Tells the club's group about a bar write-off just saved on Closing Stock.
- * The write-off itself is saved by save_closing_stock_counts (owner-only);
- * this reads the saved count back, so the message reports what the database
+ * Tells the club's group about a bar write-off just saved on Closing Stock or
+ * Write-offs. The write-off itself is saved by save_closing_stock_counts
+ * (owners and admins with the bar, migration 164); this reads the saved count
+ * back, so the message reports what the database
  * holds, never what the browser claims.
  */
 export async function POST(request: Request) {
@@ -29,11 +32,15 @@ export async function POST(request: Request) {
 
   const { data: membership } = await supabase
     .from('club_memberships')
-    .select('role')
+    .select('role, feature_access')
     .eq('club_id', clubId)
     .eq('user_id', user.id)
     .maybeSingle();
-  if (membership?.role !== 'owner') return Response.json({ failure: 'forbidden' }, { status: 403 });
+  // The members who can save a write-off: owners and admins with the bar.
+  const role = membership?.role as UserRole | undefined;
+  if ((role !== 'owner' && role !== 'admin') || !canAccessFeature(role, membership?.feature_access, 'closing_stock')) {
+    return Response.json({ failure: 'forbidden' }, { status: 403 });
+  }
 
   const { data: count, error } = await supabase
     .from('daily_stock_counts')

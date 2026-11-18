@@ -53,6 +53,7 @@ export function commandPages(role: UserRole, explicitAccess: unknown): CommandIt
     [can('/assistant'), page('assistant', '/assistant', 'ai chat')],
     [can('/daily-cash'), page('dailyCash', '/daily-cash', 'income')],
     [can('/closing-stock'), page('closingStock', '/closing-stock', 'bar count')],
+    [can('/write-offs'), page('writeOffs', '/write-offs', 'bar shortage expired missing')],
     [can('/stock-purchase'), page('stockPurchase', '/stock-purchase', 'bar buy')],
     [can('/products'), page('products', '/products', 'bar catalog prices')],
     [can('/promotions'), page('promotions', '/promotions', 'bar discount')],

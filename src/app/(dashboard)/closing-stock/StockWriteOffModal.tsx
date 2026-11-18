@@ -19,6 +19,7 @@ import {
 import { formatNumber } from '@/lib/formatters';
 import { isWholeNumberInput, type ClosingStockRowData } from '@/lib/closingStock';
 import {
+  isWriteOffAddition,
   maxWriteOffQuantity,
   rowWriteOff,
   STOCK_WRITE_OFF_KINDS,
@@ -38,13 +39,20 @@ interface StockWriteOffModalProps {
   /** Tracked, writable rows of the selected day. */
   rows: ClosingStockRowData[];
   saving: boolean;
+  /**
+   * Owners may reduce, remove or switch a recorded write-off; other members
+   * can only record one or add to it (migration 164).
+   */
+  canChangeRecorded: boolean;
+  /** Cost and loss amounts are shown to owners only. */
+  showCost: boolean;
   onClose: () => void;
   /** Resolves to an error message to show in the dialog, or `null` on success. */
   onSave: (writeOff: StockWriteOffInput) => Promise<string | null>;
 }
 
 /** Records units that went missing (kamomad) or spoiled (eskirgan) on the selected day. */
-export function StockWriteOffModal({ open, rows, saving, onClose, onSave }: StockWriteOffModalProps) {
+export function StockWriteOffModal({ open, rows, saving, canChangeRecorded, showCost, onClose, onSave }: StockWriteOffModalProps) {
   const t = useTranslations('closingStock');
   const tc = useTranslations('common');
   const [productId, setProductId] = useState('');
@@ -77,6 +85,10 @@ export function StockWriteOffModal({ open, rows, saving, onClose, onSave }: Stoc
   const available = selectedRow ? maxWriteOffQuantity(selectedRow) : 0;
   const quantityValue = Number(quantity || 0);
   const exceeds = selectedRow !== null && quantityValue > available;
+  // A member who cannot change a recorded write-off may only add to it.
+  const ownerOnlyChange = selectedRow !== null && !canChangeRecorded && quantityValue > 0
+    && !isWriteOffAddition(existing, { kind, quantity: quantityValue });
+  const ownerOnlyMessage = existing ? t('writeOffOwnerOnlyChange', { quantity: formatNumber(existing.quantity) }) : '';
 
   function selectProduct(value: string) {
     setProductId(value);
@@ -119,6 +131,10 @@ export function StockWriteOffModal({ open, rows, saving, onClose, onSave }: Stoc
       setError(t('writeOffExceedsStock', { product: selectedRow.product.name, available: formatNumber(available) }));
       return;
     }
+    if (ownerOnlyChange) {
+      setError(ownerOnlyMessage);
+      return;
+    }
     if (await submit({ productId, kind, quantity: quantityValue, note })) onClose();
   }
 
@@ -142,7 +158,7 @@ export function StockWriteOffModal({ open, rows, saving, onClose, onSave }: Stoc
             form="stock-write-off-form"
             loading={saving}
             loadingLabel={tc('saving')}
-            disabled={!selectedRow || quantityValue <= 0 || exceeds}
+            disabled={!selectedRow || quantityValue <= 0 || exceeds || ownerOnlyChange}
             icon={<PackageMinus size={16} aria-hidden="true" />}
           >
             {existing ? t('writeOffUpdate') : t('writeOffSave')}
@@ -160,7 +176,12 @@ export function StockWriteOffModal({ open, rows, saving, onClose, onSave }: Stoc
           >
             <option value="">{t('writeOffChooseProduct')}</option>
             {sortedRows.map((row) => (
-              <option key={row.product.id} value={row.product.id}>
+              <option
+                key={row.product.id}
+                value={row.product.id}
+                // An older free-text correction can only be changed by the owner.
+                disabled={!canChangeRecorded && rowWriteOff(row)?.kind === 'other'}
+              >
                 {row.product.name} · {t('bulkAvailable', { count: formatNumber(maxWriteOffQuantity(row)) })}
               </option>
             ))}
@@ -172,7 +193,7 @@ export function StockWriteOffModal({ open, rows, saving, onClose, onSave }: Stoc
             label={t('writeOffKind')}
             options={STOCK_WRITE_OFF_KINDS.map((value) => ({ value, label: kindLabel(value) }))}
             value={kind}
-            disabled={saving}
+            disabled={saving || (!canChangeRecorded && existing !== null)}
             onChange={setKind}
           />
         </Field>
@@ -180,7 +201,9 @@ export function StockWriteOffModal({ open, rows, saving, onClose, onSave }: Stoc
         <Field
           label={t('writeOffQuantity')}
           hint={selectedRow ? t('bulkAvailable', { count: formatNumber(available) }) : undefined}
-          error={exceeds && selectedRow ? t('writeOffExceedsStock', { product: selectedRow.product.name, available: formatNumber(available) }) : undefined}
+          error={exceeds && selectedRow
+            ? t('writeOffExceedsStock', { product: selectedRow.product.name, available: formatNumber(available) })
+            : ownerOnlyChange ? ownerOnlyMessage : undefined}
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Stepper
@@ -194,7 +217,7 @@ export function StockWriteOffModal({ open, rows, saving, onClose, onSave }: Stoc
               onChange={updateQuantity}
               onStep={(delta) => updateQuantity(String(Math.max(0, quantityValue + delta)))}
             />
-            {selectedRow && quantityValue > 0 && (
+            {showCost && selectedRow && quantityValue > 0 && (
               <span className="text-sm text-gray-500">
                 {t('writeOffLoss')}{' '}
                 <span className="font-semibold text-danger-600">
@@ -229,12 +252,15 @@ export function StockWriteOffModal({ open, rows, saving, onClose, onSave }: Stoc
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
                       <Badge variant={writeOff.kind === 'expired' ? 'warning' : 'danger'} size="sm">{kindLabel(writeOff.kind)}</Badge>
                       <span>{formatNumber(writeOff.quantity)} {t('pcs')}</span>
-                      <span className="font-medium text-danger-600">
-                        <Money amount={writeOff.quantity * Number(row.product.cost_price ?? 0)} />
-                      </span>
+                      {showCost && (
+                        <span className="font-medium text-danger-600">
+                          <Money amount={writeOff.quantity * Number(row.product.cost_price ?? 0)} />
+                        </span>
+                      )}
                       {writeOff.note && <span className="truncate">{writeOff.note}</span>}
                     </div>
                   </div>
+                  {canChangeRecorded && (
                   <IconButton
                     variant="danger"
                     size="sm"
@@ -252,6 +278,7 @@ export function StockWriteOffModal({ open, rows, saving, onClose, onSave }: Stoc
                       });
                     }}
                   />
+                  )}
                 </li>
               ))}
             </ul>

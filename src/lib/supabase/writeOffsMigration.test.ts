@@ -60,6 +60,7 @@ beforeAll(async () => {
   await db.exec(migration('057_stock_opening_purchase_carry_forward.sql'));
   await db.exec(migration('078_promotions_and_giveaways.sql'));
   await db.exec(migration('141_write_offs_in_bar_profit.sql'));
+  await db.exec(migration('164_write_offs_for_admins.sql'));
   await db.exec(`grant usage on schema public, auth to authenticated;
     grant select on products, stock_purchases, daily_stock_counts to authenticated;`);
 }, 20000);
@@ -123,5 +124,58 @@ describe('write-offs in bar profit (migration 141)', () => {
     await db.exec(backfillStatement);
     expect(await count('2026-10-15')).toMatchObject({ writeoff_cost: 18000, bar_cost: 45000, bar_profit: 0 });
     expect(await count('2026-10-15', tea)).toMatchObject({ writeoff_cost: 0, bar_cost: 4000, bar_profit: 16000 });
+  });
+});
+
+describe('admins record write-offs (migration 164)', () => {
+  const day = '2026-10-15';
+  const asAdmin = () => db.exec("select set_config('test.role','admin',false)");
+  const asOwner = () => db.exec("select set_config('test.role','owner',false)");
+  const writeOff = (quantity: number, reason: string, sold = 0) =>
+    save(day, { product_id: cola, closing_stock: 10 - quantity - sold, sold_quantity: sold, adjustment_quantity: -quantity, adjustment_reason: reason });
+
+  it('lets an admin record a write-off and add to it', async () => {
+    await asAdmin();
+    await writeOff(2, 'shortage');
+    expect(await count(day)).toMatchObject({ adjustment_quantity: '-2', closing_stock: '8', writeoff_cost: 18000 });
+    await writeOff(3, 'shortage: two more missing');
+    expect(await count(day)).toMatchObject({ adjustment_quantity: '-3', closing_stock: '7', writeoff_cost: 27000 });
+    // Counting sales later keeps the write-off as it is.
+    await writeOff(3, 'shortage: two more missing', 4);
+    expect(await count(day)).toMatchObject({ sold_quantity: '4', writeoff_cost: 27000 });
+  });
+
+  it('keeps reducing, removing or switching a write-off owner-only', async () => {
+    await asAdmin();
+    await writeOff(3, 'expired');
+    for (const [quantity, reason] of [[2, 'expired'], [0, ''], [3, 'shortage'], [4, 'shortage']] as const) {
+      await expect(writeOff(quantity, reason)).rejects.toThrow('Only a club owner can reduce, remove or change an inventory adjustment');
+    }
+    await asOwner();
+    await writeOff(1, 'shortage');
+    expect(await count(day)).toMatchObject({ adjustment_quantity: '-1', writeoff_cost: 9000 });
+  });
+
+  it('keeps other adjustments owner-only for admins', async () => {
+    await asAdmin();
+    await expect(writeOff(2, 'broken bottles')).rejects.toThrow('Only a club owner');
+    await expect(save(day, { product_id: cola, closing_stock: 12, sold_quantity: 0, adjustment_quantity: 2, adjustment_reason: 'found' }))
+      .rejects.toThrow('Only a club owner');
+    await asOwner();
+    await writeOff(2, 'broken bottles');
+    await asAdmin();
+    // A free-text removal is not a write-off an admin can add to.
+    await expect(writeOff(3, 'shortage')).rejects.toThrow('Only a club owner');
+  });
+
+  it('limits admins to the current business day', async () => {
+    await asAdmin();
+    await expect(save('2026-10-14', { product_id: cola, closing_stock: 8, sold_quantity: 0, adjustment_quantity: -2, adjustment_reason: 'shortage' }))
+      .rejects.toThrow('Admins can only save the current business day');
+  });
+
+  it('refuses a write-off from a viewer', async () => {
+    await db.exec("select set_config('test.role','viewer',false)");
+    await expect(writeOff(1, 'shortage')).rejects.toThrow('Not authorized');
   });
 });

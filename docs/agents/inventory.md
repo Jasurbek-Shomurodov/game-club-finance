@@ -133,8 +133,9 @@ archived product accept no writes, so such a delete is refused; the page says so
 
 ## Write-offs (kamomad / eskirgan)
 
-The closing page has no per-row adjustment column. Owners record missing
-(`shortage`) or spoiled (`expired`) bar units through the Write-off dialog,
+The closing page has no per-row adjustment column. Missing (`shortage`) or
+spoiled (`expired`) bar units are recorded through the Write-off dialog, opened
+from Closing Stock or from the bar section's own `/write-offs` page,
 which stores them in the existing adjustment fields of that day's count via
 `save_closing_stock_counts`, so no schema change was needed:
 
@@ -159,8 +160,18 @@ The loss is shown on the closing page KPI and in Reports → Write-offs
 (`summarizeStockWriteOffs`), where free-text adjustments appear as "Other".
 The Telegram daily report adds a "Списания бара" card and text block for the
 report date (`summarizeStockWriteOffsForReport`), listing only shortage/expired
-write-offs. Write-offs are an owner tool: the button, the KPI, the row badge and
-the Reports tab are shown to owners only (the RPC already refuses admins).
+write-offs.
+
+Who records them (migration 164): owners and admins with the `closing_stock`
+feature, on the current business day for admins. An admin may create a
+write-off or add to one of the same reason (and change its note); reducing,
+removing or switching a write-off, and every other adjustment, stay owner-only
+in `save_closing_stock_counts` (`stock_write_off_is_addition`, mirrored by
+`isWriteOffAddition` in `src/lib/stockWriteOffs.ts`). Viewers cannot save stock
+counts, so they only see `/write-offs`. The `/write-offs` page shows today and
+saves just the one product's row; past days are corrected on Closing Stock.
+The cost, the closing-page KPI, the row badge and the Reports tab stay
+owner-only.
 
 ## Historical snapshot rule
 
