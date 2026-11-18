@@ -38,6 +38,7 @@ import { formatCurrency } from '@/lib/formatters';
 import {
   calculateAverageDailyIncome,
   calculateAverageWeeklyIncome,
+  buildDailySalesLines,
   countDashboardRangeDays,
   countDashboardRangeDaysThroughDate,
   percentChange,
@@ -65,6 +66,10 @@ function ChartLoading() {
 
 const IncomeTrendChart = dynamic(
   () => import('@/components/dashboard/IncomeTrendChart').then((module) => module.IncomeTrendChart),
+  { ssr: false, loading: ChartLoading },
+);
+const DailySalesLineChart = dynamic(
+  () => import('@/components/dashboard/DailySalesLineChart').then((module) => module.DailySalesLineChart),
   { ssr: false, loading: ChartLoading },
 );
 
@@ -261,6 +266,14 @@ export default function DashboardPage({
       date: formatDateShort(row.date, locale),
     })),
     [data.trend, data.latestDailyCashEntryDate, data.latestBarEntryDate, businessToday, locale],
+  );
+  const dailySales = useMemo(
+    () => buildDailySalesLines(
+      data.trend.filter((row, index) => index === 0 || row.date <= businessToday),
+      data.ledgers.cashRows,
+      { gameClub: data.latestDailyCashEntryDate, bar: data.latestBarEntryDate },
+    ).map((row) => ({ ...row, date: formatDateShort(row.date, locale) })),
+    [data.trend, data.ledgers.cashRows, data.latestDailyCashEntryDate, data.latestBarEntryDate, businessToday, locale],
   );
   /** A link only to pages this member can open. */
   const pathIfAllowed = (path: string) => (canAccessPath(role, featureAccess, path) ? path : undefined);
@@ -462,9 +475,10 @@ export default function DashboardPage({
             // Once rendered, the chart stays mounted across range/club changes and is
             // dimmed while the next data loads instead of swapping to a skeleton.
             <div
-              className={cn('transition-opacity', loading && 'pointer-events-none opacity-60')}
+              className={cn('space-y-4 transition-opacity', loading && 'pointer-events-none opacity-60')}
               aria-busy={loading || undefined}
             >
+              <DailySalesLineChart data={dailySales} />
               <IncomeTrendChart
                 data={trend}
                 link={(
