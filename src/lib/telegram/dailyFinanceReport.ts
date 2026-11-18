@@ -16,7 +16,7 @@ import type {
   StockPurchaseCostRow,
   ProductValueRow,
 } from '../calculations/dashboardMetrics';
-import { listLowStockProducts, STOCK_WRITE_OFF_REASON_PATTERN, stockWriteOffQuantity } from '../calculations/stock';
+import { listLowStockProducts, STOCK_CORRECTION_REASON_PATTERN, STOCK_WRITE_OFF_REASON_PATTERN, stockWriteOffQuantity } from '../calculations/stock';
 import type { AnalysisLedgers } from '../calculations/financialAnalysis';
 import { buildDrillSankey, type DrillSankey } from '../calculations/sankeyDrill';
 import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
@@ -80,6 +80,8 @@ export interface DailyFinanceReportInput {
   promoGiveaways?: DailyFinancePromoGiveaway[];
   /** Bar units written off (shortage/expired) on the report date, by product. */
   stockWriteOffs?: DailyFinanceStockWriteOff[];
+  /** Bar units counted above the expected stock (corrections) on the report date. */
+  stockCorrections?: DailyFinanceStockCorrection[];
   /** Internet due date when this report is sent the day before it; otherwise absent. */
   internetPaymentDueDate?: string | null;
 }
@@ -101,7 +103,16 @@ export interface DailyFinanceStockWriteOff {
   cost: number;
 }
 
-/** A saved stock count with a negative adjustment, joined to its product name. */
+/** Extra units counted above the expected stock; they do not change bar profit. */
+export interface DailyFinanceStockCorrection {
+  productName: string;
+  note: string;
+  quantity: number;
+  /** quantity × the count's cost price: the value of the units found. */
+  value: number;
+}
+
+/** A saved stock count with an inventory adjustment, joined to its product name. */
 export interface DailyFinanceWriteOffRow {
   product_id: string;
   adjustment_quantity: number | string | null;
@@ -186,7 +197,7 @@ export interface DailyFinanceReportRows {
   lowStockProductRows?: LowStockProductInput[];
   /** Report-date stock counts with giveaways; omitted when they could not be read. */
   giveawayRows?: DailyFinanceGiveawayRow[];
-  /** Report-date stock counts with a negative adjustment; omitted when they could not be read. */
+  /** Report-date stock counts with an inventory adjustment; omitted when they could not be read. */
   writeOffRows?: DailyFinanceWriteOffRow[];
   /** The club's internet payment day of the month (1-31); null or absent means no reminder. */
   internetPaymentDay?: number | null;
@@ -260,6 +271,42 @@ export function summarizeStockWriteOffsForReport(rows: DailyFinanceWriteOffRow[]
       }];
     })
     .sort((a, b) => b.cost - a.cost || a.productName.localeCompare(b.productName, 'ru'));
+}
+
+/** Correction adjustments (more counted than expected), largest first. */
+export function summarizeStockCorrectionsForReport(rows: DailyFinanceWriteOffRow[]): DailyFinanceStockCorrection[] {
+  return rows
+    .flatMap((row) => {
+      const quantity = Math.trunc(Number(row.adjustment_quantity ?? 0)) || 0;
+      const match = STOCK_CORRECTION_REASON_PATTERN.exec(String(row.adjustment_reason ?? '').trim());
+      if (quantity <= 0 || !match) return [];
+      return [{
+        productName: relationName(row.products) ?? 'Товар',
+        note: (match[1] ?? '').trim(),
+        quantity,
+        value: quantity * (Number(row.cost_price ?? 0) || 0),
+      }];
+    })
+    .sort((a, b) => b.quantity - a.quantity || a.productName.localeCompare(b.productName, 'ru'));
+}
+
+export function stockCorrectionItemLabel(item: DailyFinanceStockCorrection): string {
+  return `${item.productName} — корректировка${item.note ? ` (${item.note})` : ''}`;
+}
+
+function stockCorrectionLines(items: DailyFinanceStockCorrection[] | undefined): string[] {
+  if (!items?.length) return [];
+  const units = items.reduce((sum, item) => sum + item.quantity, 0);
+  return [
+    '',
+    `➕ Корректировки остатка бара: +${quantityLabel(units)} (больше ожидаемого)`,
+    ...items.map((item) => `  • ${stockCorrectionItemLabel(item)}: +${quantityLabel(item.quantity)}, ${money(item.value)}`),
+  ];
+}
+
+/** Whether the report date has write-offs or corrections worth their own image. */
+export function hasStockAdjustments(input: Pick<DailyFinanceReportInput, 'stockWriteOffs' | 'stockCorrections'>): boolean {
+  return Boolean(input.stockWriteOffs?.length || input.stockCorrections?.length);
 }
 
 export const WRITE_OFF_KIND_LABELS: Record<DailyFinanceStockWriteOff['kind'], string> = {
@@ -621,6 +668,9 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
     stockWriteOffs: rows.writeOffRows === undefined
       ? undefined
       : summarizeStockWriteOffsForReport(rows.writeOffRows),
+    stockCorrections: rows.writeOffRows === undefined
+      ? undefined
+      : summarizeStockCorrectionsForReport(rows.writeOffRows),
     internetPaymentDueDate: rows.sendDate
       ? internetPaymentDueDate(rows.sendDate, rows.internetPaymentDay)
       : null,
@@ -667,6 +717,7 @@ export function formatRussianDailyFinanceReport(input: DailyFinanceReportInput):
     `🤝 Активные долги: ${money(input.activeDebts)}`,
     ...promoGiveawayLines(input.promoGiveaways),
     ...stockWriteOffLines(input.stockWriteOffs),
+    ...stockCorrectionLines(input.stockCorrections),
     ...lowStockLines(input.lowStockProducts),
     ...(input.internetPaymentDueDate ? ['', internetPaymentLine(input.internetPaymentDueDate)] : []),
   ].join('\n');
@@ -683,8 +734,27 @@ export function formatRussianDailyFinanceReportCaption(input: DailyFinanceReport
     ...(input.stockWriteOffs?.length
       ? [`🗑 Списания бара: ${money(input.stockWriteOffs.reduce((sum, item) => sum + item.cost, 0))}`]
       : []),
+    ...(input.stockCorrections?.length
+      ? [`➕ Корректировки остатка: +${quantityLabel(input.stockCorrections.reduce((sum, item) => sum + item.quantity, 0))}`]
+      : []),
     ...(input.lowStockProducts?.length
       ? [`⚠️ Заканчивается на складе: ${input.lowStockProducts.length}`]
+      : []),
+  ].join('\n');
+}
+
+/** Caption of the write-offs image: the loss and the units corrected. */
+export function formatRussianStockAdjustmentsCaption(input: DailyFinanceReportInput): string {
+  const writeOffs = input.stockWriteOffs ?? [];
+  const corrections = input.stockCorrections ?? [];
+  return [
+    '🗑 Списания и корректировки бара',
+    `Рабочий день: ${input.businessDateLabel}`,
+    ...(writeOffs.length
+      ? [`Списано: ${quantityLabel(writeOffs.reduce((sum, item) => sum + item.quantity, 0))}, убыток ${money(writeOffs.reduce((sum, item) => sum + item.cost, 0))}`]
+      : []),
+    ...(corrections.length
+      ? [`Корректировки: +${quantityLabel(corrections.reduce((sum, item) => sum + item.quantity, 0))} (больше ожидаемого)`]
       : []),
   ].join('\n');
 }

@@ -75,7 +75,7 @@ import {
   type BulkStockOrderSummary,
   type StorageLike,
 } from '@/lib/closingStock';
-import { applyStockWriteOff, notifyStockWriteOff, rowWriteOff, StockWriteOffError, writeOffKindVariant, type StockWriteOffEntry } from '@/lib/stockWriteOffs';
+import { applyStockWriteOff, notifyStockWriteOff, rowStockAdjustment, StockWriteOffError, writeOffKindVariant, type StockWriteOffEntry } from '@/lib/stockWriteOffs';
 import { WriteOffDetailsModal } from '@/components/WriteOffDetailsModal';
 import {
   CalendarX,
@@ -83,6 +83,7 @@ import {
   Info,
   Package,
   PackageMinus,
+  PackagePlus,
   Save,
   Search,
   ShoppingCart,
@@ -619,7 +620,7 @@ export default function ClosingStockPage() {
       return tc('error');
     }
 
-    const previousQuantity = rowWriteOff(rows.find((row) => row.product.id === writeOff.productId) ?? { adjustmentQuantity: '', adjustmentReason: '' })?.quantity ?? 0;
+    const previousQuantity = rowStockAdjustment(rows.find((row) => row.product.id === writeOff.productId) ?? { adjustmentQuantity: '', adjustmentReason: '' })?.quantity ?? 0;
     const result = await persistStockCounts(nextRows, writeOff.quantity > 0 ? t('writeOffSaved') : t('writeOffRemoved'));
     if (result.ok && selectedClubId && (writeOff.quantity > 0 || previousQuantity > 0)) {
       // Best-effort: the club's group hears about it; a failed notice never undoes the save.
@@ -942,7 +943,7 @@ export default function ClosingStockPage() {
                       const rowFlagged = invalidProductId === productId;
                       const rowPromotions = promotionsForProduct(promotions, productId, date);
                       const giveawayQuantity = parseNum(row.giveawayQuantity);
-                      const writeOff = isOwner ? rowWriteOff(row) : null;
+                      const writeOff = isOwner ? rowStockAdjustment(row) : null;
                       const selectedPromotion = row.promotionId
                         ? promotions.find((promotion) => promotion.id === row.promotionId) ?? null
                         : null;
@@ -962,7 +963,18 @@ export default function ClosingStockPage() {
                                     {rowPromotions.map((promotion) => promotion.name).join(', ')}
                                   </Badge>
                                 )}
-                                {writeOff && (
+                                {writeOff && writeOff.sign === 1 && (
+                                  <Badge
+                                    variant={writeOffKindVariant(writeOff.kind)}
+                                    size="sm"
+                                    className="mt-1"
+                                    icon={<PackagePlus size={12} aria-hidden="true" />}
+                                    title={writeOff.note || undefined}
+                                  >
+                                    {t(`writeOffKinds.${writeOff.kind}`)} +{formatNumber(writeOff.quantity)}
+                                  </Badge>
+                                )}
+                                {writeOff && writeOff.sign === -1 && (
                                   <button
                                     type="button"
                                     className="mt-1 block rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
@@ -970,7 +982,7 @@ export default function ClosingStockPage() {
                                       date,
                                       productId: row.product.id,
                                       productName: row.product.name,
-                                      kind: writeOff.kind,
+                                      kind: writeOff.kind === 'correction' ? 'other' : writeOff.kind,
                                       note: writeOff.note,
                                       quantity: writeOff.quantity,
                                       cost: writeOff.quantity * Number(row.product.cost_price),

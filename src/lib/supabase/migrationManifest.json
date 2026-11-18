@@ -5141,15 +5141,21 @@
         "kind": "functionBody",
         "signature": "public.save_closing_stock_counts(uuid,date,jsonb)",
         "md5": "39cbdaf0d5ffb6ee994bc59b5243db87"
-      },
-      {
-        "kind": "function",
-        "signature": "public.stock_write_off_is_addition(numeric,text,numeric,text)"
       }
     ]
   },
   {
     "file": "166_bar_product_categories.sql",
     "probes": []
+  },
+  {
+    "file": "167_stock_corrections.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.stock_write_off_is_addition(numeric,text,numeric,text)",
+        "md5": "820ce1512aa54a3a102e92fd08e5b91d"
+      }
+    ]
   }
 ]

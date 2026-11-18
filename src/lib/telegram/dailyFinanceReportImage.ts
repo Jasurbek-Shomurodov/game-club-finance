@@ -8,7 +8,7 @@ import { BAR_COST_TARGET, OTHER_CATEGORY } from '../calculations/financialAnalys
 import { BAR_LEFT, GAME_CLUB_LEFT, type DrillSankey } from '../calculations/sankeyDrill';
 import { layoutSankey } from '../sankeyLayout';
 import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
-import { runningDailyAverage, stockWriteOffItemLabel, type DailyFinanceIncomePoint, type DailyFinancePromoGiveaway, type DailyFinanceReportInput, type DailyFinanceStockWriteOff } from './dailyFinanceReport';
+import { hasStockAdjustments, runningDailyAverage, stockCorrectionItemLabel, stockWriteOffItemLabel, type DailyFinanceIncomePoint, type DailyFinancePromoGiveaway, type DailyFinanceReportInput, type DailyFinanceStockCorrection, type DailyFinanceStockWriteOff } from './dailyFinanceReport';
 import { REPORT_FONT_DIRECTORY, REPORT_FONT_FILES } from './reportFontConfig';
 
 const WIDTH = 1600;
@@ -385,9 +385,12 @@ function promoGiveawaySection(items: DailyFinancePromoGiveaway[], y: number): { 
 
 const GLYPH_TRASH = '<line x1="-14" y1="-9" x2="14" y2="-9"/><path d="M-5,-9 V-14 H5 V-9"/><path d="M-11,-9 L-9,15 H9 L11,-9"/><line x1="-3" y1="-3" x2="-3" y2="9"/><line x1="3" y1="-3" x2="3" y2="9"/>';
 
+/** Most rows each list of the write-offs image shows before "и ещё N". */
+const ADJUSTMENT_MAX_ITEMS = 30;
+
 /** Bar units written off (shortage/expired) on the report date; their cost is in bar cost. */
 function stockWriteOffSection(items: DailyFinanceStockWriteOff[], y: number): { svg: string; height: number } {
-  const visible = items.slice(0, PROMO_MAX_ITEMS);
+  const visible = items.slice(0, ADJUSTMENT_MAX_ITEMS);
   const hidden = items.length - visible.length;
   const units = items.reduce((sum, item) => sum + item.quantity, 0);
   const cost = items.reduce((sum, item) => sum + item.cost, 0);
@@ -414,6 +417,100 @@ function stockWriteOffSection(items: DailyFinanceStockWriteOff[], y: number): { 
     ${itemsSvg}
     ${more}`,
   };
+}
+
+const GLYPH_PLUS = '<circle cx="0" cy="0" r="14"/><line x1="0" y1="-7" x2="0" y2="7"/><line x1="-7" y1="0" x2="7" y2="0"/>';
+
+/** Units counted above the expected stock on the report date; bar profit is unchanged. */
+function stockCorrectionSection(items: DailyFinanceStockCorrection[], y: number): { svg: string; height: number } {
+  const visible = items.slice(0, ADJUSTMENT_MAX_ITEMS);
+  const hidden = items.length - visible.length;
+  const units = items.reduce((sum, item) => sum + item.quantity, 0);
+  const value = items.reduce((sum, item) => sum + item.value, 0);
+  const height = 96 + visible.length * PROMO_ROW_HEIGHT + (hidden > 0 ? 36 : 0) + 16;
+  const x = PAGE_X + 28;
+  const right = WIDTH - PAGE_X - 28;
+  const itemsSvg = visible.map((item, index) => {
+    const rowY = y + 100 + index * PROMO_ROW_HEIGHT;
+    return `<circle cx="${x + 7}" cy="${rowY - 7}" r="6" fill="${GREEN}"/>
+    <text x="${x + 26}" y="${rowY}" font-size="20" fill="${TEXT}">${escapeXml(truncate(stockCorrectionItemLabel(item), 60))}</text>
+    <text x="${right - 220}" y="${rowY}" text-anchor="end" font-size="20" font-weight="700" fill="${GREEN}">+${escapeXml(lowStockQuantity(item.quantity))} шт.</text>
+    <text x="${right}" y="${rowY}" text-anchor="end" font-size="18" fill="${MUTED}">${escapeXml(money(item.value))}</text>`;
+  }).join('\n    ');
+  const more = hidden > 0
+    ? `<text x="${x}" y="${y + 100 + visible.length * PROMO_ROW_HEIGHT}" font-size="18" fill="${MUTED}">и ещё ${hidden} — см. «Списания» в приложении</text>`
+    : '';
+
+  return {
+    height,
+    svg: `${card(PAGE_X, y, PAGE_WIDTH, height, '#F0FDF4', '#BBE5C8')}
+    ${iconBadge(PAGE_X + 46, y + 44, 18, GREEN, GLYPH_PLUS)}
+    <text x="${PAGE_X + 76}" y="${y + 51}" font-size="20" font-weight="800" fill="${INK}">КОРРЕКТИРОВКИ · +${escapeXml(lowStockQuantity(units))} шт.</text>
+    <text x="${right}" y="${y + 51}" text-anchor="end" font-size="16" fill="${MUTED}">больше ожидаемого · по себестоимости ${escapeXml(money(value))} · прибыль не меняется</text>
+    ${itemsSvg}
+    ${more}`,
+  };
+}
+
+/** One summary tile of the write-offs image: units and their value at cost. */
+function adjustmentTile(x: number, y: number, width: number, label: string, color: string, fill: string, border: string, glyph: string, units: string, value: number): string {
+  return `${card(x, y, width, 150, fill, border)}
+    ${iconTile(x + 24, y + 24, 56, color, glyph)}
+    <text x="${x + 100}" y="${y + 50}" font-size="18" font-weight="800" fill="${color}">${escapeXml(label)}</text>
+    <text x="${x + 100}" y="${y + 88}" font-size="30" font-weight="800" fill="${INK}">${escapeXml(units)}</text>
+    <text x="${x + 100}" y="${y + 124}" font-size="18" fill="${MUTED}">${escapeXml(money(value))}</text>`;
+}
+
+/**
+ * The day's bar write-offs and corrections on an image of their own, sent
+ * after the daily report only when there were any.
+ */
+export function buildStockAdjustmentsReportSvg(input: DailyFinanceReportInput): string {
+  const writeOffs = input.stockWriteOffs ?? [];
+  const corrections = input.stockCorrections ?? [];
+  const totals = (kind: DailyFinanceStockWriteOff['kind']) => writeOffs
+    .filter((item) => item.kind === kind)
+    .reduce((sum, item) => ({ quantity: sum.quantity + item.quantity, cost: sum.cost + item.cost }), { quantity: 0, cost: 0 });
+  const shortage = totals('shortage');
+  const expired = totals('expired');
+  const correctionUnits = corrections.reduce((sum, item) => sum + item.quantity, 0);
+  const correctionValue = corrections.reduce((sum, item) => sum + item.value, 0);
+  const loss = shortage.cost + expired.cost;
+
+  const headerY = 40;
+  const tilesY = 176;
+  const tileWidth = (PAGE_WIDTH - 2 * 24) / 3;
+  const tileX = (index: number) => PAGE_X + index * (tileWidth + 24);
+  let y = tilesY + 150 + 24;
+  const writeOffList = writeOffs.length ? stockWriteOffSection(writeOffs, y) : null;
+  if (writeOffList) y += writeOffList.height + 24;
+  const correctionList = corrections.length ? stockCorrectionSection(corrections, y) : null;
+  if (correctionList) y += correctionList.height + 24;
+  const footerY = y;
+  const height = footerY + 60;
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${height}" viewBox="0 0 ${WIDTH} ${height}">
+  <rect width="${WIDTH}" height="${height}" fill="#F4F7FB"/>
+  <g font-family="Noto Sans">
+    ${iconTile(PAGE_X, headerY, 96, RED, GLYPH_TRASH)}
+    <text x="${PAGE_X + 124}" y="${headerY + 50}" font-size="46" font-weight="800" fill="${INK}">СПИСАНИЯ И КОРРЕКТИРОВКИ БАРА</text>
+    <text x="${PAGE_X + 124}" y="${headerY + 88}" font-size="22" fill="${TEXT}">${escapeXml(input.clubName)} · Рабочий день: ${escapeXml(input.businessDateLabel)}</text>
+    <text x="${WIDTH - PAGE_X}" y="${headerY + 50}" text-anchor="end" font-size="18" fill="${MUTED}">Убыток бара</text>
+    ${moneyText(WIDTH - PAGE_X, headerY + 88, loss, 30, loss > 0 ? RED : MUTED, 'end')}
+
+    ${adjustmentTile(tileX(0), tilesY, tileWidth, 'НЕДОСТАЧА', RED, '#FEF2F2', '#FBD5D5', GLYPH_ALERT, `${lowStockQuantity(shortage.quantity)} шт.`, shortage.cost)}
+    ${adjustmentTile(tileX(1), tilesY, tileWidth, 'ПРОСРОЧКА', AMBER, '#FFFBEB', '#FDE3A7', GLYPH_TRASH, `${lowStockQuantity(expired.quantity)} шт.`, expired.cost)}
+    ${adjustmentTile(tileX(2), tilesY, tileWidth, 'КОРРЕКТИРОВКА', GREEN, '#F0FDF4', '#BBE5C8', GLYPH_PLUS, `+${lowStockQuantity(correctionUnits)} шт.`, correctionValue)}
+
+    ${writeOffList?.svg ?? ''}
+    ${correctionList?.svg ?? ''}
+
+    <circle cx="${PAGE_X + 18}" cy="${footerY + 18}" r="11" fill="${MUTED}"/>
+    <text x="${PAGE_X + 18}" y="${footerY + 24}" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF">i</text>
+    <text x="${PAGE_X + 40}" y="${footerY + 24}" font-size="17" fill="${MUTED}">Списания вычтены из прибыли бара по себестоимости; корректировки добавлены к остатку и прибыль не меняют.</text>
+  </g>
+</svg>`;
 }
 
 const SANKEY_SOURCE_LABELS: Record<string, string> = {
@@ -588,14 +685,12 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
   const promo = input.promoGiveaways?.length
     ? promoGiveawaySection(input.promoGiveaways, kpiY + kpiHeight + 24)
     : null;
-  const writeOffY = kpiY + kpiHeight + 24 + (promo ? promo.height + 24 : 0);
-  const writeOffs = input.stockWriteOffs?.length
-    ? stockWriteOffSection(input.stockWriteOffs, writeOffY)
-    : null;
+  // Write-offs and corrections have an image of their own (buildStockAdjustmentsReportSvg).
+  const lowStockY = kpiY + kpiHeight + 24 + (promo ? promo.height + 24 : 0);
   const lowStock = input.lowStockProducts?.length
-    ? lowStockSection(input.lowStockProducts, writeOffY + (writeOffs ? writeOffs.height + 24 : 0))
+    ? lowStockSection(input.lowStockProducts, lowStockY)
     : null;
-  const footerY = kpiY + kpiHeight + (promo ? 24 + promo.height : 0) + (writeOffs ? 24 + writeOffs.height : 0)
+  const footerY = kpiY + kpiHeight + (promo ? 24 + promo.height : 0)
     + (lowStock ? 24 + lowStock.height : 0) + 20;
   const height = footerY + 60;
 
@@ -715,7 +810,6 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
     ${kpiTile(kpiX(3), kpiY + 62, kpiWidth - 12, SLATE, GLYPH_BOX, ['СТОИМОСТЬ', 'СКЛАДА'], input.inventoryValue, 'к прошлому месяцу', input.inventoryValueChange)}
     ${kpiTile(kpiX(4) - 6, kpiY + 62, kpiWidth - 6, RED, GLYPH_ALERT, ['АКТИВНЫЕ', 'ДОЛГИ'], input.activeDebts, 'долги клиентов')}
     ${promo?.svg ?? ''}
-    ${writeOffs?.svg ?? ''}
     ${lowStock?.svg ?? ''}
 
     <circle cx="${PAGE_X + 18}" cy="${footerY + 18}" r="11" fill="${MUTED}"/>
@@ -759,6 +853,14 @@ function playstationSection(input: DailyFinanceReportInput, y: number, height: n
     <line x1="${WIDTH - PAGE_X - 290}" y1="${y + 48}" x2="${WIDTH - PAGE_X - 262}" y2="${y + 48}" stroke="${INK}" stroke-width="4" stroke-linecap="round"/>
     <text x="${WIDTH - PAGE_X - 252}" y="${y + 54}" font-size="16" fill="${MUTED}">средние продажи / день</text>
     ${playstationChart(input.monthDailyPlaystationIncome ?? [], chartLeft, y + 96, chartWidth, height - 160)}`;
+}
+
+/** The write-offs image as PNG, or null when the report date had no write-offs or corrections. */
+export async function renderStockAdjustmentsReportPng(input: DailyFinanceReportInput): Promise<Buffer | null> {
+  if (!hasStockAdjustments(input)) return null;
+  assertReportFontsAvailable();
+  const svg = buildStockAdjustmentsReportSvg(input);
+  return sharp(Buffer.from(svg)).png({ compressionLevel: 9, adaptiveFiltering: true }).toBuffer();
 }
 
 export async function renderDailyFinanceReportPng(input: DailyFinanceReportInput): Promise<Buffer> {

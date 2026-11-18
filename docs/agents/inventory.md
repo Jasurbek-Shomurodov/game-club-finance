@@ -158,9 +158,16 @@ negative adjustments with free text keep `writeoff_cost = 0` and their saved
 snapshot. The TS mirror is `stockWriteOffQuantity` in `calculations/stock.ts`.
 The loss is shown on the closing page KPI and in Reports → Write-offs
 (`summarizeStockWriteOffs`), where free-text adjustments appear as "Other".
-The Telegram daily report adds a "Списания бара" card and text block for the
-report date (`summarizeStockWriteOffsForReport`), listing only shortage/expired
-write-offs.
+The Telegram daily report sends the report date's write-offs and corrections
+as one extra image after the main report (see the Telegram runbook).
+
+Corrections (migration 167): when more units are counted than expected, the
+same dialog's "Correction" reason saves a positive adjustment with reason
+`correction` [`: note`]. The units join closing stock; sales, bar cost and bar
+profit are unchanged (`stock_write_off_quantity` ignores positive adjustments).
+`applyStockWriteOff` handles both signs from the unadjusted closing stock, and
+`rowStockAdjustment` reads either kind. Admins may record or add to a
+correction exactly as they may add to a write-off.
 
 Who records them (migration 164): owners and admins with the `closing_stock`
 feature, on the current business day for admins. An admin may create a

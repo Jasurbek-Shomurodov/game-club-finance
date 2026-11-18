@@ -35,10 +35,10 @@ import {
 import {
   applyStockWriteOff,
   notifyStockWriteOff,
-  rowWriteOff,
+  rowStockAdjustment,
   StockWriteOffError,
   writeOffKindVariant,
-  type RowWriteOff,
+  type RowStockAdjustment,
 } from '@/lib/stockWriteOffs';
 import { classifyStockWriteError, type StockWriteErrorLike } from '@/lib/stockWriteErrors';
 import { formatDateOnly, formatNumber } from '@/lib/formatters';
@@ -49,7 +49,7 @@ import { StockWriteOffModal, type StockWriteOffInput } from '../closing-stock/St
 
 interface RecordedWriteOff {
   row: ClosingStockRowData;
-  writeOff: RowWriteOff;
+  writeOff: RowStockAdjustment;
 }
 
 const EMPTY_ROWS: ClosingStockRowData[] = [];
@@ -93,7 +93,7 @@ export default function WriteOffsPage() {
 
   const recorded = useMemo<RecordedWriteOff[]>(() => rows
     .flatMap((row) => {
-      const writeOff = rowWriteOff(row);
+      const writeOff = rowStockAdjustment(row);
       return writeOff ? [{ row, writeOff }] : [];
     })
     .sort((a, b) => a.row.product.name.localeCompare(b.row.product.name)), [rows]);
@@ -149,7 +149,7 @@ export default function WriteOffsPage() {
     }
   }
 
-  const kindLabel = (kind: RowWriteOff['kind']) => tcs(`writeOffKinds.${kind}`);
+  const kindLabel = (kind: RowStockAdjustment['kind']) => tcs(`writeOffKinds.${kind}`);
   const columns: DataTableColumn<RecordedWriteOff>[] = [
     {
       key: 'product',
@@ -168,18 +168,23 @@ export default function WriteOffsPage() {
       header: t('quantity'),
       align: 'right',
       className: 'w-28 whitespace-nowrap',
-      render: ({ writeOff }) => <span className="tabular-nums">{formatNumber(writeOff.quantity)} {tcs('pcs')}</span>,
+      render: ({ writeOff }) => (
+        <span className={`tabular-nums ${writeOff.sign === 1 ? 'text-success-700' : ''}`}>
+          {writeOff.sign === 1 ? '+' : '−'}{formatNumber(writeOff.quantity)} {tcs('pcs')}
+        </span>
+      ),
     },
     ...(isOwner ? [{
       key: 'cost',
       header: t('cost'),
       align: 'right' as const,
       className: 'w-40 whitespace-nowrap',
-      render: ({ row, writeOff }: RecordedWriteOff) => (
+      // A correction adds stock and costs nothing, so it shows no loss.
+      render: ({ row, writeOff }: RecordedWriteOff) => (writeOff.sign === 1 ? <span className="text-gray-400">—</span> : (
         <span className="font-semibold tabular-nums text-danger-600">
           <Money amount={writeOff.quantity * Number(row.product.cost_price ?? 0)} currency={null} />
         </span>
-      ),
+      )),
     }] : []),
     {
       key: 'note',

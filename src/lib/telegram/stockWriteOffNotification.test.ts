@@ -17,7 +17,18 @@ describe('buildStockWriteOffNotice', () => {
     const text = buildStockWriteOffNotice({
       date: '2026-11-17', productName: 'Pepsi 0,5', kind: null, quantity: 0, cost: 0, note: '', by: 'A',
     });
-    expect(text.split('\n')[0]).toBe('↩️ Списание бара отменено: Pepsi 0,5');
-    expect(text).toContain('товар вернулся в остаток');
+    expect(text.split('\n')[0]).toBe('↩️ Списание или корректировка бара отменены: Pepsi 0,5');
+    expect(text).toContain('остаток пересчитан');
+  });
+
+  it('reports a correction as extra units that leave bar profit alone', () => {
+    expect(buildStockWriteOffNotice({
+      date: '2026-11-17', productName: 'Snickers', kind: 'correction', quantity: 2, cost: 8_000, note: 'нашли в коробке', by: 'A',
+    }).split('\n')).toEqual([
+      '➕ Корректировка остатка бара: +2 шт.',
+      'Snickers · больше ожидаемого · 17 ноября',
+      'По себестоимости 8 000 сум; прибыль бара не меняется',
+      'A: нашли в коробке',
+    ]);
   });
 });

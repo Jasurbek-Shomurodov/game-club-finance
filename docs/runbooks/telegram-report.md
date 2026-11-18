@@ -96,15 +96,21 @@ total and their cost. `getPromoGiveawayRows` reads report-date
 the read fails and the section is omitted without blocking the report. The
 cost is already inside bar cost, so no total changes.
 
-## Bar write-offs section
+## Bar write-offs image
 
-The report adds "Списания бара" when bar stock was written off on the report
-date: each product with its reason (недостача / просрочка, plus the note), units
-and loss at cost, and the total in the caption. `getStockWriteOffRows` reads
-report-date `daily_stock_counts` rows with `adjustment_quantity < 0`, and
-`summarizeStockWriteOffsForReport` keeps only shortage/expired reasons, so older
-free-text adjustments are not listed. A failed read omits the section. The loss
-is already inside bar cost (migration 141), so no total changes.
+When bar stock was written off or corrected on the report date, the cron sends
+one more photo right after the main report ("Списания и корректировки бара",
+`buildStockAdjustmentsReportSvg`): tiles for недостача, просрочка and
+корректировка, then each product with its reason, note, units and value at
+cost. Days with neither send nothing extra, and the main report image no longer
+carries the write-off card (the caption and text fallback keep their totals).
+`getStockWriteOffRows` reads report-date `daily_stock_counts` rows with a
+non-zero adjustment; `summarizeStockWriteOffsForReport` keeps shortage/expired
+and `summarizeStockCorrectionsForReport` keeps `correction` reasons, so older
+free-text adjustments are not listed. The extra photo is best-effort: it is
+sent once (one attempt) only after the report was delivered and the ledger
+finalized, a failure is logged as `telegram_report_write_offs_image_failed`,
+and the result reports `writeOffsImageSent`. It is not retried by recovery runs.
 
 ## Low-stock section
 

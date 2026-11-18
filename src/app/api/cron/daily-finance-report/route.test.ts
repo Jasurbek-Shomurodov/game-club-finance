@@ -402,6 +402,60 @@ describe('daily finance report cron route', () => {
     }));
   });
 
+  it('sends the day\'s write-offs as one more image after the report', async () => {
+    mocks.buildReport.mockResolvedValue({
+      clubId: CLUB_ID,
+      chatId: '-1001',
+      businessDate: '2026-08-26',
+      message: 'report',
+      caption: 'caption',
+      imagePng: Buffer.from('png'),
+      imageFileName: 'report.png',
+      adjustmentsImage: { png: Buffer.from('write-offs'), fileName: 'write-offs.png', caption: 'write-offs caption' },
+    });
+
+    const response = await GET(cronRequest('?date=2026-08-26&target=pixel'));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.sent[0]).toMatchObject({ status: 'sent', writeOffsImageSent: true });
+    expect(mocks.sendTelegramPhoto).toHaveBeenCalledTimes(2);
+    expect(mocks.sendTelegramPhoto).toHaveBeenLastCalledWith(expect.objectContaining({
+      chatId: '-1001',
+      imagePng: Buffer.from('write-offs'),
+      imageFileName: 'write-offs.png',
+      caption: 'write-offs caption',
+      maxAttempts: 1,
+    }));
+  });
+
+  it('keeps the report sent when the write-offs image fails', async () => {
+    mocks.buildReport.mockResolvedValue({
+      clubId: CLUB_ID,
+      chatId: '-1001',
+      businessDate: '2026-08-26',
+      message: 'report',
+      caption: 'caption',
+      imagePng: Buffer.from('png'),
+      imageFileName: 'report.png',
+      adjustmentsImage: { png: Buffer.from('write-offs'), fileName: 'write-offs.png', caption: 'write-offs caption' },
+    });
+    mocks.sendTelegramPhoto
+      .mockResolvedValueOnce({
+        ok: true,
+        result: { message_id: 51, chat: { id: -1001, title: 'Pixel', type: 'supergroup' }, date: 1_787_799_541 },
+        attempts: [sentAttempt()],
+      })
+      .mockRejectedValueOnce(new Error('network down'));
+
+    const response = await GET(cronRequest('?date=2026-08-26&target=pixel'));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.sent[0]).toMatchObject({ status: 'sent', messageId: 51, writeOffsImageSent: false });
+    expect(mocks.completeDelivery).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ outcome: 'sent' }));
+  });
+
   it('sends the text report when PNG rendering is unavailable', async () => {
     mocks.buildReport.mockResolvedValue({
       clubId: CLUB_ID,

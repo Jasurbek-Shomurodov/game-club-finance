@@ -2,8 +2,7 @@ import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { canAccessFeature } from '@/lib/permissions';
 import type { UserRole } from '@/types';
-import { parseWriteOffReason } from '@/lib/stockWriteOffs';
-import { normalizeStockAdjustment } from '@/lib/closingStock';
+import { rowStockAdjustment } from '@/lib/stockWriteOffs';
 import { actorName } from '@/lib/telegram/actorName';
 import { sendClubNotice } from '@/lib/telegram/entryChangeNotification';
 import { isIsoDate } from '@/lib/telegram/sendDailyFinanceReport';
@@ -57,15 +56,17 @@ export async function POST(request: Request) {
 
   const product = count.products as { name?: string | null } | Array<{ name?: string | null }> | null;
   const productName = (Array.isArray(product) ? product[0]?.name : product?.name) || 'Товар';
-  const adjustment = normalizeStockAdjustment(count.adjustment_quantity);
-  const parsed = parseWriteOffReason(count.adjustment_reason);
-  const kind = adjustment < 0 && parsed.kind !== 'other' ? parsed.kind : null;
-  const quantity = kind ? -adjustment : 0;
+  const parsed = rowStockAdjustment({
+    adjustmentQuantity: String(count.adjustment_quantity ?? 0),
+    adjustmentReason: count.adjustment_reason ?? '',
+  });
+  const kind = parsed && parsed.kind !== 'other' ? parsed.kind : null;
+  const quantity = kind ? parsed!.quantity : 0;
 
   // Best-effort, after the response: Telegram never fails or delays the save.
   after(async () => {
     const text = buildStockWriteOffNotice({
-      date, productName, kind, quantity, cost: quantity * (Number(count.cost_price ?? 0) || 0), note: parsed.note, by: await actorName(supabase, user),
+      date, productName, kind, quantity, cost: quantity * (Number(count.cost_price ?? 0) || 0), note: parsed?.note ?? '', by: await actorName(supabase, user),
     });
     await sendClubNotice(clubId, text, { productId, date });
   });

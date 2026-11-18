@@ -286,6 +286,9 @@ export async function GET(request: NextRequest) {
               fileName: report.imagePng ? report.imageFileName : null,
               bytes: report.imagePng?.byteLength ?? 0,
             },
+            writeOffsImage: report.adjustmentsImage
+              ? { fileName: report.adjustmentsImage.fileName, bytes: report.adjustmentsImage.png.byteLength, caption: report.adjustmentsImage.caption }
+              : null,
           };
         } catch (error) {
           return {
@@ -589,6 +592,32 @@ export async function GET(request: NextRequest) {
           messageId: telegram.result.message_id,
           attempts: telegram.attempts.length,
         });
+
+        // The day's write-offs and corrections follow as one more image, only
+        // when there were any. It is sent once, right after the report this
+        // invocation delivered; a failure is logged and never fails the report.
+        let writeOffsImageSent = false;
+        if (report.adjustmentsImage) {
+          try {
+            await sendTelegramPhoto({
+              botToken,
+              chatId: String(telegram.result.chat.id),
+              imagePng: report.adjustmentsImage.png,
+              imageFileName: report.adjustmentsImage.fileName,
+              caption: report.adjustmentsImage.caption,
+              maxAttempts: 1,
+              deadlineAt,
+            });
+            writeOffsImageSent = true;
+          } catch (error) {
+            logDeliveryEvent('error', 'telegram_report_write_offs_image_failed', {
+              businessDate,
+              target: target.key,
+              deliveryId: claim.deliveryId,
+              error: describeUnknownError(error),
+            });
+          }
+        }
         return {
           ok: true,
           target: target.key,
@@ -602,6 +631,7 @@ export async function GET(request: NextRequest) {
           telegramChatType: telegram.result.chat.type,
           telegramDate: telegram.result.date,
           attempts: telegram.attempts.length,
+          writeOffsImageSent,
         };
       } catch (error) {
         const telegramAttempts = error instanceof TelegramSendError ? error.attempts : [];

@@ -61,6 +61,7 @@ beforeAll(async () => {
   await db.exec(migration('078_promotions_and_giveaways.sql'));
   await db.exec(migration('141_write_offs_in_bar_profit.sql'));
   await db.exec(migration('164_write_offs_for_admins.sql'));
+  await db.exec(migration('167_stock_corrections.sql'));
   await db.exec(`grant usage on schema public, auth to authenticated;
     grant select on products, stock_purchases, daily_stock_counts to authenticated;`);
 }, 20000);
@@ -177,5 +178,39 @@ describe('admins record write-offs (migration 164)', () => {
   it('refuses a write-off from a viewer', async () => {
     await db.exec("select set_config('test.role','viewer',false)");
     await expect(writeOff(1, 'shortage')).rejects.toThrow('Not authorized');
+  });
+});
+
+describe('stock corrections (migration 167)', () => {
+  const day = '2026-10-15';
+  const asAdmin = () => db.exec("select set_config('test.role','admin',false)");
+  const asOwner = () => db.exec("select set_config('test.role','owner',false)");
+  const correction = (quantity: number, reason: string, sold = 0) =>
+    save(day, { product_id: cola, closing_stock: 10 + quantity - sold, sold_quantity: sold, adjustment_quantity: quantity, adjustment_reason: reason });
+
+  it('lets an admin record a surplus and add to it without touching bar profit', async () => {
+    await asAdmin();
+    await correction(2, 'correction: found in storage');
+    expect(await count(day)).toMatchObject({ adjustment_quantity: '2', closing_stock: '12', writeoff_cost: 0, bar_cost: 0, bar_profit: 0 });
+    await correction(3, 'correction', 1);
+    expect(await count(day)).toMatchObject({ adjustment_quantity: '3', closing_stock: '12', sold_quantity: '1', writeoff_cost: 0, bar_profit: 6000 });
+  });
+
+  it('keeps reducing, removing or switching a correction owner-only', async () => {
+    await asAdmin();
+    await correction(3, 'correction');
+    await expect(correction(2, 'correction')).rejects.toThrow('Only a club owner');
+    await expect(correction(0, '')).rejects.toThrow('Only a club owner');
+    await expect(save(day, { product_id: cola, closing_stock: 9, sold_quantity: 0, adjustment_quantity: -1, adjustment_reason: 'shortage' }))
+      .rejects.toThrow('Only a club owner');
+    await asOwner();
+    await correction(1, 'correction');
+    expect(await count(day)).toMatchObject({ adjustment_quantity: '1', closing_stock: '11' });
+  });
+
+  it('does not let an admin turn a write-off into a correction', async () => {
+    await asAdmin();
+    await save(day, { product_id: cola, closing_stock: 8, sold_quantity: 0, adjustment_quantity: -2, adjustment_reason: 'shortage' });
+    await expect(correction(1, 'correction')).rejects.toThrow('Only a club owner');
   });
 });

@@ -6,9 +6,9 @@ export interface StockWriteOffNoticeInput {
   date: string;
   productName: string;
   /** The write-off as saved now; quantity 0 means it was removed. */
-  kind: 'shortage' | 'expired' | null;
+  kind: 'shortage' | 'expired' | 'correction' | null;
   quantity: number;
-  /** quantity × the count's saved cost price; it comes off bar profit. */
+  /** quantity × the count's saved cost price; a write-off's comes off bar profit. */
   cost: number;
   note: string;
   by: string;
@@ -21,9 +21,17 @@ const capitalize = (text: string) => text.charAt(0).toLocaleUpperCase('ru') + te
 export function buildStockWriteOffNotice(input: StockWriteOffNoticeInput): string {
   if (input.quantity <= 0 || !input.kind) {
     return lines(
-      `↩️ Списание бара отменено: ${input.productName}`,
-      details(noticeDate(input.date), 'товар вернулся в остаток'),
+      `↩️ Списание или корректировка бара отменены: ${input.productName}`,
+      details(noticeDate(input.date), 'остаток пересчитан'),
       input.by,
+    );
+  }
+  if (input.kind === 'correction') {
+    return lines(
+      `➕ Корректировка остатка бара: +${units(input.quantity)}`,
+      details(input.productName, 'больше ожидаемого', noticeDate(input.date)),
+      `По себестоимости ${sum(input.cost)}; прибыль бара не меняется`,
+      authorLine(input.by, input.note.trim() || null),
     );
   }
   return lines(

@@ -98,6 +98,12 @@ export function calculateAvailableStock(
  */
 export const STOCK_WRITE_OFF_REASON_PATTERN = /^(shortage|expired)(?::\s*([\s\S]*))?$/;
 
+/**
+ * Reason of a correction saved as a positive adjustment: more units were
+ * counted than expected (migration 167). Optionally followed by ": note".
+ */
+export const STOCK_CORRECTION_REASON_PATTERN = /^correction(?::\s*([\s\S]*))?$/;
+
 /** Units written off: the removed quantity of a write-off adjustment, else 0. */
 export function stockWriteOffQuantity(adjustmentQuantity: number | undefined, adjustmentReason: string | null | undefined): number {
   const adjustment = Math.trunc(Number(adjustmentQuantity ?? 0)) || 0;

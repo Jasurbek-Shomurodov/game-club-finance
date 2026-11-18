@@ -1,4 +1,4 @@
-import { STOCK_WRITE_OFF_REASON_PATTERN } from './calculations/stock';
+import { STOCK_CORRECTION_REASON_PATTERN, STOCK_WRITE_OFF_REASON_PATTERN } from './calculations/stock';
 import {
   normalizeStockAdjustment,
   normalizeStockCount,
@@ -17,15 +17,32 @@ import {
  * The units leave the closing balance and sales stay as recorded, so bar income
  * is not charged for them. Their value at cost is added to bar cost (so bar
  * profit falls by it, migration 141) and shown as the loss in reports.
+ *
+ * A correction is the opposite case: more units were counted than the system
+ * expected. It is saved as a positive adjustment whose reason is
+ * "correction" [": note"] (migration 167). The units join the closing balance;
+ * sales, bar cost and bar profit are unchanged.
  */
 export const STOCK_WRITE_OFF_KINDS = ['shortage', 'expired'] as const;
 export type StockWriteOffKind = (typeof STOCK_WRITE_OFF_KINDS)[number];
 /** A negative adjustment saved before write-offs existed, with a free-text reason. */
 export type StockWriteOffReportKind = StockWriteOffKind | 'other';
+/** The kinds the write-off dialog records: the two losses and a surplus correction. */
+export const STOCK_ADJUSTMENT_KINDS = [...STOCK_WRITE_OFF_KINDS, 'correction'] as const;
+export type StockAdjustmentKind = (typeof STOCK_ADJUSTMENT_KINDS)[number];
+export type StockAdjustmentReportKind = StockAdjustmentKind | 'other';
 
-export function formatWriteOffReason(kind: StockWriteOffKind, note = ''): string {
+export function formatWriteOffReason(kind: StockAdjustmentKind, note = ''): string {
   const trimmed = note.trim();
   return trimmed ? `${kind}: ${trimmed}` : kind;
+}
+
+/** Reason of a positive adjustment: "correction" or an older free-text one ("other"). */
+export function parseCorrectionReason(reason: string | null | undefined): { kind: 'correction' | 'other'; note: string } {
+  const text = String(reason ?? '').trim();
+  const match = STOCK_CORRECTION_REASON_PATTERN.exec(text);
+  if (!match) return { kind: 'other', note: text };
+  return { kind: 'correction', note: (match[1] ?? '').trim() };
 }
 
 export function parseWriteOffReason(reason: string | null | undefined): { kind: StockWriteOffReportKind; note: string } {
@@ -41,6 +58,15 @@ export interface RowWriteOff {
   note: string;
 }
 
+export interface RowStockAdjustment {
+  /** Units, always positive; a correction adds them, a write-off removes them. */
+  quantity: number;
+  kind: StockAdjustmentReportKind;
+  note: string;
+  /** +1 for a correction (or an older positive adjustment), -1 for a write-off. */
+  sign: 1 | -1;
+}
+
 /** The write-off a row carries; `null` when its adjustment is not a removal. */
 export function rowWriteOff(row: Pick<ClosingStockRowData, 'adjustmentQuantity' | 'adjustmentReason'>): RowWriteOff | null {
   const adjustment = normalizeStockAdjustment(row.adjustmentQuantity);
@@ -48,15 +74,24 @@ export function rowWriteOff(row: Pick<ClosingStockRowData, 'adjustmentQuantity' 
   return { quantity: -adjustment, ...parseWriteOffReason(row.adjustmentReason) };
 }
 
+/** The write-off or correction a row carries; `null` when it has no adjustment. */
+export function rowStockAdjustment(row: Pick<ClosingStockRowData, 'adjustmentQuantity' | 'adjustmentReason'>): RowStockAdjustment | null {
+  const adjustment = normalizeStockAdjustment(row.adjustmentQuantity);
+  if (adjustment === 0) return null;
+  if (adjustment < 0) return { quantity: -adjustment, sign: -1, ...parseWriteOffReason(row.adjustmentReason) };
+  return { quantity: adjustment, sign: 1, ...parseCorrectionReason(row.adjustmentReason) };
+}
+
 /**
- * Whether setting a row's write-off to `next` only records one or adds to it:
- * the change an admin may make (migration 164). Reducing or removing a
- * write-off, switching its reason, or replacing another adjustment stays with
- * the owner. Mirrors `stock_write_off_is_addition` in the database.
+ * Whether setting a row's write-off or correction to `next` only records one
+ * or adds to it: the change an admin may make (migrations 164 and 167).
+ * Reducing or removing one, switching its reason, or replacing another
+ * adjustment stays with the owner. Mirrors `stock_write_off_is_addition` in
+ * the database.
  */
 export function isWriteOffAddition(
-  current: RowWriteOff | null,
-  next: { kind: StockWriteOffKind; quantity: number },
+  current: { kind: StockAdjustmentReportKind; quantity: number; note?: string } | null,
+  next: { kind: StockAdjustmentKind; quantity: number },
 ): boolean {
   if (next.quantity <= 0) return false;
   if (!current) return true;
@@ -74,39 +109,47 @@ export class StockWriteOffError extends Error {
   }
 }
 
-/** Most units a row can write off: what is left plus what it already wrote off. */
+/** Closing stock the row would have without its current adjustment (never below 0). */
+function unadjustedClosingStock(row: ClosingStockRowData): number {
+  return Math.max(0, normalizeStockCount(row.closingStock) - normalizeStockAdjustment(row.adjustmentQuantity));
+}
+
+/** Most units a row can write off: what is left once its current adjustment is taken back. */
 export function maxWriteOffQuantity(row: ClosingStockRowData): number {
-  return normalizeStockCount(row.closingStock) + (rowWriteOff(row)?.quantity ?? 0);
+  return unadjustedClosingStock(row);
 }
 
 /**
- * Sets the row's write-off to `quantity` (0 removes it). The difference leaves
- * or returns to closing stock; the sold quantity is unchanged, so the stock
- * movement still balances in both entry modes.
+ * Sets the row's write-off or correction to `quantity` (0 removes it). A
+ * write-off takes the units out of closing stock, a correction adds them; the
+ * sold quantity is unchanged, so the stock movement still balances in both
+ * entry modes.
  */
 export function applyStockWriteOff(
   row: ClosingStockRowData,
-  writeOff: { kind: StockWriteOffKind; quantity: number; note?: string },
+  writeOff: { kind: StockAdjustmentKind; quantity: number; note?: string },
 ): ClosingStockRowData {
   if (row.product.tracks_inventory === false) {
     throw new StockWriteOffError('not_tracked', row.product.name);
   }
-  if (normalizeStockAdjustment(row.adjustmentQuantity) > 0) {
+  // An older free-text positive adjustment is the owner's to change on Closing Stock.
+  if (rowStockAdjustment(row)?.sign === 1 && rowStockAdjustment(row)?.kind === 'other') {
     throw new StockWriteOffError('positive_adjustment', row.product.name);
   }
 
   const quantity = normalizeStockCount(writeOff.quantity);
-  const previous = rowWriteOff(row)?.quantity ?? 0;
-  const available = maxWriteOffQuantity(row);
-  if (quantity > available) {
-    throw new StockWriteOffError('exceeds_stock', row.product.name, available);
+  const base = unadjustedClosingStock(row);
+  const isCorrection = writeOff.kind === 'correction';
+  if (!isCorrection && quantity > base) {
+    throw new StockWriteOffError('exceeds_stock', row.product.name, base);
   }
+  const signed = isCorrection ? quantity : -quantity;
 
   return {
     ...row,
-    adjustmentQuantity: String(-quantity),
+    adjustmentQuantity: String(quantity > 0 ? signed : 0),
     adjustmentReason: quantity > 0 ? formatWriteOffReason(writeOff.kind, writeOff.note) : '',
-    closingStock: String(normalizeStockCount(row.closingStock) - (quantity - previous)),
+    closingStock: String(base + (quantity > 0 ? signed : 0)),
   };
 }
 
@@ -135,10 +178,11 @@ export function writeOffEntryKey(entry: Pick<StockWriteOffEntry, 'date' | 'produ
   return `${entry.date}:${entry.productId}`;
 }
 
-/** Badge tone for a write-off's reason: shortages read as danger, expiry as a warning. */
-export function writeOffKindVariant(kind: StockWriteOffReportKind): 'danger' | 'warning' | 'neutral' {
+/** Badge tone for a write-off's reason: shortages read as danger, expiry as a warning, corrections as success. */
+export function writeOffKindVariant(kind: StockAdjustmentReportKind): 'danger' | 'warning' | 'success' | 'neutral' {
   if (kind === 'shortage') return 'danger';
   if (kind === 'expired') return 'warning';
+  if (kind === 'correction') return 'success';
   return 'neutral';
 }
 

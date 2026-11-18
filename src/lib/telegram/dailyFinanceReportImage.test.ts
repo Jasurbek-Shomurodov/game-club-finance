@@ -5,7 +5,9 @@ import { describe, expect, it } from 'vitest';
 import type { DailyFinanceReportInput } from './dailyFinanceReport';
 import {
   buildDailyFinanceReportSvg,
+  buildStockAdjustmentsReportSvg,
   renderDailyFinanceReportPng,
+  renderStockAdjustmentsReportPng,
 } from './dailyFinanceReportImage';
 
 function reportInput(): DailyFinanceReportInput {
@@ -298,18 +300,33 @@ describe('daily finance report image', () => {
     }
   });
 
-  it('adds a write-off card only when bar stock was written off', () => {
+  it('draws write-offs and corrections on their own image, not on the report', async () => {
     const stockWriteOffs = [
       { productName: 'Saber', kind: 'expired' as const, note: 'sour', quantity: 3, cost: 21999 },
       { productName: 'Coca cola', kind: 'shortage' as const, note: '', quantity: 2, cost: 11749 },
     ];
-    const empty = buildDailyFinanceReportSvg({ ...reportInput(), stockWriteOffs: [] });
-    const withWriteOffs = buildDailyFinanceReportSvg({ ...reportInput(), stockWriteOffs });
-    expect(empty).not.toContain('СПИСАНИЯ БАРА');
-    expect(withWriteOffs).toContain('СПИСАНИЯ БАРА · 5 шт.');
-    expect(withWriteOffs).toContain('Saber — просрочка (sour)');
-    expect(withWriteOffs).toContain('Coca cola — недостача');
-    expect(withWriteOffs).toContain('убыток 33 748 UZS');
+    const stockCorrections = [{ productName: 'Snickers', note: 'в коробке', quantity: 4, value: 16000 }];
+    const report = buildDailyFinanceReportSvg({ ...reportInput(), stockWriteOffs, stockCorrections });
+    expect(report).not.toContain('СПИСАНИЯ БАРА');
+
+    const svg = buildStockAdjustmentsReportSvg({ ...reportInput(), stockWriteOffs, stockCorrections });
+    expect(svg).toContain('СПИСАНИЯ И КОРРЕКТИРОВКИ БАРА');
+    expect(svg).toContain('СПИСАНИЯ БАРА · 5 шт.');
+    expect(svg).toContain('Saber — просрочка (sour)');
+    expect(svg).toContain('Coca cola — недостача');
+    expect(svg).toContain('убыток 33 748 UZS');
+    expect(svg).toContain('КОРРЕКТИРОВКИ · +4 шт.');
+    expect(svg).toContain('Snickers — корректировка (в коробке)');
+
+    expect(await renderStockAdjustmentsReportPng({ ...reportInput(), stockWriteOffs: [], stockCorrections: [] })).toBeNull();
+    const png = await renderStockAdjustmentsReportPng({ ...reportInput(), stockWriteOffs, stockCorrections });
+    expect((await sharp(png!).metadata()).format).toBe('png');
+  });
+
+  it('shows only the corrections list when nothing was written off', () => {
+    const svg = buildStockAdjustmentsReportSvg({ ...reportInput(), stockCorrections: [{ productName: 'Snickers', note: '', quantity: 1, value: 4000 }] });
+    expect(svg).toContain('КОРРЕКТИРОВКИ · +1 шт.');
+    expect(svg).not.toContain('СПИСАНИЯ БАРА ·');
   });
 
   it('adds a promo giveaway card only when bonuses were handed out', () => {

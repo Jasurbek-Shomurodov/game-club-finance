@@ -6,10 +6,14 @@ import {
   calculateOutstandingDebtsAsOf,
   formatRussianDailyFinanceReportCaption,
   formatRussianDailyFinanceReport,
+  formatRussianStockAdjustmentsCaption,
+  hasStockAdjustments,
   internetPaymentDueDate,
   monthStartIso,
   previousComparableMonthRangeIso,
   runningDailyAverage,
+  summarizeStockCorrectionsForReport,
+  summarizeStockWriteOffsForReport,
 } from './dailyFinanceReport';
 import { isIsoDate, previousClubBusinessDateIso } from './sendDailyFinanceReport';
 
@@ -704,5 +708,38 @@ describe('PlayStation in the daily report', () => {
     // The bar's average per day sits with its other month figures, like the club's and PlayStation's.
     expect(formatRussianDailyFinanceReport({ ...base, averageDailyBarSales: 625_824, averageDailyBarSalesChange: 8 }))
       .toContain('🍫 Средние продажи бара в день: 625 824 UZS (+8% к прошлому месяцу)');
+  });
+});
+
+describe('stock corrections in the daily report', () => {
+  const rows = [
+    { product_id: 'a', adjustment_quantity: -2, adjustment_reason: 'shortage', cost_price: 5000, products: { name: 'Cola' } },
+    { product_id: 'b', adjustment_quantity: 3, adjustment_reason: 'correction: нашли', cost_price: 4000, products: { name: 'Snickers' } },
+    { product_id: 'c', adjustment_quantity: 1, adjustment_reason: 'found', cost_price: 4000, products: { name: 'Mars' } },
+  ];
+
+  it('keeps corrections apart from write-offs and ignores free-text adjustments', () => {
+    expect(summarizeStockWriteOffsForReport(rows)).toEqual([
+      { productName: 'Cola', kind: 'shortage', note: '', quantity: 2, cost: 10000 },
+    ]);
+    expect(summarizeStockCorrectionsForReport(rows)).toEqual([
+      { productName: 'Snickers', note: 'нашли', quantity: 3, value: 12000 },
+    ]);
+  });
+
+  it('captions the write-offs image with the loss and the units corrected', () => {
+    const input = {
+      businessDateLabel: '18 ноября 2026',
+      stockWriteOffs: summarizeStockWriteOffsForReport(rows),
+      stockCorrections: summarizeStockCorrectionsForReport(rows),
+    } as Parameters<typeof formatRussianStockAdjustmentsCaption>[0];
+    expect(hasStockAdjustments(input)).toBe(true);
+    expect(hasStockAdjustments({ stockWriteOffs: [], stockCorrections: [] })).toBe(false);
+    expect(formatRussianStockAdjustmentsCaption(input).split('\n')).toEqual([
+      '🗑 Списания и корректировки бара',
+      'Рабочий день: 18 ноября 2026',
+      'Списано: 2 шт., убыток 10 000 UZS',
+      'Корректировки: +3 шт. (больше ожидаемого)',
+    ]);
   });
 });

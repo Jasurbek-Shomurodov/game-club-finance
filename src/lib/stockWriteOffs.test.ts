@@ -4,6 +4,7 @@ import { summarizeStockRow } from './calculations/stock';
 import { buildClosingStockUpserts, closingStockRowTotalsInput, validateClosingStockRows, type ClosingStockRowData } from './closingStock';
 import {
   applyStockWriteOff,
+  rowStockAdjustment,
   formatWriteOffReason,
   isWriteOffAddition,
   maxWriteOffQuantity,
@@ -226,5 +227,53 @@ describe('isWriteOffAddition', () => {
     expect(isWriteOffAddition(current, { kind: 'shortage', quantity: 3 })).toBe(false);
     expect(isWriteOffAddition({ kind: 'other', quantity: 1, note: 'broken' }, { kind: 'shortage', quantity: 2 })).toBe(false);
     expect(isWriteOffAddition(null, { kind: 'shortage', quantity: 0 })).toBe(false);
+  });
+});
+
+describe('stock corrections', () => {
+  it('adds the extra units to closing stock without changing sales or bar profit', () => {
+    const before = row();
+    const after = applyStockWriteOff(before, { kind: 'correction', quantity: 3, note: 'found a box' });
+    expect(after).toMatchObject({
+      adjustmentQuantity: '3',
+      adjustmentReason: 'correction: found a box',
+      closingStock: '12',
+      soldQuantity: '3',
+    });
+    expect(summarizeStockRow(closingStockRowTotalsInput(after)).barProfit)
+      .toBe(summarizeStockRow(closingStockRowTotalsInput(before)).barProfit);
+    expect(rowStockAdjustment(after)).toEqual({ kind: 'correction', quantity: 3, note: 'found a box', sign: 1 });
+    expect(rowWriteOff(after)).toBeNull();
+  });
+
+  it('switches between a correction and a write-off from the unadjusted stock', () => {
+    const corrected = applyStockWriteOff(row(), { kind: 'correction', quantity: 3 });
+    expect(maxWriteOffQuantity(corrected)).toBe(9);
+    const writtenOff = applyStockWriteOff(corrected, { kind: 'shortage', quantity: 2 });
+    expect(writtenOff).toMatchObject({ adjustmentQuantity: '-2', closingStock: '7' });
+    const removed = applyStockWriteOff(corrected, { kind: 'correction', quantity: 0 });
+    expect(removed).toMatchObject({ adjustmentQuantity: '0', adjustmentReason: '', closingStock: '9' });
+  });
+
+  it('is not capped by the stock on hand', () => {
+    expect(applyStockWriteOff(row({ closingStock: '0', soldQuantity: '12' }), { kind: 'correction', quantity: 50 }))
+      .toMatchObject({ adjustmentQuantity: '50', closingStock: '50' });
+  });
+
+  it('keeps an older free-text positive adjustment for the owner on Closing Stock', () => {
+    expect(() => applyStockWriteOff(row({ adjustmentQuantity: '2', adjustmentReason: 'found', closingStock: '11' }), { kind: 'correction', quantity: 3 }))
+      .toThrow(StockWriteOffError);
+  });
+
+  it('lets an admin add to a correction but not reduce or switch it', () => {
+    const current = { kind: 'correction' as const, quantity: 2 };
+    expect(isWriteOffAddition(null, { kind: 'correction', quantity: 1 })).toBe(true);
+    expect(isWriteOffAddition(current, { kind: 'correction', quantity: 4 })).toBe(true);
+    expect(isWriteOffAddition(current, { kind: 'correction', quantity: 1 })).toBe(false);
+    expect(isWriteOffAddition(current, { kind: 'shortage', quantity: 3 })).toBe(false);
+  });
+
+  it('gives corrections a success badge', () => {
+    expect(writeOffKindVariant('correction')).toBe('success');
   });
 });

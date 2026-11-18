@@ -8,10 +8,11 @@ import {
   buildDailyFinanceReportInput,
   formatRussianDailyFinanceReportCaption,
   formatRussianDailyFinanceReport,
+  formatRussianStockAdjustmentsCaption,
   monthStartIso,
   previousComparableMonthRangeIso,
 } from './dailyFinanceReport';
-import { renderDailyFinanceReportPng } from './dailyFinanceReportImage';
+import { renderDailyFinanceReportPng, renderStockAdjustmentsReportPng } from './dailyFinanceReportImage';
 import type {
   DailyCashRow,
   ExpenseRow,
@@ -47,6 +48,11 @@ export interface DailyFinanceReportBuildResult {
   caption: string;
   imagePng: Buffer | null;
   imageFileName: string;
+  /**
+   * The day's bar write-offs and corrections on an image of their own, sent
+   * after the report; null when there were none (or it could not be drawn).
+   */
+  adjustmentsImage: { png: Buffer; fileName: string; caption: string } | null;
 }
 
 /** Strict YYYY-MM-DD that names a real calendar date (rejects 2026-02-31). */
@@ -185,8 +191,8 @@ export async function getPromoGiveawayRows(
 }
 
 /**
- * Report-date counts with a negative adjustment; the report keeps only
- * shortage/expired write-offs. A failure only drops the section.
+ * Report-date counts with an inventory adjustment; the report keeps
+ * shortage/expired write-offs and corrections. A failure only drops them.
  */
 export async function getStockWriteOffRows(
   supabase: SupabaseClient,
@@ -200,7 +206,7 @@ export async function getStockWriteOffRows(
         .select('product_id,adjustment_quantity,adjustment_reason,cost_price,products(name)')
         .eq('club_id', clubId)
         .eq('date', businessDate)
-        .lt('adjustment_quantity', 0)
+        .neq('adjustment_quantity', 0)
         .order('product_id', { ascending: true }),
     );
     if (error) throw error;
@@ -393,6 +399,12 @@ export async function buildDailyFinanceTelegramReport(
   } catch (error) {
     console.error('[telegram/daily-finance] report image unavailable; using text fallback:', error);
   }
+  let adjustmentsPng: Buffer | null = null;
+  try {
+    adjustmentsPng = await renderStockAdjustmentsReportPng(input);
+  } catch (error) {
+    console.error('[telegram/daily-finance] write-offs image unavailable; omitting it:', error);
+  }
 
   return {
     clubId,
@@ -402,6 +414,13 @@ export async function buildDailyFinanceTelegramReport(
     caption: formatRussianDailyFinanceReportCaption(input),
     imagePng,
     imageFileName: `daily-finance-${clubId}-${businessDate}.png`,
+    adjustmentsImage: adjustmentsPng
+      ? {
+          png: adjustmentsPng,
+          fileName: `daily-write-offs-${clubId}-${businessDate}.png`,
+          caption: formatRussianStockAdjustmentsCaption(input),
+        }
+      : null,
   };
 }
 
