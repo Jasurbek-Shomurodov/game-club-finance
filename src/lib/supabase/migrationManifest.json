@@ -4996,5 +4996,9 @@
         "signature": "public.get_reserve_moves(uuid,date,date)"
       }
     ]
+  },
+  {
+    "file": "157_showcase_game_zone_images.sql",
+    "probes": []
   }
 ]

@@ -210,18 +210,24 @@ describe('Settings migration probes (get_migration_probe_results)', () => {
     if (result.status !== 'ready') throw new Error(`Expected probe results, got ${result.status}`);
     return migrationStatuses(manifest, [], result.results);
   };
+  // A data-only migration has no probes, so a SQL Editor install can only
+  // call it "likely" once a later migration is applied; the newest one stays
+  // "unknown" until then.
+  const probeless = new Set(manifest.filter((entry) => entry.probes.length === 0).map((entry) => entry.file));
+  const flagged = (statuses: { file: string; status: string }[]) =>
+    statuses.filter((s) => s.status !== 'applied' && s.status !== 'likely' && !(s.status === 'unknown' && probeless.has(s.file)));
 
   it('shows every committed migration as applied on a fully migrated SQL Editor install', async () => {
     const statuses = await statusesOn(() => db);
     expect(statuses).toHaveLength(files.length);
-    expect(statuses.filter((s) => s.status !== 'applied' && s.status !== 'likely')).toEqual([]);
+    expect(flagged(statuses)).toEqual([]);
   });
 
   it('flags exactly the migration that was skipped', async () => {
     const skipped = await migratedDatabase(files.filter((file) => !file.startsWith('084_')));
     try {
       const statuses = await statusesOn(() => skipped);
-      expect(statuses.filter((s) => s.status !== 'applied' && s.status !== 'likely'))
+      expect(flagged(statuses))
         .toEqual([{ file: '084_daily_cash_entry_author_integrity.sql', status: 'notApplied' }]);
     } finally {
       await skipped.close();
