@@ -437,8 +437,13 @@ test('SET-001 the Settings health check shows every migration applied and confir
   await expect(health.getByText(/Owner-profit checks passed/)).toBeVisible();
   await expect(health.getByText('Matches app version')).toHaveCount(3);
   for (const name of ['050 · get_owner_profit_snapshot', '051 · withdraw_owner_money_for_month', '051 · enforce_owner_withdrawal_month_balance']) await expect(health).toContainText(name);
-  // The test database is migrated without CLI history, like a SQL Editor install: the schema probes still prove every migration.
-  await expect(health.getByText(/^All \d+ migrations are applied\.$/)).toBeVisible();
+  // The test database is migrated without CLI history, like a SQL Editor install: the schema probes still prove every migration,
+  // except data-only migrations after the newest one with probes, which nothing later can vouch for.
+  const manifest = JSON.parse(await readFile(new URL('../src/lib/supabase/migrationManifest.json', import.meta.url), 'utf8'));
+  const lastProbed = manifest.findLastIndex((entry) => entry.probes.length > 0);
+  const unverifiable = manifest.length - 1 - lastProbed;
+  if (unverifiable === 0) await expect(health.getByText(/^All \d+ migrations are applied\.$/)).toBeVisible();
+  else for (const entry of manifest.slice(lastProbed + 1)) await expect(health).toContainText(entry.file.replace(/\.sql$/, ''));
   await expect(health.getByText('Not applied', { exact: true })).toHaveCount(1);
   await expect(health.getByText('Function missing')).toHaveCount(0);
   expect(calls).toEqual([{ p_club_id: clubs.arcade.id }]);
