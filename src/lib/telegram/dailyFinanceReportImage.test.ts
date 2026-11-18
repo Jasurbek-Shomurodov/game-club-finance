@@ -140,6 +140,37 @@ describe('daily finance report image', () => {
     expect(buildDailyFinanceReportSvg(reportInput())).toBe(svg);
   });
 
+  it('tracks PlayStation on its own card: day, month, average per day and daily sales with their running average', () => {
+    const svg = buildDailyFinanceReportSvg({
+      ...reportInput(),
+      playstationIncome: 70_000,
+      monthPlaystationIncome: 160_000,
+      averageDailyPlaystationIncome: 53_333,
+      averageDailyPlaystationIncomeChange: 18,
+      monthDailyPlaystationIncome: [
+        { date: '2026-08-01', amount: 30_000 },
+        { date: '2026-08-02', amount: 0 },
+        { date: '2026-08-03', amount: 130_000 },
+      ],
+    });
+    expect(svg).toContain('PLAYSTATION');
+    expect(svg).toContain('ПРОДАЖИ PLAYSTATION ЗА МЕСЯЦ');
+    expect(svg).toContain('Средние продажи / день');
+    expect(svg).toContain('53 333<tspan');
+    expect(svg).toContain('>18%</text>');
+    // Two days with sales draw two bars; the day without sales draws none.
+    expect(svg.match(/fill="#7C3AED" fill-opacity="0.8"\/>/g)).toHaveLength(3);
+    // The card pushes the rest of the report down.
+    expect(svg).toContain('height="2794"');
+    expect(svg).not.toContain('Нет продаж PlayStation за месяц');
+  });
+
+  it('says so when the month has no PlayStation sales, and leaves the card out without the series', () => {
+    const empty = buildDailyFinanceReportSvg({ ...reportInput(), monthPlaystationIncome: 0, averageDailyPlaystationIncome: 0, monthDailyPlaystationIncome: [{ date: '2026-08-01', amount: 0 }] });
+    expect(empty).toContain('Нет продаж PlayStation за месяц');
+    expect(buildDailyFinanceReportSvg(reportInput())).not.toContain('ПРОДАЖИ PLAYSTATION ЗА МЕСЯЦ');
+  });
+
   it('plots the month daily income trend with day labels', () => {
     const svg = buildDailyFinanceReportSvg({
       ...reportInput(),

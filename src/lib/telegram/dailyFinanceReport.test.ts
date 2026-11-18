@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDailyFinanceReportInput,
   buildDailyGameClubIncomeSeries,
+  buildDailyPlaystationIncomeSeries,
   calculateOutstandingDebtsAsOf,
   formatRussianDailyFinanceReportCaption,
   formatRussianDailyFinanceReport,
   internetPaymentDueDate,
   monthStartIso,
   previousComparableMonthRangeIso,
+  runningDailyAverage,
 } from './dailyFinanceReport';
 import { isIsoDate, previousClubBusinessDateIso } from './sendDailyFinanceReport';
 
@@ -668,5 +670,36 @@ describe('internet payment reminder', () => {
     expect(otherDay.internetPaymentDueDate).toBeNull();
     expect(formatRussianDailyFinanceReport(otherDay)).not.toContain('интернет');
     expect(formatRussianDailyFinanceReportCaption(otherDay)).not.toContain('интернет');
+  });
+});
+
+describe('PlayStation in the daily report', () => {
+  it('lists PlayStation money per calendar day and its running daily average', () => {
+    const series = buildDailyPlaystationIncomeSeries([
+      { date: '2026-11-01', cash_income: 0, terminal_income: 0, card_income: 0, playstation_income: 30_000 },
+      { date: '2026-11-03', cash_income: 0, terminal_income: 0, card_income: 0, playstation_income: 60_000 },
+      { date: '2026-11-03', cash_income: 0, terminal_income: 0, card_income: 0, playstation_income: null as never },
+    ], { from: '2026-11-01', to: '2026-11-03' });
+    expect(series).toEqual([
+      { date: '2026-11-01', amount: 30_000 },
+      { date: '2026-11-02', amount: 0 },
+      { date: '2026-11-03', amount: 60_000 },
+    ]);
+    expect(runningDailyAverage(series).map((point) => point.amount)).toEqual([30_000, 15_000, 30_000]);
+  });
+
+  it('writes the month and its daily average, with the change only when last month had sales', () => {
+    const base = {
+      clubName: 'Club', businessDateLabel: '3 ноября 2026', gameClubIncome: 0, computerIncome: 0, debtIncome: 0, playstationIncome: 0,
+      barSales: 0, barCost: 0, gameClubProfit: 0, barProfit: 0, stockPurchases: 0, gameClubExpenses: 0, barExpenses: 0,
+      gameClubExpenseCategories: [], barExpenseCategories: [], monthToDateRevenue: 0, gameClubMoneyLeft: 0,
+      averageDailyGameClubIncome: 0, barMoneyLeft: 0, inventoryValue: 0, activeDebts: 0,
+    };
+    const text = formatRussianDailyFinanceReport({ ...base, monthPlaystationIncome: 90_000, averageDailyPlaystationIncome: 30_000, averageDailyPlaystationIncomeChange: 25 });
+    expect(text).toContain('🕹 PlayStation за месяц: 90 000 UZS');
+    expect(text).toContain('🕹 Средние продажи PlayStation в день: 30 000 UZS (+25% к прошлому месяцу)');
+    const noChange = formatRussianDailyFinanceReport({ ...base, monthPlaystationIncome: 90_000, averageDailyPlaystationIncome: 30_000, averageDailyPlaystationIncomeChange: null });
+    expect(noChange).toContain('🕹 Средние продажи PlayStation в день: 30 000 UZS\n');
+    expect(formatRussianDailyFinanceReport(base)).not.toContain('PlayStation за месяц');
   });
 });

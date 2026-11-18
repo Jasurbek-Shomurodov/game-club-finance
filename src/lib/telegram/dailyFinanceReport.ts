@@ -64,6 +64,13 @@ export interface DailyFinanceReportInput {
   monthBarSankey?: DrillSankey;
   /** Game club income per calendar day from the first of the month through the report date. */
   monthDailyGameClubIncome?: DailyFinanceIncomePoint[];
+  /** Month-to-date PlayStation money (part of game club income). */
+  monthPlaystationIncome?: number;
+  /** Month-to-date PlayStation money per counted day, the same days as the club's average. */
+  averageDailyPlaystationIncome?: number;
+  averageDailyPlaystationIncomeChange?: number | null;
+  /** PlayStation money per calendar day from the first of the month through the report date. */
+  monthDailyPlaystationIncome?: DailyFinanceIncomePoint[];
   /** Active tracked products that are out of stock or at/below their threshold. */
   lowStockProducts?: LowStockProduct[];
   /** Units handed out free under promotions on the report date, by product. */
@@ -287,6 +294,17 @@ function promoGiveawayLines(items: DailyFinancePromoGiveaway[] | undefined): str
   ];
 }
 
+/** The month's PlayStation money, its daily average and how that average moved since last month. */
+function playstationMonthLines(input: DailyFinanceReportInput): string[] {
+  if (input.monthPlaystationIncome === undefined || input.averageDailyPlaystationIncome === undefined) return [];
+  const change = input.averageDailyPlaystationIncomeChange;
+  const changeText = change === null || change === undefined ? '' : ` (${change > 0 ? '+' : ''}${change}% к прошлому месяцу)`;
+  return [
+    `🕹 PlayStation за месяц: ${money(input.monthPlaystationIncome)}`,
+    `🕹 Средние продажи PlayStation в день: ${money(input.averageDailyPlaystationIncome)}${changeText}`,
+  ];
+}
+
 function percent(value: number, total: number): string {
   if (total <= 0) return '0%';
   return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 }).format((value / total) * 100)}%`;
@@ -363,6 +381,32 @@ export function buildDailyGameClubIncomeSeries(
   }
 
   return points;
+}
+
+/** PlayStation money per calendar day of the range, collected with each day's cash. */
+export function buildDailyPlaystationIncomeSeries(
+  cashRows: DailyCashRow[],
+  range: { from: string; to: string },
+): DailyFinanceIncomePoint[] {
+  const byDate = new Map<string, number>();
+  for (const row of cashRows) byDate.set(row.date, (byDate.get(row.date) ?? 0) + Number(row.playstation_income ?? 0));
+  const [year, month, firstDay] = range.from.split('-').map(Number);
+  const lastDay = Number(range.to.slice(8, 10));
+  const points: DailyFinanceIncomePoint[] = [];
+  for (let day = firstDay; day <= lastDay; day += 1) {
+    const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    points.push({ date, amount: byDate.get(date) ?? 0 });
+  }
+  return points;
+}
+
+/** Each day's average of the month so far: the money through that day over the days counted. */
+export function runningDailyAverage(points: readonly DailyFinanceIncomePoint[]): DailyFinanceIncomePoint[] {
+  let total = 0;
+  return points.map((point, index) => {
+    total += point.amount;
+    return { date: point.date, amount: Math.round(total / (index + 1)) };
+  });
 }
 
 export function monthStartIso(date: string): string {
@@ -486,6 +530,12 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
     averageRevenueDayCount,
   );
   const monthToDateRevenue = monthTotals.gameClubIncome;
+  // PlayStation money over the same counted days as the club's daily average.
+  const averageDailyPlaystationIncome = calculateAverageDailyIncome(monthTotals.playstationIncome, averageRevenueDayCount);
+  const previousAverageDailyPlaystationIncome = calculateAverageDailyIncome(
+    previousMonthTotals.playstationIncome,
+    previousAverageDayCount,
+  );
   const monthLedgers: AnalysisLedgers = {
     cashRows: rows.monthCashRows ?? rows.cashRows,
     stockRows: rows.monthStockRows ?? rows.stockRows,
@@ -537,6 +587,10 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
       monthDebtRows,
       monthRange,
     ),
+    monthPlaystationIncome: monthTotals.playstationIncome,
+    averageDailyPlaystationIncome,
+    averageDailyPlaystationIncomeChange: percentChange(averageDailyPlaystationIncome, previousAverageDailyPlaystationIncome),
+    monthDailyPlaystationIncome: buildDailyPlaystationIncomeSeries(rows.monthCashRows ?? rows.cashRows, monthRange),
     lowStockProducts: rows.lowStockProductRows === undefined
       ? undefined
       : listLowStockProducts(rows.lowStockProductRows),
@@ -582,6 +636,7 @@ export function formatRussianDailyFinanceReport(input: DailyFinanceReportInput):
       : [`🍫 Прибыль бара за месяц: ${money(input.monthBarProfit)}`]),
     `💰 Остаток денег клуба за месяц: ${money(input.gameClubMoneyLeft)}`,
     `📈 Средний дневной доход клуба за месяц: ${money(input.averageDailyGameClubIncome)}`,
+    ...playstationMonthLines(input),
     `🧾 Остаток денег бара за месяц: ${money(input.barMoneyLeft)}`,
     '',
     `📦 Стоимость склада: ${money(input.inventoryValue)}`,

@@ -8,7 +8,7 @@ import { BAR_COST_TARGET, OTHER_CATEGORY } from '../calculations/financialAnalys
 import { BAR_LEFT, GAME_CLUB_LEFT, type DrillSankey } from '../calculations/sankeyDrill';
 import { layoutSankey } from '../sankeyLayout';
 import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
-import { stockWriteOffItemLabel, type DailyFinanceIncomePoint, type DailyFinancePromoGiveaway, type DailyFinanceReportInput, type DailyFinanceStockWriteOff } from './dailyFinanceReport';
+import { runningDailyAverage, stockWriteOffItemLabel, type DailyFinanceIncomePoint, type DailyFinancePromoGiveaway, type DailyFinanceReportInput, type DailyFinanceStockWriteOff } from './dailyFinanceReport';
 import { REPORT_FONT_DIRECTORY, REPORT_FONT_FILES } from './reportFontConfig';
 
 const WIDTH = 1600;
@@ -217,6 +217,58 @@ function incomeChart(
     ${points.length > 1 ? `<path d="${area}" fill="url(#incomeArea)"/>
     <polyline points="${line}" fill="none" stroke="${BLUE}" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>` : ''}
     <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="7" fill="#FFFFFF" stroke="${BLUE}" stroke-width="4"/>
+    ${xLabels}`;
+}
+
+/**
+ * PlayStation money per day as bars, with the running daily average as a line
+ * on the same axis, so a rising line means each new day lifts the average.
+ */
+function playstationChart(
+  points: DailyFinanceIncomePoint[],
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+): string {
+  const averages = runningDailyAverage(points);
+  const axisMax = niceAxisMax(Math.max(0, ...points.map((point) => point.amount), ...averages.map((point) => point.amount)));
+  const gridLines = [0, 1, 2, 3, 4].map((step) => {
+    const value = (axisMax / 4) * step;
+    const y = top + height - (height / 4) * step;
+    return `<line x1="${left}" y1="${y}" x2="${left + width}" y2="${y}" stroke="${BORDER}" stroke-width="1.5"/>
+    <text x="${left - 12}" y="${y + 6}" text-anchor="end" font-size="16" fill="${MUTED}">${escapeXml(compactAxisValue(value))}</text>`;
+  }).join('\n    ');
+
+  if (points.length === 0 || points.every((point) => point.amount === 0)) {
+    return `${gridLines}
+    <text x="${left + width / 2}" y="${top + height / 2}" text-anchor="middle" font-size="20" fill="${MUTED}">Нет продаж PlayStation за месяц</text>`;
+  }
+
+  const slot = width / points.length;
+  const barWidth = Math.max(4, Math.min(28, slot * 0.6));
+  const centre = (index: number) => left + slot * index + slot / 2;
+  const yOf = (value: number) => top + height - (Math.max(0, value) / axisMax) * height;
+  const bars = points.map((point, index) => {
+    if (point.amount <= 0) return '';
+    const y = yOf(point.amount);
+    return `<rect x="${(centre(index) - barWidth / 2).toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${(top + height - y).toFixed(1)}" rx="3" fill="${PURPLE}" fill-opacity="0.8"/>`;
+  }).join('\n    ');
+  const line = averages.map((point, index) => `${centre(index).toFixed(1)},${yOf(point.amount).toFixed(1)}`).join(' ');
+  const last = averages[averages.length - 1];
+  const labelIndexes = Array.from(new Set([
+    0,
+    ...[7, 14, 21].map((day) => day - 1).filter((index) => index < points.length - 3),
+    points.length - 1,
+  ]));
+  const xLabels = labelIndexes.map((index) =>
+    `<text x="${centre(index).toFixed(1)}" y="${top + height + 30}" text-anchor="middle" font-size="16" fill="${MUTED}">${escapeXml(dayLabel(points[index].date))}</text>`,
+  ).join('\n    ');
+
+  return `${gridLines}
+    ${bars}
+    ${points.length > 1 ? `<polyline points="${line}" fill="none" stroke="${INK}" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>` : ''}
+    <circle cx="${centre(averages.length - 1).toFixed(1)}" cy="${yOf(last.amount).toFixed(1)}" r="7" fill="#FFFFFF" stroke="${INK}" stroke-width="4"/>
     ${xLabels}`;
 }
 
@@ -509,13 +561,18 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
   const chartsY = barFlowY + barFlow.height + 24;
   const chartsHeight = 400;
 
+  // PlayStation, part of club income, tracked on its own: daily sales and their running average.
+  const playstationY = chartsY + chartsHeight + 24;
+  const showPlaystation = input.monthDailyPlaystationIncome !== undefined;
+  const playstationHeight = showPlaystation ? 380 : 0;
+
   // Club and bar breakdown cards.
   const clubExpenseRows = limitCategories(input.gameClubExpenseCategories, 5);
   const visibleClubExpenseRows = clubExpenseRows.length > 0
     ? clubExpenseRows
     : [{ name: 'Нет расходов', amount: 0 }];
   const barExpenseRows = limitCategories(input.barExpenseCategories, 3);
-  const detailY = chartsY + chartsHeight + 24;
+  const detailY = playstationY + (showPlaystation ? playstationHeight + 24 : 0);
   const clubContentHeight = 350 + visibleClubExpenseRows.length * 38;
   const barContentHeight = 190 + 3 * 42 + barExpenseRows.length * 34;
   const detailHeight = Math.max(clubContentHeight, barContentHeight) + 112;
@@ -626,6 +683,8 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
     ${changeBadge(WIDTH - PAGE_X - 196, chartsY + 340, input.averageDailyGameClubIncomeChange, 20)}
     <text x="${WIDTH - PAGE_X - 196}" y="${chartsY + 366}" font-size="16" fill="${MUTED}">к прошлому месяцу</text>
 
+    ${showPlaystation ? playstationSection(input, playstationY, playstationHeight) : ''}
+
     ${card(PAGE_X, detailY, detailWidth, detailHeight, '#FAFCFF', '#C7D7FB')}
     ${iconTile(PAGE_X + 28, detailY + 28, 80, BLUE, GLYPH_GAMEPAD)}
     <text x="${PAGE_X + 130}" y="${detailY + 58}" font-size="22" font-weight="800" fill="${BLUE}">КЛУБ</text>
@@ -668,6 +727,31 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
     <text x="${PAGE_X + 40}" y="${footerY + 24}" font-size="17" fill="${MUTED}">Все суммы указаны в UZS. Дневные показатели — за ${escapeXml(input.businessDateLabel)}, месячные — с 1-го числа.</text>
   </g>
 </svg>`;
+}
+
+function playstationSection(input: DailyFinanceReportInput, y: number, height: number): string {
+  const chartLeft = PAGE_X + 580;
+  const chartWidth = PAGE_WIDTH - 464 - 146;
+  return `${card(PAGE_X, y, 440, height, '#F7F3FF', '#DDD0FB')}
+    ${iconTile(PAGE_X + 28, y + 28, 64, PURPLE, GLYPH_GAMEPAD)}
+    <text x="${PAGE_X + 112}" y="${y + 58}" font-size="22" font-weight="800" fill="${PURPLE}">PLAYSTATION</text>
+    <text x="${PAGE_X + 112}" y="${y + 84}" font-size="16" fill="${MUTED}">часть дохода клуба</text>
+    <text x="${PAGE_X + 28}" y="${y + 136}" font-size="17" fill="${TEXT}">За день</text>
+    ${moneyText(PAGE_X + 28, y + 170, input.playstationIncome, 26, PURPLE)}
+    <text x="${PAGE_X + 28}" y="${y + 222}" font-size="17" fill="${TEXT}">С начала месяца</text>
+    ${moneyText(PAGE_X + 28, y + 256, input.monthPlaystationIncome ?? 0, 26, PURPLE)}
+    <text x="${PAGE_X + 28}" y="${y + 308}" font-size="17" fill="${TEXT}">Средние продажи / день</text>
+    ${moneyText(PAGE_X + 28, y + 342, input.averageDailyPlaystationIncome ?? 0, 26, INK)}
+    ${changeBadge(PAGE_X + 300, y + 316, input.averageDailyPlaystationIncomeChange, 18)}
+    <text x="${PAGE_X + 300}" y="${y + 342}" font-size="15" fill="${MUTED}">к прошл. месяцу</text>
+
+    ${card(PAGE_X + 464, y, PAGE_WIDTH - 464, height)}
+    <text x="${PAGE_X + 492}" y="${y + 50}" font-size="19" font-weight="800" fill="${INK}">ПРОДАЖИ PLAYSTATION ЗА МЕСЯЦ</text>
+    <rect x="${WIDTH - PAGE_X - 400}" y="${y + 36}" width="16" height="16" rx="3" fill="${PURPLE}" fill-opacity="0.8"/>
+    <text x="${WIDTH - PAGE_X - 376}" y="${y + 50}" font-size="16" fill="${MUTED}">за день</text>
+    <line x1="${WIDTH - PAGE_X - 290}" y1="${y + 44}" x2="${WIDTH - PAGE_X - 262}" y2="${y + 44}" stroke="${INK}" stroke-width="4" stroke-linecap="round"/>
+    <text x="${WIDTH - PAGE_X - 252}" y="${y + 50}" font-size="16" fill="${MUTED}">средние продажи / день</text>
+    ${playstationChart(input.monthDailyPlaystationIncome ?? [], chartLeft, y + 96, chartWidth, height - 170)}`;
 }
 
 export async function renderDailyFinanceReportPng(input: DailyFinanceReportInput): Promise<Buffer> {
