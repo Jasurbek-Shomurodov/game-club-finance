@@ -311,6 +311,15 @@ describe('expense creation route', () => {
     expect((await bar.json()).code).toBe('PAYMENT_METHOD_DISABLED');
   });
 
+  it('takes investments only from the reserve', async () => {
+    mockCreate();
+    for (const paymentSource of ['game_club', 'bar']) {
+      const response = await create({ ...body, category: 'investments', paymentSource });
+      expect((await response.json()).code).toBe('INVALID_REQUEST');
+    }
+    expect((await create({ ...body, category: 'investments', fromReserve: true })).status).not.toBe(400);
+  });
+
   it('refuses PlayStation money for a Bar expense', async () => {
     mockCreate();
     const response = await create({ ...body, paymentMethod: 'playstation', paymentSource: 'bar' });
@@ -411,6 +420,7 @@ describe('expense payment method route', () => {
     id: EXPENSE_ID, club_id: CLUB_ID, date: '2026-10-24', amount: 8000, category: 'food_drinks',
     payment_method: 'cash', payment_source: 'bar', comment: 'non', created_by: 'user-1',
     salary_entry_id: null as string | null, telegram_chat_id: '-1001' as string | null, telegram_message_id: 42 as number | null,
+    paid_from_reserve: false as boolean,
   };
 
   function mockPatchSupabase(expense: typeof baseExpense | null, rpcError: { message: string; code?: string } | null = null) {
@@ -603,6 +613,15 @@ describe('expense payment method route', () => {
       }
       expect((await patchBody({ category: baseExpense.category })).status).toBe(200);
       expect(rpc).not.toHaveBeenCalled();
+    });
+
+    it('moves only a reserve expense into investments', async () => {
+      const { rpc } = mockPatchSupabase(baseExpense);
+      expect((await patchBody({ category: 'investments' })).status).toBe(400);
+      expect(rpc).not.toHaveBeenCalled();
+      const reserve = mockPatchSupabase({ ...baseExpense, paid_from_reserve: true });
+      expect((await patchBody({ category: 'investments' })).status).toBe(200);
+      expect(reserve.rpc).toHaveBeenCalledWith('update_expense_category', { p_club_id: CLUB_ID, p_expense_id: EXPENSE_ID, p_category: 'investments' });
     });
   });
 });

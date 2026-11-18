@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Banknote, Building2, PiggyBank, Save, WalletCards } from 'lucide-react';
+import { Banknote, PiggyBank, Save } from 'lucide-react';
+import { SIDE_ICONS } from '@/components/sideIcons';
 import { PAYMENT_METHOD_ICONS } from '@/components/paymentMethodIcons';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
@@ -20,7 +21,7 @@ import {
   useEntryNoteGuard,
 } from '@/components/PresentationFoundation';
 import { formatCurrency, formatCurrencyInput, formatUnitCurrency, parseDecimalInput } from '@/lib/formatters';
-import { MANUAL_EXPENSE_CATEGORIES } from '@/lib/expenseCategories';
+import { isCategoryAllowedForSource, manualExpenseCategoriesFor } from '@/lib/expenseCategories';
 import { createClient, mutateFinanceRequest } from '@/lib/supabase/client';
 import { fetchExpensePresets } from '@/lib/supabase/expensePresets';
 import { fetchExpenseMethodBalances, type ExpenseMethodBalances } from '@/lib/supabase/expenseBalances';
@@ -41,8 +42,9 @@ type PaymentSource = (typeof PAYMENT_SOURCES)[number];
 const RESERVE_SUMS: ExpensePaymentMethod = 'cash';
 
 const SOURCE_ICONS: Record<PaymentSource, React.ReactNode> = {
-  game_club: <Building2 size={16} aria-hidden="true" />,
-  bar: <WalletCards size={16} aria-hidden="true" />,
+  // The app-wide business icons: the club's PCs and the bar's bag.
+  game_club: <SIDE_ICONS.gameClub size={16} aria-hidden="true" />,
+  bar: <SIDE_ICONS.bar size={16} aria-hidden="true" />,
   reserve: <PiggyBank size={16} aria-hidden="true" />,
 };
 
@@ -202,6 +204,8 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
       if (field === 'payment_source' && value !== current.payment_source) {
         const offered = methodsFor(next.payment_source);
         if (!offered.includes(next.payment_method) || next.payment_source === 'reserve') next.payment_method = offered[0] ?? next.payment_method;
+        // Investments are the reserve's alone: leaving the reserve drops that category.
+        if (!isCategoryAllowedForSource(next.category, next.payment_source === 'reserve')) next.category = '';
       }
       // Leaving dollars for sums: sum amounts are whole, so show what will be saved.
       if (current.payment_method === 'usd' && next.payment_method !== 'usd') next.amount = formatCurrencyInput(current.amount);
@@ -222,7 +226,10 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
         preset_id: preset.id,
         category: preset.category,
         // A plan paid from the reserve stays on the reserve; its side is still the plan's.
-        payment_source: current.payment_source === 'reserve' ? 'reserve' : preset.payment_source,
+        // An investments plan can only be paid from the reserve.
+        payment_source: current.payment_source === 'reserve' || !isCategoryAllowedForSource(preset.category, false)
+          ? 'reserve'
+          : preset.payment_source,
         // The plan's usual method is a default the person can still change.
         ...(preset.payment_method && enabledPaymentMethods.includes(preset.payment_method)
           ? { payment_method: preset.payment_method }
@@ -428,7 +435,8 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
             label: t(`paymentSources.${source}`),
             icon: SOURCE_ICONS[source],
             // A plan keeps its own side, but the reserve can still pay it.
-            disabled: selectedPreset !== null && source !== 'reserve' && source !== selectedPreset.payment_source,
+            disabled: selectedPreset !== null && source !== 'reserve'
+              && (source !== selectedPreset.payment_source || !isCategoryAllowedForSource(selectedPreset.category, false)),
           }))}
         />
       </Field>
@@ -509,7 +517,8 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
         <Field label={t('category')} htmlFor="expense-category">
           <Select id="expense-category" required disabled={selectedPreset !== null} value={form.category} onChange={(event) => set('category', event.target.value)}>
             <option value="" disabled>{t('selectCategory')}</option>
-            {MANUAL_EXPENSE_CATEGORIES.map((category) => (
+            {/* Investments are offered only on the reserve; a chosen plan always shows its own category. */}
+            {[...new Set([...manualExpenseCategoriesFor(onReserve), ...(selectedPreset ? [selectedPreset.category] : [])])].map((category) => (
               <option key={category} value={category}>{categoryLabel(category)}</option>
             ))}
           </Select>
