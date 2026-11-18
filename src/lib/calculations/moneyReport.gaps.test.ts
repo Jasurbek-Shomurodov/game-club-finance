@@ -45,8 +45,9 @@ describe('money report with incomplete rows and exchanges', () => {
     expect(report.totalCollected).toBe(2_080_000);
     expect(report.gameClubExpenses).toBe(300_000);
     expect(report.barExpenses).toBe(70_000);
-    // Collected minus Game Club expenses: moving 840 000 between methods and into dollars changes nothing.
-    expect(report.gameClubLeft).toBe(1_780_000);
+    // Collected minus Game Club expenses, minus the 640 000 sent into dollars: dollars are the
+    // owner reserve's (143, 156). Moving 200 000 between UZS methods changes nothing.
+    expect(report.gameClubLeft).toBe(1_140_000);
     // No bar sales in the period: the Bar expense alone leaves the bar 70 000 short.
     expect(report.barLeft).toBe(-70_000);
     expect(report.usd).toBe(50);
@@ -55,11 +56,11 @@ describe('money report with incomplete rows and exchanges', () => {
   it('totals the day the same way', () => {
     const [day] = report.days;
     expect(day).toMatchObject({
-      date: DAY, cash: 860_000, terminal: 80_000, card: 200_000, playstation: 0, total: 1_780_000,
+      date: DAY, cash: 860_000, terminal: 80_000, card: 200_000, playstation: 0, total: 1_140_000,
       income: 2_080_000, expenses: 370_000, gameClubExpenses: 300_000, barExpenses: 70_000,
     });
-    // The day total is its income minus its Game Club expenses.
-    expect(day.total).toBe(day.income - day.gameClubExpenses);
+    // The day total is its income minus its Game Club expenses and the sums put into dollars.
+    expect(day.total).toBe(day.income - day.gameClubExpenses - 640_000);
   });
 
   it('lists incomes, debt payments, expenses in the order recorded, then exchanges', () => {
@@ -100,12 +101,12 @@ describe('money report with incomplete rows and exchanges', () => {
     expect(filtered.totalCollected).toBe(0);
     expect(filtered.gameClubExpenses).toBe(0);
     expect(filtered.barLeft).toBe(0);
-    // Nothing was collected or spent, so moving money leaves nothing and loses nothing.
-    expect(filtered.gameClubLeft).toBe(0);
+    // Nothing was collected or spent; only the sums put into dollars left Game Club for the reserve.
+    expect(filtered.gameClubLeft).toBe(-640_000);
     expect(filtered.usd).toBe(50);
     expect(filtered.days).toHaveLength(1);
     expect(filtered.days[0].activities.map((activity) => activity.kind)).toEqual(['exchange', 'exchange']);
-    expect(filtered.days[0]).toMatchObject({ income: 0, expenses: 0, total: 0, cash: -840_000, card: 200_000 });
+    expect(filtered.days[0]).toMatchObject({ income: 0, expenses: 0, total: -640_000, cash: -840_000, card: 200_000 });
   });
 
   it('keeps one category under an expense category filter, whichever money paid it', () => {
@@ -157,7 +158,7 @@ describe('expenses paid from the club dollars', () => {
     for (const activity of buildMoneyReport([], rows).days[0].activities) expect(activity).not.toHaveProperty('dollars');
   });
 
-  it('takes a dollar expense out of Game Club money left, like the dashboard does', () => {
+  it('takes the dollars bought out of Game Club money left, never the dollars spent (156)', () => {
     const report = buildMoneyReport(
       [cashRow],
       [
@@ -174,10 +175,10 @@ describe('expenses paid from the club dollars', () => {
     // Cash holds 2 000 000 − 300 000 − 640 000 sent into dollars; the dollar expense never touches it.
     expect(report.paymentMethods.cash.left).toBe(1_060_000);
     expect(report.usd).toBe(30);
-    // Buying dollars is not spending, spending them is: 2 000 000 − 300 000 − 256 000.
-    expect(report.gameClubLeft).toBe(1_444_000);
-    expect(report.days[0].total).toBe(1_444_000);
-    expect(report.gameClubLeft).toBe(report.totalCollected - report.gameClubExpenses);
+    // The dollar expense is still an expense, but the reserve paid it: Game Club money left is
+    // 2 000 000 − 300 000 − 640 000 put into the reserve's dollars, the same as the cash card.
+    expect(report.gameClubLeft).toBe(1_060_000);
+    expect(report.days[0].total).toBe(1_060_000);
   });
 });
 

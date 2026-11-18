@@ -567,7 +567,10 @@ test('OWN-008 profit put into the reserve leaves the month, and a purchase paid 
   // The reserve has its own page: an overview of what it holds, and its history on a second tab.
   await reserve.getByRole('link', { name: 'Charts and history' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Reserve' })).toBeVisible();
-  await expect(page.getByText('In the reserve now')).toBeVisible();
+  // Two pots, whatever side or method the money came from: sums and dollars.
+  const held = page.getByRole('region', { name: 'In the reserve now' });
+  await expect(held).toContainText('UZS');
+  await expect(held).toContainText('US dollars');
   await expect(page.getByRole('heading', { name: 'Reserve over time' })).toBeVisible();
   await expect(page.getByRole('list', { name: 'Reserve history' })).toHaveCount(0);
   await page.getByRole('radio', { name: /^History · \d+/ }).click();

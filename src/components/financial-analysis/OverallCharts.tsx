@@ -28,6 +28,7 @@ import {
   formatYearMonth,
 } from '@/lib/formatters';
 import type {
+  ForecastSide,
   Granularity,
   HeatmapCell,
   MonthForecast,
@@ -43,7 +44,7 @@ import { formatShare, SOURCE_COLORS } from './analysisFormat';
 
 type Side = 'gameClub' | 'bar';
 
-const SIDE_COLOR: Record<Side, string> = { gameClub: chartColors.primary, bar: chartColors.orange };
+const SIDE_COLOR: Record<ForecastSide, string> = { gameClub: chartColors.primary, bar: chartColors.orange, playstation: chartColors.purple };
 
 /** Axis tick and tooltip title of a bucket: its day, its week's first day or its month. */
 function periodLabels(granularity: Granularity, locale: string) {
@@ -377,7 +378,7 @@ export function OwnerMonthsChart({ rows, locale, currency }: { rows: OwnerMonthR
  */
 export function ForecastChart({ forecast, side, locale, currency }: {
   forecast: MonthForecast;
-  side: Side;
+  side: ForecastSide;
   locale: string;
   currency: string;
 }) {

@@ -9,6 +9,7 @@ import type {
 import type { AnalysisLedgers } from '@/lib/calculations/financialAnalysis';
 import { fetchFinanceReportSnapshot, type FinanceReportSection } from './financeReportSnapshot';
 import { fetchAllRows } from './pagination';
+import { fetchReserveMoves } from './reserveMoves';
 
 const ANALYSIS_SECTIONS: FinanceReportSection[] = ['cash', 'stock_totals', 'expenses', 'debts', 'debt_payments'];
 
@@ -22,7 +23,11 @@ export async function fetchAnalysisLedgers(
   clubId: string,
   range: { from: string; to: string },
 ): Promise<AnalysisLedgers> {
-  const snapshot = await fetchFinanceReportSnapshot(supabase, clubId, range.from, range.to, ANALYSIS_SECTIONS);
+  const [snapshot, reserveMoves] = await Promise.all([
+    fetchFinanceReportSnapshot(supabase, clubId, range.from, range.to, ANALYSIS_SECTIONS),
+    // The reserve stays out of money left (156); nothing moves before that migration.
+    fetchReserveMoves(supabase, clubId, range.from, range.to),
+  ]);
   if (snapshot.error) throw snapshot.error;
   if (snapshot.data) {
     return {
@@ -40,6 +45,7 @@ export async function fetchAnalysisLedgers(
       // Debts count as income on their issue date; balances are not used here.
       debtRows: snapshot.data.debtRows.map((row) => ({ ...row, remaining_amount: 0, status: 'unknown' })),
       debtPaymentRows: snapshot.data.debtPaymentRows,
+      reserveMoves,
     };
   }
 
@@ -95,5 +101,6 @@ export async function fetchAnalysisLedgers(
     expenseRows: (expenseRes.data ?? []) as ExpenseRow[],
     debtRows: (debtRes.data ?? []) as DebtValueRow[],
     debtPaymentRows: (debtPaymentRes.data ?? []) as DebtPaymentValueRow[],
+    reserveMoves,
   };
 }

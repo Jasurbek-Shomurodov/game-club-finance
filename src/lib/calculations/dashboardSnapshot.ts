@@ -21,6 +21,7 @@ import {
 import type { AnalysisLedgers } from './financialAnalysis';
 import { summarizeDebtors, type DashboardDebtor } from './dashboardAttention';
 import { monthRange, previousYearMonth } from '@/lib/utils';
+import type { ReserveMove } from './reserveMoves';
 
 export interface DashboardDebtRow {
   id: string;
@@ -46,6 +47,8 @@ export interface DashboardSnapshotPayload {
   debtRows: DashboardDebtRow[];
   debtPaymentRows: DebtPaymentValueRow[];
   products: Product[];
+  /** Money moved into or out of the owner reserve (156); absent before it, when nothing moves. */
+  reserveMoves?: ReserveMove[];
 }
 
 /** A product as the dashboard's restock list reads it; the rest of the row stays on the server. */
@@ -190,6 +193,7 @@ export function buildDashboardDataFromSnapshot({
     rangeDebts,
     debtPaymentRows,
     activeDebts,
+    rowsInRange(payload.reserveMoves ?? [], range),
   );
   const totals = {
     ...liveTotals,
@@ -209,6 +213,7 @@ export function buildDashboardDataFromSnapshot({
     previousDebts,
     previousDebtPaymentRows,
     activeDebts,
+    rowsInRange(payload.reserveMoves ?? [], previousRange),
   );
   const expenseCategories = Array.from(
     expenseRows.reduce((categoryMap, row) => {

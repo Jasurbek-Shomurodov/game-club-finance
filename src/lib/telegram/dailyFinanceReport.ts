@@ -1,3 +1,4 @@
+import type { ReserveMove } from '@/lib/calculations/reserveMoves';
 import { formatCurrency, formatDateOnly } from '../formatters';
 import {
   calculateAverageDailyIncome,
@@ -179,6 +180,11 @@ export interface DailyFinanceReportRows {
   writeOffRows?: DailyFinanceWriteOffRow[];
   /** The club's internet payment day of the month (1-31); null or absent means no reminder. */
   internetPaymentDay?: number | null;
+  /**
+   * Money moved into or out of the owner reserve from the previous month's start
+   * through the report date (156): kept out of money left. Absent: nothing moved.
+   */
+  reserveMoves?: ReserveMove[];
   /** Calendar date the report is sent on; the reminder fires when the next day is the payment date. */
   sendDate?: string;
 }
@@ -415,6 +421,8 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
   const monthDebtPaymentRows = (rows.debtPaymentRows ?? []).filter(
     (row) => row.date >= monthRange.from && row.date <= monthRange.to,
   );
+  const movesIn = (range: { from: string; to: string }) => (rows.reserveMoves ?? [])
+    .filter((move) => move.date >= range.from && move.date <= range.to);
   const dailyTotals = calculateDashboardTotals(
     rows.cashRows,
     rows.stockRows,
@@ -424,6 +432,7 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
     dailyDebtRows,
     dailyDebtPaymentRows,
     rows.debtRows,
+    movesIn({ from: rows.businessDate, to: rows.businessDate }),
   );
   const monthTotals = calculateDashboardTotals(
     rows.monthCashRows ?? rows.cashRows,
@@ -434,6 +443,7 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
     monthDebtRows,
     monthDebtPaymentRows,
     rows.debtRows,
+    movesIn(monthRange),
   );
   const previousMonthDebtRows = rows.debtRows.filter((row) =>
     Boolean(row.date && row.date >= previousMonthRange.from && row.date <= previousMonthRange.to));
@@ -446,6 +456,7 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
     previousMonthDebtRows,
     rows.previousMonthDebtPaymentRows ?? [],
     rows.debtRows,
+    movesIn(previousMonthRange),
   );
   // Same day counts as the dashboard and financial analysis (latest cash entry or new debt).
   const averageRevenueDayCount = getAverageIncomeDayCounts(monthRange, {

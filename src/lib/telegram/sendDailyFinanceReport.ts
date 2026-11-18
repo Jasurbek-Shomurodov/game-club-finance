@@ -1,3 +1,4 @@
+import { fetchReserveMoves } from '@/lib/supabase/reserveMoves';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatDateOnly } from '../formatters';
 import { isMissingDatabaseColumn } from '../supabase/errors';
@@ -305,7 +306,7 @@ export async function buildDailyFinanceTelegramReport(
       .order('date', { ascending: true })
       .order('id', { ascending: true }),
   );
-  const [clubRes, cashRes, stockRes, purchaseRes, expenseRes, debtPaymentRes, laterDebtPaymentRes, debtRes, lowStockProductRows, giveawayRows, writeOffRows, internetPaymentDay] = await Promise.all([
+  const [clubRes, cashRes, stockRes, purchaseRes, expenseRes, debtPaymentRes, laterDebtPaymentRes, debtRes, lowStockProductRows, giveawayRows, writeOffRows, internetPaymentDay, reserveMoves] = await Promise.all([
     getClub(supabase, clubId),
     windowed<DailyCashRow>('daily_cash_entries', 'date,cash_income,terminal_income,card_income,playstation_income', ['date']),
     // (club_id, date, product_id) is unique, so the ordering pages stably.
@@ -315,7 +316,8 @@ export async function buildDailyFinanceTelegramReport(
       ['date', 'product_id'],
     ),
     windowed<StockPurchaseCostRow>('stock_purchases', 'id,date,quantity,cost_price', ['date', 'id']),
-    windowed<ExpenseRow>('expenses', 'id,date,amount,category,payment_source,comment,created_at', ['date', 'id']),
+    // The method and reserve flag keep reserve purchases out of money left (156).
+    windowed<ExpenseRow>('expenses', 'id,date,amount,category,payment_method,payment_source,paid_from_reserve,comment,created_at', ['date', 'id']),
     windowed<DailyFinanceReportDebtPaymentRow>('debt_payments', 'id,date,amount,payment_method', ['date', 'id']),
     laterDebtPaymentsPromise,
     laterDebtPaymentsPromise.then((later) => (later.error
@@ -331,6 +333,7 @@ export async function buildDailyFinanceTelegramReport(
     getPromoGiveawayRows(supabase, clubId, businessDate),
     getStockWriteOffRows(supabase, clubId, businessDate),
     getInternetPaymentDay(supabase, clubId),
+    fetchReserveMoves(supabase, clubId, windowFrom, businessDate),
   ]);
 
   const firstError = [
@@ -380,6 +383,7 @@ export async function buildDailyFinanceTelegramReport(
     giveawayRows,
     writeOffRows,
     internetPaymentDay,
+    reserveMoves,
     // Calendar date in the club's time zone, independent of its business-day start.
     sendDate: serverTodayIso(now, 0),
   });

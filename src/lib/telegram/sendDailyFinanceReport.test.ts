@@ -37,6 +37,8 @@ function recordingClient(clubRow: Record<string, unknown> | null, clubError: unk
       };
       return query;
     },
+    // The reserve's moves (156): none in these reports.
+    rpc: async () => ({ data: [], error: null }),
   } as unknown as SupabaseClient;
   return { client, queries };
 }

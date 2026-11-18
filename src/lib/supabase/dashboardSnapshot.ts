@@ -15,6 +15,7 @@ import type {
 } from '@/lib/calculations/dashboardSnapshot';
 import { isMissingDatabaseFunction } from './errors';
 import { fetchAllRows } from './pagination';
+import { fetchReserveMoves } from './reserveMoves';
 
 type Ranges = Pick<DashboardSnapshotRanges, 'range' | 'previousRange' | 'inventoryComparisonRange'> & Partial<Pick<DashboardSnapshotRanges, 'period'>>;
 
@@ -51,18 +52,26 @@ export async function fetchDashboardSnapshot(
   clubId: string,
   { range, previousRange, inventoryComparisonRange }: Ranges,
 ): Promise<DashboardSnapshotResult> {
-  const result = await supabase.rpc('get_dashboard_snapshot', {
-    p_club_id: clubId,
-    p_range_from: range.from,
-    p_range_to: range.to,
-    p_previous_from: previousRange.from,
-    p_previous_to: previousRange.to,
-    p_inventory_from: inventoryComparisonRange.from,
-    p_inventory_to: inventoryComparisonRange.to,
-  });
+  const movesFrom = range.from < previousRange.from ? range.from : previousRange.from;
+  const movesTo = range.to > previousRange.to ? range.to : previousRange.to;
+  const [result, moves] = await Promise.all([
+    supabase.rpc('get_dashboard_snapshot', {
+      p_club_id: clubId,
+      p_range_from: range.from,
+      p_range_to: range.to,
+      p_previous_from: previousRange.from,
+      p_previous_to: previousRange.to,
+      p_inventory_from: inventoryComparisonRange.from,
+      p_inventory_to: inventoryComparisonRange.to,
+    }),
+    // The reserve stays out of money left (156); read beside the snapshot, which predates it.
+    fetchReserveMoves(supabase, clubId, movesFrom, movesTo)
+      .then((rows) => ({ rows, error: null }), (error: Error) => ({ rows: [], error: { message: error.message } })),
+  ]);
 
   if (!result.error) {
-    return { data: normalizeDashboardSnapshotPayload(result.data), error: null, fallbackRequired: false };
+    if (moves.error) return { data: null, error: moves.error, fallbackRequired: false };
+    return { data: { ...normalizeDashboardSnapshotPayload(result.data), reserveMoves: moves.rows }, error: null, fallbackRequired: false };
   }
   if (isMissingDatabaseFunction(result.error, 'get_dashboard_snapshot')) {
     return { data: null, error: null, fallbackRequired: true };

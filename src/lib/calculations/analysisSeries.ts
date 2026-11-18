@@ -286,13 +286,22 @@ export interface ForecastDayRow {
   barActual: number | null;
   barProjected: number | null;
   barLastMonth: number | null;
+  /** PlayStation money alone, part of Game Club money in. */
+  playstationActual: number | null;
+  playstationProjected: number | null;
+  playstationLastMonth: number | null;
 }
+
+/** A forecast line: a side, or PlayStation money inside Game Club money. */
+export type ForecastSide = Side | 'playstation';
 
 export interface MonthForecast {
   month: string;
   daysInMonth: number;
   gameClub: SideForecast;
   bar: SideForecast;
+  /** PlayStation money in, counted over Game Club's days; it has no expenses of its own, so profit is its money in. */
+  playstation: SideForecast;
   days: ForecastDayRow[];
 }
 
@@ -316,14 +325,21 @@ export function buildMonthForecast(businessToday: string, ledgers: AnalysisLedge
     stockRows: ledgers.stockRows.filter((row) => row.date >= range.from && row.date <= range.to),
   });
 
-  const incomeOf = (side: Side, row: (typeof current)[number]) => (side === 'gameClub' ? row.gameClubIncome : row.barSales);
-  const spentOf = (side: Side, row: (typeof current)[number]) => (
-    side === 'gameClub' ? row.gameClubExpenses : row.barCost + row.barExpenses
+  // PlayStation money is collected with the Game Club's daily cash.
+  const playstationByDate = new Map<string, number>();
+  for (const row of ledgers.cashRows) {
+    playstationByDate.set(row.date, (playstationByDate.get(row.date) ?? 0) + Number(row.playstation_income ?? 0));
+  }
+  const incomeOf = (side: ForecastSide, row: (typeof current)[number]) => (
+    side === 'gameClub' ? row.gameClubIncome : side === 'bar' ? row.barSales : playstationByDate.get(row.date) ?? 0
   );
-  const sideForecast = (side: Side): SideForecast => {
+  const spentOf = (side: ForecastSide, row: (typeof current)[number]) => (
+    side === 'gameClub' ? row.gameClubExpenses : side === 'bar' ? row.barCost + row.barExpenses : 0
+  );
+  const sideForecast = (side: ForecastSide): SideForecast => {
     const incomeToDate = current.reduce((total, row) => total + incomeOf(side, row), 0);
     const profitToDate = current.reduce((total, row) => total + incomeOf(side, row) - spentOf(side, row), 0);
-    const daysCounted = incomeToDate > 0 ? dayCounts[side] : 0;
+    const daysCounted = incomeToDate > 0 ? dayCounts[side === 'bar' ? 'bar' : 'gameClub'] : 0;
     const scale = daysCounted ? length / daysCounted : 0;
     return {
       daysCounted,
@@ -337,14 +353,15 @@ export function buildMonthForecast(businessToday: string, ledgers: AnalysisLedge
   };
   const gameClub = sideForecast('gameClub');
   const bar = sideForecast('bar');
+  const playstation = sideForecast('playstation');
 
-  const running = (side: Side, rows: typeof current) => {
+  const running = (side: ForecastSide, rows: typeof current) => {
     let total = 0;
     return rows.map((row) => (total += incomeOf(side, row)));
   };
-  const actual = { gameClub: running('gameClub', current), bar: running('bar', current) };
-  const before = { gameClub: running('gameClub', previous), bar: running('bar', previous) };
-  const line = (side: Side, forecast: SideForecast, day: number) => {
+  const actual = { gameClub: running('gameClub', current), bar: running('bar', current), playstation: running('playstation', current) };
+  const before = { gameClub: running('gameClub', previous), bar: running('bar', previous), playstation: running('playstation', previous) };
+  const line = (side: ForecastSide, forecast: SideForecast, day: number) => {
     const counted = forecast.daysCounted;
     const reached = counted ? actual[side][counted - 1] : 0;
     const pace = counted ? reached / counted : 0;
@@ -360,10 +377,12 @@ export function buildMonthForecast(businessToday: string, ledgers: AnalysisLedge
     daysInMonth: length,
     gameClub,
     bar,
+    playstation,
     days: Array.from({ length }, (_, index) => {
       const day = index + 1;
       const club = line('gameClub', gameClub, day);
       const barLine = line('bar', bar, day);
+      const playstationLine = line('playstation', playstation, day);
       return {
         day,
         gameClubActual: club.actual,
@@ -372,6 +391,9 @@ export function buildMonthForecast(businessToday: string, ledgers: AnalysisLedge
         barActual: barLine.actual,
         barProjected: barLine.projected,
         barLastMonth: barLine.lastMonth,
+        playstationActual: playstationLine.actual,
+        playstationProjected: playstationLine.projected,
+        playstationLastMonth: playstationLine.lastMonth,
       };
     }),
   };

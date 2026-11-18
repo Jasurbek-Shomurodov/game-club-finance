@@ -84,6 +84,7 @@ const OwnerMonthsChart = dynamic(() => loadCharts().then((module) => module.Owne
 const HISTORY_START = '2000-01-01';
 
 type Side = 'gameClub' | 'bar';
+type ForecastSide = Side | 'playstation';
 
 interface MonthTableRow extends MonthlyAnalysisRow {
   gameClubWithdrawn: number | null;
@@ -243,9 +244,11 @@ export function OverallAnalysis({ businessToday, onOpenMonth }: { businessToday:
     { label: t('best'), value: data.best ? money(data.best.profit) : '—', helper: data.best ? monthName(data.best.month) : undefined, tone: data.best ? toneForAmount(data.best.profit) : undefined },
     { label: t('worst'), value: data.worst ? money(data.worst.profit) : '—', helper: data.worst ? monthName(data.worst.month) : undefined, tone: data.worst ? toneForAmount(data.worst.profit) : undefined },
   ];
-  const forecastStats = (side: Side) => {
+  const forecastStats = (side: ForecastSide) => {
     const data = forecast[side];
     const change = data.projectedIncome === null ? null : percentChange(data.projectedIncome, data.lastMonthIncome);
+    // PlayStation has no expenses of its own: its share of Game Club money says more than a profit.
+    const share = forecast.gameClub.incomeToDate > 0 ? (data.incomeToDate / forecast.gameClub.incomeToDate) * 100 : null;
     return [
       { label: t('forecastSoFar'), value: money(data.incomeToDate), helper: t('forecastDays', { count: data.daysCounted, total: forecast.daysInMonth }) },
       {
@@ -254,12 +257,16 @@ export function OverallAnalysis({ businessToday, onOpenMonth }: { businessToday:
         helper: change === null ? undefined : t('forecastVsLastMonth', { change: `${change > 0 ? '+' : ''}${formatShare(change, locale)}` }),
         tone: change === null ? undefined : change < 0 ? 'danger' as const : 'success' as const,
       },
-      {
-        label: t('forecastProfit'),
-        value: data.projectedProfit === null ? '—' : money(data.projectedProfit),
-        tone: data.projectedProfit === null ? undefined : toneForAmount(data.projectedProfit),
-      },
-      { label: t('forecastLastMonth'), value: money(data.lastMonthIncome), helper: t('forecastLastMonthProfit', { amount: money(data.lastMonthProfit) }) },
+      side === 'playstation'
+        ? { label: t('forecastShare'), value: share === null ? '—' : formatShare(share, locale), helper: t('forecastShareHelper') }
+        : {
+          label: t('forecastProfit'),
+          value: data.projectedProfit === null ? '—' : money(data.projectedProfit),
+          tone: data.projectedProfit === null ? undefined : toneForAmount(data.projectedProfit),
+        },
+      side === 'playstation'
+        ? { label: t('forecastLastMonth'), value: money(data.lastMonthIncome) }
+        : { label: t('forecastLastMonth'), value: money(data.lastMonthIncome), helper: t('forecastLastMonthProfit', { amount: money(data.lastMonthProfit) }) },
     ];
   };
   const hasYearOverYear = yearOverYear.gameClub.years.length > 1;
@@ -399,8 +406,15 @@ export function OverallAnalysis({ businessToday, onOpenMonth }: { businessToday:
         <div className="space-y-6">
           <Section id="forecast" help={t('help.forecast')} title={t('forecastSection')} description={t('forecastSectionDesc', { month: monthName(forecast.month) })}>
             <div className="grid gap-4 xl:grid-cols-2">
-              {(['gameClub', 'bar'] as const).map((side) => (
-                <ChartCard key={side} help={t('help.forecastChart')} title={t(side === 'gameClub' ? 'forecastGameClubTitle' : 'forecastBarTitle')} description={t('forecastDesc')}>
+              {(['gameClub', 'bar', 'playstation'] as const).map((side) => (
+                <ChartCard
+                  key={side}
+                  // PlayStation money is part of Game Club money; it gets the full row under the two sides.
+                  className={side === 'playstation' ? 'xl:col-span-2' : undefined}
+                  help={t('help.forecastChart')}
+                  title={t(side === 'gameClub' ? 'forecastGameClubTitle' : side === 'bar' ? 'forecastBarTitle' : 'forecastPlaystationTitle')}
+                  description={t('forecastDesc')}
+                >
                   <ProfitStats items={forecastStats(side)} />
                   {forecast[side].daysCounted > 0
                     ? <ForecastChart forecast={forecast} side={side} locale={locale} currency={currency} />

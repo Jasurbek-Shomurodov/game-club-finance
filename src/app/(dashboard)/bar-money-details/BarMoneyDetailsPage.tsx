@@ -11,6 +11,7 @@ import {
 } from '@/lib/calculations/moneyDetails';
 import { fetchFinanceReportSnapshot } from '@/lib/supabase/financeReportSnapshot';
 import { fetchAllRows } from '@/lib/supabase/pagination';
+import { fetchReserveMoves } from '@/lib/supabase/reserveMoves';
 import { createClient } from '@/lib/supabase/client';
 
 interface FallbackPurchaseRow extends Omit<MoneyDetailPurchaseRow, 'product_name'> {
@@ -23,7 +24,11 @@ export default function BarMoneyDetailsPage({ requestedFrom, requestedTo }: { re
   // Rows carry keys, not translated text, so switching language never refetches.
   const loadRows = useCallback(async (clubId: string, from: string, to: string) => {
     const supabase = createClient();
-    const snapshotResult = await fetchFinanceReportSnapshot(supabase, clubId, from, to, ['stock_totals', 'purchases', 'expenses']);
+    const [snapshotResult, reserveMoves] = await Promise.all([
+      fetchFinanceReportSnapshot(supabase, clubId, from, to, ['stock_totals', 'purchases', 'expenses']),
+      // Money put into the owner reserve leaves the side's money (156).
+      fetchReserveMoves(supabase, clubId, from, to),
+    ]);
     if (snapshotResult.error) throw new Error(snapshotResult.error.message);
 
     if (snapshotResult.data) {
@@ -31,6 +36,7 @@ export default function BarMoneyDetailsPage({ requestedFrom, requestedTo }: { re
         snapshotResult.data.stockTotalRows,
         snapshotResult.data.purchaseRows,
         snapshotResult.data.expenseRows,
+        reserveMoves,
       );
     }
 

@@ -1627,11 +1627,6 @@
       {
         "kind": "relation",
         "name": "public.idx_new_debts_club_status_date"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.get_dashboard_snapshot(uuid,date,date,date,date,date,date)",
-        "md5": "e8710aed48db3afa6b2453331733f877"
       }
     ]
   },
@@ -1951,12 +1946,7 @@
   },
   {
     "file": "049_finance_report_snapshot.sql",
-    "probes": [
-      {
-        "kind": "function",
-        "signature": "public.get_finance_report_snapshot(uuid,date,date,text[])"
-      }
-    ]
+    "probes": []
   },
   {
     "file": "050_owner_profit_monthly_payment_balances.sql",
@@ -2771,11 +2761,6 @@
       {
         "kind": "relation",
         "name": "public.idx_stock_purchases_club_created_at"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.get_money_report_snapshot(uuid,date,date)",
-        "md5": "3817dcbee242a8a1a6561d3d684d4396"
       },
       {
         "kind": "function",
@@ -4944,13 +4929,7 @@
   },
   {
     "file": "154_salary_kpi_income_less_repairs.sql",
-    "probes": [
-      {
-        "kind": "functionBody",
-        "signature": "public.get_salary_profit_snapshot(uuid,date)",
-        "md5": "74d65f4d9e1aab72a96c99fe40ed8689"
-      }
-    ]
+    "probes": []
   },
   {
     "file": "155_reserve_one_pot.sql",
@@ -4986,6 +4965,35 @@
       {
         "kind": "function",
         "signature": "public.lock_owner_reserve(uuid)"
+      }
+    ]
+  },
+  {
+    "file": "156_reserve_purchases_apart.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.get_dashboard_snapshot(uuid,date,date,date,date,date,date)",
+        "md5": "2ac2ded12f79c0ed28062643c77de288"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_money_report_snapshot(uuid,date,date)",
+        "md5": "324302044d214da229b630347e1a5624"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_finance_report_snapshot(uuid,date,date,text[])",
+        "md5": "9084ac92140633de48cc93e8cd95455e"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_salary_profit_snapshot(uuid,date)",
+        "md5": "36e0a367c6c4aecb52cf649a188b60ab"
+      },
+      {
+        "kind": "function",
+        "signature": "public.get_reserve_moves(uuid,date,date)"
       }
     ]
   }

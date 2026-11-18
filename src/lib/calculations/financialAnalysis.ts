@@ -1,7 +1,6 @@
 import {
   calculateDashboardTotals,
   gameClubExpensePaymentBucket,
-  isDollarExpense,
   getAverageIncomeDayCounts,
   percentChange,
   sumGameClubRows,
@@ -15,6 +14,7 @@ import {
   type StockPurchaseCostRow,
 } from './dashboardMetrics';
 import { exchangeFlowByMethod, type MoneyExchangeRow } from './moneyExchanges';
+import { isReservePaidExpense, reservedNetBy, type ReserveMove } from './reserveMoves';
 
 /**
  * Financial analysis: where the selected period's money came from and where it
@@ -35,6 +35,8 @@ export interface AnalysisLedgers {
   /** New debts dated inside the period (debt principal counts as income). */
   debtRows: DebtValueRow[];
   debtPaymentRows: DebtPaymentValueRow[];
+  /** Money moved into or out of the owner reserve in the period (156); kept out of money left. */
+  reserveMoves?: ReserveMove[];
 }
 
 export type IncomeSourceKey = 'computers' | 'playstation' | 'bar' | 'debts' | 'shortfall';
@@ -88,6 +90,8 @@ export interface PaymentMethodFlowRow {
   exchangedIn: number;
   /** Money this method gave to exchanges, as a positive amount. */
   exchangedOut: number;
+  /** Net money put into the owner reserve from this method (156); already taken out of `left`. */
+  reserved?: number;
   left: number;
 }
 
@@ -159,6 +163,7 @@ export function analysisTotals(ledgers: AnalysisLedgers): DashboardTotals {
     ledgers.debtRows,
     ledgers.debtPaymentRows,
     [],
+    ledgers.reserveMoves ?? [],
   );
 }
 
@@ -280,7 +285,8 @@ export function buildPaymentMethodFlow(ledgers: AnalysisLedgers, exchangeRows: M
   flow.playstation.income += collected.playstationIncome;
   for (const payment of ledgers.debtPaymentRows) flow[gameClubExpensePaymentBucket(payment.payment_method)].income += amountOf(payment);
   for (const expense of ledgers.expenseRows) {
-    if (expense.payment_source === 'bar' || isDollarExpense(expense)) continue;
+    // The reserve paid its purchases, not a method (156).
+    if (expense.payment_source === 'bar' || isReservePaidExpense(expense)) continue;
     flow[gameClubExpensePaymentBucket(expense.payment_method)].expenses += amountOf(expense);
   }
   const exchanges = exchangeFlowByMethod(exchangeRows);
@@ -288,7 +294,11 @@ export function buildPaymentMethodFlow(ledgers: AnalysisLedgers, exchangeRows: M
     const exchangedIn = method === 'playstation' ? 0 : exchanges[method].in;
     const exchangedOut = method === 'playstation' ? 0 : exchanges[method].out;
     const exchanged = exchangedIn - exchangedOut;
-    return { method, ...flow[method], exchanged, exchangedIn, exchangedOut, left: flow[method].income - flow[method].expenses + exchanged };
+    const reserved = reservedNetBy(ledgers.reserveMoves ?? [], 'game_club', method);
+    return {
+      method, ...flow[method], exchanged, exchangedIn, exchangedOut, ...(reserved === 0 ? {} : { reserved }),
+      left: flow[method].income - flow[method].expenses + exchanged - reserved,
+    };
   });
 }
 

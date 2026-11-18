@@ -184,7 +184,7 @@ export function PaymentMethodFlow({
   methodLabel: (method: PaymentMethodFlowRow['method']) => string;
 }) {
   const t = useTranslations('financialAnalysis');
-  const visible = rows.filter((row) => row.income > 0 || row.expenses > 0 || row.exchanged !== 0);
+  const visible = rows.filter((row) => row.income > 0 || row.expenses > 0 || row.exchanged !== 0 || (row.reserved ?? 0) !== 0);
   if (!visible.length) return <ChartEmpty title={t('empty')} className="mt-4" />;
   const max = Math.max(...visible.map((row) => Math.max(row.income, row.expenses)), 1);
 
@@ -215,6 +215,8 @@ export function PaymentMethodFlow({
           {([
             [t('exchangedIn'), row.exchangedIn],
             [t('exchangedOut'), row.exchangedOut],
+            // Money put into the owner reserve (156) left the method.
+            [t('intoReserve'), row.reserved ?? 0],
           ] as const).filter(([, amount]) => amount !== 0).map(([label, amount]) => (
             <div key={label} className="flex justify-between text-xs text-gray-500" aria-label={`${label}: ${formatCurrency(amount)} ${currency}`}>
               <span>{label}</span>

@@ -12,6 +12,7 @@ import {
 } from '@/lib/calculations/moneyDetails';
 import { fetchFinanceReportSnapshot } from '@/lib/supabase/financeReportSnapshot';
 import { fetchAllRows } from '@/lib/supabase/pagination';
+import { fetchReserveMoves } from '@/lib/supabase/reserveMoves';
 import { createClient } from '@/lib/supabase/client';
 
 export default function GameClubMoneyDetailsPage({ requestedFrom, requestedTo }: { requestedFrom?: string; requestedTo?: string }) {
@@ -21,7 +22,11 @@ export default function GameClubMoneyDetailsPage({ requestedFrom, requestedTo }:
   // Rows carry keys, not translated text, so switching language never refetches.
   const loadRows = useCallback(async (clubId: string, from: string, to: string) => {
     const supabase = createClient();
-    const snapshotResult = await fetchFinanceReportSnapshot(supabase, clubId, from, to, ['cash', 'debt_payments', 'expenses']);
+    const [snapshotResult, reserveMoves] = await Promise.all([
+      fetchFinanceReportSnapshot(supabase, clubId, from, to, ['cash', 'debt_payments', 'expenses']),
+      // Money put into the owner reserve leaves the side's money (156).
+      fetchReserveMoves(supabase, clubId, from, to),
+    ]);
     if (snapshotResult.error) throw new Error(snapshotResult.error.message);
 
     if (snapshotResult.data) {
@@ -30,6 +35,7 @@ export default function GameClubMoneyDetailsPage({ requestedFrom, requestedTo }:
         snapshotResult.data.debtPaymentRows,
         snapshotResult.data.expenseRows,
         enabledPaymentMethods,
+        reserveMoves,
       );
     }
 
@@ -53,7 +59,7 @@ export default function GameClubMoneyDetailsPage({ requestedFrom, requestedTo }:
     ]);
     const firstError = [cashRes.error, debtRes.error, expenseRes.error].find(Boolean);
     if (firstError) throw new Error(firstError.message);
-    return buildGameClubMoneyDetailRows(cashRes.data ?? [], debtRes.data ?? [], expenseRes.data ?? [], enabledPaymentMethods);
+    return buildGameClubMoneyDetailRows(cashRes.data ?? [], debtRes.data ?? [], expenseRes.data ?? [], enabledPaymentMethods, reserveMoves);
   }, [enabledPaymentMethods]);
 
   return (

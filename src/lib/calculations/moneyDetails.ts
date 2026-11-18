@@ -16,6 +16,7 @@ import {
   type ExpenseRow,
 } from './dashboardMetrics';
 import { buildMoneyReport } from './moneyReport';
+import { isReservePaidExpense, type ReserveMove } from './reserveMoves';
 
 /** Collected-money buckets; translated at render time so language changes never refetch. */
 export type MoneyDetailCollectedKey = 'barSales' | 'cash' | 'terminal' | 'card' | 'playstation' | 'debtPayments';
@@ -33,6 +34,11 @@ export type MoneyDetailLine =
       /** Stored expense category: a known category key or custom text. */
       category: string;
       comment: string | null;
+      amount: number;
+    }
+  | {
+      /** Net money put into the owner reserve that day (156); negative when more came back. */
+      kind: 'reserve';
       amount: number;
     };
 
@@ -65,6 +71,8 @@ export interface MoneyDetailExpenseRow {
   payment_source?: 'game_club' | 'bar' | null;
   comment: string | null;
   created_at?: string;
+  /** Paid from the owner reserve (136): it takes nothing from the side's money (156). */
+  paid_from_reserve?: boolean | null;
 }
 
 export interface MoneyDetailStockRow extends BarSalesRow {
@@ -98,8 +106,21 @@ function toReportExpenseRow(row: MoneyDetailExpenseRow, index: number): ExpenseR
     payment_source: row.payment_source ?? null,
     comment: row.comment,
     created_at: row.created_at ?? '',
+    paid_from_reserve: row.paid_from_reserve ?? null,
   };
 }
+
+/** Net money one side put into the reserve, by day. */
+function reservedByDate(moves: readonly ReserveMove[], source: ReserveMove['source']): Map<string, number> {
+  const byDate = new Map<string, number>();
+  for (const move of moves) {
+    if (move.source !== source) continue;
+    byDate.set(move.date, (byDate.get(move.date) ?? 0) + Number(move.amount));
+  }
+  return byDate;
+}
+
+const reserveLines = (amount: number): MoneyDetailLine[] => (amount === 0 ? [] : [{ kind: 'reserve', amount }]);
 
 /**
  * One row per day with game-club collections (cash, terminal, card,
@@ -112,11 +133,15 @@ export function buildGameClubMoneyDetailRows(
   debtPaymentRows: MoneyDetailDebtPaymentRow[],
   expenseRows: MoneyDetailExpenseRow[],
   enabledMethods: MoneyDetailPaymentMethod[],
+  reserveMoves: readonly ReserveMove[] = [],
 ): MoneyDetailRow[] {
   // Bar-paid expenses belong to the bar page; left in, they would create empty days here.
+  // The reserve's own purchases took no Game Club money (156), so they are not deductions.
   const gameClubExpenseRows = expenseRows
-    .filter((row) => !isBarPaidExpense(row))
+    .filter((row) => !isBarPaidExpense(row) && !isReservePaidExpense(row))
     .map(toReportExpenseRow);
+  // Money put into the reserve left Game Club; dollars bought included.
+  const reserved = reservedByDate(reserveMoves, 'game_club');
   const report = buildMoneyReport(
     cashRows,
     gameClubExpenseRows,
@@ -125,8 +150,11 @@ export function buildGameClubMoneyDetailRows(
   const cashByDate = groupByDate(cashRows);
   const debtPaymentsByDate = groupByDate(debtPaymentRows);
 
-  return [...report.days]
-    .sort((a, b) => a.date.localeCompare(b.date))
+  const reportDays = new Map(report.days.map((day) => [day.date, day]));
+  const emptyDay = (date: string) => ({ date, income: 0, gameClubExpenses: 0, total: 0, activities: [] as typeof report.days[number]['activities'] });
+  return [...new Set([...reportDays.keys(), ...reserved.keys()])]
+    .sort((a, b) => a.localeCompare(b))
+    .map((date) => reportDays.get(date) ?? emptyDay(date))
     .map((day) => {
       const income = sumGameClubRows(cashByDate.get(day.date) ?? []);
       const debtPayments = (debtPaymentsByDate.get(day.date) ?? [])
@@ -143,22 +171,26 @@ export function buildGameClubMoneyDetailRows(
         || item.key === 'debtPayments'
         || enabledMethods.includes(item.key)
       ));
-      const deductions: MoneyDetailLine[] = day.activities
-        .filter((activity) => activity.kind === 'expense')
-        .map((activity) => ({
-          kind: 'expense',
-          category: activity.category ?? 'other',
-          comment: activity.comment,
-          amount: Math.abs(activity.amount),
-        }));
+      const intoReserve = reserved.get(day.date) ?? 0;
+      const deductions: MoneyDetailLine[] = [
+        ...day.activities
+          .filter((activity) => activity.kind === 'expense')
+          .map((activity): MoneyDetailLine => ({
+            kind: 'expense',
+            category: activity.category ?? 'other',
+            comment: activity.comment,
+            amount: Math.abs(activity.amount),
+          })),
+        ...reserveLines(intoReserve),
+      ];
 
       return {
         date: day.date,
         collected,
         collectedTotal: day.income,
         deductions,
-        deductionsTotal: day.gameClubExpenses,
-        moneyLeft: day.total,
+        deductionsTotal: day.gameClubExpenses + intoReserve,
+        moneyLeft: day.total - intoReserve,
       };
     });
 }
@@ -172,6 +204,7 @@ export function buildBarMoneyDetailRows(
   stockRows: MoneyDetailStockRow[],
   purchaseRows: MoneyDetailPurchaseRow[],
   expenseRows: MoneyDetailExpenseRow[],
+  reserveMoves: readonly ReserveMove[] = [],
 ): MoneyDetailRow[] {
   const stockByDate = groupByDate(stockRows);
   // Purchases before the deduction start date never reduce bar money, so they
@@ -179,11 +212,14 @@ export function buildBarMoneyDetailRows(
   const purchasesByDate = groupByDate(
     purchaseRows.filter((row) => row.date >= STOCK_PURCHASE_DEDUCTION_START_DATE),
   );
-  const barExpensesByDate = groupByDate(expenseRows.filter(isBarPaidExpense));
+  // The reserve's own purchases took no Bar money (156); money put into it left the Bar.
+  const barExpensesByDate = groupByDate(expenseRows.filter((row) => isBarPaidExpense(row) && !isReservePaidExpense(row)));
+  const reserved = reservedByDate(reserveMoves, 'bar');
   const dates = Array.from(new Set([
     ...stockByDate.keys(),
     ...purchasesByDate.keys(),
     ...barExpensesByDate.keys(),
+    ...reserved.keys(),
   ])).sort((a, b) => a.localeCompare(b));
 
   return dates.map((date) => {
@@ -204,15 +240,17 @@ export function buildBarMoneyDetailRows(
         comment: row.comment,
         amount: Number(row.amount ?? 0),
       })),
+      ...reserveLines(reserved.get(date) ?? 0),
     ];
+    const intoReserve = reserved.get(date) ?? 0;
 
     return {
       date,
       collected: [{ key: 'barSales', amount: barMoney.barSales }],
       collectedTotal: barMoney.barSales,
       deductions,
-      deductionsTotal: barMoney.stockPurchaseCost + barExpenses,
-      moneyLeft: barMoney.barMoney - barExpenses,
+      deductionsTotal: barMoney.stockPurchaseCost + barExpenses + intoReserve,
+      moneyLeft: barMoney.barMoney - barExpenses - intoReserve,
     };
   });
 }

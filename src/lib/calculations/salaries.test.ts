@@ -167,6 +167,12 @@ describe('KPI basis and profit pools', () => {
     expect(calculate({ rates: [{ ...rate, kpi_basis: 'owner_profit' }], monthlyProfit: [invested] }).one[0].kpi).toBe(500);
     expect(applySalaryPaymentChanges([invested], [], [entry('payment', 500)])[0]).toMatchObject({ game_club_earned: 11500, game_club_investments: 3000 });
   });
+  it('does not let a purchase the owner reserve paid lower profit before payroll (156)', () => {
+    // Same base as investments: the reserve paid 3000 (game club) and 500 (bar), so they come back.
+    const reservePaid = { ...mixed, game_club_reserve_paid: 3000, bar_reserve_paid: 500 };
+    expect(calculate({ rates: [{ ...rate, kpi_bar: false }], monthlyProfit: [reservePaid] }).one[0]).toMatchObject({ kpi: 1272.73, kpiProfit: 12727.27 });
+    expect(calculate({ rates: [{ ...rate, kpi_game_club: false }], monthlyProfit: [reservePaid] }).one[0]).toMatchObject({ kpi: 500, kpiProfit: 5000 });
+  });
   it('owner profit basis is a percentage of what the owner withdrew from the ticked pools', () => {
     const base = { ...rate, kpi_basis: 'owner_profit' as const };
     expect(calculate({ rates: [base], monthlyProfit: [mixed] }).one[0]).toMatchObject({ kpi: 500, kpiProfit: 5000 });

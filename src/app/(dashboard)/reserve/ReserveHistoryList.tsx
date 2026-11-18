@@ -184,9 +184,12 @@ function ReserveEntryDetails({ row, title, month, methodLabel, categoryLabel, bu
   facts.push({ label: t('details.madeOn'), value: formatDateTime(row.createdAt, locale) });
   if (collectionDate) facts.push({ label: t('details.collectionDay'), value: formatDateOnly(collectionDate, locale) });
   // The reserve is one pot; where the money came from is kept for reference only.
+  // A purchase is paid by the pot itself, in sums or dollars, never by a side's method (155).
   facts.push({
     label: t(row.kind === 'deposit' ? 'details.takenFrom' : row.kind === 'return' ? 'details.returnedTo' : 'details.paidWith'),
-    value: [t(`sources.${row.source}`), row.method && methodLabel(row.method)].filter(Boolean).join(' · '),
+    value: row.kind === 'purchase'
+      ? (row.method === 'usd' ? methodLabel('usd') : t('details.sums'))
+      : [t(`sources.${row.source}`), row.method && methodLabel(row.method)].filter(Boolean).join(' · '),
   });
   if (row.kind === 'purchase') facts.push({ label: t('details.category'), value: categoryLabel(row.category) });
   if (row.note && row.note !== title) facts.push({ label: t('details.note'), value: row.note });

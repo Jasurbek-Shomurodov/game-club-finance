@@ -21,7 +21,8 @@ function fakeClient(rpcResult: Result, tables: Record<string, Result> = {}) {
     chain.then = (resolve: (value: unknown) => unknown) => Promise.resolve(tables[table] ?? { data: [], error: null }).then(resolve);
     return chain;
   });
-  const rpc = vi.fn(async () => rpcResult);
+  // The reserve's moves (156) are read beside the snapshot; none moved here.
+  const rpc = vi.fn(async (name: string) => (name === 'get_reserve_moves' ? { data: [], error: null } : rpcResult));
   return { supabase: { from, rpc } as unknown as SupabaseClient, from, rpc, reads };
 }
 
@@ -30,7 +31,7 @@ describe('fetchAnalysisLedgers', () => {
     const { supabase, rpc, from } = fakeClient({ data: {}, error: null });
 
     await expect(fetchAnalysisLedgers(supabase, 'club-1', range)).resolves.toEqual({
-      cashRows: [], stockRows: [], purchaseRows: [], expenseRows: [], debtRows: [], debtPaymentRows: [],
+      cashRows: [], stockRows: [], purchaseRows: [], expenseRows: [], debtRows: [], debtPaymentRows: [], reserveMoves: [],
     });
 
     expect(rpc).toHaveBeenCalledWith('get_finance_report_snapshot', {
@@ -103,7 +104,7 @@ describe('fetchAnalysisLedgers', () => {
     });
 
     await expect(fetchAnalysisLedgers(supabase, 'club-1', range)).resolves.toEqual({
-      cashRows: cash, stockRows: stock, purchaseRows: [], expenseRows: expenses, debtRows: debts, debtPaymentRows: payments,
+      cashRows: cash, stockRows: stock, purchaseRows: [], expenseRows: expenses, debtRows: debts, debtPaymentRows: payments, reserveMoves: [],
     });
 
     // Current ledgers only; the retired transaction tables are never read.
@@ -123,7 +124,7 @@ describe('fetchAnalysisLedgers', () => {
       daily_cash_entries: none, daily_stock_counts: none, expenses: none, new_debts: none, debt_payments: none,
     });
     await expect(fetchAnalysisLedgers(supabase, 'club-1', range)).resolves.toEqual({
-      cashRows: [], stockRows: [], purchaseRows: [], expenseRows: [], debtRows: [], debtPaymentRows: [],
+      cashRows: [], stockRows: [], purchaseRows: [], expenseRows: [], debtRows: [], debtPaymentRows: [], reserveMoves: [],
     });
   });
 

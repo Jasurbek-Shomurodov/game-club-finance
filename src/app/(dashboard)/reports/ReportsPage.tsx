@@ -90,6 +90,8 @@ import ExchangeForm from './ExchangeForm';
 import CollectedTab from './CollectedTab';
 import WriteOffsTab from './WriteOffsTab';
 import { fetchDollarExpenses, fetchMoneyExchanges, withDollarAmounts } from '@/lib/supabase/moneyExchanges';
+import { fetchReserveMoves } from '@/lib/supabase/reserveMoves';
+import type { ReserveMove } from '@/lib/calculations/reserveMoves';
 import { requestCollectionChange } from '@/lib/collectionsApi';
 import { ReportsTabs, type ReportsView } from './ReportsTabs';
 import { fetchProfileNames } from '@/lib/supabase/profileNames';
@@ -105,6 +107,8 @@ const emptyReportRows = {
   barSales: [] as MoneyReportBarSalesRow[],
   stockPurchases: [] as StockPurchaseCostRow[],
   exchanges: [] as MoneyExchangeRow[],
+  /** Money moved into or out of the owner reserve (156): kept out of money left. */
+  reserveMoves: [] as ReserveMove[],
   collections: [] as DailyCashCollection[],
   /** What each method held when the period began; null when it starts on the 1st or is unknown. */
   opening: null as MoneyReport['paymentMethods'] | null,
@@ -190,6 +194,7 @@ function PaymentCard({
   expensesLabel,
   exchangedInLabel,
   exchangedOutLabel,
+  reservedLabel,
   leftLabel,
   href,
 }: {
@@ -202,6 +207,7 @@ function PaymentCard({
   expensesLabel: string;
   exchangedInLabel: string;
   exchangedOutLabel: string;
+  reservedLabel: string;
   leftLabel: string;
 }) {
   return (
@@ -253,6 +259,15 @@ function PaymentCard({
             <dt className="text-gray-500">{exchangedOutLabel}</dt>
             <dd className="shrink-0 font-semibold tabular-nums text-gray-900">
               <Money amount={data.exchangedOut} currency={null} />
+            </dd>
+          </div>
+        )}
+        {/* The reserve is the owner's own money (156): what went into it is no longer this method's. */}
+        {(data.reserved ?? 0) !== 0 && (
+          <div className="flex items-baseline justify-between gap-3">
+            <dt className="text-gray-500">{reservedLabel}</dt>
+            <dd className="shrink-0 font-semibold tabular-nums text-gray-900">
+              <Money amount={data.reserved ?? 0} currency={null} />
             </dd>
           </div>
         )}
@@ -365,7 +380,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     if (!selectedClubId || !hasReportsAccess) return emptyReportRows;
 
     const supabase = createClient();
-    const [snapshotResult, exchangeRows, collections, dollarExpenses, opening] = await Promise.all([
+    const [snapshotResult, exchangeRows, collections, dollarExpenses, opening, reserveMoves] = await Promise.all([
       supabase.rpc('get_money_report_snapshot', {
         p_club_id: selectedClubId,
         p_range_from: range.from,
@@ -377,6 +392,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       // Dollars spent by expenses (124) are read beside the snapshot, which predates them.
       fetchDollarExpenses(supabase, selectedClubId, range.from, range.to),
       loadOpening(selectedClubId),
+      fetchReserveMoves(supabase, selectedClubId, range.from, range.to),
     ]);
 
     if (!snapshotResult.error) {
@@ -388,6 +404,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         barSales: snapshot.barSales ?? [],
         stockPurchases: snapshot.stockPurchases ?? [],
         exchanges: await withExchangeCreators(exchangeRows),
+        reserveMoves,
         collections,
         opening,
       };
@@ -477,6 +494,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         ...row,
         creator_name: row.created_by ? creatorNames.get(row.created_by) ?? null : null,
       })),
+      reserveMoves,
       collections,
       opening,
     };
@@ -489,16 +507,17 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     async function loadOpening(clubId: string): Promise<MoneyReport['paymentMethods'] | null> {
       const earlier = openingBalanceRange(range.from);
       if (!earlier) return null;
-      const [result, earlierExchanges] = await Promise.all([
+      const [result, earlierExchanges, earlierMoves] = await Promise.all([
         supabase.rpc('get_money_report_snapshot', { p_club_id: clubId, p_range_from: earlier.from, p_range_to: earlier.to }),
         fetchMoneyExchanges(supabase, clubId, earlier.from, earlier.to),
+        fetchReserveMoves(supabase, clubId, earlier.from, earlier.to),
       ]);
       if (result.error) {
         if (isMissingDatabaseFunction(result.error, 'get_money_report_snapshot')) return null;
         throw result.error;
       }
       const rows = result.data as MoneyReportSnapshotPayload;
-      return buildMoneyReport(rows.cash ?? [], rows.expenses ?? [], rows.debtPayments ?? [], [], [], earlierExchanges).paymentMethods;
+      return buildMoneyReport(rows.cash ?? [], rows.expenses ?? [], rows.debtPayments ?? [], [], [], earlierExchanges, earlierMoves).paymentMethods;
     }
 
     /** The snapshot names its own rows' creators; exchanges need the same lookup. */
@@ -524,6 +543,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     reportRows.barSales,
     reportRows.stockPurchases,
     reportRows.exchanges,
+    reportRows.reserveMoves,
   ), [reportRows]);
   const filteredReport = useMemo(() => (categoryFilter === 'all' && !sourceFilter ? report : buildFilteredMoneyReport(
     reportRows.cash,
@@ -534,6 +554,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     reportRows.stockPurchases,
     // Exchanges move Game Club money; a bar-only view has none.
     sourceFilter === 'bar' ? [] : reportRows.exchanges,
+    sourceFilter ? reportRows.reserveMoves.filter((move) => move.source === sourceFilter) : reportRows.reserveMoves,
   )), [categoryFilter, report, reportRows, sourceFilter]);
   // The cards start from what each method already held when the period began.
   const paymentCardData = useMemo(
@@ -1137,7 +1158,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                   if (card.method === 'playstation') return true;
                   if (enabledPaymentMethods.includes(card.method)) return true;
                   const data = paymentCardData[card.method];
-                  return data.opening !== 0 || data.collected !== 0 || data.expenses !== 0 || data.exchangedIn !== 0 || data.exchangedOut !== 0;
+                  return data.opening !== 0 || data.collected !== 0 || data.expenses !== 0 || data.exchangedIn !== 0 || data.exchangedOut !== 0
+                    || (data.reserved ?? 0) !== 0;
                 }).map((card) => (
                   <PaymentCard
                     key={card.method}
@@ -1150,6 +1172,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                     expensesLabel={t('expenses')}
                     exchangedInLabel={t('exchangedIn')}
                     exchangedOutLabel={t('exchangedOut')}
+                    reservedLabel={t('intoReserve')}
                     leftLabel={t('left')}
                   />
                 ))}

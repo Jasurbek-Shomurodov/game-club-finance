@@ -94,7 +94,8 @@ export default function ReservePage() {
   const dollarsHeld = useMemo(() => dollarsForMonth(exchangeRows, currentMonth, dollarExpenses).heldUsd, [exchangeRows, currentMonth, dollarExpenses]);
 
   const currency = tc('currency');
-  const total = balances.game_club.held + balances.bar.held;
+  // Two pots (155): the sums, whatever side or method they were saved from, and the dollars.
+  const sumsHeld = balances.game_club.held + balances.bar.held - balances.game_club.byMethod.usd;
   const totals = {
     deposited: balances.game_club.deposited + balances.bar.deposited,
     returned: balances.game_club.returned + balances.bar.returned,
@@ -181,18 +182,29 @@ export default function ReservePage() {
           </>
         ) : (
           <>
-            {/* One pot: the reserve does not care which side or method the money came from. */}
+            {/* The reserve is the owner's own money: one pot of sums and one of dollars, whatever side or method it came from. */}
             <Card as="section" aria-labelledby="reserve-total">
               <p id="reserve-total" className="text-xs font-medium text-gray-500">{t('totalHeld')}</p>
-              <p className="mt-1 break-words text-3xl font-bold leading-none tracking-tight tabular-nums text-gray-950 sm:text-4xl">
-                {formatCurrency(total)}
-                <span className="ml-1.5 text-base font-medium tracking-normal text-gray-500">{currency}</span>
-              </p>
-              {dollarsHeld !== 0 ? (
-                <p className="mt-2 text-sm text-gray-500">
-                  {t('includesDollars', { dollars, amount: `${formatCurrency(balances.game_club.byMethod.usd)} ${currency}` })}
-                </p>
-              ) : null}
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">{t('sumsPot')}</p>
+                  <p className="mt-1 break-words text-3xl font-bold leading-none tracking-tight tabular-nums text-gray-950 sm:text-4xl">
+                    {formatCurrency(sumsHeld)}
+                    <span className="ml-1.5 text-base font-medium tracking-normal text-gray-500">{currency}</span>
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">{t('dollarsPot')}</p>
+                  <p className="mt-1 break-words text-3xl font-bold leading-none tracking-tight tabular-nums text-gray-950 sm:text-4xl">
+                    {dollars}
+                  </p>
+                  {dollarsHeld !== 0 ? (
+                    <p className="mt-2 text-sm text-gray-500">
+                      {t('dollarsBoughtFor', { amount: `${formatCurrency(balances.game_club.byMethod.usd)} ${currency}` })}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <StatTile variant="soft" onClick={showHistory} icon={ArrowDownToLine} label={t('putIn')} value={formatCurrency(totals.deposited)} unit={currency} tone="success" />
                 <StatTile variant="soft" onClick={showHistory} icon={ArrowUpFromLine} label={t('returned')} value={formatCurrency(totals.returned)} unit={currency} />

@@ -383,9 +383,9 @@ describe('expensesFromSource', () => {
     expect(report.paymentMethods.cash).toEqual({ opening: 0, collected: 1_000_000, expenses: 0, exchanged: -440_000, exchangedIn: 200_000, exchangedOut: 640_000, left: 560_000 });
     expect(report.paymentMethods.terminal).toEqual({ opening: 0, collected: 500_000, expenses: 0, exchanged: -200_000, exchangedIn: 0, exchangedOut: 200_000, left: 300_000 });
     expect(report.usd).toBe(50);
-    // Changing 640 000 of cash into $50 keeps Game Club money left at 1 500 000.
-    expect(report.gameClubLeft).toBe(1_500_000);
-    expect(report.days[0].total).toBe(1_500_000);
+    // The $50 are the owner reserve's (143, 156): the 640 000 paid for them left Game Club money.
+    expect(report.gameClubLeft).toBe(860_000);
+    expect(report.days[0].total).toBe(860_000);
     const day = report.days[0];
     expect(day.income).toBe(1_500_000);
     expect(day.expenses).toBe(0);

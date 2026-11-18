@@ -103,6 +103,7 @@ function sliceLedgers(ledgers: AnalysisLedgers, range: Range): AnalysisLedgers {
     expenseRows: inRange(ledgers.expenseRows, range),
     debtRows: inRange(ledgers.debtRows, range),
     debtPaymentRows: inRange(ledgers.debtPaymentRows, range),
+    reserveMoves: inRange(ledgers.reserveMoves ?? [], range),
   };
 }
 

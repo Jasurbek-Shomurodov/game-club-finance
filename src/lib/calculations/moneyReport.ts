@@ -9,6 +9,7 @@ import {
   type MoneyLeftByPaymentMethod,
 } from './dashboardMetrics';
 import { exchangeFlowByMethod, heldDollars, type ExchangeMethod, type MoneyExchangeRow } from './moneyExchanges';
+import { isReservePaidExpense, reservedNetBy, type ReserveMove } from './reserveMoves';
 import {
   calculateBarMoney,
   type BarSalesRow,
@@ -30,6 +31,8 @@ export interface MoneyReportPaymentBreakdown {
   exchangedIn: number;
   /** Money this method gave to exchanges, as a positive amount. */
   exchangedOut: number;
+  /** Net money put into the owner reserve from this method (156); already taken out of `left`. */
+  reserved?: number;
   left: number;
 }
 
@@ -69,7 +72,12 @@ export interface MoneyReportDay {
   terminal: number;
   card: number;
   playstation: number;
-  /** Game-club money left for the day: income minus `gameClubExpenses`; exchanges do not change it. */
+  /**
+   * Game-club money left for the day: income minus the expenses Game Club money
+   * paid (a purchase the reserve paid is not one), minus dollars bought, which
+   * go into the reserve. Deposits and returns are made per month, so they show
+   * on the period's method cards, not on a day. UZS exchanges do not change it.
+   */
   total: number;
   income: number;
   /** Every expense recorded on the day, whichever money paid it. */
@@ -89,9 +97,10 @@ export interface MoneyReport {
   /** Expenses paid from bar money. */
   barExpenses: number;
   /**
-   * Game-club money collected minus game-club expenses. Exchanges never change
-   * it: they only move money between methods, and dollars bought are still the
-   * club's money, so this matches the dashboard and money details headline.
+   * Game-club money collected minus the expenses it paid, minus what it put into
+   * the owner reserve (156). The reserve is the owner's own money: dollars bought
+   * go into it, and a purchase it paid takes nothing from Game Club. Exchanges
+   * between UZS methods never change it. Matches the dashboard headline.
    */
   gameClubLeft: number;
   barLeft: number;
@@ -129,6 +138,7 @@ function buildPaymentMethods(
   expenseRows: ExpenseRow[],
   debtPaymentRows: DebtPaymentValueRow[],
   exchangeRows: MoneyExchangeRow[] = [],
+  reserveMoves: readonly ReserveMove[] = [],
 ): MoneyReport['paymentMethods'] {
   const collected = cashRows.reduce(
     (totals, row) => {
@@ -147,7 +157,8 @@ function buildPaymentMethods(
 
   const expenses = expenseRows.reduce(
     (totals, row) => {
-      if (row.payment_source !== 'bar' && !isDollarExpense(row)) {
+      // The reserve paid its purchases, not a method (156).
+      if (row.payment_source !== 'bar' && !isReservePaidExpense(row)) {
         totals[gameClubExpensePaymentBucket(row.payment_method)] += Number(row.amount ?? 0);
       }
       return totals;
@@ -155,7 +166,12 @@ function buildPaymentMethods(
     { cash: 0, terminal: 0, card: 0, playstation: 0 },
   );
 
-  const left = calculateGameClubMoneyLeftByPaymentMethod(cashRows, expenseRows, debtPaymentRows, exchangeRows);
+  const left = calculateGameClubMoneyLeftByPaymentMethod(cashRows, expenseRows, debtPaymentRows, exchangeRows, reserveMoves);
+  // Only set when money moved, so methods without reserve activity read as before.
+  const reservedField = (key: keyof MoneyLeftByPaymentMethod) => {
+    const reserved = reservedNetBy(reserveMoves, 'game_club', key);
+    return reserved === 0 ? {} : { reserved };
+  };
   const flow = exchangeFlowByMethod(exchangeRows);
   const method = (key: 'cash' | 'terminal' | 'card'): MoneyReportPaymentBreakdown => ({
     opening: 0,
@@ -164,6 +180,7 @@ function buildPaymentMethods(
     exchanged: flow[key].in - flow[key].out,
     exchangedIn: flow[key].in,
     exchangedOut: flow[key].out,
+    ...reservedField(key),
     left: left[key],
   });
 
@@ -178,24 +195,19 @@ function buildPaymentMethods(
       exchanged: 0,
       exchangedIn: 0,
       exchangedOut: 0,
+      ...reservedField('playstation'),
       left: left.playstation,
     },
   };
 }
 
 /**
- * Sum of the methods' money left with exchanges taken back out: UZS moved
- * between methods nets to zero, and UZS sent into (or brought back from)
- * dollars is still Game Club money, not money gained or spent.
+ * Sum of the methods' money left. UZS moved between methods nets to zero;
+ * UZS sent into dollars went into the owner reserve (143, 156), so it left
+ * Game Club money, and dollars sold come back into it.
  */
-function gameClubLeftExcludingExchanges(methods: MoneyReport['paymentMethods'], expenseRows: ExpenseRow[]): number {
-  // A dollar expense is in no UZS method's "left", but it is a Game Club
-  // expense: buying the dollars left this figure alone, so spending them lowers it.
-  const dollarExpenses = expenseRows.reduce(
-    (sum, row) => (row.payment_source !== 'bar' && isDollarExpense(row) ? sum + Number(row.amount ?? 0) : sum),
-    0,
-  );
-  return Object.values(methods).reduce((sum, method) => sum + method.left - method.exchanged, 0) - dollarExpenses;
+function gameClubLeftOf(methods: MoneyReport['paymentMethods']): number {
+  return Object.values(methods).reduce((sum, method) => sum + method.left, 0);
 }
 
 function buildDailyActivities(
@@ -293,18 +305,25 @@ export function buildMoneyReport(
   barSalesRows: MoneyReportBarSalesRow[] = [],
   stockPurchaseRows: StockPurchaseCostRow[] = [],
   exchangeRows: MoneyExchangeRow[] = [],
+  reserveMoves: readonly ReserveMove[] = [],
 ): MoneyReport {
-  const paymentMethods = buildPaymentMethods(cashRows, expenseRows, debtPaymentRows, exchangeRows);
+  const paymentMethods = buildPaymentMethods(cashRows, expenseRows, debtPaymentRows, exchangeRows, reserveMoves);
   const usd = heldDollars(exchangeRows, expenseRows);
   const totalCollected = Object.values(paymentMethods)
     .reduce((sum, method) => sum + method.collected, 0);
-  const gameClubLeft = gameClubLeftExcludingExchanges(paymentMethods, expenseRows);
+  const gameClubLeft = gameClubLeftOf(paymentMethods);
   const barExpenses = expenseRows.reduce(
     (sum, row) => row.payment_source === 'bar' ? sum + Number(row.amount ?? 0) : sum,
     0,
   );
   const gameClubExpenses = expenseRows.reduce((sum, row) => sum + Number(row.amount ?? 0), 0) - barExpenses;
-  const barLeft = calculateBarMoney(barSalesRows, stockPurchaseRows).barMoney - barExpenses;
+  // Bar purchases the reserve paid take nothing from the Bar; money it put in left it (156).
+  const barReservePaid = expenseRows.reduce(
+    (sum, row) => (row.payment_source === 'bar' && isReservePaidExpense(row) ? sum + Number(row.amount ?? 0) : sum),
+    0,
+  );
+  const barLeft = calculateBarMoney(barSalesRows, stockPurchaseRows).barMoney - barExpenses + barReservePaid
+    - reservedNetBy(reserveMoves, 'bar');
   const dates = Array.from(new Set([
     ...cashRows.map((row) => row.date),
     ...expenseRows.map((row) => row.date),
@@ -360,7 +379,7 @@ export function buildMoneyReport(
       terminal: dayMethods.terminal.left,
       card: dayMethods.card.left,
       playstation: dayMethods.playstation.left,
-      total: gameClubLeftExcludingExchanges(dayMethods, dayExpenseRows),
+      total: gameClubLeftOf(dayMethods),
       income: activities
         .filter((activity) => activity.amount > 0)
         .reduce((sum, activity) => sum + activity.amount, 0),
@@ -397,6 +416,7 @@ export function buildFilteredMoneyReport(
   barSalesRows: MoneyReportBarSalesRow[] = [],
   stockPurchaseRows: StockPurchaseCostRow[] = [],
   exchangeRows: MoneyExchangeRow[] = [],
+  reserveMoves: readonly ReserveMove[] = [],
 ): MoneyReport {
   if (categoryFilter === 'exchange') {
     return buildMoneyReport([], [], [], [], [], exchangeRows);
@@ -419,7 +439,8 @@ export function buildFilteredMoneyReport(
     );
   }
 
-  return buildMoneyReport(cashRows, expenseRows, debtPaymentRows, barSalesRows, stockPurchaseRows, exchangeRows);
+  // Reserve moves only belong to the whole picture; a filtered view shows its own rows.
+  return buildMoneyReport(cashRows, expenseRows, debtPaymentRows, barSalesRows, stockPurchaseRows, exchangeRows, reserveMoves);
 }
 
 /**

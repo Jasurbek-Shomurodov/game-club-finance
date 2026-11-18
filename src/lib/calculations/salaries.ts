@@ -6,6 +6,12 @@ import type { OwnerProfitMonthlyBalanceRow } from '@/lib/calculations/ownerProfi
 export interface SalaryProfitMonth extends OwnerProfitMonthlyBalanceRow {
   game_club_investments?: number;
   bar_investments?: number;
+  /**
+   * Purchases the owner reserve paid that month, investments aside (156). The
+   * reserve paid them, so they do not lower profit before payroll, as on Owner Profit.
+   */
+  game_club_reserve_paid?: number;
+  bar_reserve_paid?: number;
 }
 
 export interface SalaryEmployee {
@@ -207,8 +213,14 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, da
         group.base = (group.gameClub ? Number(profitRow?.game_club_withdrawn ?? 0) : 0) + (group.bar ? Number(profitRow?.bar_withdrawn ?? 0) : 0);
         continue;
       }
-      const beforePayroll = (group.gameClub ? Number(profitRow?.game_club_earned ?? 0) + Number(profitRow?.game_club_investments ?? 0) + paidFrom('game_club') : 0)
-        + (group.bar ? Number(profitRow?.bar_earned ?? 0) + Number(profitRow?.bar_investments ?? 0) + paidFrom('bar') : 0);
+      const beforePayroll = (group.gameClub
+        ? Number(profitRow?.game_club_earned ?? 0) + Number(profitRow?.game_club_investments ?? 0)
+          + Number(profitRow?.game_club_reserve_paid ?? 0) + paidFrom('game_club')
+        : 0)
+        + (group.bar
+          ? Number(profitRow?.bar_earned ?? 0) + Number(profitRow?.bar_investments ?? 0)
+            + Number(profitRow?.bar_reserve_paid ?? 0) + paidFrom('bar')
+          : 0);
       group.base = Math.max(0, beforePayroll - group.fixed) / (1 + group.share);
     }
 

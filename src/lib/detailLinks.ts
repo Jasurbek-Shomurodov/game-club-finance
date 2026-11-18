@@ -56,9 +56,11 @@ export function debtsSearchHref(base: string, name: string | null | undefined): 
 export function moneyDetailLineHref(
   side: MoneySide,
   date: string,
-  line: { kind: 'purchase' } | { kind: 'expense'; category: string } | { kind: 'collected'; key: string },
+  line: { kind: 'purchase' } | { kind: 'expense'; category: string } | { kind: 'reserve' } | { kind: 'collected'; key: string },
 ): string {
   if (line.kind === 'purchase') return closingStockHref(date);
+  // Money moved into the owner reserve is listed in the reserve's own history.
+  if (line.kind === 'reserve') return '/reserve?view=history';
   if (line.kind === 'expense') return reportsHref(dayRange(date), { category: `expense:${line.category}`, source: side });
   if (line.key === 'barSales') return closingStockHref(date);
   return reportsHref(dayRange(date), { category: line.key === 'debtPayments' ? 'debt_payment' : 'income' });

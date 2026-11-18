@@ -144,6 +144,7 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
 
   function deductionLabel(line: MoneyDetailLine): string {
     if (line.kind === 'purchase') return `${line.name ?? '—'} × ${formatNumber(line.quantity)}`;
+    if (line.kind === 'reserve') return t('intoReserve');
     const category = expenseCategoryLabel(line.category);
     return line.comment ? `${category}: ${line.comment}` : category;
   }
@@ -276,7 +277,7 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
                             <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
                               {variant === 'bar' && (
                                 <Badge variant="neutral" size="sm">
-                                  {line.kind === 'purchase' ? t('stockPurchase') : t('expense')}
+                                  {line.kind === 'purchase' ? t('stockPurchase') : line.kind === 'reserve' ? t('reserve') : t('expense')}
                                 </Badge>
                               )}
                               <span className="min-w-0 break-words text-sm leading-5 text-gray-700">{deductionLabel(line)}</span>

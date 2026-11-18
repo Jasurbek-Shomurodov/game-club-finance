@@ -180,6 +180,22 @@ describe('buildMonthForecast', () => {
     expect(forecast.days[30].gameClubLastMonth).toBeNull();
   });
 
+  it('forecasts PlayStation money on its own, over the Game Club days counted', () => {
+    const forecast = buildMonthForecast('2026-10-06', ledgers);
+    // 10 000 on 5 Oct; the Game Club has 5 days counted, so 2 000 a day over 31 days.
+    expect(forecast.playstation).toMatchObject({
+      daysCounted: 5,
+      incomeToDate: 10_000,
+      profitToDate: 10_000,
+      projectedIncome: 62_000,
+      lastMonthIncome: 20_000,
+    });
+    expect(forecast.days[3]).toMatchObject({ playstationActual: 0 });
+    expect(forecast.days[4]).toMatchObject({ playstationActual: 10_000, playstationProjected: 10_000 });
+    expect(forecast.days[30].playstationProjected).toBe(62_000);
+    expect(forecast.days[27].playstationLastMonth).toBe(20_000);
+  });
+
   it('does not project a side without entries this month', () => {
     const forecast = buildMonthForecast('2026-11-03', ledgers);
     expect(forecast.gameClub).toMatchObject({ daysCounted: 0, projectedIncome: null, projectedProfit: null, lastMonthIncome: 195_000 });

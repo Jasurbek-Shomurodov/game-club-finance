@@ -65,7 +65,8 @@ describe('fetchDashboardSnapshot', () => {
 
   it('is an empty dashboard when the RPC returns nothing', async () => {
     const supabase = { rpc: vi.fn().mockResolvedValue({ data: null, error: null }) } as unknown as SupabaseClient;
-    await expect(fetchDashboardSnapshot(supabase, 'club-1', ranges)).resolves.toEqual({ data: empty, error: null, fallbackRequired: false });
+    // Nothing moved in or out of the reserve either (156).
+    await expect(fetchDashboardSnapshot(supabase, 'club-1', ranges)).resolves.toEqual({ data: { ...empty, reserveMoves: [] }, error: null, fallbackRequired: false });
   });
 });
 
