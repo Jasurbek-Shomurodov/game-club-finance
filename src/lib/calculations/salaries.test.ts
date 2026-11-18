@@ -33,6 +33,13 @@ describe('salary accrual and owner profit after all salary costs', () => {
     const monthly = calculate({ rates: [{ ...rate, salary_type: 'monthly', amount: 3000, kpi_percent: 0 }], entries: [entry('absence', 0, '2026-09-02'), entry('absence', 0, '2026-09-20')], monthlyProfit: [] }).one[0];
     expect(monthly.base).toBe(900); // 10 days of 100, one absent; the 20th is after the through date
   });
+  it('a "did not come" day earns no profit KPI either', () => {
+    // Base 900 for 9 paid days; profit 12000 - 900 = 11100; share 10% * 9/10 = 9%.
+    const row = calculate({ entries: [entry('absence', 0, '2026-09-05')] }).one[0];
+    expect(row.effectiveKpiPercent).toBe(9);
+    expect(row.kpi).toBe(Math.round(11100 / 1.09 * 0.09 * 100) / 100);
+    expect(row.kpiByDay['2026-09-05']).toBeUndefined();
+  });
   it('lists only live absences of the employee', () => {
     const other = { ...entry('absence', 0, '2026-09-03'), employee_id: 'two' };
     expect([...absentDates([entry('absence', 0, '2026-09-02'), entry('fine', 50, '2026-09-04'), other], 'one')]).toEqual(['2026-09-02']);
@@ -186,6 +193,11 @@ describe('Game Club income KPI basis', () => {
     const row = calculate({ rates: [income], dailyIncome: days, monthlyProfit: [profit(-50000000)] }).one[0];
     expect(row).toMatchObject({ kpi: 1000000, kpiProfit: 10000000, earned: 1000000 });
     expect(row.kpiByDay).toEqual({ '2026-09-01': 500000, '2026-09-02': 200000, '2026-09-10': 300000 });
+  });
+  it('pays no income KPI on a day the employee did not come', () => {
+    const row = calculate({ rates: [income], dailyIncome: days, entries: [entry('absence', 0, '2026-09-01')], monthlyProfit: [] }).one[0];
+    expect(row.kpi).toBe(500000);
+    expect(row.kpiByDay).toEqual({ '2026-09-02': 200000, '2026-09-10': 300000 });
   });
   it('counts only active days of the income rate and is not shared with profit groups', () => {
     const second = { ...employee, id: 'two' };

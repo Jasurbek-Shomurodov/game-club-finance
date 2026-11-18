@@ -4780,13 +4780,7 @@
   },
   {
     "file": "147_salary_kpi_income_less_discounts.sql",
-    "probes": [
-      {
-        "kind": "functionBody",
-        "signature": "public.get_salary_profit_snapshot(uuid,date)",
-        "md5": "2cbdf8c0fadc09bba7b90b2e45b8b897"
-      }
-    ]
+    "probes": []
   },
   {
     "file": "148_collection_leaves_reserve_alone.sql",
@@ -4963,6 +4957,16 @@
         "kind": "functionBody",
         "signature": "public.record_salary_entry_with_status(uuid,uuid,uuid,date,text,numeric,text,text,text)",
         "md5": "19bf0896e77e575be0c975f4676db15f"
+      }
+    ]
+  },
+  {
+    "file": "154_salary_kpi_income_less_repairs.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.get_salary_profit_snapshot(uuid,date)",
+        "md5": "74d65f4d9e1aab72a96c99fe40ed8689"
       }
     ]
   }

@@ -22,7 +22,8 @@ export interface SalaryEmployee {
  * `overall_profit`: profit earned every day (Owner Profit "earned" cash, before withdrawals).
  * `owner_profit`: only money the owner has actually withdrawn.
  * `game_club_income`: each day's Game Club income less that day's Game Club
- *   customer discounts (`discount` expenses), before any other expense (134, 147).
+ *   customer discounts and repairs (`discount`, `repair` expenses), before any
+ *   other expense (134, 147, 154).
  */
 export type KpiBasis = 'owner_profit' | 'overall_profit' | 'game_club_income';
 
@@ -30,7 +31,8 @@ export const KPI_BASES: readonly KpiBasis[] = ['overall_profit', 'owner_profit',
 
 /**
  * One business date's Game Club income (cash + terminal + card + PlayStation)
- * less that date's Game Club `discount` expenses (migration 147). Can be negative.
+ * less that date's Game Club `discount` and `repair` expenses (migrations 147,
+ * 154). Can be negative.
  */
 export interface SalaryDailyIncome {
   date: string;
@@ -99,8 +101,9 @@ const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 10
  *  - owner_profit: the amount the owner withdrew from the ticked pools in the
  *    month; KPI is the percentage of that amount.
  *  - game_club_income: the percentage of each active day's Game Club income
- *    less customer discounts, credited on that day. A day below zero earns
- *    nothing. No other expense is deducted and it forms no group.
+ *    less customer discounts and repairs, credited on that day. A day below
+ *    zero earns nothing. No other expense is deducted and it forms no group.
+ * A day marked absent earns neither base pay nor KPI on any basis.
  * Groups are independent: overlapping pools are not netted against each other.
  * Current/historical months remain estimates when underlying finance is edited.
  */
@@ -135,7 +138,7 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, da
       // carries bonuses and fines of a month the employee was never active in.
       let lastGroup = null as string | null;
       const configs = new Map<string, { basis: KpiBasis; gameClub: boolean; bar: boolean; share: number; days: number }>();
-      const spans: { key: string; start: string; days: number; percent: number }[] = [];
+      const spans: { key: string; start: string; days: number; percent: number; absent: Set<string> }[] = [];
       // KPI on daily Game Club income, credited on the day the income came in.
       const income = { kpi: 0, base: 0, share: 0, byDay: {} as Record<string, number> };
       const terms = employeeRates.get(employee.id) ?? [];
@@ -150,7 +153,8 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, da
           if (absent.has(format(addDays(parseISO(start), day), 'yyyy-MM-dd'))) paidDays -= 1;
         }
         base += Number(rate.amount) * paidDays / (rate.salary_type === 'monthly' ? daysInMonth : 1);
-        const share = Number(rate.kpi_percent) * days / elapsedDays;
+        // Absent days earn no KPI: they drop out of the weighted percentage.
+        const share = Number(rate.kpi_percent) * paidDays / elapsedDays;
         weightedPercent += share;
         activeDays += days;
         const basis = rate.kpi_basis ?? DEFAULT_KPI_BASIS;
@@ -159,6 +163,7 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, da
           income.share += share;
           for (let day = 0; day < days; day += 1) {
             const date = format(addDays(parseISO(start), day), 'yyyy-MM-dd');
+            if (absent.has(date)) continue;
             const taken = incomeOn.get(date) ?? 0;
             const amount = money(Math.max(0, taken) * Number(rate.kpi_percent) / 100);
             income.base += taken;
@@ -175,7 +180,7 @@ export function calculateSalaries({ employees, rates, entries, monthlyProfit, da
         config.share += share;
         config.days += days;
         configs.set(key, config);
-        if (days > 0) spans.push({ key, start, days, percent: Number(rate.kpi_percent) });
+        if (paidDays > 0) spans.push({ key, start, days, percent: Number(rate.kpi_percent), absent });
       });
       const employeeEntries = monthEntries.filter((e) => e.employee_id === employee.id);
       const sum = (kind: SalaryEntry['kind']) => money(employeeEntries.filter((e) => e.kind === kind).reduce((s, e) => s + Number(e.amount), 0));
@@ -234,11 +239,11 @@ export function absentDates(entries: SalaryEntry[], employeeId: string): Set<str
   return new Set(entries.filter((e) => e.kind === 'absence' && !e.deleted_at && e.employee_id === employeeId).map((e) => e.date));
 }
 
-function spreadKpiOverDays(kpi: number, spans: { start: string; days: number; perDay: number }[]): Record<string, number> {
-  const days = spans.flatMap(({ start, days: count, perDay }) => Array.from({ length: count }, (_, index) => ({
+function spreadKpiOverDays(kpi: number, spans: { start: string; days: number; perDay: number; absent: Set<string> }[]): Record<string, number> {
+  const days = spans.flatMap(({ start, days: count, perDay, absent }) => Array.from({ length: count }, (_, index) => ({
     date: format(addDays(parseISO(start), index), 'yyyy-MM-dd'),
     perDay,
-  })));
+  })).filter(({ date }) => !absent.has(date)));
   const result: Record<string, number> = {};
   if (kpi <= 0) return result;
   let running = 0;

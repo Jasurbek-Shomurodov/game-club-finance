@@ -318,6 +318,12 @@ Each salary rate carries a KPI basis (migration 070) and the pools it draws from
   the Game Club pool alone (a check constraint enforces it), forms no group and
   does not change other employees' KPI. `get_salary_profit_snapshot` returns the
   daily totals as `dailyGameClubIncome` (per date, never per payment method).
+  Each day's amount is net of that day's Game Club `discount` (147) and
+  `repair` (154) expenses.
+
+A `salary_entries` row of kind `absence` (migration 153, amount 0, one live row
+per employee per day) marks a day the employee did not come: that day earns no
+base pay (a monthly rate loses its share of the month) and no KPI on any basis.
 
 Employees sharing a basis and pools form a group; groups are independent, so
 overlapping pools with different groups are not netted against each other.
