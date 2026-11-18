@@ -4,9 +4,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowRight,
   ArrowDownRight,
+  ArrowRight,
   ArrowUpRight,
+  Gamepad2,
   MonitorSmartphone,
   ShoppingBag,
 } from 'lucide-react';
@@ -300,6 +301,14 @@ export default function DashboardPage({
   );
   const gameClubSpark = useMemo(() => sparkDays.map((row) => row.gameClubIncome), [sparkDays]);
   const barSpark = useMemo(() => sparkDays.map((row) => row.barSales), [sparkDays]);
+  // PlayStation money is collected with each day's cash, so its line comes from the same cash rows.
+  const playstationSpark = useMemo(() => {
+    const byDate = new Map<string, number>();
+    for (const row of data.ledgers.cashRows) {
+      byDate.set(row.date, (byDate.get(row.date) ?? 0) + Number(row.playstation_income ?? 0));
+    }
+    return sparkDays.map((row) => byDate.get(row.date) ?? 0);
+  }, [data.ledgers.cashRows, sparkDays]);
   const averageBarDayCount = countDashboardRangeDaysThroughDate(range, data.latestBarEntryDate);
   const averageGameClubDayCount = countDashboardRangeDaysThroughDate(range, data.latestDailyCashEntryDate);
   const averageGameClubIncome = calculateAverageDailyIncome(totals.gameClubIncome, averageGameClubDayCount);
@@ -366,8 +375,8 @@ export default function DashboardPage({
             stockHref={pathIfAllowed('/closing-stock')}
           />}
 
-          {/* Headline numbers: the four figures an owner checks first. */}
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {/* Headline numbers: the figures an owner checks first. */}
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
             <AmountCard
               loading={loading}
               currency={currency}
@@ -380,6 +389,20 @@ export default function DashboardPage({
               comparison={comparisonFor(totals.gameClubIncome, previousTotals.gameClubIncome)}
               helper={paceNote(totals.gameClubIncome, averageGameClubDayCount)}
               sparkline={gameClubSpark}
+            />
+            {/* PlayStation money is part of Game Club income, collected with the daily cash. */}
+            <AmountCard
+              loading={loading}
+              currency={currency}
+              label={t('playstationIncome')}
+              href={pathIfAllowed('/financial-analysis') && '/financial-analysis?view=overall#forecast'}
+              amount={totals.playstationIncome}
+              icon={Gamepad2}
+              iconClassName={SIDE_ICON_CLASS.gameClub}
+              tone="success"
+              comparison={comparisonFor(totals.playstationIncome, previousTotals.playstationIncome)}
+              helper={paceNote(totals.playstationIncome, averageGameClubDayCount)}
+              sparkline={playstationSpark}
             />
             <AmountCard
               loading={loading}
