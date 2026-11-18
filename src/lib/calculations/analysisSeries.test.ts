@@ -8,6 +8,7 @@ import {
   buildPeriodSeries,
   buildProfitMonths,
   buildWeekdayPattern,
+  buildWeeklyAverages,
   granularityRange,
   periodStart,
   weekdayOf,
@@ -230,5 +231,36 @@ describe('buildCalendarHeatmap', () => {
     const levels = heatmap.weeks.flatMap((week) => week.days).filter((day) => day.value).map((day) => day.level);
     expect(Math.max(...levels)).toBe(4);
     expect(Math.min(...levels)).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('buildWeeklyAverages', () => {
+  it('averages each week over its days, stopping the current week at the latest entry', () => {
+    const result = buildWeeklyAverages(range, ledgers);
+    const periods = buildPeriodSeries(range, ledgers, 'week');
+    expect(result.weeks.map((row) => row.period)).toEqual(['2026-09-28', '2026-10-05']);
+    // Both sides last entered on 2026-10-05: the second week counts one day, not two.
+    expect(result.weeks.map((row) => [row.gameClubDays, row.barDays])).toEqual([[7, 7], [1, 1]]);
+    expect(result.weeks[0].barAverage).toBe(Math.round(40_000 / 7));
+    expect(result.weeks[1].barAverage).toBe(10_000);
+    expect(result.weeks[0].gameClubAverage).toBe(Math.round(periods[0].gameClubIncome / 7));
+    expect(result.weeks[1].gameClubIncome).toBe(periods[1].gameClubIncome);
+    expect(result.barAverage).toBe(Math.round(50_000 / 8));
+    expect(result.barWeekly).toBe(Math.round((50_000 * 7) / 8));
+  });
+
+  it('counts no days for a side in a week after its latest entry', () => {
+    const later = { from: range.from, to: '2026-10-13' };
+    const result = buildWeeklyAverages(later, { ...ledgers, stockRows: ledgers.stockRows.slice(0, 1) });
+    expect(result.weeks.map((row) => row.barDays)).toEqual([2, 0, 0]);
+    expect(result.weeks.map((row) => row.barAverage)).toEqual([20_000, 0, 0]);
+    expect(result.barAverage).toBe(20_000);
+  });
+
+  it('is empty without any ledger rows', () => {
+    const empty = { cashRows: [], stockRows: [], purchaseRows: [], expenseRows: [], debtRows: [], debtPaymentRows: [] };
+    const result = buildWeeklyAverages(range, empty);
+    expect(result.gameClubAverage).toBe(0);
+    expect(result.barWeekly).toBe(0);
   });
 });

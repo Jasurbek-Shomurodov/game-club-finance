@@ -40,6 +40,7 @@ import {
   buildPeriodSeries,
   buildProfitMonths,
   buildWeekdayPattern,
+  buildWeeklyAverages,
   granularityRange,
   type Granularity,
 } from '@/lib/calculations/analysisSeries';
@@ -72,6 +73,7 @@ const SideFlowChart = dynamic(() => loadCharts().then((module) => module.SideFlo
 const CumulativeProfitChart = dynamic(() => loadCharts().then((module) => module.CumulativeProfitChart), { ssr: false, loading: ChartLoading });
 const IncomeMixChart = dynamic(() => loadCharts().then((module) => module.IncomeMixChart), { ssr: false, loading: ChartLoading });
 const CategoryTrendChart = dynamic(() => loadCharts().then((module) => module.CategoryTrendChart), { ssr: false, loading: ChartLoading });
+const WeeklyAverageChart = dynamic(() => loadCharts().then((module) => module.WeeklyAverageChart), { ssr: false, loading: ChartLoading });
 const WeekdayChart = dynamic(() => loadCharts().then((module) => module.WeekdayChart), { ssr: false, loading: ChartLoading });
 const ProfitMonthsChart = dynamic(() => loadCharts().then((module) => module.ProfitMonthsChart), { ssr: false, loading: ChartLoading });
 const ForecastChart = dynamic(() => loadCharts().then((module) => module.ForecastChart), { ssr: false, loading: ChartLoading });
@@ -164,6 +166,7 @@ export function OverallAnalysis({ businessToday, onOpenMonth }: { businessToday:
     };
   }, [analysis.topCategories, granularity, history.ledgers, range]);
   const weekdays = useMemo(() => buildWeekdayPattern(range, history.ledgers), [history.ledgers, range]);
+  const weeklyAverages = useMemo(() => buildWeeklyAverages(range, history.ledgers), [history.ledgers, range]);
   const forecast = useMemo(() => buildMonthForecast(businessToday, history.ledgers), [businessToday, history.ledgers]);
   const heatmaps = useMemo(() => ({
     gameClub: buildCalendarHeatmap(range, history.ledgers, 'gameClub').weeks,
@@ -266,6 +269,24 @@ export function OverallAnalysis({ businessToday, onOpenMonth }: { businessToday:
       side === 'playstation'
         ? { label: t('forecastLastMonth'), value: money(data.lastMonthIncome) }
         : { label: t('forecastLastMonth'), value: money(data.lastMonthIncome), helper: t('forecastLastMonthProfit', { amount: money(data.lastMonthProfit) }) },
+    ];
+  };
+  const weeklyAverageStats = (side: Side) => {
+    const key = side === 'gameClub' ? 'gameClubAverage' : 'barAverage';
+    const counted = weeklyAverages.weeks.filter((row) => row[side === 'gameClub' ? 'gameClubDays' : 'barDays'] > 0);
+    const thisWeek = counted.at(-1);
+    const lastWeek = counted.at(-2);
+    const change = thisWeek && lastWeek ? percentChange(thisWeek[key], lastWeek[key]) : null;
+    return [
+      {
+        label: t('weeklyAverageThisWeek'),
+        value: thisWeek ? money(thisWeek[key]) : '—',
+        helper: change === null ? undefined : t('weeklyAverageVsLastWeek', { change: `${change > 0 ? '+' : ''}${formatShare(change, locale)}` }),
+        tone: change === null ? undefined : change < 0 ? 'danger' as const : 'success' as const,
+      },
+      { label: t('weeklyAverageLastWeek'), value: lastWeek ? money(lastWeek[key]) : '—' },
+      { label: t('weeklyAverageOverall'), value: money(weeklyAverages[key]), helper: t('weeklyAverageWeeks', { count: counted.length }) },
+      { label: t('weeklyAverageWeekly'), value: money(weeklyAverages[side === 'gameClub' ? 'gameClubWeekly' : 'barWeekly']) },
     ];
   };
   const hasYearOverYear = yearOverYear.gameClub.years.length > 1;
@@ -467,6 +488,25 @@ export function OverallAnalysis({ businessToday, onOpenMonth }: { businessToday:
                       />
                     ) : <ChartEmpty title={t('noExpenses')} className="mt-4" />}
                   </ChartCard>
+                </div>
+                <div className="grid gap-4 xl:grid-cols-2">
+                  {(['gameClub', 'bar'] as const).map((side) => (
+                    <ChartCard
+                      key={side}
+                      help={t('help.weeklyAverage')}
+                      title={t(side === 'gameClub' ? 'weeklyAverageGameClubTitle' : 'weeklyAverageBarTitle')}
+                      description={t('weeklyAverageDesc')}
+                    >
+                      <ProfitStats items={weeklyAverageStats(side)} />
+                      <WeeklyAverageChart
+                        rows={weeklyAverages.weeks}
+                        side={side}
+                        average={weeklyAverages[side === 'gameClub' ? 'gameClubAverage' : 'barAverage']}
+                        locale={locale}
+                        currency={currency}
+                      />
+                    </ChartCard>
+                  ))}
                 </div>
                 <ChartCard title={t('weekdayTitle')} help={t('help.weekday')} description={t('weekdayDesc')}>
                   <WeekdayChart rows={weekdays} locale={locale} currency={currency} />

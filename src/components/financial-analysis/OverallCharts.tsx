@@ -36,6 +36,7 @@ import type {
   PeriodSeriesRow,
   ProfitMonthRow,
   WeekdayPatternRow,
+  WeeklyAverageRow,
   YearOverYear,
 } from '@/lib/calculations/analysisSeries';
 import { OTHER_CATEGORY, type CategoryAmount } from '@/lib/calculations/financialAnalysis';
@@ -238,6 +239,59 @@ export function CategoryTrendChart({ rows, categories, colors, labelFor, granula
             <Bar key={key} dataKey={key} stackId="expenses" fill={colorOf(key)} maxBarSize={28} radius={index === keys.length - 1 ? [3, 3, 0, 0] : undefined} />
           ))}
         </BarChart>
+      </ChartFrame>
+    </>
+  );
+}
+
+/**
+ * One side's average money in per day for each week as bars, the week's
+ * total in the tooltip, and the average over every drawn week as a dashed line.
+ */
+export function WeeklyAverageChart({ rows, side, average, locale, currency }: {
+  rows: WeeklyAverageRow[];
+  side: Side;
+  average: number;
+  locale: string;
+  currency: string;
+}) {
+  const t = useTranslations('financialAnalysis');
+  const value = side === 'gameClub' ? 'gameClubAverage' : 'barAverage';
+  const total = side === 'gameClub' ? 'gameClubIncome' : 'barSales';
+  const labels = periodLabels('week', locale);
+  const byPeriod = new Map(rows.map((row) => [row.period, row]));
+
+  return (
+    <>
+      <Legend>
+        <LegendItem color={SIDE_COLOR[side]} label={t('weeklyAveragePerDay')} />
+        <LegendItem color={chartColors.axis} label={t('weeklyAverageOverall')} dashed />
+      </Legend>
+      <ChartFrame>
+        <ComposedChart accessibilityLayer data={rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barCategoryGap="22%">
+          <CartesianGrid stroke={chartColors.grid} vertical={false} />
+          <XAxis dataKey="period" {...axisProps} axisLine={{ stroke: chartColors.grid }} minTickGap={12} tickFormatter={labels.tick} />
+          <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={(amount: number) => formatAxis(amount, locale)} />
+          <ReferenceLine y={average} stroke={chartColors.axis} strokeDasharray="5 4" />
+          <Tooltip
+            {...chartTooltipStyle}
+            cursor={{ fill: chartColors.cursor }}
+            labelFormatter={(period) => labels.title(String(period), byPeriod.get(String(period))?.end)}
+            formatter={(amount, _name, item) => {
+              const row = item?.payload as WeeklyAverageRow | undefined;
+              const weekTotal = row ? `${formatCurrency(row[total])} ${currency}` : '';
+              return [
+                `${formatCurrency(Number(amount))} ${currency} · ${t('weeklyAverageWeekTotal', { amount: weekTotal })}`,
+                t('weeklyAveragePerDay'),
+              ];
+            }}
+          />
+          <Bar dataKey={value} radius={[3, 3, 0, 0]} maxBarSize={28}>
+            {rows.map((row) => (
+              <Cell key={row.period} fill={SIDE_COLOR[side]} fillOpacity={row[value] >= average ? 1 : 0.55} />
+            ))}
+          </Bar>
+        </ComposedChart>
       </ChartFrame>
     </>
   );

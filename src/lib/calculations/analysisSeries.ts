@@ -1,4 +1,12 @@
-import { getAverageIncomeDayCounts, sumGameClubRows, type ExpenseRow } from './dashboardMetrics';
+import {
+  calculateAverageDailyIncome,
+  calculateAverageWeeklyIncome,
+  countDashboardRangeDaysThroughDate,
+  getAverageIncomeDayCounts,
+  getLatestRowDateInRange,
+  sumGameClubRows,
+  type ExpenseRow,
+} from './dashboardMetrics';
 import type { AvailableMoneyByMonth } from './availableMoney';
 import {
   OTHER_CATEGORY,
@@ -166,6 +174,78 @@ export function buildPeriodSeries(
     barRunning += barLeft;
     return { ...row, gameClubLeft, barLeft, gameClubCumulative: gameClubRunning, barCumulative: barRunning };
   });
+}
+
+export interface WeeklyAverageRow {
+  /** The week's Monday (or the history start inside the first week). */
+  period: string;
+  /** Last day of the week inside the analysed range. */
+  end: string;
+  gameClubIncome: number;
+  barSales: number;
+  /** Days each side's average divides by: the week's days, cut at that side's latest entry. */
+  gameClubDays: number;
+  barDays: number;
+  /** Average money in per day of that week. */
+  gameClubAverage: number;
+  barAverage: number;
+}
+
+export interface WeeklyAverages {
+  weeks: WeeklyAverageRow[];
+  /** Average daily money in over every drawn week together. */
+  gameClubAverage: number;
+  barAverage: number;
+  /** Average money in of one week over the drawn weeks (the daily average times seven). */
+  gameClubWeekly: number;
+  barWeekly: number;
+}
+
+/**
+ * Average daily money in for each of the last WEEK_WINDOW Monday-first weeks.
+ * Each side divides a week's money in by that week's days, as "average daily
+ * income" counts them: the current week stops at that side's latest entry, so
+ * a week still in progress is not dragged down by days nobody has entered yet.
+ */
+export function buildWeeklyAverages(range: { from: string; to: string }, ledgers: AnalysisLedgers): WeeklyAverages {
+  const window = granularityRange(range, 'week');
+  const debtDates = ledgers.debtRows.flatMap((row) => (row.date ? [{ date: row.date }] : []));
+  const latest = {
+    gameClub: getLatestRowDateInRange([...ledgers.cashRows, ...debtDates], window),
+    bar: getLatestRowDateInRange([...ledgers.stockRows], window),
+  };
+  const daysOf = (row: PeriodSeriesRow, latestEntry: string | null) => {
+    const week = { from: row.period < window.from ? window.from : row.period, to: row.end };
+    // A week after the side's latest entry has nothing entered yet: it counts no days.
+    if (latestEntry && latestEntry < week.from) return 0;
+    return countDashboardRangeDaysThroughDate(week, latestEntry);
+  };
+  const weeks = buildPeriodSeries(window, ledgers, 'week').map((row): WeeklyAverageRow => {
+    const gameClubDays = daysOf(row, latest.gameClub);
+    const barDays = daysOf(row, latest.bar);
+    return {
+      period: row.period,
+      end: row.end,
+      gameClubIncome: row.gameClubIncome,
+      barSales: row.barSales,
+      gameClubDays,
+      barDays,
+      gameClubAverage: gameClubDays ? calculateAverageDailyIncome(row.gameClubIncome, gameClubDays) : 0,
+      barAverage: barDays ? calculateAverageDailyIncome(row.barSales, barDays) : 0,
+    };
+  });
+  const sum = (pick: (row: WeeklyAverageRow) => number) => weeks.reduce((total, row) => total + pick(row), 0);
+  const gameClubDays = sum((row) => row.gameClubDays);
+  const barDays = sum((row) => row.barDays);
+  const gameClubIncome = sum((row) => row.gameClubIncome);
+  const barSales = sum((row) => row.barSales);
+  return {
+    weeks,
+    gameClubAverage: gameClubDays ? calculateAverageDailyIncome(gameClubIncome, gameClubDays) : 0,
+    barAverage: barDays ? calculateAverageDailyIncome(barSales, barDays) : 0,
+    gameClubWeekly: gameClubDays ? calculateAverageWeeklyIncome(gameClubIncome, gameClubDays) : 0,
+    barWeekly: barDays ? calculateAverageWeeklyIncome(barSales, barDays) : 0,
+  };
 }
 
 /**

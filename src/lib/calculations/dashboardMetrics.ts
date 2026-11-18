@@ -341,6 +341,11 @@ export function calculateAverageDailyIncome(total: number, days: number): number
   return Math.round(total / Math.max(1, days));
 }
 
+/** A week's worth of the average daily income: the same day count, times seven. */
+export function calculateAverageWeeklyIncome(total: number, days: number): number {
+  return Math.round((total * 7) / Math.max(1, days));
+}
+
 /** Fewer entered days than this say too little about the month to project it. */
 export const MIN_PROJECTION_DAYS = 3;
 
@@ -376,6 +381,41 @@ export function withRunningDailyAverages<T extends { date: string; gameClubIncom
       ...row,
       gameClubAverage: through(latestEntry.gameClub) ? calculateAverageDailyIncome(gameClubTotal, days) : null,
       barAverage: through(latestEntry.bar) ? calculateAverageDailyIncome(barTotal, days) : null,
+    };
+  });
+}
+
+export interface DailySalesLineRow {
+  date: string;
+  /** Game Club income that day, PlayStation included, as the headline figure counts it. */
+  gameClub: number | null;
+  /** PlayStation money alone, collected with the day's cash. */
+  playstation: number | null;
+  bar: number | null;
+}
+
+/**
+ * Each day's sales as three lines: Game Club, PlayStation and the bar. The
+ * game club and PlayStation lines end at the latest daily cash entry and the
+ * bar line at the latest bar entry, so unrecorded days do not dip to zero.
+ */
+export function buildDailySalesLines(
+  rows: readonly TrendRow[],
+  cashRows: readonly Pick<DailyCashRow, 'date' | 'playstation_income'>[],
+  latestEntry: { gameClub?: string | null; bar?: string | null },
+): DailySalesLineRow[] {
+  const playstationByDate = new Map<string, number>();
+  for (const row of cashRows) {
+    playstationByDate.set(row.date, (playstationByDate.get(row.date) ?? 0) + Number(row.playstation_income ?? 0));
+  }
+  const through = (date: string, latest: string | null | undefined) => !latest || date <= latest;
+  return rows.map((row) => {
+    const gameClubRecorded = through(row.date, latestEntry.gameClub);
+    return {
+      date: row.date,
+      gameClub: gameClubRecorded ? row.gameClubIncome : null,
+      playstation: gameClubRecorded ? playstationByDate.get(row.date) ?? 0 : null,
+      bar: through(row.date, latestEntry.bar) ? row.barSales : null,
     };
   });
 }

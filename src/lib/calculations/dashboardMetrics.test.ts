@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   withRunningDailyAverages,
+  buildDailySalesLines,
   buildPeriodTrend,
   calculateAverageDailyIncome,
+  calculateAverageWeeklyIncome,
   calculateDashboardInventoryValue,
   calculateDashboardTotals,
   calculateGameClubMoneyLeftByPaymentMethod,
@@ -518,6 +520,12 @@ describe('dashboard metrics', () => {
     expect(calculateAverageDailyIncome(10_000, 3)).toBe(3_333);
   });
 
+  it('averages weekly income as seven of the same counted days', () => {
+    expect(calculateAverageWeeklyIncome(10_000, 3)).toBe(23_333);
+    expect(calculateAverageWeeklyIncome(1_400_000, 14)).toBe(700_000);
+    expect(calculateAverageWeeklyIncome(5_000, 0)).toBe(35_000);
+  });
+
   it('averages game club income through the latest daily cashier entry date', () => {
     const range = { from: '2026-07-01', to: '2026-07-05' };
     const latestCashierEntryDate = getLatestRowDateInRange(
@@ -568,5 +576,33 @@ describe('withRunningDailyAverages', () => {
   it('draws every day when a side has no entries', () => {
     const result = withRunningDailyAverages(rows, { gameClub: null, bar: null });
     expect(result.every((row) => row.gameClubAverage !== null && row.barAverage !== null)).toBe(true);
+  });
+});
+
+describe('buildDailySalesLines', () => {
+  const rows = [
+    { date: '2026-10-01', gameClubIncome: 300, barSales: 30 },
+    { date: '2026-10-02', gameClubIncome: 100, barSales: 0 },
+    { date: '2026-10-03', gameClubIncome: 0, barSales: 0 },
+  ];
+  const cashRows = [
+    { date: '2026-10-01', playstation_income: 50 },
+    { date: '2026-10-01', playstation_income: 20 },
+    { date: '2026-10-02' },
+  ];
+
+  it('draws Game Club, PlayStation and bar sales for every recorded day', () => {
+    const result = buildDailySalesLines(rows, cashRows, { gameClub: '2026-10-03', bar: '2026-10-03' });
+    expect(result).toEqual([
+      { date: '2026-10-01', gameClub: 300, playstation: 70, bar: 30 },
+      { date: '2026-10-02', gameClub: 100, playstation: 0, bar: 0 },
+      { date: '2026-10-03', gameClub: 0, playstation: 0, bar: 0 },
+    ]);
+  });
+
+  it('ends each line at its side\'s latest entry', () => {
+    const result = buildDailySalesLines(rows, cashRows, { gameClub: '2026-10-02', bar: '2026-10-01' });
+    expect(result[2]).toEqual({ date: '2026-10-03', gameClub: null, playstation: null, bar: null });
+    expect(result[1]).toMatchObject({ gameClub: 100, playstation: 0, bar: null });
   });
 });

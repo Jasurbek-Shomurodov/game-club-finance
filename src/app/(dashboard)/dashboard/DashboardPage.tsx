@@ -37,6 +37,7 @@ import { SIDE_ICON_CLASS } from '@/components/financial-analysis/analysisFormat'
 import { formatCurrency } from '@/lib/formatters';
 import {
   calculateAverageDailyIncome,
+  calculateAverageWeeklyIncome,
   countDashboardRangeDays,
   countDashboardRangeDaysThroughDate,
   percentChange,
@@ -73,7 +74,7 @@ function FlowFigures({ items, loading }: {
   loading: boolean;
 }) {
   return (
-    <div className="mt-4 grid gap-2 sm:grid-cols-3">
+    <div className="mt-4 grid gap-2 sm:grid-cols-2">
       {items.map((item) => (
         // The "?" sits beside the tile, not inside its link: a button cannot live in a link.
         <div key={item.label} className="relative">
@@ -283,6 +284,8 @@ export default function DashboardPage({
   const averageGameClubDayCount = countDashboardRangeDaysThroughDate(range, data.latestDailyCashEntryDate);
   const averageGameClubIncome = calculateAverageDailyIncome(totals.gameClubIncome, averageGameClubDayCount);
   const averageBarIncome = calculateAverageDailyIncome(totals.barSales, averageBarDayCount);
+  const averageWeeklyGameClubIncome = calculateAverageWeeklyIncome(totals.gameClubIncome, averageGameClubDayCount);
+  const averageWeeklyBarIncome = calculateAverageWeeklyIncome(totals.barSales, averageBarDayCount);
   // Where the month is heading if the remaining days earn like the entered ones.
   const rangeDays = countDashboardRangeDays(range);
   const paceNote = (total: number, elapsedDays: number) => {
@@ -427,6 +430,7 @@ export default function DashboardPage({
                       { href: pathIfAllowed('/game-club-money-details') && moneyDetailsHref('game_club', range), label: t('totalMoneyLeft'), helper: t('totalMoneyLeftDesc'), amount: totals.gameClubMoneyLeft, currency, tone: toneForAmount(totals.gameClubMoneyLeft) },
                       { href: pathIfAllowed('/debts'), label: t('activeDebts'), helper: t('activeDebtsDesc', { count: totals.activeDebtCount }), amount: totals.activeDebts, currency, tone: totals.activeDebts > 0 ? 'danger' : 'default' },
                       { href: pathIfAllowed('/game-club-money-details') && moneyDetailsHref('game_club', range), label: t('averageDailyIncome'), helper: t('averageDailyClubIncomeDesc'), amount: averageGameClubIncome, currency },
+                      { href: pathIfAllowed('/financial-analysis') && '/financial-analysis?view=overall#reports', label: t('averageWeeklyIncome'), helper: t('averageWeeklyClubIncomeDesc'), amount: averageWeeklyGameClubIncome, currency },
                     ]}
                   />
                 ),
@@ -442,6 +446,7 @@ export default function DashboardPage({
                       { href: pathIfAllowed('/bar-money-details') && moneyDetailsHref('bar', range), label: t('barMoneyLeft'), helper: t('barMoneyLeftDesc'), amount: totals.barIncome, currency, tone: toneForAmount(totals.barIncome) },
                       { href: isCurrentMonth ? productsHref : pathIfAllowed('/closing-stock') && closingStockHref(range.to), label: t('inventoryValue'), helper: inventoryNote, amount: totals.inventoryValue, currency },
                       { href: pathIfAllowed('/bar-money-details') && moneyDetailsHref('bar', range), label: t('averageDailyIncome'), helper: t('averageDailyBarIncomeDesc'), amount: averageBarIncome, currency },
+                      { href: pathIfAllowed('/financial-analysis') && '/financial-analysis?view=overall#reports', label: t('averageWeeklyIncome'), helper: t('averageWeeklyBarIncomeDesc'), amount: averageWeeklyBarIncome, currency },
                     ]}
                   />
                 ),
