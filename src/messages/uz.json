@@ -2670,6 +2670,7 @@
     "errors": {
       "exceeds_available": "Bu shu oy foydasidan qolganidan ko'p.",
       "insufficient": "Jamg'armada bundan kam pul bor.",
+      "day_balance": "O'sha kuni bu to'lov turida bundan kam pul bo'lgan. Keyinroq sanani tanlang.",
       "already_used": "Bu pul allaqachon sarflangan, qaytarilgan yoki yechib olingan. Avval uni bekor qiling.",
       "migration_required": "Jamg'arma uchun 136-ma'lumotlar bazasi migratsiyasi kerak. Avval uni qo'llang.",
       "forbidden": "Jamg'armadan faqat klub egasi foydalana oladi.",

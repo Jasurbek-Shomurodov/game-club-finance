@@ -9,7 +9,7 @@ import type { OwnerWithdrawalPaymentMethod, OwnerWithdrawalSource } from '@/type
  * move shows it.
  */
 
-const CODES: readonly ReserveErrorCode[] = ['exceeds_available', 'insufficient', 'already_used', 'migration_required', 'forbidden', 'failed'];
+const CODES: readonly ReserveErrorCode[] = ['exceeds_available', 'insufficient', 'day_balance', 'already_used', 'migration_required', 'forbidden', 'failed'];
 
 async function send(method: 'POST' | 'DELETE', body: unknown): Promise<ReserveErrorCode | null> {
   const response = await mutateFinanceRequest('/api/reserve', {

@@ -39,6 +39,7 @@ describe('reserve RPC wrappers', () => {
     expect(await deleteReserveEntry(client({ error: { hint: 'reserve_already_used' } }).supabase, 'club', 'id')).toBe('already_used');
     expect(await deleteReserveEntry(client({ error: { code: '42501' } }).supabase, 'club', 'id')).toBe('forbidden');
     expect(reserveErrorCode({ hint: 'reserve_insufficient' }, 'x')).toBe('insufficient');
+    expect(reserveErrorCode({ hint: 'INSUFFICIENT_BALANCE', message: 'Insufficient payment method balance: card would be negative by 1877000.00' }, 'x')).toBe('day_balance');
     expect(reserveErrorCode({ code: 'PGRST202', message: 'Could not find the function public.x' }, 'x')).toBe('migration_required');
     expect(reserveErrorCode({ code: 'XX000' }, 'x')).toBe('failed');
   });

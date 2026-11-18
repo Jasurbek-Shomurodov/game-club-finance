@@ -2670,6 +2670,7 @@
     "errors": {
       "exceeds_available": "That is more than is left of this month's profit.",
       "insufficient": "The reserve holds less than that.",
+      "day_balance": "On that day this payment method had less money than that. Choose a later date.",
       "already_used": "This money has already been spent, returned or withdrawn. Undo that first.",
       "migration_required": "The reserve needs database migration 136. Apply it first.",
       "forbidden": "Only the club owner can use the reserve.",

@@ -28,6 +28,7 @@ const isMethod = (value: unknown): value is OwnerWithdrawalPaymentMethod => OWNE
 const STATUS: Record<ReserveErrorCode, number> = {
   exceeds_available: 409,
   insufficient: 409,
+  day_balance: 409,
   already_used: 409,
   migration_required: 503,
   forbidden: 403,

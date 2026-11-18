@@ -1,10 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isMissingDatabaseFunction } from './errors';
+import { isInsufficientBalanceError, isMissingDatabaseFunction } from './errors';
 import type { OwnerWithdrawalPaymentMethod, OwnerWithdrawalSource } from '@/types';
 
 export type ReserveErrorCode =
   | 'exceeds_available'
   | 'insufficient'
+  /** On the chosen day the method held less than this (162's never-negative check): pick a later day. */
+  | 'day_balance'
   | 'already_used'
   | 'migration_required'
   | 'forbidden'
@@ -15,6 +17,7 @@ export function reserveErrorCode(error: { code?: string | null; message?: string
   if (error.hint === 'reserve_exceeds_available') return 'exceeds_available';
   if (error.hint === 'reserve_insufficient') return 'insufficient';
   if (error.hint === 'reserve_already_used') return 'already_used';
+  if (isInsufficientBalanceError(error)) return 'day_balance';
   if (error.code === '42501') return 'forbidden';
   return 'failed';
 }
