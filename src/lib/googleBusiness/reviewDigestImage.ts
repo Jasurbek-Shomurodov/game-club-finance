@@ -258,7 +258,7 @@ export function buildReviewDigestSvg(digest: ReviewDigest, previous: ReviewDiges
   <text x="${x}" y="${CARD_X + 160}" font-size="27" fill="white" fill-opacity="0.88">${escapeXml(subtitle)}: отзывы</text>
   <g transform="translate(0 ${bodyTop})">${body}</g>
   <rect x="${x}" y="${footerTop}" width="${INNER}" height="1.5" fill="${COLORS.rule}"/>
-  <text x="${x}" y="${footerTop + 44}" font-size="21" fill="${COLORS.faint}">Ответы на отзывы Google Maps каждый день в 10:00 (Ташкент).</text>
+  <text x="${x}" y="${footerTop + 44}" font-size="21" fill="${COLORS.faint}">Ответы на отзывы Google Maps каждый день в 08:00 (Ташкент).</text>
   </g></svg>`;
 }
 

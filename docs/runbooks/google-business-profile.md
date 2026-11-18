@@ -44,8 +44,9 @@ post / photo / video -> /api/google-business/posts|photos|videos (showcase featu
 
 Supabase Cron (migration `152_google_review_auto_replies.sql`, job
 `game-club-google-review-replies`) calls `/api/cron/google-review-replies`
-every day at `05:00 UTC` (10:00 Tashkent), with the same Vault secret and
-`CRON_SECRET` as the Telegram report.
+every day at `03:00 UTC` (08:00 Tashkent), the same time as the daily finance
+report since migration `161_google_review_replies_with_reports.sql`, with the
+same Vault secret and `CRON_SECRET` as the Telegram report.
 
 ```text
 cron -> /api/cron/google-review-replies (CRON_SECRET)
