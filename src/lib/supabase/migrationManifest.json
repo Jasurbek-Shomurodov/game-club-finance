@@ -5000,5 +5000,9 @@
   {
     "file": "157_showcase_game_zone_images.sql",
     "probes": []
+  },
+  {
+    "file": "158_showcase_zone_desk_images.sql",
+    "probes": []
   }
 ]
