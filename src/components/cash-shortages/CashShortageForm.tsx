@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
-import { Banknote, CircleHelp, CreditCard, Gamepad2, HandCoins, MonitorSmartphone, TriangleAlert, Wine, type LucideIcon } from 'lucide-react';
+import { CircleHelp, HandCoins, TriangleAlert, type LucideIcon } from 'lucide-react';
+import { MONEY_SOURCE_ICONS } from '@/components/sideIcons';
+import { PAYMENT_METHOD_ICONS } from '@/components/paymentMethodIcons';
 import {
   Button,
   CurrencyInput,
@@ -28,11 +30,12 @@ import { formatCurrency, formatCurrencyInput, formatDateOnly, formatYearMonth, p
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { CASH_SHORTAGE_REASONS, type CashShortageMethod, type CashShortageReason, type OwnerWithdrawalSource } from '@/types';
 
+/** The payment-method icons every other form uses. */
 export const SHORTAGE_METHOD_ICONS: Record<CashShortageMethod, LucideIcon> = {
-  cash: Banknote,
-  terminal: MonitorSmartphone,
-  card: CreditCard,
-  playstation: Gamepad2,
+  cash: PAYMENT_METHOD_ICONS.cash,
+  terminal: PAYMENT_METHOD_ICONS.terminal,
+  card: PAYMENT_METHOD_ICONS.card,
+  playstation: PAYMENT_METHOD_ICONS.playstation,
 };
 
 /** Methods a shortage can come from: the club's enabled ones, plus PlayStation on the Game Club side. */
@@ -186,7 +189,7 @@ export function CashShortageForm({ clubId, defaultMonth, today, enabledPaymentMe
             onChange={changeSource}
             disabled={saving}
             options={(['game_club', 'bar'] as const).map((value) => {
-              const Icon = value === 'bar' ? Wine : Gamepad2;
+              const Icon = MONEY_SOURCE_ICONS[value];
               return { value, label: t(`sources.${value}`), icon: <Icon size={16} aria-hidden="true" /> };
             })}
           />

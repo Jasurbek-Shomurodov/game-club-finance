@@ -108,7 +108,9 @@ function iconTile(x: number, y: number, size: number, color: string, glyph: stri
 // Glyphs are drawn around (0, 0) inside a 52×52 box.
 const GLYPH_TREND_UP = '<polyline points="-13,9 -4,0 3,6 13,-6"/><polyline points="5,-6 13,-6 13,2"/>';
 const GLYPH_GAMEPAD = '<path d="M-10,-9 H10 C17,-9 20,-2 20,6 C20,13 15,15 11,11 L6,6 H-6 L-11,11 C-15,15 -20,13 -20,6 C-20,-2 -17,-9 -10,-9 Z"/><line x1="-11" y1="-2" x2="-11" y2="4"/><line x1="-14" y1="1" x2="-8" y2="1"/><circle cx="9" cy="-1" r="1.5" fill="#FFFFFF"/><circle cx="13" cy="3" r="1.5" fill="#FFFFFF"/>';
-const GLYPH_CUP = '<path d="M-11,-7 H11 L8,15 H-8 Z"/><line x1="-13" y1="-7" x2="13" y2="-7"/><path d="M2,-7 L6,-17 L11,-17"/>';
+// The same pictures as the app (src/components/sideIcons.ts): the club is a PC, PlayStation the gamepad, the bar a bag.
+const GLYPH_MONITOR = '<rect x="-16" y="-14" width="32" height="22" rx="3"/><line x1="0" y1="8" x2="0" y2="15"/><line x1="-8" y1="15" x2="8" y2="15"/>';
+const GLYPH_BAG = '<path d="M-12,-6 H12 L10,15 H-10 Z"/><path d="M-6,-6 V-9 A6,6 0 0 1 6,-9 V-6"/>';
 const GLYPH_WALLET = '<rect x="-14" y="-10" width="28" height="22" rx="4"/><path d="M4,-3 H14 V6 H4 Z"/><path d="M-10,-10 L6,-16 L8,-10"/>';
 const GLYPH_BARS = '<line x1="-10" y1="12" x2="-10" y2="2"/><line x1="0" y1="12" x2="0" y2="-5"/><line x1="10" y1="12" x2="10" y2="-12"/>';
 const GLYPH_BOX = '<path d="M0,-15 L14,-7 V9 L0,17 L-14,9 V-7 Z"/><polyline points="-14,-7 0,1 14,-7"/><line x1="0" y1="1" x2="0" y2="17"/>';
@@ -654,7 +656,7 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
   </defs>
   <rect width="${WIDTH}" height="${height}" fill="#F4F7FB"/>
   <g font-family="Noto Sans">
-    ${iconTile(PAGE_X, headerY, 96, INK, GLYPH_GAMEPAD)}
+    ${iconTile(PAGE_X, headerY, 96, INK, GLYPH_MONITOR)}
     <text x="${PAGE_X + 124}" y="${headerY + 50}" font-size="46" font-weight="800" fill="${INK}">ФИНАНСЫ КЛУБА</text>
     <text x="${PAGE_X + 124}" y="${headerY + 88}" font-size="22" fill="${TEXT}">${escapeXml(input.clubName)} · Рабочий день: ${escapeXml(input.businessDateLabel)}</text>
 
@@ -664,9 +666,9 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
 
     ${card(PAGE_X, chartsY, 440, chartsHeight)}
     <text x="${PAGE_X + 28}" y="${chartsY + 50}" font-size="19" font-weight="800" fill="${INK}">ДОХОД ЗА ДЕНЬ</text>
-    ${incomeTile(PAGE_X + 20, chartsY + 72, 'КЛУБ', BLUE, '#EEF4FF', '#C7D7FB', GLYPH_GAMEPAD, input.gameClubIncome, input.averageDailyGameClubIncome, input.averageDailyGameClubIncomeChange)}
+    ${incomeTile(PAGE_X + 20, chartsY + 72, 'КЛУБ', BLUE, '#EEF4FF', '#C7D7FB', GLYPH_MONITOR, input.gameClubIncome, input.averageDailyGameClubIncome, input.averageDailyGameClubIncomeChange)}
     ${incomeTile(PAGE_X + 20, chartsY + 232, 'PLAYSTATION', PURPLE, '#F7F3FF', '#DDD0FB', GLYPH_GAMEPAD, input.playstationIncome, input.averageDailyPlaystationIncome, input.averageDailyPlaystationIncomeChange)}
-    ${incomeTile(PAGE_X + 20, chartsY + 392, 'БАР', ORANGE, '#FFF3E8', '#FBD5B5', GLYPH_CUP, input.barSales, input.averageDailyBarSales, input.averageDailyBarSalesChange)}
+    ${incomeTile(PAGE_X + 20, chartsY + 392, 'БАР', ORANGE, '#FFF3E8', '#FBD5B5', GLYPH_BAG, input.barSales, input.averageDailyBarSales, input.averageDailyBarSalesChange)}
 
     ${card(PAGE_X + 464, chartsY, PAGE_WIDTH - 464, chartsHeight)}
     <text x="${PAGE_X + 492}" y="${chartsY + 50}" font-size="19" font-weight="800" fill="${INK}">ДИНАМИКА ДОХОДА КЛУБА ЗА МЕСЯЦ</text>
@@ -680,7 +682,7 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
     ${showPlaystation ? playstationSection(input, playstationY, playstationHeight) : ''}
 
     ${card(PAGE_X, detailY, detailWidth, detailHeight, '#FAFCFF', '#C7D7FB')}
-    ${iconTile(PAGE_X + 28, detailY + 28, 80, BLUE, GLYPH_GAMEPAD)}
+    ${iconTile(PAGE_X + 28, detailY + 28, 80, BLUE, GLYPH_MONITOR)}
     <text x="${PAGE_X + 130}" y="${detailY + 58}" font-size="22" font-weight="800" fill="${BLUE}">КЛУБ</text>
     ${moneyText(PAGE_X + 130, detailY + 98, input.gameClubIncome, 32, BLUE)}
     <text x="${PAGE_X + 130}" y="${detailY + 126}" font-size="18" fill="${MUTED}">Доход за день</text>
@@ -695,7 +697,7 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
     ${iconTile(PAGE_X + detailWidth - 100, netBoxY + 16, 56, BLUE, GLYPH_TREND_UP)}
 
     ${card(barX, detailY, detailWidth, detailHeight, '#FFFBF7', '#FBD5B5')}
-    ${iconTile(barX + 28, detailY + 28, 80, ORANGE, GLYPH_CUP)}
+    ${iconTile(barX + 28, detailY + 28, 80, ORANGE, GLYPH_BAG)}
     <text x="${barX + 130}" y="${detailY + 58}" font-size="22" font-weight="800" fill="${ORANGE}">БАР</text>
     ${moneyText(barX + 130, detailY + 98, input.barSales, 32, ORANGE)}
     <text x="${barX + 130}" y="${detailY + 126}" font-size="18" fill="${MUTED}">Продажи за день</text>
@@ -709,7 +711,7 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
     <text x="${PAGE_X + 28}" y="${kpiY + 44}" font-size="20" font-weight="800" fill="${INK}">КЛЮЧЕВЫЕ ПОКАЗАТЕЛИ</text>
     ${kpiTile(kpiX(0) + 12, kpiY + 62, kpiWidth - 12, GREEN, GLYPH_WALLET, ['ОСТАТОК', 'КЛУБА'], input.gameClubMoneyLeft, 'за месяц')}
     ${kpiTile(kpiX(1) + 6, kpiY + 62, kpiWidth - 12, PURPLE, GLYPH_BARS, ['СРЕДНИЙ', 'ДОХОД / ДЕНЬ'], input.averageDailyGameClubIncome, 'к прошлому месяцу', input.averageDailyGameClubIncomeChange)}
-    ${kpiTile(kpiX(2) + 3, kpiY + 62, kpiWidth - 12, ORANGE, GLYPH_CUP, ['ДОХОД БАРА', 'ЗА МЕСЯЦ'], input.barMoneyLeft, 'к прошлому месяцу', input.barMoneyLeftChange)}
+    ${kpiTile(kpiX(2) + 3, kpiY + 62, kpiWidth - 12, ORANGE, GLYPH_BAG, ['ДОХОД БАРА', 'ЗА МЕСЯЦ'], input.barMoneyLeft, 'к прошлому месяцу', input.barMoneyLeftChange)}
     ${kpiTile(kpiX(3), kpiY + 62, kpiWidth - 12, SLATE, GLYPH_BOX, ['СТОИМОСТЬ', 'СКЛАДА'], input.inventoryValue, 'к прошлому месяцу', input.inventoryValueChange)}
     ${kpiTile(kpiX(4) - 6, kpiY + 62, kpiWidth - 6, RED, GLYPH_ALERT, ['АКТИВНЫЕ', 'ДОЛГИ'], input.activeDebts, 'долги клиентов')}
     ${promo?.svg ?? ''}

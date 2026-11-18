@@ -7,10 +7,8 @@ import {
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
-  Gamepad2,
-  MonitorSmartphone,
-  ShoppingBag,
 } from 'lucide-react';
+import { SIDE_ICONS } from '@/components/sideIcons';
 import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
@@ -383,7 +381,7 @@ export default function DashboardPage({
               label={t('gameClubIncome')}
               href={pathIfAllowed(`/game-club-money-details`) && `/game-club-money-details?${detailsQuery}`}
               amount={totals.gameClubIncome}
-              icon={MonitorSmartphone}
+              icon={SIDE_ICONS.gameClub}
               iconClassName={SIDE_ICON_CLASS.gameClub}
               tone="success"
               comparison={comparisonFor(totals.gameClubIncome, previousTotals.gameClubIncome)}
@@ -397,7 +395,7 @@ export default function DashboardPage({
               label={t('playstationIncome')}
               href={pathIfAllowed('/financial-analysis') && '/financial-analysis?view=overall#forecast'}
               amount={totals.playstationIncome}
-              icon={Gamepad2}
+              icon={SIDE_ICONS.playstation}
               iconClassName={SIDE_ICON_CLASS.gameClub}
               tone="success"
               comparison={comparisonFor(totals.playstationIncome, previousTotals.playstationIncome)}
@@ -410,7 +408,7 @@ export default function DashboardPage({
               label={t('barSales')}
               href={pathIfAllowed(`/bar-money-details`) && `/bar-money-details?${detailsQuery}`}
               amount={totals.barSales}
-              icon={ShoppingBag}
+              icon={SIDE_ICONS.bar}
               iconClassName={SIDE_ICON_CLASS.bar}
               tone="success"
               comparison={comparisonFor(totals.barSales, previousTotals.barSales)}

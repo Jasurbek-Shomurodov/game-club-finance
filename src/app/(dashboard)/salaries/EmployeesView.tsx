@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ChevronRight, Gamepad2, History, Pencil, Power, Trash2, UserPlus, Users, Wine } from 'lucide-react';
+import { ChevronRight, History, Pencil, Power, Trash2, UserPlus, Users } from 'lucide-react';
+import { SIDE_ICONS } from '@/components/sideIcons';
 import {
   Avatar,
   Badge,
@@ -23,8 +24,8 @@ import { useSalaryText, type EmployeeRateSummary, type SavingTarget } from './sh
 
 /** Payment source look, matching the Owner Profit cards: Game Club is the brand colour, Bar is orange. */
 const PAYMENT_SOURCES = {
-  game_club: { icon: Gamepad2, bubble: 'bg-primary-50 text-primary-600', bar: 'bg-primary-500' },
-  bar: { icon: Wine, bubble: 'bg-orange-50 text-orange-600', bar: 'bg-orange-500' },
+  game_club: { icon: SIDE_ICONS.gameClub, bubble: 'bg-primary-50 text-primary-600', bar: 'bg-primary-500' },
+  bar: { icon: SIDE_ICONS.bar, bubble: 'bg-orange-50 text-orange-600', bar: 'bg-orange-500' },
 } as const;
 
 export interface EmployeesViewProps {

@@ -4,9 +4,8 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   ArrowRight,
   CircleDollarSign,
-  MonitorSmartphone,
-  ShoppingBag,
 } from 'lucide-react';
+import { SIDE_ICONS } from '@/components/sideIcons';
 import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
@@ -316,7 +315,7 @@ export function OverallAnalysis({ businessToday, onOpenMonth }: { businessToday:
           <SideSummaryCard
             side="gameClub"
             title={td('gameClub')}
-            icon={MonitorSmartphone}
+            icon={SIDE_ICONS.gameClub}
             incomeLabel={t('moneyIn')}
             data={indicators.gameClub}
             help={t('help.sideSummary')}
@@ -328,7 +327,7 @@ export function OverallAnalysis({ businessToday, onOpenMonth }: { businessToday:
           <SideSummaryCard
             side="bar"
             title={td('bar')}
-            icon={ShoppingBag}
+            icon={SIDE_ICONS.bar}
             incomeLabel={t('barSalesIn')}
             data={indicators.bar}
             help={t('help.sideSummary')}
@@ -381,8 +380,8 @@ export function OverallAnalysis({ businessToday, onOpenMonth }: { businessToday:
                 locale={locale}
                 currency={currency}
                 sides={[
-                  { side: 'gameClub', label: td('gameClub'), icon: MonitorSmartphone, balance: ownerTotals.gameClub },
-                  { side: 'bar', label: td('bar'), icon: ShoppingBag, balance: ownerTotals.bar },
+                  { side: 'gameClub', label: td('gameClub'), icon: SIDE_ICONS.gameClub, balance: ownerTotals.gameClub },
+                  { side: 'bar', label: td('bar'), icon: SIDE_ICONS.bar, balance: ownerTotals.bar },
                 ]}
               />
               <ChartCard title={t('ownerChartTitle')} help={t('help.ownerMonths')} description={t('ownerChartDesc')}>

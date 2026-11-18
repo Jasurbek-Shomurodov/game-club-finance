@@ -7,15 +7,13 @@ import { useTranslations } from 'next-intl';
 import {
   Banknote,
   Clock3,
-  CreditCard,
-  Gamepad2,
   ReceiptText,
-  MonitorSmartphone,
   Save,
   Trash2,
   TrendingUp,
   TriangleAlert,
 } from 'lucide-react';
+import { PAYMENT_METHOD_ICONS } from '@/components/paymentMethodIcons';
 import { fetchProfileNames } from '@/lib/supabase/profileNames';
 import { createClient } from '@/lib/supabase/client';
 import { calculateFinancialReportTotals, calculateManualIncome } from '@/lib/calculations/dailyReport';
@@ -488,9 +486,9 @@ export default function DailyCashPage() {
 
   const paymentCards: Array<{ key: 'cash_income' | 'terminal_income' | 'card_income' | 'playstation_income'; label: string; icon: ElementType; visible: boolean }> = [
     { key: 'cash_income', label: t('cash'), icon: Banknote, visible: enabledPaymentMethods.includes('cash') },
-    { key: 'terminal_income', label: t('terminal'), icon: MonitorSmartphone, visible: enabledPaymentMethods.includes('terminal') },
-    { key: 'card_income', label: t('card'), icon: CreditCard, visible: enabledPaymentMethods.includes('card') },
-    { key: 'playstation_income', label: t('playstation'), icon: Gamepad2, visible: true },
+    { key: 'terminal_income', label: t('terminal'), icon: PAYMENT_METHOD_ICONS.terminal, visible: enabledPaymentMethods.includes('terminal') },
+    { key: 'card_income', label: t('card'), icon: PAYMENT_METHOD_ICONS.card, visible: enabledPaymentMethods.includes('card') },
+    { key: 'playstation_income', label: t('playstation'), icon: PAYMENT_METHOD_ICONS.playstation, visible: true },
   ];
 
   const savedBreakdown = entry

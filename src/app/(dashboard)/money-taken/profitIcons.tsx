@@ -3,18 +3,14 @@ import {
   CircleHelp,
   CreditCard,
   DollarSign,
-  Gamepad2,
-  Joystick,
   WalletCards,
-  Wine,
   type LucideIcon,
 } from 'lucide-react';
+import { MONEY_SOURCE_ICONS, SIDE_ICONS } from '@/components/sideIcons';
 import type { OwnerWithdrawalPaymentMethod, OwnerWithdrawalSource } from '@/types';
 
-export const SOURCE_ICONS: Record<OwnerWithdrawalSource, LucideIcon> = {
-  game_club: Gamepad2,
-  bar: Wine,
-};
+/** The app-wide business icons (sideIcons): the club's PCs and the bar's bag. */
+export const SOURCE_ICONS: Record<OwnerWithdrawalSource, LucideIcon> = MONEY_SOURCE_ICONS;
 
 /** Icon tint per profit source: Game Club is the brand colour, Bar is orange. */
 export const SOURCE_TINTS: Record<OwnerWithdrawalSource, { bubble: string; bar: string; dot: string }> = {
@@ -26,7 +22,7 @@ export const METHOD_ICONS: Record<OwnerWithdrawalPaymentMethod | 'unassigned' | 
   cash: Banknote,
   terminal: CreditCard,
   card: WalletCards,
-  playstation: Joystick,
+  playstation: SIDE_ICONS.playstation,
   usd: DollarSign,
   unassigned: CircleHelp,
 };

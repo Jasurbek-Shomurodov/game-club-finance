@@ -5,10 +5,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CalendarDays,
-  MonitorSmartphone,
   Percent,
-  ShoppingBag,
 } from 'lucide-react';
+import { SIDE_ICONS } from '@/components/sideIcons';
 import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
 import { usePathname, useSearchParams } from 'next/navigation';
@@ -354,7 +353,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
             title={td('gameClub')}
             detailsHref={moneyDetailsHref('game_club', range)}
             spentHref={reportsHref(range, { category: 'expense', source: 'game_club' })}
-            icon={MonitorSmartphone}
+            icon={SIDE_ICONS.gameClub}
             iconClassName={SIDE_ICON_CLASS.gameClub}
             incomeLabel={t('moneyIn')}
             now={indicators.gameClub}
@@ -367,7 +366,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
             title={td('bar')}
             detailsHref={moneyDetailsHref('bar', range)}
             spentHref={reportsHref(range, { category: 'expense', source: 'bar' })}
-            icon={ShoppingBag}
+            icon={SIDE_ICONS.bar}
             iconClassName={SIDE_ICON_CLASS.bar}
             incomeLabel={t('barSalesIn')}
             now={indicators.bar}
@@ -435,7 +434,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
                     {plans.gameClub.rows.length > 0 && (
                       <ExpensePlanPanel
                         title={td('gameClub')}
-                        icon={MonitorSmartphone}
+                        icon={SIDE_ICONS.gameClub}
                         iconClassName={SIDE_ICON_CLASS.gameClub}
                         side={plans.gameClub}
                         rowHref={(row) => reportsHref(range, { category: `expense:${row.preset.category}`, source: row.preset.payment_source })}
@@ -446,7 +445,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
                     {plans.bar.rows.length > 0 && (
                       <ExpensePlanPanel
                         title={td('bar')}
-                        icon={ShoppingBag}
+                        icon={SIDE_ICONS.bar}
                         iconClassName={SIDE_ICON_CLASS.bar}
                         side={plans.bar}
                         rowHref={(row) => reportsHref(range, { category: `expense:${row.preset.category}`, source: row.preset.payment_source })}
