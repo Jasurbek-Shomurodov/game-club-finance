@@ -311,13 +311,11 @@ describe('expense creation route', () => {
     expect((await bar.json()).code).toBe('PAYMENT_METHOD_DISABLED');
   });
 
-  it('takes investments only from the reserve', async () => {
-    mockCreate();
-    for (const paymentSource of ['game_club', 'bar']) {
-      const response = await create({ ...body, category: 'investments', paymentSource });
-      expect((await response.json()).code).toBe('INVALID_REQUEST');
+  it('takes investments from Game Club, Bar or the reserve', async () => {
+    for (const source of [{ paymentSource: 'game_club' }, { paymentSource: 'bar' }, { fromReserve: true }]) {
+      mockCreate();
+      expect((await create({ ...body, category: 'investments', ...source })).status).toBe(201);
     }
-    expect((await create({ ...body, category: 'investments', fromReserve: true })).status).not.toBe(400);
   });
 
   it('refuses PlayStation money for a Bar expense', async () => {
@@ -615,13 +613,10 @@ describe('expense payment method route', () => {
       expect(rpc).not.toHaveBeenCalled();
     });
 
-    it('moves only a reserve expense into investments', async () => {
+    it('moves any expense into investments', async () => {
       const { rpc } = mockPatchSupabase(baseExpense);
-      expect((await patchBody({ category: 'investments' })).status).toBe(400);
-      expect(rpc).not.toHaveBeenCalled();
-      const reserve = mockPatchSupabase({ ...baseExpense, paid_from_reserve: true });
       expect((await patchBody({ category: 'investments' })).status).toBe(200);
-      expect(reserve.rpc).toHaveBeenCalledWith('update_expense_category', { p_club_id: CLUB_ID, p_expense_id: EXPENSE_ID, p_category: 'investments' });
+      expect(rpc).toHaveBeenCalledWith('update_expense_category', { p_club_id: CLUB_ID, p_expense_id: EXPENSE_ID, p_category: 'investments' });
     });
   });
 });

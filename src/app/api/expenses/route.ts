@@ -1,7 +1,7 @@
 import { after } from 'next/server';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { validateEntryNote } from '@/lib/entryNote';
-import { isCategoryAllowedForSource, isManualExpenseCategory } from '@/lib/expenseCategories';
+import { isManualExpenseCategory } from '@/lib/expenseCategories';
 import { dollarExpenseAmount, expensePaymentMethods, normalizePaymentMethods } from '@/lib/paymentMethods';
 import { createClient } from '@/lib/supabase/server';
 import { actorName } from '@/lib/telegram/actorName';
@@ -89,8 +89,6 @@ function isValidBody(body: ExpenseRequestBody): body is ValidExpenseRequestBody 
     && (body.presetId === null || body.presetId === undefined || isId(body.presetId))
     && (body.fromReserve === undefined || typeof body.fromReserve === 'boolean')
     && !(body.fromReserve === true && body.paymentMethod === 'usd')
-    // Investments are the owner reserve's own money: its sums or its dollars pay them.
-    && isCategoryAllowedForSource(body.category.trim(), body.fromReserve === true || body.paymentMethod === 'usd')
     // Dollars and rate come exactly with a dollar expense.
     && (body.paymentMethod === 'usd'
       ? isCents(body.usdAmount) && isCents(body.usdRate)
@@ -400,9 +398,6 @@ export async function PATCH(request: Request) {
   }
   const changeDate = date !== null && expense.date !== date;
   const changeCategory = category !== null && expense.category !== category;
-  if (changeCategory && !isCategoryAllowedForSource(category, expenseFromReserve(expense))) {
-    return expenseErrorResponse('INVALID_REQUEST');
-  }
   if (!changeMethod && !changeDate && !changeCategory) return Response.json({ expense });
 
   // Owner check, the method/date/category rules and each write happen atomically in their RPC.

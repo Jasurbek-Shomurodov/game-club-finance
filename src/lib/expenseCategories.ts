@@ -24,16 +24,3 @@ export function isKnownExpenseCategory(category: string): category is KnownExpen
 export function isManualExpenseCategory(category: string): boolean {
   return (MANUAL_EXPENSE_CATEGORIES as readonly string[]).includes(category);
 }
-
-/** Categories only the owner reserve may pay: investments are the owner's own money put into the club. */
-export const RESERVE_ONLY_EXPENSE_CATEGORIES: readonly string[] = ['investments'];
-
-/** Whether an expense of `category` may be paid this way; reserve-only categories need the reserve. */
-export function isCategoryAllowedForSource(category: string, fromReserve: boolean): boolean {
-  return fromReserve || !RESERVE_ONLY_EXPENSE_CATEGORIES.includes(category);
-}
-
-/** The hand-chosen categories offered for an expense paid from the reserve or not. */
-export function manualExpenseCategoriesFor(fromReserve: boolean): string[] {
-  return MANUAL_EXPENSE_CATEGORIES.filter((category) => isCategoryAllowedForSource(category, fromReserve));
-}

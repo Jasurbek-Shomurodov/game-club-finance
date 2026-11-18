@@ -97,7 +97,7 @@ import { ReportsTabs, type ReportsView } from './ReportsTabs';
 import { fetchProfileNames } from '@/lib/supabase/profileNames';
 import { fetchDailyCashCollections, type DailyCashCollection } from '@/lib/supabase/dailyCashCollections';
 import type { ExchangeMethod, MoneyExchangeRow } from '@/lib/calculations/moneyExchanges';
-import { EXPENSE_CATEGORIES, isKnownExpenseCategory, manualExpenseCategoriesFor } from '@/lib/expenseCategories';
+import { EXPENSE_CATEGORIES, isKnownExpenseCategory, MANUAL_EXPENSE_CATEGORIES } from '@/lib/expenseCategories';
 import { moneyDetailsHref } from '@/lib/detailLinks';
 
 const emptyReportRows = {
@@ -808,11 +808,10 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
 
   /**
    * Hand-chosen categories, plus the current one so an old category still displays.
-   * Investments are the reserve's alone, so other expenses are not moved into it.
    */
   function categoryOptions(activity: MoneyReportActivity): string[] {
     const current = activity.category;
-    const categories = manualExpenseCategoriesFor(activity.paymentMethod === 'usd');
+    const categories: string[] = [...MANUAL_EXPENSE_CATEGORIES];
     return current && !categories.includes(current) ? [current, ...categories] : categories;
   }
 
