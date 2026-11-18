@@ -4,9 +4,10 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { runWithJwtTimingRetry } from '@/lib/supabase/authRetry';
+import { fetchAllRows } from '@/lib/supabase/pagination';
 import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
@@ -87,6 +88,22 @@ import {
 } from 'lucide-react';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
 import { closingStockHref } from '@/lib/detailLinks';
+import {
+  defaultPurchaseFilters,
+  productNamesInCategory,
+  purchaseCategories,
+  purchaseDateBounds,
+  purchaseFiltersFromParams,
+  purchaseFiltersToParams,
+  purchasePaymentMethods,
+  purchaseProductIds,
+  summarizePurchaseSpending,
+  type PurchaseFilterProduct,
+  type PurchaseHistoryFilters,
+  type PurchaseSpendingRow,
+} from '@/lib/calculations/purchaseHistory';
+import { PurchaseHistoryFilterBar } from '@/components/stock-purchase/PurchaseHistoryFilters';
+import { PurchaseSpendingSummary } from '@/components/stock-purchase/PurchaseSpendingSummary';
 import { PAYMENT_METHODS, type EntryPaymentMethod, type Product, type StockPurchase } from '@/types';
 
 const PURCHASES_PAGE_SIZE = 10;
@@ -121,6 +138,38 @@ interface PurchasePage {
 
 const NO_PRODUCTS: Product[] = [];
 const EMPTY_PURCHASE_PAGE: PurchasePage = { clubId: null, rows: [], count: 0 };
+const NO_FILTER_PRODUCTS: PurchaseFilterProduct[] = [];
+
+interface SpendingRows {
+  clubId: string | null;
+  rows: PurchaseSpendingRow[];
+}
+const EMPTY_SPENDING: SpendingRows = { clubId: null, rows: [] };
+
+/** The filter calls both purchase queries apply; each returns the same builder. */
+interface FilterablePurchaseRequest<Self> {
+  gte(column: string, value: string): Self;
+  lte(column: string, value: string): Self;
+  in(column: string, values: readonly string[]): Self;
+  or(filters: string): Self;
+}
+
+interface PurchaseScope {
+  bounds: { from: string; to: string } | null;
+  productIds: string[] | null;
+  paymentMethods: string[] | null;
+  /** The text search's `or` filter, or null when there is no search. */
+  search: string | null;
+}
+
+function narrowPurchases<R extends FilterablePurchaseRequest<R>>(request: R, scope: PurchaseScope): R {
+  let next = request;
+  if (scope.bounds) next = next.gte('date', scope.bounds.from).lte('date', scope.bounds.to);
+  if (scope.productIds) next = next.in('product_id', scope.productIds);
+  if (scope.paymentMethods) next = next.in('payment_method', scope.paymentMethods);
+  if (scope.search) next = next.or(scope.search);
+  return next;
+}
 
 interface PurchaseForm {
   date: string;
@@ -178,6 +227,11 @@ export default function StockPurchasePage() {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [purchasePage, setPurchasePage] = useState(1);
+  const pathname = usePathname();
+  // History filters live in the URL so a reload or a shared link keeps them.
+  const [historyFilters, setHistoryFilters] = useState<PurchaseHistoryFilters>(
+    () => purchaseFiltersFromParams(searchParams, businessToday, enabledPaymentMethods),
+  );
 
   const [form, setForm] = useState<PurchaseForm>(() => ({
     date: businessToday,
@@ -216,24 +270,57 @@ export default function StockPurchasePage() {
   // A full load starts from an empty list; a silent reload keeps the current one.
   const products = productsLoading ? NO_PRODUCTS : productsQuery.data;
 
-  const fetchPurchases = useCallback(async (isCurrent: () => boolean): Promise<PurchasePage> => {
-    if (!selectedClubId) return EMPTY_PURCHASE_PAGE;
-    const from = (purchasePage - 1) * PURCHASES_PAGE_SIZE;
-    const to = from + PURCHASES_PAGE_SIZE - 1;
+  // Every product the club ever had, archived ones included: old purchases
+  // still point at them, and the category filter needs their categories.
+  const fetchFilterProducts = useCallback(async (): Promise<PurchaseFilterProduct[]> => {
+    if (!selectedClubId) return NO_FILTER_PRODUCTS;
     const supabase = createClient();
+    const result = await runWithJwtTimingRetry(supabase, async () => fetchAllRows<PurchaseFilterProduct>(() => supabase
+      .from('products')
+      .select('id, name, category')
+      .eq('club_id', selectedClubId)
+      .order('name', { ascending: true })
+      .order('id', { ascending: true })));
+    if (result.error) throw new Error(result.error.message);
+    return result.data ?? NO_FILTER_PRODUCTS;
+  }, [selectedClubId]);
+  const filterProductsQuery = useClubQuery(fetchFilterProducts, NO_FILTER_PRODUCTS);
+  const filterProducts = filterProductsQuery.loading ? NO_FILTER_PRODUCTS : filterProductsQuery.data;
+  const filterCategories = useMemo(() => purchaseCategories(filterProducts), [filterProducts]);
+  const filterProductNames = useMemo(
+    () => productNamesInCategory(filterProducts, historyFilters.category),
+    [filterProducts, historyFilters.category],
+  );
+  // Category and product filters resolve to ids once the catalog is in.
+  const needsFilterProducts = Boolean(historyFilters.category || historyFilters.product);
+  const waitingForFilterProducts = needsFilterProducts && filterProductsQuery.loading;
+  const filterProductsFailed = needsFilterProducts && filterProductsQuery.error;
+  const { period, day, month, from: rangeFrom, to: rangeTo, category, product, paymentMethod } = historyFilters;
+  const purchaseScope = useMemo(() => {
+    const filters = { period, day, month, from: rangeFrom, to: rangeTo, category, product, paymentMethod };
+    return {
+      bounds: purchaseDateBounds(filters),
+      productIds: purchaseProductIds(filterProducts, filters),
+      paymentMethods: purchasePaymentMethods(filters),
+    };
+  }, [category, day, filterProducts, month, paymentMethod, period, product, rangeFrom, rangeTo]);
+
+  /** The text search as an `or` filter; `none` when it can match nothing. */
+  const resolveSearch = useCallback(async (
+    supabase: ReturnType<typeof createClient>,
+    clubId: string,
+    isCurrent: () => boolean,
+  ): Promise<{ search: string | null; none: boolean }> => {
+    if (!debouncedQuery) return { search: null, none: false };
     const paymentSearch = sanitizePurchaseSearch(debouncedQuery);
     // Match the purchase's product by name across the whole club catalog,
     // including inactive and archived products that still have receipts.
-    let productIds: string[] = [];
-    if (debouncedQuery) {
-      const matches = await runWithJwtTimingRetry(
-        supabase,
-        async () => fetchProductIdsByName(supabase, selectedClubId, debouncedQuery),
-      );
-      if (matches.error) throw new Error(matches.error.message);
-      if (!isCurrent()) return EMPTY_PURCHASE_PAGE;
-      productIds = matches.data;
-    }
+    const matches = await runWithJwtTimingRetry(
+      supabase,
+      async () => fetchProductIdsByName(supabase, clubId, debouncedQuery),
+    );
+    if (matches.error) throw new Error(matches.error.message);
+    if (!isCurrent()) return { search: null, none: true };
     const filters: string[] = [];
     // payment_method holds one of three known values: match them in memory
     // instead of an ilike the database cannot index.
@@ -241,42 +328,94 @@ export default function StockPurchasePage() {
       ? PAYMENT_METHODS.filter((method) => method.includes(paymentSearch.toLowerCase()))
       : [];
     if (paymentMethods.length) filters.push(`payment_method.in.(${paymentMethods.join(',')})`);
-    if (productIds.length) filters.push(`product_id.in.(${productIds.join(',')})`);
+    if (matches.data.length) filters.push(`product_id.in.(${matches.data.join(',')})`);
     // A query that matches no product and sanitises to no payment text (for
     // example "%") lists nothing rather than the whole club.
-    if (debouncedQuery && filters.length === 0) return EMPTY_PURCHASE_PAGE;
+    return filters.length ? { search: filters.join(','), none: false } : { search: null, none: true };
+  }, [debouncedQuery]);
+
+  const fetchSpending = useCallback(async (isCurrent: () => boolean): Promise<SpendingRows> => {
+    if (!selectedClubId) return EMPTY_SPENDING;
+    if (purchaseScope.productIds?.length === 0) return { clubId: selectedClubId, rows: [] };
+    const supabase = createClient();
+    const { search, none } = await resolveSearch(supabase, selectedClubId, isCurrent);
+    if (none) return { clubId: selectedClubId, rows: [] };
+    // Every matching row, past Supabase's 1,000-row cap, so the totals are whole.
+    const result = await runWithJwtTimingRetry(supabase, async () => fetchAllRows<PurchaseSpendingRow>(() => narrowPurchases(
+      supabase.from('stock_purchases').select('date, quantity, cost_price').eq('club_id', selectedClubId),
+      { ...purchaseScope, search },
+    ).order('date', { ascending: false }).order('id', { ascending: false })));
+    if (result.error) throw new Error(result.error.message);
+    return { clubId: selectedClubId, rows: result.data ?? [] };
+  }, [purchaseScope, resolveSearch, selectedClubId]);
+  const spendingQuery = useClubQuery(waitingForFilterProducts ? null : fetchSpending, EMPTY_SPENDING);
+  const spendingRows = spendingQuery.data.clubId === selectedClubId ? spendingQuery.data.rows : EMPTY_SPENDING.rows;
+  const spending = useMemo(() => summarizePurchaseSpending(spendingRows), [spendingRows]);
+
+  const fetchPurchases = useCallback(async (isCurrent: () => boolean): Promise<PurchasePage> => {
+    if (!selectedClubId) return EMPTY_PURCHASE_PAGE;
+    const from = (purchasePage - 1) * PURCHASES_PAGE_SIZE;
+    const to = from + PURCHASES_PAGE_SIZE - 1;
+    if (purchaseScope.productIds?.length === 0) return { clubId: selectedClubId, rows: [], count: 0 };
+    const supabase = createClient();
+    const { search, none } = await resolveSearch(supabase, selectedClubId, isCurrent);
+    if (none) return { clubId: selectedClubId, rows: [], count: 0 };
 
     const { data, error, count } = await runWithJwtTimingRetry(
       supabase,
-      async () => {
-        let request = supabase
+      async () => narrowPurchases(
+        supabase
           .from('stock_purchases')
           .select('*, products(name, sale_price)', { count: 'exact' })
-          .eq('club_id', selectedClubId);
-
-        if (filters.length > 0) request = request.or(filters.join(','));
-
-        return request
-          .order('created_at', { ascending: false })
-          .order('id', { ascending: false })
-          .range(from, to);
-      },
+          .eq('club_id', selectedClubId),
+        { ...purchaseScope, search },
+      )
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(from, to),
     );
     if (error) throw new Error(error.message);
     return { clubId: selectedClubId, rows: (data as PurchaseWithProduct[]) ?? [], count: count ?? 0 };
-  }, [debouncedQuery, purchasePage, selectedClubId]);
-  const purchasesQuery = useClubQuery(fetchPurchases, EMPTY_PURCHASE_PAGE);
+  }, [purchasePage, purchaseScope, resolveSearch, selectedClubId]);
+  const purchasesQuery = useClubQuery(waitingForFilterProducts ? null : fetchPurchases, EMPTY_PURCHASE_PAGE);
   // A club switch clears the list at once; paging keeps the old rows dimmed.
   const { rows: purchases, count: purchaseCount } = purchasesQuery.data.clubId === selectedClubId ? purchasesQuery.data : EMPTY_PURCHASE_PAGE;
-  const { loading: purchasesLoading, error: purchasesError, reload: loadPurchases } = purchasesQuery;
+  const purchasesLoading = purchasesQuery.loading || waitingForFilterProducts;
+  const purchasesError = purchasesQuery.error || filterProductsFailed;
+  const { reload: reloadPurchaseRows } = purchasesQuery;
+  const { reload: reloadFilterProducts } = filterProductsQuery;
+  const loadPurchases = useCallback(async () => {
+    if (filterProductsFailed) await reloadFilterProducts();
+    else await reloadPurchaseRows();
+  }, [filterProductsFailed, reloadFilterProducts, reloadPurchaseRows]);
+
+  function changeHistoryFilters(next: PurchaseHistoryFilters) {
+    // Change the filters and page together so a filter from page 2+ fetches once.
+    setHistoryFilters(next);
+    setPurchasePage(1);
+  }
+
+  // Mirror the filters into the URL without a navigation; other parameters stay.
+  useEffect(() => {
+    const current = window.location.search.replace(/^\?/, '');
+    const next = purchaseFiltersToParams(historyFilters, current).toString();
+    if (next !== current) window.history.replaceState(null, '', next ? `${pathname}?${next}` : pathname);
+  }, [historyFilters, pathname]);
 
   // A different club has different products: never carry a product, prices or
   // comment from the previous club into this form.
+  // Category and product filters name the previous club's catalog too; the
+  // first run keeps the ones a link or reload brought in.
+  const filtersClubId = useRef(selectedClubId);
   useEffect(() => {
     setPurchasePage(1);
     setFormError('');
     dateTouched.current = false;
     setForm((prev) => ({ ...prev, ...emptyItemFields }));
+    if (filtersClubId.current !== selectedClubId) {
+      if (filtersClubId.current) setHistoryFilters((prev) => ({ ...prev, category: '', product: '' }));
+      filtersClubId.current = selectedClubId;
+    }
   }, [selectedClubId]);
 
   useEffect(() => {
@@ -421,11 +560,12 @@ export default function StockPurchasePage() {
 
   async function reloadAfterMutation(nextPage: number) {
     // Independent reads: run them together instead of one after the other.
+    const spendingReload = spendingQuery.reload({ silent: true });
     if (nextPage === purchasePage) {
-      await Promise.all([loadProducts({ silent: true }), loadPurchases()]);
+      await Promise.all([loadProducts({ silent: true }), loadPurchases(), spendingReload]);
     } else {
       setPurchasePage(nextPage);
-      await loadProducts({ silent: true });
+      await Promise.all([loadProducts({ silent: true }), spendingReload]);
     }
   }
 
@@ -781,6 +921,25 @@ export default function StockPurchasePage() {
             )}
           />
         </CardHeader>
+
+        <PurchaseHistoryFilterBar
+          filters={historyFilters}
+          onChange={changeHistoryFilters}
+          onClear={() => changeHistoryFilters(defaultPurchaseFilters(businessToday))}
+          categories={filterCategories}
+          productNames={filterProductNames}
+          productsLoading={filterProductsQuery.loading}
+          paymentMethods={enabledPaymentMethods}
+          businessToday={businessToday}
+        />
+
+        <PurchaseSpendingSummary
+          summary={spending}
+          loading={spendingQuery.loading || waitingForFilterProducts}
+          error={spendingQuery.error && !filterProductsFailed}
+          onRetry={() => void spendingQuery.reload()}
+          defaultGrouping={historyFilters.period === 'all' ? 'month' : 'day'}
+        />
 
         {purchasesError && (
           <LoadErrorAlert className="mx-4 mt-4 sm:mx-5" retrying={purchasesLoading} onRetry={() => void loadPurchases()}>
