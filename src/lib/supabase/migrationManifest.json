@@ -5147,5 +5147,9 @@
         "signature": "public.stock_write_off_is_addition(numeric,text,numeric,text)"
       }
     ]
+  },
+  {
+    "file": "166_bar_product_categories.sql",
+    "probes": []
   }
 ]
