@@ -178,6 +178,14 @@ export async function listLocalPosts(accessToken: string, locationPath: string, 
   return body.localPosts ?? [];
 }
 
+function createMedia(accessToken: string, locationPath: string, media: object, fetchImpl: Fetch) {
+  return googleJson<Record<string, unknown>>(fetchImpl, `${locationPath}/media`, {
+    method: 'POST',
+    headers: { ...bearer(accessToken), 'content-type': 'application/json' },
+    body: JSON.stringify(media),
+  });
+}
+
 export async function createPhoto(
   accessToken: string,
   locationPath: string,
@@ -185,11 +193,12 @@ export async function createPhoto(
   category: GooglePhotoCategory,
   fetchImpl: Fetch = fetch,
 ) {
-  return googleJson<Record<string, unknown>>(fetchImpl, `${locationPath}/media`, {
-    method: 'POST',
-    headers: { ...bearer(accessToken), 'content-type': 'application/json' },
-    body: JSON.stringify({ mediaFormat: 'PHOTO', locationAssociation: { category }, sourceUrl }),
-  });
+  return createMedia(accessToken, locationPath, { mediaFormat: 'PHOTO', locationAssociation: { category }, sourceUrl }, fetchImpl);
+}
+
+/** Google downloads the video from `sourceUrl` and reviews it before showing it. */
+export async function createVideo(accessToken: string, locationPath: string, sourceUrl: string, fetchImpl: Fetch = fetch) {
+  return createMedia(accessToken, locationPath, { mediaFormat: 'VIDEO', locationAssociation: { category: 'ADDITIONAL' }, sourceUrl }, fetchImpl);
 }
 
 /** One page of the listing's reviews, newest first. */

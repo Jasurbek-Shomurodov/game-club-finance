@@ -13,6 +13,7 @@ import { GET as connect } from './connect/route';
 import { GET as callback } from './callback/route';
 import { GET as listPosts, POST as createPost } from './posts/route';
 import { POST as addPhoto } from './photos/route';
+import { POST as addVideo } from './videos/route';
 import { GET as getListing, PATCH as saveListing } from './listing/route';
 
 const CLUB = '290c5c33-9dfa-464a-a072-ef5a231f5308';
@@ -288,6 +289,14 @@ describe('posts and photos', () => {
     expect(await response.json()).toEqual({ photo: { name: 'm1', googleUrl: 'https://lh3/x' } });
     const sent = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/media'));
     expect(JSON.parse(String(sent?.[1]?.body))).toEqual({ mediaFormat: 'PHOTO', locationAssociation: { category: 'INTERIOR' }, sourceUrl: 'https://x.test/a.jpg' });
+  });
+
+  it('adds a public https video to the listing', async () => {
+    expect((await addVideo(json('POST', '/api/google-business/videos', { clubId: CLUB, videoUrl: 'http://x.test/a.mov' }))).status).toBe(400);
+    const response = await addVideo(json('POST', '/api/google-business/videos', { clubId: CLUB, videoUrl: 'https://x.test/a.mov' }));
+    expect(await response.json()).toEqual({ video: { name: 'm1', googleUrl: 'https://lh3/x' } });
+    const sent = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/media'));
+    expect(JSON.parse(String(sent?.[1]?.body))).toEqual({ mediaFormat: 'VIDEO', locationAssociation: { category: 'ADDITIONAL' }, sourceUrl: 'https://x.test/a.mov' });
   });
 });
 

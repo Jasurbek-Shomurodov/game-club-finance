@@ -42,6 +42,8 @@ export const googleBusinessApi = {
     call<{ post: GooglePostSummary | null }>(`${BASE}/posts`, { method: 'POST', body: JSON.stringify({ clubId, post }) }),
   addPhoto: (clubId: string, photoUrl: string, category: string) =>
     call<{ photo: unknown }>(`${BASE}/photos`, { method: 'POST', body: JSON.stringify({ clubId, photoUrl, category }) }),
+  addVideo: (clubId: string, videoUrl: string) =>
+    call<{ video: unknown }>(`${BASE}/videos`, { method: 'POST', body: JSON.stringify({ clubId, videoUrl }) }),
   listing: (clubId: string) => call<{ listing: ListingInfo }>(`${BASE}/listing?clubId=${encodeURIComponent(clubId)}`),
   saveListing: (clubId: string, form: ListingInfoForm, fields: ListingField[]) =>
     call<{ listing: ListingInfo }>(`${BASE}/listing`, { method: 'PATCH', body: JSON.stringify({ clubId, form, fields }) }),

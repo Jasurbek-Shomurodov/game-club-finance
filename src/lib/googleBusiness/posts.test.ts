@@ -5,6 +5,7 @@ import {
   parseGooglePostForm,
   summarizeLocalPost,
   validateGooglePost,
+  videoFileError,
   type GooglePostForm,
 } from './posts';
 
@@ -102,5 +103,27 @@ describe('summarizeLocalPost', () => {
     });
     expect(summarizeLocalPost({ summary: 'no name' })).toBeNull();
     expect(summarizeLocalPost({ name: 'n' })).toMatchObject({ kind: 'update', state: 'LIVE', title: null, photoUrl: null });
+  });
+});
+
+describe('videoFileError', () => {
+  const mov = { type: 'video/quicktime', size: 7 * 1024 * 1024 };
+  const vertical = { duration: 8.3, width: 1080, height: 1920 };
+
+  it('accepts a short vertical iPhone video', () => {
+    expect(videoFileError(mov, vertical)).toBeNull();
+    expect(videoFileError({ type: 'video/mp4', size: 1 }, vertical)).toBeNull();
+  });
+
+  it('refuses other files, large files, long videos and low resolution', () => {
+    expect(videoFileError({ type: 'image/jpeg', size: 1 }, null)).toBe('video_type_invalid');
+    expect(videoFileError({ ...mov, size: 51 * 1024 * 1024 }, vertical)).toBe('video_too_large');
+    expect(videoFileError(mov, { ...vertical, duration: 31 })).toBe('video_too_long');
+    expect(videoFileError(mov, { duration: 10, width: 640, height: 360 })).toBe('video_too_small');
+  });
+
+  it('leaves length and resolution to Google when the browser cannot read them', () => {
+    expect(videoFileError(mov, null)).toBeNull();
+    expect(videoFileError(mov, { duration: Number.NaN, width: 0, height: 0 })).toBeNull();
   });
 });

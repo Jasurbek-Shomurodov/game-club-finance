@@ -2,7 +2,7 @@
 
 **Public page → Google Maps** (`/showcase/google`) connects a club to its
 Google Business Profile listing. Once connected, the club can publish updates,
-events, offers and photos from the admin app, and owners can edit the listing's
+events, offers, photos and videos from the admin app, and owners can edit the listing's
 description, phone, website and opening hours. Google Maps has no "stories" for
 businesses; posts and photos are the closest equivalent.
 
@@ -13,7 +13,7 @@ owner clicks Connect -> /api/google-business/connect (owner check, state cookie)
   -> Google consent (scope business.manage, offline)
   -> /api/google-business/callback (state + owner re-check, code exchange)
   -> google_business_connections (refresh token AES-GCM encrypted, service role only)
-post / photo -> /api/google-business/posts|photos (showcase feature check)
+post / photo / video -> /api/google-business/posts|photos|videos (showcase feature check)
   -> refresh access token -> Business Profile API v4 localPosts / media
 ```
 
@@ -26,8 +26,13 @@ post / photo -> /api/google-business/posts|photos (showcase feature check)
   listing again. Saving the phone keeps the listing's additional numbers. Hours
   allow one range per day; a close earlier than the open is after midnight.
   Reading needs the `showcase` feature; saving is owner-only.
-- Photos are uploaded first to the public `showcase` bucket (`<club_id>/google-*`).
-  Google then downloads them from that URL.
+- Photos and videos are uploaded first to the public `showcase` bucket
+  (`<club_id>/google-*`). Google then downloads them from that URL.
+- Videos go in as v4 media with `mediaFormat: VIDEO` (category `ADDITIONAL`).
+  The page takes MP4 or MOV up to 30 seconds, 50 MB and 720p, the bucket's
+  limit since migration `159_showcase_bucket_videos.sql` (Google allows 75 MB).
+  When the browser cannot read a video's length or resolution, Google checks
+  them itself. Google reviews each video before it appears on Maps.
 - Disconnecting revokes the token at Google (best effort) and deletes the row.
   Posts already on Google stay there.
 - Reconnecting with the same account keeps the chosen listing if Google cannot
@@ -89,7 +94,8 @@ cron -> /api/cron/google-review-replies (CRON_SECRET)
    - `GOOGLE_TOKEN_ENCRYPTION_KEY`: 32 or more random characters, for example
      `openssl rand -base64 48`. Changing it makes stored tokens unreadable, and
      every club then has to connect again.
-6. Apply migration `112_google_business_profile.sql`.
+6. Apply migrations `112_google_business_profile.sql` and
+   `159_showcase_bucket_videos.sql` (video uploads).
 7. An owner opens **Public page → Google Maps → Connect Google** for each club.
    They sign in with the account that manages the listing. If the account
    manages several listings, they pick one. Picking needs API approval, because

@@ -32,6 +32,7 @@ import { useClubQuery } from '@/lib/useClubQuery';
 import { ShowcaseTabs } from '../ShowcaseTabs';
 import { GoogleListingCard } from './GoogleListingCard';
 import { GooglePhotoCard } from './GooglePhotoCard';
+import { GoogleVideoCard } from './GoogleVideoCard';
 import { GooglePostComposer } from './GooglePostComposer';
 import { GoogleReviewRepliesCard } from './GoogleReviewRepliesCard';
 import { errorMessageKey, googleBusinessApi, type GoogleConnectionStatus } from './googleBusinessApi';
@@ -238,6 +239,7 @@ export default function GoogleBusinessPage() {
                 }}
               />
               <GooglePhotoCard clubId={selectedClubId} onAdded={() => showToast(t('photoAdded'))} />
+              <GoogleVideoCard clubId={selectedClubId} onAdded={() => showToast(t('videoAdded'))} />
               <GoogleReviewRepliesCard clubId={selectedClubId} isOwner={isOwner} />
               <Card>
                 <CardHeader>

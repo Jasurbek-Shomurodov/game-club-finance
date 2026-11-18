@@ -50,7 +50,7 @@ export async function fetchShowcaseAdminData(
   };
 }
 
-/** Uploads an image into the club's folder of the public bucket and returns its public URL. */
+/** Uploads an image (or a Google Maps video) into the club's folder of the public bucket and returns its public URL. */
 export async function uploadShowcaseImage(
   supabase: SupabaseClient,
   clubId: string,

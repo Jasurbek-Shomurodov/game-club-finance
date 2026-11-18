@@ -10,6 +10,31 @@ export type GoogleCtaType = (typeof CTA_TYPES)[number];
 export const PHOTO_CATEGORIES = ['INTERIOR', 'EXTERIOR', 'AT_WORK', 'TEAMS', 'PRODUCT', 'ADDITIONAL', 'COVER', 'LOGO'] as const;
 export type GooglePhotoCategory = (typeof PHOTO_CATEGORIES)[number];
 
+// Google's video rules: up to 30 seconds and 720p or sharper. The size limit is
+// the showcase bucket's (migration 159), below Google's own 75 MB.
+export const VIDEO_MIME_TYPES = ['video/mp4', 'video/quicktime'] as const;
+export const VIDEO_MAX_BYTES = 50 * 1024 * 1024;
+export const VIDEO_MAX_SECONDS = 30;
+export const VIDEO_MIN_SHORT_SIDE = 720;
+
+export type GoogleVideoError = 'video_type_invalid' | 'video_too_large' | 'video_too_long' | 'video_too_small';
+
+/**
+ * Why Google would refuse this video file, or null. `meta` is what the browser
+ * read from the file; it is missing when the browser cannot decode the video,
+ * and Google then checks length and resolution itself.
+ */
+export function videoFileError(
+  file: { type: string; size: number },
+  meta?: { duration: number; width: number; height: number } | null,
+): GoogleVideoError | null {
+  if (!(VIDEO_MIME_TYPES as readonly string[]).includes(file.type)) return 'video_type_invalid';
+  if (file.size > VIDEO_MAX_BYTES) return 'video_too_large';
+  if (meta && Number.isFinite(meta.duration) && meta.duration > VIDEO_MAX_SECONDS + 0.5) return 'video_too_long';
+  if (meta && meta.width > 0 && meta.height > 0 && Math.min(meta.width, meta.height) < VIDEO_MIN_SHORT_SIDE) return 'video_too_small';
+  return null;
+}
+
 export const POST_LANGUAGES = ['uz', 'ru', 'en'] as const;
 export type GooglePostLanguage = (typeof POST_LANGUAGES)[number];
 
