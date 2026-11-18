@@ -244,8 +244,12 @@ limit respects the reserve, money reserved this month cannot pay ordinary
 expenses, and a reserve purchase does not use the month's money. In the app,
 `applyOwnerReserve` (`ownerReserve.ts`) applies the same effect to Owner Profit
 month balances and adds reserve purchases back to that month's earned. A
-reserve purchase still counts as an expense everywhere else (Reports money left,
-dashboard, analysis, Telegram): it is real money leaving the club.
+reserve purchase still counts as an expense in profit (dashboard, analysis,
+Telegram): it is real money leaving the club. It takes nothing from any payment
+method, so the Reports closeout (`buildMoneyReport`) leaves it, and dollar
+expenses, out of "Game Club expenses" and the daily expense figure; there,
+collected minus Game Club expenses is Game Club left, and the purchase is still
+listed in the closeout table.
 
 Collecting does not touch the reserve (migration 148). The reserve changes only
 when the owner moves owner profit in or out of it (136), when money is exchanged

@@ -72,7 +72,8 @@ describe('reserve moves (156)', () => {
     expect(report.paymentMethods.cash).toMatchObject({ expenses: 100_000, reserved: 300_000, left: 600_000 });
     expect(report.paymentMethods.terminal).toMatchObject({ reserved: -50_000, left: 550_000 });
     expect(report.paymentMethods.card).not.toHaveProperty('reserved');
-    expect(report.gameClubExpenses).toBe(760_000);
+    // The Reports closeout counts only what Game Club money paid; the dashboard's profit counts all 760 000.
+    expect(report.gameClubExpenses).toBe(100_000);
     expect(report.gameClubLeft).toBe(calculateDashboardTotals(cash, [], [], rows, [], [], [], [], moves).gameClubMoneyLeft);
     expect(report.barLeft).toBe(-20_000);
   });

@@ -276,6 +276,27 @@ describe('money report', () => {
     expect(report.gameClubExpenses).toBe(0);
   });
 
+  it('leaves purchases the reserve paid out of game-club expenses, so collected minus expenses is money left', () => {
+    const expense = (id: string, amount: number, extra: Record<string, unknown> = {}) => ({
+      id, date: '2026-11-11', amount, category: 'investments', payment_method: 'cash', payment_source: 'game_club' as const,
+      comment: null, created_at: `2026-11-11T09:0${id.length}:00Z`, ...extra,
+    });
+    const report = buildMoneyReport(
+      [{ date: '2026-11-11', cash_income: 7_288_000, terminal_income: 0, card_income: 0 }],
+      [
+        expense('salary', 5_135_000, { category: 'salary' }),
+        expense('pc', 7_200_000, { paid_from_reserve: true }),
+        expense('usd', 100, { payment_method: 'usd' }),
+      ],
+    );
+
+    expect(report.paymentMethods.cash.expenses).toBe(5_135_000);
+    expect(report.gameClubExpenses).toBe(5_135_000);
+    expect(report.gameClubLeft).toBe(report.totalCollected - report.gameClubExpenses);
+    expect(report.days[0].gameClubExpenses).toBe(5_135_000);
+    expect(report.days[0].total).toBe(report.days[0].income - report.days[0].gameClubExpenses);
+  });
+
   it('filters the complete report by activity and expense category', () => {
     const cashRows = [
       { date: '2026-08-25', cash_income: 1_000, terminal_income: 0, card_income: 0 },

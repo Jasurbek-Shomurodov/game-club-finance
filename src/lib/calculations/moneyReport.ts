@@ -82,7 +82,7 @@ export interface MoneyReportDay {
   income: number;
   /** Every expense recorded on the day, whichever money paid it. */
   expenses: number;
-  /** Expenses paid from game-club money; the only ones deducted from `total`. */
+  /** Expenses paid from game-club money (not the Bar or the reserve); the only ones deducted from `total`. */
   gameClubExpenses: number;
   /** Expenses paid from bar money; they reduce bar cash, not `total`. */
   barExpenses: number;
@@ -92,7 +92,7 @@ export interface MoneyReportDay {
 /** Game-club and bar money are separate businesses and are never added together. */
 export interface MoneyReport {
   totalCollected: number;
-  /** Expenses paid from game-club money. */
+  /** Expenses paid from game-club money; a purchase the reserve paid is not one (156). */
   gameClubExpenses: number;
   /** Expenses paid from bar money. */
   barExpenses: number;
@@ -199,6 +199,18 @@ function buildPaymentMethods(
       left: left.playstation,
     },
   };
+}
+
+/**
+ * Expenses Game Club money paid: neither the Bar nor the owner reserve (156).
+ * It is what the method cards deduct, so collected minus it is `gameClubLeft`
+ * when nothing went into the reserve.
+ */
+function sumGameClubPaidExpenses(rows: readonly ExpenseRow[]): number {
+  return rows.reduce(
+    (sum, row) => (row.payment_source === 'bar' || isReservePaidExpense(row) ? sum : sum + Number(row.amount ?? 0)),
+    0,
+  );
 }
 
 /**
@@ -316,7 +328,7 @@ export function buildMoneyReport(
     (sum, row) => row.payment_source === 'bar' ? sum + Number(row.amount ?? 0) : sum,
     0,
   );
-  const gameClubExpenses = expenseRows.reduce((sum, row) => sum + Number(row.amount ?? 0), 0) - barExpenses;
+  const gameClubExpenses = sumGameClubPaidExpenses(expenseRows);
   // Bar purchases the reserve paid take nothing from the Bar; money it put in left it (156).
   const barReservePaid = expenseRows.reduce(
     (sum, row) => (row.payment_source === 'bar' && isReservePaidExpense(row) ? sum + Number(row.amount ?? 0) : sum),
@@ -386,8 +398,7 @@ export function buildMoneyReport(
       expenses: activities
         .filter((activity) => activity.kind === 'expense')
         .reduce((sum, activity) => sum + Math.abs(activity.amount), 0),
-      gameClubExpenses: dayExpenseRows
-        .reduce((sum, row) => row.payment_source === 'bar' ? sum : sum + Number(row.amount ?? 0), 0),
+      gameClubExpenses: sumGameClubPaidExpenses(dayExpenseRows),
       barExpenses: dayExpenseRows
         .reduce((sum, row) => row.payment_source === 'bar' ? sum + Number(row.amount ?? 0) : sum, 0),
       activities,

@@ -139,9 +139,10 @@ describe('expenses paid from the club dollars', () => {
     }
   });
 
-  it('counts the expense in sums in the Game Club expense totals', () => {
-    expect(report.gameClubExpenses).toBe(556_000);
-    expect(report.days[0]).toMatchObject({ expenses: 556_000, gameClubExpenses: 556_000, barExpenses: 0 });
+  it('lists the expense among the day\'s expenses but not in what Game Club money paid', () => {
+    // The dollars are the reserve's (156): the UZS paid for them already left Game Club money.
+    expect(report.gameClubExpenses).toBe(300_000);
+    expect(report.days[0]).toMatchObject({ expenses: 556_000, gameClubExpenses: 300_000, barExpenses: 0 });
   });
 
   it('shows the dollars and rate on the activity', () => {
@@ -171,7 +172,7 @@ describe('expenses paid from the club dollars', () => {
       [exchange('x9', { from_method: 'cash', to_method: 'usd', from_amount: 640_000, to_amount: 50, rate: 12_800 })],
     );
 
-    expect(report.gameClubExpenses).toBe(556_000);
+    expect(report.gameClubExpenses).toBe(300_000);
     // Cash holds 2 000 000 − 300 000 − 640 000 sent into dollars; the dollar expense never touches it.
     expect(report.paymentMethods.cash.left).toBe(1_060_000);
     expect(report.usd).toBe(30);
