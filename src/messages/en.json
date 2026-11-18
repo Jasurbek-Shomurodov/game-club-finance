@@ -1388,6 +1388,7 @@
     "earnedBeforeWithdrawals": "Earned before withdrawals",
     "clubMethodsBeforeWithdrawals": "Game Club profit is split by payment method: earned after operating expenses, withdrawn by the owner, and what is left in each.",
     "playstation": "PlayStation",
+    "playstationPartOfClub": "Part of Game Club, left to take",
     "monthlyWithdrawn": "Withdrawn this month",
     "monthlyRemaining": "Remaining after owner withdrawals",
     "monthlyOverallProfit": "Overall profit for the month",

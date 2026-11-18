@@ -67,6 +67,7 @@ import {
   type OwnerWithdrawalPaymentMethod,
   type OwnerWithdrawalSource,
 } from '@/types';
+import { SIDE_ICONS } from '@/components/sideIcons';
 import { METHOD_ICONS, SOURCE_ICONS, SOURCE_TINTS } from './profitIcons';
 import { WithdrawalHistory, historyCreatedAt, type HistoryRow } from './WithdrawalHistory';
 import { CashShortagesSection } from './CashShortagesSection';
@@ -329,6 +330,8 @@ export default function MoneyTakenPage() {
       carried: monthCarried.bySource[source],
     };
   });
+  // PlayStation money is part of Game Club profit; its own card follows it without adding to the total.
+  const playstationProfit = methodBreakdown.methods.find((row) => row.method === 'playstation') ?? null;
   const overall = headlineSources.reduce(
     (sum, side) => ({ earned: sum.earned + side.earned, withdrawn: sum.withdrawn + side.withdrawn, available: sum.available + side.available }),
     { earned: 0, withdrawn: 0, available: 0 },
@@ -1125,6 +1128,59 @@ export default function MoneyTakenPage() {
                     </Link>
                   );
                 })}
+                {playstationProfit ? (
+                  <Link
+                    href={sideDetailsHref('game_club')}
+                    className="group relative block min-w-0 rounded-2xl border border-gray-100 bg-gray-50/40 p-4 transition-[border-color,background-color] hover:border-gray-200 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 sm:col-span-2"
+                  >
+                    <ChevronRight size={15} aria-hidden="true" className="absolute right-3 top-4 text-gray-300 group-hover:text-gray-500" />
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-600">
+                        <SIDE_ICONS.playstation size={16} aria-hidden="true" />
+                      </span>
+                      <p className="text-sm font-semibold text-gray-900">{t('playstation')}</p>
+                      <p className="text-xs text-gray-500">{t('playstationPartOfClub')}</p>
+                    </div>
+                    {loading ? (
+                      <div className="mt-3 space-y-2" role="status" aria-label={tc('loading')}>
+                        <Skeleton className="h-8 w-40 max-w-full" />
+                        <Skeleton className="h-2 w-full bg-gray-100" />
+                      </div>
+                    ) : (
+                      <div className="mt-3 grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-end sm:gap-6">
+                        <p className={cn('break-words text-2xl font-bold leading-none tracking-tight tabular-nums sm:text-[1.75rem]', metricToneClassName[toneForAmount(playstationProfit.available)])}>
+                          {formatCurrency(playstationProfit.available)}
+                          <span className="ml-1.5 text-sm font-medium tracking-normal text-gray-500">{tc('currency')}</span>
+                        </p>
+                        <div className="min-w-0">
+                          {(() => {
+                            const share = playstationProfit.earned > 0
+                              ? Math.min(100, Math.round((playstationProfit.withdrawn / playstationProfit.earned) * 100))
+                              : 0;
+                            return (
+                              <div
+                                className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100"
+                                role="progressbar"
+                                aria-valuemin={0}
+                                aria-valuemax={100}
+                                aria-valuenow={share}
+                                aria-label={t('withdrawnShare', { percent: share })}
+                              >
+                                <div className="h-full rounded-full bg-purple-500 transition-[width] duration-700" style={{ width: `${share}%` }} />
+                              </div>
+                            );
+                          })()}
+                          <p className="mt-2 text-xs leading-5 text-gray-500">
+                            {t('withdrawnOfEarned', {
+                              withdrawn: formatCurrency(playstationProfit.withdrawn),
+                              earned: formatCurrency(playstationProfit.earned),
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </Link>
+                ) : null}
               </div>
             </div>
           </Card>
