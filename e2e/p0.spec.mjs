@@ -949,10 +949,14 @@ test('EXP-001 Debts export downloads the list as a spreadsheet file', async ({ p
 test('CMD-001 the command palette finds pages and actions from the keyboard', async ({ page }) => {
   await page.goto('/dashboard');
   await expect(page.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeVisible();
-  await page.keyboard.press('Control+k');
   const palette = page.getByRole('dialog', { name: 'Search and commands' });
   const search = palette.getByRole('combobox');
-  await expect(search).toBeFocused();
+  // The heading is server-rendered, so it can show before the shortcut listener
+  // is attached; a press in that gap is lost. Press again until the palette opens.
+  await expect(async () => {
+    if (!(await palette.isVisible())) await page.keyboard.press('Control+k');
+    await expect(search).toBeFocused({ timeout: 2000 });
+  }).toPass({ timeout: 15000 });
   // Nothing typed: the quick actions, then every page.
   await expect(palette.getByRole('option').first()).toHaveText('Add an expense');
   await expect(palette.getByRole('option', { name: 'Edit history' })).toHaveCount(1);
