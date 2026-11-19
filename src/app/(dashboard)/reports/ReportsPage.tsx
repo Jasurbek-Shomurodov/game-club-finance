@@ -2,7 +2,7 @@
 
 // Route: /reports
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -94,6 +94,8 @@ import { fetchReserveMoves } from '@/lib/supabase/reserveMoves';
 import type { ReserveMove } from '@/lib/calculations/reserveMoves';
 import { requestCollectionChange } from '@/lib/collectionsApi';
 import { ReportsTabs, type ReportsView } from './ReportsTabs';
+import { DayBreakdownModal } from './DayBreakdownModal';
+import type { DayFigure } from '@/lib/calculations/dayExclusion';
 import { fetchProfileNames } from '@/lib/supabase/profileNames';
 import { fetchDailyCashCollections, type DailyCashCollection } from '@/lib/supabase/dailyCashCollections';
 import type { ExchangeMethod, MoneyExchangeRow } from '@/lib/calculations/moneyExchanges';
@@ -371,6 +373,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   const { confirm, confirmDialog } = useConfirm();
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<{ activity: MoneyReportActivity; date: string } | null>(null);
+  /** The day figure the owner tapped, to see its entries and leave some out. */
+  const [dayBreakdown, setDayBreakdown] = useState<{ date: string; figure: DayFigure } | null>(null);
   const currentClubId = useRef(selectedClubId);
   const deletePending = useRef(false);
   const [methodSaving, setMethodSaving] = useState(false);
@@ -566,6 +570,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   useEffect(() => {
     currentClubId.current = selectedClubId;
     setSelectedEntry(null);
+    setDayBreakdown(null);
     setExpenseDialogOpen(false);
     setExchangeDialogOpen(false);
     setActionError('');
@@ -920,6 +925,34 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
 
   // Owners delete entries and undo ticks; collectors tick dates.
   const showActions = isOwner || canCollect;
+
+  const dayFigureLabels: Record<DayFigure, string> = {
+    income: t('income'),
+    expenses: t('expenses'),
+    barExpenses: `${t('bar')} · ${t('expenses')}`,
+    cash: t('cash'),
+    terminal: t('terminal'),
+    card: t('card'),
+    playstation: t('playstation'),
+  };
+
+  /** A day header figure that opens its entries; the header row itself stays inert. */
+  function dayFigureButton(date: string, figure: DayFigure, children: ReactNode) {
+    return (
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 rounded underline decoration-gray-300 decoration-dotted underline-offset-2 hover:text-gray-900 hover:decoration-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+        title={t('showDayFigure', { figure: dayFigureLabels[figure] })}
+        onClick={(event) => {
+          event.stopPropagation();
+          setDayBreakdown({ date, figure });
+        }}
+      >
+        {children}
+      </button>
+    );
+  }
+
   const closeoutColumns: DataTableColumn<CloseoutRow>[] = [
     {
       key: 'date',
@@ -1008,14 +1041,15 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       render: (row) => (row.kind === 'day' ? (
         <span className="block text-xs text-gray-500">
           {/* Income minus these game-club expenses is the day total; bar-paid
-              expenses come out of bar cash, so they are listed separately. */}
-          {t('income')}: <Money amount={row.income} currency={null} className="text-gray-700" />
+              expenses come out of bar cash, so they are listed separately.
+              Each figure opens its entries, where some can be left out. */}
+          {dayFigureButton(row.date, 'income', <>{t('income')}: <Money amount={row.income} currency={null} className="text-gray-700" /></>)}
           {' · '}
-          {t('expenses')}: <Money amount={row.gameClubExpenses} currency={null} className="text-gray-700" />
+          {dayFigureButton(row.date, 'expenses', <>{t('expenses')}: <Money amount={row.gameClubExpenses} currency={null} className="text-gray-700" /></>)}
           {row.barExpenses > 0 && (
             <>
               {' · '}
-              {t('bar')} · {t('expenses')}: <Money amount={row.barExpenses} currency={null} className="text-gray-700" />
+              {dayFigureButton(row.date, 'barExpenses', <>{t('bar')} · {t('expenses')}: <Money amount={row.barExpenses} currency={null} className="text-gray-700" /></>)}
             </>
           )}
           {paymentCards.some((card) => row.left[card.method] !== 0) && (
@@ -1023,9 +1057,13 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
               <span>{t('left')}:</span>
               {paymentCards.filter((card) => row.left[card.method] !== 0).map(({ method, icon: Icon, label }) => (
                 <span key={method} className="inline-flex items-center gap-1 whitespace-nowrap" title={label}>
-                  <Icon size={13} className="shrink-0 text-gray-400" aria-hidden="true" />
-                  {label}
-                  <Money amount={row.left[method]} currency={null} className={cn('font-medium', amountToneClassName(row.left[method]))} />
+                  {dayFigureButton(row.date, method, (
+                    <>
+                      <Icon size={13} className="shrink-0 text-gray-400" aria-hidden="true" />
+                      {label}
+                      <Money amount={row.left[method]} currency={null} className={cn('font-medium', amountToneClassName(row.left[method]))} />
+                    </>
+                  ))}
                 </span>
               ))}
             </span>
@@ -1277,6 +1315,16 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
           </Card>
         </>
       )}
+
+      <DayBreakdownModal
+        day={dayBreakdown ? filteredReport.days.find((day) => day.date === dayBreakdown.date) ?? null : null}
+        figure={dayBreakdown?.figure ?? 'income'}
+        rows={reportRows}
+        figureLabels={dayFigureLabels}
+        activityTypeLabel={activityTypeLabel}
+        categoryLabel={categoryLabel}
+        onClose={() => setDayBreakdown(null)}
+      />
 
       {hasReportsAccess && canRegisterExpenses && (
         <Modal
