@@ -40,7 +40,7 @@ import {
 import { formatCurrency, formatDateShort, formatUnitCurrency } from '@/lib/formatters';
 import { createClient } from '@/lib/supabase/client';
 import { EMPTY_OWNER_RESERVE, fetchOwnerReserve } from '@/lib/supabase/ownerMoney';
-import { requestReserveDelete, requestReserveExchangeDelete } from '@/lib/ownerReserveRequests';
+import { requestReserveDelete, requestReserveExchangeDelete, requestReservePurchaseDelete } from '@/lib/ownerReserveRequests';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useClubQuery } from '@/lib/useClubQuery';
 import type { OwnerReserveMethod } from '@/types';
@@ -139,7 +139,9 @@ export default function ReservePage() {
       title: tc('delete'),
       description: row.kind === 'exchange'
         ? t('exchange.deleteConfirm', { sums: amount, dollars: `$${formatUnitCurrency(row.usd)}` })
-        : tr(row.kind === 'deposit' ? 'deleteDepositConfirm' : 'deleteReturnConfirm', { amount }),
+        : row.kind === 'purchase'
+          ? tr('deletePurchaseConfirm', { amount: row.method === 'usd' ? `$${formatUnitCurrency(row.amount)}` : amount })
+          : tr(row.kind === 'deposit' ? 'deleteDepositConfirm' : 'deleteReturnConfirm', { amount }),
       confirmLabel: tc('delete'),
     });
     if (!confirmed || loadBeforeConfirm !== currentLoad.current) return;
@@ -147,7 +149,9 @@ export default function ReservePage() {
     try {
       const failure = row.kind === 'exchange'
         ? await requestReserveExchangeDelete(selectedClubId, row.id)
-        : await requestReserveDelete(selectedClubId, row.id);
+        : row.kind === 'purchase'
+          ? await requestReservePurchaseDelete(selectedClubId, row.id)
+          : await requestReserveDelete(selectedClubId, row.id);
       if (loadBeforeConfirm !== currentLoad.current) return;
       const done = row.kind === 'exchange' ? t('exchange.deletedToast') : tr('deletedToast');
       showToast(failure ? tr(`errors.${failure}`) : done, failure ? 'error' : 'success');

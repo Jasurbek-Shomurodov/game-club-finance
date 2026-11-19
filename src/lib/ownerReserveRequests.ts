@@ -77,3 +77,22 @@ export async function requestReserveExchangeDelete(clubId: string, exchangeId: s
   const payload = await response.json().catch(() => null) as { code?: unknown } | null;
   return EXCHANGE_FAILURES[String(payload?.code)] ?? 'failed';
 }
+
+/** Expense codes from /api/expenses, as the reserve names them. */
+const PURCHASE_FAILURES: Record<string, ReserveErrorCode> = {
+  DAY_COLLECTED: 'day_collected',
+  FORBIDDEN: 'forbidden',
+  UNAUTHORIZED: 'forbidden',
+};
+
+/** Deletes a purchase the reserve paid; its money is the reserve's again. /api/expenses also removes its Telegram message. */
+export async function requestReservePurchaseDelete(clubId: string, expenseId: string): Promise<ReserveErrorCode | null> {
+  const response = await mutateFinanceRequest('/api/expenses', {
+    method: 'DELETE',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ clubId, expenseId }),
+  });
+  if (response.ok) return null;
+  const payload = await response.json().catch(() => null) as { code?: unknown } | null;
+  return PURCHASE_FAILURES[String(payload?.code)] ?? 'failed';
+}

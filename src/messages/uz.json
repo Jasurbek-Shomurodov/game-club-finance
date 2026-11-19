@@ -2774,7 +2774,6 @@
       "category": "Toifa",
       "note": "Izoh",
       "lockedCollection": "O'chirish uchun Hisobotlarda shu inkassatsiyani bekor qiling.",
-      "lockedPurchase": "O'zgartirish yoki o'chirish uchun bu xarajatni Hisobotlarda oching.",
       "takenFrom": "Qayerdan olingan",
       "returnedTo": "Qayerga qaytgan",
       "paidWith": "Nima bilan to'langan",
@@ -2803,6 +2802,7 @@
     "returnedToast": "Pul egasi foydasiga qaytarildi.",
     "deleteDepositConfirm": "{amount} jamg'armaga qo'yilganini o'chirasizmi? Pul o'sha oy egasi foydasiga qaytadi.",
     "deleteReturnConfirm": "{amount} qaytarilganini o'chirasizmi? Pul jamg'armaga qaytadi.",
+    "deletePurchaseConfirm": "{amount} lik xaridni o'chirasizmi? Pul jamg'armaga qaytadi.",
     "deletedToast": "Jamg'arma yozuvi o'chirildi.",
     "errors": {
       "exceeds_available": "Bu shu oy foydasidan qolganidan ko'p.",

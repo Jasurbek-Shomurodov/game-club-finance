@@ -4,14 +4,14 @@ import { useState, type ReactNode } from 'react';
 import { ArrowDownToLine, ArrowRightLeft, ArrowUpFromLine, CalendarRange, ChevronRight, ShoppingCart, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { Badge, Button, Modal } from '@/components/PresentationFoundation';
+import { Badge, Button, IconButton, Modal } from '@/components/PresentationFoundation';
 import { groupReserveActivityByDay, type ReserveActivity } from '@/lib/calculations/ownerReserve';
 import { isKnownExpenseCategory } from '@/lib/expenseCategories';
 import { formatCurrency, formatDateOnly, formatDateShort, formatDateTime, formatUnitCurrency, formatYearMonth } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import type { OwnerReserveMethod } from '@/types';
 
-export type DeletableReserveActivity = Extract<ReserveActivity, { kind: 'deposit' | 'return' | 'exchange' }>;
+export type DeletableReserveActivity = ReserveActivity;
 
 interface ReserveHistoryListProps {
   activity: readonly ReserveActivity[];
@@ -32,10 +32,10 @@ const KIND_TONE = {
 const dollars = (value: number) => `$${formatUnitCurrency(value)}`;
 
 /** Why a row cannot be deleted here, or null when it can. */
-function lockReason(row: ReserveActivity): 'purchase' | 'exchange' | 'collection' | null {
-  if (row.kind === 'purchase') return 'purchase';
+function lockReason(row: ReserveActivity): 'exchange' | 'collection' | null {
+  // A purchase is an expense the reserve paid: deleting it gives the money back to the reserve.
   // An exchange inside the reserve (170) is undone here, both halves at once.
-  if (row.kind === 'exchange') return null;
+  if (row.kind === 'purchase' || row.kind === 'exchange') return null;
   if (row.entry.exchange_id) return 'exchange';
   if (row.kind === 'deposit' && row.entry.collection_date) return 'collection';
   return null;
@@ -44,7 +44,8 @@ function lockReason(row: ReserveActivity): 'purchase' | 'exchange' | 'collection
 /**
  * Every deposit, return and purchase of the reserve, newest first, grouped by
  * the day it was made. Each row leads with what the money was and which
- * month's profit it left or joined; tapping it opens the full details.
+ * month's profit it left or joined; tapping it opens the full details, and
+ * the trash button deletes it after a confirmation.
  */
 export function ReserveHistoryList({ activity, methodLabel, busyId, disabled, onDelete }: ReserveHistoryListProps) {
   const t = useTranslations('ownerReserve');
@@ -97,13 +98,14 @@ export function ReserveHistoryList({ activity, methodLabel, busyId, disabled, on
                 const kindLabel = t(`kinds.${row.kind}`);
                 const title = titleOf(row);
                 const month = monthOf(row);
+                const deletable = !lockReason(row);
                 return (
-                  <li key={keyOf(row)}>
+                  <li key={keyOf(row)} className="flex items-center pr-2 transition-colors hover:bg-gray-50/70 sm:pr-3">
                     <button
                       type="button"
                       onClick={() => setOpenKey(keyOf(row))}
                       aria-haspopup="dialog"
-                      className="group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50/70 focus-visible:bg-gray-50/70 focus-visible:outline-none sm:px-5"
+                      className="group flex min-w-0 flex-1 items-center gap-3 py-3 pl-4 pr-2 text-left focus-visible:bg-gray-50/70 focus-visible:outline-none sm:pl-5"
                     >
                       <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', KIND_TONE[row.kind])}>
                         <Icon size={18} aria-hidden="true" />
@@ -135,6 +137,18 @@ export function ReserveHistoryList({ activity, methodLabel, busyId, disabled, on
                       )}
                       <ChevronRight size={16} aria-hidden="true" className="shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5" />
                     </button>
+                    {deletable ? (
+                      <IconButton
+                        variant="danger"
+                        size="sm"
+                        label={`${tc('delete')}: ${title}`}
+                        icon={<Trash2 size={16} aria-hidden="true" />}
+                        loading={busyId === row.id}
+                        disabled={disabled}
+                        onClick={() => onDelete(row)}
+                        className="shrink-0"
+                      />
+                    ) : <span aria-hidden="true" className="w-8 shrink-0" />}
                   </li>
                 );
               })}
@@ -222,9 +236,7 @@ function ReserveEntryDetails({ row, title, month, methodLabel, categoryLabel, bu
     ? t(incoming ? 'fromExchange' : 'toExchange')
     : locked === 'collection'
       ? t('details.lockedCollection')
-      : locked === 'purchase'
-        ? t('details.lockedPurchase')
-        : null;
+      : null;
 
   return (
     <Modal
@@ -234,7 +246,7 @@ function ReserveEntryDetails({ row, title, month, methodLabel, categoryLabel, bu
       title={kindLabel}
       footer={(
         <div className="flex w-full items-center justify-between gap-3">
-          {row.kind !== 'purchase' && !locked ? (
+          {!locked ? (
             <Button
               variant="danger"
               icon={<Trash2 size={16} />}

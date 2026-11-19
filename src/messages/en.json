@@ -2774,7 +2774,6 @@
       "category": "Category",
       "note": "Note",
       "lockedCollection": "To remove it, undo that collection in Reports.",
-      "lockedPurchase": "To change or remove it, edit this expense in Reports.",
       "takenFrom": "Taken from",
       "returnedTo": "Returned to",
       "paidWith": "Paid with",
@@ -2803,6 +2802,7 @@
     "returnedToast": "Money returned to owner profit.",
     "deleteDepositConfirm": "Delete this deposit of {amount}? The money goes back to that month's owner profit.",
     "deleteReturnConfirm": "Delete this return of {amount}? The money goes back into the reserve.",
+    "deletePurchaseConfirm": "Delete this purchase of {amount}? The money goes back into the reserve.",
     "deletedToast": "Reserve entry deleted.",
     "errors": {
       "exceeds_available": "That is more than is left of this month's profit.",
