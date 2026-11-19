@@ -2,13 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   changeRatio,
   lastDueCashDay,
-  previousIsoDate,
   collectedFlowByDay,
   dailyCashMonthGlance,
-  daysInMonth,
   monthToDateTotal,
   monthlyPairs,
-  previousYearMonth,
   recentYearMonths,
   stockGlance,
   type StockGlanceRow,
@@ -16,18 +13,17 @@ import {
 
 describe('month helpers', () => {
   it('steps back across a year boundary', () => {
-    expect(previousYearMonth('2026-01')).toBe('2025-12');
-    expect(previousYearMonth('2026-11')).toBe('2026-10');
     expect(recentYearMonths('2026-02', 3)).toEqual(['2025-12', '2026-01', '2026-02']);
     expect(recentYearMonths('2026-02', 0)).toEqual([]);
   });
   it('knows month lengths, leap years included', () => {
-    expect(daysInMonth('2024-02')).toBe(29);
-    expect(daysInMonth('2026-02')).toBe(28);
-    expect(daysInMonth('2026-11')).toBe(30);
+    const expectedDays = (month: string) => dailyCashMonthGlance([], month, '2099-01-01').expectedDays;
+    expect(expectedDays('2024-02')).toBe(29);
+    expect(expectedDays('2026-02')).toBe(28);
+    expect(expectedDays('2026-11')).toBe(30);
   });
   it('rejects a malformed month', () => {
-    expect(() => previousYearMonth('2026-13')).toThrow();
+    expect(() => dailyCashMonthGlance([], '2026-13', '2026-11-01')).toThrow();
   });
 });
 
@@ -139,7 +135,7 @@ describe('collectedFlowByDay', () => {
 
 describe('lastDueCashDay', () => {
   it('does not expect the open business day until it is entered', () => {
-    expect(previousIsoDate('2026-03-01')).toBe('2026-02-28');
+    expect(lastDueCashDay('2026-03-01', new Set())).toBe('2026-02-28');
     expect(lastDueCashDay('2026-11-19', new Set())).toBe('2026-11-18');
     expect(lastDueCashDay('2026-11-19', new Set(['2026-11-19']))).toBe('2026-11-19');
   });

@@ -52,12 +52,6 @@ export function parseWriteOffReason(reason: string | null | undefined): { kind: 
   return { kind: match[1] as StockWriteOffKind, note: (match[2] ?? '').trim() };
 }
 
-export interface RowWriteOff {
-  quantity: number;
-  kind: StockWriteOffReportKind;
-  note: string;
-}
-
 export interface RowStockAdjustment {
   /** Units, always positive; a correction adds them, a write-off removes them. */
   quantity: number;
@@ -65,13 +59,6 @@ export interface RowStockAdjustment {
   note: string;
   /** +1 for a correction (or an older positive adjustment), -1 for a write-off. */
   sign: 1 | -1;
-}
-
-/** The write-off a row carries; `null` when its adjustment is not a removal. */
-export function rowWriteOff(row: Pick<ClosingStockRowData, 'adjustmentQuantity' | 'adjustmentReason'>): RowWriteOff | null {
-  const adjustment = normalizeStockAdjustment(row.adjustmentQuantity);
-  if (adjustment >= 0) return null;
-  return { quantity: -adjustment, ...parseWriteOffReason(row.adjustmentReason) };
 }
 
 /** The write-off or correction a row carries; `null` when it has no adjustment. */
@@ -233,6 +220,109 @@ export function summarizeStockWriteOffs(rows: StockWriteOffCountRow[]): StockWri
   }
 
   summary.entries.sort((a, b) => b.date.localeCompare(a.date) || a.productName.localeCompare(b.productName));
+  return summary;
+}
+
+/** How a period's adjustments are grouped on screen: the two losses, older free-text removals, and stock found. */
+export const STOCK_ADJUSTMENT_GROUPS = ['shortage', 'expired', 'other', 'correction'] as const;
+export type StockAdjustmentGroup = (typeof STOCK_ADJUSTMENT_GROUPS)[number];
+
+/** A write-off (`sign` -1) or a correction (`sign` +1) saved on a day's count. */
+export interface StockAdjustmentEntry extends Omit<StockWriteOffEntry, 'kind'> {
+  kind: StockAdjustmentReportKind;
+  sign: 1 | -1;
+  /** Every positive adjustment is a correction here; a negative one keeps its reason. */
+  group: StockAdjustmentGroup;
+}
+
+export interface StockAdjustmentDay {
+  date: string;
+  lossQuantity: number;
+  lossCost: number;
+  addedQuantity: number;
+  addedCost: number;
+}
+
+export interface StockAdjustmentProduct extends Omit<StockAdjustmentDay, 'date'> {
+  productId: string;
+  productName: string;
+  /** How many days the product was adjusted on. */
+  days: number;
+}
+
+export interface StockAdjustmentSummary {
+  /** Newest first. */
+  entries: StockAdjustmentEntry[];
+  /** Units that left stock without a sale, at cost. */
+  losses: StockWriteOffTotals;
+  /** Units found and added back, valued at the count's cost price. */
+  additions: StockWriteOffTotals;
+  byGroup: Record<StockAdjustmentGroup, StockWriteOffTotals>;
+  /** Only days with an adjustment, oldest first. */
+  byDay: StockAdjustmentDay[];
+  /** Most money moved first. */
+  byProduct: StockAdjustmentProduct[];
+}
+
+/**
+ * Every stock adjustment of a period, write-offs and corrections together, so
+ * a month's stock that vanished and stock that reappeared can be read side by
+ * side. A correction has no money effect on bar profit; its `cost` is only
+ * what the found units are worth at the count's saved cost price.
+ */
+export function summarizeStockAdjustments(rows: StockWriteOffCountRow[]): StockAdjustmentSummary {
+  const empty = (): StockWriteOffTotals => ({ quantity: 0, cost: 0 });
+  const summary: StockAdjustmentSummary = {
+    entries: [],
+    losses: empty(),
+    additions: empty(),
+    byGroup: { shortage: empty(), expired: empty(), other: empty(), correction: empty() },
+    byDay: [],
+    byProduct: [],
+  };
+  const days = new Map<string, StockAdjustmentDay>();
+  const products = new Map<string, StockAdjustmentProduct & { dates: Set<string> }>();
+
+  for (const row of rows) {
+    const adjustment = normalizeStockAdjustment(row.adjustment_quantity);
+    if (adjustment === 0) continue;
+    const sign = adjustment > 0 ? 1 : -1;
+    const quantity = Math.abs(adjustment);
+    const cost = quantity * (Number(row.cost_price ?? 0) || 0);
+    const { kind, note } = sign === 1 ? parseCorrectionReason(row.adjustment_reason) : parseWriteOffReason(row.adjustment_reason);
+    const group: StockAdjustmentGroup = sign === 1 ? 'correction' : (kind as StockWriteOffReportKind);
+    const productName = row.products?.name ?? '';
+    summary.entries.push({ date: row.date, productId: row.product_id, productName, kind, note, quantity, cost, sign, group });
+
+    for (const totals of [sign === 1 ? summary.additions : summary.losses, summary.byGroup[group]]) {
+      totals.quantity += quantity;
+      totals.cost += cost;
+    }
+
+    const day = days.get(row.date) ?? { date: row.date, lossQuantity: 0, lossCost: 0, addedQuantity: 0, addedCost: 0 };
+    const product = products.get(row.product_id)
+      ?? { productId: row.product_id, productName, lossQuantity: 0, lossCost: 0, addedQuantity: 0, addedCost: 0, days: 0, dates: new Set<string>() };
+    for (const bucket of [day, product]) {
+      if (sign === 1) {
+        bucket.addedQuantity += quantity;
+        bucket.addedCost += cost;
+      } else {
+        bucket.lossQuantity += quantity;
+        bucket.lossCost += cost;
+      }
+    }
+    product.dates.add(row.date);
+    days.set(row.date, day);
+    products.set(row.product_id, product);
+  }
+
+  summary.entries.sort((a, b) => b.date.localeCompare(a.date) || a.productName.localeCompare(b.productName));
+  summary.byDay = [...days.values()].sort((a, b) => a.date.localeCompare(b.date));
+  summary.byProduct = [...products.values()]
+    .map(({ dates, ...product }) => ({ ...product, days: dates.size }))
+    .sort((a, b) => (b.lossCost + b.addedCost) - (a.lossCost + a.addedCost)
+      || (b.lossQuantity + b.addedQuantity) - (a.lossQuantity + a.addedQuantity)
+      || a.productName.localeCompare(b.productName));
   return summary;
 }
 

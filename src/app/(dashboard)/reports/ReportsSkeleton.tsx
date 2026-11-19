@@ -1,9 +1,11 @@
-import { ChartSkeleton, MetricGridSkeleton, Skeleton, TableSkeleton, metricGridClassName } from '@/components/PresentationFoundation';
+import { MetricGridSkeleton, Skeleton, TableSkeleton, metricGridClassName } from '@/components/PresentationFoundation';
+import { DonutCardSkeleton, InOutChartCardSkeleton } from '@/components/charts/ChartSkeletons';
 import { cn } from '@/lib/utils';
 
 /**
  * Reports while the route loads: where the money is, the period totals, the
- * payment-method cards, the day-by-day chart and the closeout table. Keep it
+ * payment-method cards, the day-by-day chart beside the spending donut and the
+ * closeout table. Keep it
  * in step with ReportsPage's closeout view.
  */
 export function ReportsSkeleton() {
@@ -15,7 +17,10 @@ export function ReportsSkeleton() {
         <Skeleton className="h-6 w-64" />
         <PaymentCardsSkeleton />
       </div>
-      <ChartSkeleton className="h-72" />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+        <InOutChartCardSkeleton />
+        <DonutCardSkeleton />
+      </div>
       <TableSkeleton rows={8} columns={6} />
     </div>
   );

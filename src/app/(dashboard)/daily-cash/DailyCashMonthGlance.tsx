@@ -4,10 +4,11 @@ import { useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
 import { CalendarCheck, CalendarX2 } from 'lucide-react';
-import { Card, ChartSkeleton, LoadErrorAlert, SectionHeading, Skeleton } from '@/components/PresentationFoundation';
+import { Card, LoadErrorAlert, SectionHeading, Skeleton } from '@/components/PresentationFoundation';
 import { CalendarHeatmap } from '@/components/charts/CalendarHeatmap';
 import { WeekdayBars } from '@/components/charts/WeekdayBars';
 import { ChangeHint, GlanceStat } from '@/components/charts/GlanceStat';
+import { CalendarSkeleton, DonutSkeleton, GlanceStatSkeleton, SkeletonCard } from '@/components/charts/ChartSkeletons';
 import { toDonutSlices } from '@/components/charts/donutSlices';
 import { chartColors } from '@/components/dashboard/ChartCard';
 import { averageByWeekday } from '@/lib/calculations/insights';
@@ -16,7 +17,6 @@ import {
   dailyCashMonthGlance,
   lastDueCashDay,
   monthToDateTotal,
-  previousYearMonth,
   type DailyCashGlanceEntry,
   type DailyCashMethod,
 } from '@/lib/calculations/pageGlance';
@@ -24,11 +24,11 @@ import { createClient } from '@/lib/supabase/client';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { formatCurrency, formatDateShort, formatYearMonth } from '@/lib/formatters';
-import { cn } from '@/lib/utils';
+import { cn, monthRange, previousYearMonth } from '@/lib/utils';
 
 const DonutBreakdown = dynamic(() => import('@/components/charts/DonutBreakdown').then((module) => module.DonutBreakdown), {
   ssr: false,
-  loading: () => <ChartSkeleton />,
+  loading: () => <DonutSkeleton />,
 });
 
 const COLUMNS = 'date,cash_income,terminal_income,card_income,playstation_income';
@@ -41,18 +41,12 @@ interface MonthRows {
 
 const EMPTY: MonthRows = { current: [], previous: [] };
 
-function monthBounds(yearMonth: string) {
-  const [year, month] = yearMonth.split('-').map(Number);
-  const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  return { from: `${yearMonth}-01`, to: `${yearMonth}-${String(last).padStart(2, '0')}` };
-}
-
 /**
  * The selected date's month beside the cash form: how much came in so far and
  * against last month at the same point, the days still without an entry, a
  * calendar to jump to any day, and how the money came in.
  */
-export function DailyCashMonthGlance({ clubId, date, today, enabledPaymentMethods, version, onSelectDate }: {
+export function DailyCashMonthGlance({ clubId, date, today, enabledPaymentMethods, version, onSelectDate, monthDetailsHref }: {
   clubId: string | null;
   /** The date open in the form; its month is shown. */
   date: string;
@@ -62,6 +56,8 @@ export function DailyCashMonthGlance({ clubId, date, today, enabledPaymentMethod
   /** Bumped after a save or delete so the month reloads. */
   version: number;
   onSelectDate: (date: string) => void;
+  /** Builds the link behind the month total, or returns nothing when the viewer may not open that page. */
+  monthDetailsHref?: (range: { from: string; to: string }) => string | undefined;
 }) {
   const t = useTranslations('glance');
   const td = useTranslations('dailyCash');
@@ -80,8 +76,8 @@ export function DailyCashMonthGlance({ clubId, date, today, enabledPaymentMethod
       .from('daily_cash_entries')
       .select(COLUMNS)
       .eq('club_id', clubId)
-      .gte('date', monthBounds(previousMonth).from)
-      .lte('date', monthBounds(yearMonth).to)
+      .gte('date', monthRange(previousMonth).from)
+      .lte('date', monthRange(yearMonth).to)
       .order('date', { ascending: true });
     if (error) throw error;
     const rows = (data ?? []) as DailyCashGlanceEntry[];
@@ -126,11 +122,8 @@ export function DailyCashMonthGlance({ clubId, date, today, enabledPaymentMethod
       {query.error ? (
         <LoadErrorAlert className="mt-4" retrying={query.loading} onRetry={() => void query.reload()}>{t('loadError')}</LoadErrorAlert>
       ) : query.loading ? (
-        <div className="mt-4 space-y-4" role="status" aria-label={tc('loading')}>
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-14" />)}
-          </div>
-          <Skeleton className="h-56" />
+        <div role="status" aria-label={tc('loading')}>
+          <DailyCashMonthGlanceBodySkeleton />
         </div>
       ) : (
         <>
@@ -140,6 +133,7 @@ export function DailyCashMonthGlance({ clubId, date, today, enabledPaymentMethod
               value={formatCurrency(glance.total)}
               unit={currency}
               tone="success"
+              href={monthDetailsHref?.(monthRange(yearMonth))}
               hint={<ChangeHint ratio={change} label={t('vsSameDays', { month: formatYearMonth(previousMonth, locale) })} locale={locale} />}
             />
             <GlanceStat
@@ -203,6 +197,7 @@ export function DailyCashMonthGlance({ clubId, date, today, enabledPaymentMethod
                 currency={currency}
                 locale={locale}
                 onSelectDay={onSelectDate}
+                selectableThrough={today}
                 legendLow={t('less')}
                 legendHigh={t('moreLabel')}
               />
@@ -227,6 +222,49 @@ export function DailyCashMonthGlance({ clubId, date, today, enabledPaymentMethod
         </>
       )}
     </Card>
+  );
+}
+
+/** The glance under its heading: four figures, the missing-days line, the calendar beside the method donut and weekday bars. */
+function DailyCashMonthGlanceBodySkeleton() {
+  return (
+    <div aria-hidden="true">
+      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-5 rounded-xl bg-gray-50 p-4 lg:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => <GlanceStatSkeleton key={index} />)}
+      </div>
+      <Skeleton className="mt-4 h-6 w-72 max-w-full rounded-full bg-gray-100" />
+      <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-2">
+          <Skeleton className="h-3 w-24" />
+          <CalendarSkeleton />
+        </div>
+        <div className="min-w-0 space-y-5">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-28" />
+            <DonutSkeleton />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-32" />
+            <div className="flex h-28 items-end gap-1.5">
+              {[55, 70, 45, 80, 60, 95, 75].map((height, index) => (
+                <Skeleton key={index} className="flex-1 rounded-b-sm rounded-t bg-gray-100" style={{ height: `${height}%` }} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** The whole month card for the page's route skeleton. */
+export function DailyCashMonthGlanceSkeleton() {
+  return (
+    <SkeletonCard>
+      <Skeleton className="h-5 w-48 max-w-full" />
+      <Skeleton className="mt-2 h-3 w-72 max-w-full bg-gray-100" />
+      <DailyCashMonthGlanceBodySkeleton />
+    </SkeletonCard>
   );
 }
 

@@ -169,10 +169,14 @@ export function safeRatio(part: number, whole: number): number | null {
 
 /**
  * One side's expenses summed by category, largest first. The side is decided
- * by `isBarPaidExpense`, the same split the dashboard totals use, and an
- * expense the owner reserve or the club's dollars paid is left out (156, 124),
- * as every side total does, so a side's categories add up to its
- * `gameClubExpenses` or `barExpenses`.
+ * by `isBarPaidExpense`, the same split the dashboard totals use.
+ *
+ * By default an expense the owner reserve or the club's dollars paid is left
+ * out (156, 124): it took no money from the side, so the categories add up to
+ * what the side's own money paid (the Reports money view). Pass
+ * `includeReservePaid` where the figure is accounting spending: the dashboard's
+ * `gameClubExpenses`, `barExpenses` and profit keep those purchases, so its
+ * categories only add up to them with the option on.
  */
 export function expenseTotalsByCategory(
   rows: ReadonlyArray<{
@@ -183,10 +187,12 @@ export function expenseTotalsByCategory(
     payment_method?: string | null;
   }>,
   side: 'game_club' | 'bar',
+  { includeReservePaid = false }: { includeReservePaid?: boolean } = {},
 ): Array<{ category: string; value: number }> {
   const totals = new Map<string, number>();
   for (const row of rows) {
-    if (isBarPaidExpense(row) !== (side === 'bar') || isReservePaidExpense(row)) continue;
+    if (isBarPaidExpense(row) !== (side === 'bar')) continue;
+    if (!includeReservePaid && isReservePaidExpense(row)) continue;
     totals.set(row.category, (totals.get(row.category) ?? 0) + Number(row.amount ?? 0));
   }
   return [...totals.entries()]

@@ -34,13 +34,14 @@ import {
   Card,
   CategoryIcon,
   DateRangePicker,
-  DetailListSkeleton,
   EmptyState,
   LoadErrorAlert,
   Money,
   PageHeader,
   SectionHeading,
+  SkeletonStatus,
 } from '@/components/PresentationFoundation';
+import { MoneyDetailsSkeleton } from './MoneyDetailsSkeleton';
 import { SIDE_ICONS } from '@/components/sideIcons';
 import { formatDateShort, formatNumber } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
@@ -273,7 +274,7 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
       ) : null}
 
       {loading ? (
-        <DetailListSkeleton />
+        <SkeletonStatus><MoneyDetailsSkeleton /></SkeletonStatus>
       ) : error ? null : rows.length === 0 ? (
         <Card><EmptyState icon={CalendarDays} title={labels.emptyLabel} /></Card>
       ) : (
@@ -309,7 +310,7 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
               {summary.keptPercent !== null && (
                 <div className="relative mt-4">
                   <div className="flex h-2 overflow-hidden rounded-full bg-danger-500/25" aria-hidden="true">
-                    <div className="h-full rounded-full bg-success-500 transition-[width] duration-700 ease-out" style={{ width: `${keptWidth}%` }} />
+                    <div className="grow-x h-full rounded-full bg-success-500 transition-[width] duration-700 ease-out motion-reduce:transition-none" style={{ width: `${keptWidth}%` }} />
                   </div>
                   <div className="mt-2 flex justify-between gap-3 text-xs font-medium">
                     <span className="flex items-center gap-1.5 text-success-600">
@@ -540,7 +541,7 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
                           <ul className="space-y-0.5">
                             {row.collected.map((item) => (
                               <li key={item.key}>
-                                <Link href={moneyDetailLineHref(side, row.date, { kind: 'collected', key: item.key })} className="group/line -mx-2 flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-gray-50 focus-visible:bg-primary-50 focus-visible:outline-none">
+                                <Link href={moneyDetailLineHref(side, row.date, { kind: 'collected', key: item.key })} className="tappable group/line -mx-2 flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
                                   <IconChip icon={COLLECTED_ICONS[item.key]} tone="success" size="sm" />
                                   <span className="min-w-0 flex-1">
                                     <span className="block break-words text-sm text-gray-700">{collectedLabel(item.key)}</span>
@@ -570,7 +571,7 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
                             <ul className="space-y-0.5">
                               {row.deductions.map((line, index) => (
                                 <li key={`${line.kind}-${index}`}>
-                                  <Link href={moneyDetailLineHref(side, row.date, line)} className="group/line -mx-2 flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-gray-50 focus-visible:bg-primary-50 focus-visible:outline-none">
+                                  <Link href={moneyDetailLineHref(side, row.date, line)} className="tappable group/line -mx-2 flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
                                     <span title={deductionKindLabel(line)}>
                                       {line.kind === 'expense'
                                         ? <CategoryIcon category={line.category} size="sm" />

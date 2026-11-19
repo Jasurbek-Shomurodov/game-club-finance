@@ -1,10 +1,11 @@
 import { Suspense } from 'react';
-import { PageSkeleton } from '@/components/PresentationFoundation';
+import { SkeletonStatus } from '@/components/PresentationFoundation';
+import { ClosingStockSkeleton } from './ClosingStockSkeleton';
 import ClosingStockPage from './ClosingStockPage';
 
 export default function Page() {
   return (
-    <Suspense fallback={<PageSkeleton />}>
+    <Suspense fallback={<SkeletonStatus><ClosingStockSkeleton /></SkeletonStatus>}>
       <ClosingStockPage />
     </Suspense>
   );

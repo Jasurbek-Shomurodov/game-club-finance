@@ -47,10 +47,6 @@ const ERRORS: Record<ExpenseErrorCode, { status: number; text: string }> = {
   SERVER_ERROR: { status: 500, text: 'Expense change failed' },
 };
 
-export function isExpenseErrorCode(value: unknown): value is ExpenseErrorCode {
-  return typeof value === 'string' && (EXPENSE_ERROR_CODES as readonly string[]).includes(value);
-}
-
 /** Maps a database error to a stable code; anything unrecognised is a server fault. */
 export function expenseErrorCode(error: { code?: string | null; message?: string | null; hint?: string | null }): ExpenseErrorCode {
   const message = error.message ?? '';

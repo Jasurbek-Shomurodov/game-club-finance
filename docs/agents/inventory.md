@@ -1,6 +1,6 @@
 # Inventory and closing-stock guide
 
-Read this before changing products, purchases, stock counts, imports, or bar
+Read this before changing products, purchases, stock counts, or bar
 financials.
 
 ## Inventory model
@@ -205,7 +205,7 @@ closing, leaves live stock alone. This writes `products` only, never saved count
 - `src/app/(dashboard)/products/page.tsx`: product catalog and soft deletion.
 - `src/app/(dashboard)/stock-purchase/StockPurchasePage.tsx`: purchase UI/RPCs.
 - `src/app/(dashboard)/closing-stock/ClosingStockPage.tsx`: closing workflow.
-- `src/lib/closingStock.ts`: drafts/import transformation.
+- `src/lib/closingStock.ts`: editable rows, drafts, validation and save payloads.
 - `src/lib/supabase/stockOpeningBalances.ts`: opening read RPC and paginated fallback.
 - `src/lib/calculations/stock.ts`: pure formulas.
 - `src/lib/calculations/barMoney.ts`: bar cash and purchase cutoff.

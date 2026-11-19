@@ -119,6 +119,23 @@ describe('expenseTotalsByCategory', () => {
     ];
     expect(expenseTotalsByCategory(paid, 'game_club')).toEqual([{ category: 'rent', value: 100 }]);
   });
+  it('keeps reserve-paid and dollar-paid expenses when asked, so categories add up to the accounting expenses', () => {
+    const paid = [
+      { category: 'rent', amount: 100, payment_source: 'game_club' as const },
+      { category: 'investment', amount: 900, payment_source: 'game_club' as const, paid_from_reserve: true },
+      { category: 'equipment', amount: 700, payment_source: 'game_club' as const, payment_method: 'usd' },
+      { category: 'cleaning', amount: 40, payment_source: 'bar' as const, paid_from_reserve: true },
+    ];
+    const gameClub = expenseTotalsByCategory(paid, 'game_club', { includeReservePaid: true });
+    expect(gameClub).toEqual([
+      { category: 'investment', value: 900 },
+      { category: 'equipment', value: 700 },
+      { category: 'rent', value: 100 },
+    ]);
+    expect(gameClub.reduce((sum, row) => sum + row.value, 0)).toBe(1700);
+    expect(expenseTotalsByCategory(paid, 'bar', { includeReservePaid: true })).toEqual([{ category: 'cleaning', value: 40 }]);
+    expect(expenseTotalsByCategory(paid, 'bar')).toEqual([]);
+  });
 });
 
 describe('valuesByDate', () => {

@@ -16,15 +16,16 @@ import {
   InlineAlert,
   LoadErrorAlert,
   MetricCard,
-  MetricGridSkeleton,
   MetricMoney,
   PageHeader,
   SegmentedControl,
+  SkeletonStatus,
   Textarea,
   useToast,
   type SegmentedOption,
   metricGridClassName,
 } from '@/components/PresentationFoundation';
+import { SalariesSkeleton } from './SalariesSkeleton';
 import { loadSalaries, loadSalaryEntries } from '@/lib/supabase/salaries';
 import {
   applySalaryPaymentChanges,
@@ -55,7 +56,7 @@ import { useClubQuery } from '@/lib/useClubQuery';
 import { mergeUntouchedFields } from '@/lib/formMerge';
 import { EmployeeEditDialog, employeeEditChanges, employeeEditState, withLandedEmployeeChange, type EmployeeEditState } from './EmployeeEditDialog';
 import { EmployeesView } from './EmployeesView';
-import { PayrollGlance } from './PayrollGlance';
+import { PayrollGlance, PayrollGlanceSkeleton } from './PayrollGlance';
 import { HistoryView } from './HistoryView';
 import { OperationsForms, type EmployeeFormState, type EntryFormState, type FormDialog } from './OperationsForms';
 import {
@@ -78,7 +79,7 @@ export default function SalariesPage({ view = 'employees', employeeId }: { view?
   const t = useTranslations('salaries');
   const { selectedClubId, loading: clubLoading } = useClub();
   if (!selectedClubId) {
-    if (clubLoading) return <MetricGridSkeleton count={3} className="sm:grid-cols-3" />;
+    if (clubLoading) return <SkeletonStatus><SalariesSkeleton /></SkeletonStatus>;
     return <Card><EmptyState icon={Building2} title={t('noClubTitle')} description={t('noClubDescription')} /></Card>;
   }
   // Each /salaries route is its own page, so switching views remounts anyway;
@@ -532,7 +533,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
             loading={loading}
           />
           <MetricCard
-            href="/salaries/history"
+            href={view === 'employees' ? '/salaries/history' : '/salaries/employees'}
             label={t(isAdvance ? 'advance' : 'totalDue')}
             value={<MetricMoney amount={Math.abs(dueValue)} />}
             icon={Wallet}
@@ -586,6 +587,8 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
           onSubmit={(event, dialog) => void save(event, dialog)}
         />
       )}
+
+      {view === 'employees' && loading && !loadError && <PayrollGlanceSkeleton />}
 
       {view === 'employees' && !loading && !loadError && (
         <PayrollGlance employees={employees} activeIds={activeIds} balances={balances} today={today} />

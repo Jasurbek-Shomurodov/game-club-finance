@@ -4,7 +4,6 @@ import { calculateStockOpeningBalances, summarizeStockRows } from './calculation
 import {
   applyBulkStockOrder,
   applyClosingStockDraft,
-  applyClosingStockImport,
   buildEditableClosingStockRows,
   buildClosingStockUpserts,
   calculateBulkStockOrderSummary,
@@ -16,17 +15,12 @@ import {
   isReadOnlyClosingStockProduct,
   normalizeStockAdjustment,
   normalizeStockCount,
-  parseClosingStockImportRecords,
-  parseClosingStockImportSheetRows,
-  applyStockAdjustment,
   readClosingStockDraft,
   saveClosingStockDraft,
-  selectClosingStockImportRows,
   validateClosingStockRows,
   withClosingStock,
   withGiveaway,
   withSoldQuantity,
-  type ClosingStockImportSheet,
   type ClosingStockRowData,
   usesSoldQuantityEntry,
   type StorageLike,
@@ -183,14 +177,6 @@ function row(overrides: Partial<ClosingStockRowData>): ClosingStockRowData {
     giveawayQuantity: overrides.giveawayQuantity ?? '0',
     promotionId: overrides.promotionId ?? null,
   };
-}
-
-function recordsFromWorkbook(rows: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
-  return rows;
-}
-
-function sheetsFromWorkbook(sheets: Array<{ name: string; rows: unknown[][] }>): ClosingStockImportSheet[] {
-  return sheets;
 }
 
 describe('closing stock row defaults', () => {
@@ -397,224 +383,6 @@ describe('closing stock row defaults', () => {
       purchaseQuantity: 3.03,
       hasPurchaseMismatch: true,
     });
-  });
-});
-
-describe('closing stock Excel import', () => {
-  it('imports owner closing-stock values from an Excel sheet by product name', () => {
-    const rows = [
-      row({ product: product({ id: 'cola', name: 'Cola 1.5L' }), previousStock: '10', addedToday: '5' }),
-      row({ product: product({ id: 'water', name: 'Water 0.5L' }), previousStock: '20', addedToday: '10', closingStock: '30', soldQuantity: '0' }),
-    ];
-    const records = recordsFromWorkbook([
-      { Product: 'Cola 1.5L', 'Closing Stock': 9 },
-      { Product: 'Water 0.5L', 'Closing Stock': 24 },
-    ]);
-
-    const importedRows = parseClosingStockImportRecords(records);
-    const result = applyClosingStockImport(rows, importedRows, 'closingStock');
-
-    expect(result.matchedCount).toBe(2);
-    expect(result.unmatchedImports).toEqual([]);
-    expect(result.rows[0]).toMatchObject({ closingStock: '9', soldQuantity: '6' });
-    expect(result.rows[1]).toMatchObject({ closingStock: '24', soldQuantity: '6' });
-  });
-
-  it('imports admin sold quantities and recalculates closing stock', () => {
-    const rows = [
-      row({ product: product({ id: 'water', name: 'Water 0.5L' }), previousStock: '20', addedToday: '10' }),
-    ];
-    const importedRows = parseClosingStockImportRecords([
-      { product_id: 'water', sold_quantity: 4 },
-    ]);
-
-    const result = applyClosingStockImport(rows, importedRows, 'soldQuantity');
-
-    expect(result.matchedCount).toBe(1);
-    expect(result.rows[0]).toMatchObject({ soldQuantity: '4', closingStock: '26' });
-  });
-
-  it('supports Russian/Uzbek-style headers from spreadsheets', () => {
-    const rows = [
-      row({ product: product({ id: 'snickers', name: 'Snickers' }), previousStock: '30', addedToday: '0' }),
-    ];
-    const importedRows = parseClosingStockImportRecords([
-      { Товар: 'Snickers', Продано: '7' },
-    ]);
-
-    const result = applyClosingStockImport(rows, importedRows, 'soldQuantity');
-
-    expect(result.matchedCount).toBe(1);
-    expect(result.rows[0]).toMatchObject({ soldQuantity: '7', closingStock: '23' });
-  });
-
-  it('disambiguates duplicate product names with imported sale and cost prices', () => {
-    const rows = [
-      row({
-        product: product({ id: 'energy-large', name: '18+ ENERGETIK', sale_price: 15000, cost_price: 10200 }),
-        previousStock: '62',
-        addedToday: '0',
-      }),
-      row({
-        product: product({ id: 'energy-small', name: '18+ ENERGETIK', sale_price: 10000, cost_price: 8300 }),
-        previousStock: '19',
-        addedToday: '0',
-      }),
-    ];
-    const importedRows = parseClosingStockImportRecords([
-      { Product: '18+ ENERGETIK', NARXI: '15,000 sum', 'TAN NARXI': '10,200 sum', OSTATKA: 59 },
-      { Product: '18+ ENERGETIK', NARXI: '10,000 sum', 'TAN NARXI': '8,300 sum', OSTATKA: 18 },
-    ]);
-
-    const result = applyClosingStockImport(rows, importedRows, 'closingStock');
-
-    expect(result.matchedCount).toBe(2);
-    expect(result.rows[0]).toMatchObject({ closingStock: '59', soldQuantity: '3' });
-    expect(result.rows[1]).toMatchObject({ closingStock: '18', soldQuantity: '1' });
-  });
-
-  it('parses stock tables after title rows and treats generic остаток as closing stock', () => {
-    const rows = [
-      row({ product: product({ id: 'snickers', name: 'Snickers' }), previousStock: '30', addedToday: '0' }),
-    ];
-    const importedRows = parseClosingStockImportSheetRows([
-      ['Приход/Расход июнь 2026'],
-      [],
-      ['#', 'Наименование', 'Приход', 'Расход', 'Остаток'],
-      [1, 'Snickers', 2, 7, 25],
-    ]);
-
-    const result = applyClosingStockImport(rows, importedRows, 'closingStock');
-
-    expect(importedRows).toEqual([
-      expect.objectContaining({
-        rowNumber: 4,
-        product: 'Snickers',
-        addedToday: 2,
-        soldQuantity: 7,
-        closingStock: 25,
-      }),
-    ]);
-    expect(result.matchedCount).toBe(1);
-    expect(result.rows[0]).toMatchObject({ addedToday: '2', closingStock: '25', soldQuantity: '7' });
-  });
-
-  it('selects the latest dated stock sheet when a workbook starts with a summary tab', () => {
-    const appRows = [
-      row({ product: product({ id: 'cola', name: 'Coca cola 0,5' }), previousStock: '69', addedToday: '0' }),
-      row({ product: product({ id: 'water', name: 'BEZ GAZ 0.5' }), previousStock: '104', addedToday: '0' }),
-    ];
-    const sheets = sheetsFromWorkbook([
-      {
-        name: 'ПриходРасход',
-        rows: [
-          ['', '', '', '', '', '', '', '', '28 дней', 'Комп', 'Бар'],
-          ['', '', '', '', 'Категория', 'Приход(Нал)', 'Приход(Карта)', 'QR Code', 'Расход(Комментарий)'],
-        ],
-      },
-      {
-        name: '26.06.2026',
-        rows: [
-          ['Column 1', 'NARXI', 'TAN NARXI', 'OSTATKA', 'SOTILDI', 'KELDI'],
-          ['Coca cola 0,5', '10,000 sum', '5,800 sum', 71, 1, ''],
-          ['BEZ GAZ 0.5', '5,000 sum', '2,000 sum', 104, 5, ''],
-        ],
-      },
-      {
-        name: '27.06.2026',
-        rows: [
-          ['Column 1', 'NARXI', 'TAN NARXI', 'OSTATKA', 'SOTILDI', 'KELDI'],
-          ['Coca cola 0,5', '10,000 sum', '5,800 sum', 64, 7, 2],
-          ['BEZ GAZ 0.5', '5,000 sum', '2,000 sum', 96, 8, ''],
-        ],
-      },
-    ]);
-
-    const selection = selectClosingStockImportRows(sheets, '2026-06-29');
-    const result = applyClosingStockImport(appRows, selection?.rows ?? [], 'closingStock');
-
-    expect(selection?.sheetName).toBe('27.06.2026');
-    expect(result.matchedCount).toBe(2);
-    expect(result.rows[0]).toMatchObject({ addedToday: '2', closingStock: '64', soldQuantity: '7' });
-    expect(result.rows[1]).toMatchObject({ closingStock: '96', soldQuantity: '8' });
-  });
-
-  it('prefers the sheet matching the selected closing-stock date', () => {
-    const sheets = sheetsFromWorkbook([
-      {
-        name: '26.06.2026',
-        rows: [
-          ['Product', 'OSTATKA'],
-          ['Cola 1.5L', 71],
-        ],
-      },
-      {
-        name: '27.06.2026',
-        rows: [
-          ['Product', 'OSTATKA'],
-          ['Cola 1.5L', 64],
-        ],
-      },
-    ]);
-
-    const selection = selectClosingStockImportRows(sheets, '2026-06-26');
-
-    expect(selection?.sheetName).toBe('26.06.2026');
-    expect(selection?.rows[0]).toMatchObject({ product: 'Cola 1.5L', closingStock: 71 });
-  });
-
-  it('can import by row order when no product column is present', () => {
-    const rows = [
-      row({ product: product({ id: 'cola', name: 'Cola 1.5L' }), previousStock: '10', addedToday: '0' }),
-      row({ product: product({ id: 'water', name: 'Water 0.5L' }), previousStock: '20', addedToday: '0' }),
-    ];
-    const importedRows = parseClosingStockImportRecords([
-      { 'Closing Stock': 8 },
-      { 'Closing Stock': 15 },
-    ]);
-
-    const result = applyClosingStockImport(rows, importedRows, 'closingStock');
-
-    expect(result.matchedCount).toBe(2);
-    expect(result.rows[0]).toMatchObject({ closingStock: '8', soldQuantity: '2' });
-    expect(result.rows[1]).toMatchObject({ closingStock: '15', soldQuantity: '5' });
-  });
-
-  it('normalizes decimal imported stock counts to whole numbers', () => {
-    const rows = [
-      row({
-        product: product({ id: 'cola', name: 'Cola 0.5L' }),
-        previousStock: '0',
-        addedToday: '21',
-        closingStock: '21',
-        soldQuantity: '0',
-      }),
-    ];
-    const importedRows = parseClosingStockImportRecords([
-      { Product: 'Cola 0.5L', 'Closing Stock': 20.2 },
-    ]);
-
-    const result = applyClosingStockImport(rows, importedRows, 'closingStock');
-
-    expect(result.matchedCount).toBe(1);
-    expect(result.rows[0]).toMatchObject({ closingStock: '20', soldQuantity: '1' });
-  });
-
-  it('reports unmatched product rows instead of silently applying them to the wrong product', () => {
-    const rows = [
-      row({ product: product({ id: 'cola', name: 'Cola 1.5L' }) }),
-    ];
-    const importedRows = parseClosingStockImportRecords([
-      { Product: 'Unknown Drink', 'Closing Stock': 4 },
-    ]);
-
-    const result = applyClosingStockImport(rows, importedRows, 'closingStock');
-
-    expect(result.matchedCount).toBe(0);
-    expect(result.rows[0].closingStock).toBe('12');
-    expect(result.unmatchedImports).toEqual([
-      expect.objectContaining({ product: 'Unknown Drink', closingStock: 4 }),
-    ]);
   });
 });
 
@@ -1148,44 +916,6 @@ describe('saved row prices and inactive products', () => {
   });
 });
 
-describe('applyStockAdjustment', () => {
-  const opening = { previousStock: '10', addedToday: '0', soldQuantity: '5', closingStock: '5' };
-
-  it('keeps entered sales and moves closing stock in sold-entry mode', () => {
-    const adjusted = applyStockAdjustment(row(opening), '-3', true);
-    expect(adjusted).toMatchObject({ adjustmentQuantity: '-3', soldQuantity: '5', closingStock: '2' });
-    expect(validateClosingStockRows([{ ...adjusted, adjustmentReason: 'Recount' }])).toBeNull();
-  });
-
-  it('keeps the count and moves sold quantity in closing-entry mode', () => {
-    const adjusted = applyStockAdjustment(row(opening), '-3', false);
-    expect(adjusted).toMatchObject({ adjustmentQuantity: '-3', soldQuantity: '2', closingStock: '5' });
-    expect(validateClosingStockRows([{ ...adjusted, adjustmentReason: 'Recount' }])).toBeNull();
-  });
-
-  it('adds found units to closing stock without inventing sales', () => {
-    expect(applyStockAdjustment(row(opening), '4', true))
-      .toMatchObject({ soldQuantity: '5', closingStock: '9' });
-  });
-
-  it('leaves giveaways out of closing stock in sold-entry mode', () => {
-    expect(applyStockAdjustment(row({ ...opening, giveawayQuantity: '1', closingStock: '4' }), '-3', true))
-      .toMatchObject({ soldQuantity: '5', closingStock: '1' });
-  });
-
-  it('treats a lone minus sign as no adjustment while the owner types', () => {
-    expect(applyStockAdjustment(row(opening), '-', true))
-      .toMatchObject({ adjustmentQuantity: '-', soldQuantity: '5', closingStock: '5' });
-  });
-
-  it('rejects an adjustment that leaves fewer units than were sold', () => {
-    const adjusted = applyStockAdjustment(row(opening), '-7', true);
-    expect(adjusted.closingStock).toBe('0');
-    expect(validateClosingStockRows([{ ...adjusted, adjustmentReason: 'Recount' }])?.code)
-      .toBe('sold_quantity_mismatch');
-  });
-});
-
 describe('usesSoldQuantityEntry', () => {
   it('selects sold-quantity entry only for the Pixel club', () => {
     expect(usesSoldQuantityEntry({ name: 'PIXEL Game Club' })).toBe(true);
@@ -1209,33 +939,6 @@ describe('closing stock row edits', () => {
     closingStock: '10',
     soldQuantity: '0',
     ...overrides,
-  });
-
-  it('keeps the typed sold quantity and moves closing stock on an adjustment in sold entry', () => {
-    const sold = withSoldQuantity(row(), '3');
-    expect(sold).toMatchObject({ soldQuantity: '3', closingStock: '7' });
-    const adjusted = applyStockAdjustment(sold, '-2', true);
-    expect(adjusted).toMatchObject({ soldQuantity: '3', closingStock: '5', adjustmentQuantity: '-2' });
-    expect(validateClosingStockRows([{ ...adjusted, adjustmentReason: 'Broken bottles' }])).toBeNull();
-    expect(applyStockAdjustment(sold, '5', true)).toMatchObject({ soldQuantity: '3', closingStock: '12' });
-  });
-
-  it('gives the same result whichever of sold and adjustment is entered first', () => {
-    const adjustedFirst = withSoldQuantity(applyStockAdjustment(row(), '-2', true), '3');
-    const soldFirst = applyStockAdjustment(withSoldQuantity(row(), '3'), '-2', true);
-    expect(adjustedFirst).toMatchObject({ soldQuantity: soldFirst.soldQuantity, closingStock: soldFirst.closingStock });
-  });
-
-  it('refuses a sold quantity the adjustment no longer leaves room for', () => {
-    const adjusted = applyStockAdjustment(withSoldQuantity(row(), '9'), '-2', true);
-    expect(adjusted).toMatchObject({ soldQuantity: '9', closingStock: '0' });
-    expect(validateClosingStockRows([{ ...adjusted, adjustmentReason: 'Broken bottles' }])?.code).toBe('sold_quantity_mismatch');
-  });
-
-  it('keeps the counted closing stock and derives sold on an adjustment in count entry', () => {
-    const counted = withClosingStock(row(), '7');
-    expect(counted).toMatchObject({ closingStock: '7', soldQuantity: '3' });
-    expect(applyStockAdjustment(counted, '-2', false)).toMatchObject({ closingStock: '7', soldQuantity: '1' });
   });
 
   it('takes giveaways out of closing stock in sold entry and out of sold in count entry', () => {

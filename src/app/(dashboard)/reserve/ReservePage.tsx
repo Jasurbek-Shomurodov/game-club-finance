@@ -24,6 +24,7 @@ import {
   SegmentedControl,
   SkeletonStatus,
   StatTile,
+  TappableSurface,
   TableSkeleton,
   useConfirm,
   useToast,
@@ -251,14 +252,17 @@ export default function ReservePage() {
             <Card as="section" aria-labelledby="reserve-total">
               <p id="reserve-total" className="text-xs font-medium text-gray-500">{t('totalHeld')}</p>
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                <div>
+                <TappableSurface onClick={() => { setHistoryFilter('all'); showHistory(); }} className="-m-2 !w-auto rounded-xl p-2 pr-8 hover:bg-gray-50">
                   <p className="text-sm font-medium text-gray-600">{t('sumsPot')}</p>
                   <p className="mt-1 break-words text-3xl font-bold leading-none tracking-tight tabular-nums text-gray-950 sm:text-4xl">
                     {formatCurrency(sumsHeld)}
                     <span className="ml-1.5 text-base font-medium tracking-normal text-gray-500">{currency}</span>
                   </p>
-                </div>
-                <div>
+                </TappableSurface>
+                <TappableSurface
+                  onClick={() => { setHistoryFilter(totals.exchanged > 0 ? 'exchange' : 'all'); showHistory(); }}
+                  className="-m-2 !w-auto rounded-xl p-2 pr-8 hover:bg-gray-50"
+                >
                   <p className="text-sm font-medium text-gray-600">{t('dollarsPot')}</p>
                   <p className="mt-1 break-words text-3xl font-bold leading-none tracking-tight tabular-nums text-gray-950 sm:text-4xl">
                     {dollars}
@@ -279,7 +283,7 @@ export default function ReservePage() {
                       ) : null}
                     </p>
                   ) : null}
-                </div>
+                </TappableSurface>
               </div>
               {/* Inside the reserve: sums become dollars or back, nothing leaves it (170). */}
               <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -305,7 +309,7 @@ export default function ReservePage() {
                   <button
                     type="button"
                     onClick={() => { setHistoryFilter('exchange'); showHistory(); }}
-                    className="text-xs text-gray-500 hover:text-gray-700 hover:underline"
+                    className="rounded text-xs text-gray-500 hover:text-gray-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
                   >
                     {t('exchangesCount', { count: totals.exchanged })}
                   </button>
@@ -320,7 +324,7 @@ export default function ReservePage() {
                 <div className="mt-4">
                   <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
                     {flowParts.map((part) => (
-                      <span key={part.key} className={`h-full transition-[width] duration-700 first:rounded-l-full last:rounded-r-full ${part.className}`} style={{ width: `${(part.value / flowWhole) * 100}%` }} />
+                      <span key={part.key} className={`grow-x h-full transition-[width] duration-700 first:rounded-l-full last:rounded-r-full motion-reduce:transition-none ${part.className}`} style={{ width: `${(part.value / flowWhole) * 100}%` }} />
                     ))}
                   </div>
                   <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-500" aria-label={t('flowSplitLabel')}>

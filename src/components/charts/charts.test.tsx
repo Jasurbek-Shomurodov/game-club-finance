@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactElement } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Monitor } from 'lucide-react';
 import messages from '@/messages/en.json';
 import { averageByWeekday } from '@/lib/calculations/insights';
@@ -12,6 +12,9 @@ import { DonutBreakdown } from './DonutBreakdown';
 import { RadialMeter } from './RadialMeter';
 import { WeekdayBars } from './WeekdayBars';
 import { formatPercentShare, weekdayShortNames } from './chartFormat';
+
+// The glance card opens pages from chart segments; a static render has no app router.
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: () => {} }) }));
 
 const render = (element: ReactElement) => renderToStaticMarkup(
   <NextIntlClientProvider locale="en" messages={messages}>{element}</NextIntlClientProvider>,
@@ -45,6 +48,16 @@ describe('CalendarHeatmap', () => {
     // Only the days with data can be opened.
     expect(html.match(/<button/g)).toHaveLength(2);
   });
+
+  it('lets a day without data be opened up to the selectable date', () => {
+    const html = render(
+      <CalendarHeatmap yearMonth="2026-11" values={new Map([['2026-11-02', 1000]])} through="2026-11-02" today="2026-11-01"
+        color="rgb(var(--c-primary-600))" currency="UZS" locale="en" legendLow="Less" legendHigh="More"
+        onSelectDay={() => undefined} selectableThrough="2026-11-03" />,
+    );
+    // 1 and 2 have data; 3 is today, still without an entry, and stays reachable.
+    expect(html.match(/<button/g)).toHaveLength(3);
+  });
 });
 
 describe('WeekdayBars', () => {
@@ -72,7 +85,7 @@ describe('DonutBreakdown', () => {
 describe('SideGlanceCard', () => {
   it('shows the best and weakest day, the margin and where the income went', () => {
     const html = render(
-      <SideGlanceCard title="Game Club" icon={Monitor} iconClassName="" color="red" yearMonth="2026-11"
+      <SideGlanceCard side="game_club" title="Game Club" icon={Monitor} iconClassName="" color="red" yearMonth="2026-11"
         range={{ from: '2026-11-01', to: '2026-11-30' }} through="2026-11-03" today="2026-11-03"
         values={new Map([['2026-11-01', 100], ['2026-11-02', 300], ['2026-11-03', 0]])}
         income={400} profit={100} spending={[{ key: 'rent', label: 'Rent', value: 300 }]} currency="UZS" locale="en" />,
@@ -83,9 +96,38 @@ describe('SideGlanceCard', () => {
     expect(html).toContain('Profit kept');
   });
 
+  it('keeps the true income in the donut centre in a loss month', () => {
+    const html = render(
+      <SideGlanceCard side="game_club" title="Game Club" icon={Monitor} iconClassName="" color="red" yearMonth="2026-11"
+        range={{ from: '2026-11-01', to: '2026-11-30' }} through="2026-11-03" today="2026-11-03"
+        values={new Map([['2026-11-01', 400]])}
+        income={400} profit={-200} spending={[{ key: 'rent', label: 'Rent', value: 600 }]} currency="UZS" locale="en" />,
+    );
+    // The centre is the income, not the 600 that was spent; rent took 150% of it.
+    expect(html).toMatch(/Income<\/span><span[^>]*>400<\/span>/);
+    expect(html).toContain('>150%<');
+    expect(html).not.toContain('Profit kept');
+  });
+
+  it('links its heading, days and expense slices only to pages the viewer may open', () => {
+    const card = (links?: { moneyDetails?: boolean; dailyReport?: boolean; reports?: boolean }) => render(
+      <SideGlanceCard side="bar" title="Bar" icon={Monitor} iconClassName="" color="red" yearMonth="2026-11"
+        range={{ from: '2026-11-01', to: '2026-11-30' }} through="2026-11-03" today="2026-11-03"
+        values={new Map([['2026-11-01', 400]])} links={links}
+        income={400} profit={100} spending={[{ key: 'barCost', label: 'Goods', value: 200 }, { key: 'rent', label: 'Rent', value: 100 }]} currency="UZS" locale="en" />,
+    );
+    const plain = card();
+    expect(plain).not.toContain('<a ');
+    expect(plain).not.toContain('<button');
+    const linked = card({ moneyDetails: true, dailyReport: true, reports: true });
+    expect(linked).toContain('href="/bar-money-details?from=2026-11-01&amp;to=2026-11-30"');
+    // The three days counted so far, and only the expense category (not goods cost or profit) has a list behind it.
+    expect(linked.match(/<button/g)).toHaveLength(4);
+  });
+
   it('says so when nothing was spent or kept', () => {
     const html = render(
-      <SideGlanceCard title="Bar" icon={Monitor} iconClassName="" color="red" yearMonth="2026-11"
+      <SideGlanceCard side="bar" title="Bar" icon={Monitor} iconClassName="" color="red" yearMonth="2026-11"
         range={{ from: '2026-11-01', to: '2026-11-30' }} through={null} today="2026-11-03"
         values={new Map()} income={0} profit={0} spending={[]} currency="UZS" locale="en" />,
     );
@@ -106,7 +148,19 @@ describe('SideScorecard', () => {
     );
     expect(html).toContain('aria-label="Spent 60%, Kept 40%"');
     expect(html).toContain('href="/spent"');
-    expect(html).toContain('100%');
+    expect(html).toContain('+100%');
+  });
+
+  it('draws no split and dashes when there was no income', () => {
+    const html = render(
+      <SideScorecard title="Bar" icon={Monitor} iconClassName="" color="red" incomeLabel="Bar sales"
+        now={{ income: 0, spent: 0, left: 0, marginPct: null, averageDailyIncome: 0 }}
+        loading={false} currency="UZS" locale="en"
+        labels={{ spent: 'Spent', profit: 'Profit', margin: 'Margin', perDay: 'Per day', kept: 'Kept' }} />,
+    );
+    expect(html).toContain('aria-label="Spent —, Kept —"');
+    expect(html).not.toContain('Kept · 100%');
+    expect(html).not.toContain('bg-danger-500/80 transition-[width]');
   });
 });
 
@@ -117,7 +171,7 @@ describe('skeletons follow the new layouts', () => {
         now={{ income: 0, spent: 0, left: 0, marginPct: null, averageDailyIncome: 0 }}
         loading currency="UZS" locale="en" labels={{ spent: 'Spent', profit: 'Profit', margin: 'Margin', perDay: 'Per day', kept: 'Kept' }} />,
     );
-    expect(html).toContain('animate-pulse');
+    expect(html).toContain('skeleton');
     expect(html).not.toContain('Bar sales');
   });
 

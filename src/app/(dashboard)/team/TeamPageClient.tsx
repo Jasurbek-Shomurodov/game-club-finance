@@ -7,6 +7,7 @@ import { useClub } from '@/components/layout/DashboardShell';
 import {
   Avatar,
   Badge,
+  SkeletonStatus,
   type BadgeVariant,
   Button,
   type ButtonVariant,
@@ -21,10 +22,10 @@ import {
   SearchInput,
   SectionHeading,
   SegmentedControl,
-  TableSkeleton,
   useConfirm,
   useToast,
 } from '@/components/PresentationFoundation';
+import { TeamSkeleton } from './TeamSkeleton';
 import { cn } from '@/lib/utils';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import {
@@ -366,7 +367,7 @@ export default function TeamPageClient() {
     );
   }
 
-  if (!isOwner) return <TableSkeleton rows={6} columns={4} />;
+  if (!isOwner) return <SkeletonStatus><TeamSkeleton /></SkeletonStatus>;
 
   const loading = team.loading;
 
@@ -389,7 +390,7 @@ export default function TeamPageClient() {
       )}
 
       {loading ? (
-        <TableSkeleton rows={7} columns={4} />
+        <SkeletonStatus><TeamSkeleton /></SkeletonStatus>
       ) : (
         <div className="space-y-6">
           {pendingProfiles.length > 0 && (

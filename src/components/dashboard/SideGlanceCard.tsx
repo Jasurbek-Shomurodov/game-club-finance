@@ -1,8 +1,10 @@
 'use client';
 
-import { useId, useMemo, type ReactNode } from 'react';
+import { useId, useMemo } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { TrendingDown, TrendingUp } from 'lucide-react';
+import { ChevronRight, TrendingDown, TrendingUp } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Card, EmptyState, Skeleton } from '@/components/PresentationFoundation';
 import { cn } from '@/lib/utils';
@@ -13,6 +15,7 @@ import { DonutBreakdown, type DonutSlice } from '@/components/charts/DonutBreakd
 import { RadialMeter } from '@/components/charts/RadialMeter';
 import { WeekdayBars } from '@/components/charts/WeekdayBars';
 import { formatPercentShare } from '@/components/charts/chartFormat';
+import { dailyReportHref, moneyDetailsHref, reportsHref, type MoneySide } from '@/lib/detailLinks';
 import { categoricalColors, chartColors } from './ChartCard';
 
 export interface SideGlanceSpending {
@@ -42,7 +45,8 @@ export function SideGlanceCard({
   spending,
   currency,
   locale,
-  action,
+  side,
+  links = {},
 }: {
   title: string;
   icon: LucideIcon;
@@ -62,8 +66,11 @@ export function SideGlanceCard({
   spending: readonly SideGlanceSpending[];
   currency: string;
   locale: string;
-  action?: ReactNode;
+  side: MoneySide;
+  /** Which pages the viewer may open; a part whose page is closed to them stays plain. */
+  links?: { moneyDetails?: boolean; dailyReport?: boolean; reports?: boolean };
 }) {
+  const router = useRouter();
   const t = useTranslations('dashboard');
   const te = useTranslations('expenses');
   const headingId = useId();
@@ -75,21 +82,30 @@ export function SideGlanceCard({
   );
   const extremes = useMemo(() => bestAndWorstDays(values), [values]);
 
+  const expenseKeys = useMemo(
+    () => new Set(spending.filter((item) => item.key !== 'barCost').map((item) => item.key)),
+    [spending],
+  );
   const slices: DonutSlice[] = useMemo(() => {
     const ranked = rankShares(spending, categoricalColors.length, { key: 'other', label: te('categories.other') });
     // Profit closes the ring, so the donut reads as "where each sum of income went".
     const withProfit = profit > 0 ? [...ranked.map((slice) => ({ ...slice })), { key: 'profit', label: t('glanceProfitSlice'), value: profit, share: 0 }] : ranked;
-    const whole = withProfit.reduce((sum, slice) => sum + slice.value, 0);
+    // Shares are of the income in the centre. In a loss month the spending is
+    // more than the income, so its shares rightly add up to over 100%.
+    const whole = income > 0 ? income : withProfit.reduce((sum, slice) => sum + slice.value, 0);
     let colorIndex = 0;
     return withProfit.map((slice) => ({
       ...slice,
       share: whole ? slice.value / whole : 0,
+      // An expense category opens its entries in Reports; profit, goods cost and the folded tail have no list of their own.
+      onSelect: links.reports && expenseKeys.has(slice.key) && !('other' in slice && slice.other)
+        ? () => router.push(reportsHref(range, { category: `expense:${slice.key}`, source: side }))
+        : undefined,
       color: slice.key === 'profit'
         ? chartColors.success
         : 'other' in slice && slice.other ? chartColors.gray : categoricalColors[colorIndex++],
     }));
-  }, [spending, profit, t, te]);
-  const sliceTotal = slices.reduce((sum, slice) => sum + slice.value, 0);
+  }, [spending, income, profit, t, te, links.reports, expenseKeys, range, side, router]);
   const marginLabel = margin === null ? '—' : formatPercentShare(margin, locale);
 
   return (
@@ -99,10 +115,19 @@ export function SideGlanceCard({
           <Icon size={20} strokeWidth={2.2} />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 id={headingId} className="text-sm font-semibold text-gray-950">{title}</h2>
+          <h2 id={headingId} className="text-sm font-semibold text-gray-950">
+            {links.moneyDetails ? (
+              <Link
+                href={moneyDetailsHref(side, range)}
+                className="group inline-flex items-center gap-1 rounded hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+              >
+                {title}
+                <ChevronRight size={14} aria-hidden="true" className="text-gray-300 transition-[color,transform] duration-200 group-hover:translate-x-0.5 group-hover:text-primary-600 motion-reduce:transition-none" />
+              </Link>
+            ) : title}
+          </h2>
           <p className="mt-0.5 text-xs text-gray-500">{t('glanceDesc')}</p>
         </div>
-        {action}
         <RadialMeter value={margin} color={margin !== null && margin < 0 ? chartColors.danger : color} size={56} stroke={6} label={`${t('glanceMargin')}: ${marginLabel}`}>
           <span className="flex flex-col leading-none">
             <span className="text-xs font-bold tabular-nums text-gray-950">{marginLabel}</span>
@@ -133,6 +158,7 @@ export function SideGlanceCard({
             color={color}
             currency={currency}
             locale={locale}
+            onSelectDay={links.dailyReport ? (date) => router.push(dailyReportHref(date)) : undefined}
             legendLow={t('heatmapLess')}
             legendHigh={t('heatmapMore')}
           />
@@ -146,7 +172,7 @@ export function SideGlanceCard({
       <div>
         <h3 className="mb-3 text-xs font-semibold text-gray-700">{t('glanceWhereMoneyWent')}</h3>
         {slices.length ? (
-          <DonutBreakdown slices={slices} total={sliceTotal} totalLabel={t('glanceIncomeCenter')} currency={currency} locale={locale} size="sm" />
+          <DonutBreakdown slices={slices} total={income} totalLabel={t('glanceIncomeCenter')} currency={currency} locale={locale} size="sm" />
         ) : (
           <EmptyState compact bordered title={t('noExpensesForPeriod')} />
         )}

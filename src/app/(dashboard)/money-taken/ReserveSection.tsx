@@ -1,9 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { ArrowDownToLine, ChartColumn, ChevronRight, PiggyBank, ShoppingCart, Undo2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { Button, ButtonLink, SectionHeading } from '@/components/PresentationFoundation';
+import { Button, ButtonLink, SectionHeading, TappableSurface } from '@/components/PresentationFoundation';
 import type { ReserveActivity, ReserveBalance } from '@/lib/calculations/ownerReserve';
 import { formatCurrency, formatUnitCurrency } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
@@ -68,9 +67,10 @@ export function ReserveSection({ balances, depositAllAmounts, monthLabel, activi
                 </span>
                 {t(`sources.${source}`)}
               </p>
-              <Link
+              <TappableSurface
                 href="/reserve?view=history"
-                className="group -mx-2 mt-2 block rounded-lg px-2 py-1 transition-colors hover:bg-gray-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                chevron={false}
+                className="-mx-2 mt-2 !w-auto rounded-lg px-2 py-1 hover:bg-gray-100/70"
               >
                 <span className="flex items-center justify-between text-xs text-gray-500">
                   {t('held')}
@@ -80,7 +80,7 @@ export function ReserveSection({ balances, depositAllAmounts, monthLabel, activi
                   {formatCurrency(side.held)}
                   <span className="ml-1.5 text-sm font-medium tracking-normal text-gray-500">{tc('currency')}</span>
                 </span>
-              </Link>
+              </TappableSurface>
               {methods.length > 0 ? (
                 <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
                   {methods.map((method) => (

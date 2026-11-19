@@ -18,17 +18,17 @@ import {
   CategoryIcon,
   LoadErrorAlert,
   MetricCard,
-  MetricGridSkeleton,
   Modal,
   Money,
   PageHeader,
   SectionHeading,
+  SkeletonStatus,
   StatTile,
-  TableSkeleton,
   toneForAmount,
   MetricMoney,
   metricGridClassName,
 } from '@/components/PresentationFoundation';
+import { DailyReportSkeleton } from './DailyReportSkeleton';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
@@ -148,10 +148,7 @@ export default function DailyReportPage() {
       )}
 
       {loading ? (
-        <div className="space-y-6">
-          <MetricGridSkeleton count={10} className="xl:grid-cols-5" />
-          <TableSkeleton rows={4} columns={5} />
-        </div>
+        <SkeletonStatus><DailyReportSkeleton /></SkeletonStatus>
       ) : loadError ? null : !hasData ? (
         <Card><EmptyState icon={FileText} title={t('noData')} /></Card>
       ) : (

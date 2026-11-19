@@ -38,6 +38,9 @@ export {
 } from './Field';
 export { HelpButton } from './HelpButton';
 export { IconButton } from './IconButton';
+export { IconChip, type IconChipSize } from './IconChip';
+export { TappableSurface, tappableClassName, type TappableCardProps } from './Tappable';
+export { toneClasses, type Tone, type ToneClasses } from './tone';
 export { InlineAlert, type InlineAlertVariant } from './InlineAlert';
 export { LanguageSwitcher } from './LanguageSwitcher';
 export { LoadErrorAlert, type LoadErrorAlertProps } from './LoadErrorAlert';

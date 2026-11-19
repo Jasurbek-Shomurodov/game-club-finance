@@ -26,12 +26,13 @@ import {
   SearchInput,
   SectionHeading,
   SegmentedControl,
+  SkeletonStatus,
   StatTile,
-  TableSkeleton,
   useConfirm,
   useToast,
   type SegmentedOption,
 } from '@/components/PresentationFoundation';
+import { ProductsSkeleton } from './ProductsSkeleton';
 import { cleanQuantityInput, formatCurrency, formatNumber, formatUnitCurrency } from '@/lib/formatters';
 import { fetchProductsOrdered, isMissingSortOrder, updateProductSortOrders } from '@/lib/supabase/products';
 import {
@@ -44,7 +45,7 @@ import {
   type ProductWriteForm,
 } from '@/lib/productWrites';
 import { LOW_STOCK_DEFAULT, resolveLowStockThreshold, stockLevel } from '@/lib/calculations/stock';
-import { stockPurchaseHref } from '@/lib/detailLinks';
+import { moneyDetailsHref, stockPurchaseHref } from '@/lib/detailLinks';
 import { canAccessPath } from '@/lib/permissions';
 import { groupByCategory } from '@/lib/productSections';
 import { buildProductSalesSummary, salesPeriodStart, type ProductSalesRow } from '@/lib/calculations/productSales';
@@ -113,6 +114,10 @@ export default function ProductsPage() {
   const [movingId, setMovingId] = useState<string | null>(null);
 
   const isOwner = currentRole === 'owner';
+  /** The bar's money for the same days the sales tiles count. */
+  const salesDetailsHref = currentRole && canAccessPath(currentRole, featureAccess, '/bar-money-details')
+    ? moneyDetailsHref('bar', { from: salesPeriodStart(businessToday, SALES_PERIOD_DAYS), to: businessToday })
+    : undefined;
   const canManageInventory = currentRole === 'owner' || currentRole === 'admin';
 
   const fetchProducts = useCallback(async (): Promise<Product[]> => {
@@ -419,7 +424,7 @@ export default function ProductsPage() {
       />
 
       {loading ? (
-        <TableSkeleton rows={8} columns={canManageInventory ? 7 : 5} />
+        <SkeletonStatus><ProductsSkeleton columns={canManageInventory ? 7 : 5} /></SkeletonStatus>
       ) : loadError && products.length === 0 ? (
         <LoadErrorAlert onRetry={() => void loadProducts()}>
           {t('loadFailed')}
@@ -450,11 +455,12 @@ export default function ProductsPage() {
                 description={t('salesDaysCounted', { count: sales.countedDays })}
               />
               <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
-                <StatTile variant="soft" size="sm" label={t('salesUnits')} value={formatNumber(sales.sold)} />
-                <StatTile variant="soft" size="sm" label={t('salesIncome')} value={formatCurrency(sales.income)} unit={tc('currency')} />
+                <StatTile variant="soft" size="sm" href={salesDetailsHref} label={t('salesUnits')} value={formatNumber(sales.sold)} />
+                <StatTile variant="soft" size="sm" href={salesDetailsHref} label={t('salesIncome')} value={formatCurrency(sales.income)} unit={tc('currency')} />
                 <StatTile
                   variant="soft"
                   size="sm"
+                  href={salesDetailsHref}
                   label={sales.marginPercent === null ? t('salesProfit') : `${t('salesProfit')} · ${t('salesMargin', { percent: formatNumber(sales.marginPercent) })}`}
                   tone={sales.profit < 0 ? 'danger' : 'success'}
                   value={formatCurrency(sales.profit)}

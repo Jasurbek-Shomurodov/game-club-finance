@@ -141,7 +141,7 @@ function MonthButton({ label, onClick, children }: { label: string; onClick: () 
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-surface text-gray-500 transition hover:border-primary-200 hover:text-primary-700"
+      className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-surface text-gray-500 transition hover:border-primary-200 hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
     >
       {children}
     </button>

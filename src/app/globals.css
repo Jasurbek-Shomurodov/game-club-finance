@@ -66,6 +66,8 @@
   --c-viz-3: 61 143 217;
   --c-viz-4: 176 133 14;
   --c-viz-5: 201 58 120;
+  /* Highlight that sweeps across loading placeholders. */
+  --c-shimmer: 255 255 255;
 }
 
 /*
@@ -132,6 +134,7 @@
     --c-viz-3: 79 143 224;
     --c-viz-4: 179 138 18;
     --c-viz-5: 217 87 143;
+    --c-shimmer: 84 100 89;
   }
 }
 
@@ -191,6 +194,7 @@
   --c-viz-3: 79 143 224;
   --c-viz-4: 179 138 18;
   --c-viz-5: 217 87 143;
+  --c-shimmer: 84 100 89;
 }
 
 @layer base {
@@ -329,4 +333,66 @@ roll-strip > roll-char { display: block; height: 1lh; }
 @supports not (height: 1lh) {
   roll-chars { line-height: 1.2; }
   roll-chars > *, roll-strip > roll-char { height: 1.2em; }
+}
+
+/*
+ * Motion system. One easing and three movements shared by every admin page:
+ *
+ *   shimmer     a highlight sweeping across loading placeholders (Skeleton)
+ *   rise-in     content settling into place when it mounts
+ *   press       a tappable surface dipping under the finger (.tappable)
+ *
+ * `.page-enter` (DashboardShell) staggers a page's top-level sections, so a
+ * page and the content that replaces its skeleton arrive in reading order
+ * without any page opting in. `.stagger` does the same for a grid or list a
+ * page marks itself. Animations fill backwards only: once played they leave no
+ * transform behind, so sticky headers and fixed children keep working.
+ */
+:root { --ease-out: cubic-bezier(0.22, 1, 0.36, 1); }
+
+@keyframes shimmer { from { background-position: 180% 0; } to { background-position: -80% 0; } }
+.skeleton {
+  background-image: linear-gradient(100deg, transparent 35%, rgb(var(--c-shimmer) / 0.55) 50%, transparent 65%);
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  animation: shimmer 1.5s linear infinite;
+}
+
+@keyframes rise-in { from { opacity: 0; transform: translateY(10px); } }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes pop-in { from { opacity: 0; transform: scale(0.96); } }
+@keyframes grow-x { from { transform: scaleX(0); } }
+
+.rise-in { animation: rise-in 460ms var(--ease-out) backwards; }
+.fade-in { animation: fade-in 300ms ease-out backwards; }
+.pop-in { animation: pop-in 320ms var(--ease-out) backwards; }
+/* A meter or share bar filling from its start edge. */
+.grow-x { transform-origin: left center; animation: grow-x 700ms var(--ease-out) backwards; }
+
+.page-enter > * > *,
+.stagger > * { animation: rise-in 460ms var(--ease-out) backwards; animation-delay: calc(var(--stagger-step, 45ms) * var(--i, 0)); }
+.page-enter > * > *:nth-child(2), .stagger > *:nth-child(2) { --i: 1; }
+.page-enter > * > *:nth-child(3), .stagger > *:nth-child(3) { --i: 2; }
+.page-enter > * > *:nth-child(4), .stagger > *:nth-child(4) { --i: 3; }
+.page-enter > * > *:nth-child(5), .stagger > *:nth-child(5) { --i: 4; }
+.page-enter > * > *:nth-child(6), .stagger > *:nth-child(6) { --i: 5; }
+.page-enter > * > *:nth-child(7), .stagger > *:nth-child(7) { --i: 6; }
+.page-enter > * > *:nth-child(n + 8), .stagger > *:nth-child(n + 8) { --i: 7; }
+/* A placeholder is already "loading": it appears at once and only shimmers. */
+.page-enter [role="status"], .page-enter [role="status"] * { animation-delay: 0ms; }
+.page-enter > * > [role="status"], .page-enter > [role="status"] > * { animation-name: fade-in; animation-duration: 200ms; }
+
+/* Tappable surfaces: lift on hover, dip on press. */
+.tappable {
+  cursor: pointer;
+  transition: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out), border-color 180ms ease, background-color 180ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (hover: hover) { .tappable:hover { transform: translateY(-1px); } }
+.tappable:active { transform: scale(0.985); transition-duration: 80ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; background-image: none; }
+  .rise-in, .fade-in, .pop-in, .grow-x, .page-enter > * > *, .stagger > * { animation: none; }
+  .tappable, .tappable:hover, .tappable:active { transform: none; transition: none; }
 }

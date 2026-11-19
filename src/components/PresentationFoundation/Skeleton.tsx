@@ -3,7 +3,7 @@ import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 
 export function Skeleton({ className, style }: { className?: string; style?: CSSProperties }) {
-  return <div aria-hidden="true" className={cn('animate-pulse rounded-md bg-gray-200/70', className)} style={style} />;
+  return <div aria-hidden="true" className={cn('skeleton rounded-md bg-gray-200/70', className)} style={style} />;
 }
 
 /** Announces the placeholder as a translated "Loading…" status. */
@@ -150,7 +150,7 @@ export function SkeletonStatus({ children, className }: { children: ReactNode; c
 
 /** Chart placeholder with the same footprint as a chart card. */
 export function ChartSkeleton({ className }: { className?: string }) {
-  return <div aria-hidden="true" className={cn('h-80 animate-pulse rounded-2xl border border-gray-200 bg-gray-100', className)} />;
+  return <div aria-hidden="true" className={cn('skeleton h-80 rounded-2xl border border-gray-200 bg-gray-100', className)} />;
 }
 
 /** Generic page-level placeholder used while the shell or a route is loading. */

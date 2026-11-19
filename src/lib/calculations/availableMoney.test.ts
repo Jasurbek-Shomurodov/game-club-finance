@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
-  calculateAvailableMoney,
   calculateAvailableMoneyByMonth,
   calculateAvailableMoneyForMonth,
+  sumAvailableMoneyResults,
 } from './availableMoney';
+
+/** Every month's result summed, each month keeping its own overdraft. */
+const calculateAvailableMoney = (input: Parameters<typeof calculateAvailableMoneyByMonth>[0]) =>
+  sumAvailableMoneyResults(Object.values(calculateAvailableMoneyByMonth(input)));
 
 const expense = (
   id: string,

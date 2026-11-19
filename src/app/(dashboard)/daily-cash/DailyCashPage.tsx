@@ -18,7 +18,7 @@ import { fetchProfileNames } from '@/lib/supabase/profileNames';
 import { createClient } from '@/lib/supabase/client';
 import { calculateFinancialReportTotals, calculateManualIncome } from '@/lib/calculations/dailyReport';
 import { canAccessFeature, canAccessPath, canReadFinancialTotals, canReadStockCounts } from '@/lib/permissions';
-import { closingStockHref, dayRange, moneyDetailsHref } from '@/lib/detailLinks';
+import { closingStockHref, dayRange, moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
 import ExpenseRegistrationForm from '../reports/ExpenseRegistrationForm';
 import { CashShortageForm } from '@/components/cash-shortages/CashShortageForm';
 import { fetchCashShortages, type ShortageEmployee } from '@/lib/supabase/cashShortages';
@@ -36,14 +36,13 @@ import {
   CurrencyInput,
   DatePicker,
   Field,
-  FormSkeleton,
   InlineAlert,
   LoadErrorAlert,
-  MetricGridSkeleton,
   Modal,
   Money,
   PageHeader,
   SectionHeading,
+  SkeletonStatus,
   StatTile,
   Textarea,
   toneForAmount,
@@ -52,8 +51,6 @@ import {
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { todayIso } from '@/lib/utils';
-
-const isOwnerRole = (role: string | null | undefined) => role === 'owner';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useCollectedDay } from '@/lib/useCollectedDay';
 import { isDayCollectedError } from '@/lib/supabase/dailyCashCollections';
@@ -62,6 +59,9 @@ import { useClubQuery } from '@/lib/useClubQuery';
 import { formatCurrency, formatCurrencyInput, formatDateOnly, formatDateTime, parseCurrencyInput } from '@/lib/formatters';
 import type { DailyCashEntry } from '@/types';
 import { DailyCashMonthGlance } from './DailyCashMonthGlance';
+import { DailyCashSkeleton } from './DailyCashSkeleton';
+
+const isOwnerRole = (role: string | null | undefined) => role === 'owner';
 
 interface CashFormData {
   date: string;
@@ -250,6 +250,8 @@ export default function DailyCashPage() {
   const { loading, error: loadFailed, reload, setData: setDay } = day;
   // A failed load shows no saved entry or summary, even after a silent reload.
   const entry = loadFailed ? null : day.data.entry;
+  /** The saved day's income rows in Reports. */
+  const savedEntryHref = linkIfAllowed(reportsHref(dayRange(form.date), { category: 'income' }));
   const financeSummary = loadFailed ? null : day.data.financeSummary;
   const { createdByName, summaryFailed } = day.data;
 
@@ -521,8 +523,7 @@ export default function DailyCashPage() {
     return (
       <div className="space-y-4">
         {header}
-        <FormSkeleton />
-        <MetricGridSkeleton count={3} className="xl:grid-cols-3" />
+        <SkeletonStatus><DailyCashSkeleton showSummary={canSeeBarSales} showMonth={canSeeMonth} /></SkeletonStatus>
       </div>
     );
   }
@@ -675,9 +676,10 @@ export default function DailyCashPage() {
 
           <div className={`mt-4 grid grid-cols-2 gap-3 xl:!grid-cols-2 ${savedBreakdownGrid[Math.min(savedBreakdown.length + 1, 5)]}`}>
             {savedBreakdown.map((item) => (
-              <StatTile key={item.label} label={item.label} value={formatCurrency(item.amount)} unit={tc('currency')} variant="soft" size="sm" />
+              <StatTile key={item.label} href={savedEntryHref} label={item.label} value={formatCurrency(item.amount)} unit={tc('currency')} variant="soft" size="sm" />
             ))}
             <StatTile
+              href={savedEntryHref}
               label={t('total')}
               tone="success"
               variant="soft"
@@ -713,6 +715,7 @@ export default function DailyCashPage() {
           enabledPaymentMethods={enabledPaymentMethods}
           version={monthVersion}
           onSelectDate={selectDate}
+          monthDetailsHref={(range) => linkIfAllowed(moneyDetailsHref('game_club', range))}
         />
       )}
 

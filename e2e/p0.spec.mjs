@@ -809,8 +809,13 @@ test.describe('as an admin', () => {
     // Write-offs is a tab of the bar section.
     await openTab(page, 'Write-offs');
     await expect(page).toHaveURL(/\/write-offs$/);
-    await expect(page.getByRole('cell', { name: products.cola.name })).toBeVisible();
-    expect(await pageText(page)).not.toContain('Loss at cost');
+    // Today's table and the month ledger below it both list the owner's write-off.
+    await expect(page.getByRole('heading', { name: 'Write-offs and corrections by month' })).toBeVisible();
+    await expect(page.getByRole('cell', { name: products.cola.name })).toHaveCount(2);
+    const writeOffsText = await pageText(page);
+    // Money stays the owner's: an admin reads units only.
+    expect(writeOffsText).not.toContain('Loss at cost');
+    expect(writeOffsText).not.toContain('Value at cost');
 
     await page.getByRole('button', { name: 'Write off bar stock' }).click();
     const dialog = page.getByRole('dialog');
@@ -937,7 +942,8 @@ test('DASH-010 the month picker shows an earlier month', async ({ page }) => {
 
   const [year, month] = today.split('-').map(Number);
   const label = date => new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(date);
-  await page.getByRole('button', { name: label(new Date(Date.UTC(year, month - 1, 1))) }).click();
+  // Exact: the month's calendar days are buttons named "2 November 2026: …" too.
+  await page.getByRole('button', { name: label(new Date(Date.UTC(year, month - 1, 1))), exact: true }).click();
   const picker = page.getByRole('dialog', { name: 'Select month' });
   // Next month cannot be picked; January looks back a year.
   await expect(picker.getByRole('button', { name: label(new Date(Date.UTC(year, month, 1))) })).toHaveCount(month === 12 ? 0 : 1);
@@ -947,7 +953,7 @@ test('DASH-010 the month picker shows an earlier month', async ({ page }) => {
 
   // The fixture has nothing before this month: the figures are that month's.
   await expectDashboardAmount(page, 'Game Club Income', 0);
-  await expect(page.getByRole('button', { name: label(new Date(Date.UTC(year, month - 2, 1))) })).toBeVisible();
+  await expect(page.getByRole('button', { name: label(new Date(Date.UTC(year, month - 2, 1))), exact: true })).toBeVisible();
 });
 
 test('NET-001 losing the connection is said on the page, and the notice leaves when it returns', async ({ page, context }) => {

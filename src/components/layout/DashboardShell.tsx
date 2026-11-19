@@ -610,7 +610,8 @@ export function DashboardShell({
                   <EmptyState icon={ShieldCheck} title={tc('accessDeniedTitle')} description={tc('accessDeniedDescription')} compact />
                 </Card>
               ) : (
-                children
+                // Staggers the page's top-level sections into place (globals.css, "Motion system").
+                <div className="page-enter">{children}</div>
               )}
             </div>
           </main>

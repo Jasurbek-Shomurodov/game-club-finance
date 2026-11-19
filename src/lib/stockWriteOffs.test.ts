@@ -10,8 +10,8 @@ import {
   isWriteOffAddition,
   maxWriteOffQuantity,
   parseWriteOffReason,
-  rowWriteOff,
   StockWriteOffError,
+  summarizeStockAdjustments,
   summarizeStockWriteOffs,
   writeOffEntryKey,
   writeOffKindVariant,
@@ -88,7 +88,6 @@ describe('applyStockWriteOff', () => {
       barProfit: was.barProfit - 12_000,
     });
     expect(validateClosingStockRows([after])).toBeNull();
-    expect(rowWriteOff(after)).toEqual({ quantity: 2, kind: 'shortage', note: 'missing' });
   });
 
   it('replaces an earlier write-off by the difference and clears it at zero', () => {
@@ -98,7 +97,6 @@ describe('applyStockWriteOff', () => {
 
     const cleared = applyStockWriteOff(changed, { kind: 'expired', quantity: 0 });
     expect(cleared).toMatchObject({ adjustmentQuantity: '0', adjustmentReason: '', closingStock: '9' });
-    expect(rowWriteOff(cleared)).toBeNull();
   });
 
   it('sends the write-off as an adjustment with its reason', () => {
@@ -144,6 +142,53 @@ describe('summarizeStockWriteOffs', () => {
   });
 });
 
+describe('summarizeStockAdjustments', () => {
+  const rows = [
+    { date: '2026-11-12', product_id: 'coke', adjustment_quantity: -2, adjustment_reason: 'shortage', cost_price: 6_000, products: { name: 'Coke' } },
+    { date: '2026-11-13', product_id: 'coke', adjustment_quantity: 5, adjustment_reason: 'correction: recount', cost_price: 6_000, products: { name: 'Coke' } },
+    { date: '2026-11-13', product_id: 'milk', adjustment_quantity: '-3', adjustment_reason: 'expired: sour', cost_price: '4000', products: { name: 'Milk' } },
+    { date: '2026-11-11', product_id: 'chips', adjustment_quantity: -1, adjustment_reason: 'broken', cost_price: 2_000, products: { name: 'Chips' } },
+    { date: '2026-11-11', product_id: 'tea', adjustment_quantity: 4, adjustment_reason: 'found', cost_price: 3_000, products: { name: 'Tea' } },
+    { date: '2026-11-11', product_id: 'water', adjustment_quantity: 0, adjustment_reason: null, cost_price: 1_000, products: null },
+  ];
+
+  it('keeps write-offs and corrections apart and totals each at saved cost', () => {
+    const summary = summarizeStockAdjustments(rows);
+
+    expect(summary.entries).toHaveLength(5);
+    expect(summary.losses).toEqual({ quantity: 6, cost: 26_000 });
+    expect(summary.additions).toEqual({ quantity: 9, cost: 42_000 });
+    expect(summary.byGroup.shortage).toEqual({ quantity: 2, cost: 12_000 });
+    expect(summary.byGroup.expired).toEqual({ quantity: 3, cost: 12_000 });
+    expect(summary.byGroup.other).toEqual({ quantity: 1, cost: 2_000 });
+    // An older free-text positive adjustment is shown with the corrections but keeps its own kind.
+    expect(summary.byGroup.correction).toEqual({ quantity: 9, cost: 42_000 });
+    expect(summary.entries.find((entry) => entry.productId === 'tea')).toMatchObject({ sign: 1, kind: 'other', group: 'correction', note: 'found' });
+    expect(summary.entries.find((entry) => entry.productId === 'coke' && entry.sign === 1)).toMatchObject({ kind: 'correction', note: 'recount' });
+  });
+
+  it('lists days oldest first and products by the money they moved', () => {
+    const summary = summarizeStockAdjustments(rows);
+
+    expect(summary.byDay).toEqual([
+      { date: '2026-11-11', lossQuantity: 1, lossCost: 2_000, addedQuantity: 4, addedCost: 12_000 },
+      { date: '2026-11-12', lossQuantity: 2, lossCost: 12_000, addedQuantity: 0, addedCost: 0 },
+      { date: '2026-11-13', lossQuantity: 3, lossCost: 12_000, addedQuantity: 5, addedCost: 30_000 },
+    ]);
+    expect(summary.byProduct.map((product) => product.productId)).toEqual(['coke', 'tea', 'milk', 'chips']);
+    expect(summary.byProduct[0]).toEqual({
+      productId: 'coke', productName: 'Coke', lossQuantity: 2, lossCost: 12_000, addedQuantity: 5, addedCost: 30_000, days: 2,
+    });
+  });
+
+  it('is empty for a period with no adjustments', () => {
+    const summary = summarizeStockAdjustments([]);
+    expect(summary.entries).toEqual([]);
+    expect(summary.byDay).toEqual([]);
+    expect(summary.losses).toEqual({ quantity: 0, cost: 0 });
+  });
+});
+
 describe('write-offs with incomplete data', () => {
   it('formats a reason with no note as the bare kind', () => {
     expect(formatWriteOffReason('shortage')).toBe('shortage');
@@ -153,11 +198,9 @@ describe('write-offs with incomplete data', () => {
   it('reads a negative adjustment with no reason as an unexplained "other" removal', () => {
     expect(parseWriteOffReason(null)).toEqual({ kind: 'other', note: '' });
     expect(parseWriteOffReason(undefined)).toEqual({ kind: 'other', note: '' });
-    expect(rowWriteOff({ adjustmentQuantity: '-2' })).toEqual({ quantity: 2, kind: 'other', note: '' });
   });
 
-  it('has no write-off on a row without an adjustment', () => {
-    expect(rowWriteOff({})).toBeNull();
+  it('can write off the whole count on a row without an adjustment', () => {
     expect(maxWriteOffQuantity(row({ adjustmentQuantity: undefined, closingStock: '9' }))).toBe(9);
   });
 
@@ -244,7 +287,6 @@ describe('stock corrections', () => {
     expect(summarizeStockRow(closingStockRowTotalsInput(after)).barProfit)
       .toBe(summarizeStockRow(closingStockRowTotalsInput(before)).barProfit);
     expect(rowStockAdjustment(after)).toEqual({ kind: 'correction', quantity: 3, note: 'found a box', sign: 1 });
-    expect(rowWriteOff(after)).toBeNull();
   });
 
   it('switches between a correction and a write-off from the unadjusted stock', () => {

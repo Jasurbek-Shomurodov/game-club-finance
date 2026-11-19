@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { OwnerProfitCarryover, OwnerReserveEntry, OwnerWithdrawal } from '@/types';
 import {
-  calculateAvailableMoney,
   calculateAvailableMoneyByMonth,
   calculateAvailableMoneyForMonth,
   sumAvailableMoneyResults,
@@ -132,11 +131,11 @@ describe('calculateAvailableMoneyByMonth through a date', () => {
   });
 
   it('sums months without letting a negative month reduce another', () => {
-    const total = calculateAvailableMoney({
+    const total = sumAvailableMoneyResults(Object.values(calculateAvailableMoneyByMonth({
       ...noRows,
       cashRows: [cash('2026-09-10', 400), cash('2026-10-10', 1_000)],
       expenseRows: [{ id: 'e', date: '2026-09-11', amount: 700, category: 'rent', payment_source: 'game_club' } as never],
-    });
+    })));
     // September is 300 short; October's 1 000 stays whole.
     expect(total.gameClub).toEqual({ earned: 700, withdrawn: 0, available: 1_000, overdrawnBy: 300 });
   });

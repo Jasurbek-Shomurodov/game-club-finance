@@ -8,7 +8,6 @@ import {
   ArrowRightLeft,
   Banknote,
   Check,
-  ChevronRight,
   CircleCheck,
   CircleDollarSign,
   CreditCard,
@@ -30,7 +29,6 @@ import {
   Card,
   CardHeader,
   CategoryIcon,
-  ChartSkeleton,
   DataTable,
   DateRangePicker,
   EmptyState,
@@ -91,6 +89,7 @@ import { expensePaymentMethods } from '@/lib/paymentMethods';
 import ExpenseRegistrationForm from './ExpenseRegistrationForm';
 import ExchangeForm from './ExchangeForm';
 import CollectedTab from './CollectedTab';
+import { DonutSkeleton, InOutChartSkeleton } from '@/components/charts/ChartSkeletons';
 import { PaymentCardsSkeleton } from './ReportsSkeleton';
 import WriteOffsTab from './WriteOffsTab';
 import { fetchDollarExpenses, fetchMoneyExchanges, withDollarAmounts } from '@/lib/supabase/moneyExchanges';
@@ -130,11 +129,11 @@ import { expenseTotalsByCategory } from '@/lib/calculations/insights';
 // The recharts chunk loads only on the closeout view, beside the report data.
 const DonutBreakdown = dynamic(
   () => import('@/components/charts/DonutBreakdown').then((module) => module.DonutBreakdown),
-  { ssr: false, loading: () => <ChartSkeleton /> },
+  { ssr: false, loading: () => <DonutSkeleton /> },
 );
 const DailyInOutChart = dynamic(
   () => import('@/components/charts/DailyInOutChart').then((module) => module.DailyInOutChart),
-  { ssr: false, loading: () => <ChartSkeleton /> },
+  { ssr: false, loading: () => <InOutChartSkeleton /> },
 );
 
 const emptyReportRows = {
@@ -262,13 +261,7 @@ function PaymentCard({
 }) {
   const stillHeld = moneyStillHeld(data.left, taken);
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group block w-full rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-    >
-    <Card as="article" className="relative h-full transition-[border-color,box-shadow] group-hover:border-gray-300 group-hover:shadow-md">
-      <ChevronRight size={15} aria-hidden="true" className="absolute right-3 top-4 text-gray-300 group-hover:text-gray-500" />
+    <Card onClick={onClick} className="h-full pr-4 sm:pr-5">
       <div className="flex items-center gap-2">
         <Icon size={15} className="shrink-0 text-gray-400" aria-hidden="true" />
         <h3 className="text-[13px] font-medium text-gray-500">{label}</h3>
@@ -341,7 +334,6 @@ function PaymentCard({
         </div>
       </dl>
     </Card>
-    </button>
   );
 }
 
@@ -385,6 +377,8 @@ function MoneyWhereaboutsCards({
   reserveLabel,
   reserveHelper,
   onCollectedClick,
+  onKassaClick,
+  kassaSelected,
 }: {
   loading: boolean;
   kassa: number;
@@ -398,6 +392,9 @@ function MoneyWhereaboutsCards({
   reserveLabel: string;
   reserveHelper: string;
   onCollectedClick: () => void;
+  /** Narrows the closeout to the days whose money is still with the admin; a second tap clears it. */
+  onKassaClick: () => void;
+  kassaSelected: boolean;
 }) {
   const valueClassName = 'text-sm font-medium tracking-normal text-gray-500';
   return (
@@ -409,7 +406,8 @@ function MoneyWhereaboutsCards({
         helper={kassaHelper}
         tone={toneForAmount(kassa, 'primary')}
         icon={Landmark}
-        className="border-primary-200"
+        className={cn('border-primary-200', kassaSelected && 'ring-2 ring-primary-500')}
+        onClick={onKassaClick}
       />
       <MetricCard
         loading={loading}
@@ -520,6 +518,17 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     setSourceFilter(source);
     setCollectionFilter('all');
     document.getElementById('report-closeout')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  /** "With the admin" is the money of the days nobody has collected yet: show those days, or every day on a second tap. */
+  const showPendingDays = () => {
+    const selected = view === 'closeout' && collectionFilter === 'pending';
+    setView('closeout');
+    setCollectionFilter(selected ? 'all' : 'pending');
+    if (selected) return;
+    // The table is not mounted yet when this comes from another tab.
+    requestAnimationFrame(() => {
+      document.getElementById('report-closeout')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   };
   useEffect(() => {
     setSourceFilter(requestedSourceFilter(requestedSource));
@@ -1438,6 +1447,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
           reserveLabel={t('collectMoney.reserveCard')}
           reserveHelper={t('collectMoney.reserveCardHelper')}
           onCollectedClick={() => setView('collected')}
+          onKassaClick={showPendingDays}
+          kassaSelected={view === 'closeout' && collectionFilter === 'pending'}
         />
       )}
       {hasReportsAccess && !loadFailed && view === 'collected' && (
@@ -1496,13 +1507,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                   />
                 ))}
                 {report.usd !== 0 && (
-                  <button
-                    type="button"
-                    onClick={() => showCloseout('exchange', null)}
-                    className="group block rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-                  >
-                  <Card as="article" className="relative h-full transition-[border-color,box-shadow] group-hover:border-gray-300 group-hover:shadow-md">
-                    <ChevronRight size={15} aria-hidden="true" className="absolute right-3 top-4 text-gray-300 group-hover:text-gray-500" />
+                  <Card onClick={() => showCloseout('exchange', null)} className="h-full pr-4 sm:pr-5">
                     <div className="flex items-center gap-2">
                       <CircleDollarSign size={15} className="shrink-0 text-gray-400" aria-hidden="true" />
                       <h3 className="text-[13px] font-medium text-gray-500">{t('usd')}</h3>
@@ -1512,7 +1517,6 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                     </p>
                     <p className="mt-1 text-xs text-gray-500">{t('usdHeld')}</p>
                   </Card>
-                  </button>
                 )}
               </div>
             )}
@@ -1521,33 +1525,35 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
           {(loading || dailyFlow.length > 1 || spendingSlices.length > 0) && (
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
               {(loading || dailyFlow.length > 1) && (
-            <ChartCard title={t('dailyChartTitle')} description={t('dailyChartDesc')}>
-              <div className="mt-4">
-                {loading ? <ChartSkeleton /> : (
-                  <DailyInOutChart
-                    data={dailyFlow}
-                    incomeLabel={t('dailyChartIncome')}
-                    expensesLabel={t('gameClubExpenses')}
-                    legendLabel={t('dailyChartTitle')}
-                    incomeColor="rgb(var(--c-primary-600))"
-                    currency={tc('currency')}
-                    locale={locale}
-                  />
-                )}
-              </div>
-            </ChartCard>
+                <ChartCard title={t('dailyChartTitle')} description={t('dailyChartDesc')}>
+                  <div className="mt-4">
+                    {loading ? <InOutChartSkeleton /> : (
+                      <DailyInOutChart
+                        data={dailyFlow}
+                        incomeLabel={t('dailyChartIncome')}
+                        expensesLabel={t('gameClubExpenses')}
+                        legendLabel={t('dailyChartTitle')}
+                        incomeColor="rgb(var(--c-primary-600))"
+                        currency={tc('currency')}
+                        locale={locale}
+                      />
+                    )}
+                  </div>
+                </ChartCard>
               )}
-              {!loading && spendingSlices.length > 0 && (
+              {(loading || spendingSlices.length > 0) && (
                 <ChartCard title={tg('reports.spendingTitle')} description={tg('reports.spendingDescription')}>
                   <div className="mt-4">
-                    <DonutBreakdown
-                      size="sm"
-                      slices={spendingSlices}
-                      total={spendingSlices.reduce((sum, slice) => sum + slice.value, 0)}
-                      totalLabel={t('gameClubExpenses')}
-                      currency={tc('currency')}
-                      locale={locale}
-                    />
+                    {loading ? <DonutSkeleton /> : (
+                      <DonutBreakdown
+                        size="sm"
+                        slices={spendingSlices}
+                        total={spendingSlices.reduce((sum, slice) => sum + slice.value, 0)}
+                        totalLabel={t('gameClubExpenses')}
+                        currency={tc('currency')}
+                        locale={locale}
+                      />
+                    )}
                   </div>
                 </ChartCard>
               )}

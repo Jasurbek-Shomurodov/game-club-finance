@@ -16,14 +16,14 @@ import {
   Field,
   LoadErrorAlert,
   MetricCard,
-  MetricGridSkeleton,
   MonthPicker,
   PageHeader,
-  TableSkeleton,
+  SkeletonStatus,
   toneForAmount,
   MetricMoney,
   metricGridClassName,
 } from '@/components/PresentationFoundation';
+import { MonthlyReportSkeleton } from './MonthlyReportSkeleton';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { cn, monthRange } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
@@ -218,10 +218,7 @@ export default function MonthlyReportPage() {
       )}
 
       {loading ? (
-        <div className="space-y-4">
-          <MetricGridSkeleton count={9} className="lg:grid-cols-4" />
-          <TableSkeleton rows={8} columns={11} />
-        </div>
+        <SkeletonStatus><MonthlyReportSkeleton /></SkeletonStatus>
       ) : loadError ? null : rows.length === 0 ? (
         <Card><EmptyState icon={BarChart2} title={t('noData')} /></Card>
       ) : (

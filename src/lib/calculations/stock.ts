@@ -27,15 +27,6 @@ export interface StockCountResult {
   barProfit: number;
 }
 
-export interface StockCountPurchaseDeltaInput extends StockCountInput {
-  quantityDelta: number;
-}
-
-export interface StockCountPurchaseDeltaResult extends StockCountResult {
-  addedToday: number;
-  closingStock: number;
-}
-
 export interface AverageCostInput {
   currentStock: number;
   currentCostPrice: number;
@@ -52,25 +43,6 @@ export interface ClosingStockDefaults {
   previousStock: number;
   addedToday: number;
   closingStock: number;
-}
-
-export interface FutureStockCountInput {
-  date: string;
-  added_today: number;
-  adjustment_quantity?: number;
-  adjustment_reason?: string | null;
-  giveaway_quantity?: number;
-  closing_stock: number;
-  sale_price: number;
-  cost_price: number;
-}
-
-export interface RecalculatedFutureStockCount extends FutureStockCountInput {
-  previous_stock: number;
-  sold_quantity: number;
-  bar_income: number;
-  bar_cost: number;
-  bar_profit: number;
 }
 
 export interface StockAvailability {
@@ -213,27 +185,6 @@ export function calculateStockCountSummary(input: StockCountInput): StockCountRe
   );
 }
 
-export function applyPurchaseDeltaToStockCount(input: StockCountPurchaseDeltaInput): StockCountPurchaseDeltaResult {
-  const addedToday = Math.max(0, input.addedToday + input.quantityDelta);
-  const closingStock = Math.max(0, input.closingStock + input.quantityDelta);
-  const summary = calculateStockCountSummary({
-    previousStock: input.previousStock,
-    addedToday,
-    adjustmentQuantity: input.adjustmentQuantity,
-    adjustmentReason: input.adjustmentReason,
-    giveawayQuantity: input.giveawayQuantity,
-    closingStock,
-    salePrice: input.salePrice,
-    costPrice: input.costPrice,
-  });
-
-  return {
-    addedToday,
-    closingStock,
-    ...summary,
-  };
-}
-
 export function calculateWeightedAverageCost(input: AverageCostInput): number {
   const currentStock = Math.max(0, input.currentStock);
   const purchasedQuantity = Math.max(0, input.purchasedQuantity);
@@ -258,40 +209,6 @@ export function calculateClosingStockDefaults(input: ClosingStockDefaultsInput):
     addedToday,
     closingStock: currentStock,
   };
-}
-
-export function recalculateFutureStockCounts(
-  startingClosingStock: number,
-  rows: FutureStockCountInput[],
-): RecalculatedFutureStockCount[] {
-  let previousStock = startingClosingStock;
-
-  return [...rows]
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .map((row) => {
-      const summary = calculateStockCountSummary({
-        previousStock,
-        addedToday: row.added_today,
-        adjustmentQuantity: row.adjustment_quantity,
-        adjustmentReason: row.adjustment_reason,
-        giveawayQuantity: row.giveaway_quantity,
-        closingStock: row.closing_stock,
-        salePrice: row.sale_price,
-        costPrice: row.cost_price,
-      });
-
-      const recalculated = {
-        ...row,
-        previous_stock: previousStock,
-        sold_quantity: summary.soldQuantity,
-        bar_income: summary.barIncome,
-        bar_cost: summary.barCost,
-        bar_profit: summary.barProfit,
-      };
-
-      previousStock = row.closing_stock;
-      return recalculated;
-    });
 }
 
 export interface DatedStockClosing {

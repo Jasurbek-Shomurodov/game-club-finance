@@ -3,23 +3,27 @@
 import { useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
-import { Card, ChartSkeleton, SectionHeading } from '@/components/PresentationFoundation';
+import { useRouter } from 'next/navigation';
+import { employeeSalaryHref } from '@/lib/detailLinks';
+import { Card, SectionHeading, Skeleton } from '@/components/PresentationFoundation';
 import { ChartCard, chartColors } from '@/components/dashboard/ChartCard';
 import { ShareBar } from '@/components/charts/ShareBar';
-import { ChangeHint, GlanceStat } from '@/components/charts/GlanceStat';
+import { GlanceStat } from '@/components/charts/GlanceStat';
+import { formatPercentShare } from '@/components/charts/chartFormat';
+import { DonutCardSkeleton, DonutSkeleton, GlanceStatSkeleton, HeadingSkeleton, InOutChartSkeleton, SkeletonCard } from '@/components/charts/ChartSkeletons';
 import { toDonutSlices } from '@/components/charts/donutSlices';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { combineSalaryMonths, salaryBalance, type SalaryEmployee, type SalaryMonth } from '@/lib/calculations/salaries';
-import { changeRatio, monthlyPairs, previousYearMonth, recentYearMonths } from '@/lib/calculations/pageGlance';
+import { monthlyPairs, recentYearMonths } from '@/lib/calculations/pageGlance';
 import { formatCurrency, formatMonthShort, formatYearMonth } from '@/lib/formatters';
 
 const DailyInOutChart = dynamic(() => import('@/components/charts/DailyInOutChart').then((module) => module.DailyInOutChart), {
   ssr: false,
-  loading: () => <ChartSkeleton />,
+  loading: () => <InOutChartSkeleton height={200} />,
 });
 const DonutBreakdown = dynamic(() => import('@/components/charts/DonutBreakdown').then((module) => module.DonutBreakdown), {
   ssr: false,
-  loading: () => <ChartSkeleton />,
+  loading: () => <DonutSkeleton />,
 });
 
 const MONTHS_SHOWN = 6;
@@ -35,6 +39,7 @@ export function PayrollGlance({ employees, activeIds, balances, today }: {
   balances: Record<string, SalaryMonth[]>;
   today: string;
 }) {
+  const router = useRouter();
   const t = useTranslations('glance.payroll');
   const tg = useTranslations('glance');
   const tc = useTranslations('common');
@@ -57,11 +62,11 @@ export function PayrollGlance({ employees, activeIds, balances, today }: {
       .filter((employee) => activeIds.has(employee.id))
       .map((employee) => ({ key: employee.id, label: employee.name, value: Math.max(0, salaryBalance(balances[employee.id] ?? [])) })),
     { key: 'other', label: tg('other') },
-  ), [activeIds, balances, employees, tg]);
+    (employeeId) => router.push(employeeSalaryHref(employeeId)),
+  ), [activeIds, balances, employees, router, tg]);
   const owedTotal = owed.reduce((sum, slice) => sum + slice.value, 0);
 
   const current = byMonth.get(thisMonth);
-  const before = byMonth.get(previousYearMonth(thisMonth));
   const hasHistory = series.some((row) => row.income > 0 || row.expenses > 0);
   if (!hasHistory && owedTotal === 0) return null;
 
@@ -69,17 +74,17 @@ export function PayrollGlance({ employees, activeIds, balances, today }: {
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
       <ChartCard title={t('chartTitle')} description={t('chartDescription', { count: MONTHS_SHOWN })}>
         <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+          {/* This month is still running, so it is not compared with last month's full total. */}
           <GlanceStat
             label={t('earnedThisMonth', { month: formatYearMonth(thisMonth, locale) })}
             value={formatCurrency(current?.earned ?? 0)}
             unit={currency}
-            hint={<ChangeHint ratio={changeRatio(current?.earned ?? 0, before?.earned ?? 0)} label={tg('vsLastMonth')} locale={locale} goodWhenUp={false} />}
           />
           <GlanceStat label={t('paidThisMonth')} value={formatCurrency(current?.paid ?? 0)} unit={currency} tone="success" />
           <GlanceStat
             className="col-span-2 sm:col-span-1"
             label={t('kpiShare')}
-            value={current && current.earned > 0 ? `${Math.round((current.kpi / current.earned) * 100)}%` : '—'}
+            value={current && current.earned > 0 ? formatPercentShare(current.kpi / current.earned, locale) : '—'}
             hint={t('kpiShareHint')}
           />
         </div>
@@ -121,6 +126,26 @@ export function PayrollGlance({ employees, activeIds, balances, today }: {
           )}
         </div>
       </Card>
+    </div>
+  );
+}
+
+/** Payroll at a glance while salaries load: three figures, the pay split and the six-month chart, beside who is owed. */
+export function PayrollGlanceSkeleton() {
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]" aria-hidden="true">
+      <SkeletonCard>
+        <HeadingSkeleton />
+        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <GlanceStatSkeleton />
+          <GlanceStatSkeleton />
+          <GlanceStatSkeleton className="col-span-2 sm:col-span-1" />
+        </div>
+        <Skeleton className="mt-4 h-2 w-full rounded-full bg-gray-100" />
+        <Skeleton className="mt-2 h-3 w-64 max-w-full bg-gray-100" />
+        <InOutChartSkeleton className="mt-4" height={200} bars={MONTHS_SHOWN} />
+      </SkeletonCard>
+      <DonutCardSkeleton />
     </div>
   );
 }

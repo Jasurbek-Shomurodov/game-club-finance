@@ -3,7 +3,6 @@ import type { Product } from '@/types';
 import {
   applyBulkStockOrder,
   applyClosingStockDraft,
-  applyClosingStockImport,
   buildClosingStockUpserts,
   buildEditableClosingStockRows,
   calculateBulkStockOrderSummary,
@@ -13,15 +12,11 @@ import {
   closingStockDraftKey,
   closingStockRowTotalsInput,
   getBulkStockAvailableQuantity,
-  isSignedWholeNumberInput,
   isWholeNumberInput,
   normalizeStockAdjustment,
   normalizeStockCount,
-  parseClosingStockImportRecords,
-  parseClosingStockImportSheetRows,
   readClosingStockDraft,
   saveClosingStockDraft,
-  selectClosingStockImportRows,
   validateClosingStockRows,
   type ClosingStockDraft,
   type ClosingStockRowData,
@@ -318,210 +313,6 @@ describe('closing stock drafts', () => {
   });
 });
 
-describe('import parsing', () => {
-  it('skips records with no recognised value and keeps price-only ones', () => {
-    expect(parseClosingStockImportRecords([
-      { Product: 'Cola', 'Closing stock': '7' },
-      { Product: '', 'Closing stock': '' },
-      { Product: null, Price: '15 000' },
-      { Comment: 'checked by Ali' },
-      { 'Sold qty': 3 },
-      { 'Cost price': '9000' },
-    ])).toEqual([
-      { rowNumber: 2, product: 'Cola', closingStock: 7 },
-      { rowNumber: 4, salePrice: 15_000 },
-      { rowNumber: 6, soldQuantity: 3 },
-      { rowNumber: 7, costPrice: 9_000 },
-    ]);
-  });
-
-  it('finds the header below a title row, tolerates empty header cells and skips blank lines', () => {
-    expect(parseClosingStockImportSheetRows([
-      ['Bar report', null],
-      [null, 'Товар', 'Остаток', 'Продано'],
-      [1, 'Cola', '7', '3'],
-      [null, null, null, null],
-      [3, 'Fanta', '1.5,2.3', undefined],
-    ])).toEqual([
-      { rowNumber: 3, product: 'Cola', closingStock: 7, soldQuantity: 3 },
-      // The unreadable number is left out, not read as zero.
-      { rowNumber: 5, product: 'Fanta' },
-    ]);
-  });
-
-  it.each(['n/a', 'нет', "yo'q"])('leaves out the text cell %j in a number column instead of reading it as zero', (cell) => {
-    // Read as 0 it would be a closing count of nothing left: every unit sold.
-    expect(parseClosingStockImportRecords([{ Product: 'Cola', 'Closing stock': cell }])).toEqual([{ rowNumber: 2, product: 'Cola' }]);
-    // A unit after the number is still a count.
-    expect(parseClosingStockImportRecords([{ Product: 'Cola', 'Closing stock': '12 pcs' }])).toEqual([{ rowNumber: 2, product: 'Cola', closingStock: 12 }]);
-  });
-
-  it('reads nothing from a sheet without a stock header', () => {
-    expect(parseClosingStockImportSheetRows([['Product', 'Price'], ['Cola', 15_000]])).toEqual([]);
-    expect(parseClosingStockImportSheetRows([])).toEqual([]);
-  });
-});
-
-describe('import sheet selection', () => {
-  const sheet = (name: string, closing: number) => ({ name, rows: [['Product', 'Closing stock'], ['Cola', closing]] });
-  const rowsOf = (closing: number) => [{ rowNumber: 2, product: 'Cola', closingStock: closing }];
-
-  it('has nothing to select when no sheet holds stock figures', () => {
-    expect(selectClosingStockImportRows([])).toBeNull();
-    expect(selectClosingStockImportRows([
-      { name: 'Empty', rows: [] },
-      { name: 'Names only', rows: [['Product', 'Closing stock'], ['Cola', null]] },
-    ], '2026-11-13')).toBeNull();
-  });
-
-  it('takes the latest dated sheet when no date is selected, reading dotted and ISO names', () => {
-    const sheets = [sheet('01.11.2026', 1), sheet('2026-11-5', 5), sheet('Notes', 9), sheet('3/11/2026', 3)];
-    expect(selectClosingStockImportRows(sheets)).toEqual({ sheetName: '2026-11-5', rows: rowsOf(5) });
-  });
-
-  it('matches the selected date against an ISO-named sheet', () => {
-    const sheets = [sheet('2026-11-13', 13), sheet('2026-11-5', 5)];
-    expect(selectClosingStockImportRows(sheets, '2026-11-05')).toEqual({ sheetName: '2026-11-5', rows: rowsOf(5) });
-  });
-
-  it('takes the latest sheet on or before the selected date', () => {
-    const sheets = [sheet('01.11.2026', 1), sheet('10.11.2026', 10), sheet('20.11.2026', 20)];
-    expect(selectClosingStockImportRows(sheets, '2026-11-13')).toEqual({ sheetName: '10.11.2026', rows: rowsOf(10) });
-  });
-
-  it('falls back to the latest dated sheet when every sheet is after the selected date', () => {
-    const sheets = [sheet('Notes', 9), sheet('20.11.2026', 20), sheet('25.11.2026', 25)];
-    expect(selectClosingStockImportRows(sheets, '2026-11-13')).toEqual({ sheetName: '25.11.2026', rows: rowsOf(25) });
-  });
-
-  it('takes the first usable sheet when none is named by date', () => {
-    const sheets = [{ name: 'Cover', rows: [['Bar report']] }, sheet('Stock', 4), sheet('Copy', 6)];
-    expect(selectClosingStockImportRows(sheets, '2026-11-13')).toEqual({ sheetName: 'Stock', rows: rowsOf(4) });
-    expect(selectClosingStockImportRows(sheets)).toEqual({ sheetName: 'Stock', rows: rowsOf(4) });
-  });
-});
-
-describe('applying an import', () => {
-  it('takes only the sold quantity for a made-to-order product', () => {
-    const result = applyClosingStockImport(
-      [madeToOrder({ soldQuantity: '1' })],
-      [{ rowNumber: 2, product: 'Tea', previousStock: 5, closingStock: 9, soldQuantity: 4 }],
-      'closingStock',
-    );
-
-    expect(result.matchedCount).toBe(1);
-    expect(result.rows[0]).toMatchObject({ previousStock: '0', addedToday: '0', closingStock: '0', soldQuantity: '4' });
-  });
-
-  it('keeps the made-to-order sold quantity when the file has no sold column', () => {
-    const result = applyClosingStockImport(
-      [madeToOrder({ soldQuantity: '1' })],
-      [{ rowNumber: 2, product: 'Tea', closingStock: 9 }],
-      'soldQuantity',
-    );
-
-    expect(result.rows[0]).toMatchObject({ closingStock: '0', soldQuantity: '1' });
-  });
-
-  it('derives sold from an imported count when a sold-entry file has no sold column', () => {
-    const result = applyClosingStockImport(
-      [row({ giveawayQuantity: '1', closingStock: '9' })],
-      [{ rowNumber: 2, product: 'Cola', previousStock: 12, addedToday: 3, closingStock: 7 }],
-      'soldQuantity',
-    );
-
-    // sold = 12 opening + 3 received − 1 given away − 7 left
-    expect(result.rows[0]).toMatchObject({ previousStock: '12', addedToday: '3', closingStock: '7', soldQuantity: '7' });
-    expect(validateClosingStockRows(result.rows)).toBeNull();
-  });
-
-  it('derives the count from an imported sold quantity when a count-entry file has no count column', () => {
-    const result = applyClosingStockImport(
-      [row()],
-      [{ rowNumber: 2, product: 'Cola', addedToday: 2, soldQuantity: 3 }],
-      'closingStock',
-    );
-
-    // closing = 10 opening + 2 received − 3 sold
-    expect(result.rows[0]).toMatchObject({ addedToday: '2', soldQuantity: '3', closingStock: '9' });
-    expect(validateClosingStockRows(result.rows)).toBeNull();
-  });
-
-  it('takes giveaways out of the count derived from an imported sold quantity in count entry', () => {
-    const result = applyClosingStockImport(
-      [row({ giveawayQuantity: '2' })],
-      [{ rowNumber: 2, product: 'Cola', soldQuantity: 3 }],
-      'closingStock',
-    );
-
-    // closing = 10 opening − 2 given away − 3 sold, the same as the sold-entry import gives
-    expect(result.rows[0]).toMatchObject({ soldQuantity: '3', closingStock: '5' });
-    expect(validateClosingStockRows(result.rows)).toBeNull();
-  });
-
-  it.each(['soldQuantity', 'closingStock'] as const)(
-    'changes only the opening and received columns when the %s file has neither sold nor count',
-    (mode) => {
-      const result = applyClosingStockImport(
-        [row({ closingStock: '8', soldQuantity: '2' })],
-        [{ rowNumber: 2, product: 'Cola', previousStock: 12, addedToday: 1 }],
-        mode,
-      );
-
-      expect(result.matchedCount).toBe(1);
-      expect(result.rows[0]).toMatchObject({ previousStock: '12', addedToday: '1', closingStock: '8', soldQuantity: '2' });
-    },
-  );
-
-  it('does not import into an inactive or archived product and reports the line as unmatched', () => {
-    const inactive = row({ product: product({ is_active: false }) });
-    const archived = row({ product: product({ id: 'old', name: 'Old', is_deleted: true }) });
-    const imports = [
-      { rowNumber: 2, product: 'Cola', closingStock: 1 },
-      { rowNumber: 3, productId: 'old', closingStock: 1 },
-    ];
-
-    expect(applyClosingStockImport([inactive, archived], imports, 'closingStock')).toEqual({
-      rows: [inactive, archived], matchedCount: 0, unmatchedImports: imports,
-    });
-  });
-
-  it('recognises a price-only line without changing or counting the row', () => {
-    const rows = [row()];
-    expect(applyClosingStockImport(rows, [{ rowNumber: 2, product: 'Cola', salePrice: 15_000, costPrice: 9_000 }], 'closingStock'))
-      .toEqual({ rows, matchedCount: 0, unmatchedImports: [] });
-  });
-
-  it('lists only named leftover lines as unmatched', () => {
-    const result = applyClosingStockImport(
-      [row()],
-      [
-        { rowNumber: 2, product: 'Cola', closingStock: 7 },
-        { rowNumber: 3, closingStock: 5 },
-        { rowNumber: 4, product: 'Sprite', closingStock: 2 },
-      ],
-      'closingStock',
-    );
-
-    expect(result.matchedCount).toBe(1);
-    expect(result.rows[0]).toMatchObject({ closingStock: '7', soldQuantity: '3' });
-    expect(result.unmatchedImports).toEqual([{ rowNumber: 4, product: 'Sprite', closingStock: 2 }]);
-  });
-
-  it('matches a file without a product column to rows by position, even for an unnamed product', () => {
-    const unnamed = row({ product: product({ id: 'x1', name: '' }) });
-    const result = applyClosingStockImport(
-      [row(), unnamed],
-      [{ rowNumber: 2, closingStock: 9 }, { rowNumber: 3, closingStock: 4 }],
-      'closingStock',
-    );
-
-    expect(result.matchedCount).toBe(2);
-    expect(result.rows.map((item) => [item.closingStock, item.soldQuantity])).toEqual([['9', '1'], ['4', '6']]);
-    expect(result.unmatchedImports).toEqual([]);
-  });
-});
-
 describe('building editable rows', () => {
   const base = { counts: [], purchases: [], previousClosings: {}, isCurrentDate: true };
 
@@ -672,18 +463,11 @@ describe('typed number guards', () => {
     for (const value of ['', '0', '12', '007']) expect(isWholeNumberInput(value)).toBe(true);
     for (const value of ['-1', '1.5', '1,5', ' 1', '1 ', 'abc', '1e3', '+2']) expect(isWholeNumberInput(value)).toBe(false);
   });
-
-  it('also accepts a leading minus for an adjustment', () => {
-    for (const value of ['', '-', '-3', '4', '0']) expect(isSignedWholeNumberInput(value)).toBe(true);
-    for (const value of ['--3', '3-', '1.5', '+3', '- 3', 'abc']) expect(isSignedWholeNumberInput(value)).toBe(false);
-  });
 });
 
 describe('whole-number input cap', () => {
   it('rejects quantities longer than six digits', () => {
     expect(isWholeNumberInput('999999')).toBe(true);
     expect(isWholeNumberInput('1000000')).toBe(false);
-    expect(isSignedWholeNumberInput('-999999')).toBe(true);
-    expect(isSignedWholeNumberInput('-1000000')).toBe(false);
   });
 });

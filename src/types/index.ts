@@ -3,19 +3,12 @@
 export type UserRole = 'owner' | 'admin' | 'viewer';
 export const PAYMENT_METHODS = ['terminal', 'cash', 'card'] as const;
 export type EntryPaymentMethod = (typeof PAYMENT_METHODS)[number];
-export type PaymentMethod = EntryPaymentMethod | 'qr' | 'transfer' | 'debt';
 /**
  * Methods an expense can name: the configurable ones, plus PlayStation money
  * (migration 114) and the club's US dollars (124) for Game Club expenses.
  */
 export const EXPENSE_PAYMENT_METHODS = [...PAYMENT_METHODS, 'playstation', 'usd'] as const;
 export type ExpensePaymentMethod = (typeof EXPENSE_PAYMENT_METHODS)[number];
-export type PaymentSource = 'cash' | 'terminal' | 'bank';
-export type IncomeCategory = 'game_time' | 'food' | 'drinks' | 'other';
-export type ExpenseCategory =
-  | 'rent' | 'salary' | 'electricity' | 'internet' | 'repair'
-  | 'cleaning' | 'food_drinks' | 'marketing' | 'equipment' | 'tax'
-  | 'correction' | 'discount' | 'supplies' | 'investments' | 'shortage' | 'other';
 export type ExpensePaymentSource = 'game_club' | 'bar';
 export const OWNER_WITHDRAWAL_SOURCES = ['game_club', 'bar'] as const;
 export type OwnerWithdrawalSource = (typeof OWNER_WITHDRAWAL_SOURCES)[number];
@@ -25,66 +18,7 @@ export type OwnerWithdrawalPaymentMethod = (typeof OWNER_WITHDRAWAL_PAYMENT_METH
 /** What the owner reserve holds money in: the Game Club methods, plus the club's US dollars (143). */
 export const OWNER_RESERVE_METHODS = [...OWNER_WITHDRAWAL_PAYMENT_METHODS, 'usd'] as const;
 export type OwnerReserveMethod = (typeof OWNER_RESERVE_METHODS)[number];
-export type MovementType = 'deposit' | 'withdraw' | 'correction';
 export type DebtStatus = 'unpaid' | 'partial' | 'paid';
-
-// Legacy types for old pages
-export interface Balance {
-  id: string;
-  club_id: string;
-  account: 'cash' | 'terminal' | 'bank' | 'debt';
-  amount: number;
-  updated_at: string;
-}
-
-export interface IncomeTransaction {
-  id: string;
-  club_id: string;
-  amount: number;
-  payment_method: PaymentMethod;
-  category: IncomeCategory;
-  comment: string | null;
-  transaction_date: string;
-  created_by: string;
-  created_at: string;
-}
-
-export interface ExpenseTransaction {
-  id: string;
-  club_id: string;
-  amount: number;
-  category: ExpenseCategory;
-  payment_source: PaymentSource;
-  comment: string | null;
-  transaction_date: string;
-  created_by: string;
-  created_at: string;
-}
-
-export interface CashMovement {
-  id: string;
-  club_id: string;
-  movement_type: MovementType;
-  account: string;
-  amount: number;
-  comment: string | null;
-  created_by: string;
-  created_at: string;
-}
-
-export interface LegacyDebt {
-  id: string;
-  club_id: string;
-  customer_name: string;
-  amount: number;
-  comment: string | null;
-  debt_date: string;
-  status: 'unpaid' | 'paid';
-  paid_at: string | null;
-  paid_method: PaymentMethod | null;
-  created_by: string;
-  created_at: string;
-}
 
 export interface Profile {
   id: string;
@@ -326,20 +260,6 @@ export interface CashShortage {
 }
 
 /** Owner profit set aside in the club (migration 136): a deposit leaves a month, a return goes back into one. */
-/** Money a collector took out of the admin's till on a business date (169), one row per method. */
-export interface MoneyCollection {
-  id: string;
-  club_id: string;
-  /** Rows saved by one collect share it. */
-  request_id: string;
-  date: string;
-  payment_method: 'cash' | 'terminal' | 'card' | 'playstation';
-  amount: number;
-  comment: string | null;
-  collected_by: string | null;
-  created_at: string;
-}
-
 export interface OwnerReserveEntry {
   id: string;
   club_id: string;

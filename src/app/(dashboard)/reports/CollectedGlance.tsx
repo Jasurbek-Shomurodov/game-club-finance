@@ -3,8 +3,9 @@
 import { useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
-import { Card, ChartSkeleton, SectionHeading } from '@/components/PresentationFoundation';
+import { Card, SectionHeading, Skeleton } from '@/components/PresentationFoundation';
 import { ChartCard, chartColors } from '@/components/dashboard/ChartCard';
+import { DonutCardSkeleton, DonutSkeleton, InOutChartCardSkeleton, InOutChartSkeleton } from '@/components/charts/ChartSkeletons';
 import { toDonutSlices } from '@/components/charts/donutSlices';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import type { CollectedMethod, CollectedMoneyMove, CollectedMoneySummary } from '@/lib/calculations/collectedMoney';
@@ -13,11 +14,11 @@ import { formatDateShort } from '@/lib/formatters';
 
 const DailyInOutChart = dynamic(() => import('@/components/charts/DailyInOutChart').then((module) => module.DailyInOutChart), {
   ssr: false,
-  loading: () => <ChartSkeleton />,
+  loading: () => <InOutChartSkeleton height={200} />,
 });
 const DonutBreakdown = dynamic(() => import('@/components/charts/DonutBreakdown').then((module) => module.DonutBreakdown), {
   ssr: false,
-  loading: () => <ChartSkeleton />,
+  loading: () => <DonutSkeleton />,
 });
 
 /**
@@ -68,6 +69,28 @@ export function CollectedGlance({ moves, summary, methods, methodLabel }: {
           <DonutBreakdown size="sm" slices={slices} total={summary.collected.total} totalLabel={t('in')} currency={currency} locale={locale} />
         </div>
       </Card>
+    </div>
+  );
+}
+
+/** The collected chart and the payment-method donut while the period loads. */
+export function CollectedGlanceSkeleton() {
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]" aria-hidden="true">
+      <InOutChartCardSkeleton height={200} />
+      <DonutCardSkeleton />
+    </div>
+  );
+}
+
+/** The one-line "paid out / reserve / still held" split bar above the glance. */
+export function CollectedSplitSkeleton() {
+  return (
+    <div aria-hidden="true" className="rounded-2xl border border-gray-200 bg-surface px-4 py-3 shadow-card">
+      <Skeleton className="h-2.5 w-full rounded-full bg-gray-100" />
+      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
+        {[0, 1, 2].map((index) => <Skeleton key={index} className="h-4 w-28" />)}
+      </div>
     </div>
   );
 }

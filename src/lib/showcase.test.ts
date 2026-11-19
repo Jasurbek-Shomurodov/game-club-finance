@@ -11,7 +11,6 @@ import {
   showcaseOfferForm,
   validateShowcaseOffer,
   localizedFromRow,
-  missingLanguages,
   pickLocalized,
   brandInsights,
   buildShowcaseBrandPayload,
@@ -258,7 +257,6 @@ describe('languages', () => {
       tagline: 'Zo‘r klub',
       translations: { tagline: { uz: 'Zo‘r klub', en: 'Great club' }, headline: {} },
     });
-    expect(missingLanguages(form.tagline)).toEqual(['ru']);
   });
 
   it('opens a page saved before translations with its text under Russian', () => {

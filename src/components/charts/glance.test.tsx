@@ -18,7 +18,7 @@ const render = (element: ReactElement) => renderToStaticMarkup(
 describe('ShareBar', () => {
   it('names each positive part with its share and leaves out the rest', () => {
     const html = render(
-      <ShareBar label="Pay" locale="en" currency="UZS" parts={[
+      <ShareBar label="Pay" locale="en" parts={[
         { key: 'a', label: 'Base', value: 300, color: 'red' },
         { key: 'b', label: 'KPI', value: 100, color: 'blue' },
         { key: 'c', label: 'Bonus', value: 0, color: 'green' },
@@ -26,7 +26,6 @@ describe('ShareBar', () => {
     );
     expect(html).toContain('aria-label="Pay: Base 75%, KPI 25%"');
     expect(html).not.toContain('Bonus');
-    expect(html).toContain('300');
   });
   it('renders nothing without a positive part', () => {
     expect(render(<ShareBar label="Pay" locale="en" size="sm" parts={[{ key: 'a', label: 'A', value: 0, color: 'red' }]} />)).toBe('');
@@ -39,6 +38,10 @@ describe('GlanceStat and ChangeHint', () => {
     expect(html).toContain('text-warning-600');
     expect(html).toContain('UZS');
     expect(html).toContain('note');
+  });
+  it('is plain without a destination and a link with one', () => {
+    expect(render(<GlanceStat label="Month" value="1 000" />)).not.toContain('<a ');
+    expect(render(<GlanceStat label="Month" value="1 000" href="/reports" />)).toContain('href="/reports"');
   });
   it('colours a rise green, a fall red, and flips for costs', () => {
     expect(render(<ChangeHint ratio={0.2} label="vs last" locale="en" />)).toContain('text-success-600');

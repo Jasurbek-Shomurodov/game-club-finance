@@ -249,7 +249,7 @@ export function WithdrawalHistory({
                       {sides.map((source) => (
                         <span
                           key={source}
-                          className={cn('h-full transition-[width] duration-500', SOURCE_TINTS[source].bar)}
+                          className={cn('grow-x h-full transition-[width] duration-500 motion-reduce:transition-none', SOURCE_TINTS[source].bar)}
                           style={{ width: `${(totals[source] / total) * 100}%` }}
                         />
                       ))}

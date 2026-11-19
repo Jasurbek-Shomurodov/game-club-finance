@@ -3,6 +3,8 @@
  * money and owner profit pages. Pure and side-specific: the game club and the
  * bar are never added together here.
  */
+import { previousYearMonth } from '@/lib/utils';
+import { calculateGameClubIncome } from './dailyCash';
 import { summarizeStockRow, type StockTotalsRowInput } from './stock';
 
 const MONTH_PATTERN = /^(\d{4})-(0[1-9]|1[0-2])$/;
@@ -11,16 +13,6 @@ function parseYearMonth(yearMonth: string): { year: number; month: number } {
   const match = MONTH_PATTERN.exec(yearMonth);
   if (!match) throw new Error(`Invalid year-month: ${yearMonth}`);
   return { year: Number(match[1]), month: Number(match[2]) };
-}
-
-function formatYearMonth(year: number, month: number): string {
-  return `${year}-${String(month).padStart(2, '0')}`;
-}
-
-/** The month before `yearMonth` ("2026-01" → "2025-12"). */
-export function previousYearMonth(yearMonth: string): string {
-  const { year, month } = parseYearMonth(yearMonth);
-  return month === 1 ? formatYearMonth(year - 1, 12) : formatYearMonth(year, month - 1);
 }
 
 /** `count` months ending with `yearMonth`, oldest first. */
@@ -34,7 +26,7 @@ export function recentYearMonths(yearMonth: string, count: number): string[] {
   return months;
 }
 
-export function daysInMonth(yearMonth: string): number {
+function daysInMonth(yearMonth: string): number {
   const { year, month } = parseYearMonth(yearMonth);
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
@@ -72,10 +64,12 @@ export interface DailyCashMonthGlance {
   projectedTotal: number | null;
 }
 
-const entryTotal = (entry: DailyCashGlanceEntry) => Number(entry.cash_income ?? 0)
-  + Number(entry.terminal_income ?? 0)
-  + Number(entry.card_income ?? 0)
-  + Number(entry.playstation_income ?? 0);
+const entryTotal = (entry: DailyCashGlanceEntry) => calculateGameClubIncome({
+  cashIncome: Number(entry.cash_income ?? 0),
+  terminalIncome: Number(entry.terminal_income ?? 0),
+  cardIncome: Number(entry.card_income ?? 0),
+  playstationIncome: Number(entry.playstation_income ?? 0),
+});
 
 /**
  * The month's Game Club income from the daily cash entries, which days are
@@ -233,7 +227,7 @@ export function collectedFlowByDay(moves: ReadonlyArray<{ kind: 'collect' | 'exp
 }
 
 /** The ISO date one day before `iso`. */
-export function previousIsoDate(iso: string): string {
+function previousIsoDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10);
 }

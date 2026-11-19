@@ -64,11 +64,6 @@ export function pickLocalized(value: Partial<Record<string, unknown>> | null | u
   return fallback;
 }
 
-/** The languages of a localized field that have no text yet. */
-export function missingLanguages(value: LocalizedText): ShowcaseLanguage[] {
-  return SHOWCASE_LANGUAGES.filter((language) => !value[language].trim());
-}
-
 /** An absolute http(s) URL, or null for a blank or unusable value. */
 export function normalizeExternalUrl(value: string | null | undefined): string | null {
   const trimmed = value?.trim();

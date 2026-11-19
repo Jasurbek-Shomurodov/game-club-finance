@@ -18,6 +18,7 @@ import {
   InlineAlert,
   LoadErrorAlert,
   Money,
+  MonthPicker,
   PageHeader,
   SectionHeading,
   TableSkeleton,
@@ -44,6 +45,9 @@ import {
 import { classifyStockWriteError, type StockWriteErrorLike } from '@/lib/stockWriteErrors';
 import { formatDateOnly, formatNumber } from '@/lib/formatters';
 import { useBusinessToday } from '@/lib/useBusinessToday';
+import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
+import { monthRange } from '@/lib/utils';
+import { StockAdjustmentsLedger } from '@/components/stock-adjustments/StockAdjustmentsLedger';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { useLatestRef } from '@/components/i18n/useLatestRef';
 import { StockWriteOffModal, type StockWriteOffInput } from '../closing-stock/StockWriteOffModal';
@@ -56,10 +60,12 @@ interface RecordedWriteOff {
 const EMPTY_ROWS: ClosingStockRowData[] = [];
 
 /**
- * Bar write-offs of the current business day, on a page of their own so the
- * staff who find a shortage or an expired item can record it without opening
- * the whole stock count. Owners and admins record; only owners reduce or
- * remove one (migration 164). Past days are corrected on Closing Stock.
+ * Bar write-offs and corrections. Today's are recorded here, on a page of
+ * their own so the staff who find a shortage, an expired item or extra stock
+ * can save it without opening the whole count. Owners and admins record; only
+ * owners reduce or remove one (migration 164). Below, the chosen month's
+ * adjustments are laid out at a glance (units for everyone, value at cost for
+ * the owner). Past days are corrected on Closing Stock.
  */
 export default function WriteOffsPage() {
   const t = useTranslations('writeOffs');
@@ -75,6 +81,11 @@ export default function WriteOffsPage() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const { showToast, toastElement } = useToast();
+  const businessMonth = today.slice(0, 7);
+  const [month, setMonth] = useBusinessPeriod(businessMonth, selectedClubId);
+  const period = monthRange(month);
+  // Bumped after a save so the month below picks the new adjustment up.
+  const [savedCount, setSavedCount] = useState(0);
 
   const load = useCallback(async () => {
     if (!selectedClubId) return EMPTY_ROWS;
@@ -144,6 +155,7 @@ export default function WriteOffsPage() {
         void notifyStockWriteOff(selectedClubId, today, input.productId);
       }
       void query.reload({ silent: true });
+      setSavedCount((count) => count + 1);
       return null;
     } catch {
       return tcs('saveFailed');
@@ -244,6 +256,22 @@ export default function WriteOffsPage() {
           )}
         </Card>
       )}
+
+      <section className="space-y-4 sm:space-y-5" aria-labelledby="write-offs-month">
+        <SectionHeading
+          size="lg"
+          title={<span id="write-offs-month">{t('monthTitle')}</span>}
+          description={t('monthDescription')}
+          action={<MonthPicker value={month} max={businessMonth} onChange={setMonth} className="sm:w-56" />}
+        />
+        <StockAdjustmentsLedger
+          clubId={selectedClubId}
+          from={period.from}
+          to={period.to}
+          showCost={isOwner}
+          refreshKey={savedCount}
+        />
+      </section>
 
       {canRecord && (
         <StockWriteOffModal

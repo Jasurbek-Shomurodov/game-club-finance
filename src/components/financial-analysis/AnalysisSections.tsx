@@ -1,7 +1,6 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import Link from 'next/link';
 import { ArrowDownRight, ArrowUpRight, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -10,6 +9,7 @@ import {
   metricToneClassName,
   toneForAmount,
   type MetricTone,
+  TappableSurface,
 } from '@/components/PresentationFoundation';
 import type { SourceIndicators } from '@/lib/calculations/financialAnalysis';
 import { formatCurrency } from '@/lib/formatters';
@@ -49,7 +49,6 @@ export function Section({ id, title, description, icon: Icon, iconClassName, act
   );
 }
 
-/** Small ratio tile: icon, label, value, optional 0–100 meter and a caption. */
 /**
  * One side's month on one card: money in, spent and profit with their change,
  * a bar splitting the income into what was spent and what was kept, the
@@ -75,8 +74,12 @@ export function SideScorecard({ title, icon: Icon, iconClassName, color, incomeL
   if (loading) return <SideScorecardSkeleton />;
   const margin = now.marginPct === null ? null : now.marginPct / 100;
   const marginText = margin === null ? '—' : formatPercentShare(margin, locale, 1);
-  const spentShare = now.income > 0 ? Math.min(1, now.spent / now.income) : now.spent > 0 ? 1 : 0;
-  const keptShare = Math.max(0, 1 - spentShare);
+  // Without income there is nothing to split: the bar stays empty and the shares read "—".
+  const hasIncome = now.income > 0;
+  const spentShare = hasIncome ? Math.min(1, now.spent / now.income) : 0;
+  const keptShare = hasIncome ? Math.max(0, 1 - spentShare) : 0;
+  const spentText = hasIncome ? formatPercentShare(spentShare, locale) : '—';
+  const keptText = hasIncome ? formatPercentShare(keptShare, locale) : '—';
   const figures: Array<{ key: string; label: string; amount: number; tone: MetricTone; href?: string; goodWhen: 'up' | 'down'; previous?: number }> = [
     { key: 'in', label: incomeLabel, amount: now.income, tone: 'default', href: detailsHref, goodWhen: 'up', previous: before?.income },
     { key: 'spent', label: labels.spent, amount: now.spent, tone: 'danger', href: spentHref, goodWhen: 'down', previous: before?.spent },
@@ -111,7 +114,8 @@ export function SideScorecard({ title, icon: Icon, iconClassName, color, incomeL
                   {change.value === null ? '—' : (
                     <>
                       {change.value >= 0 ? <ArrowUpRight size={12} aria-hidden="true" /> : <ArrowDownRight size={12} aria-hidden="true" />}
-                      {Math.abs(change.value)}%
+                      {/* The sign is text, so the direction does not rest on the arrow and colour alone. */}
+                      {change.value >= 0 ? '+' : '−'}{formatPercentShare(Math.abs(change.value) / 100, locale)}
                     </>
                   )}
                 </span>
@@ -120,9 +124,9 @@ export function SideScorecard({ title, icon: Icon, iconClassName, color, incomeL
           );
           const className = 'min-w-0 rounded-xl bg-gray-50 px-3 py-2.5';
           return figure.href ? (
-            <Link key={figure.key} href={figure.href} className={cn(className, 'transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500')}>
+            <TappableSurface key={figure.key} href={figure.href} chevron={false} className={cn(className, 'hover:bg-gray-100')}>
               {body}
-            </Link>
+            </TappableSurface>
           ) : (
             <div key={figure.key} className={className}>{body}</div>
           );
@@ -130,13 +134,13 @@ export function SideScorecard({ title, icon: Icon, iconClassName, color, incomeL
       </div>
 
       <div className="mt-4">
-        <div className="flex h-2.5 overflow-hidden rounded-full bg-gray-100" role="img" aria-label={`${labels.spent} ${formatPercentShare(spentShare, locale)}, ${labels.kept} ${formatPercentShare(keptShare, locale)}`}>
-          <span className="h-full bg-danger-500/80 transition-[width] duration-700" style={{ width: `${spentShare * 100}%` }} />
-          {keptShare > 0 && <span className="ml-0.5 h-full rounded-r-full transition-[width] duration-700" style={{ width: `${keptShare * 100}%`, backgroundColor: color }} />}
+        <div className="flex h-2.5 overflow-hidden rounded-full bg-gray-100" role="img" aria-label={`${labels.spent} ${spentText}, ${labels.kept} ${keptText}`}>
+          {hasIncome && <span className="grow-x h-full bg-danger-500/80 transition-[width] duration-700 motion-reduce:transition-none" style={{ width: `${spentShare * 100}%` }} />}
+          {keptShare > 0 && <span className="grow-x ml-0.5 h-full rounded-r-full transition-[width] duration-700 motion-reduce:transition-none" style={{ width: `${keptShare * 100}%`, backgroundColor: color }} />}
         </div>
         <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-gray-500">
-          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-danger-500/80" aria-hidden="true" />{labels.spent} · {formatPercentShare(spentShare, locale)}</span>
-          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm" style={{ backgroundColor: color }} aria-hidden="true" />{labels.kept} · {formatPercentShare(keptShare, locale)}</span>
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-danger-500/80" aria-hidden="true" />{labels.spent} · {spentText}</span>
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm" style={{ backgroundColor: color }} aria-hidden="true" />{labels.kept} · {keptText}</span>
           <span className="ml-auto tabular-nums">{labels.perDay}: <span className="font-semibold text-gray-950">{formatCurrency(now.averageDailyIncome)}</span> {currency}</span>
         </div>
       </div>

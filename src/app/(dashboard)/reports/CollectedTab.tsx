@@ -28,6 +28,7 @@ import {
   metricGridClassName,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
+import { formatPercentShare } from '@/components/charts/chartFormat';
 import {
   COLLECTED_METHODS,
   buildCollectedLedger,
@@ -43,7 +44,7 @@ import {
 import { csvFileName, csvSeparatorForLocale, downloadCsv, toCsv } from '@/lib/csv';
 import { formatCurrency, formatCurrencyInput, formatDateOnly, formatDateTime, parseCurrencyInput } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
-import { CollectedGlance } from './CollectedGlance';
+import { CollectedGlance, CollectedGlanceSkeleton, CollectedSplitSkeleton } from './CollectedGlance';
 
 type CollectedView = 'collections' | 'ledger';
 type LedgerKindFilter = 'all' | CollectedMoneyMove['kind'];
@@ -312,6 +313,13 @@ export default function CollectedTab({
   }
 
   const shownCount = view === 'collections' ? shownCollections.length : shownLedger.length;
+  const kindSelected = (kind: LedgerKindFilter) => view === 'ledger' && kindFilter === kind && kind !== 'all';
+  /** A summary card opens the list behind its figure: the collections, or the running ledger narrowed to one kind (a second tap shows every kind). */
+  const showList = (next: CollectedView, kind: LedgerKindFilter) => {
+    setView(next);
+    setKindFilter(kindSelected(kind) ? 'all' : kind);
+    document.getElementById('collected-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   const valueClass = 'text-sm font-medium tracking-normal text-gray-500';
 
   return (
@@ -324,6 +332,7 @@ export default function CollectedTab({
           helper={byMethodHelper(summary.collected)}
           tone="success"
           icon={WalletCards}
+          onClick={summary.collected.total !== 0 ? () => showList('collections', 'all') : undefined}
         />
         <MetricCard
           loading={loading}
@@ -331,7 +340,8 @@ export default function CollectedTab({
           value={<Money amount={summary.spent.total} currencyClassName={valueClass} />}
           helper={byMethodHelper(summary.spent)}
           icon={ReceiptText}
-          onClick={kindCounts.expense > 0 ? () => { setView('ledger'); setKindFilter('expense'); } : undefined}
+          onClick={kindCounts.expense > 0 ? () => showList('ledger', 'expense') : undefined}
+          className={cn(kindSelected('expense') && 'ring-2 ring-primary-500')}
         />
         <MetricCard
           loading={loading}
@@ -339,7 +349,8 @@ export default function CollectedTab({
           value={<Money amount={summary.toReserve.total} currencyClassName={valueClass} />}
           helper={byMethodHelper(summary.toReserve)}
           icon={PiggyBank}
-          onClick={kindCounts.reserve > 0 ? () => { setView('ledger'); setKindFilter('reserve'); } : undefined}
+          onClick={kindCounts.reserve > 0 ? () => showList('ledger', 'reserve') : undefined}
+          className={cn(kindSelected('reserve') && 'ring-2 ring-primary-500')}
         />
         <MetricCard
           loading={loading}
@@ -348,6 +359,7 @@ export default function CollectedTab({
           helper={byMethodHelper(summary.held) ?? tv('stillHeldHelper')}
           tone={summary.held.total > 0 ? 'warning' : 'default'}
           icon={HandCoins}
+          onClick={ledger.length > 0 ? () => showList('ledger', 'all') : undefined}
         />
       </section>
 
@@ -372,7 +384,7 @@ export default function CollectedTab({
                 <li key={part.key} className="flex items-center gap-1.5">
                   <span aria-hidden="true" className={cn('h-2 w-2 rounded-sm', part.className)} />
                   {part.label}
-                  <span className="font-medium tabular-nums text-gray-700">{Math.round((part.value / whole) * 100)}%</span>
+                  <span className="font-medium tabular-nums text-gray-700">{formatPercentShare(part.value / whole, locale)}</span>
                 </li>
               ))}
             </ul>
@@ -380,6 +392,12 @@ export default function CollectedTab({
         );
       })()}
 
+      {loading && (
+        <>
+          <CollectedSplitSkeleton />
+          <CollectedGlanceSkeleton />
+        </>
+      )}
       {!loading && <CollectedGlance moves={moves} summary={summary} methods={methods} methodLabel={methodLabel} />}
 
       {!loading && summary.collections.length > 0 && (
@@ -433,7 +451,7 @@ export default function CollectedTab({
         </Card>
       )}
 
-      <Card as="section" padding="none" className="overflow-hidden">
+      <Card as="section" padding="none" id="collected-list" className="scroll-mt-20 overflow-hidden">
         <CardHeader>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <SectionHeading

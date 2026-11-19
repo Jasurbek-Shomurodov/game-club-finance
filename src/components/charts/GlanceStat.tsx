@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { TrendingDown, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { TappableSurface } from '@/components/PresentationFoundation';
 import { formatPercentShare } from './chartFormat';
 
 const toneClass = {
@@ -14,23 +15,25 @@ const toneClass = {
  * One figure in a glance strip: a muted label, the number loud, and an
  * optional hint line (a comparison, a share, a count) underneath.
  */
-export function GlanceStat({ label, value, unit, hint, tone = 'default', className }: {
+export function GlanceStat({ label, value, unit, hint, tone = 'default', className, href }: {
   label: string;
   value: ReactNode;
   unit?: string;
   hint?: ReactNode;
   tone?: keyof typeof toneClass;
   className?: string;
+  /** The records behind the figure (`@/lib/detailLinks`); the stat becomes one tap target. */
+  href?: string;
 }) {
   return (
-    <div className={cn('min-w-0', className)}>
+    <TappableSurface href={href} className={cn('min-w-0', href && '-m-2 !w-auto rounded-xl p-2 pr-7 hover:bg-gray-100', className)}>
       <p className="truncate text-xs font-medium text-gray-500">{label}</p>
       <p className={cn('mt-1 break-words text-xl font-bold leading-tight tracking-tight tabular-nums', toneClass[tone])}>
         {value}
         {unit && <span className="ml-1 text-xs font-medium tracking-normal text-gray-500">{unit}</span>}
       </p>
       {hint && <div className="mt-1 text-xs leading-5 text-gray-500">{hint}</div>}
-    </div>
+    </TappableSurface>
   );
 }
 

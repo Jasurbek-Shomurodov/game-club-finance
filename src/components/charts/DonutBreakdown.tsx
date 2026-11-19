@@ -24,13 +24,12 @@ export interface DonutSlice {
  * slice is named with its amount and share, so colour never carries identity
  * alone. Hovering a slice or a legend row spotlights the other.
  */
-export function DonutBreakdown({ slices, total, totalLabel, currency, locale, className, size = 'md' }: {
+export function DonutBreakdown({ slices, total, totalLabel, currency, locale, size = 'md' }: {
   slices: readonly DonutSlice[];
   total: number;
   totalLabel: string;
   currency: string;
   locale: string;
-  className?: string;
   size?: 'sm' | 'md';
 }) {
   const [active, setActive] = useState<string | null>(null);
@@ -38,7 +37,7 @@ export function DonutBreakdown({ slices, total, totalLabel, currency, locale, cl
   const diameter = size === 'sm' ? 'h-36 w-36' : 'h-44 w-44';
 
   return (
-    <div className={cn('flex flex-col items-center gap-4 sm:flex-row sm:items-center', className)}>
+    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
       <div className={cn('relative shrink-0', diameter)} onMouseLeave={() => setActive(null)}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -90,7 +89,7 @@ export function DonutBreakdown({ slices, total, totalLabel, currency, locale, cl
                 <span className="mt-1 flex items-center gap-2">
                   <span className="h-1 flex-1 overflow-hidden rounded-full bg-gray-100">
                     <span
-                      className="block h-full rounded-full transition-[width] duration-500"
+                      className="grow-x block h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none"
                       style={{ width: `${Math.max(2, slice.share * 100)}%`, backgroundColor: colorWithAlpha(slice.color, 0.85) }}
                     />
                   </span>

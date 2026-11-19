@@ -9,7 +9,10 @@ guide relevant to the task; do not load every document or migration by default.
 - `src/components/PresentationFoundation`: every reusable presentational
   component (buttons, fields, cards, modals, tables, pickers, skeletons). Pages
   compose these instead of writing bespoke Tailwind markup. See its `README.md`.
-- `src/components`: layout shell, dashboard charts, money-details, and i18n.
+- `src/components`: layout shell, charts, i18n, and feature components shared
+  by more than one route (`stock-adjustments`, `money-details`,
+  `cash-shortages`, `financial-analysis`). A component used by one page stays
+  beside that page.
 - `src/lib/calculations`: pure financial and inventory calculations. Reuse these
   functions instead of recreating formulas in components.
 - `src/lib/supabase`: browser, server, and service clients plus query helpers.
@@ -22,6 +25,7 @@ guide relevant to the task; do not load every document or migration by default.
 
 | Task | Read |
 |---|---|
+| Adding a feature, page, card or chart; where things go; tappability; motion | `docs/agents/system-design.md` |
 | Runtime structure or data flow | `docs/agents/architecture.md` |
 | Totals, reports, owner money, or financial definitions | `docs/agents/domain-finance.md` |
 | Products, purchases, or closing stock | `docs/agents/inventory.md` |
@@ -96,6 +100,21 @@ There is no admin subdomain locally:
   and a `<Component>Skeleton` exported beside any new card or chart. Never fall
   back to the generic `PageSkeleton` or a lone `ChartSkeleton` for a page with
   its own layout.
+- Place a feature where `docs/agents/system-design.md` says before writing it:
+  a new fact joins the page that already owns the thing, a ledger is a tab of
+  its area, and each concept (reserve, write-offs, shortages, expenses) has one
+  home that other pages only link to. Do not add a card to whichever page is
+  open.
+- Everything that shows a figure or a record is tappable and opens what is
+  behind it: pass `href` (built with `src/lib/detailLinks.ts`) or `onClick` to
+  `MetricCard`/`AmountCard`/`StatTile`/`Card`. Never wrap a card in a
+  hand-written `<button>` or put `onClick` on a `div`. A figure with nothing
+  behind it stays plain.
+- Colour and motion come from the system, not the page: tones from
+  `PresentationFoundation/tone.ts` (through `IconChip`, `MetricCard accent`),
+  movement from the motion system in `globals.css` (`.page-enter` is automatic;
+  `.stagger`, `.grow-x`, `.tappable`, `Skeleton` shimmer). Do not add a
+  keyframe, a palette or a one-off hover effect to a page.
 - Keep business logic pure and tested under `src/lib`; components should mainly
   coordinate queries, state, and rendering.
 - Build UI from `@/components/PresentationFoundation`: `Button`/`IconButton`

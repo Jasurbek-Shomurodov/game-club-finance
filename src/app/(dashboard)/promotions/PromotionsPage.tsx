@@ -26,10 +26,11 @@ import {
   PageHeader,
   SectionHeading,
   Select,
-  TableSkeleton,
+  SkeletonStatus,
   useConfirm,
   useToast,
 } from '@/components/PresentationFoundation';
+import { PromotionsSkeleton } from './PromotionsSkeleton';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { cleanQuantityInput, formatCurrency, formatCurrencyInput, formatDateOnly, formatNumber, formatUnitCurrency } from '@/lib/formatters';
 import { fetchActiveProductsOrdered } from '@/lib/supabase/products';
@@ -211,7 +212,7 @@ export default function PromotionsPage() {
       />
 
       {loading ? (
-        <TableSkeleton rows={4} columns={6} />
+        <SkeletonStatus><PromotionsSkeleton /></SkeletonStatus>
       ) : loadError ? (
         <LoadErrorAlert retrying={loading} onRetry={() => void reload()}>
           {t('loadFailed')}

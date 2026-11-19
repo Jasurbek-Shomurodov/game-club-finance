@@ -1145,16 +1145,6 @@
         "name": "club_read_legacy_debts"
       },
       {
-        "kind": "policy",
-        "table": "public.debts",
-        "name": "club_admin_write_legacy_debts"
-      },
-      {
-        "kind": "policy",
-        "table": "public.debts",
-        "name": "club_owner_delete_legacy_debts"
-      },
-      {
         "kind": "functionBody",
         "signature": "public.update_balance_on_expense()",
         "md5": "0bbb4c1f6fd3e99bb49bea49a46f9714"
@@ -5338,6 +5328,23 @@
       {
         "kind": "function",
         "signature": "public.delete_owner_reserve_exchange(uuid,uuid)"
+      }
+    ]
+  },
+  {
+    "file": "171_adjustment_reads_and_retired_table_lockdown.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.idx_stock_counts_club_date_adjusted"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_salary_entries_club_employee_date"
+      },
+      {
+        "kind": "relation",
+        "name": "public.idx_cash_shortages_club_employee"
       }
     ]
   }

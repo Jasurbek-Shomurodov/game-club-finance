@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import type { ExpenseRow } from './dashboardMetrics';
-import { calculateTotalExpenses, expensesByCategory, expensesByPaymentMethod, filterExpensesByCategory, filterExpensesByDate, type ExpenseEntry } from './expenses';
 import { buildBarMoneyDetailRows, buildGameClubMoneyDetailRows } from './moneyDetails';
 import type { MoneyExchangeRow } from './moneyExchanges';
 import { buildFilteredMoneyReport, buildMoneyReport, expensesFromSource } from './moneyReport';
@@ -341,31 +340,5 @@ describe('bar money detail rows', () => {
       deductionsTotal: 10_000,
       moneyLeft: -10_000,
     });
-  });
-});
-
-describe('expense helpers', () => {
-  const entry = (id: string, amount: number | null, category: string, method: string, date = '2026-10-05'): ExpenseEntry => ({
-    id, date, amount: amount as number, category, payment_method: method, comment: null,
-  });
-  const rows = [
-    entry('a', 300, 'rent', 'cash'),
-    entry('b', 200, 'rent', 'card'),
-    entry('c', null, 'other', 'cash'),
-    entry('d', 50, 'other', 'usd', '2026-10-06'),
-  ];
-
-  it('reads a missing amount as zero in every total', () => {
-    expect(calculateTotalExpenses(rows)).toBe(550);
-    expect(expensesByCategory(rows)).toEqual({ rent: 500, other: 50 });
-    expect(expensesByPaymentMethod(rows)).toEqual({ cash: 300, card: 200, usd: 50 });
-    expect(expensesByCategory([entry('c', null, 'other', 'cash')])).toEqual({ other: 0 });
-    expect(expensesByPaymentMethod([entry('c', null, 'other', 'cash')])).toEqual({ cash: 0 });
-  });
-
-  it('filters by exact date and category', () => {
-    expect(filterExpensesByDate(rows, '2026-10-06').map((row) => row.id)).toEqual(['d']);
-    expect(filterExpensesByCategory(rows, 'rent').map((row) => row.id)).toEqual(['a', 'b']);
-    expect(calculateTotalExpenses([])).toBe(0);
   });
 });

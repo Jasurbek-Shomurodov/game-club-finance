@@ -31,6 +31,9 @@ import { Button, Card, Field, Input, InlineAlert, PageHeader } from '@/component
 | Collapsible help or secondary list | `Disclosure` (native `<details>` with a chevron summary) |
 | "What is this?" beside a heading | `HelpButton` (a `?` that opens a `Modal`; blank lines in `body` start paragraphs) |
 | KPI numbers | `MetricCard` (formatted value), `AmountCard` (money with comparison and an optional `sparkline`), `StatTile` (compact). Pass `href` (the records behind the figure, built with `@/lib/detailLinks`) or `onClick` (a details sheet) to make one tappable; leave both out for a plain figure |
+| A whole panel that opens something | `Card` with `href` or `onClick` (one tap target with the shared lift, press and focus ring; `chevron={false}` when the content already shows where it leads). `TappableSurface` is the shell underneath, for a tappable thing that is not a card |
+| What a card, row or section is about | `IconChip` (`icon`, `tone`, `size`): the icon on a tinted tile. `MetricCard`/`AmountCard` draw theirs from `icon`, toned by the figure's `tone` or an explicit `accent` (`bar`, `reserve`, …) |
+| A colour that means something | A `Tone` from `tone.ts` (`neutral`, `primary`, `success`, `danger`, `warning`, `bar`, `reserve`) and its `toneClasses[tone]` (`text`, `chip`, `surface`, `solid`, `hover`) |
 | Tiny trend line | `Sparkline` (shape only, takes the text colour; pass at least two values) |
 | At-a-glance charts | `src/components/charts`: `DonutBreakdown` (ranked donut, each slice named with amount and share), `RadialMeter` (ring around a printed figure), `CalendarHeatmap` (month shaded by day), `WeekdayBars`, `DailyInOutChart`. Category hues come from `categoricalColors` in `dashboard/ChartCard` in fixed order; the figures from `src/lib/calculations/insights.ts`. One business per chart: never add the game club and the bar together |
 | Tables | `DataTable` (supports totals row, sticky header, empty state; pass `label` so keyboard users can scroll wide tables; pass `mobileCards` so phones get one card per row instead of a sideways scroll) |
@@ -46,9 +49,10 @@ Design rules ("quiet surfaces, loud numbers"):
   `Card tone` is deliberately faint and should be rare.
 - Numbers are the loudest thing on a page: `MetricCard`/`AmountCard`/
   `StatTile` set them bold with tight tracking and the currency as a small
-  muted suffix on the same line. Don't add a coloured icon chip or a sentence
-  of explanation under every number; use one subtitle per section or a
-  `title=` tooltip.
+  muted suffix on the same line. The icon sits on a small tile toned by what
+  the figure means (grey when it means nothing). Don't add a sentence of
+  explanation under every number; use one subtitle per section or a `title=`
+  tooltip.
 - `PageHeader` no longer draws an icon tile or a subtitle, so every page opens
   the same way: title, then actions on the right (they wrap on phones). Inside
   the dashboard shell (`TopBarSlotProvider`) the title renders in the top bar,
@@ -108,3 +112,18 @@ Rules of thumb:
   `DataTable` does this itself; for a hand-built list use `useListPresence`
   and render each entry with `PresenceItem`. Up to three changes at once
   animate; a bigger change (another month, a filter) is shown at once.
+
+Motion (globals.css, "Motion system"; all of it is skipped under reduced motion):
+
+- Pages arrive on their own: the shell's `.page-enter` staggers each page's
+  top-level sections, and whatever replaces a skeleton rises in the same way.
+  Mark a grid or list `stagger` to cascade its items; mark a meter's fill
+  `grow-x` so it fills from its start edge.
+- `Skeleton` is a shimmer sweep, not a pulse. Keep using `Skeleton` and the
+  page-shaped `<Page>Skeleton`; never write `animate-pulse`.
+- Tappable surfaces get `.tappable` (hover lift, press dip) from `Card`,
+  `MetricCard`, `AmountCard`, `StatTile` and `TappableSurface`. A hand-built
+  row button may add the class itself.
+- These animations fill backwards only, so nothing keeps a transform after it
+  has played (sticky headers and fixed children are safe). Do not animate with
+  `forwards`/`both` on a container.

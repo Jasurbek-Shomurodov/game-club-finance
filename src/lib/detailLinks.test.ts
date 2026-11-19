@@ -3,7 +3,7 @@ import {
   closingStockHref,
   dailyReportHref,
   dayRange,
-  debtsSearchHref,
+  employeeSalaryHref,
   moneyDetailLineHref,
   moneyDetailsHref,
   reportsHref,
@@ -25,6 +25,10 @@ describe('detail links', () => {
     expect(reportsHref(november, { view: 'writeOffs', source: null })).toBe('/reports?from=2026-11-01&to=2026-11-30&view=writeOffs');
   });
 
+  it('opens an employee\u2019s own salary page', () => {
+    expect(employeeSalaryHref('emp-1')).toBe('/salaries/employees/emp-1');
+  });
+
   it('opens a day in closing stock and the daily report', () => {
     expect(closingStockHref('2026-11-05')).toBe('/closing-stock?date=2026-11-05');
     expect(dailyReportHref('2026-11-05')).toBe('/daily-report?date=2026-11-05');
@@ -34,12 +38,6 @@ describe('detail links', () => {
     expect(stockPurchaseHref({ id: 'cola', shortfall: 12 })).toBe('/stock-purchase?product=cola&quantity=12');
     expect(stockPurchaseHref({ id: 'cola', shortfall: 2.5 })).toBe('/stock-purchase?product=cola&quantity=3');
     expect(stockPurchaseHref({ id: 'cola', shortfall: 0 })).toBe('/stock-purchase?product=cola');
-  });
-
-  it('filters debts to a person when there is a name', () => {
-    expect(debtsSearchHref('/debts', 'Ali Valiyev')).toBe('/debts?search=Ali+Valiyev');
-    expect(debtsSearchHref('/debts', '  ')).toBe('/debts');
-    expect(debtsSearchHref('/debts', null)).toBe('/debts');
   });
 });
 

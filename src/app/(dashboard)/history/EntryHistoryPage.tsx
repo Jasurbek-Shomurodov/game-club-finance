@@ -13,7 +13,6 @@ import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import {
   Badge,
   Card,
-  DetailListSkeleton,
   EmptyState,
   Field,
   InlineAlert,
@@ -21,7 +20,9 @@ import {
   MonthPicker,
   PageHeader,
   Select,
+  SkeletonStatus,
 } from '@/components/PresentationFoundation';
+import { EntryHistoryListSkeleton } from './EntryHistorySkeleton';
 import {
   AUDITED_TABLES,
   auditEntryDate,
@@ -178,7 +179,7 @@ export default function EntryHistoryPage() {
       {query.error ? (
         <LoadErrorAlert onRetry={() => void query.reload()} retrying={query.loading}>{t('loadError')}</LoadErrorAlert>
       ) : query.loading ? (
-        <DetailListSkeleton rows={4} />
+        <SkeletonStatus><EntryHistoryListSkeleton /></SkeletonStatus>
       ) : missing ? (
         <InlineAlert variant="warning">{t('notInstalled')}</InlineAlert>
       ) : visible.length === 0 ? (

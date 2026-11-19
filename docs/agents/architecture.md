@@ -131,16 +131,13 @@ user may never visit. During an uncached navigation the current page remains
 visible with a slim progress indicator instead of a full-page loading skeleton.
 The dashboard (`/dashboard`) does not prefetch because its server response embeds live
 financial totals that can change while the user edits another screen.
-Above the totals the dashboard shows the current business date's two tasks
-(daily cash, closing stock) with skipped days, and below them the products
-running low and the people who owe the club. All of it is derived from the
-same snapshot (`src/lib/calculations/dashboardAttention.ts`), so it adds no
-request.
 The month picker in the dashboard header loads an earlier month
 (`getDashboardSnapshotRanges(businessToday, month)`): the whole month compared
 with the whole month before it, its inventory valued at the month's last
-closing count. The cards about now (today's tasks, running low, who owes) are
-left out of an earlier month.
+closing count.
+Below the headline cards the dashboard shows one glance card per business
+(margin, a calendar of the month, weekday averages, where the money went) and
+the money-flow diagrams; every figure links to the records behind it.
 The dashboard keeps only headline totals and the income trend; its chart
 starts only when the intersection observer enables it. Detailed breakdowns
 (sankey money flow, categories, daily and 12-month trends, payment methods,

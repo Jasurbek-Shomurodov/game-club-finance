@@ -15,7 +15,6 @@ import {
   CardHeader,
   CurrencyInput,
   DatePicker,
-  DetailListSkeleton,
   EmptyState,
   Field,
   IconButton,
@@ -29,6 +28,7 @@ import {
   PageHeader,
   SectionHeading,
   SegmentedControl,
+  SkeletonStatus,
   type SegmentedOption,
   Skeleton,
   PresenceItem,
@@ -39,6 +39,7 @@ import {
   MetricMoney,
   metricGridClassName,
 } from '@/components/PresentationFoundation';
+import { DebtsSkeleton } from './DebtsSkeleton';
 import { isNoteRequiredError } from '@/lib/entryNote';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { cn } from '@/lib/utils';
@@ -466,6 +467,23 @@ export default function DebtsPage() {
     { value: 'oldest', label: t('sortOldest') },
   ];
   const paidShown = useListPresence(paidMatching, debtKey);
+  const scrollToSection = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  /** A summary card orders the outstanding list by what its figure is about (largest, or oldest and overdue first); a second tap restores the default order. */
+  const showOutstanding = (order: OpenDebtSort) => {
+    if (sort === order) {
+      setSort('newest');
+      return;
+    }
+    setSort(order);
+    scrollToSection('debts-outstanding');
+  };
+  /** The paid total opens the paid list; a second tap folds it away. */
+  const togglePaidList = () => {
+    if (!showPaid) scrollToSection('debts-paid');
+    setShowPaid((value) => !value);
+  };
   const outstandingTotal = unpaid.reduce((sum, debt) => sum + remainingFor(debt), 0);
   const debtorCount = new Set(unpaid.map((debt) => debt.person_name.trim().toLocaleLowerCase())).size;
   const paidTotal = debts.reduce((sum, debt) => sum + (Number(debt.paid_amount) || 0), 0);
@@ -512,7 +530,7 @@ export default function DebtsPage() {
       />
 
       {loading ? (
-        <DetailListSkeleton rows={7} />
+        <SkeletonStatus><DebtsSkeleton /></SkeletonStatus>
       ) : loadError ? (
         <LoadErrorAlert retrying={loading} onRetry={() => void reloadDebts()}>
           {t('loadError')}
@@ -534,10 +552,14 @@ export default function DebtsPage() {
               label={t('outstandingTotal')}
               value={<MetricMoney amount={outstandingTotal} />}
               tone={outstandingTotal > 0 ? 'danger' : 'default'}
+              onClick={unpaid.length > 0 ? () => showOutstanding('largest') : undefined}
+              className={cn(unpaid.length > 0 && sort === 'largest' && 'ring-2 ring-danger-500')}
             />
             <MetricCard
               label={t('debtorsCount')}
               value={formatNumber(debtorCount)}
+              onClick={unpaid.length > 0 ? () => showOutstanding('oldest') : undefined}
+              className={cn(unpaid.length > 0 && sort === 'oldest' && 'ring-2 ring-primary-500')}
               helper={oldestUnpaid ? (
                 <>
                   {t('oldestDebt', { count: debtAgeDays(oldestUnpaid.date, businessToday) })}
@@ -545,7 +567,12 @@ export default function DebtsPage() {
                 </>
               ) : undefined}
             />
-            <MetricCard label={t('paidTotal')} value={<MetricMoney amount={paidTotal} />} />
+            <MetricCard
+              label={t('paidTotal')}
+              value={<MetricMoney amount={paidTotal} />}
+              onClick={paid.length > 0 ? togglePaidList : undefined}
+              className={cn(paid.length > 0 && showPaid && 'ring-2 ring-success-500')}
+            />
           </section>
 
           {/* Also while a search is set, so it can always be seen and cleared. */}
@@ -559,7 +586,7 @@ export default function DebtsPage() {
           )}
 
           {unpaid.length > 0 && (
-            <Card as="section" padding="none" className="overflow-hidden">
+            <Card as="section" padding="none" id="debts-outstanding" className="scroll-mt-20 overflow-hidden">
               <CardHeader>
                 <SectionHeading
                   size="sm"
@@ -641,7 +668,7 @@ export default function DebtsPage() {
           )}
 
           {paid.length > 0 && (
-            <Card as="section" padding="none" className="overflow-hidden">
+            <Card as="section" padding="none" id="debts-paid" className="scroll-mt-20 overflow-hidden">
               <CardHeader>
                 <SectionHeading
                   size="sm"

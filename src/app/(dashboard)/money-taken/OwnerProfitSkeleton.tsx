@@ -1,8 +1,9 @@
 import { FormSkeleton, Skeleton, TableSkeleton } from '@/components/PresentationFoundation';
+import { OwnerProfitTrendSkeleton } from './OwnerProfitTrend';
 
 /**
  * Owner Profit while the route loads: the "left to take" headline with its
- * split and the two side cards, then the breakdown table beside the
+ * split and the two side cards, the six-month trend chart, then the breakdown table beside the
  * withdrawal form. Keep it in step with MoneyTakenPage.
  */
 export function OwnerProfitSkeleton() {
@@ -41,6 +42,7 @@ export function OwnerProfitSkeleton() {
           ))}
         </div>
       </div>
+      <OwnerProfitTrendSkeleton />
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_32rem] 2xl:grid-cols-[minmax(0,1fr)_42rem] xl:items-start">
         <TableSkeleton rows={6} columns={5} />
         <FormSkeleton />

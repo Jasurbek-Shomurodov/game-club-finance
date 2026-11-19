@@ -323,11 +323,3 @@ export function sumAvailableMoneyResults(results: AvailableMoneyResult[]): Avail
     return total;
   }, emptyResult());
 }
-
-/**
- * Computes totals across all supplied months while retaining month-level
- * isolation for overdraft validation.
- */
-export function calculateAvailableMoney(input: CalculateAvailableMoneyInput): AvailableMoneyResult {
-  return sumAvailableMoneyResults(Object.values(calculateAvailableMoneyByMonth(input)));
-}

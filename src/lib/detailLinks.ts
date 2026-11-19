@@ -39,17 +39,16 @@ export function dailyReportHref(date: string): string {
   return `/daily-report?date=${encodeURIComponent(date)}`;
 }
 
+/** One employee's salary page: their months, payments and balance. */
+export function employeeSalaryHref(employeeId: string): string {
+  return `/salaries/employees/${encodeURIComponent(employeeId)}`;
+}
+
 /** The purchase form opened on a product, with the units still missing filled in. */
 export function stockPurchaseHref(product: { id: string; shortfall?: number }): string {
   const params = new URLSearchParams({ product: product.id });
   if (product.shortfall && product.shortfall > 0) params.set('quantity', String(Math.ceil(product.shortfall)));
   return `/stock-purchase?${params.toString()}`;
-}
-
-/** The debts page filtered to one person; the plain page when the name is unknown. */
-export function debtsSearchHref(base: string, name: string | null | undefined): string {
-  const trimmed = name?.trim();
-  return trimmed ? `${base}?${new URLSearchParams({ search: trimmed }).toString()}` : base;
 }
 
 /** Where a money-details line opens: the closing count for bar sales and purchases, otherwise that day in Reports. */

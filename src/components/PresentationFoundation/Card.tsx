@@ -1,5 +1,6 @@
 import type { ElementType, HTMLAttributes, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { TappableSurface, type TappableCardProps } from './Tappable';
 
 type CardPadding = 'none' | 'sm' | 'md' | 'lg';
 type CardTone = 'default' | 'primary' | 'info' | 'success' | 'warning' | 'orange' | 'muted';
@@ -23,8 +24,13 @@ const toneClasses: Record<CardTone, string> = {
   muted: 'border-gray-200 bg-gray-50',
 };
 
-export interface CardProps extends HTMLAttributes<HTMLElement> {
+export interface CardProps extends Omit<HTMLAttributes<HTMLElement>, 'onClick'>, TappableCardProps {
+  /** Ignored on a tappable card, which is a link or a button. */
   as?: ElementType;
+  /** Accessible name of a tappable card whose content does not name where it goes. */
+  label?: string;
+  /** Hide the corner chevron of a tappable card that already shows where it leads. */
+  chevron?: boolean;
   padding?: CardPadding;
   tone?: CardTone;
   /** Dashed border, for placeholders and optional areas. */
@@ -32,7 +38,11 @@ export interface CardProps extends HTMLAttributes<HTMLElement> {
   children: ReactNode;
 }
 
-/** The single surface primitive: white rounded panel with a hairline border. */
+/**
+ * The single surface primitive: white rounded panel with a hairline border.
+ * Pass `href` or `onClick` and the whole card becomes one tap target with the
+ * shared lift, press and focus ring; never wrap a Card in a button by hand.
+ */
 export function Card({
   as: Component = 'div',
   padding = 'md',
@@ -40,8 +50,25 @@ export function Card({
   dashed = false,
   className,
   children,
+  href,
+  onClick,
+  label,
+  chevron = true,
   ...rest
 }: CardProps) {
+  if (href || onClick) {
+    return (
+      <TappableSurface
+        href={href}
+        onClick={onClick}
+        label={label}
+        chevron={chevron}
+        className={cn('min-w-0 rounded-2xl border', toneClasses[tone], paddingClasses[padding], chevron && 'pr-8 sm:pr-9', className)}
+      >
+        {children}
+      </TappableSurface>
+    );
+  }
   return (
     <Component
       className={cn(

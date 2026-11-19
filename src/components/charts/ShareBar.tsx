@@ -1,5 +1,4 @@
 import { cn } from '@/lib/utils';
-import { formatCurrency } from '@/lib/formatters';
 import { formatPercentShare } from './chartFormat';
 
 export interface ShareBarPart {
@@ -12,16 +11,13 @@ export interface ShareBarPart {
 
 /**
  * One whole split into parts as a single bar, with a legend naming each part's
- * share (and amount, when `currency` is given). Parts at or below zero are
- * left out; nothing renders when no part is positive.
+ * share. Parts at or below zero are left out; nothing renders when no part is positive.
  */
-export function ShareBar({ parts, label, locale, currency, className, size = 'md' }: {
+export function ShareBar({ parts, label, locale, className, size = 'md' }: {
   parts: readonly ShareBarPart[];
   /** Accessible name of the whole bar. */
   label: string;
   locale: string;
-  /** When set, the legend prints each part's amount too. */
-  currency?: string;
   className?: string;
   size?: 'sm' | 'md';
 }) {
@@ -39,7 +35,7 @@ export function ShareBar({ parts, label, locale, currency, className, size = 'md
         {shown.map((part) => (
           <span
             key={part.key}
-            className="h-full transition-[width] duration-500 first:rounded-l-full last:rounded-r-full motion-reduce:transition-none"
+            className="grow-x h-full transition-[width] duration-500 first:rounded-l-full last:rounded-r-full motion-reduce:transition-none"
             style={{ width: `${(part.value / whole) * 100}%`, backgroundColor: part.color }}
           />
         ))}
@@ -50,7 +46,6 @@ export function ShareBar({ parts, label, locale, currency, className, size = 'md
             <span className="h-2 w-2 shrink-0 rounded-sm" style={{ backgroundColor: part.color }} />
             <span className="truncate">{part.label}</span>
             <span className="font-medium tabular-nums text-gray-700">{formatPercentShare(part.value / whole, locale)}</span>
-            {currency && <span className="tabular-nums text-gray-400">{formatCurrency(part.value)}</span>}
           </li>
         ))}
       </ul>

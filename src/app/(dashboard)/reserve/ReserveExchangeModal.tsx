@@ -206,7 +206,7 @@ export function ReserveExchangeModal({ initialDirection, buyLimits, dollarsHeld,
             htmlFor="reserve-exchange-amount"
             required
             hint={(
-              <button type="button" className="font-medium text-primary-600 hover:underline disabled:text-gray-400 disabled:no-underline" disabled={limit <= 0} onClick={fillAll}>
+              <button type="button" className="rounded font-medium text-primary-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 disabled:text-gray-400 disabled:no-underline" disabled={limit <= 0} onClick={fillAll}>
                 {t('available', { amount: limitText })}
               </button>
             )}

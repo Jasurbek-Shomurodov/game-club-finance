@@ -18,8 +18,6 @@ import {
 /** The figures a closeout day header shows, each one tappable. */
 export type DayFigure = 'income' | 'expenses' | 'barExpenses' | 'cash' | 'terminal' | 'card' | 'playstation';
 
-export const DAY_FIGURES: readonly DayFigure[] = ['income', 'expenses', 'barExpenses', 'cash', 'terminal', 'card', 'playstation'];
-
 /** The rows a day was built from. */
 export interface DayRows {
   cash: MoneyReportCashRow[];

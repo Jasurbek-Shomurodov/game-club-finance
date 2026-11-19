@@ -90,7 +90,7 @@ import {
 } from 'lucide-react';
 import type { Product, Promotion } from '@/types';
 import { useLatestRef } from '@/components/i18n/useLatestRef';
-import { StockGlance } from './StockGlance';
+import { StockGlance, StockGlanceSkeleton } from './StockGlance';
 
 type RowData = ClosingStockRowData;
 
@@ -647,15 +647,15 @@ export default function ClosingStockPage() {
 
   const day = dayRange(date);
   const kpis: Array<{ label: string; value: string; unit?: string; tone?: 'default' | 'success' | 'danger'; href?: string }> = [
-    { label: t('totalProducts'), value: formatNumber(rows.length) },
+    { href: '/products', label: t('totalProducts'), value: formatNumber(rows.length) },
     { href: '/stock-purchase', label: t('stockPurchased'), value: formatNumber(totals.added), unit: t('pcs') },
-    { label: t('totalSold'), value: formatNumber(totals.sold), unit: t('pcs') },
+    { href: moneyDetailsHref('bar', day), label: t('totalSold'), value: formatNumber(totals.sold), unit: t('pcs') },
     { href: moneyDetailsHref('bar', day), label: t('barIncomeEst'), value: formatCurrency(totals.income), unit: tc('currency'), tone: 'success' },
     { href: moneyDetailsHref('bar', day), label: t('barProfitEst'), value: formatCurrency(totals.profit), unit: tc('currency'), tone: totals.profit < 0 ? 'danger' : 'success' },
     { href: '/promotions', label: t('promoCost'), value: formatCurrency(totals.giveawayCost), unit: tc('currency'), tone: totals.giveawayCost > 0 ? 'danger' : 'default' },
     // Write-offs are an owner tool: only owners see their cost and badges.
     ...(isOwner ? [{ href: reportsHref(day, { view: 'writeOffs' }), label: t('writeOffCost'), value: formatCurrency(totals.writeOffCost), unit: tc('currency'), tone: totals.writeOffCost > 0 ? 'danger' as const : 'default' as const }] : []),
-    { label: t('stockValue'), value: formatCurrency(totals.stockValue), unit: tc('currency') },
+    { href: '/products', label: t('stockValue'), value: formatCurrency(totals.stockValue), unit: tc('currency') },
   ];
   const categoryChipOptions = [{ value: '', label: tc('all') }, ...categoryOptions.map((category) => ({ value: category, label: category }))];
   const hasFilters = Boolean(query.trim() || selectedCategory);
@@ -828,7 +828,7 @@ export default function ClosingStockPage() {
 
           {error && <InlineAlert variant="danger">{error}</InlineAlert>}
 
-          {!loading && (
+          {loading ? <StockGlanceSkeleton /> : (
             <StockGlance
               rows={glanceRows}
               stockValue={totals.stockValue}

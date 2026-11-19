@@ -17,6 +17,7 @@ import {
   Modal,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
+import { formatPercentShare } from '@/components/charts/chartFormat';
 import { salaryBalance, salaryEarnings, type SalaryEmployee, type SalaryMonth } from '@/lib/calculations/salaries';
 import { formatCurrency, formatDateOnly } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
@@ -71,7 +72,7 @@ export function EmployeesView({ employees, summaries, loading, loadError, ...car
 
   return (
     <>
-      {live.length > 0 && <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{live.map(card)}</div>}
+      {live.length > 0 && <div className="stagger grid gap-5 md:grid-cols-2 xl:grid-cols-3">{live.map(card)}</div>}
       {inactive.length > 0 && (
         <Disclosure
           summary={(
@@ -85,7 +86,7 @@ export function EmployeesView({ employees, summaries, loading, loadError, ...car
             </>
           )}
         >
-          <div className="mt-3 grid gap-5 md:grid-cols-2 xl:grid-cols-3">{inactive.map(card)}</div>
+          <div className="stagger mt-3 grid gap-5 md:grid-cols-2 xl:grid-cols-3">{inactive.map(card)}</div>
         </Disclosure>
       )}
     </>
@@ -107,6 +108,7 @@ function EmployeeCard({
   const earnings = salaryEarnings(balances[employee.id] ?? []);
   const balanceLabel = t(balance < 0 ? 'advance' : 'balance');
   const paidPercent = earnings.earned > 0 ? Math.round((earnings.paid / earnings.earned) * 100) : 0;
+  const paidPercentText = formatPercentShare(paidPercent / 100, locale);
   const [showBalance, setShowBalance] = useState(false);
   const paidSources = (['game_club', 'bar'] as const).map((source) => ({ source, amount: paidBySource[employee.id]?.[source] ?? 0 }));
   const breakdown: [string, string, string?][] = [
@@ -159,15 +161,15 @@ function EmployeeCard({
         <div className="border-t border-gray-100 py-3">
           <div className="flex items-baseline justify-between gap-2 text-xs">
             <span className="text-gray-500">{t('paidOfEarned')}</span>
-            <span className="font-semibold tabular-nums text-gray-700">{paidPercent}%</span>
+            <span className="font-semibold tabular-nums text-gray-700">{paidPercentText}</span>
           </div>
           <div
             role="img"
-            aria-label={`${t('paidOfEarned')}: ${paidPercent}%`}
+            aria-label={`${t('paidOfEarned')}: ${paidPercentText}`}
             className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-100"
           >
             <div
-              className={cn('h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none', paidPercent >= 100 ? 'bg-success-500' : 'bg-primary-500')}
+              className={cn('grow-x h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none', paidPercent >= 100 ? 'bg-success-500' : 'bg-primary-500')}
               style={{ width: `${Math.min(100, paidPercent)}%` }}
             />
           </div>

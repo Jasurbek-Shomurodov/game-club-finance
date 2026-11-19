@@ -15,7 +15,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { cn } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
-import { formatDateShort } from '@/lib/formatters';
+import { capitalizeFirst, formatDateShort, formatYearMonth } from '@/lib/formatters';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
   AmountCard,
@@ -58,7 +58,7 @@ import {
   markPerformanceRpcMissing,
   shouldTryPerformanceRpc,
 } from '@/lib/supabase/performanceRpc';
-import { closingStockHref, moneyDetailsHref } from '@/lib/detailLinks';
+import { closingStockHref, moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
 import { expenseTotalsByCategory, periodProgress, valuesByDate } from '@/lib/calculations/insights';
 import { SideGlanceCard, SideGlanceCardSkeleton } from '@/components/dashboard/SideGlanceCard';
 import { chartColors } from '@/components/dashboard/ChartCard';
@@ -282,6 +282,14 @@ export default function DashboardPage({
   /** A link only to pages this member can open. */
   const pathIfAllowed = (path: string) => (canAccessPath(role, featureAccess, path) ? path : undefined);
   const productsHref = pathIfAllowed('/products');
+  const canOpenDailyReport = Boolean(pathIfAllowed('/daily-report'));
+  const canOpenReports = Boolean(pathIfAllowed('/reports'));
+  const canOpenGameClubDetails = Boolean(pathIfAllowed('/game-club-money-details'));
+  const canOpenBarDetails = Boolean(pathIfAllowed('/bar-money-details'));
+  const glanceLinks = useMemo(() => ({
+    game_club: { moneyDetails: canOpenGameClubDetails, dailyReport: canOpenDailyReport, reports: canOpenReports },
+    bar: { moneyDetails: canOpenBarDetails, dailyReport: canOpenDailyReport, reports: canOpenReports },
+  }), [canOpenBarDetails, canOpenDailyReport, canOpenGameClubDetails, canOpenReports]);
   // The month so far, day by day, as the small line beside each income figure.
   const sparkDays = useMemo(
     () => data.trend.filter((row) => row.date <= businessToday),
@@ -329,14 +337,15 @@ export default function DashboardPage({
     const key = `categories.${category}`;
     return te.has(key) ? te(key as Parameters<typeof te>[0]) : category.replace(/_/g, ' ');
   }, [te]);
+  // Reserve-paid purchases stay in each side's expenses and profit, so the donut keeps them too.
   const gameClubSpending = useMemo(
-    () => expenseTotalsByCategory(ledgers.expenseRows, 'game_club').map(({ category, value }) => ({ key: category, label: categoryLabel(category), value })),
+    () => expenseTotalsByCategory(ledgers.expenseRows, 'game_club', { includeReservePaid: true }).map(({ category, value }) => ({ key: category, label: categoryLabel(category), value })),
     [ledgers.expenseRows, categoryLabel],
   );
   const barSpending = useMemo(
     () => [
       { key: 'barCost', label: tf('barCost'), value: totals.barCost },
-      ...expenseTotalsByCategory(ledgers.expenseRows, 'bar').map(({ category, value }) => ({ key: category, label: categoryLabel(category), value })),
+      ...expenseTotalsByCategory(ledgers.expenseRows, 'bar', { includeReservePaid: true }).map(({ category, value }) => ({ key: category, label: categoryLabel(category), value })),
     ],
     [ledgers.expenseRows, categoryLabel, totals.barCost, tf],
   );
@@ -393,7 +402,7 @@ export default function DashboardPage({
               loading={loading}
               currency={currency}
               label={t('playstationIncome')}
-              href={pathIfAllowed('/financial-analysis') && '/financial-analysis?view=overall#forecast'}
+              href={pathIfAllowed('/reports') && reportsHref(range, { category: 'income' })}
               amount={totals.playstationIncome}
               icon={SIDE_ICONS.playstation}
               iconClassName={SIDE_ICON_CLASS.gameClub}
@@ -445,13 +454,16 @@ export default function DashboardPage({
           {/* The month at a glance: each side on its own, never added together. */}
           <section aria-labelledby="dashboard-glance-heading" className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              <h2 id="dashboard-glance-heading" className="text-base font-semibold tracking-tight text-gray-950">{t('glanceSectionTitle')}</h2>
-              <div className="flex min-w-44 items-center gap-2 text-xs text-gray-500">
-                <span className="tabular-nums">{t('monthDayProgress', { elapsed: monthProgress.elapsed, total: monthProgress.total })}</span>
-                <span className="h-1.5 w-28 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
-                  <span className="block h-full rounded-full bg-primary-600 transition-[width] duration-700" style={{ width: `${monthProgress.ratio * 100}%` }} />
-                </span>
-              </div>
+              <h2 id="dashboard-glance-heading" className="text-base font-semibold tracking-tight text-gray-950">{capitalizeFirst(t('glanceSectionTitle', { month: formatYearMonth(month, locale) }), locale)}</h2>
+              {/* Only a month still running has a "day N of M"; a finished one is simply whole. */}
+              {isCurrentMonth && (
+                <div className="flex min-w-44 items-center gap-2 text-xs text-gray-500">
+                  <span className="tabular-nums">{t('monthDayProgress', { elapsed: monthProgress.elapsed, total: monthProgress.total })}</span>
+                  <span className="h-1.5 w-28 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
+                    <span className="grow-x block h-full rounded-full bg-primary-600 transition-[width] duration-700 motion-reduce:transition-none" style={{ width: `${monthProgress.ratio * 100}%` }} />
+                  </span>
+                </div>
+              )}
             </div>
             {loading ? (
               <div className="grid gap-3 xl:grid-cols-2" role="status" aria-label={t('loading')}>
@@ -475,6 +487,8 @@ export default function DashboardPage({
                   spending={gameClubSpending}
                   currency={currency}
                   locale={locale}
+                  side="game_club"
+                  links={glanceLinks.game_club}
                 />
                 <SideGlanceCard
                   title={t('bar')}
@@ -491,6 +505,8 @@ export default function DashboardPage({
                   spending={barSpending}
                   currency={currency}
                   locale={locale}
+                  side="bar"
+                  links={glanceLinks.bar}
                 />
               </div>
             )}

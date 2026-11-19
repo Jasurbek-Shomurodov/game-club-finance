@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDownToLine, CalendarArrowUp, ChevronRight, HandCoins, Layers, PackageMinus, PiggyBank, TriangleAlert, TrendingUp, Undo2, Wallet, type LucideIcon } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
@@ -27,6 +26,7 @@ import {
   SegmentedControl,
   Skeleton,
   TableSkeleton,
+  TappableSurface,
   metricToneClassName,
   toneForAmount,
   useConfirm,
@@ -96,7 +96,7 @@ import {
   type CashShortageSummary,
 } from '@/lib/calculations/cashShortages';
 import { moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
-import { OwnerProfitTrend } from './OwnerProfitTrend';
+import { OwnerProfitTrend, OwnerProfitTrendSkeleton } from './OwnerProfitTrend';
 
 type MoneySource = OwnerWithdrawalSource | 'all';
 
@@ -129,7 +129,6 @@ const emptyForm = (month: string) => ({
 
 const EMPTY_WRITE_OFFS: StockWriteOffCountRow[] = [];
 
-/** Share of what was earned that has already been taken out, 0–100. */
 /** Colour keys tying the split bar to its rows below. */
 const SPLIT_DOTS: Record<string, string> = {
   withdrawn: 'bg-orange-500',
@@ -152,7 +151,7 @@ function ProfitSplitBar({ withdrawn, reserved, left, label }: { withdrawn: numbe
   return (
     <div role="img" aria-label={label} className="mt-4 flex h-2 gap-0.5 overflow-hidden rounded-full bg-gray-100">
       {parts.map((part) => (
-        <span key={part.key} className={cn('h-full transition-[width] duration-700 first:rounded-l-full last:rounded-r-full', part.className)} style={{ width: `${(part.value / whole) * 100}%` }} />
+        <span key={part.key} className={cn('grow-x h-full transition-[width] duration-700 first:rounded-l-full last:rounded-r-full motion-reduce:transition-none', part.className)} style={{ width: `${(part.value / whole) * 100}%` }} />
       ))}
     </div>
   );
@@ -1070,9 +1069,10 @@ export default function MoneyTakenPage() {
 
               {/* Earned and withdrawn for both businesses, each a link to where it comes from. */}
               <div className="grid grid-cols-2 divide-x divide-gray-100 rounded-2xl border border-gray-100 lg:min-w-[26rem]">
-                <Link
+                <TappableSurface
                   href={`/financial-analysis?month=${form.month}`}
-                  className="group min-w-0 rounded-l-2xl px-4 py-3 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                  chevron={false}
+                  className="min-w-0 rounded-l-2xl px-4 py-3 hover:bg-gray-50"
                 >
                   <p className="flex items-center gap-1.5 text-xs text-gray-500">
                     <TrendingUp size={13} aria-hidden="true" className="shrink-0 text-gray-400" />
@@ -1082,10 +1082,11 @@ export default function MoneyTakenPage() {
                   <div className="mt-1 truncate text-lg font-semibold tabular-nums text-gray-900">
                     {loading ? <Skeleton className="h-6 w-28" /> : formatCurrency(overall.earned)}
                   </div>
-                </Link>
-                <a
+                </TappableSurface>
+                <TappableSurface
                   href="#withdrawal-history"
-                  className="group min-w-0 rounded-r-2xl px-4 py-3 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                  chevron={false}
+                  className="min-w-0 rounded-r-2xl px-4 py-3 hover:bg-gray-50"
                 >
                   <p className="flex items-center gap-1.5 text-xs text-gray-500">
                     <HandCoins size={13} aria-hidden="true" className="shrink-0 text-gray-400" />
@@ -1100,7 +1101,7 @@ export default function MoneyTakenPage() {
                       </>
                     )}
                   </div>
-                </a>
+                </TappableSurface>
               </div>
             </div>
 
@@ -1112,7 +1113,7 @@ export default function MoneyTakenPage() {
                     side.available > 0 ? (
                       <div
                         key={side.source}
-                        className={cn('h-full transition-[width] duration-700', SOURCE_TINTS[side.source].bar)}
+                        className={cn('grow-x h-full transition-[width] duration-700 motion-reduce:transition-none', SOURCE_TINTS[side.source].bar)}
                         style={{ width: `${(side.available / overall.available) * 100}%` }}
                       />
                     ) : null
@@ -1194,10 +1195,11 @@ export default function MoneyTakenPage() {
                   });
                 }
                 return (
-                  <Link
+                  <TappableSurface
                     key={side.source}
                     href={sideDetailsHref(side.source)}
-                    className="group flex min-w-0 flex-col rounded-2xl border border-gray-100 bg-gray-50/40 p-4 transition-[border-color,background-color] hover:border-gray-200 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                    chevron={false}
+                    className="min-w-0 rounded-2xl border border-gray-100 bg-gray-50/40 p-4 hover:bg-gray-50"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-2.5">
@@ -1273,14 +1275,14 @@ export default function MoneyTakenPage() {
                         ) : null}
                       </>
                     )}
-                  </Link>
+                  </TappableSurface>
                 );
               })}
             </div>
           </Card>
 
-          {!loading && (
-            <OwnerProfitTrend balancesByMonth={balancesByMonth} month={form.month} onSelectMonth={(month) => setField('month', month)} />
+          {loading ? <OwnerProfitTrendSkeleton /> : (
+            <OwnerProfitTrend balancesByMonth={balancesByMonth} month={form.month} currentMonth={currentMonth} onSelectMonth={(month) => setField('month', month)} />
           )}
 
           <div className={cn('grid gap-5', isOwner && 'xl:grid-cols-[minmax(0,1fr)_32rem] 2xl:grid-cols-[minmax(0,1fr)_42rem] xl:items-start')}>

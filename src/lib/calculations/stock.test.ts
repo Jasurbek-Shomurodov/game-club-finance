@@ -8,13 +8,11 @@ import {
   calculateBarProfit,
   calculateDirectSalesSummary,
   calculateStockCountSummary,
-  applyPurchaseDeltaToStockCount,
   calculateWeightedAverageCost,
   calculateClosingStockDefaults,
   calculateAvailableStock,
   validateStockAvailability,
   isWholePositiveStockQuantity,
-  recalculateFutureStockCounts,
   isLowStock,
   listLowStockProducts,
   LOW_STOCK_DEFAULT,
@@ -196,52 +194,6 @@ describe('calculateStockCountSummary', () => {
   });
 });
 
-describe('applyPurchaseDeltaToStockCount', () => {
-  it('adds a same-day purchase to saved added and closing stock without changing sold quantity', () => {
-    expect(applyPurchaseDeltaToStockCount({
-      previousStock: 10,
-      addedToday: 5,
-      closingStock: 12,
-      quantityDelta: 3,
-      salePrice: 15000,
-      costPrice: 9000,
-    })).toEqual({
-      addedToday: 8,
-      closingStock: 15,
-      soldQuantity: 3,
-      giveawayQuantity: 0,
-      giveawayCost: 0,
-      writeOffQuantity: 0,
-      writeOffCost: 0,
-      barIncome: 45000,
-      barCost: 27000,
-      barProfit: 18000,
-    });
-  });
-
-  it('removes a deleted purchase from saved added and closing stock and clamps at zero', () => {
-    expect(applyPurchaseDeltaToStockCount({
-      previousStock: 10,
-      addedToday: 2,
-      closingStock: 1,
-      quantityDelta: -5,
-      salePrice: 10000,
-      costPrice: 6000,
-    })).toEqual({
-      addedToday: 0,
-      closingStock: 0,
-      soldQuantity: 10,
-      giveawayQuantity: 0,
-      giveawayCost: 0,
-      writeOffQuantity: 0,
-      writeOffCost: 0,
-      barIncome: 100000,
-      barCost: 60000,
-      barProfit: 40000,
-    });
-  });
-});
-
 describe('calculateWeightedAverageCost', () => {
   it('calculates weighted average when existing and purchased quantities are equal', () => {
     expect(calculateWeightedAverageCost({
@@ -330,54 +282,6 @@ describe('calculateClosingStockDefaults', () => {
       addedToday: 24,
       closingStock: 10,
     });
-  });
-});
-
-describe('recalculateFutureStockCounts', () => {
-  it('chains previous stock from the edited closing stock into later saved days', () => {
-    expect(recalculateFutureStockCounts(66, [
-      {
-        date: '2026-06-03',
-        added_today: 10,
-        adjustment_quantity: 2,
-        closing_stock: 70,
-        sale_price: 15000,
-        cost_price: 10000,
-      },
-      {
-        date: '2026-06-02',
-        added_today: 0,
-        closing_stock: 60,
-        sale_price: 15000,
-        cost_price: 10000,
-      },
-    ])).toEqual([
-      {
-        date: '2026-06-02',
-        previous_stock: 66,
-        added_today: 0,
-        closing_stock: 60,
-        sold_quantity: 6,
-        sale_price: 15000,
-        cost_price: 10000,
-        bar_income: 90000,
-        bar_cost: 60000,
-        bar_profit: 30000,
-      },
-      {
-        date: '2026-06-03',
-        previous_stock: 60,
-        added_today: 10,
-        adjustment_quantity: 2,
-        closing_stock: 70,
-        sold_quantity: 2,
-        sale_price: 15000,
-        cost_price: 10000,
-        bar_income: 30000,
-        bar_cost: 20000,
-        bar_profit: 10000,
-      },
-    ]);
   });
 });
 
@@ -507,11 +411,7 @@ describe('promo giveaways', () => {
     expect(calculateSoldQuantity(10, 0, 4, 0, 1.9)).toBe(5);
   });
 
-  it('carries giveaways through forward recalculation and totals', () => {
-    const [row] = recalculateFutureStockCounts(10, [
-      { date: '2026-06-29', added_today: 0, giveaway_quantity: 2, closing_stock: 6, sale_price: 100, cost_price: 40 },
-    ]);
-    expect(row).toMatchObject({ previous_stock: 10, sold_quantity: 2, bar_income: 200, bar_cost: 160, bar_profit: 40 });
+  it('carries giveaways through totals', () => {
     expect(summarizeStockRows([
       { tracksInventory: true, previousStock: 10, addedToday: 0, giveawayQuantity: 2, closingStock: 6, soldQuantity: 0, salePrice: 100, costPrice: 40 },
     ])).toMatchObject({ sold: 2, giveaways: 2, giveawayCost: 80, income: 200, profit: 40 });

@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 import { EXPENSE_CATEGORY_ICONS, MONEY_MOVE_ICONS } from '@/components/expenseCategoryIcons';
 
-export type CategoryIconTone = 'expense' | 'bar' | 'income' | 'debt' | 'move' | 'reserve';
+export type CategoryIconTone = 'expense' | 'bar' | 'income' | 'debt' | 'move';
 
 const TONES: Record<CategoryIconTone, string> = {
   expense: 'bg-danger-50 text-danger-600',
@@ -10,7 +10,6 @@ const TONES: Record<CategoryIconTone, string> = {
   income: 'bg-success-50 text-success-600',
   debt: 'bg-primary-50 text-primary-600',
   move: 'bg-gray-100 text-gray-600',
-  reserve: 'bg-purple-50 text-purple-600',
 };
 
 const SIZES = {

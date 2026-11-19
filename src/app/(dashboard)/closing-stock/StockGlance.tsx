@@ -4,7 +4,8 @@ import { useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
 import { PackageX, TriangleAlert, Trophy } from 'lucide-react';
-import { Card, ChartSkeleton, Disclosure } from '@/components/PresentationFoundation';
+import { Card, Disclosure, Skeleton } from '@/components/PresentationFoundation';
+import { DonutSkeleton, SkeletonCard } from '@/components/charts/ChartSkeletons';
 import { colorWithAlpha, chartColors } from '@/components/dashboard/ChartCard';
 import { toDonutSlices } from '@/components/charts/donutSlices';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
@@ -14,7 +15,7 @@ import { cn } from '@/lib/utils';
 
 const DonutBreakdown = dynamic(() => import('@/components/charts/DonutBreakdown').then((module) => module.DonutBreakdown), {
   ssr: false,
-  loading: () => <ChartSkeleton />,
+  loading: () => <DonutSkeleton />,
 });
 
 const LIST_SHOWN = 6;
@@ -140,5 +141,42 @@ export function StockGlance({ rows, stockValue, onFindProduct, onSelectCategory 
         </Card>
       </div>
     </Disclosure>
+  );
+}
+
+/** The open glance while the day loads: its summary line over the value donut, top sellers and attention chips. */
+export function StockGlanceSkeleton() {
+  return (
+    <div aria-hidden="true">
+      <Skeleton className="h-5 w-56 max-w-full" />
+      <div className="mt-2 grid gap-4 lg:grid-cols-3">
+        <SkeletonCard>
+          <Skeleton className="h-3 w-32" />
+          <DonutSkeleton className="mt-3" />
+        </SkeletonCard>
+        <SkeletonCard>
+          <Skeleton className="h-3 w-28" />
+          <div className="mt-3 space-y-2">
+            {Array.from({ length: 5 }, (_, index) => (
+              <div key={index} className="space-y-1.5 px-2 py-1.5">
+                <div className="flex justify-between gap-2">
+                  <Skeleton className="h-3 w-28" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+                <Skeleton className="ml-6 h-1 rounded-full bg-gray-100" />
+              </div>
+            ))}
+          </div>
+        </SkeletonCard>
+        <SkeletonCard>
+          <Skeleton className="h-3 w-36" />
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {[24, 32, 20, 28, 36, 24, 28, 20].map((width, index) => (
+              <Skeleton key={index} className="h-6 rounded-full bg-gray-100" style={{ width: `${width * 4}px` }} />
+            ))}
+          </div>
+        </SkeletonCard>
+      </div>
+    </div>
   );
 }
