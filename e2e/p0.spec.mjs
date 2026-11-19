@@ -117,6 +117,8 @@ test('EXP-010 a Game Club expense can be paid from PlayStation money, a Bar expe
   await expect(dialog.locator('#expense-category option:not([disabled])')).toHaveText(['Cleaning']);
   await dialog.getByRole('radio', { name: 'Game Club Money' }).click();
   await playstation.click();
+  // No category yet: the expense cannot be saved.
+  await expect(dialog.getByRole('button', { name: 'Save Expense' })).toBeDisabled();
   await dialog.locator('#expense-category').selectOption('repair');
   await dialog.locator('#expense-comment').fill('New controller for the console');
   await dialog.getByRole('button', { name: 'Save Expense' }).click();

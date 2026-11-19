@@ -534,7 +534,7 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
         <Field label={t('date')} error={dayClosed ? tc('dayClosed') : undefined}>
           <DatePicker ariaLabel={t('date')} value={form.date} max={businessToday} onChange={(value) => set('date', value)} />
         </Field>
-        <Field label={t('category')} htmlFor="expense-category">
+        <Field label={t('category')} htmlFor="expense-category" required>
           <Select id="expense-category" required disabled={selectedPreset !== null} value={form.category} onChange={(event) => set('category', event.target.value)}>
             <option value="" disabled>{t('selectCategory')}</option>
             {/* Bar money offers only cleaning; a chosen plan always shows its own category. */}
@@ -559,7 +559,7 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
         type="submit"
         size="lg"
         fullWidth
-        disabled={enabledPaymentMethods.length === 0 || dayClosed || overBalance}
+        disabled={enabledPaymentMethods.length === 0 || dayClosed || overBalance || !form.category}
         loading={saving}
         loadingLabel={tc('saving')}
         icon={<Save size={18} aria-hidden="true" />}
