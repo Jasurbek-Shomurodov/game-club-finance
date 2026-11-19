@@ -21,7 +21,7 @@ import {
   useEntryNoteGuard,
 } from '@/components/PresentationFoundation';
 import { formatCurrency, formatCurrencyInput, formatUnitCurrency, parseDecimalInput } from '@/lib/formatters';
-import { MANUAL_EXPENSE_CATEGORIES } from '@/lib/expenseCategories';
+import { isExpenseCategoryAllowedForSource, manualExpenseCategoriesFor } from '@/lib/expenseCategories';
 import { createClient, mutateFinanceRequest } from '@/lib/supabase/client';
 import { fetchExpensePresets } from '@/lib/supabase/expensePresets';
 import { fetchExpenseMethodBalances, type ExpenseMethodBalances } from '@/lib/supabase/expenseBalances';
@@ -204,6 +204,8 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
       if (field === 'payment_source' && value !== current.payment_source) {
         const offered = methodsFor(next.payment_source);
         if (!offered.includes(next.payment_method) || next.payment_source === 'reserve') next.payment_method = offered[0] ?? next.payment_method;
+        // Bar money pays only for cleaning, so a category the new source does not offer is cleared.
+        if (!current.preset_id && !isExpenseCategoryAllowedForSource(next.category, next.payment_source)) next.category = '';
       }
       // Leaving dollars for sums: sum amounts are whole, so show what will be saved.
       if (current.payment_method === 'usd' && next.payment_method !== 'usd') next.amount = formatCurrencyInput(current.amount);
@@ -511,8 +513,8 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
         <Field label={t('category')} htmlFor="expense-category">
           <Select id="expense-category" required disabled={selectedPreset !== null} value={form.category} onChange={(event) => set('category', event.target.value)}>
             <option value="" disabled>{t('selectCategory')}</option>
-            {/* A chosen plan always shows its own category. */}
-            {[...new Set([...MANUAL_EXPENSE_CATEGORIES, ...(selectedPreset ? [selectedPreset.category] : [])])].map((category) => (
+            {/* Bar money offers only cleaning; a chosen plan always shows its own category. */}
+            {[...new Set([...manualExpenseCategoriesFor(form.payment_source), ...(selectedPreset ? [selectedPreset.category] : [])])].map((category) => (
               <option key={category} value={category}>{categoryLabel(category)}</option>
             ))}
           </Select>

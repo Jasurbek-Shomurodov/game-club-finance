@@ -307,20 +307,34 @@ describe('expense creation route', () => {
     expect((await create({ ...body, paymentMethod: 'usd', usdAmount: 100 })).status).toBe(400);
     expect((await create({ ...body, paymentMethod: 'usd', usdAmount: 0.001, usdRate: 12_600 })).status).toBe(400);
     expect((await create({ ...body, usdAmount: 100, usdRate: 12_600 })).status).toBe(400);
-    const bar = await create({ ...body, paymentMethod: 'usd', paymentSource: 'bar', usdAmount: 100, usdRate: 12_600 });
+    const bar = await create({ ...body, category: 'cleaning', paymentMethod: 'usd', paymentSource: 'bar', usdAmount: 100, usdRate: 12_600 });
     expect((await bar.json()).code).toBe('PAYMENT_METHOD_DISABLED');
   });
 
-  it('takes investments from Game Club, Bar or the reserve', async () => {
-    for (const source of [{ paymentSource: 'game_club' }, { paymentSource: 'bar' }, { fromReserve: true }]) {
+  it('takes investments from Game Club money or the reserve', async () => {
+    for (const source of [{ paymentSource: 'game_club' }, { fromReserve: true }]) {
       mockCreate();
       expect((await create({ ...body, category: 'investments', ...source })).status).toBe(201);
     }
   });
 
+  it('takes only cleaning from Bar money and never food and drinks', async () => {
+    mockCreate();
+    expect((await create({ ...body, category: 'cleaning', paymentSource: 'bar' })).status).toBe(201);
+    for (const payload of [
+      { category: 'repair', paymentSource: 'bar' },
+      { category: 'food_drinks', paymentSource: 'bar' },
+      { category: 'food_drinks', paymentSource: 'game_club' },
+      { category: 'food_drinks', fromReserve: true },
+    ]) {
+      mockCreate();
+      expect((await create({ ...body, ...payload })).status).toBe(400);
+    }
+  });
+
   it('refuses PlayStation money for a Bar expense', async () => {
     mockCreate();
-    const response = await create({ ...body, paymentMethod: 'playstation', paymentSource: 'bar' });
+    const response = await create({ ...body, category: 'cleaning', paymentMethod: 'playstation', paymentSource: 'bar' });
     expect(response.status).toBe(400);
     expect((await response.json()).code).toBe('PAYMENT_METHOD_DISABLED');
   });
@@ -613,8 +627,19 @@ describe('expense payment method route', () => {
       expect(rpc).not.toHaveBeenCalled();
     });
 
-    it('moves any expense into investments', async () => {
-      const { rpc } = mockPatchSupabase(baseExpense);
+    it('keeps Bar money expenses on cleaning and refuses food and drinks', async () => {
+      const { rpc } = mockPatchSupabase({ ...baseExpense, category: 'cleaning', payment_source: 'game_club' });
+      expect((await patchBody({ category: 'food_drinks' })).status).toBe(400);
+      mockPatchSupabase(baseExpense);
+      expect((await patchBody({ category: 'repair' })).status).toBe(400);
+      expect(rpc).not.toHaveBeenCalled();
+      const bar = mockPatchSupabase(baseExpense);
+      expect((await patchBody({ category: 'cleaning' })).status).toBe(200);
+      expect(bar.rpc).toHaveBeenCalledWith('update_expense_category', { p_club_id: CLUB_ID, p_expense_id: EXPENSE_ID, p_category: 'cleaning' });
+    });
+
+    it('moves any Game Club expense into investments', async () => {
+      const { rpc } = mockPatchSupabase({ ...baseExpense, payment_source: 'game_club' });
       expect((await patchBody({ category: 'investments' })).status).toBe(200);
       expect(rpc).toHaveBeenCalledWith('update_expense_category', { p_club_id: CLUB_ID, p_expense_id: EXPENSE_ID, p_category: 'investments' });
     });

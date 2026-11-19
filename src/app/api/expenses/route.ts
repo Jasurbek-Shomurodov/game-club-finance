@@ -1,7 +1,7 @@
 import { after } from 'next/server';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { validateEntryNote } from '@/lib/entryNote';
-import { isManualExpenseCategory } from '@/lib/expenseCategories';
+import { isExpenseCategoryAllowedForSource, isManualExpenseCategory } from '@/lib/expenseCategories';
 import { dollarExpenseAmount, expensePaymentMethods, normalizePaymentMethods } from '@/lib/paymentMethods';
 import { createClient } from '@/lib/supabase/server';
 import { actorName } from '@/lib/telegram/actorName';
@@ -83,6 +83,10 @@ function isValidBody(body: ExpenseRequestBody): body is ValidExpenseRequestBody 
     && body.amount > 0
     && typeof body.category === 'string'
     && isManualExpenseCategory(body.category.trim())
+    // Bar money pays only for cleaning and food/drinks are bar purchases; a chosen
+    // planned expense keeps the category the owner set on it (091 checks the match).
+    && (isId(body.presetId)
+      || isExpenseCategoryAllowedForSource(body.category.trim(), body.fromReserve === true ? 'reserve' : body.paymentSource as 'game_club' | 'bar'))
     && EXPENSE_PAYMENT_METHODS.includes(body.paymentMethod as ExpensePaymentMethod)
     && PAYMENT_SOURCES.includes(body.paymentSource as (typeof PAYMENT_SOURCES)[number])
     && (body.comment === null || body.comment === undefined || (typeof body.comment === 'string' && body.comment.length <= 300))
@@ -398,6 +402,10 @@ export async function PATCH(request: Request) {
   }
   const changeDate = date !== null && expense.date !== date;
   const changeCategory = category !== null && expense.category !== category;
+  // Bar money pays only for cleaning; food and drinks are bar purchases, not expenses.
+  if (changeCategory && !isExpenseCategoryAllowedForSource(category, expenseFromReserve(expense) ? 'reserve' : expense.payment_source)) {
+    return expenseErrorResponse('INVALID_REQUEST');
+  }
   if (!changeMethod && !changeDate && !changeCategory) return Response.json({ expense });
 
   // Owner check, the method/date/category rules and each write happen atomically in their RPC.

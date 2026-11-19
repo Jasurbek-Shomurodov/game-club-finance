@@ -21,7 +21,7 @@ import {
   useToast,
 } from '@/components/PresentationFoundation';
 import type { ExpensePreset, ExpensePresetSource } from '@/lib/calculations/expensePlans';
-import { MANUAL_EXPENSE_CATEGORIES } from '@/lib/expenseCategories';
+import { isExpenseCategoryAllowedForSource, manualExpenseCategoriesFor } from '@/lib/expenseCategories';
 import { formatCurrency, formatCurrencyInput, parseCurrencyInput } from '@/lib/formatters';
 import { useClub } from '@/components/layout/DashboardShell';
 import { PAYMENT_METHOD_ICONS } from '@/components/paymentMethodIcons';
@@ -260,7 +260,7 @@ function PresetList({ clubId, isOwner }: { clubId: string; isOwner: boolean }) {
                 onChange={(event) => setForm({ ...form, category: event.target.value })}
               >
                 <option value="" disabled>{tExpenses('selectCategory')}</option>
-                {MANUAL_EXPENSE_CATEGORIES.map((category) => (
+                {manualExpenseCategoriesFor(form.payment_source).map((category) => (
                   <option key={category} value={category}>{tExpenses(`categories.${category}`)}</option>
                 ))}
               </Select>
@@ -271,7 +271,12 @@ function PresetList({ clubId, isOwner }: { clubId: string; isOwner: boolean }) {
                 label={tExpenses('paymentSource')}
                 value={form.payment_source}
                 disabled={form.termsLocked !== false}
-                onChange={(source) => setForm({ ...form, payment_source: source })}
+                onChange={(source) => setForm({
+                  ...form,
+                  payment_source: source,
+                  // Bar money pays only for cleaning.
+                  category: isExpenseCategoryAllowedForSource(form.category, source) ? form.category : '',
+                })}
                 options={SOURCES.map((source) => ({ value: source, label: tExpenses(`paymentSources.${source}`) }))}
               />
             </Field>

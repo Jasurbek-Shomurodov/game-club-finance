@@ -107,15 +107,17 @@ test('EXP-010 a Game Club expense can be paid from PlayStation money, a Bar expe
   await page.getByRole('button', { name: 'Register Expense' }).click();
   const dialog = page.getByRole('dialog', { name: 'Register Expense' });
   await dialog.locator('#expense-amount').fill('25000');
-  await dialog.locator('#expense-category').selectOption('repair');
   const playstation = dialog.getByRole('radio', { name: 'PlayStation' });
   await playstation.click();
   await expect(playstation).toHaveAttribute('aria-checked', 'true');
   // Bar money has no PlayStation method, so the choice falls back to the club's default.
   await dialog.getByRole('radio', { name: 'Bar Money' }).click();
   await expect(playstation).toBeHidden();
+  // Bar money pays only for cleaning.
+  await expect(dialog.locator('#expense-category option:not([disabled])')).toHaveText(['Cleaning']);
   await dialog.getByRole('radio', { name: 'Game Club Money' }).click();
   await playstation.click();
+  await dialog.locator('#expense-category').selectOption('repair');
   await dialog.locator('#expense-comment').fill('New controller for the console');
   await dialog.getByRole('button', { name: 'Save Expense' }).click();
   await expect(page.getByText('Expense registered successfully.')).toBeVisible();
