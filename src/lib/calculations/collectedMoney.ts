@@ -135,3 +135,83 @@ export function parseCollectionBalances(value: unknown): CollectionBalances | nu
   }
   return result;
 }
+
+/** One line of the collected money ledger: a collect (every method of one save), an expense, or a move to the reserve. */
+export interface CollectedLedgerEntry extends ByCollectedMethod {
+  kind: CollectedMoneyMove['kind'];
+  id: string;
+  date: string;
+  createdAt: string;
+  createdBy: string | null;
+  comment: string | null;
+  /** What collected money held, all methods together, once this line was saved. */
+  heldAfter: number;
+}
+
+/**
+ * Every move of collected money as ledger lines, newest first. Amounts are
+ * signed (a collect adds, an expense or a reserve move takes away) and each
+ * line carries the running balance, which ends at the summary's held total.
+ */
+export function buildCollectedLedger(moves: readonly CollectedMoneyMove[]): CollectedLedgerEntry[] {
+  const lines = new Map<string, CollectedLedgerEntry>();
+  for (const move of moves) {
+    const key = `${move.kind}:${move.id}`;
+    const line = lines.get(key) ?? {
+      ...NO_COLLECTED_MONEY,
+      kind: move.kind,
+      id: move.id,
+      date: move.date,
+      createdAt: move.createdAt,
+      createdBy: move.createdBy,
+      comment: move.comment,
+      heldAfter: 0,
+    };
+    lines.set(key, { ...line, ...add(line, move.method, move.amount) });
+  }
+  const oldestFirst = [...lines.values()].sort((a, b) => (
+    a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)
+  ));
+  let held = 0;
+  return oldestFirst.map((line) => {
+    held += line.total;
+    return { ...line, heldAfter: held };
+  }).reverse();
+}
+
+/** What one person collected over the period. */
+export interface CollectorTotal extends ByCollectedMethod {
+  /** The collector's user id, or null when it is not known. */
+  collectorId: string | null;
+  count: number;
+  lastDate: string;
+}
+
+/** Collections summed per collector, the largest total first. */
+export function summarizeByCollector(collections: readonly CollectionGroup[]): CollectorTotal[] {
+  const byCollector = new Map<string | null, CollectorTotal>();
+  for (const group of collections) {
+    const current = byCollector.get(group.createdBy) ?? {
+      ...NO_COLLECTED_MONEY,
+      collectorId: group.createdBy,
+      count: 0,
+      lastDate: group.date,
+    };
+    const next = COLLECTED_METHODS.reduce((sum, method) => add(sum, method, group[method]), current as ByCollectedMethod);
+    byCollector.set(group.createdBy, {
+      ...current,
+      ...next,
+      count: current.count + 1,
+      lastDate: group.date > current.lastDate ? group.date : current.lastDate,
+    });
+  }
+  return [...byCollector.values()].sort((a, b) => b.total - a.total || b.lastDate.localeCompare(a.lastDate));
+}
+
+/** Per-method and total sums of some ledger lines or collections, e.g. the ones a filter leaves. */
+export function sumCollectedRows(rows: ReadonlyArray<ByCollectedMethod>): ByCollectedMethod {
+  return rows.reduce(
+    (sum, row) => COLLECTED_METHODS.reduce((acc, method) => add(acc, method, row[method]), sum),
+    NO_COLLECTED_MONEY,
+  );
+}

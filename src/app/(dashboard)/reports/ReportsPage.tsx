@@ -518,8 +518,9 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       fetchCollectedMoneyMoves(supabase, selectedClubId, collectedFrom, range.to),
       isOwner ? fetchReserveHoldings(supabase, selectedClubId) : Promise.resolve(null),
     ]);
+    // Everyone who moved collected money: collectors, and who paid from it or moved it to the reserve.
     const collectorNames = await fetchProfileNames(supabase, collectedMoves.flatMap((move) => (
-      move.kind === 'collect' && move.createdBy ? [move.createdBy] : []
+      move.createdBy ? [move.createdBy] : []
     )));
     const collectedRows = { collectedMoves, collectorNames, reserveSums: reserveHoldings?.sums ?? null };
 
@@ -1378,6 +1379,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       {hasReportsAccess && !loadFailed && view === 'collected' && (
         <CollectedTab
           summary={collectedSummary}
+          moves={reportRows.collectedMoves}
           collectorNames={reportRows.collectorNames}
           enabledPaymentMethods={enabledPaymentMethods}
           loading={loading}

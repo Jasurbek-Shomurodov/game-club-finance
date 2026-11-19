@@ -597,6 +597,34 @@
       "collectedCardHelper": "Yig‘uvchi olgan, hali jamg‘armada emas",
       "reserveCard": "Jamg‘armada",
       "reserveCardHelper": "Egasi ajratib qo‘ygan"
+    },
+    "collectedView": {
+      "viewLabel": "Yig‘ilgan pul ko‘rinishi",
+      "collections": "Yig‘imlar ({count})",
+      "ledger": "Barcha harakatlar ({count})",
+      "ledgerTitle": "Barcha harakatlar",
+      "ledgerDescription": "Yig‘ilgan pulning har bir harakati, eskilari pastda: admindan nima olindi, nimaga to‘landi, nima zaxiraga o‘tdi va har biridan keyin yig‘uvchida qancha qoldi.",
+      "typeColumn": "Turi",
+      "byColumn": "Kim",
+      "changeColumn": "O‘zgarish",
+      "heldAfterColumn": "Keyin qoldi",
+      "savedAtColumn": "Saqlangan",
+      "kind": {
+        "collect": "Yig‘ildi",
+        "expense": "Xarajat",
+        "reserve": "Zaxiraga"
+      },
+      "kindFilter": "Tur bo‘yicha filtr",
+      "netChange": "Jami o‘zgarish",
+      "shownTotal": "Ko‘rsatilgan ({count})",
+      "stillHeld": "Hali yig‘uvchida",
+      "stillHeldHelper": "To‘lash yoki zaxiraga o‘tkazish uchun hech narsa qolmadi",
+      "collectorsTitle": "Yig‘uvchilar bo‘yicha",
+      "collectorsDescription": "{count} ta yig‘im, o‘rtacha {average}, oxirgisi {last}. Faqat uning yig‘imlarini ko‘rish uchun yig‘uvchini bosing.",
+      "collectorStats": "{count} ta yig‘im · {share}% · oxirgisi {last}",
+      "clearCollector": "Hammasini ko‘rsatish (hozir: {name})",
+      "searchPlaceholder": "Ism yoki izoh bo‘yicha qidirish",
+      "noMatches": "Bu filtrlarga mos hech narsa yo‘q."
     }
   },
   "dailyCash": {

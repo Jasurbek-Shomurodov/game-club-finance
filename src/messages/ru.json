@@ -597,6 +597,34 @@
       "collectedCardHelper": "Забрал инкассатор, ещё не в резерве",
       "reserveCard": "В резерве",
       "reserveCardHelper": "Отложено владельцем"
+    },
+    "collectedView": {
+      "viewLabel": "Вид собранных денег",
+      "collections": "Сборы ({count})",
+      "ledger": "Все движения ({count})",
+      "ledgerTitle": "Все движения",
+      "ledgerDescription": "Каждое движение собранных денег, старые внизу: что забрали у админа, что оплатили, что отложили в резерв и сколько осталось у сборщика после каждого.",
+      "typeColumn": "Тип",
+      "byColumn": "Кто",
+      "changeColumn": "Изменение",
+      "heldAfterColumn": "Осталось после",
+      "savedAtColumn": "Сохранено",
+      "kind": {
+        "collect": "Собрано",
+        "expense": "Расход",
+        "reserve": "В резерв"
+      },
+      "kindFilter": "Фильтр по типу",
+      "netChange": "Итого изменение",
+      "shownTotal": "Показано ({count})",
+      "stillHeld": "Ещё у сборщика",
+      "stillHeldHelper": "Нечего оплачивать или переносить в резерв",
+      "collectorsTitle": "По сборщикам",
+      "collectorsDescription": "{count, plural, one {# сбор} few {# сбора} many {# сборов} other {# сбора}}, в среднем {average}, последний {last}. Нажмите на сборщика, чтобы видеть только его сборы.",
+      "collectorStats": "{count, plural, one {# сбор} few {# сбора} many {# сборов} other {# сбора}} · {share}% · последний {last}",
+      "clearCollector": "Показать всех (сейчас: {name})",
+      "searchPlaceholder": "Поиск по имени или заметке",
+      "noMatches": "Ничего не найдено по этим фильтрам."
     }
   },
   "dailyCash": {

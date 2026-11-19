@@ -597,6 +597,34 @@
       "collectedCardHelper": "Taken by the collector, not yet in the reserve",
       "reserveCard": "In the reserve",
       "reserveCardHelper": "Set aside by the owner"
+    },
+    "collectedView": {
+      "viewLabel": "Collected money view",
+      "collections": "Collections ({count})",
+      "ledger": "All movements ({count})",
+      "ledgerTitle": "All movements",
+      "ledgerDescription": "Every move of collected money, oldest at the bottom: what was taken from the admin, what it paid for, what went into the reserve, and what the collector held after each one.",
+      "typeColumn": "Type",
+      "byColumn": "By",
+      "changeColumn": "Change",
+      "heldAfterColumn": "Held after",
+      "savedAtColumn": "Saved at",
+      "kind": {
+        "collect": "Collected",
+        "expense": "Expense",
+        "reserve": "To reserve"
+      },
+      "kindFilter": "Filter by type",
+      "netChange": "Net change",
+      "shownTotal": "Shown ({count})",
+      "stillHeld": "Still with the collector",
+      "stillHeldHelper": "Nothing left to pay out or move to the reserve",
+      "collectorsTitle": "By collector",
+      "collectorsDescription": "{count, plural, one {# collection} other {# collections}}, {average} on average, last on {last}. Tap a collector to see only theirs.",
+      "collectorStats": "{count, plural, one {# collection} other {# collections}} · {share}% · last {last}",
+      "clearCollector": "Show everyone (now: {name})",
+      "searchPlaceholder": "Search by name or note",
+      "noMatches": "Nothing matches these filters."
     }
   },
   "dailyCash": {
