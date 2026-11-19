@@ -44,6 +44,12 @@ interface ExpenseRequestBody {
    * set this. The reserve has no payment methods: the row is stored in cash.
    */
   fromReserve?: unknown;
+  /**
+   * Money a collector took out of the till pays instead of the till (169):
+   * Game Club, a sums method, never with the reserve. The database checks
+   * the collection feature and what collected money holds.
+   */
+  fromCollected?: unknown;
 }
 
 interface ValidExpenseRequestBody {
@@ -59,6 +65,7 @@ interface ValidExpenseRequestBody {
   usdAmount?: number | null;
   usdRate?: number | null;
   fromReserve?: boolean;
+  fromCollected?: boolean;
 }
 
 /** Positive, below the numeric(16,2) column limit, at most two decimals. */
@@ -93,6 +100,9 @@ function isValidBody(body: ExpenseRequestBody): body is ValidExpenseRequestBody 
     && (body.presetId === null || body.presetId === undefined || isId(body.presetId))
     && (body.fromReserve === undefined || typeof body.fromReserve === 'boolean')
     && !(body.fromReserve === true && body.paymentMethod === 'usd')
+    && (body.fromCollected === undefined || typeof body.fromCollected === 'boolean')
+    && !(body.fromCollected === true && (body.fromReserve === true || body.paymentSource !== 'game_club'
+      || !['cash', 'terminal', 'card', 'playstation'].includes(body.paymentMethod as string)))
     // Dollars and rate come exactly with a dollar expense.
     && (body.paymentMethod === 'usd'
       ? isCents(body.usdAmount) && isCents(body.usdRate)
@@ -113,6 +123,7 @@ function sameExpense(existing: Record<string, unknown>, row: Record<string, unkn
   return Number(existing.amount) === Number(row.amount)
     && Number(existing.usd_amount ?? 0) === Number(row.usd_amount ?? 0)
     && Boolean(existing.paid_from_reserve) === Boolean(row.paid_from_reserve)
+    && Boolean(existing.paid_from_collected) === Boolean(row.paid_from_collected)
     && ['date', 'category', 'payment_method', 'payment_source', 'comment', 'preset_id'].every((field) => (existing[field] ?? null) === (row[field] ?? null));
 }
 
@@ -135,6 +146,7 @@ async function notifyExpense(supabase: SupabaseClient, user: User, expense: Expe
         paymentSource: expense.payment_source,
         dollars: expenseDollars(expense),
         fromReserve: expenseFromReserve(expense),
+        fromCollected: expense.paid_from_collected === true,
       }),
     });
     const { error: coordinateError } = await supabase
@@ -213,6 +225,8 @@ export async function POST(request: Request) {
     // Sent only when chosen, so clubs without migration 136 keep saving expenses.
     // The 136 trigger checks the owner and what the reserve holds.
     ...(body.fromReserve === true ? { paid_from_reserve: true } : {}),
+    // Sent only when chosen, so clubs without migration 169 keep saving expenses.
+    ...(body.fromCollected === true ? { paid_from_collected: true } : {}),
   };
 
   let expense: Expense;

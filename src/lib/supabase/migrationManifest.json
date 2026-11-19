@@ -4712,10 +4712,6 @@
       },
       {
         "kind": "function",
-        "signature": "public.expenses_never_negative()"
-      },
-      {
-        "kind": "function",
         "signature": "public.money_exchanges_never_negative()"
       },
       {
@@ -5087,16 +5083,6 @@
       },
       {
         "kind": "functionBody",
-        "signature": "public.method_daily_lowest_balance(uuid,text,date)",
-        "md5": "e7ae27d83cdd6ac285b7ae3919d7e935"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.owner_reserve_never_negative()",
-        "md5": "eb3ba3e84c3b89bd26a92f26d3a6b4a7"
-      },
-      {
-        "kind": "functionBody",
         "signature": "public.get_owner_money_bundle(uuid,date)",
         "md5": "a24d46221de0a782ee9656fac0fd0dda"
       },
@@ -5161,5 +5147,172 @@
   {
     "file": "168_showcase_gta6.sql",
     "probes": []
+  },
+  {
+    "file": "169_money_collections.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.money_collections"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_collections",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_collections",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_collections",
+        "column": "request_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_collections",
+        "column": "date"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_collections",
+        "column": "payment_method"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_collections",
+        "column": "amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_collections",
+        "column": "comment"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_collections",
+        "column": "collected_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.money_collections",
+        "column": "created_at"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.money_collections",
+        "name": "money_collections_method"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.money_collections",
+        "name": "money_collections_amount"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.money_collections",
+        "name": "money_collections_request_method"
+      },
+      {
+        "kind": "relation",
+        "name": "public.money_collections_club_date"
+      },
+      {
+        "kind": "policy",
+        "table": "public.money_collections",
+        "name": "money_collections_member_read"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.money_collections",
+        "name": "record_entry_audit"
+      },
+      {
+        "kind": "column",
+        "table": "public.expenses",
+        "column": "paid_from_collected"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_reserve_entries",
+        "column": "from_collected"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_reserve_entries",
+        "name": "owner_reserve_entries_from_collected"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.expenses",
+        "name": "expenses_collected_guard"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.money_collections",
+        "name": "money_collections_never_negative"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.method_daily_lowest_balance(uuid,text,date)",
+        "md5": "4b8a65f6cff02fef45620f43b6c45ce9"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.expenses_never_negative()",
+        "md5": "7a34f2a4dad27924d823de84482a9a8f"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.owner_reserve_never_negative()",
+        "md5": "6b5c06d41c07aa7825756450e7980dbf"
+      },
+      {
+        "kind": "function",
+        "signature": "public.expenses_collected_guard()"
+      },
+      {
+        "kind": "function",
+        "signature": "public.method_daily_balances(uuid,text,date,text)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.collected_daily_lowest_balance(uuid,text,date)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.method_spendable_from(uuid,text,date,text)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.assert_collected_never_negative(uuid,text,date)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.money_collections_never_negative()"
+      },
+      {
+        "kind": "function",
+        "signature": "public.get_collection_balances(uuid,date)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.get_collected_money_moves(uuid,date,date)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.collect_money(uuid,uuid,date,jsonb,text)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.delete_money_collection(uuid,uuid)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.move_collected_to_reserve(uuid,uuid,date,text,numeric,text)"
+      }
+    ]
   }
 ]

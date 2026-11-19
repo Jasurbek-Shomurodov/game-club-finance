@@ -234,6 +234,8 @@ export interface Expense {
   cash_shortage_id?: string | null;
   /** Paid from the owner reserve (migration 136), not from the month's money. */
   paid_from_reserve?: boolean;
+  /** Paid from collected money, not the admin's till (169); absent before migration 169. */
+  paid_from_collected?: boolean;
   /** The planned expense this payment counts against (091); null when none was picked. */
   preset_id: string | null;
   created_by: string | null;
@@ -324,6 +326,20 @@ export interface CashShortage {
 }
 
 /** Owner profit set aside in the club (migration 136): a deposit leaves a month, a return goes back into one. */
+/** Money a collector took out of the admin's till on a business date (169), one row per method. */
+export interface MoneyCollection {
+  id: string;
+  club_id: string;
+  /** Rows saved by one collect share it. */
+  request_id: string;
+  date: string;
+  payment_method: 'cash' | 'terminal' | 'card' | 'playstation';
+  amount: number;
+  comment: string | null;
+  collected_by: string | null;
+  created_at: string;
+}
+
 export interface OwnerReserveEntry {
   id: string;
   club_id: string;
@@ -339,6 +355,8 @@ export interface OwnerReserveEntry {
   collection_date: string | null;
   /** The business day the money moved (162), inside `period_month`; absent before migration 162. */
   entry_date?: string | null;
+  /** A deposit made from collected money, not the till (169); absent before migration 169. */
+  from_collected?: boolean;
   created_by: string;
   created_at: string;
 }

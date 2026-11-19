@@ -1130,3 +1130,48 @@ test.describe('on a phone', () => {
     await expect(count).toBeInViewport({ ratio: 1 });
   });
 });
+
+test('REP-010 a collector takes money from the admin, and a bill is paid from what was collected', async ({ page }) => {
+  // Today's Arcade money left: cash 1 200 000 + 200 000 debt payment - 120 000 cleaning = 1 280 000,
+  // terminal 850 000, card 350 000 - 80 000 = 270 000, PlayStation 250 000: 2 650 000 with the admin.
+  await page.goto('/reports');
+  const whereabouts = page.locator('section').filter({ hasText: 'Money still in the club’s kassa' }).first();
+  await expect(whereabouts).toContainText(uzs(expected.gameClubMoneyLeft));
+
+  await page.getByRole('button', { name: 'Collect money' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Collect money from the admin' });
+  // Every method starts at everything the kassa holds.
+  await expect(dialog.locator('#collect-cash')).toHaveValue(uzs(1_280_000));
+  await expect(dialog.locator('#collect-terminal')).toHaveValue(uzs(850_000));
+  await dialog.locator('#collect-cash').fill('1000000');
+  await dialog.getByRole('button', { name: 'Mark as collected' }).click();
+  await expect(page.getByText('Money collected')).toBeVisible();
+
+  // 280 000 cash stays with the admin; 1 000 000 + 850 000 + 270 000 + 250 000 is collected.
+  await expect(whereabouts).toContainText(uzs(280_000));
+  await expect(whereabouts).toContainText(uzs(2_370_000));
+  const rows = await (await restAs(accounts.owner, 'GET', `money_collections?select=payment_method,amount&club_id=eq.${clubs.arcade.id}&order=payment_method.asc`)).json();
+  expect(rows).toEqual([
+    { payment_method: 'card', amount: 270000 },
+    { payment_method: 'cash', amount: 1000000 },
+    { payment_method: 'playstation', amount: 250000 },
+    { payment_method: 'terminal', amount: 850000 },
+  ]);
+
+  // A bill paid from collected money cannot spend more than was collected, and leaves the admin's kassa alone.
+  const bill = amount => page.request.post('/api/expenses', { data: {
+    id: crypto.randomUUID(), clubId: clubs.arcade.id, date: today, amount, category: 'repair',
+    paymentMethod: 'cash', paymentSource: 'game_club', comment: 'Server bill for three days', fromCollected: true,
+  } });
+  expect((await (await bill(1_000_001)).json()).code).toBe('COLLECTED_INSUFFICIENT');
+  expect((await bill(900_000)).status()).toBe(201);
+  await page.reload();
+  await expect(whereabouts).toContainText(uzs(280_000));
+  await expect(whereabouts).toContainText(uzs(1_470_000));
+
+  // The Collected tab lists the collection and what it paid for.
+  await page.getByText('Taken by the collector, not yet in the reserve').click();
+  await expect(page).toHaveURL(/view=collected/);
+  await expect(page.getByRole('table').filter({ hasText: 'Collected by' })).toContainText(uzs(2_370_000));
+  await expect(page.getByText('Paid from collected')).toBeVisible();
+});

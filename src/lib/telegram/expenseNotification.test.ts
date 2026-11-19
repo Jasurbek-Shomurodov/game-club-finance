@@ -56,3 +56,13 @@ describe('expenseDollars', () => {
     expect(expenseDollars({ payment_method: 'usd', usd_amount: null, usd_rate: 12850 })).toBeNull();
   });
 });
+
+describe('an expense paid from collected money (169)', () => {
+  it('says so after the side', () => {
+    const text = buildExpenseNotification({
+      addedBy: 'Mother', amount: 3_000_000, category: 'repairs', comment: 'server bill', date: '2026-11-03',
+      paymentMethod: 'cash', paymentSource: 'game_club', fromCollected: true,
+    });
+    expect(text.split('\n')[1]).toContain('Игровой клуб · из собранных денег');
+  });
+});

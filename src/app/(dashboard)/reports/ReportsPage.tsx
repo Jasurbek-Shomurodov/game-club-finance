@@ -14,7 +14,9 @@ import {
   CreditCard,
   Download,
   Gamepad2,
+  HandCoins,
   Landmark,
+  PiggyBank,
   Lock,
   ReceiptText,
   Trash2,
@@ -93,12 +95,21 @@ import { fetchReserveMoves } from '@/lib/supabase/reserveMoves';
 import type { ReserveMove } from '@/lib/calculations/reserveMoves';
 import { requestCollectionChange } from '@/lib/collectionsApi';
 import {
-  addCollectedByMethod,
+  COLLECTED_METHODS,
   moneyStillHeld,
-  NO_MONEY_COLLECTED,
   summarizeCollectedMoney,
-  type CollectedByMethod,
+  type CollectedMethod,
+  type CollectedMoneyMove,
+  type CollectionGroup,
 } from '@/lib/calculations/collectedMoney';
+import {
+  deleteMoneyCollection,
+  fetchCollectedMoneyMoves,
+  isCollectedInsufficientError,
+  moveCollectedToReserve,
+} from '@/lib/supabase/moneyCollections';
+import { fetchReserveHoldings } from '@/lib/supabase/ownerReserve';
+import CollectMoneyForm from './CollectMoneyForm';
 import { ReportsTabs, type ReportsView } from './ReportsTabs';
 import { DayBreakdownModal } from './DayBreakdownModal';
 import { MethodDaysModal, type PaymentMethodFigure } from './MethodDaysModal';
@@ -121,8 +132,11 @@ const emptyReportRows = {
   collections: [] as DailyCashCollection[],
   /** What each method held when the period began; null when it starts on the 1st or is unknown. */
   opening: null as MoneyReport['paymentMethods'] | null,
-  /** Money "Mark as collected" took earlier this month, before the period began. */
-  openingCollected: NO_MONEY_COLLECTED as CollectedByMethod,
+  /** Collected money moves (169) from the month's first day through the period's end, like the cards' money left. */
+  collectedMoves: [] as CollectedMoneyMove[],
+  collectorNames: new Map<string, string | null>() as ReadonlyMap<string, string | null>,
+  /** The owner reserve's sums, for owners; null when it cannot be read. */
+  reserveSums: null as number | null,
 };
 
 type ReportRange = { from: string; to: string };
@@ -226,7 +240,7 @@ function PaymentCard({
   leftLabel: string;
   takenLabel: string;
   stillHeldLabel: string;
-  /** Money "Mark as collected" took from this method over the same span as `left`. */
+  /** What collected money (169) still holds of this method, over the same span as `left`. */
   taken: number;
 }) {
   const stillHeld = moneyStillHeld(data.left, taken);
@@ -293,7 +307,7 @@ function PaymentCard({
           </div>
         )}
       </dl>
-      {/* Money left is what the method earned; collectors already took the ticked dates' share of it. */}
+      {/* Money left is what the method earned; part of it is already with the collector (169). */}
       <dl className="mt-3 space-y-2 border-t border-gray-100 pt-3 text-sm">
         <div className="flex items-baseline justify-between gap-3">
           <dt className="text-gray-500">{takenLabel}</dt>
@@ -310,6 +324,73 @@ function PaymentCard({
       </dl>
     </Card>
     </button>
+  );
+}
+
+/**
+ * Where the Game Club's money is right now (169): with the admin, with the
+ * collector, and in the owner reserve. Each card stands on its own; they are
+ * three places, not parts of one total.
+ */
+function MoneyWhereaboutsCards({
+  loading,
+  kassa,
+  collected,
+  reserve,
+  kassaLabel,
+  kassaHelper,
+  collectedLabel,
+  collectedHelper,
+  reserveLabel,
+  reserveHelper,
+  onCollectedClick,
+}: {
+  loading: boolean;
+  kassa: number;
+  collected: number;
+  /** Null when the viewer cannot read the reserve. */
+  reserve: number | null;
+  kassaLabel: string;
+  kassaHelper: string;
+  collectedLabel: string;
+  collectedHelper: string;
+  reserveLabel: string;
+  reserveHelper: string;
+  onCollectedClick: () => void;
+}) {
+  const valueClassName = 'text-sm font-medium tracking-normal text-gray-500';
+  return (
+    <section className={cn(metricGridClassName, reserve === null ? 'sm:grid-cols-2' : 'sm:grid-cols-3')}>
+      <MetricCard
+        loading={loading}
+        label={kassaLabel}
+        value={<Money amount={kassa} currencyClassName={valueClassName} />}
+        helper={kassaHelper}
+        tone={toneForAmount(kassa, 'primary')}
+        icon={Landmark}
+        className="border-primary-200"
+      />
+      <MetricCard
+        loading={loading}
+        label={collectedLabel}
+        value={<Money amount={collected} currencyClassName={valueClassName} />}
+        helper={collectedHelper}
+        tone="success"
+        icon={HandCoins}
+        onClick={onCollectedClick}
+      />
+      {reserve !== null && (
+        <MetricCard
+          loading={loading}
+          label={reserveLabel}
+          value={<Money amount={reserve} currencyClassName={valueClassName} />}
+          helper={reserveHelper}
+          tone="warning"
+          icon={PiggyBank}
+          href="/reserve"
+        />
+      )}
+    </section>
   );
 }
 
@@ -420,7 +501,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     if (!selectedClubId || !hasReportsAccess) return emptyReportRows;
 
     const supabase = createClient();
-    const [snapshotResult, exchangeRows, collections, dollarExpenses, { opening, openingCollected }, reserveMoves] = await Promise.all([
+    const collectedFrom = openingBalanceRange(range.from)?.from ?? range.from;
+    const [snapshotResult, exchangeRows, collections, dollarExpenses, { opening }, reserveMoves, collectedMoves, reserveHoldings] = await Promise.all([
       supabase.rpc('get_money_report_snapshot', {
         p_club_id: selectedClubId,
         p_range_from: range.from,
@@ -433,7 +515,13 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       fetchDollarExpenses(supabase, selectedClubId, range.from, range.to),
       loadOpening(selectedClubId),
       fetchReserveMoves(supabase, selectedClubId, range.from, range.to),
+      fetchCollectedMoneyMoves(supabase, selectedClubId, collectedFrom, range.to),
+      isOwner ? fetchReserveHoldings(supabase, selectedClubId) : Promise.resolve(null),
     ]);
+    const collectorNames = await fetchProfileNames(supabase, collectedMoves.flatMap((move) => (
+      move.kind === 'collect' && move.createdBy ? [move.createdBy] : []
+    )));
+    const collectedRows = { collectedMoves, collectorNames, reserveSums: reserveHoldings?.sums ?? null };
 
     if (!snapshotResult.error) {
       const snapshot = snapshotResult.data as MoneyReportSnapshotPayload;
@@ -447,7 +535,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         reserveMoves,
         collections,
         opening,
-        openingCollected,
+        ...collectedRows,
       };
     }
 
@@ -538,7 +626,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       reserveMoves,
       collections,
       opening,
-      openingCollected,
+      ...collectedRows,
     };
 
     /**
@@ -546,15 +634,14 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
      * what the month's earlier days left in each method. Null before the
      * snapshot RPC (047) exists: the cards then show the period alone.
      */
-    async function loadOpening(clubId: string): Promise<Pick<typeof emptyReportRows, 'opening' | 'openingCollected'>> {
-      const none = { opening: null, openingCollected: NO_MONEY_COLLECTED };
+    async function loadOpening(clubId: string): Promise<Pick<typeof emptyReportRows, 'opening'>> {
+      const none = { opening: null };
       const earlier = openingBalanceRange(range.from);
       if (!earlier) return none;
-      const [result, earlierExchanges, earlierMoves, earlierCollections] = await Promise.all([
+      const [result, earlierExchanges, earlierMoves] = await Promise.all([
         supabase.rpc('get_money_report_snapshot', { p_club_id: clubId, p_range_from: earlier.from, p_range_to: earlier.to }),
         fetchMoneyExchanges(supabase, clubId, earlier.from, earlier.to),
         fetchReserveMoves(supabase, clubId, earlier.from, earlier.to),
-        fetchDailyCashCollections(supabase, clubId, earlier.from, earlier.to),
       ]);
       if (result.error) {
         if (isMissingDatabaseFunction(result.error, 'get_money_report_snapshot')) return none;
@@ -562,11 +649,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       }
       const rows = result.data as MoneyReportSnapshotPayload;
       const earlierReport = buildMoneyReport(rows.cash ?? [], rows.expenses ?? [], rows.debtPayments ?? [], [], [], earlierExchanges, earlierMoves);
-      return {
-        opening: earlierReport.paymentMethods,
-        // The opening carries earlier days' money left, so their collections come off it too.
-        openingCollected: summarizeCollectedMoney(earlierReport.days, earlierCollections).taken,
-      };
+      return { opening: earlierReport.paymentMethods };
     }
 
     /** The snapshot names its own rows' creators; exchanges need the same lookup. */
@@ -574,7 +657,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       const names = await fetchProfileNames(supabase, rows.map((row) => row.created_by));
       return rows.map((row) => ({ ...row, creator_name: row.created_by ? names.get(row.created_by) ?? null : null }));
     }
-  }, [hasReportsAccess, range.from, range.to, selectedClubId]);
+  }, [hasReportsAccess, isOwner, range.from, range.to, selectedClubId]);
   const reportQuery = useClubQuery<typeof emptyReportRows>(loadReport, emptyReportRows);
   const { loading, reload: reloadReport } = reportQuery;
   /** The report failed to load; shown with a Retry action instead of the empty state. */
@@ -610,11 +693,16 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     () => withOpeningBalances(report.paymentMethods, reportRows.opening),
     [report.paymentMethods, reportRows.opening],
   );
-  // Collected over the same span as the cards' money left: earlier this month plus the period.
-  const collectedByMethod = useMemo(
-    () => addCollectedByMethod(reportRows.openingCollected, summarizeCollectedMoney(report.days, reportRows.collections).taken),
-    [report.days, reportRows.collections, reportRows.openingCollected],
-  );
+  // Collected money over the same span as the cards' money left: the month's first day through the period's end.
+  const collectedSummary = useMemo(() => summarizeCollectedMoney(reportRows.collectedMoves), [reportRows.collectedMoves]);
+  const collectedByMethod = collectedSummary.held;
+  // What the admin still holds: each method's money left, less what the collector holds of it.
+  const kassaByMethod = useMemo(() => Object.fromEntries(COLLECTED_METHODS.map((method) => [
+    method,
+    moneyStillHeld(paymentCardData[method].left, collectedSummary.held[method]),
+  ])) as Record<CollectedMethod, number>, [collectedSummary.held, paymentCardData]);
+  const kassaTotal = COLLECTED_METHODS.reduce((sum, method) => sum + kassaByMethod[method], 0);
+  const [collectDialogOpen, setCollectDialogOpen] = useState(false);
 
   // Dialogs belong to the club they were opened for: close them on a club switch.
   useEffect(() => {
@@ -624,8 +712,54 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     setMethodDays(null);
     setExpenseDialogOpen(false);
     setExchangeDialogOpen(false);
+    setCollectDialogOpen(false);
     setActionError('');
   }, [selectedClubId]);
+
+  /** Owner: give a collection back to the admin's kassa (a mistake). */
+  async function handleUndoCollection(group: CollectionGroup) {
+    if (!isOwner || !selectedClubId) return;
+    const clubId = selectedClubId;
+    const confirmed = await confirm({
+      title: t('collectMoney.undo'),
+      description: t('collectMoney.undoConfirm', {
+        amount: `${formatCurrency(group.total)} ${tc('currency')}`,
+        date: formatDateOnly(group.date, locale),
+      }),
+      confirmLabel: t('collectMoney.undo'),
+    });
+    if (!confirmed || currentClubId.current !== clubId) return;
+    setActionError('');
+    const { error } = await deleteMoneyCollection(createClient(), clubId, group.id);
+    if (currentClubId.current !== clubId) return;
+    if (error) {
+      setActionError(isCollectedInsufficientError(error) ? t('collectMoney.undoSpent') : t('collectMoney.error'));
+      return;
+    }
+    showToast(t('collectMoney.undone'));
+    void reloadReport({ silent: true });
+  }
+
+  /** Owner: move collected money into the reserve. Resolves to an error message, or null when saved. */
+  async function handleMoveCollectedToReserve(input: { method: CollectedMethod; amount: number; date: string }): Promise<string | null> {
+    if (!isOwner || !selectedClubId) return tc('accessDeniedDescription');
+    const { error } = await moveCollectedToReserve(createClient(), {
+      clubId: selectedClubId,
+      id: crypto.randomUUID(),
+      date: input.date,
+      method: input.method,
+      amount: input.amount,
+      comment: null,
+    });
+    if (error) {
+      if (isCollectedInsufficientError(error)) return t('collectMoney.toReserveTooMuch', { amount: `${formatCurrency(collectedSummary.held[input.method])} ${tc('currency')}` });
+      if ((error as { hint?: string }).hint === 'reserve_exceeds_available') return t('collectMoney.toReserveNoProfit');
+      return t('collectMoney.error');
+    }
+    showToast(t('collectMoney.movedToReserveToast'));
+    void reloadReport({ silent: true });
+    return null;
+  }
 
   async function handleDeleteActivity(activity: MoneyReportActivity, date: string) {
     if (!isOwner || !selectedClubId || !activity.id || activity.source === 'debt_payment') return;
@@ -792,7 +926,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       const status = await requestCollectionChange(clubId, date, !collected);
       if (currentClubId.current !== clubId) return;
       if (status !== 200) {
-        setActionError(status === 403 ? tc('accessDeniedDescription') : status === 409 ? t('collectionReserveUsed') : t('collectionError'));
+        setActionError(status === 403 ? tc('accessDeniedDescription') : t('collectionError'));
         return;
       }
       showToast(collected ? t('collectionUndone') : t('collectionSaved'));
@@ -1176,6 +1310,11 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                 {t('registerExpense')}
               </Button>
             )}
+            {hasReportsAccess && (canCollect || isOwner) && (
+              <Button onClick={() => setCollectDialogOpen(true)} icon={<HandCoins size={18} aria-hidden="true" />}>
+                {t('collectMoney.button')}
+              </Button>
+            )}
             {canRegisterExpenses && (
               <Button variant="outline" onClick={() => setExchangeDialogOpen(true)} icon={<ArrowRightLeft size={18} aria-hidden="true" />}>
                 {t('exchangeMoney')}
@@ -1221,12 +1360,31 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       {hasReportsAccess && isOwner && view === 'writeOffs' && (
         <WriteOffsTab clubId={selectedClubId} from={range.from} to={range.to} />
       )}
+      {hasReportsAccess && !loadFailed && (view === 'closeout' || view === 'collected') && (
+        <MoneyWhereaboutsCards
+          loading={loading}
+          kassa={kassaTotal}
+          collected={collectedSummary.held.total}
+          reserve={reportRows.reserveSums}
+          kassaLabel={t('collectMoney.inKassaCard')}
+          kassaHelper={t('collectMoney.inKassaCardHelper')}
+          collectedLabel={t('collectMoney.collectedCard')}
+          collectedHelper={t('collectMoney.collectedCardHelper')}
+          reserveLabel={t('collectMoney.reserveCard')}
+          reserveHelper={t('collectMoney.reserveCardHelper')}
+          onCollectedClick={() => setView('collected')}
+        />
+      )}
       {hasReportsAccess && !loadFailed && view === 'collected' && (
         <CollectedTab
-          days={report.days}
-          collections={reportRows.collections}
+          summary={collectedSummary}
+          collectorNames={reportRows.collectorNames}
           enabledPaymentMethods={enabledPaymentMethods}
           loading={loading}
+          isOwner={isOwner}
+          businessToday={businessToday}
+          onUndo={(group) => void handleUndoCollection(group)}
+          onMoveToReserve={handleMoveCollectedToReserve}
         />
       )}
       {hasReportsAccess && !loadFailed && view === 'closeout' && (
@@ -1391,6 +1549,24 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         onSelectDay={(date) => methodDays && setDayBreakdown({ date, figure: methodDays })}
         onClose={() => setMethodDays(null)}
       />
+
+      {hasReportsAccess && (canCollect || isOwner) && (
+        <Modal
+          open={collectDialogOpen}
+          onClose={() => setCollectDialogOpen(false)}
+          title={t('collectMoney.title')}
+          description={t('collectMoney.description')}
+          size="lg"
+        >
+          <CollectMoneyForm
+            onSaved={async () => {
+              setCollectDialogOpen(false);
+              showToast(t('collectMoney.saved'));
+              await reloadReport({ silent: true });
+            }}
+          />
+        </Modal>
+      )}
 
       {hasReportsAccess && canRegisterExpenses && (
         <Modal

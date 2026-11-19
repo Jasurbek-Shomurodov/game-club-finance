@@ -16,6 +16,8 @@ export interface ExpenseNotificationInput {
   dollars?: { amount: number; rate: number } | null;
   /** Paid from the owner reserve's sums (136); dollar expenses are always the reserve's (143). */
   fromReserve?: boolean;
+  /** Paid from money a collector took out of the till (169), not from the admin. */
+  fromCollected?: boolean;
 }
 
 export type ExpenseDollars = { amount: number; rate: number } | null;
@@ -52,6 +54,7 @@ export function buildExpenseNotification(input: ExpenseNotificationInput): strin
     `${fromReserve ? '🏦 Расход из резерва' : '💸 Расход'}: ${sum(input.amount)}`,
     details(
       expenseSource(input.paymentSource, fromReserve),
+      !fromReserve && input.fromCollected === true && 'из собранных денег',
       RUSSIAN_EXPENSE_CATEGORY_LABELS[input.category] ?? input.category,
       expenseMethod(input.paymentMethod, input.dollars, fromReserve),
       noticeDate(input.date),

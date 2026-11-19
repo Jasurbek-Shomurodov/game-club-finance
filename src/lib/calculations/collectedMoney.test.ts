@@ -1,78 +1,74 @@
 import { describe, expect, it } from 'vitest';
-import { addCollectedByMethod, moneyStillHeld, NO_MONEY_COLLECTED, summarizeCollectedMoney } from './collectedMoney';
-import type { MoneyReportDay } from './moneyReport';
+import {
+  moneyStillHeld,
+  parseCollectedMoneyMoves,
+  parseCollectionBalances,
+  summarizeCollectedMoney,
+  type CollectedMoneyMove,
+} from './collectedMoney';
 
-function day(date: string, values: Partial<MoneyReportDay>): MoneyReportDay {
-  return {
-    date,
-    cash: 0,
-    terminal: 0,
-    card: 0,
-    playstation: 0,
-    total: 0,
-    income: 0,
-    expenses: 0,
-    gameClubExpenses: 0,
-    barExpenses: 0,
-    activities: [],
-    ...values,
-  };
-}
+const move = (values: Partial<CollectedMoneyMove>): CollectedMoneyMove => ({
+  kind: 'collect',
+  id: 'r1',
+  date: '2026-11-03',
+  method: 'cash',
+  amount: 0,
+  comment: null,
+  createdBy: 'u1',
+  createdAt: '2026-11-03T10:00:00Z',
+  ...values,
+});
 
 describe('summarizeCollectedMoney', () => {
-  const days = [
-    day('2026-10-24', { cash: 1_000, terminal: 500, playstation: 100, total: 1_600 }),
-    day('2026-10-23', { cash: 700, terminal: 300, total: 1_000 }),
-    day('2026-10-22', { cash: 400, total: 400 }),
-    day('2026-10-21', { total: 0 }),
-  ];
-
-  it('lists ticked dates newest first with their money by method and totals', () => {
-    const summary = summarizeCollectedMoney(days, [
-      { date: '2026-10-23', collected_at: '2026-10-24T08:00:00Z', collector_name: 'Izzat' },
-      { date: '2026-10-24', collected_at: '2026-10-25T08:00:00Z', collector_name: null },
+  it('groups one collect across methods and keeps what is still held', () => {
+    const summary = summarizeCollectedMoney([
+      move({ id: 'r1', date: '2026-11-02', method: 'cash', amount: 2_000_000 }),
+      move({ id: 'r1', date: '2026-11-02', method: 'card', amount: 500_000 }),
+      move({ id: 'r2', date: '2026-11-04', method: 'cash', amount: 1_000_000, createdAt: '2026-11-04T09:00:00Z' }),
+      move({ kind: 'expense', id: 'e1', date: '2026-11-03', method: 'cash', amount: -3_000_000 }),
+      move({ kind: 'reserve', id: 'v1', date: '2026-11-05', method: 'card', amount: -200_000 }),
     ]);
-
-    expect(summary.days.map((row) => row.date)).toEqual(['2026-10-24', '2026-10-23']);
-    expect(summary.days[1]).toMatchObject({ collectorName: 'Izzat', cash: 700, terminal: 300, total: 1_000 });
-    expect(summary.taken).toEqual({ cash: 1_700, terminal: 800, card: 0, playstation: 100, total: 2_600 });
+    expect(summary.collected).toEqual({ cash: 3_000_000, terminal: 0, card: 500_000, playstation: 0, total: 3_500_000 });
+    expect(summary.spent).toMatchObject({ cash: 3_000_000, total: 3_000_000 });
+    expect(summary.toReserve).toMatchObject({ card: 200_000, total: 200_000 });
+    expect(summary.held).toEqual({ cash: 0, terminal: 0, card: 300_000, playstation: 0, total: 300_000 });
+    expect(summary.collections.map((group) => [group.id, group.total])).toEqual([['r2', 1_000_000], ['r1', 2_500_000]]);
+    expect(summary.collections[1]).toMatchObject({ cash: 2_000_000, card: 500_000, date: '2026-11-02' });
   });
 
-  it('counts unticked dates with money as still waiting to be collected', () => {
-    const summary = summarizeCollectedMoney(days, [
-      { date: '2026-10-24', collected_at: '2026-10-25T08:00:00Z', collector_name: 'Izzat' },
-    ]);
-
-    expect(summary.pendingDays).toBe(2);
-    expect(summary.pendingTotal).toBe(1_400);
-  });
-
-  it('keeps a ticked date that has no entries, with zeros', () => {
-    const summary = summarizeCollectedMoney([], [
-      { date: '2026-10-20', collected_at: '2026-10-21T08:00:00Z', collector_name: 'Izzat' },
-    ]);
-
-    expect(summary.days).toEqual([{
-      date: '2026-10-20',
-      collectedAt: '2026-10-21T08:00:00Z',
-      collectorName: 'Izzat',
-      cash: 0,
-      terminal: 0,
-      card: 0,
-      playstation: 0,
-      total: 0,
-    }]);
-    expect(summary.pendingDays).toBe(0);
+  it('is empty without moves', () => {
+    expect(summarizeCollectedMoney([]).held.total).toBe(0);
+    expect(summarizeCollectedMoney([]).collections).toEqual([]);
   });
 });
 
-describe('collected money per method', () => {
-  it('adds the earlier span to the period and leaves the rest in the method', () => {
-    const earlier = { cash: 1_000, terminal: 200, card: 0, playstation: 50, total: 1_250 };
-    const period = { cash: 400, terminal: 0, card: 100, playstation: 0, total: 500 };
-    const taken = addCollectedByMethod(NO_MONEY_COLLECTED, addCollectedByMethod(earlier, period));
-    expect(taken).toEqual({ cash: 1_400, terminal: 200, card: 100, playstation: 50, total: 1_750 });
-    expect(moneyStillHeld(4_847_000, 4_000_000)).toBe(847_000);
-    expect(moneyStillHeld(500, 0)).toBe(500);
+describe('moneyStillHeld', () => {
+  it('is the money left minus what collected money holds', () => {
+    expect(moneyStillHeld(3_000_000, 2_000_000)).toBe(1_000_000);
+  });
+});
+
+describe('parseCollectedMoneyMoves', () => {
+  it('keeps well-formed rows and drops the rest', () => {
+    expect(parseCollectedMoneyMoves([
+      { kind: 'collect', id: 'r1', date: '2026-11-02', method: 'cash', amount: '100', comment: 'x', created_by: 'u', created_at: 't' },
+      { kind: 'other', id: 'r1', date: '2026-11-02', method: 'cash', amount: 1 },
+      { kind: 'collect', id: 'r1', date: '2026-11-02', method: 'usd', amount: 1 },
+      { kind: 'expense', id: 'e', date: '2026-11-02', method: 'card', amount: 'NaN' },
+      null,
+    ])).toEqual([{ kind: 'collect', id: 'r1', date: '2026-11-02', method: 'cash', amount: 100, comment: 'x', createdBy: 'u', createdAt: 't' }]);
+    expect(parseCollectedMoneyMoves(null)).toEqual([]);
+  });
+});
+
+describe('parseCollectionBalances', () => {
+  it('reads each method and never goes below zero', () => {
+    expect(parseCollectionBalances({ cash: { till: '5', collected: -1 } })).toEqual({
+      cash: { till: 5, collected: 0 },
+      terminal: { till: 0, collected: 0 },
+      card: { till: 0, collected: 0 },
+      playstation: { till: 0, collected: 0 },
+    });
+    expect(parseCollectionBalances(null)).toBeNull();
   });
 });

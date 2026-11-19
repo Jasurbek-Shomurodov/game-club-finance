@@ -21,6 +21,7 @@ export const EXPENSE_ERROR_CODES = [
   'DAY_COLLECTED',
   'INSUFFICIENT_BALANCE',
   'RESERVE_INSUFFICIENT',
+  'COLLECTED_INSUFFICIENT',
   'SERVER_ERROR',
 ] as const;
 
@@ -42,6 +43,7 @@ const ERRORS: Record<ExpenseErrorCode, { status: number; text: string }> = {
   DAY_COLLECTED: { status: 409, text: 'The money for this day was collected; the day is closed' },
   INSUFFICIENT_BALANCE: { status: 409, text: 'The payment method does not hold enough money for this expense' },
   RESERVE_INSUFFICIENT: { status: 409, text: 'The owner reserve holds less than this expense' },
+  COLLECTED_INSUFFICIENT: { status: 409, text: 'Collected money holds less than this expense' },
   SERVER_ERROR: { status: 500, text: 'Expense change failed' },
 };
 
@@ -64,6 +66,8 @@ export function expenseErrorCode(error: { code?: string | null; message?: string
   // The 125 trigger: the payment method does not hold that much money.
   // The 136 trigger: the owner reserve holds less than this purchase.
   if (error.hint === 'reserve_insufficient') return 'RESERVE_INSUFFICIENT';
+  // The 169 trigger: collected money holds less than this expense.
+  if (error.hint === 'COLLECTED_INSUFFICIENT' || /insufficient collected money/i.test(message)) return 'COLLECTED_INSUFFICIENT';
   if (error.hint === 'INSUFFICIENT_BALANCE' || /insufficient payment method balance/i.test(message)) return 'INSUFFICIENT_BALANCE';
   if (error.code === '42501') return 'FORBIDDEN';
   if (error.code === '23514') return 'CHECK_FAILED';

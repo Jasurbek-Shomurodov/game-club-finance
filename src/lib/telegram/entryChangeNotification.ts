@@ -4,7 +4,7 @@ import { targetChatId } from './clubChat';
 import { exchangeAmounts, exchangeMethods, exchangeReserveNote } from './exchangeNotification';
 import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
 import { expenseDollars, expenseFromReserve, expenseMethod, expenseSource } from './expenseNotification';
-import { commentLine, details, lines, noticeDate, sum } from './messageParts';
+import { authorLine, commentLine, details, lines, method as methodLabel, noticeDate, sum } from './messageParts';
 import { sendTelegramMessage } from './sendDailyFinanceReport';
 
 /**
@@ -141,6 +141,22 @@ export function buildIncomeChangedNotice(
 /** A business date was ticked as collected in Reports, which closes the day. */
 export function buildDayCollectedNotice(isoDate: string, collectedBy: string): string {
   return `✅ День собран: ${noticeDate(isoDate)} · ${collectedBy}`;
+}
+
+/** A collector took money out of the admin's till (169). */
+export function buildMoneyCollectedNotice(
+  isoDate: string,
+  amounts: Partial<Record<string, number>>,
+  collectedBy: string,
+  comment?: string | null,
+): string {
+  const parts = Object.entries(amounts).filter(([, amount]) => Number(amount) > 0);
+  const total = parts.reduce((total, [, amount]) => total + Number(amount), 0);
+  return lines(
+    `💼 Деньги собраны: ${sum(total)}`,
+    details(...parts.map(([method, amount]) => `${methodLabel(method)} ${formatCurrency(Number(amount))}`), noticeDate(isoDate)),
+    authorLine(collectedBy, comment),
+  );
 }
 
 /** An owner removed a collected tick, which reopens the day for changes. */

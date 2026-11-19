@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Banknote, PiggyBank, Save } from 'lucide-react';
+import { Banknote, HandCoins, PiggyBank, Save } from 'lucide-react';
 import { SIDE_ICONS } from '@/components/sideIcons';
 import { PAYMENT_METHOD_ICONS } from '@/components/paymentMethodIcons';
 import { useClub } from '@/components/layout/DashboardShell';
@@ -33,10 +33,14 @@ import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { useCollectedDay } from '@/lib/useCollectedDay';
 import { defaultPaymentMethod, dollarExpenseAmount, expensePaymentMethods } from '@/lib/paymentMethods';
 import { cn } from '@/lib/utils';
+import { canAccessFeature } from '@/lib/permissions';
+import { fetchCollectionBalances } from '@/lib/supabase/moneyCollections';
+import type { CollectionBalances } from '@/lib/calculations/collectedMoney';
 import type { ExpensePaymentMethod } from '@/types';
 
 // The reserve is the owner's own money, apart from Game Club and Bar: it holds sums and dollars only (155).
-const PAYMENT_SOURCES = ['game_club', 'bar', 'reserve'] as const;
+// Collected is Game Club money a collector took out of the till (169): offered to collectors and owners.
+const PAYMENT_SOURCES = ['game_club', 'collected', 'bar', 'reserve'] as const;
 type PaymentSource = (typeof PAYMENT_SOURCES)[number];
 /** The reserve's sums in the method picker; the API stores them in cash, since the reserve has no methods. */
 const RESERVE_SUMS: ExpensePaymentMethod = 'cash';
@@ -46,7 +50,11 @@ const SOURCE_ICONS: Record<PaymentSource, React.ReactNode> = {
   game_club: <SIDE_ICONS.gameClub size={16} aria-hidden="true" />,
   bar: <SIDE_ICONS.bar size={16} aria-hidden="true" />,
   reserve: <PiggyBank size={16} aria-hidden="true" />,
+  collected: <HandCoins size={16} aria-hidden="true" />,
 };
+
+/** The side a source's money belongs to, for categories: collected money is Game Club's. */
+const categorySource = (source: PaymentSource): 'game_club' | 'bar' | 'reserve' => (source === 'collected' ? 'game_club' : source);
 
 interface ExpenseRegistrationFormProps {
   onSaved?: () => void | Promise<void>;
@@ -67,14 +75,18 @@ const EXPENSE_ERROR_KEYS: Record<string, string> = {
   DAY_COLLECTED: 'dayCollected',
   INSUFFICIENT_BALANCE: 'insufficientBalance',
   RESERVE_INSUFFICIENT: 'reserveInsufficient',
+  COLLECTED_INSUFFICIENT: 'collectedInsufficient',
   SERVER_ERROR: 'serverError',
 };
 
 export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = false }: ExpenseRegistrationFormProps) {
   const t = useTranslations('expenses');
   const tc = useTranslations('common');
-  const { selectedClubId, businessDayStartHour, enabledPaymentMethods, role } = useClub();
+  const { selectedClubId, businessDayStartHour, enabledPaymentMethods, role, featureAccess } = useClub();
   const isOwner = role === 'owner';
+  // Whoever collects money can also pay from it (169).
+  const canPayFromCollected = isOwner || canAccessFeature(role, featureAccess, 'collection');
+  const sources = PAYMENT_SOURCES.filter((source) => source !== 'collected' || canPayFromCollected);
   const businessToday = useBusinessToday(businessDayStartHour);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -123,19 +135,26 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
   const reserveQuery = useClubQuery<ReserveHoldings | null>(loadReserve, null);
   const reserve = reserveQuery.data;
   const onReserve = form.payment_source === 'reserve';
+  const onCollected = form.payment_source === 'collected';
+  // What collected money can pay per method on the expense's day (169); null before the migration.
+  const loadCollected = useCallback(async (): Promise<CollectionBalances | null> => (
+    selectedClubId ? fetchCollectionBalances(createClient(), selectedClubId, form.date) : null
+  ), [form.date, selectedClubId]);
+  const collectedQuery = useClubQuery<CollectionBalances | null>(loadCollected, null);
   // Dollars are shown wherever the club has them, but always as the reserve's.
   const dollarsHeld = balanceQuery.data?.balances.usd ?? null;
 
   /** What the source offers: the reserve holds sums (owners) and dollars; PlayStation money is Game Club's. */
   const methodsFor = useCallback((source: PaymentSource): ExpensePaymentMethod[] => (source === 'reserve'
     ? [...(isOwner ? [RESERVE_SUMS] : []), 'usd']
-    : expensePaymentMethods(enabledPaymentMethods, source).filter((method) => method !== 'usd')
+    : expensePaymentMethods(enabledPaymentMethods, categorySource(source) as 'game_club' | 'bar').filter((method) => method !== 'usd')
   ), [enabledPaymentMethods, isOwner]);
   const paymentMethods = methodsFor(form.payment_source);
 
   /** What each offered method still holds, or null when it is not limited (Bar money, or before migration 125). */
   function heldBy(method: ExpensePaymentMethod): number | null {
     if (onReserve) return method === 'usd' ? dollarsHeld : reserve?.sums ?? null;
+    if (onCollected) return method === 'usd' ? null : collectedQuery.data?.[method].collected ?? null;
     return form.payment_source === 'game_club' ? balanceQuery.data?.balances[method] ?? null : null;
   }
   const showsBalances = paymentMethods.some((method) => heldBy(method) !== null);
@@ -205,7 +224,7 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
         const offered = methodsFor(next.payment_source);
         if (!offered.includes(next.payment_method) || next.payment_source === 'reserve') next.payment_method = offered[0] ?? next.payment_method;
         // Bar money pays only for cleaning, so a category the new source does not offer is cleared.
-        if (!current.preset_id && !isExpenseCategoryAllowedForSource(next.category, next.payment_source)) next.category = '';
+        if (!current.preset_id && !isExpenseCategoryAllowedForSource(next.category, categorySource(next.payment_source))) next.category = '';
       }
       // Leaving dollars for sums: sum amounts are whole, so show what will be saved.
       if (current.payment_method === 'usd' && next.payment_method !== 'usd') next.amount = formatCurrencyInput(current.amount);
@@ -226,7 +245,9 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
         preset_id: preset.id,
         category: preset.category,
         // A plan paid from the reserve stays on the reserve; its side is still the plan's.
-        payment_source: current.payment_source === 'reserve' ? 'reserve' : preset.payment_source,
+        payment_source: current.payment_source === 'reserve' ? 'reserve'
+          : current.payment_source === 'collected' && preset.payment_source === 'game_club' ? 'collected'
+          : preset.payment_source,
         // The plan's usual method is a default the person can still change.
         ...(preset.payment_method && enabledPaymentMethods.includes(preset.payment_method)
           ? { payment_method: preset.payment_method }
@@ -299,11 +320,12 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
           category,
           paymentMethod: form.payment_method,
           // The row still lives on a side: the plan's, or Game Club's. The reserve pays it either way.
-          paymentSource: onReserve ? selectedPreset?.payment_source ?? 'game_club' : form.payment_source,
+          paymentSource: onReserve ? selectedPreset?.payment_source ?? 'game_club' : categorySource(form.payment_source),
           comment: form.comment.trim() || null,
           presetId: selectedPreset?.id ?? null,
           ...(paysInDollars ? { usdAmount, usdRate } : {}),
           ...(fromReserve ? { fromReserve: true } : {}),
+          ...(onCollected ? { fromCollected: true } : {}),
         }),
       });
 
@@ -318,6 +340,7 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
         // Money was spent meanwhile: show what is left now.
         if (code === 'INSUFFICIENT_BALANCE') void balanceQuery.reload({ silent: true });
         if (code === 'RESERVE_INSUFFICIENT') void reserveQuery.reload({ silent: true });
+        if (code === 'COLLECTED_INSUFFICIENT') void collectedQuery.reload({ silent: true });
         // The plan was archived or changed meanwhile: drop it and show the current list.
         if (code === 'PRESET_UNAVAILABLE') {
           requestId.current = null;
@@ -334,6 +357,7 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
       void presetQuery.reload({ silent: true });
       void balanceQuery.reload({ silent: true });
       void reserveQuery.reload({ silent: true });
+      void collectedQuery.reload({ silent: true });
       setForm(emptyForm());
     } catch {
       setError(t('saveError'));
@@ -419,25 +443,25 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
       {/* Where the money comes from decides what can be spent, so it is chosen before the amount. */}
       <Field
         label={t('paymentSource')}
-        hint={onReserve ? (isOwner && reserve && reserve.sums <= 0 ? t('reserveEmptyHint') : t('reserveHint')) : undefined}
+        hint={onReserve ? (isOwner && reserve && reserve.sums <= 0 ? t('reserveEmptyHint') : t('reserveHint')) : onCollected ? t('collectedHint') : undefined}
       >
         <SegmentedControl
           variant="soft"
           label={t('paymentSource')}
           value={form.payment_source}
           onChange={(source) => set('payment_source', source)}
-          columns={3}
-          options={PAYMENT_SOURCES.map((source) => ({
+          columns={sources.length > 3 ? 2 : 3}
+          options={sources.map((source) => ({
             value: source,
             label: t(`paymentSources.${source}`),
             icon: SOURCE_ICONS[source],
             // A plan keeps its own side, but the reserve can still pay it.
-            disabled: selectedPreset !== null && source !== 'reserve' && source !== selectedPreset.payment_source,
+            disabled: selectedPreset !== null && source !== 'reserve' && categorySource(source) !== selectedPreset.payment_source,
           }))}
         />
       </Field>
 
-      <Field label={t('paymentMethod')} hint={form.payment_source === 'game_club' && showsBalances ? t('balancesHelp') : undefined}>
+      <Field label={t('paymentMethod')} hint={form.payment_source === 'game_club' && showsBalances ? t('balancesHelp') : onCollected ? t('collectedBalancesHelp') : undefined}>
         {balanceQuery.error && form.payment_source !== 'bar' && (
           <LoadErrorAlert className="mb-2" retrying={balanceQuery.loading} onRetry={() => void balanceQuery.reload()}>
             {t('balancesLoadError')}
@@ -514,7 +538,7 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
           <Select id="expense-category" required disabled={selectedPreset !== null} value={form.category} onChange={(event) => set('category', event.target.value)}>
             <option value="" disabled>{t('selectCategory')}</option>
             {/* Bar money offers only cleaning; a chosen plan always shows its own category. */}
-            {[...new Set([...manualExpenseCategoriesFor(form.payment_source), ...(selectedPreset ? [selectedPreset.category] : [])])].map((category) => (
+            {[...new Set([...manualExpenseCategoriesFor(categorySource(form.payment_source)), ...(selectedPreset ? [selectedPreset.category] : [])])].map((category) => (
               <option key={category} value={category}>{categoryLabel(category)}</option>
             ))}
           </Select>

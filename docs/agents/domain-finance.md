@@ -258,13 +258,48 @@ By default it is the day it is recorded, kept inside its month, which is how
 every row was dated before 162. Reports, the never-negative check and the
 Reserve history take the method's money out of the till on that day.
 
-Collecting does not touch the reserve (migration 148). The reserve changes only
+Collecting does not touch the reserve (migration 148); collected money moves
+into it only through `move_collected_to_reserve` (169, see Collected money). The reserve changes only
 when the owner moves owner profit in or out of it (136), when money is exchanged
 into or out of dollars (143), or when it pays for a purchase. Ticking a date as
 collected (`mark_daily_cash_collected`) only closes the day (096, 097).
 Migrations 137 and 139 used to deposit a collected day's Game Club money into
 the reserve (`owner_reserve_entries.collection_date`); 148 removed every such
 deposit, so that money is owner profit of its month again.
+
+## Collected money
+
+Collected money (migration 169, `money_collections`) is Game Club money a
+collector took out of the admin's till. It is a third place the money sits,
+between the till and the owner reserve; it is still the month's owner profit.
+
+```text
+till (with the admin) = method money left - collected held
+collected held        = collections - expenses paid from collected - deposits from collected
+```
+
+Both are running balances that start at zero each month, per UZS method, and
+the database keeps both at zero or above on every day (146's rule):
+`method_daily_balances(club, method, date, 'till' | 'collected')`. A
+collection is an amount per method (`collect_money`), not a day: the admin can
+keep three days of cash and pay a bill from it on the third without that day
+reading as negative. The Collect form starts every method at what the till can
+give (`get_collection_balances`).
+
+`expenses.paid_from_collected` pays a Game Club expense from collected money
+instead of the till: an ordinary expense of its method in every total, profit
+and the 125 month limit; only where the cash sat differs. Owners move collected
+money into the reserve with `move_collected_to_reserve`
+(`owner_reserve_entries.from_collected`); owner profit sees an ordinary
+deposit. `delete_money_collection` (owners) gives a collection back while its
+money is unspent. Money left per method (Reports cards, dashboard, Telegram)
+is unchanged: it is till + collected. Reports shows With the admin, Collected
+and In the reserve as three separate figures, never as one total; the
+calculations are in `collectedMoney.ts`.
+
+The 096 day tick no longer stands for money: it only closes the day (097) and
+is labelled "Close the day". Migration 169 recorded, for every month with
+ticked days, the till's balance at the end of the last ticked day as collected.
 
 ## Debts
 
