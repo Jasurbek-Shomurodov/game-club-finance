@@ -1444,11 +1444,9 @@
     "passwordUpdateError": "Could not save the password. Open the link from the email again."
   },
   "moneyTaken": {
-    "overallProfit": "Game Club + Bar",
     "earnedBeforeWithdrawals": "Earned before withdrawals",
     "clubMethodsBeforeWithdrawals": "Game Club profit is split by payment method: earned after operating expenses, withdrawn by the owner, and what is left in each.",
     "playstation": "PlayStation",
-    "playstationPartOfClub": "Part of Game Club, left to take",
     "monthlyWithdrawn": "Withdrawn this month",
     "monthlyRemaining": "Remaining after owner withdrawals",
     "monthlyOverallProfit": "Overall profit for the month",
@@ -1522,11 +1520,9 @@
     "historyFilter": "Show withdrawals from",
     "historyEntries": "{count, plural, one {# entry} other {# entries}}",
     "noHistoryForSource": "Nothing withdrawn from this source yet.",
-    "withdrawnShare": "{percent}% of earnings withdrawn",
     "takeAll": "Take all",
     "takeAllLabel": "Fill in all available: {amount}",
     "recordButtonAmount": "Withdraw {amount}",
-    "withdrawnOfEarned": "Withdrawn {withdrawn} of {earned} earned",
     "entryDetails": "Details",
     "detailsWithdrawalTitle": "Profit withdrawal",
     "detailsCarryoverTitle": "Moved to next month",
@@ -1535,7 +1531,16 @@
     "detailsTakenFrom": "Taken from",
     "detailsMadeOn": "Recorded",
     "detailsChangedOn": "Last changed",
-    "detailsComment": "Comment"
+    "detailsComment": "Comment",
+    "hero": {
+      "leftToTake": "Left to take · {month}",
+      "leftToTakeShort": "Left to take",
+      "earned": "Earned",
+      "withdrawn": "Withdrawn",
+      "reserved": "Put into reserve",
+      "lost": "Lost to shortages",
+      "playstationTaken": "Part of Game Club · withdrawn {withdrawn} of {earned}"
+    }
   },
   "calendar": {
     "selectDate": "Select date",
@@ -2628,7 +2633,6 @@
     "recoveredShort": "Recovered",
     "lostShort": "Lost",
     "removedEmployee": "Removed employee",
-    "heroLost": "Lost to shortages:",
     "recoverButton": "Recover from salary",
     "recoverTitle": "Recover from salary",
     "recoverDescription": "The amount is added as a fine on {name}'s salary, so less is paid out.",
@@ -2736,7 +2740,6 @@
       "forbidden": "Only the club owner can use the reserve.",
       "failed": "Could not save. Check your connection and try again."
     },
-    "heroReserved": "Put into reserve:",
     "leftInMonth": "Left of {month}: {amount}",
     "depositAllShort": "Put all in · {amount}",
     "depositAllTitle": "Put all into reserve",

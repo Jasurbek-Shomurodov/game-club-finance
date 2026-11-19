@@ -128,6 +128,11 @@ const emptyForm = (month: string) => ({
 
 const EMPTY_WRITE_OFFS: StockWriteOffCountRow[] = [];
 
+/** Share of what was earned that has already been taken out, 0–100. */
+function withdrawnPercent(withdrawn: number, earned: number) {
+  return earned > 0 ? Math.min(100, Math.round((withdrawn / earned) * 100)) : 0;
+}
+
 export default function MoneyTakenPage() {
   const sectionTabs = useSectionTabs('ownerMoney');
   const t = useTranslations('moneyTaken');
@@ -1016,180 +1021,223 @@ export default function MoneyTakenPage() {
         <>
           {/* What the owner can still take out this month: both businesses together, then each one. */}
           <Card as="section" padding="lg" aria-labelledby="owner-profit-headline">
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-center">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
               <div className="min-w-0">
                 <p id="owner-profit-headline" className="flex items-center gap-2 text-[13px] font-medium text-gray-500">
                   <Wallet size={15} aria-hidden="true" className="shrink-0" />
-                  <span>{t('monthlyRemaining')} · {t('overallProfit')}</span>
+                  <span>{t('hero.leftToTake', { month: formatYearMonth(form.month, locale) })}</span>
                 </p>
                 {loading ? (
-                  <div className="mt-3 space-y-3" role="status" aria-label={tc('loading')}>
+                  <div className="mt-3" role="status" aria-label={tc('loading')}>
                     <Skeleton className="h-12 w-64 max-w-full" />
-                    <Skeleton className="h-4 w-72 max-w-full bg-gray-100" />
                   </div>
                 ) : (
-                  <>
-                    <p className={cn('mt-3 break-words text-4xl font-bold leading-none tracking-tight tabular-nums sm:text-5xl', metricToneClassName[toneForAmount(overall.available)])}>
-                      {formatCurrency(overall.available)}
-                      <span className="ml-2 text-base font-medium tracking-normal text-gray-500">{tc('currency')}</span>
-                    </p>
-                    <div className="mt-4 flex flex-wrap gap-2 text-[13px]">
-                      <div>
-                        <Link href={`/financial-analysis?month=${form.month}`} className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 transition-colors hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
-                          <TrendingUp size={14} aria-hidden="true" className="shrink-0 text-gray-400" />
-                          <span className="text-gray-500">{t('earnedBeforeWithdrawals')}</span>
-                          <span className="font-semibold tabular-nums text-gray-900">{formatCurrency(overall.earned)}</span>
-                        </Link>
-                      </div>
-                      <div>
-                        <a href="#withdrawal-history" className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-3 py-1 transition-colors hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
-                          <HandCoins size={14} aria-hidden="true" className="shrink-0 text-gray-400" />
-                          <span className="text-gray-500">{t('monthlyWithdrawn')}</span>
-                          <span className="font-semibold tabular-nums text-gray-900">{formatCurrency(overall.withdrawn)}</span>
-                        </a>
-                      </div>
-                    </div>
-                  </>
+                  <p className={cn('mt-2 break-words text-4xl font-bold leading-none tracking-tight tabular-nums sm:text-5xl', metricToneClassName[toneForAmount(overall.available)])}>
+                    {formatCurrency(overall.available)}
+                    <span className="ml-2 text-base font-medium tracking-normal text-gray-500">{tc('currency')}</span>
+                  </p>
                 )}
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                {headlineSources.map((side) => {
-                  const SourceIcon = SOURCE_ICONS[side.source];
-                  // How much of what the month earned has already been taken out.
-                  const withdrawnShare = side.earned > 0 ? Math.min(100, Math.round((side.withdrawn / side.earned) * 100)) : 0;
-                  return (
-                    <Link
-                      key={side.source}
-                      href={sideDetailsHref(side.source)}
-                      className="group relative block min-w-0 rounded-2xl border border-gray-100 bg-gray-50/40 p-4 transition-[border-color,background-color] hover:border-gray-200 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-                    >
-                      <ChevronRight size={15} aria-hidden="true" className="absolute right-3 top-4 text-gray-300 group-hover:text-gray-500" />
-                      <div className="flex items-center gap-2.5">
-                        <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', SOURCE_TINTS[side.source].bubble)}>
-                          <SourceIcon size={16} aria-hidden="true" />
-                        </span>
-                        <p className="text-sm font-semibold text-gray-900">{t(`sources.${side.source}`)}</p>
-                      </div>
-                      {loading ? (
-                        <div className="mt-3 space-y-2" role="status" aria-label={tc('loading')}>
-                          <Skeleton className="h-8 w-40 max-w-full" />
-                          <Skeleton className="h-2 w-full bg-gray-100" />
-                        </div>
-                      ) : (
-                        <>
-                          <p className={cn('mt-3 break-words text-2xl font-bold leading-none tracking-tight tabular-nums sm:text-[1.75rem]', metricToneClassName[toneForAmount(side.available)])}>
-                            {formatCurrency(side.available)}
-                            <span className="ml-1.5 text-sm font-medium tracking-normal text-gray-500">{tc('currency')}</span>
-                          </p>
-                          <div
-                            className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-gray-100"
-                            role="progressbar"
-                            aria-valuemin={0}
-                            aria-valuemax={100}
-                            aria-valuenow={withdrawnShare}
-                            aria-label={t('withdrawnShare', { percent: withdrawnShare })}
-                          >
-                            <div className={cn('h-full rounded-full transition-[width] duration-700', SOURCE_TINTS[side.source].bar)} style={{ width: `${withdrawnShare}%` }} />
-                          </div>
-                          <p className="mt-2 text-xs leading-5 text-gray-500">
-                            {t('withdrawnOfEarned', {
-                              withdrawn: formatCurrency(side.withdrawn),
-                              earned: formatCurrency(side.earned),
-                            })}
-                          </p>
-                          {reservedNet(monthReserve.bySource[side.source]) !== 0 ? (
-                            <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
-                              <PiggyBank size={13} aria-hidden="true" className="shrink-0 text-primary-500" />
-                              <span>{tr('heroReserved')}</span>
-                              <span className="whitespace-nowrap font-semibold tabular-nums text-primary-600">
-                                {formatCurrency(reservedNet(monthReserve.bySource[side.source]))}
-                              </span>
-                            </p>
-                          ) : null}
-                          {monthShortages[side.source].amount > 0 ? (
-                            <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
-                              <TriangleAlert size={13} aria-hidden="true" className="shrink-0 text-danger-500" />
-                              <span>{tsh('heroLost')}</span>
-                              <span className="whitespace-nowrap font-semibold tabular-nums text-danger-600">
-                                {formatCurrency(monthShortages[side.source].lost)}
-                              </span>
-                            </p>
-                          ) : null}
-                          {side.source === 'bar' && writeOffSummary.total.cost > 0 ? (
-                            <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
-                              <PackageMinus size={13} aria-hidden="true" className="shrink-0 text-danger-500" />
-                              <span>{t('heroWriteOffs')}</span>
-                              <span className="whitespace-nowrap font-semibold tabular-nums text-danger-600">
-                                {formatCurrency(writeOffSummary.total.cost)}
-                              </span>
-                            </p>
-                          ) : null}
-                          {monthHasCarryovers && side.carried !== 0 ? (
-                            <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
-                              <CalendarArrowUp size={13} aria-hidden="true" className="shrink-0 text-gray-400" />
-                              {t('carriedColumn')}: {carriedCell(side.carried, 'font-semibold')}
-                            </p>
-                          ) : null}
-                        </>
-                      )}
-                    </Link>
-                  );
-                })}
-                {playstationProfit ? (
-                  <Link
-                    href={sideDetailsHref('game_club')}
-                    className="group relative block min-w-0 rounded-2xl border border-gray-100 bg-gray-50/40 p-4 transition-[border-color,background-color] hover:border-gray-200 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 sm:col-span-2"
-                  >
-                    <ChevronRight size={15} aria-hidden="true" className="absolute right-3 top-4 text-gray-300 group-hover:text-gray-500" />
-                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-600">
-                        <SIDE_ICONS.playstation size={16} aria-hidden="true" />
+              {/* Earned and withdrawn for both businesses, each a link to where it comes from. */}
+              <div className="grid grid-cols-2 divide-x divide-gray-100 rounded-2xl border border-gray-100 lg:min-w-[26rem]">
+                <Link
+                  href={`/financial-analysis?month=${form.month}`}
+                  className="group min-w-0 rounded-l-2xl px-4 py-3 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                >
+                  <p className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <TrendingUp size={13} aria-hidden="true" className="shrink-0 text-gray-400" />
+                    {t('hero.earned')}
+                    <ChevronRight size={13} aria-hidden="true" className="ml-auto shrink-0 text-gray-300 group-hover:text-gray-500" />
+                  </p>
+                  <div className="mt-1 truncate text-lg font-semibold tabular-nums text-gray-900">
+                    {loading ? <Skeleton className="h-6 w-28" /> : formatCurrency(overall.earned)}
+                  </div>
+                </Link>
+                <a
+                  href="#withdrawal-history"
+                  className="group min-w-0 rounded-r-2xl px-4 py-3 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                >
+                  <p className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <HandCoins size={13} aria-hidden="true" className="shrink-0 text-gray-400" />
+                    {t('hero.withdrawn')}
+                    <ChevronRight size={13} aria-hidden="true" className="ml-auto shrink-0 text-gray-300 group-hover:text-gray-500" />
+                  </p>
+                  <div className="mt-1 flex items-baseline gap-2 text-lg font-semibold tabular-nums text-gray-900">
+                    {loading ? <Skeleton className="h-6 w-28" /> : (
+                      <>
+                        <span className="truncate">{formatCurrency(overall.withdrawn)}</span>
+                        <span className="text-xs font-medium text-gray-400">{withdrawnPercent(overall.withdrawn, overall.earned)}%</span>
+                      </>
+                    )}
+                  </div>
+                </a>
+              </div>
+            </div>
+
+            {/* How the amount left splits between the two businesses. */}
+            {!loading && overall.available > 0 ? (
+              <div className="mt-5">
+                <div className="flex h-2 w-full gap-0.5 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
+                  {headlineSources.map((side) => (
+                    side.available > 0 ? (
+                      <div
+                        key={side.source}
+                        className={cn('h-full transition-[width] duration-700', SOURCE_TINTS[side.source].bar)}
+                        style={{ width: `${(side.available / overall.available) * 100}%` }}
+                      />
+                    ) : null
+                  ))}
+                </div>
+                <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-500">
+                  {headlineSources.map((side) => (
+                    <li key={side.source} className="flex items-center gap-1.5">
+                      <span className={cn('h-2 w-2 shrink-0 rounded-full', SOURCE_TINTS[side.source].dot)} aria-hidden="true" />
+                      {t(`sources.${side.source}`)}
+                      <span className="font-medium tabular-nums text-gray-700">
+                        {Math.round((Math.max(0, side.available) / overall.available) * 100)}%
                       </span>
-                      <p className="text-sm font-semibold text-gray-900">{t('playstation')}</p>
-                      <p className="text-xs text-gray-500">{t('playstationPartOfClub')}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            <div className="mt-6 grid gap-3 md:grid-cols-2">
+              {headlineSources.map((side) => {
+                const SourceIcon = SOURCE_ICONS[side.source];
+                const reserved = reservedNet(monthReserve.bySource[side.source]);
+                const facts: { key: string; icon: LucideIcon; iconClassName: string; label: string; value: React.ReactNode }[] = [
+                  {
+                    key: 'earned',
+                    icon: TrendingUp,
+                    iconClassName: 'text-gray-400',
+                    label: t('hero.earned'),
+                    value: <span className="tabular-nums text-gray-900">{formatCurrency(side.earned)}</span>,
+                  },
+                  {
+                    key: 'withdrawn',
+                    icon: HandCoins,
+                    iconClassName: 'text-gray-400',
+                    label: t('hero.withdrawn'),
+                    value: (
+                      <span className="tabular-nums text-gray-900">
+                        {formatCurrency(side.withdrawn)}
+                        <span className="ml-1.5 text-xs font-normal text-gray-400">{withdrawnPercent(side.withdrawn, side.earned)}%</span>
+                      </span>
+                    ),
+                  },
+                ];
+                if (reserved !== 0) {
+                  facts.push({
+                    key: 'reserved',
+                    icon: PiggyBank,
+                    iconClassName: 'text-primary-500',
+                    label: t('hero.reserved'),
+                    value: <span className="tabular-nums text-primary-600">{formatCurrency(reserved)}</span>,
+                  });
+                }
+                if (monthShortages[side.source].amount > 0) {
+                  facts.push({
+                    key: 'lost',
+                    icon: TriangleAlert,
+                    iconClassName: 'text-danger-500',
+                    label: t('hero.lost'),
+                    value: <span className="tabular-nums text-danger-600">{formatCurrency(monthShortages[side.source].lost)}</span>,
+                  });
+                }
+                if (side.source === 'bar' && writeOffSummary.total.cost > 0) {
+                  facts.push({
+                    key: 'writeOffs',
+                    icon: PackageMinus,
+                    iconClassName: 'text-danger-500',
+                    label: t('heroWriteOffs'),
+                    value: <span className="tabular-nums text-danger-600">{formatCurrency(writeOffSummary.total.cost)}</span>,
+                  });
+                }
+                if (monthHasCarryovers && side.carried !== 0) {
+                  facts.push({
+                    key: 'carried',
+                    icon: CalendarArrowUp,
+                    iconClassName: 'text-gray-400',
+                    label: t('carriedColumn'),
+                    value: carriedCell(side.carried),
+                  });
+                }
+                return (
+                  <Link
+                    key={side.source}
+                    href={sideDetailsHref(side.source)}
+                    className="group flex min-w-0 flex-col rounded-2xl border border-gray-100 bg-gray-50/40 p-4 transition-[border-color,background-color] hover:border-gray-200 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', SOURCE_TINTS[side.source].bubble)}>
+                          <SourceIcon size={17} aria-hidden="true" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900">{t(`sources.${side.source}`)}</p>
+                          <p className="text-xs text-gray-500">{t('hero.leftToTakeShort')}</p>
+                        </div>
+                      </div>
+                      <ChevronRight size={16} aria-hidden="true" className="mt-1 shrink-0 text-gray-300 group-hover:text-gray-500" />
                     </div>
+
                     {loading ? (
-                      <div className="mt-3 space-y-2" role="status" aria-label={tc('loading')}>
+                      <div className="mt-4 space-y-3" role="status" aria-label={tc('loading')}>
                         <Skeleton className="h-8 w-40 max-w-full" />
-                        <Skeleton className="h-2 w-full bg-gray-100" />
+                        <Skeleton className="h-4 w-full bg-gray-100" />
+                        <Skeleton className="h-4 w-full bg-gray-100" />
                       </div>
                     ) : (
-                      <div className="mt-3 grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-end sm:gap-6">
-                        <p className={cn('break-words text-2xl font-bold leading-none tracking-tight tabular-nums sm:text-[1.75rem]', metricToneClassName[toneForAmount(playstationProfit.available)])}>
-                          {formatCurrency(playstationProfit.available)}
+                      <>
+                        <p className={cn('mt-4 break-words text-3xl font-bold leading-none tracking-tight tabular-nums', metricToneClassName[toneForAmount(side.available)])}>
+                          {formatCurrency(side.available)}
                           <span className="ml-1.5 text-sm font-medium tracking-normal text-gray-500">{tc('currency')}</span>
                         </p>
-                        <div className="min-w-0">
-                          {(() => {
-                            const share = playstationProfit.earned > 0
-                              ? Math.min(100, Math.round((playstationProfit.withdrawn / playstationProfit.earned) * 100))
-                              : 0;
+                        <dl className="mt-4 divide-y divide-gray-100 border-t border-gray-100 text-[13px]">
+                          {facts.map((fact) => {
+                            const FactIcon = fact.icon;
                             return (
-                              <div
-                                className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100"
-                                role="progressbar"
-                                aria-valuemin={0}
-                                aria-valuemax={100}
-                                aria-valuenow={share}
-                                aria-label={t('withdrawnShare', { percent: share })}
-                              >
-                                <div className="h-full rounded-full bg-purple-500 transition-[width] duration-700" style={{ width: `${share}%` }} />
+                              <div key={fact.key} className="flex items-center justify-between gap-3 py-2">
+                                <dt className="flex min-w-0 items-center gap-2 text-gray-500">
+                                  <FactIcon size={14} aria-hidden="true" className={cn('shrink-0', fact.iconClassName)} />
+                                  <span className="truncate">{fact.label}</span>
+                                </dt>
+                                <dd className="whitespace-nowrap font-semibold">{fact.value}</dd>
                               </div>
                             );
-                          })()}
-                          <p className="mt-2 text-xs leading-5 text-gray-500">
-                            {t('withdrawnOfEarned', {
-                              withdrawn: formatCurrency(playstationProfit.withdrawn),
-                              earned: formatCurrency(playstationProfit.earned),
-                            })}
-                          </p>
-                        </div>
-                      </div>
+                          })}
+                        </dl>
+
+                        {/* PlayStation money is part of Game Club profit, so it sits inside its card. */}
+                        {side.source === 'game_club' && playstationProfit
+                          && (playstationProfit.earned !== 0 || playstationProfit.withdrawn !== 0 || playstationProfit.available !== 0) ? (
+                          <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-purple-50/60 px-3 py-2.5 dark:bg-purple-500/10">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-purple-600 dark:bg-purple-500/20">
+                                <SIDE_ICONS.playstation size={14} aria-hidden="true" />
+                              </span>
+                              <div className="min-w-0">
+                                <p className="text-[13px] font-semibold text-gray-900">{t('playstation')}</p>
+                                <p className="truncate text-[11px] text-gray-500">
+                                  {t('hero.playstationTaken', {
+                                    withdrawn: formatCurrency(playstationProfit.withdrawn),
+                                    earned: formatCurrency(playstationProfit.earned),
+                                  })}
+                                </p>
+                              </div>
+                            </div>
+                            <p className={cn('whitespace-nowrap text-base font-bold tabular-nums', metricToneClassName[toneForAmount(playstationProfit.available)])}>
+                              {formatCurrency(playstationProfit.available)}
+                            </p>
+                          </div>
+                        ) : null}
+                      </>
                     )}
                   </Link>
-                ) : null}
-              </div>
+                );
+              })}
             </div>
           </Card>
 

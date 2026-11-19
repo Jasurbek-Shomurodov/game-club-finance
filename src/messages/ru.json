@@ -1444,11 +1444,9 @@
     "passwordUpdateError": "Не удалось сохранить пароль. Откройте ссылку из письма ещё раз."
   },
   "moneyTaken": {
-    "overallProfit": "Клуб + Бар",
     "earnedBeforeWithdrawals": "Доход до снятий",
     "clubMethodsBeforeWithdrawals": "Прибыль клуба разбита по способам оплаты: заработано после операционных расходов, снято владельцем и остаток в каждом.",
     "playstation": "PlayStation",
-    "playstationPartOfClub": "Часть клуба, осталось забрать",
     "monthlyWithdrawn": "Снято за месяц",
     "monthlyRemaining": "Остаток после снятий владельца",
     "monthlyOverallProfit": "Общая прибыль за месяц",
@@ -1522,11 +1520,9 @@
     "historyFilter": "Показать снятия из",
     "historyEntries": "{count, plural, one {# запись} few {# записи} many {# записей} other {# записи}}",
     "noHistoryForSource": "Из этого источника ещё ничего не снималось.",
-    "withdrawnShare": "Снято {percent}% дохода",
     "takeAll": "Всё",
     "takeAllLabel": "Подставить всю доступную сумму: {amount}",
     "recordButtonAmount": "Снять {amount}",
-    "withdrawnOfEarned": "Снято {withdrawn} из {earned} заработанного",
     "entryDetails": "Подробности",
     "detailsWithdrawalTitle": "Вывод прибыли",
     "detailsCarryoverTitle": "Перенос на следующий месяц",
@@ -1535,7 +1531,16 @@
     "detailsTakenFrom": "Откуда",
     "detailsMadeOn": "Записано",
     "detailsChangedOn": "Изменено",
-    "detailsComment": "Комментарий"
+    "detailsComment": "Комментарий",
+    "hero": {
+      "leftToTake": "Осталось забрать · {month}",
+      "leftToTakeShort": "Осталось забрать",
+      "earned": "Заработано",
+      "withdrawn": "Снято",
+      "reserved": "Отложено в резерв",
+      "lost": "Потеряно на недостачах",
+      "playstationTaken": "Часть клуба · снято {withdrawn} из {earned}"
+    }
   },
   "calendar": {
     "selectDate": "Выберите дату",
@@ -2628,7 +2633,6 @@
     "recoveredShort": "Удержано",
     "lostShort": "Потеряно",
     "removedEmployee": "Удалённый сотрудник",
-    "heroLost": "Потеряно из-за недостач:",
     "recoverButton": "Удержать из зарплаты",
     "recoverTitle": "Удержать из зарплаты",
     "recoverDescription": "Сумма добавляется штрафом к зарплате ({name}), поэтому выплата будет меньше.",
@@ -2736,7 +2740,6 @@
       "forbidden": "Резервом может пользоваться только владелец клуба.",
       "failed": "Не удалось сохранить. Проверьте подключение и попробуйте ещё раз."
     },
-    "heroReserved": "Отложено в резерв:",
     "leftInMonth": "Осталось за {month}: {amount}",
     "depositAllShort": "Отложить всё · {amount}",
     "depositAllTitle": "Отложить всё в резерв",

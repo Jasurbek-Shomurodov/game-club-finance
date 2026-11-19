@@ -1444,11 +1444,9 @@
     "passwordUpdateError": "Parolni saqlab bo‘lmadi. Xatdagi havolani qayta oching."
   },
   "moneyTaken": {
-    "overallProfit": "Klub + Bar",
     "earnedBeforeWithdrawals": "Pul yechishdan oldingi daromad",
     "clubMethodsBeforeWithdrawals": "O‘yin klubi foydasi to‘lov usullari bo‘yicha ajratilgan: operatsion xarajatlardan keyin topilgan, egasi yechgan va har birida qolgan summa.",
     "playstation": "PlayStation",
-    "playstationPartOfClub": "Klub qismi, olish uchun qolgan",
     "monthlyWithdrawn": "Shu oyda yechilgan",
     "monthlyRemaining": "Egasi pul yechganidan keyingi qoldiq",
     "monthlyOverallProfit": "Oylik umumiy foyda",
@@ -1522,11 +1520,9 @@
     "historyFilter": "Qaysi manbadan yechilganini ko‘rsatish",
     "historyEntries": "{count, plural, other {# ta yozuv}}",
     "noHistoryForSource": "Bu manbadan hali pul yechilmagan.",
-    "withdrawnShare": "Daromadning {percent}% yechilgan",
     "takeAll": "Hammasi",
     "takeAllLabel": "Mavjud summaning hammasini kiritish: {amount}",
     "recordButtonAmount": "{amount} olish",
-    "withdrawnOfEarned": "{earned} daromaddan {withdrawn} yechilgan",
     "entryDetails": "Tafsilotlar",
     "detailsWithdrawalTitle": "Foydani yechib olish",
     "detailsCarryoverTitle": "Keyingi oyga o'tkazildi",
@@ -1535,7 +1531,16 @@
     "detailsTakenFrom": "Qayerdan",
     "detailsMadeOn": "Yozilgan",
     "detailsChangedOn": "O'zgartirilgan",
-    "detailsComment": "Izoh"
+    "detailsComment": "Izoh",
+    "hero": {
+      "leftToTake": "Olish uchun qolgan · {month}",
+      "leftToTakeShort": "Olish uchun qolgan",
+      "earned": "Daromad",
+      "withdrawn": "Yechilgan",
+      "reserved": "Zaxiraga qo‘yilgan",
+      "lost": "Kamomadlarda yo‘qotilgan",
+      "playstationTaken": "Klub qismi · {earned} dan {withdrawn} yechilgan"
+    }
   },
   "calendar": {
     "selectDate": "Sanani tanlang",
@@ -2628,7 +2633,6 @@
     "recoveredShort": "Ushlandi",
     "lostShort": "Yo'qotildi",
     "removedEmployee": "O'chirilgan xodim",
-    "heroLost": "Kamomaddan yo'qotildi:",
     "recoverButton": "Ish haqidan ushlab qolish",
     "recoverTitle": "Ish haqidan ushlab qolish",
     "recoverDescription": "Summa {name} ish haqiga jarima sifatida qo'shiladi, shuning uchun kamroq to'lanadi.",
@@ -2736,7 +2740,6 @@
       "forbidden": "Jamg'armadan faqat klub egasi foydalana oladi.",
       "failed": "Saqlab bo'lmadi. Internetni tekshirib, qayta urinib ko'ring."
     },
-    "heroReserved": "Jamg'armaga qo'yildi:",
     "leftInMonth": "{month} dan qolgan: {amount}",
     "depositAllShort": "Hammasini qo'yish · {amount}",
     "depositAllTitle": "Hammasini jamg'armaga qo'yish",
