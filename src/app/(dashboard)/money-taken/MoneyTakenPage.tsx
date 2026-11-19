@@ -129,6 +129,34 @@ const emptyForm = (month: string) => ({
 const EMPTY_WRITE_OFFS: StockWriteOffCountRow[] = [];
 
 /** Share of what was earned that has already been taken out, 0–100. */
+/** Colour keys tying the split bar to its rows below. */
+const SPLIT_DOTS: Record<string, string> = {
+  withdrawn: 'bg-orange-500',
+  reserved: 'bg-purple-500',
+};
+
+/**
+ * One side's month as a bar: what was withdrawn, what went into the reserve
+ * and what is still left to take. The figures themselves are in the rows
+ * below; the bar shows their proportions at a glance.
+ */
+function ProfitSplitBar({ withdrawn, reserved, left, label }: { withdrawn: number; reserved: number; left: number; label: string }) {
+  const parts = [
+    { key: 'withdrawn', value: withdrawn, className: 'bg-orange-500' },
+    { key: 'reserved', value: reserved, className: 'bg-purple-500' },
+    { key: 'left', value: left, className: 'bg-success-500' },
+  ].filter((part) => part.value > 0);
+  const whole = parts.reduce((sum, part) => sum + part.value, 0);
+  if (!whole) return null;
+  return (
+    <div role="img" aria-label={label} className="mt-4 flex h-2 gap-0.5 overflow-hidden rounded-full bg-gray-100">
+      {parts.map((part) => (
+        <span key={part.key} className={cn('h-full transition-[width] duration-700 first:rounded-l-full last:rounded-r-full', part.className)} style={{ width: `${(part.value / whole) * 100}%` }} />
+      ))}
+    </div>
+  );
+}
+
 function withdrawnPercent(withdrawn: number, earned: number) {
   return earned > 0 ? Math.min(100, Math.round((withdrawn / earned) * 100)) : 0;
 }
@@ -1177,7 +1205,7 @@ export default function MoneyTakenPage() {
                         </span>
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-gray-900">{t(`sources.${side.source}`)}</p>
-                          <p className="text-xs text-gray-500">{t('hero.leftToTakeShort')}</p>
+                          <p className="flex items-center gap-1.5 text-xs text-gray-500">{t('hero.leftToTakeShort')}<span aria-hidden="true" className="h-2 w-2 rounded-sm bg-success-500" /></p>
                         </div>
                       </div>
                       <ChevronRight size={16} aria-hidden="true" className="mt-1 shrink-0 text-gray-300 group-hover:text-gray-500" />
@@ -1195,14 +1223,22 @@ export default function MoneyTakenPage() {
                           {formatCurrency(side.available)}
                           <span className="ml-1.5 text-sm font-medium tracking-normal text-gray-500">{tc('currency')}</span>
                         </p>
+                        <ProfitSplitBar
+                          withdrawn={side.withdrawn}
+                          reserved={Math.max(0, reserved)}
+                          left={Math.max(0, side.available)}
+                          label={`${t('hero.withdrawn')} ${formatCurrency(side.withdrawn)}, ${t('hero.reserved')} ${formatCurrency(Math.max(0, reserved))}, ${t('hero.leftToTakeShort')} ${formatCurrency(Math.max(0, side.available))}`}
+                        />
                         <dl className="mt-4 divide-y divide-gray-100 border-t border-gray-100 text-[13px]">
                           {facts.map((fact) => {
                             const FactIcon = fact.icon;
+                            const dot = SPLIT_DOTS[fact.key];
                             return (
                               <div key={fact.key} className="flex items-center justify-between gap-3 py-2">
                                 <dt className="flex min-w-0 items-center gap-2 text-gray-500">
                                   <FactIcon size={14} aria-hidden="true" className={cn('shrink-0', fact.iconClassName)} />
                                   <span className="truncate">{fact.label}</span>
+                                  {dot && <span aria-hidden="true" className={cn('h-2 w-2 shrink-0 rounded-sm', dot)} />}
                                 </dt>
                                 <dd className="whitespace-nowrap font-semibold">{fact.value}</dd>
                               </div>

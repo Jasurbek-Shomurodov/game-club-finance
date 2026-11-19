@@ -10,7 +10,9 @@ import { ArrowDownToLine, ArrowUpFromLine, ArrowRightLeft, ShoppingCart } from '
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
-import { ChartCard, ChartEmpty } from '@/components/dashboard/ChartCard';
+import { ChartCard, ChartEmpty, categoricalColors, chartColors } from '@/components/dashboard/ChartCard';
+import { rankShares } from '@/lib/calculations/insights';
+import { formatPercentShare } from '@/components/charts/chartFormat';
 import {
   Button,
   ButtonLink,
@@ -53,6 +55,7 @@ function ChartLoading() {
 const loadCharts = () => import('./ReserveCharts');
 const ReserveBalanceChart = dynamic(() => loadCharts().then((module) => module.ReserveBalanceChart), { ssr: false, loading: ChartLoading });
 const ReserveFlowChart = dynamic(() => loadCharts().then((module) => module.ReserveFlowChart), { ssr: false, loading: ChartLoading });
+const DonutBreakdown = dynamic(() => import('@/components/charts/DonutBreakdown').then((module) => module.DonutBreakdown), { ssr: false, loading: ChartLoading });
 
 type ReserveView = 'overview' | 'history';
 type HistoryFilter = 'all' | ReserveActivity['kind'];
@@ -117,6 +120,35 @@ export default function ReservePage() {
   const buyLimits = useMemo(() => reserveBuyLimits(reserveEntries, sumsHeld), [reserveEntries, sumsHeld]);
   const rates = useMemo(() => reserveDollarRates(exchangeRows, dollarsHeld, dollarsSumsValue), [exchangeRows, dollarsHeld, dollarsSumsValue]);
   const canBuy = buyLimits.cash > 0 || buyLimits.terminal > 0 || buyLimits.card > 0;
+  const te = useTranslations('expenses');
+  // What the reserve paid for, largest category first; the tail folds into "other".
+  const spendingSlices = useMemo(() => {
+    const byCategory = new Map<string, number>();
+    for (const row of activity) {
+      if (row.kind === 'purchase') byCategory.set(row.category, (byCategory.get(row.category) ?? 0) + row.amount);
+    }
+    const label = (category: string) => {
+      const key = `categories.${category}`;
+      return te.has(key) ? te(key as Parameters<typeof te>[0]) : category.replace(/_/g, ' ');
+    };
+    let colorIndex = 0;
+    return rankShares(
+      [...byCategory.entries()].map(([category, value]) => ({ key: category, label: label(category), value })),
+      categoricalColors.length,
+      { key: 'other', label: te('categories.other') },
+    ).map((slice) => ({
+      ...slice,
+      color: slice.other ? chartColors.gray : categoricalColors[colorIndex++],
+      onSelect: () => { setHistoryFilter('purchase'); showHistory(); },
+    }));
+  }, [activity, te]);
+  // Everything put in, as what was spent, sent back to profit and is still held.
+  const flowParts = [
+    { key: 'spent', label: t('spent'), value: totals.spent, className: 'bg-danger-500' },
+    { key: 'returned', label: t('returned'), value: totals.returned, className: 'bg-gray-400' },
+    { key: 'held', label: t('stillHeld'), value: Math.max(0, totals.deposited - totals.spent - totals.returned), className: 'bg-primary-600' },
+  ].filter((part) => part.value > 0);
+  const flowWhole = flowParts.reduce((sum, part) => sum + part.value, 0);
   const filterOptions = useMemo(() => {
     const present = new Set(activity.map((row) => row.kind));
     return FILTER_KINDS.filter((kind) => present.has(kind));
@@ -286,11 +318,38 @@ export default function ReservePage() {
                 <StatTile variant="soft" onClick={showHistory} icon={ArrowUpFromLine} label={t('returned')} value={formatCurrency(totals.returned)} unit={currency} />
                 <StatTile variant="soft" onClick={showHistory} icon={ShoppingCart} label={t('spent')} value={formatCurrency(totals.spent)} unit={currency} />
               </div>
+              {flowWhole > 0 ? (
+                <div className="mt-4">
+                  <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
+                    {flowParts.map((part) => (
+                      <span key={part.key} className={`h-full transition-[width] duration-700 first:rounded-l-full last:rounded-r-full ${part.className}`} style={{ width: `${(part.value / flowWhole) * 100}%` }} />
+                    ))}
+                  </div>
+                  <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-500" aria-label={t('flowSplitLabel')}>
+                    {flowParts.map((part) => (
+                      <li key={part.key} className="flex items-center gap-1.5">
+                        <span aria-hidden="true" className={`h-2 w-2 rounded-sm ${part.className}`} />
+                        {part.label}
+                        <span className="font-medium tabular-nums text-gray-700">{formatPercentShare(part.value / flowWhole, locale)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </Card>
 
-            <ChartCard title={t('balanceTitle')} description={t('balanceDescription')}>
-              {dailySeries.length === 0 ? <ChartEmpty title={tr('empty')} /> : <ReserveBalanceChart rows={dailySeries} locale={locale} currency={currency} />}
-            </ChartCard>
+            <div className="grid gap-4 xl:grid-cols-2">
+              <ChartCard title={t('balanceTitle')} description={t('balanceDescription')}>
+                {dailySeries.length === 0 ? <ChartEmpty title={tr('empty')} /> : <ReserveBalanceChart rows={dailySeries} locale={locale} currency={currency} />}
+              </ChartCard>
+              <ChartCard title={t('spendingTitle')} description={t('spendingDescription')}>
+                {spendingSlices.length === 0 ? <ChartEmpty title={t('spendingEmpty')} /> : (
+                  <div className="mt-4">
+                    <DonutBreakdown slices={spendingSlices} total={totals.spent} totalLabel={t('spent')} currency={currency} locale={locale} />
+                  </div>
+                )}
+              </ChartCard>
+            </div>
             <ChartCard title={t('flowTitle')} description={t('flowDescription')}>
               {series.length === 0 ? <ChartEmpty title={tr('empty')} /> : <ReserveFlowChart rows={series} locale={locale} currency={currency} />}
             </ChartCard>

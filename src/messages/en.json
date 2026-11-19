@@ -184,7 +184,18 @@
     "playstation": "PlayStation",
     "analysisLinkAction": "Open analysis",
     "gameClubNetProfit": "Game Club Net Profit",
-    "usd": "US dollars"
+    "usd": "US dollars",
+    "glanceSectionTitle": "This month at a glance",
+    "monthDayProgress": "Day {elapsed} of {total}",
+    "glanceDesc": "Every day of the month, the strongest weekdays and where the money went.",
+    "glanceMargin": "Margin",
+    "glanceProfit": "Profit",
+    "glanceProfitSlice": "Profit kept",
+    "glanceWhereMoneyWent": "Where the income went",
+    "glanceIncomeCenter": "Income",
+    "heatmapLess": "Less",
+    "heatmapMore": "More",
+    "byWeekday": "Average by weekday"
   },
   "financialAnalysis": {
     "title": "Financial Analysis",
@@ -422,7 +433,9 @@
       "expenses": "Where the operating expenses went over the whole history, and the biggest single payments.",
       "categories": "The share of every expense category in all operating expenses. The seven largest are shown by name and the rest are grouped as Other. The bar cost of goods sold is not an expense here.\n\nTap a category to see all its payments.",
       "largest": "The biggest single expenses ever recorded, with their date, comment and which side paid them. Tap one to open its category."
-    }
+    },
+    "scorePerDay": "Per day",
+    "scoreKept": "Kept as profit"
   },
   "reports": {
     "title": "Reports",
@@ -625,7 +638,10 @@
       "clearCollector": "Show everyone (now: {name})",
       "searchPlaceholder": "Search by name or note",
       "noMatches": "Nothing matches these filters."
-    }
+    },
+    "dailyChartTitle": "Game Club day by day",
+    "dailyChartDesc": "Income collected and Game Club expenses paid each day of the period.",
+    "dailyChartIncome": "Income"
   },
   "dailyCash": {
     "title": "Daily Cash Entry",
@@ -2891,6 +2907,11 @@
       "nothingToSell": "The reserve holds no dollars.",
       "deleteConfirm": "Delete this exchange of {sums} and {dollars}? Both sides are undone.",
       "deletedToast": "Exchange deleted."
-    }
+    },
+    "stillHeld": "Still held",
+    "flowSplitLabel": "Where the money put in went",
+    "spendingTitle": "What the reserve paid for",
+    "spendingDescription": "Purchases paid from the reserve, by category. Tap one to see the payments.",
+    "spendingEmpty": "Nothing has been paid from the reserve yet."
   }
 }

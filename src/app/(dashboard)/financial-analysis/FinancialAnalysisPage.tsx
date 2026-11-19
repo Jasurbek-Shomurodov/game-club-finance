@@ -3,10 +3,6 @@
 // Route: /financial-analysis
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  CalendarDays,
-  Percent,
-} from 'lucide-react';
 import { SIDE_ICONS } from '@/components/sideIcons';
 import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
@@ -30,7 +26,7 @@ import {
   PageHeader,
   SegmentedControl,
 } from '@/components/PresentationFoundation';
-import { ChartCard, ChartEmpty } from '@/components/dashboard/ChartCard';
+import { ChartCard, ChartEmpty, chartColors } from '@/components/dashboard/ChartCard';
 import {
   getDashboardComparisonRange,
   percentChange,
@@ -59,7 +55,7 @@ import {
   PaymentMethodFlow,
 } from '@/components/financial-analysis/AnalysisPanels';
 import { CategoryDrawer } from '@/components/financial-analysis/CategoryDrawer';
-import { Indicator, Section, SourceCards } from '@/components/financial-analysis/AnalysisSections';
+import { Section, SideScorecard } from '@/components/financial-analysis/AnalysisSections';
 import { OverallAnalysis } from '@/components/financial-analysis/OverallAnalysis';
 import { categoryColors, formatShare, SIDE_ICON_CLASS } from '@/components/financial-analysis/analysisFormat';
 import { moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
@@ -335,6 +331,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
     return { value, label: value === null ? td('noComparisonData') : comparisonLabel };
   };
 
+  const scoreLabels = { spent: t('spent'), profit: t('profit'), margin: t('margin'), perDay: t('scorePerDay'), kept: t('scoreKept') };
   const visibleMethods = visiblePaymentMethodRows(analysis.paymentMethods, enabledPaymentMethods);
   const hasActivity = [indicators.gameClub, indicators.bar].some((side) => side.income > 0 || side.spent > 0);
 
@@ -349,69 +346,39 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
       {/* After a failed load the figures are unknown, not zero: show only the error. */}
       {!error && (
         <>
-          <SourceCards
-            title={td('gameClub')}
-            detailsHref={moneyDetailsHref('game_club', range)}
-            spentHref={reportsHref(range, { category: 'expense', source: 'game_club' })}
-            icon={SIDE_ICONS.gameClub}
-            iconClassName={SIDE_ICON_CLASS.gameClub}
-            incomeLabel={t('moneyIn')}
-            now={indicators.gameClub}
-            before={previousIndicators.gameClub}
-            loading={loading}
-            currency={currency}
-            compare={compare}
-          />
-          <SourceCards
-            title={td('bar')}
-            detailsHref={moneyDetailsHref('bar', range)}
-            spentHref={reportsHref(range, { category: 'expense', source: 'bar' })}
-            icon={SIDE_ICONS.bar}
-            iconClassName={SIDE_ICON_CLASS.bar}
-            incomeLabel={t('barSalesIn')}
-            now={indicators.bar}
-            before={previousIndicators.bar}
-            loading={loading}
-            currency={currency}
-            compare={compare}
-          />
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Indicator
-              loading={loading}
-              icon={Percent}
+          {/* One scorecard per side: in, spent, profit, margin and daily average at a glance. */}
+          <div className="grid gap-3 lg:grid-cols-2">
+            <SideScorecard
+              title={td('gameClub')}
+              detailsHref={moneyDetailsHref('game_club', range)}
+              spentHref={reportsHref(range, { category: 'expense', source: 'game_club' })}
+              icon={SIDE_ICONS.gameClub}
               iconClassName={SIDE_ICON_CLASS.gameClub}
-              label={t('gameClubMargin')}
-              value={formatShare(indicators.gameClub.marginPct, locale)}
-              helper={t('gameClubMarginHelper')}
-              meter={indicators.gameClub.marginPct}
-              tone={indicators.gameClub.marginPct !== null && indicators.gameClub.marginPct < 0 ? 'danger' : 'success'}
-            />
-            <Indicator
+              color={chartColors.primary}
+              incomeLabel={t('moneyIn')}
+              now={indicators.gameClub}
+              before={previousIndicators.gameClub}
+              compare={compare}
               loading={loading}
-              icon={Percent}
+              currency={currency}
+              locale={locale}
+              labels={scoreLabels}
+            />
+            <SideScorecard
+              title={td('bar')}
+              detailsHref={moneyDetailsHref('bar', range)}
+              spentHref={reportsHref(range, { category: 'expense', source: 'bar' })}
+              icon={SIDE_ICONS.bar}
               iconClassName={SIDE_ICON_CLASS.bar}
-              label={t('barMargin')}
-              value={formatShare(indicators.bar.marginPct, locale)}
-              helper={t('barMarginHelper')}
-              meter={indicators.bar.marginPct}
-              tone={indicators.bar.marginPct !== null && indicators.bar.marginPct < 0 ? 'danger' : 'success'}
-            />
-            <Indicator
+              color={chartColors.orange}
+              incomeLabel={t('barSalesIn')}
+              now={indicators.bar}
+              before={previousIndicators.bar}
+              compare={compare}
               loading={loading}
-              icon={CalendarDays}
-              iconClassName={SIDE_ICON_CLASS.gameClub}
-              label={t('gameClubDaily')}
-              value={`${formatCurrency(indicators.gameClub.averageDailyIncome)} ${currency}`}
-              helper={t('gameClubDailyHelper')}
-            />
-            <Indicator
-              loading={loading}
-              icon={CalendarDays}
-              iconClassName={SIDE_ICON_CLASS.bar}
-              label={t('barDaily')}
-              value={`${formatCurrency(indicators.bar.averageDailyIncome)} ${currency}`}
-              helper={t('barDailyHelper')}
+              currency={currency}
+              locale={locale}
+              labels={scoreLabels}
             />
           </div>
 

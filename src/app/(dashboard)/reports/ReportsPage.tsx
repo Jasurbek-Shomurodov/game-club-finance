@@ -29,6 +29,7 @@ import {
   Button,
   Card,
   CardHeader,
+  ChartSkeleton,
   DataTable,
   DateRangePicker,
   EmptyState,
@@ -73,7 +74,7 @@ import {
   getDashboardRange,
   type ExpenseRow,
 } from '@/lib/calculations/dashboardMetrics';
-import { formatCurrency, formatDateOnly, formatTime, formatUnitCurrency } from '@/lib/formatters';
+import { formatCurrency, formatDateOnly, formatDateShort, formatTime, formatUnitCurrency } from '@/lib/formatters';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import { createClient, mutateFinanceRequest } from '@/lib/supabase/client';
 import { requestDailyCashDeletion } from '@/lib/dailyCashApi';
@@ -119,6 +120,15 @@ import { fetchDailyCashCollections, type DailyCashCollection } from '@/lib/supab
 import type { ExchangeMethod, MoneyExchangeRow } from '@/lib/calculations/moneyExchanges';
 import { EXPENSE_CATEGORIES, isKnownExpenseCategory, manualExpenseCategoriesFor } from '@/lib/expenseCategories';
 import { moneyDetailsHref } from '@/lib/detailLinks';
+import { EXPENSE_CATEGORY_ICONS, MONEY_MOVE_ICONS } from '@/components/expenseCategoryIcons';
+import dynamic from 'next/dynamic';
+import { ChartCard } from '@/components/dashboard/ChartCard';
+
+// The recharts chunk loads only on the closeout view, beside the report data.
+const DailyInOutChart = dynamic(
+  () => import('@/components/charts/DailyInOutChart').then((module) => module.DailyInOutChart),
+  { ssr: false, loading: () => <ChartSkeleton /> },
+);
 
 const emptyReportRows = {
   cash: [] as MoneyReportCashRow[],
@@ -162,6 +172,27 @@ function activityKindVariant(kind: MoneyReportActivity['kind']): BadgeVariant {
   if (kind === 'income') return 'success';
   if (kind === 'debt_payment' || kind === 'exchange') return 'info';
   return 'danger';
+}
+
+/**
+ * A tinted tile at the start of each closeout row showing where the money
+ * went (the expense category) or how it came in. Bar-paid expenses wear the
+ * bar's orange, so the paying side is visible too.
+ */
+function ActivityIcon({ activity }: { activity: MoneyReportActivity }) {
+  const Icon = activity.kind === 'income' ? MONEY_MOVE_ICONS.income
+    : activity.kind === 'debt_payment' ? MONEY_MOVE_ICONS.debtPayment
+      : activity.kind === 'exchange' ? MONEY_MOVE_ICONS.exchange
+        : EXPENSE_CATEGORY_ICONS[activity.category ?? 'other'] ?? EXPENSE_CATEGORY_ICONS.other;
+  const tone = activity.kind === 'income' ? 'bg-success-50 text-success-600'
+    : activity.kind === 'debt_payment' ? 'bg-primary-50 text-primary-600'
+      : activity.kind === 'exchange' ? 'bg-gray-100 text-gray-600'
+        : activity.paymentSource === 'bar' ? 'bg-orange-50 text-orange-600' : 'bg-danger-50 text-danger-600';
+  return (
+    <span aria-hidden="true" className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', tone)}>
+      <Icon size={17} strokeWidth={2.1} />
+    </span>
+  );
 }
 
 /** The closeout table lists a subtle day header row followed by that day's entries. */
@@ -259,7 +290,8 @@ function PaymentCard({
       <p className={cn('mt-2.5 break-words text-[1.375rem] font-bold leading-none tracking-tight tabular-nums sm:text-2xl', amountToneClassName(data.left))}>
         <Money amount={data.left} currencyClassName="text-sm font-medium tracking-normal text-gray-500" />
       </p>
-      <p className="mt-1 text-xs text-gray-500">{leftLabel}</p>
+      <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500"><span aria-hidden="true" className="h-2 w-2 rounded-sm bg-success-500" />{leftLabel}</p>
+      <MethodFlowBar data={data} />
       <dl className="mt-4 space-y-2 border-t border-gray-100 pt-3 text-sm">
         {data.opening !== 0 && (
           <div className="flex items-baseline justify-between gap-3">
@@ -276,7 +308,7 @@ function PaymentCard({
           </dd>
         </div>
         <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-gray-500">{expensesLabel}</dt>
+          <dt className="flex items-center gap-1.5 text-gray-500"><span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-sm bg-danger-500" />{expensesLabel}</dt>
           <dd className="shrink-0 font-semibold tabular-nums text-danger-600">
             <Money amount={data.expenses} currency={null} />
           </dd>
@@ -291,7 +323,7 @@ function PaymentCard({
         )}
         {data.exchangedOut !== 0 && (
           <div className="flex items-baseline justify-between gap-3">
-            <dt className="text-gray-500">{exchangedOutLabel}</dt>
+            <dt className="flex items-center gap-1.5 text-gray-500"><span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-sm bg-gray-400" />{exchangedOutLabel}</dt>
             <dd className="shrink-0 font-semibold tabular-nums text-gray-900">
               <Money amount={data.exchangedOut} currency={null} />
             </dd>
@@ -300,7 +332,7 @@ function PaymentCard({
         {/* The reserve is the owner's own money (156): what went into it is no longer this method's. */}
         {(data.reserved ?? 0) !== 0 && (
           <div className="flex items-baseline justify-between gap-3">
-            <dt className="text-gray-500">{reservedLabel}</dt>
+            <dt className="flex items-center gap-1.5 text-gray-500"><span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-sm bg-purple-500" />{reservedLabel}</dt>
             <dd className="shrink-0 font-semibold tabular-nums text-gray-900">
               <Money amount={data.reserved ?? 0} currency={null} />
             </dd>
@@ -324,6 +356,29 @@ function PaymentCard({
       </dl>
     </Card>
     </button>
+  );
+}
+
+/**
+ * What a method's money did over the period as one bar: spent, exchanged out,
+ * put into the reserve and still left, each as a share of everything the
+ * method had. The rows below name each part with its amount.
+ */
+function MethodFlowBar({ data }: { data: MoneyReportPaymentBreakdown }) {
+  const parts = [
+    { key: 'expenses', value: data.expenses, className: 'bg-danger-500' },
+    { key: 'out', value: data.exchangedOut, className: 'bg-gray-400' },
+    { key: 'reserve', value: data.reserved ?? 0, className: 'bg-purple-500' },
+    { key: 'left', value: Math.max(0, data.left), className: 'bg-success-500' },
+  ].filter((part) => part.value > 0);
+  const whole = parts.reduce((sum, part) => sum + part.value, 0);
+  if (!whole) return null;
+  return (
+    <div aria-hidden="true" className="mt-3 flex h-1.5 gap-0.5 overflow-hidden rounded-full bg-gray-100">
+      {parts.map((part) => (
+        <span key={part.key} className={cn('h-full first:rounded-l-full last:rounded-r-full', part.className)} style={{ width: `${(part.value / whole) * 100}%` }} />
+      ))}
+    </div>
   );
 }
 
@@ -690,6 +745,13 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     sourceFilter ? reportRows.reserveMoves.filter((move) => move.source === sourceFilter) : reportRows.reserveMoves,
   )), [categoryFilter, report, reportRows, sourceFilter]);
   // The cards start from what each method already held when the period began.
+  // Game Club money in and out per day, oldest first, for the day-by-day chart.
+  const dailyFlow = useMemo(
+    () => [...report.days]
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((day) => ({ date: day.date, label: formatDateShort(day.date, locale), income: day.income, expenses: day.gameClubExpenses })),
+    [report.days, locale],
+  );
   const paymentCardData = useMemo(
     () => withOpeningBalances(report.paymentMethods, reportRows.opening),
     [report.paymentMethods, reportRows.opening],
@@ -1144,7 +1206,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     {
       key: 'date',
       header: t('dateAndTime'),
-      className: 'w-44 whitespace-nowrap',
+      className: 'w-56 whitespace-nowrap',
       render: (row) => (row.kind === 'day' ? (
         <span className="block">
           <span className="flex items-center gap-2">
@@ -1158,10 +1220,13 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
           )}
         </span>
       ) : (
-        <span className="block">
-          <span className="block text-gray-700">{formatTime(row.activity.createdAt, locale)}</span>
-          <span className="mt-0.5 block max-w-40 truncate text-xs text-gray-500" title={row.activity.createdByName || t('unknownCreator')}>
-            {row.activity.createdByName || t('unknownCreator')}
+        <span className="flex items-center gap-3">
+          <ActivityIcon activity={row.activity} />
+          <span className="block min-w-0">
+            <span className="block text-gray-700">{formatTime(row.activity.createdAt, locale)}</span>
+            <span className="mt-0.5 block max-w-40 truncate text-xs text-gray-500" title={row.activity.createdByName || t('unknownCreator')}>
+              {row.activity.createdByName || t('unknownCreator')}
+            </span>
           </span>
         </span>
       )),
@@ -1453,6 +1518,24 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
               </div>
             )}
           </section>
+
+          {(loading || dailyFlow.length > 1) && (
+            <ChartCard title={t('dailyChartTitle')} description={t('dailyChartDesc')}>
+              <div className="mt-4">
+                {loading ? <ChartSkeleton /> : (
+                  <DailyInOutChart
+                    data={dailyFlow}
+                    incomeLabel={t('dailyChartIncome')}
+                    expensesLabel={t('gameClubExpenses')}
+                    legendLabel={t('dailyChartTitle')}
+                    incomeColor="rgb(var(--c-primary-600))"
+                    currency={tc('currency')}
+                    locale={locale}
+                  />
+                )}
+              </div>
+            </ChartCard>
+          )}
 
           <Card as="section" padding="none" className="scroll-mt-20 overflow-hidden" id="report-closeout">
             <CardHeader>

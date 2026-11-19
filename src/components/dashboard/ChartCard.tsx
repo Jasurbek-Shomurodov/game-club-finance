@@ -25,6 +25,15 @@ export const chartColors = {
   cursor: token('gray-500', 0.12),
 } as const;
 
+/**
+ * Categorical hues for charts that name several things (expense categories,
+ * payment methods), in a fixed order checked for colour-blind separation in
+ * both themes; none is the game club's teal, which stays its identity.
+ * Assign in this order and never cycle past the end: fold the tail into
+ * "other", drawn in `chartColors.gray`.
+ */
+export const categoricalColors = [1, 2, 3, 4, 5].map((slot) => token(`viz-${slot}`));
+
 /** Y-axis gutter wide enough for compact labels like "4,5 млн" without clipping the first digit. */
 export const CHART_Y_AXIS_WIDTH = 60;
 

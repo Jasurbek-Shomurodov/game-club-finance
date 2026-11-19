@@ -59,6 +59,9 @@ import {
   shouldTryPerformanceRpc,
 } from '@/lib/supabase/performanceRpc';
 import { closingStockHref, moneyDetailsHref } from '@/lib/detailLinks';
+import { expenseTotalsByCategory, periodProgress, valuesByDate } from '@/lib/calculations/insights';
+import { SideGlanceCard } from '@/components/dashboard/SideGlanceCard';
+import { chartColors } from '@/components/dashboard/ChartCard';
 
 function ChartLoading() {
   return <ChartSkeleton />;
@@ -157,6 +160,7 @@ export default function DashboardPage({
   const t = useTranslations('dashboard');
   const tc = useTranslations('common');
   const tf = useTranslations('financialAnalysis');
+  const te = useTranslations('expenses');
   const currency = tc('currency');
 
   const fetchDashboard = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
@@ -318,6 +322,26 @@ export default function DashboardPage({
   // The money flows come from the same snapshot as the cards, so the two always agree.
   const { ledgers } = data;
 
+  // "At a glance": each side's month day by day, from the same snapshot as the cards.
+  const gameClubByDate = useMemo(() => valuesByDate(data.trend, (row) => row.gameClubIncome), [data.trend]);
+  const barByDate = useMemo(() => valuesByDate(data.trend, (row) => row.barSales), [data.trend]);
+  const categoryLabel = useCallback((category: string) => {
+    const key = `categories.${category}`;
+    return te.has(key) ? te(key as Parameters<typeof te>[0]) : category.replace(/_/g, ' ');
+  }, [te]);
+  const gameClubSpending = useMemo(
+    () => expenseTotalsByCategory(ledgers.expenseRows, 'game_club').map(({ category, value }) => ({ key: category, label: categoryLabel(category), value })),
+    [ledgers.expenseRows, categoryLabel],
+  );
+  const barSpending = useMemo(
+    () => [
+      { key: 'barCost', label: tf('barCost'), value: totals.barCost },
+      ...expenseTotalsByCategory(ledgers.expenseRows, 'bar').map(({ category, value }) => ({ key: category, label: categoryLabel(category), value })),
+    ],
+    [ledgers.expenseRows, categoryLabel, totals.barCost, tf],
+  );
+  const monthProgress = periodProgress(range, businessToday);
+
   const detailsLink = (href: string) => (
     <ButtonLink href={href} variant="ghost" size="sm" iconRight={<ArrowRight size={15} aria-hidden="true" />}>
       {t('details')}
@@ -417,6 +441,60 @@ export default function DashboardPage({
               helper={t('barNetProfitDesc')}
             />
           </div>
+
+          {/* The month at a glance: each side on its own, never added together. */}
+          <section aria-labelledby="dashboard-glance-heading" className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+              <h2 id="dashboard-glance-heading" className="text-base font-semibold tracking-tight text-gray-950">{t('glanceSectionTitle')}</h2>
+              <div className="flex min-w-44 items-center gap-2 text-xs text-gray-500">
+                <span className="tabular-nums">{t('monthDayProgress', { elapsed: monthProgress.elapsed, total: monthProgress.total })}</span>
+                <span className="h-1.5 w-28 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
+                  <span className="block h-full rounded-full bg-primary-600 transition-[width] duration-700" style={{ width: `${monthProgress.ratio * 100}%` }} />
+                </span>
+              </div>
+            </div>
+            {loading ? (
+              <div className="grid gap-3 xl:grid-cols-2" role="status" aria-label={t('loading')}>
+                <ChartLoading />
+                <ChartLoading />
+              </div>
+            ) : (
+              <div className="grid gap-3 xl:grid-cols-2">
+                <SideGlanceCard
+                  title={t('gameClub')}
+                  icon={SIDE_ICONS.gameClub}
+                  iconClassName={SIDE_ICON_CLASS.gameClub}
+                  color={chartColors.primary}
+                  yearMonth={month}
+                  range={range}
+                  values={gameClubByDate}
+                  through={data.latestDailyCashEntryDate}
+                  today={businessToday}
+                  income={totals.gameClubIncome}
+                  profit={totals.gameClubProfit}
+                  spending={gameClubSpending}
+                  currency={currency}
+                  locale={locale}
+                />
+                <SideGlanceCard
+                  title={t('bar')}
+                  icon={SIDE_ICONS.bar}
+                  iconClassName={SIDE_ICON_CLASS.bar}
+                  color={chartColors.orange}
+                  yearMonth={month}
+                  range={range}
+                  values={barByDate}
+                  through={data.latestBarEntryDate}
+                  today={businessToday}
+                  income={totals.barSales}
+                  profit={totals.barProfit}
+                  spending={barSpending}
+                  currency={currency}
+                  locale={locale}
+                />
+              </div>
+            )}
+          </section>
 
           {/* Each business gets its own money flow; tapping a node opens the Sankey behind it. */}
           {loading ? (

@@ -349,6 +349,35 @@ export default function CollectedTab({
         />
       </section>
 
+      {/* Everything taken, as paid out, moved to the reserve and still with the collector. */}
+      {!loading && summary.collected.total > 0 && (() => {
+        const parts = [
+          { key: 'spent', label: tm('paidFromCollected'), value: summary.spent.total, className: 'bg-danger-500' },
+          { key: 'reserve', label: tm('movedToReserve'), value: summary.toReserve.total, className: 'bg-purple-500' },
+          { key: 'held', label: tv('stillHeld'), value: Math.max(0, summary.held.total), className: 'bg-warning-500' },
+        ].filter((part) => part.value > 0);
+        const whole = parts.reduce((sum, part) => sum + part.value, 0);
+        if (!whole) return null;
+        return (
+          <div className="rounded-2xl border border-gray-200 bg-surface px-4 py-3 shadow-card">
+            <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
+              {parts.map((part) => (
+                <span key={part.key} className={cn('h-full first:rounded-l-full last:rounded-r-full', part.className)} style={{ width: `${(part.value / whole) * 100}%` }} />
+              ))}
+            </div>
+            <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-500">
+              {parts.map((part) => (
+                <li key={part.key} className="flex items-center gap-1.5">
+                  <span aria-hidden="true" className={cn('h-2 w-2 rounded-sm', part.className)} />
+                  {part.label}
+                  <span className="font-medium tabular-nums text-gray-700">{Math.round((part.value / whole) * 100)}%</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })()}
+
       {!loading && summary.collections.length > 0 && (
         <Card as="section" padding="none" className="overflow-hidden">
           <CardHeader>

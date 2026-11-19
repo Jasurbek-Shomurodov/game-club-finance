@@ -1,17 +1,19 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { ArrowDownRight, Wallet, type LucideIcon } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import Link from 'next/link';
+import { ArrowDownRight, ArrowUpRight, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  AmountCard,
   HelpButton,
-  MetricCard,
+  metricToneClassName,
   toneForAmount,
   type MetricTone,
 } from '@/components/PresentationFoundation';
 import type { SourceIndicators } from '@/lib/calculations/financialAnalysis';
+import { formatCurrency } from '@/lib/formatters';
+import { RadialMeter } from '@/components/charts/RadialMeter';
+import { formatPercentShare } from '@/components/charts/chartFormat';
 
 export function Section({ id, title, description, icon: Icon, iconClassName, action, help, children }: {
   /** Anchor for in-page navigation. */
@@ -47,97 +49,95 @@ export function Section({ id, title, description, icon: Icon, iconClassName, act
 }
 
 /** Small ratio tile: icon, label, value, optional 0–100 meter and a caption. */
-export function Indicator({ icon, iconClassName, label, value, helper, meter, tone = 'default', loading }: {
-  icon: LucideIcon;
-  iconClassName?: string;
-  label: string;
-  value: string;
-  helper: string;
-  meter?: number | null;
-  tone?: MetricTone;
-  loading: boolean;
-}) {
-  const meterColor = tone === 'danger' ? 'bg-danger-500' : tone === 'success' ? 'bg-success-500' : tone === 'warning' ? 'bg-warning-500' : 'bg-primary-600';
-  return (
-    <MetricCard
-      loading={loading}
-      icon={icon}
-      iconClassName={iconClassName}
-      label={label}
-      value={value}
-      tone={tone}
-      helper={(
-        <>
-          {meter !== undefined && meter !== null && (
-            <span className="mb-2 block h-1.5 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
-              <span className={cn('block h-full rounded-full', meterColor)} style={{ width: `${Math.min(100, Math.max(0, meter))}%` }} />
-            </span>
-          )}
-          {helper}
-        </>
-      )}
-    />
-  );
-}
-
-/** Money in, spent and accounting profit for one side of the club; the two sides are never added together. */
-export function SourceCards({ title, icon, iconClassName, incomeLabel, now, before, loading, currency, compare, description, detailsHref, spentHref }: {
+/**
+ * One side's month on one card: money in, spent and profit with their change,
+ * a bar splitting the income into what was spent and what was kept, the
+ * margin ring and the daily average. The game club and the bar each get one;
+ * the two are never added together.
+ */
+export function SideScorecard({ title, icon: Icon, iconClassName, color, incomeLabel, now, before, compare, loading, currency, locale, detailsHref, spentHref, labels }: {
   title: string;
   icon: LucideIcon;
-  /** The side's colour, so club and bar cards are told apart at a glance. */
   iconClassName: string;
+  color: string;
   incomeLabel: string;
   now: SourceIndicators;
   before?: SourceIndicators;
+  compare?: (now: number, before: number) => { value: number | null; label: string };
   loading: boolean;
   currency: string;
-  /** Leave out (with `before`) where there is no earlier period to compare with. */
-  compare?: (now: number, before: number) => { value: number | null; label: string };
-  description?: string;
-  /** The side's money details for the same period, opened from its income and profit. */
+  locale: string;
   detailsHref?: string;
-  /** The expenses behind "spent". */
   spentHref?: string;
+  labels: { spent: string; profit: string; margin: string; perDay: string; kept: string };
 }) {
-  const t = useTranslations('financialAnalysis');
+  const margin = now.marginPct === null ? null : now.marginPct / 100;
+  const marginText = margin === null ? '—' : formatPercentShare(margin, locale, 1);
+  const spentShare = now.income > 0 ? Math.min(1, now.spent / now.income) : now.spent > 0 ? 1 : 0;
+  const keptShare = Math.max(0, 1 - spentShare);
+  const figures: Array<{ key: string; label: string; amount: number; tone: MetricTone; href?: string; goodWhen: 'up' | 'down'; previous?: number }> = [
+    { key: 'in', label: incomeLabel, amount: now.income, tone: 'default', href: detailsHref, goodWhen: 'up', previous: before?.income },
+    { key: 'spent', label: labels.spent, amount: now.spent, tone: 'danger', href: spentHref, goodWhen: 'down', previous: before?.spent },
+    { key: 'profit', label: labels.profit, amount: now.left, tone: toneForAmount(now.left), href: detailsHref, goodWhen: 'up', previous: before?.left },
+  ];
   return (
-    <Section title={title} description={description} icon={icon} iconClassName={iconClassName}>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <AmountCard
-          loading={loading}
-          currency={currency}
-          href={detailsHref}
-          label={incomeLabel}
-          amount={now.income}
-          icon={icon}
-          iconClassName={iconClassName}
-          tone="success"
-          comparison={compare && before ? compare(now.income, before.income) : undefined}
-        />
-        <AmountCard
-          loading={loading}
-          currency={currency}
-          href={spentHref}
-          label={t('spent')}
-          amount={now.spent}
-          icon={ArrowDownRight}
-          iconClassName={iconClassName}
-          tone="danger"
-          comparison={compare && before ? compare(now.spent, before.spent) : undefined}
-          comparisonGoodWhen="down"
-        />
-        <AmountCard
-          loading={loading}
-          currency={currency}
-          href={detailsHref}
-          label={t('profit')}
-          amount={now.left}
-          icon={Wallet}
-          iconClassName={iconClassName}
-          tone={toneForAmount(now.left)}
-          comparison={compare && before ? compare(now.left, before.left) : undefined}
-        />
+    <section aria-label={title} className="min-w-0 rounded-2xl border border-gray-200 bg-surface p-4 shadow-card sm:p-5">
+      <header className="flex items-center gap-3">
+        <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gray-100', iconClassName)} aria-hidden="true">
+          <Icon size={18} strokeWidth={2.2} />
+        </span>
+        <h2 className="min-w-0 flex-1 text-base font-semibold tracking-tight text-gray-950">{title}</h2>
+        <RadialMeter value={margin} color={margin !== null && margin < 0 ? 'rgb(var(--c-danger-500))' : color} size={52} stroke={6} label={`${labels.margin}: ${marginText}`}>
+          <span className="text-[11px] font-bold tabular-nums text-gray-950">{loading ? '—' : marginText}</span>
+        </RadialMeter>
+      </header>
+
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        {figures.map((figure) => {
+          const change = compare && figure.previous !== undefined ? compare(figure.amount, figure.previous) : null;
+          const good = change?.value !== null && change?.value !== undefined
+            ? (figure.goodWhen === 'up' ? change.value >= 0 : change.value <= 0)
+            : null;
+          const body = (
+            <>
+              <span className="block truncate text-[11px] font-medium text-gray-500">{figure.label}</span>
+              <span className={cn('mt-1 block truncate text-base font-bold tabular-nums tracking-tight sm:text-lg', metricToneClassName[figure.tone])}>
+                {loading ? '—' : formatCurrency(figure.amount)}
+              </span>
+              {!loading && change && (
+                <span className={cn('mt-0.5 flex items-center gap-0.5 text-[11px] font-semibold tabular-nums', good === null ? 'text-gray-400' : good ? 'text-success-600' : 'text-danger-600')} title={change.label}>
+                  {change.value === null ? '—' : (
+                    <>
+                      {change.value >= 0 ? <ArrowUpRight size={12} aria-hidden="true" /> : <ArrowDownRight size={12} aria-hidden="true" />}
+                      {Math.abs(change.value)}%
+                    </>
+                  )}
+                </span>
+              )}
+            </>
+          );
+          const className = 'min-w-0 rounded-xl bg-gray-50 px-3 py-2.5';
+          return figure.href && !loading ? (
+            <Link key={figure.key} href={figure.href} className={cn(className, 'transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500')}>
+              {body}
+            </Link>
+          ) : (
+            <div key={figure.key} className={className}>{body}</div>
+          );
+        })}
       </div>
-    </Section>
+
+      <div className="mt-4">
+        <div className="flex h-2.5 overflow-hidden rounded-full bg-gray-100" role="img" aria-label={`${labels.spent} ${formatPercentShare(spentShare, locale)}, ${labels.kept} ${formatPercentShare(keptShare, locale)}`}>
+          <span className="h-full bg-danger-500/80 transition-[width] duration-700" style={{ width: `${spentShare * 100}%` }} />
+          {keptShare > 0 && <span className="ml-0.5 h-full rounded-r-full transition-[width] duration-700" style={{ width: `${keptShare * 100}%`, backgroundColor: color }} />}
+        </div>
+        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-gray-500">
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-danger-500/80" aria-hidden="true" />{labels.spent} · {formatPercentShare(spentShare, locale)}</span>
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm" style={{ backgroundColor: color }} aria-hidden="true" />{labels.kept} · {formatPercentShare(keptShare, locale)}</span>
+          <span className="ml-auto tabular-nums">{labels.perDay}: <span className="font-semibold text-gray-950">{loading ? '—' : formatCurrency(now.averageDailyIncome)}</span> {currency}</span>
+        </div>
+      </div>
+    </section>
   );
 }

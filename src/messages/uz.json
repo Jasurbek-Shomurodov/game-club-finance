@@ -184,7 +184,18 @@
     "playstation": "PlayStation",
     "analysisLinkAction": "Tahlilni ochish",
     "gameClubNetProfit": "Klub sof foydasi",
-    "usd": "AQSH dollari"
+    "usd": "AQSH dollari",
+    "glanceSectionTitle": "Shu oy bir qarashda",
+    "monthDayProgress": "{total} kundan {elapsed}-kun",
+    "glanceDesc": "Oyning har bir kuni, eng kuchli hafta kunlari va pul qayerga ketgani.",
+    "glanceMargin": "Marja",
+    "glanceProfit": "Foyda",
+    "glanceProfitSlice": "Qolgan foyda",
+    "glanceWhereMoneyWent": "Daromad qayerga ketdi",
+    "glanceIncomeCenter": "Daromad",
+    "heatmapLess": "Kam",
+    "heatmapMore": "Ko‘p",
+    "byWeekday": "Hafta kunlari bo‘yicha o‘rtacha"
   },
   "financialAnalysis": {
     "title": "Moliyaviy tahlil",
@@ -422,7 +433,9 @@
       "expenses": "Butun tarix davomida operatsion xarajatlar qayerga ketgani va eng katta alohida to‘lovlar.",
       "categories": "Har bir toifaning barcha operatsion xarajatlardagi ulushi. Eng katta yettitasi nomi bilan, qolganlari «Boshqa» ga yig‘ilgan. Bar tannarxi bu yerda xarajat hisoblanmaydi.\n\nBarcha to‘lovlarini ko‘rish uchun toifani bosing.",
       "largest": "Hamma vaqtdagi eng katta alohida xarajatlar — sanasi, izohi va qaysi qism pulidan to‘langani bilan. Toifasini ochish uchun bosing."
-    }
+    },
+    "scorePerDay": "Kuniga",
+    "scoreKept": "Foyda bo‘lib qoldi"
   },
   "reports": {
     "title": "Hisobotlar",
@@ -625,7 +638,10 @@
       "clearCollector": "Hammasini ko‘rsatish (hozir: {name})",
       "searchPlaceholder": "Ism yoki izoh bo‘yicha qidirish",
       "noMatches": "Bu filtrlarga mos hech narsa yo‘q."
-    }
+    },
+    "dailyChartTitle": "O‘yin klubi kunlar bo‘yicha",
+    "dailyChartDesc": "Davrning har bir kunida yig‘ilgan daromad va o‘yin klubi to‘lagan xarajatlar.",
+    "dailyChartIncome": "Daromad"
   },
   "dailyCash": {
     "title": "Kunlik kassa",
@@ -2891,6 +2907,11 @@
       "nothingToSell": "Jamg'armada dollar yo'q.",
       "deleteConfirm": "{sums} va {dollars} almashtirishini o'chirasizmi? Ikkala tomoni ham bekor qilinadi.",
       "deletedToast": "Almashtirish o'chirildi."
-    }
+    },
+    "stillHeld": "Hali zaxirada",
+    "flowSplitLabel": "Qo‘yilgan pul qayerga ketdi",
+    "spendingTitle": "Zaxiradan nimaga to‘landi",
+    "spendingDescription": "Zaxiradan qilingan xaridlar, kategoriya bo‘yicha. To‘lovlarni ko‘rish uchun bosing.",
+    "spendingEmpty": "Zaxiradan hali hech narsa to‘lanmagan."
   }
 }

@@ -1175,5 +1175,6 @@ test('REP-010 a collector takes money from the admin, and a bill is paid from wh
   await page.getByText('Taken by the collector, not yet in the reserve').click();
   await expect(page).toHaveURL(/view=collected/);
   await expect(page.getByRole('table').filter({ hasText: 'Collected by' })).toContainText(uzs(2_370_000));
-  await expect(page.getByText('Paid from collected')).toBeVisible();
+  // The card first, then the split bar's legend naming the same share.
+  await expect(page.getByText('Paid from collected').first()).toBeVisible();
 });
