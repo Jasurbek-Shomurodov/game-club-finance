@@ -3,7 +3,6 @@
 // Route: /reports
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 import {
   ArrowRightLeft,
@@ -102,6 +101,7 @@ import {
 } from '@/lib/calculations/collectedMoney';
 import { ReportsTabs, type ReportsView } from './ReportsTabs';
 import { DayBreakdownModal } from './DayBreakdownModal';
+import { MethodDaysModal, type PaymentMethodFigure } from './MethodDaysModal';
 import type { DayFigure } from '@/lib/calculations/dayExclusion';
 import { fetchProfileNames } from '@/lib/supabase/profileNames';
 import { fetchDailyCashCollections, type DailyCashCollection } from '@/lib/supabase/dailyCashCollections';
@@ -210,9 +210,10 @@ function PaymentCard({
   takenLabel,
   stillHeldLabel,
   taken,
-  href,
+  onClick,
 }: {
-  href: string;
+  /** Opens the days that moved this method. */
+  onClick: () => void;
   label: string;
   data: MoneyReportPaymentBreakdown;
   icon: LucideIcon;
@@ -230,9 +231,10 @@ function PaymentCard({
 }) {
   const stillHeld = moneyStillHeld(data.left, taken);
   return (
-    <Link
-      href={href}
-      className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+    <button
+      type="button"
+      onClick={onClick}
+      className="group block w-full rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
     >
     <Card as="article" className="relative h-full transition-[border-color,box-shadow] group-hover:border-gray-300 group-hover:shadow-md">
       <ChevronRight size={15} aria-hidden="true" className="absolute right-3 top-4 text-gray-300 group-hover:text-gray-500" />
@@ -307,7 +309,7 @@ function PaymentCard({
         </div>
       </dl>
     </Card>
-    </Link>
+    </button>
   );
 }
 
@@ -407,6 +409,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   const [selectedEntry, setSelectedEntry] = useState<{ activity: MoneyReportActivity; date: string } | null>(null);
   /** The day figure the owner tapped, to see its entries and leave some out. */
   const [dayBreakdown, setDayBreakdown] = useState<{ date: string; figure: DayFigure } | null>(null);
+  /** The payment method card the owner tapped, to list the days that moved it. */
+  const [methodDays, setMethodDays] = useState<PaymentMethodFigure | null>(null);
   const currentClubId = useRef(selectedClubId);
   const deletePending = useRef(false);
   const [methodSaving, setMethodSaving] = useState(false);
@@ -617,6 +621,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     currentClubId.current = selectedClubId;
     setSelectedEntry(null);
     setDayBreakdown(null);
+    setMethodDays(null);
     setExpenseDialogOpen(false);
     setExchangeDialogOpen(false);
     setActionError('');
@@ -1249,7 +1254,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                 }).map((card) => (
                   <PaymentCard
                     key={card.method}
-                    href={moneyDetailsHref('game_club', range)}
+                    onClick={() => setMethodDays(card.method)}
                     label={card.label}
                     icon={card.icon}
                     data={paymentCardData[card.method]}
@@ -1366,13 +1371,24 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       )}
 
       <DayBreakdownModal
-        day={dayBreakdown ? filteredReport.days.find((day) => day.date === dayBreakdown.date) ?? null : null}
+        day={dayBreakdown
+          ? filteredReport.days.find((day) => day.date === dayBreakdown.date) ?? report.days.find((day) => day.date === dayBreakdown.date) ?? null
+          : null}
         figure={dayBreakdown?.figure ?? 'income'}
         rows={reportRows}
         figureLabels={dayFigureLabels}
         activityTypeLabel={activityTypeLabel}
         categoryLabel={categoryLabel}
         onClose={() => setDayBreakdown(null)}
+      />
+
+      <MethodDaysModal
+        method={dayBreakdown ? null : methodDays}
+        label={paymentCards.find((card) => card.method === methodDays)?.label ?? ''}
+        days={report.days}
+        data={methodDays ? paymentCardData[methodDays] : null}
+        onSelectDay={(date) => methodDays && setDayBreakdown({ date, figure: methodDays })}
+        onClose={() => setMethodDays(null)}
       />
 
       {hasReportsAccess && canRegisterExpenses && (
