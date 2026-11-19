@@ -430,6 +430,8 @@
     "expenses": "Расходы",
     "bar": "Бар",
     "barCashLeft": "Остаток денег бара",
+    "takenByCollection": "Забрано по отметке",
+    "stillInKassa": "Осталось в кассе",
     "moneyLeftByPaymentMethod": "Остаток по способу оплаты",
     "moneyLeftDescription": "Сколько было на начало периода, плюс полученные деньги, минус расходы клуба этим способом, с учётом обменов.",
     "openingBalance": "С начала месяца",

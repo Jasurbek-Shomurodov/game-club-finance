@@ -93,6 +93,13 @@ import { fetchDollarExpenses, fetchMoneyExchanges, withDollarAmounts } from '@/l
 import { fetchReserveMoves } from '@/lib/supabase/reserveMoves';
 import type { ReserveMove } from '@/lib/calculations/reserveMoves';
 import { requestCollectionChange } from '@/lib/collectionsApi';
+import {
+  addCollectedByMethod,
+  moneyStillHeld,
+  NO_MONEY_COLLECTED,
+  summarizeCollectedMoney,
+  type CollectedByMethod,
+} from '@/lib/calculations/collectedMoney';
 import { ReportsTabs, type ReportsView } from './ReportsTabs';
 import { DayBreakdownModal } from './DayBreakdownModal';
 import type { DayFigure } from '@/lib/calculations/dayExclusion';
@@ -114,6 +121,8 @@ const emptyReportRows = {
   collections: [] as DailyCashCollection[],
   /** What each method held when the period began; null when it starts on the 1st or is unknown. */
   opening: null as MoneyReport['paymentMethods'] | null,
+  /** Money "Mark as collected" took earlier this month, before the period began. */
+  openingCollected: NO_MONEY_COLLECTED as CollectedByMethod,
 };
 
 type ReportRange = { from: string; to: string };
@@ -198,6 +207,9 @@ function PaymentCard({
   exchangedOutLabel,
   reservedLabel,
   leftLabel,
+  takenLabel,
+  stillHeldLabel,
+  taken,
   href,
 }: {
   href: string;
@@ -211,7 +223,12 @@ function PaymentCard({
   exchangedOutLabel: string;
   reservedLabel: string;
   leftLabel: string;
+  takenLabel: string;
+  stillHeldLabel: string;
+  /** Money "Mark as collected" took from this method over the same span as `left`. */
+  taken: number;
 }) {
+  const stillHeld = moneyStillHeld(data.left, taken);
   return (
     <Link
       href={href}
@@ -273,6 +290,21 @@ function PaymentCard({
             </dd>
           </div>
         )}
+      </dl>
+      {/* Money left is what the method earned; collectors already took the ticked dates' share of it. */}
+      <dl className="mt-3 space-y-2 border-t border-gray-100 pt-3 text-sm">
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="text-gray-500">{takenLabel}</dt>
+          <dd className="shrink-0 font-semibold tabular-nums text-gray-900">
+            <Money amount={taken} currency={null} />
+          </dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="font-semibold text-gray-900">{stillHeldLabel}</dt>
+          <dd className={cn('shrink-0 text-base font-bold tabular-nums', amountToneClassName(stillHeld))}>
+            <Money amount={stillHeld} currency={null} />
+          </dd>
+        </div>
       </dl>
     </Card>
     </Link>
@@ -384,7 +416,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     if (!selectedClubId || !hasReportsAccess) return emptyReportRows;
 
     const supabase = createClient();
-    const [snapshotResult, exchangeRows, collections, dollarExpenses, opening, reserveMoves] = await Promise.all([
+    const [snapshotResult, exchangeRows, collections, dollarExpenses, { opening, openingCollected }, reserveMoves] = await Promise.all([
       supabase.rpc('get_money_report_snapshot', {
         p_club_id: selectedClubId,
         p_range_from: range.from,
@@ -411,6 +443,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         reserveMoves,
         collections,
         opening,
+        openingCollected,
       };
     }
 
@@ -501,6 +534,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       reserveMoves,
       collections,
       opening,
+      openingCollected,
     };
 
     /**
@@ -508,20 +542,27 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
      * what the month's earlier days left in each method. Null before the
      * snapshot RPC (047) exists: the cards then show the period alone.
      */
-    async function loadOpening(clubId: string): Promise<MoneyReport['paymentMethods'] | null> {
+    async function loadOpening(clubId: string): Promise<Pick<typeof emptyReportRows, 'opening' | 'openingCollected'>> {
+      const none = { opening: null, openingCollected: NO_MONEY_COLLECTED };
       const earlier = openingBalanceRange(range.from);
-      if (!earlier) return null;
-      const [result, earlierExchanges, earlierMoves] = await Promise.all([
+      if (!earlier) return none;
+      const [result, earlierExchanges, earlierMoves, earlierCollections] = await Promise.all([
         supabase.rpc('get_money_report_snapshot', { p_club_id: clubId, p_range_from: earlier.from, p_range_to: earlier.to }),
         fetchMoneyExchanges(supabase, clubId, earlier.from, earlier.to),
         fetchReserveMoves(supabase, clubId, earlier.from, earlier.to),
+        fetchDailyCashCollections(supabase, clubId, earlier.from, earlier.to),
       ]);
       if (result.error) {
-        if (isMissingDatabaseFunction(result.error, 'get_money_report_snapshot')) return null;
+        if (isMissingDatabaseFunction(result.error, 'get_money_report_snapshot')) return none;
         throw result.error;
       }
       const rows = result.data as MoneyReportSnapshotPayload;
-      return buildMoneyReport(rows.cash ?? [], rows.expenses ?? [], rows.debtPayments ?? [], [], [], earlierExchanges, earlierMoves).paymentMethods;
+      const earlierReport = buildMoneyReport(rows.cash ?? [], rows.expenses ?? [], rows.debtPayments ?? [], [], [], earlierExchanges, earlierMoves);
+      return {
+        opening: earlierReport.paymentMethods,
+        // The opening carries earlier days' money left, so their collections come off it too.
+        openingCollected: summarizeCollectedMoney(earlierReport.days, earlierCollections).taken,
+      };
     }
 
     /** The snapshot names its own rows' creators; exchanges need the same lookup. */
@@ -564,6 +605,11 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   const paymentCardData = useMemo(
     () => withOpeningBalances(report.paymentMethods, reportRows.opening),
     [report.paymentMethods, reportRows.opening],
+  );
+  // Collected over the same span as the cards' money left: earlier this month plus the period.
+  const collectedByMethod = useMemo(
+    () => addCollectedByMethod(reportRows.openingCollected, summarizeCollectedMoney(report.days, reportRows.collections).taken),
+    [report.days, reportRows.collections, reportRows.openingCollected],
   );
 
   // Dialogs belong to the club they were opened for: close them on a club switch.
@@ -1199,7 +1245,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                   if (enabledPaymentMethods.includes(card.method)) return true;
                   const data = paymentCardData[card.method];
                   return data.opening !== 0 || data.collected !== 0 || data.expenses !== 0 || data.exchangedIn !== 0 || data.exchangedOut !== 0
-                    || (data.reserved ?? 0) !== 0;
+                    || (data.reserved ?? 0) !== 0 || collectedByMethod[card.method] !== 0;
                 }).map((card) => (
                   <PaymentCard
                     key={card.method}
@@ -1214,6 +1260,9 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                     exchangedOutLabel={t('exchangedOut')}
                     reservedLabel={t('intoReserve')}
                     leftLabel={t('left')}
+                    takenLabel={t('takenByCollection')}
+                    stillHeldLabel={t('stillInKassa')}
+                    taken={collectedByMethod[card.method]}
                   />
                 ))}
                 {report.usd !== 0 && (

@@ -430,6 +430,8 @@
     "expenses": "Xarajatlar",
     "bar": "Bar",
     "barCashLeft": "Barda qolgan pul",
+    "takenByCollection": "Olindi deb belgilangan",
+    "stillInKassa": "Kassada qolgan",
     "moneyLeftByPaymentMethod": "To'lov usuli bo'yicha qolgan pul",
     "moneyLeftDescription": "Davr boshidagi qoldiq, yig‘ilgan pul, shu to‘lov usulidagi klub xarajatlari va almashtirishlar hisobga olinadi.",
     "openingBalance": "Oy boshidan qolgan",

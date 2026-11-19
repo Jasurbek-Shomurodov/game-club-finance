@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { summarizeCollectedMoney } from './collectedMoney';
+import { addCollectedByMethod, moneyStillHeld, NO_MONEY_COLLECTED, summarizeCollectedMoney } from './collectedMoney';
 import type { MoneyReportDay } from './moneyReport';
 
 function day(date: string, values: Partial<MoneyReportDay>): MoneyReportDay {
@@ -63,5 +63,16 @@ describe('summarizeCollectedMoney', () => {
       total: 0,
     }]);
     expect(summary.pendingDays).toBe(0);
+  });
+});
+
+describe('collected money per method', () => {
+  it('adds the earlier span to the period and leaves the rest in the method', () => {
+    const earlier = { cash: 1_000, terminal: 200, card: 0, playstation: 50, total: 1_250 };
+    const period = { cash: 400, terminal: 0, card: 100, playstation: 0, total: 500 };
+    const taken = addCollectedByMethod(NO_MONEY_COLLECTED, addCollectedByMethod(earlier, period));
+    expect(taken).toEqual({ cash: 1_400, terminal: 200, card: 100, playstation: 50, total: 1_750 });
+    expect(moneyStillHeld(4_847_000, 4_000_000)).toBe(847_000);
+    expect(moneyStillHeld(500, 0)).toBe(500);
   });
 });

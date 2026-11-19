@@ -70,3 +70,26 @@ export function summarizeCollectedMoney(days: MoneyReportDay[], collections: Col
     pendingTotal: pending.reduce((sum, day) => sum + day.total, 0),
   };
 }
+
+export type CollectedByMethod = CollectedMoneySummary['taken'];
+
+export const NO_MONEY_COLLECTED: CollectedByMethod = { cash: 0, terminal: 0, card: 0, playstation: 0, total: 0 };
+
+/** Money taken on ticked dates across two spans, e.g. earlier this month plus the period. */
+export function addCollectedByMethod(a: CollectedByMethod, b: CollectedByMethod): CollectedByMethod {
+  return {
+    cash: a.cash + b.cash,
+    terminal: a.terminal + b.terminal,
+    card: a.card + b.card,
+    playstation: a.playstation + b.playstation,
+    total: a.total + b.total,
+  };
+}
+
+/**
+ * What a method still holds after collectors took their ticked dates' money:
+ * its money left minus what "Mark as collected" took over the same span.
+ */
+export function moneyStillHeld(left: number, collected: number): number {
+  return left - collected;
+}

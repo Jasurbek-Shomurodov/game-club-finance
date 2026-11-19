@@ -430,6 +430,8 @@
     "expenses": "Expenses",
     "bar": "Bar",
     "barCashLeft": "Bar cash left",
+    "takenByCollection": "Taken via “Mark as collected”",
+    "stillInKassa": "Still in the kassa",
     "moneyLeftByPaymentMethod": "Money left by payment method",
     "moneyLeftDescription": "What the method held when the period began, plus collected money, minus game-club expenses paid from it, plus or minus exchanges.",
     "openingBalance": "From earlier this month",
