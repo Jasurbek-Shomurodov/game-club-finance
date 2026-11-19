@@ -26,7 +26,7 @@ const KEYS = ['income', 'expenses'] as const;
  * Money in and money out per day as paired slim bars on one axis, with a
  * legend that shows or hides each series. One business per chart.
  */
-export function DailyInOutChart({ data, incomeLabel, expensesLabel, legendLabel, currency, locale, incomeColor = chartColors.success, height = 220 }: {
+export function DailyInOutChart({ data, incomeLabel, expensesLabel, legendLabel, currency, locale, incomeColor = chartColors.success, expensesColor = chartColors.danger, height = 220 }: {
   data: readonly DailyInOutRow[];
   incomeLabel: string;
   expensesLabel: string;
@@ -34,6 +34,8 @@ export function DailyInOutChart({ data, incomeLabel, expensesLabel, legendLabel,
   currency: string;
   locale: string;
   incomeColor?: string;
+  /** Second series colour; red (money out) unless the pair is not in/out. */
+  expensesColor?: string;
   height?: number;
 }) {
   const { hidden, focused, setFocused, toggle } = useSeriesVisibility();
@@ -41,7 +43,7 @@ export function DailyInOutChart({ data, incomeLabel, expensesLabel, legendLabel,
   const expenses = data.reduce((sum, row) => sum + row.expenses, 0);
   const series = [
     { key: 'income', label: incomeLabel, color: incomeColor },
-    { key: 'expenses', label: expensesLabel, color: chartColors.danger },
+    { key: 'expenses', label: expensesLabel, color: expensesColor },
   ];
   return (
     <div className="space-y-3">
@@ -52,7 +54,7 @@ export function DailyInOutChart({ data, incomeLabel, expensesLabel, legendLabel,
         onFocus={setFocused}
         items={[
           { key: 'income', label: incomeLabel, color: incomeColor, swatch: 'square', total: formatAxis(income, locale) },
-          { key: 'expenses', label: expensesLabel, color: chartColors.danger, swatch: 'square', total: formatAxis(expenses, locale) },
+          { key: 'expenses', label: expensesLabel, color: expensesColor, swatch: 'square', total: formatAxis(expenses, locale) },
         ]}
       />
       <div style={{ height }} role="img" aria-label={`${legendLabel}: ${incomeLabel} ${formatCurrency(income)} ${currency}, ${expensesLabel} ${formatCurrency(expenses)} ${currency}`}>
@@ -71,7 +73,7 @@ export function DailyInOutChart({ data, incomeLabel, expensesLabel, legendLabel,
               <Bar dataKey="income" fill={incomeColor} radius={[4, 4, 0, 0]} maxBarSize={18} fillOpacity={seriesOpacity('income', focused)} isAnimationActive={false} />
             )}
             {!hidden.has('expenses') && (
-              <Bar dataKey="expenses" fill={chartColors.danger} radius={[4, 4, 0, 0]} maxBarSize={18} fillOpacity={seriesOpacity('expenses', focused)} isAnimationActive={false} />
+              <Bar dataKey="expenses" fill={expensesColor} radius={[4, 4, 0, 0]} maxBarSize={18} fillOpacity={seriesOpacity('expenses', focused)} isAnimationActive={false} />
             )}
           </BarChart>
         </ResponsiveContainer>

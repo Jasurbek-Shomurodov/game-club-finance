@@ -124,8 +124,14 @@ import { EXPENSE_CATEGORIES, isKnownExpenseCategory, manualExpenseCategoriesFor 
 import { moneyDetailsHref } from '@/lib/detailLinks';
 import dynamic from 'next/dynamic';
 import { ChartCard } from '@/components/dashboard/ChartCard';
+import { toDonutSlices } from '@/components/charts/donutSlices';
+import { expenseTotalsByCategory } from '@/lib/calculations/insights';
 
 // The recharts chunk loads only on the closeout view, beside the report data.
+const DonutBreakdown = dynamic(
+  () => import('@/components/charts/DonutBreakdown').then((module) => module.DonutBreakdown),
+  { ssr: false, loading: () => <ChartSkeleton /> },
+);
 const DailyInOutChart = dynamic(
   () => import('@/components/charts/DailyInOutChart').then((module) => module.DailyInOutChart),
   { ssr: false, loading: () => <ChartSkeleton /> },
@@ -468,6 +474,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   const tc = useTranslations('common');
   const te = useTranslations('expenses.categories');
   const tex = useTranslations('expenses');
+  const tg = useTranslations('glance');
   const { locale } = useAppLocale();
   const { selectedClubId, businessDayStartHour, role, featureAccess, enabledPaymentMethods } = useClub();
   const hasReportsAccess = canAccessFeature(role, featureAccess, 'reports');
@@ -732,6 +739,14 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       .map((day) => ({ date: day.date, label: formatDateShort(day.date, locale), income: day.income, expenses: day.gameClubExpenses })),
     [report.days, locale],
   );
+  // Game Club spending by category for the period, each slice opening its entries.
+  const spendingSlices = useMemo(() => toDonutSlices(
+    expenseTotalsByCategory(reportRows.expenses, 'game_club').map(({ category, value }) => ({ key: category, label: expenseCategoryLabel(category), value })),
+    { key: 'other', label: tg('other') },
+    (category) => showCloseout(`expense:${category}`, 'game_club'),
+  // Labels and the click handler only read stable translators and setters.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [reportRows.expenses, tg]);
   const paymentCardData = useMemo(
     () => withOpeningBalances(report.paymentMethods, reportRows.opening),
     [report.paymentMethods, reportRows.opening],
@@ -1503,7 +1518,9 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
             )}
           </section>
 
-          {(loading || dailyFlow.length > 1) && (
+          {(loading || dailyFlow.length > 1 || spendingSlices.length > 0) && (
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+              {(loading || dailyFlow.length > 1) && (
             <ChartCard title={t('dailyChartTitle')} description={t('dailyChartDesc')}>
               <div className="mt-4">
                 {loading ? <ChartSkeleton /> : (
@@ -1519,6 +1536,22 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                 )}
               </div>
             </ChartCard>
+              )}
+              {!loading && spendingSlices.length > 0 && (
+                <ChartCard title={tg('reports.spendingTitle')} description={tg('reports.spendingDescription')}>
+                  <div className="mt-4">
+                    <DonutBreakdown
+                      size="sm"
+                      slices={spendingSlices}
+                      total={spendingSlices.reduce((sum, slice) => sum + slice.value, 0)}
+                      totalLabel={t('gameClubExpenses')}
+                      currency={tc('currency')}
+                      locale={locale}
+                    />
+                  </div>
+                </ChartCard>
+              )}
+            </div>
           )}
 
           <Card as="section" padding="none" className="scroll-mt-20 overflow-hidden" id="report-closeout">

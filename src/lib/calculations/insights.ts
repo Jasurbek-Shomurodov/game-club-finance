@@ -5,6 +5,7 @@
  */
 
 import { isBarPaidExpense } from './dashboardMetrics';
+import { isReservePaidExpense } from './reserveMoves';
 
 /** Days between two ISO dates (UTC arithmetic, so no daylight-saving drift). */
 function dayIndex(iso: string): number {
@@ -168,16 +169,24 @@ export function safeRatio(part: number, whole: number): number | null {
 
 /**
  * One side's expenses summed by category, largest first. The side is decided
- * by `isBarPaidExpense`, the same split the dashboard totals use, so a side's
- * categories add up to its `gameClubExpenses` or `barExpenses`.
+ * by `isBarPaidExpense`, the same split the dashboard totals use, and an
+ * expense the owner reserve or the club's dollars paid is left out (156, 124),
+ * as every side total does, so a side's categories add up to its
+ * `gameClubExpenses` or `barExpenses`.
  */
 export function expenseTotalsByCategory(
-  rows: ReadonlyArray<{ category: string; amount: number | string; payment_source?: 'game_club' | 'bar' | null }>,
+  rows: ReadonlyArray<{
+    category: string;
+    amount: number | string;
+    payment_source?: 'game_club' | 'bar' | null;
+    paid_from_reserve?: boolean | null;
+    payment_method?: string | null;
+  }>,
   side: 'game_club' | 'bar',
 ): Array<{ category: string; value: number }> {
   const totals = new Map<string, number>();
   for (const row of rows) {
-    if (isBarPaidExpense(row) !== (side === 'bar')) continue;
+    if (isBarPaidExpense(row) !== (side === 'bar') || isReservePaidExpense(row)) continue;
     totals.set(row.category, (totals.get(row.category) ?? 0) + Number(row.amount ?? 0));
   }
   return [...totals.entries()]

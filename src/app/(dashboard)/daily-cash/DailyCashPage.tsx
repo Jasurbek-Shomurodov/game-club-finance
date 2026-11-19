@@ -52,6 +52,8 @@ import {
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { todayIso } from '@/lib/utils';
+
+const isOwnerRole = (role: string | null | undefined) => role === 'owner';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useCollectedDay } from '@/lib/useCollectedDay';
 import { isDayCollectedError } from '@/lib/supabase/dailyCashCollections';
@@ -59,6 +61,7 @@ import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { formatCurrency, formatCurrencyInput, formatDateOnly, formatDateTime, parseCurrencyInput } from '@/lib/formatters';
 import type { DailyCashEntry } from '@/types';
+import { DailyCashMonthGlance } from './DailyCashMonthGlance';
 
 interface CashFormData {
   date: string;
@@ -161,6 +164,7 @@ export default function DailyCashPage() {
   const tc = useTranslations('common');
   const tr = useTranslations('reports');
   const tsh = useTranslations('cashShortages');
+  const tg = useTranslations('glance');
   const { selectedClubId, role: currentRole, businessDayStartHour, enabledPaymentMethods, featureAccess } = useClub();
   /** A summary figure opens its details only on a page this member may open. */
   const linkIfAllowed = (href: string) => (currentRole && canAccessPath(currentRole, featureAccess, href.split('?')[0]) ? href : undefined);
@@ -176,8 +180,12 @@ export default function DailyCashPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [now, setNow] = useState(() => new Date());
+  /** Bumped after every save or delete so the month panel reloads. */
+  const [monthVersion, setMonthVersion] = useState(0);
   const canSeeNetProfit = canReadFinancialTotals(currentRole, featureAccess);
   const canSeeBarSales = canReadStockCounts(currentRole, featureAccess);
+  // Month totals are report figures: shown to members who may read reports.
+  const canSeeMonth = isOwnerRole(currentRole) || canAccessFeature(currentRole, featureAccess, 'reports');
   /** Bumped by every load that writes the day summary; only the latest may land. */
   const summarySequence = useRef(0);
   // An expense form filled in for one club must never be saved into another.
@@ -387,6 +395,7 @@ export default function DailyCashPage() {
       }
 
       showToast(entry ? t('entryUpdated') : t('entrySaved'));
+      setMonthVersion((version) => version + 1);
       await reload({ silent: true });
     } catch {
       if (currentClubId.current === clubId) setError(t('saveError'));
@@ -428,6 +437,7 @@ export default function DailyCashPage() {
       }
 
       showToast(t('entryDeleted'));
+      setMonthVersion((version) => version + 1);
       setDay((current) => ({ ...current, entry: null }));
       setForm(emptyForm(target.date));
       await reload({ silent: true });
@@ -457,6 +467,21 @@ export default function DailyCashPage() {
     } finally {
       setShortageOpening(false);
     }
+  }
+
+  /** A calendar day or missing-day chip opens that date, unless the form holds unsaved input. */
+  async function selectDate(next: string) {
+    if (next === form.date || next > businessToday) return;
+    if (isDirty) {
+      const discard = await confirm({
+        title: tg('dailyCash.unsavedTitle'),
+        description: tg('dailyCash.unsavedDescription'),
+        confirmLabel: tg('dailyCash.discard'),
+      });
+      if (!discard) return;
+    }
+    setField('date', next);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   function handleReset() {
@@ -678,6 +703,18 @@ export default function DailyCashPage() {
       )}
       </div>
       </div>
+
+      {/* The month around the selected day: totals, missing days and a calendar to jump with. */}
+      {canSeeMonth && !loadFailed && (
+        <DailyCashMonthGlance
+          clubId={selectedClubId}
+          date={form.date}
+          today={businessToday}
+          enabledPaymentMethods={enabledPaymentMethods}
+          version={monthVersion}
+          onSelectDate={selectDate}
+        />
+      )}
 
       <Modal
         open={expenseDialogOpen}

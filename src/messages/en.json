@@ -1910,7 +1910,8 @@
       "insufficientBalance": "The payment method does not hold enough money on this day for this payment.",
       "alreadyAbsent": "This employee is already marked as not come on this day."
     },
-    "openInReports": "Open in Reports"
+    "openInReports": "Open in Reports",
+    "paidOfEarned": "Paid of earned"
   },
   "testChecklist": {
     "title": "System sanity checks",
@@ -2913,5 +2914,96 @@
     "spendingTitle": "What the reserve paid for",
     "spendingDescription": "Purchases paid from the reserve, by category. Tap one to see the payments.",
     "spendingEmpty": "Nothing has been paid from the reserve yet."
+  },
+  "glance": {
+    "other": "Other",
+    "loadError": "Could not load this month.",
+    "vsSameDays": "vs same days of {month}",
+    "vsLastMonth": "vs last month",
+    "more": "+{count} more",
+    "less": "Less",
+    "moreLabel": "More",
+    "weekdayTitle": "Average by weekday",
+    "weekdayAverage": "Average",
+    "dailyCash": {
+      "title": "{month} at a glance",
+      "description": "Game Club income entered so far. Tap a day to open it.",
+      "monthToDate": "Month to date",
+      "average": "Average per day",
+      "averageHint": "{count, plural, one {# day entered} other {# days entered}}",
+      "projected": "Month on this pace",
+      "lastMonthTotal": "Last month: {amount}",
+      "daysEntered": "Days entered",
+      "lastEntry": "Last entry {date}",
+      "noEntries": "Nothing entered yet",
+      "missing": "{count, plural, one {# day without an entry:} other {# days without an entry:}}",
+      "allEntered": "Every day so far is entered",
+      "calendar": "Income by day",
+      "byMethod": "How it came in",
+      "unsavedTitle": "Discard unsaved input?",
+      "unsavedDescription": "The amounts typed for this day are not saved yet. Open the other day anyway?",
+      "discard": "Discard and open"
+    },
+    "payroll": {
+      "chartTitle": "Salaries earned and paid",
+      "chartDescription": "Every employee together, the last {count} months.",
+      "earnedThisMonth": "Earned in {month}",
+      "paidThisMonth": "Paid this month",
+      "kpiShare": "KPI share",
+      "kpiShareHint": "Of this month's earned pay",
+      "composition": "This month's pay",
+      "base": "Base",
+      "kpi": "KPI",
+      "bonus": "Bonuses",
+      "earned": "Earned",
+      "paid": "Paid",
+      "owedTitle": "Who is owed",
+      "owedDescription": "Balance due to each active employee now.",
+      "owedTotal": "Total due",
+      "allSettled": "Everyone is paid up."
+    },
+    "stock": {
+      "title": "Stock at a glance",
+      "outCount": "{count, plural, one {# out of stock} other {# out of stock}}",
+      "lowCount": "{count, plural, one {# running low} other {# running low}}",
+      "valueTitle": "Stock value by category",
+      "stockValue": "Stock value",
+      "noStock": "No stock counted.",
+      "topTitle": "Best sellers today",
+      "sold": "{count} sold",
+      "noSales": "Nothing sold on this day yet.",
+      "attentionTitle": "Needs restocking",
+      "out": "out",
+      "left": "{count} left",
+      "allStocked": "Everything is in stock."
+    },
+    "collected": {
+      "chartTitle": "Collected money by day",
+      "chartDescription": "Taken from the admin against paid out or moved to the reserve.",
+      "in": "Collected",
+      "out": "Paid out or to reserve",
+      "methodTitle": "By payment method",
+      "methodDescription": "How the collected money came in."
+    },
+    "reports": {
+      "spendingTitle": "Where Game Club money went",
+      "spendingDescription": "Expenses by category. Tap one to see its entries."
+    },
+    "ownerProfit": {
+      "title": "Owner profit by month",
+      "description": "Earned against withdrawn, the last {count} months.",
+      "side": "Business",
+      "gameClub": "Game Club",
+      "bar": "Bar",
+      "earnedMonth": "Earned in {month}",
+      "earnedPeriod": "Earned in {count} months",
+      "average": "{amount} a month on average",
+      "withdrawnPeriod": "Withdrawn in {count} months",
+      "withdrawnShare": "{percent}% of what was earned",
+      "bestMonth": "Best month",
+      "earned": "Earned",
+      "withdrawn": "Withdrawn",
+      "openMonth": "Open a month"
+    }
   }
 }

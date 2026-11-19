@@ -55,6 +55,7 @@ import { useClubQuery } from '@/lib/useClubQuery';
 import { mergeUntouchedFields } from '@/lib/formMerge';
 import { EmployeeEditDialog, employeeEditChanges, employeeEditState, withLandedEmployeeChange, type EmployeeEditState } from './EmployeeEditDialog';
 import { EmployeesView } from './EmployeesView';
+import { PayrollGlance } from './PayrollGlance';
 import { HistoryView } from './HistoryView';
 import { OperationsForms, type EmployeeFormState, type EntryFormState, type FormDialog } from './OperationsForms';
 import {
@@ -156,6 +157,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   const historyEmployee = employees.find((employee) => employee.id === employeeId);
   const upcomingCount = employees.filter((e) => summaries.get(e.id)?.status === 'upcoming').length;
   const activeCount = employees.filter((e) => summaries.get(e.id)?.current?.active).length;
+  const activeIds = useMemo(() => new Set(employees.filter((e) => summaries.get(e.id)?.display?.active).map((e) => e.id)), [employees, summaries]);
   // Deactivated staff keep their balance on their card but stay out of the club's total due.
   const due = employees
     .filter((e) => summaries.get(e.id)?.display?.active)
@@ -583,6 +585,10 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
           onOpenEntry={openEntry}
           onSubmit={(event, dialog) => void save(event, dialog)}
         />
+      )}
+
+      {view === 'employees' && !loading && !loadError && (
+        <PayrollGlance employees={employees} activeIds={activeIds} balances={balances} today={today} />
       )}
 
       {view === 'employees' && (

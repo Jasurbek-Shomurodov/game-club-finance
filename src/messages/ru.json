@@ -1910,7 +1910,8 @@
       "insufficientBalance": "На этот день у способа оплаты нет столько денег для этой выплаты.",
       "alreadyAbsent": "Этот сотрудник уже отмечен как не пришедший в этот день."
     },
-    "openInReports": "Открыть в отчётах"
+    "openInReports": "Открыть в отчётах",
+    "paidOfEarned": "Выплачено от начисленного"
   },
   "testChecklist": {
     "title": "Проверки целостности",
@@ -2913,5 +2914,96 @@
     "spendingTitle": "На что потрачен резерв",
     "spendingDescription": "Покупки из резерва по категориям. Нажмите, чтобы увидеть платежи.",
     "spendingEmpty": "Из резерва ещё ничего не оплачено."
+  },
+  "glance": {
+    "other": "Другое",
+    "loadError": "Не удалось загрузить этот месяц.",
+    "vsSameDays": "к тем же дням {month}",
+    "vsLastMonth": "к прошлому месяцу",
+    "more": "ещё {count}",
+    "less": "Меньше",
+    "moreLabel": "Больше",
+    "weekdayTitle": "Среднее по дням недели",
+    "weekdayAverage": "Среднее",
+    "dailyCash": {
+      "title": "{month} кратко",
+      "description": "Доход Game Club, внесённый на сегодня. Нажмите на день, чтобы открыть его.",
+      "monthToDate": "С начала месяца",
+      "average": "В среднем за день",
+      "averageHint": "{count, plural, one {внесён # день} few {внесено # дня} many {внесено # дней} other {внесено # дня}}",
+      "projected": "Месяц при таком темпе",
+      "lastMonthTotal": "Прошлый месяц: {amount}",
+      "daysEntered": "Внесено дней",
+      "lastEntry": "Последняя запись {date}",
+      "noEntries": "Пока ничего не внесено",
+      "missing": "{count, plural, one {# день без записи:} few {# дня без записи:} many {# дней без записи:} other {# дня без записи:}}",
+      "allEntered": "Все дни на сегодня внесены",
+      "calendar": "Доход по дням",
+      "byMethod": "Как поступили деньги",
+      "unsavedTitle": "Отменить несохранённый ввод?",
+      "unsavedDescription": "Суммы за этот день ещё не сохранены. Всё равно открыть другой день?",
+      "discard": "Отменить и открыть"
+    },
+    "payroll": {
+      "chartTitle": "Начислено и выплачено",
+      "chartDescription": "Все сотрудники вместе, последние {count} мес.",
+      "earnedThisMonth": "Начислено за {month}",
+      "paidThisMonth": "Выплачено в этом месяце",
+      "kpiShare": "Доля KPI",
+      "kpiShareHint": "От начисленного в этом месяце",
+      "composition": "Начисления этого месяца",
+      "base": "Оклад",
+      "kpi": "KPI",
+      "bonus": "Бонусы",
+      "earned": "Начислено",
+      "paid": "Выплачено",
+      "owedTitle": "Кому должны",
+      "owedDescription": "Текущий долг каждому активному сотруднику.",
+      "owedTotal": "Всего к выплате",
+      "allSettled": "Со всеми рассчитались."
+    },
+    "stock": {
+      "title": "Остатки кратко",
+      "outCount": "{count, plural, one {# закончился} few {# закончились} many {# закончились} other {# закончились}}",
+      "lowCount": "{count, plural, one {# заканчивается} few {# заканчиваются} many {# заканчиваются} other {# заканчиваются}}",
+      "valueTitle": "Стоимость остатков по категориям",
+      "stockValue": "Стоимость остатков",
+      "noStock": "Остатки не посчитаны.",
+      "topTitle": "Лидеры продаж за день",
+      "sold": "продано {count}",
+      "noSales": "За этот день продаж ещё нет.",
+      "attentionTitle": "Нужно докупить",
+      "out": "нет",
+      "left": "осталось {count}",
+      "allStocked": "Всё в наличии."
+    },
+    "collected": {
+      "chartTitle": "Инкассация по дням",
+      "chartDescription": "Взято у администратора против выплаченного или перенесённого в резерв.",
+      "in": "Инкассировано",
+      "out": "Выплачено или в резерв",
+      "methodTitle": "По способам оплаты",
+      "methodDescription": "Как поступили инкассированные деньги."
+    },
+    "reports": {
+      "spendingTitle": "Куда ушли деньги Game Club",
+      "spendingDescription": "Расходы по категориям. Нажмите, чтобы увидеть записи."
+    },
+    "ownerProfit": {
+      "title": "Прибыль владельца по месяцам",
+      "description": "Заработано против снятого, последние {count} мес.",
+      "side": "Бизнес",
+      "gameClub": "Game Club",
+      "bar": "Бар",
+      "earnedMonth": "Заработано за {month}",
+      "earnedPeriod": "Заработано за {count} мес.",
+      "average": "в среднем {amount} в месяц",
+      "withdrawnPeriod": "Снято за {count} мес.",
+      "withdrawnShare": "{percent}% от заработанного",
+      "bestMonth": "Лучший месяц",
+      "earned": "Заработано",
+      "withdrawn": "Снято",
+      "openMonth": "Открыть месяц"
+    }
   }
 }

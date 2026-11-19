@@ -96,6 +96,7 @@ import {
   type CashShortageSummary,
 } from '@/lib/calculations/cashShortages';
 import { moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
+import { OwnerProfitTrend } from './OwnerProfitTrend';
 
 type MoneySource = OwnerWithdrawalSource | 'all';
 
@@ -1277,6 +1278,10 @@ export default function MoneyTakenPage() {
               })}
             </div>
           </Card>
+
+          {!loading && (
+            <OwnerProfitTrend balancesByMonth={balancesByMonth} month={form.month} onSelectMonth={(month) => setField('month', month)} />
+          )}
 
           <div className={cn('grid gap-5', isOwner && 'xl:grid-cols-[minmax(0,1fr)_32rem] 2xl:grid-cols-[minmax(0,1fr)_42rem] xl:items-start')}>
             {/* The withdrawal form comes first on small screens and sits in a sticky side column on wide ones. */}

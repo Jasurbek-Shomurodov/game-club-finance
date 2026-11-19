@@ -111,6 +111,14 @@ describe('expenseTotalsByCategory', () => {
     expect(expenseTotalsByCategory(rows, 'game_club')).toEqual([{ category: 'food', value: 200 }, { category: 'rent', value: 150 }]);
     expect(expenseTotalsByCategory(rows, 'bar')).toEqual([{ category: 'cleaning', value: 30 }]);
   });
+  it('leaves out expenses the owner reserve or the club dollars paid', () => {
+    const paid = [
+      { category: 'rent', amount: 100, payment_source: 'game_club' as const },
+      { category: 'investment', amount: 900, payment_source: 'game_club' as const, paid_from_reserve: true },
+      { category: 'equipment', amount: 700, payment_source: 'game_club' as const, payment_method: 'usd' },
+    ];
+    expect(expenseTotalsByCategory(paid, 'game_club')).toEqual([{ category: 'rent', value: 100 }]);
+  });
 });
 
 describe('valuesByDate', () => {

@@ -1910,7 +1910,8 @@
       "insufficientBalance": "Bu kunda to‘lov usulida bu to‘lov uchun yetarli pul yo‘q.",
       "alreadyAbsent": "Bu xodim shu kuni allaqachon kelmadi deb belgilangan."
     },
-    "openInReports": "Hisobotda ochish"
+    "openInReports": "Hisobotda ochish",
+    "paidOfEarned": "Hisoblangandan to‘langan"
   },
   "testChecklist": {
     "title": "Tizim tekshiruvlari",
@@ -2913,5 +2914,96 @@
     "spendingTitle": "Zaxiradan nimaga to‘landi",
     "spendingDescription": "Zaxiradan qilingan xaridlar, kategoriya bo‘yicha. To‘lovlarni ko‘rish uchun bosing.",
     "spendingEmpty": "Zaxiradan hali hech narsa to‘lanmagan."
+  },
+  "glance": {
+    "other": "Boshqa",
+    "loadError": "Bu oyni yuklab bo‘lmadi.",
+    "vsSameDays": "{month}ning shu kunlariga nisbatan",
+    "vsLastMonth": "o‘tgan oyga nisbatan",
+    "more": "yana {count}",
+    "less": "Kam",
+    "moreLabel": "Ko‘p",
+    "weekdayTitle": "Hafta kunlari bo‘yicha o‘rtacha",
+    "weekdayAverage": "O‘rtacha",
+    "dailyCash": {
+      "title": "{month} qisqacha",
+      "description": "Hozirgacha kiritilgan Game Club daromadi. Kunni ochish uchun ustiga bosing.",
+      "monthToDate": "Oy boshidan",
+      "average": "Kuniga o‘rtacha",
+      "averageHint": "{count} kun kiritilgan",
+      "projected": "Shu sur’atda oy",
+      "lastMonthTotal": "O‘tgan oy: {amount}",
+      "daysEntered": "Kiritilgan kunlar",
+      "lastEntry": "Oxirgi yozuv {date}",
+      "noEntries": "Hali hech narsa kiritilmagan",
+      "missing": "Yozuvsiz {count} kun:",
+      "allEntered": "Hozirgacha barcha kunlar kiritilgan",
+      "calendar": "Kunlar bo‘yicha daromad",
+      "byMethod": "Pul qanday tushdi",
+      "unsavedTitle": "Saqlanmagan kiritish bekor qilinsinmi?",
+      "unsavedDescription": "Bu kun uchun yozilgan summalar hali saqlanmagan. Baribir boshqa kunni ochasizmi?",
+      "discard": "Bekor qilib ochish"
+    },
+    "payroll": {
+      "chartTitle": "Hisoblangan va to‘langan maosh",
+      "chartDescription": "Barcha xodimlar birga, oxirgi {count} oy.",
+      "earnedThisMonth": "{month} uchun hisoblangan",
+      "paidThisMonth": "Shu oy to‘langan",
+      "kpiShare": "KPI ulushi",
+      "kpiShareHint": "Shu oy hisoblanganidan",
+      "composition": "Shu oygi maosh tarkibi",
+      "base": "Asosiy",
+      "kpi": "KPI",
+      "bonus": "Bonuslar",
+      "earned": "Hisoblangan",
+      "paid": "To‘langan",
+      "owedTitle": "Kimga qarzmiz",
+      "owedDescription": "Har bir faol xodimga hozirgi qarz.",
+      "owedTotal": "Jami to‘lanadi",
+      "allSettled": "Hamma bilan hisob-kitob qilingan."
+    },
+    "stock": {
+      "title": "Qoldiqlar qisqacha",
+      "outCount": "{count} ta tugagan",
+      "lowCount": "{count} ta tugayapti",
+      "valueTitle": "Kategoriyalar bo‘yicha qoldiq qiymati",
+      "stockValue": "Qoldiq qiymati",
+      "noStock": "Qoldiq sanalmagan.",
+      "topTitle": "Kunning eng ko‘p sotilganlari",
+      "sold": "{count} ta sotildi",
+      "noSales": "Bu kunda hali sotuv yo‘q.",
+      "attentionTitle": "Sotib olish kerak",
+      "out": "yo‘q",
+      "left": "{count} ta qoldi",
+      "allStocked": "Hammasi bor."
+    },
+    "collected": {
+      "chartTitle": "Kunlar bo‘yicha inkassatsiya",
+      "chartDescription": "Administratordan olingan pul va to‘langan yoki rezervga o‘tkazilgani.",
+      "in": "Inkassatsiya qilingan",
+      "out": "To‘langan yoki rezervga",
+      "methodTitle": "To‘lov usullari bo‘yicha",
+      "methodDescription": "Inkassatsiya puli qanday tushgan."
+    },
+    "reports": {
+      "spendingTitle": "Game Club puli qayerga ketdi",
+      "spendingDescription": "Kategoriyalar bo‘yicha xarajatlar. Yozuvlarni ko‘rish uchun bosing."
+    },
+    "ownerProfit": {
+      "title": "Oylar bo‘yicha egasining foydasi",
+      "description": "Ishlangan va olingan, oxirgi {count} oy.",
+      "side": "Biznes",
+      "gameClub": "Game Club",
+      "bar": "Bar",
+      "earnedMonth": "{month}da ishlangan",
+      "earnedPeriod": "{count} oyda ishlangan",
+      "average": "oyiga o‘rtacha {amount}",
+      "withdrawnPeriod": "{count} oyda olingan",
+      "withdrawnShare": "ishlanganning {percent}%",
+      "bestMonth": "Eng yaxshi oy",
+      "earned": "Ishlangan",
+      "withdrawn": "Olingan",
+      "openMonth": "Oyni ochish"
+    }
   }
 }

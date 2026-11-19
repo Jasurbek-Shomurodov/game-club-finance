@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { ArrowDownLeft, ArrowUpRight, CircleCheck, Download, HandCoins, PiggyBank, ReceiptText, Trash2, UserRound, WalletCards } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import {
@@ -43,6 +43,7 @@ import {
 import { csvFileName, csvSeparatorForLocale, downloadCsv, toCsv } from '@/lib/csv';
 import { formatCurrency, formatCurrencyInput, formatDateOnly, formatDateTime, parseCurrencyInput } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
+import { CollectedGlance } from './CollectedGlance';
 
 type CollectedView = 'collections' | 'ledger';
 type LedgerKindFilter = 'all' | CollectedMoneyMove['kind'];
@@ -98,9 +99,10 @@ export default function CollectedTab({
   const ledger = useMemo(() => buildCollectedLedger(moves), [moves]);
   const collectors = useMemo(() => summarizeByCollector(summary.collections), [summary.collections]);
 
-  function methodLabel(method: CollectedMethod): string {
-    return method === 'playstation' ? t('playstation') : tc(`paymentMethods.${method}`);
-  }
+  const methodLabel = useCallback(
+    (method: CollectedMethod): string => (method === 'playstation' ? t('playstation') : tc(`paymentMethods.${method}`)),
+    [t, tc],
+  );
 
   function personName(id: string | null): string {
     return (id && collectorNames.get(id)) || t('unknownCreator');
@@ -377,6 +379,8 @@ export default function CollectedTab({
           </div>
         );
       })()}
+
+      {!loading && <CollectedGlance moves={moves} summary={summary} methods={methods} methodLabel={methodLabel} />}
 
       {!loading && summary.collections.length > 0 && (
         <Card as="section" padding="none" className="overflow-hidden">

@@ -90,6 +90,7 @@ import {
 } from 'lucide-react';
 import type { Product, Promotion } from '@/types';
 import { useLatestRef } from '@/components/i18n/useLatestRef';
+import { StockGlance } from './StockGlance';
 
 type RowData = ClosingStockRowData;
 
@@ -452,6 +453,21 @@ export default function ClosingStockPage() {
     closingStockRowTotalsInput(row, purchaseCostsByProduct[row.product.id] ?? 0)
   ))), [rows, purchaseCostsByProduct]);
 
+  const glanceRows = useMemo(() => rows.map((row) => ({
+    id: row.product.id,
+    name: row.product.name,
+    category: productCategory(row.product.category),
+    input: closingStockRowTotalsInput(row, purchaseCostsByProduct[row.product.id] ?? 0),
+  })), [rows, purchaseCostsByProduct]);
+  const findProduct = useCallback((name: string) => {
+    setSelectedCategory('');
+    setQuery(name);
+  }, []);
+  const selectCategoryFromGlance = useCallback((category: string) => {
+    setQuery('');
+    setSelectedCategory(category);
+  }, []);
+
   const filteredTotals = useMemo(() => summarizeStockRows(filteredRows.map((row) => (
     closingStockRowTotalsInput(row, purchaseCostsByProduct[row.product.id] ?? 0)
   ))), [filteredRows, purchaseCostsByProduct]);
@@ -811,6 +827,15 @@ export default function ClosingStockPage() {
           )}
 
           {error && <InlineAlert variant="danger">{error}</InlineAlert>}
+
+          {!loading && (
+            <StockGlance
+              rows={glanceRows}
+              stockValue={totals.stockValue}
+              onFindProduct={findProduct}
+              onSelectCategory={selectCategoryFromGlance}
+            />
+          )}
 
           <Card as="section" padding="none" className="overflow-hidden">
             <CardHeader>
