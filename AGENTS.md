@@ -88,6 +88,14 @@ There is no admin subdomain locally:
   `formatUnitCurrency` where fractional unit prices must be preserved. Do not
   pass formatted money strings directly to `Number()` or silently discard
   required precision.
+- Loading shimmers follow the layout. Whenever a page's UI changes, update its
+  loading skeletons in the same change so the placeholder has the new shape
+  (same sections, card counts, columns and chart footprints): the route's
+  `loading.tsx` and Suspense fallback (a page-specific `<Page>Skeleton.tsx`
+  beside the page, wrapped in `SkeletonStatus`), the in-page `loading` states,
+  and a `<Component>Skeleton` exported beside any new card or chart. Never fall
+  back to the generic `PageSkeleton` or a lone `ChartSkeleton` for a page with
+  its own layout.
 - Keep business logic pure and tested under `src/lib`; components should mainly
   coordinate queries, state, and rendering.
 - Build UI from `@/components/PresentationFoundation`: `Button`/`IconButton`

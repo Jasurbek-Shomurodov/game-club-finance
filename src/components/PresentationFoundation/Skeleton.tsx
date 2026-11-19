@@ -1,8 +1,9 @@
+import type { CSSProperties, ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 
-export function Skeleton({ className }: { className?: string }) {
-  return <div aria-hidden="true" className={cn('animate-pulse rounded-md bg-gray-200/70', className)} />;
+export function Skeleton({ className, style }: { className?: string; style?: CSSProperties }) {
+  return <div aria-hidden="true" className={cn('animate-pulse rounded-md bg-gray-200/70', className)} style={style} />;
 }
 
 /** Announces the placeholder as a translated "Loading…" status. */
@@ -139,6 +140,12 @@ export function DetailListSkeleton({ rows = 5, className }: { rows?: number; cla
       ))}
     </div>
   );
+}
+
+/** Announces a page-shaped placeholder as "Loading…"; its children stay hidden from screen readers. */
+export function SkeletonStatus({ children, className }: { children: ReactNode; className?: string }) {
+  const statusProps = useLoadingStatus();
+  return <div className={className} {...statusProps}>{children}</div>;
 }
 
 /** Chart placeholder with the same footprint as a chart card. */

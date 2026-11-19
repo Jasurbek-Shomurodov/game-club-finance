@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { Monitor } from 'lucide-react';
 import messages from '@/messages/en.json';
 import { averageByWeekday } from '@/lib/calculations/insights';
-import { SideGlanceCard } from '@/components/dashboard/SideGlanceCard';
+import { SideGlanceCard, SideGlanceCardSkeleton } from '@/components/dashboard/SideGlanceCard';
 import { SideScorecard } from '@/components/financial-analysis/AnalysisSections';
 import { CalendarHeatmap } from './CalendarHeatmap';
 import { DonutBreakdown } from './DonutBreakdown';
@@ -107,5 +107,23 @@ describe('SideScorecard', () => {
     expect(html).toContain('aria-label="Spent 60%, Kept 40%"');
     expect(html).toContain('href="/spent"');
     expect(html).toContain('100%');
+  });
+});
+
+describe('skeletons follow the new layouts', () => {
+  it('shows the scorecard skeleton while a scorecard loads', () => {
+    const html = render(
+      <SideScorecard title="Bar" icon={Monitor} iconClassName="" color="red" incomeLabel="Bar sales"
+        now={{ income: 0, spent: 0, left: 0, marginPct: null, averageDailyIncome: 0 }}
+        loading currency="UZS" locale="en" labels={{ spent: 'Spent', profit: 'Profit', margin: 'Margin', perDay: 'Per day', kept: 'Kept' }} />,
+    );
+    expect(html).toContain('animate-pulse');
+    expect(html).not.toContain('Bar sales');
+  });
+
+  it('draws the glance card skeleton with a full calendar and seven weekday bars', () => {
+    const html = render(<SideGlanceCardSkeleton />);
+    expect(html.match(/h-8 bg-gray-100/g)).toHaveLength(35);
+    expect(html.match(/flex-1 rounded-b-sm/g)).toHaveLength(7);
   });
 });

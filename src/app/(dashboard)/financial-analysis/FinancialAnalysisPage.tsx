@@ -21,7 +21,6 @@ import { formatCurrency, formatDateShort } from '@/lib/formatters';
 import {
   ChartSkeleton,
   LoadErrorAlert,
-  MetricGridSkeleton,
   MonthPicker,
   PageHeader,
   SegmentedControl,
@@ -59,6 +58,7 @@ import { Section, SideScorecard } from '@/components/financial-analysis/Analysis
 import { OverallAnalysis } from '@/components/financial-analysis/OverallAnalysis';
 import { categoryColors, formatShare, SIDE_ICON_CLASS } from '@/components/financial-analysis/analysisFormat';
 import { moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
+import { AnalysisBodySkeleton } from './FinancialAnalysisSkeleton';
 
 function ChartLoading() {
   return <ChartSkeleton />;
@@ -384,8 +384,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
 
           {loading && !hasActivity ? (
             <div className="space-y-4" role="status" aria-label={tc('loading')}>
-              <ChartSkeleton />
-              <MetricGridSkeleton />
+              <AnalysisBodySkeleton />
             </div>
           ) : (
             <div className={cn('space-y-6 transition-opacity', loading && 'pointer-events-none opacity-60')} aria-busy={loading || undefined}>

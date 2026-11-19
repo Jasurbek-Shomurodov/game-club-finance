@@ -1214,6 +1214,7 @@ export default function MoneyTakenPage() {
                     {loading ? (
                       <div className="mt-4 space-y-3" role="status" aria-label={tc('loading')}>
                         <Skeleton className="h-8 w-40 max-w-full" />
+                        <Skeleton className="h-2 w-full rounded-full bg-gray-100" />
                         <Skeleton className="h-4 w-full bg-gray-100" />
                         <Skeleton className="h-4 w-full bg-gray-100" />
                       </div>

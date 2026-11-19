@@ -35,6 +35,7 @@ import { Button, Card, Field, Input, InlineAlert, PageHeader } from '@/component
 | Tables | `DataTable` (supports totals row, sticky header, empty state; pass `label` so keyboard users can scroll wide tables; pass `mobileCards` so phones get one card per row instead of a sideways scroll) |
 | Nothing to show | `EmptyState` |
 | Loading | `Skeleton`, `MetricGridSkeleton`, `TableSkeleton`, `FormSkeleton`, `DetailListSkeleton`, `EmployeeCardGridSkeleton`, `ChartSkeleton`, `PageSkeleton` |
+| Loading in a page's own shape | A `<Page>Skeleton.tsx` beside the page (dashboard, reports, financial analysis, reserve, owner profit), used by its `loading.tsx`, its Suspense fallback and in-page loading, wrapped in `SkeletonStatus` for the "Loading…" announcement. A new card or chart exports its own `<Name>Skeleton` (`SideGlanceCardSkeleton`, `SideScorecardSkeleton`). Update the skeleton whenever the layout changes |
 
 Design rules ("quiet surfaces, loud numbers"):
 

@@ -56,6 +56,7 @@ export {
   MetricGridSkeleton,
   PageSkeleton,
   Skeleton,
+  SkeletonStatus,
   TableSkeleton,
 } from './Skeleton';
 export { Spinner } from './Spinner';

@@ -4,7 +4,7 @@ import { useId, useMemo, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { TrendingDown, TrendingUp } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { Card, EmptyState } from '@/components/PresentationFoundation';
+import { Card, EmptyState, Skeleton } from '@/components/PresentationFoundation';
 import { cn } from '@/lib/utils';
 import { formatCurrency, formatDateShort } from '@/lib/formatters';
 import { averageByWeekday, bestAndWorstDays, rankShares, safeRatio } from '@/lib/calculations/insights';
@@ -175,6 +175,52 @@ function GlanceFact({ label, value, note, currency, icon: Icon, tone, className 
         <span className="ml-1 text-[11px] text-gray-500">{currency}</span>
         {note && <span className="block text-[11px] text-gray-500">{note}</span>}
       </dd>
+    </div>
+  );
+}
+
+/** Placeholder with the glance card's own shape: header and ring, three facts, calendar beside weekday bars, donut. */
+export function SideGlanceCardSkeleton() {
+  return (
+    <div aria-hidden="true" className="flex flex-col gap-5 rounded-2xl border border-gray-200 bg-surface p-4 shadow-card sm:p-5">
+      <div className="flex items-start gap-3">
+        <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
+        <div className="min-w-0 flex-1 space-y-2">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-3 w-3/4 bg-gray-100" />
+        </div>
+        <Skeleton className="h-14 w-14 shrink-0 rounded-full" />
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {[0, 1, 2].map((index) => (
+          <div key={index} className={cn('space-y-2 rounded-xl bg-gray-50 px-3 py-2.5', index === 2 && 'max-sm:col-span-2')}>
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-5 sm:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-20" />
+          <div className="grid grid-cols-7 gap-1">
+            {Array.from({ length: 35 }, (_, index) => <Skeleton key={index} className="h-8 bg-gray-100" />)}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-28" />
+          <div className="flex h-36 items-end gap-1.5">
+            {[55, 70, 45, 80, 60, 95, 75].map((height, index) => (
+              <Skeleton key={index} className="flex-1 rounded-b-sm rounded-t bg-gray-100" style={{ height: `${height}%` }} />
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="flex flex-col items-center gap-4 sm:flex-row">
+        <Skeleton className="h-36 w-36 shrink-0 rounded-full bg-gray-100" />
+        <div className="w-full flex-1 space-y-3">
+          {[0, 1, 2, 3].map((index) => <Skeleton key={index} className="h-6 w-full bg-gray-100" />)}
+        </div>
+      </div>
     </div>
   );
 }

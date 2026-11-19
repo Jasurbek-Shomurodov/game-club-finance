@@ -6,6 +6,7 @@ import { ArrowDownRight, ArrowUpRight, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   HelpButton,
+  Skeleton,
   metricToneClassName,
   toneForAmount,
   type MetricTone,
@@ -71,6 +72,7 @@ export function SideScorecard({ title, icon: Icon, iconClassName, color, incomeL
   spentHref?: string;
   labels: { spent: string; profit: string; margin: string; perDay: string; kept: string };
 }) {
+  if (loading) return <SideScorecardSkeleton />;
   const margin = now.marginPct === null ? null : now.marginPct / 100;
   const marginText = margin === null ? '—' : formatPercentShare(margin, locale, 1);
   const spentShare = now.income > 0 ? Math.min(1, now.spent / now.income) : now.spent > 0 ? 1 : 0;
@@ -88,7 +90,7 @@ export function SideScorecard({ title, icon: Icon, iconClassName, color, incomeL
         </span>
         <h2 className="min-w-0 flex-1 text-base font-semibold tracking-tight text-gray-950">{title}</h2>
         <RadialMeter value={margin} color={margin !== null && margin < 0 ? 'rgb(var(--c-danger-500))' : color} size={52} stroke={6} label={`${labels.margin}: ${marginText}`}>
-          <span className="text-[11px] font-bold tabular-nums text-gray-950">{loading ? '—' : marginText}</span>
+          <span className="text-[11px] font-bold tabular-nums text-gray-950">{marginText}</span>
         </RadialMeter>
       </header>
 
@@ -102,9 +104,9 @@ export function SideScorecard({ title, icon: Icon, iconClassName, color, incomeL
             <>
               <span className="block truncate text-[11px] font-medium text-gray-500">{figure.label}</span>
               <span className={cn('mt-1 block truncate text-base font-bold tabular-nums tracking-tight sm:text-lg', metricToneClassName[figure.tone])}>
-                {loading ? '—' : formatCurrency(figure.amount)}
+                {formatCurrency(figure.amount)}
               </span>
-              {!loading && change && (
+              {change && (
                 <span className={cn('mt-0.5 flex items-center gap-0.5 text-[11px] font-semibold tabular-nums', good === null ? 'text-gray-400' : good ? 'text-success-600' : 'text-danger-600')} title={change.label}>
                   {change.value === null ? '—' : (
                     <>
@@ -117,7 +119,7 @@ export function SideScorecard({ title, icon: Icon, iconClassName, color, incomeL
             </>
           );
           const className = 'min-w-0 rounded-xl bg-gray-50 px-3 py-2.5';
-          return figure.href && !loading ? (
+          return figure.href ? (
             <Link key={figure.key} href={figure.href} className={cn(className, 'transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500')}>
               {body}
             </Link>
@@ -135,9 +137,37 @@ export function SideScorecard({ title, icon: Icon, iconClassName, color, incomeL
         <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-gray-500">
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-danger-500/80" aria-hidden="true" />{labels.spent} · {formatPercentShare(spentShare, locale)}</span>
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm" style={{ backgroundColor: color }} aria-hidden="true" />{labels.kept} · {formatPercentShare(keptShare, locale)}</span>
-          <span className="ml-auto tabular-nums">{labels.perDay}: <span className="font-semibold text-gray-950">{loading ? '—' : formatCurrency(now.averageDailyIncome)}</span> {currency}</span>
+          <span className="ml-auto tabular-nums">{labels.perDay}: <span className="font-semibold text-gray-950">{formatCurrency(now.averageDailyIncome)}</span> {currency}</span>
         </div>
       </div>
     </section>
+  );
+}
+
+/** Placeholder in the scorecard's shape: header and ring, three figures, the spent/kept bar and its legend. */
+export function SideScorecardSkeleton() {
+  return (
+    <div aria-hidden="true" className="min-w-0 rounded-2xl border border-gray-200 bg-surface p-4 shadow-card sm:p-5">
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-9 w-9 shrink-0 rounded-xl" />
+        <Skeleton className="h-5 w-28" />
+        <Skeleton className="ml-auto h-[52px] w-[52px] shrink-0 rounded-full" />
+      </div>
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        {[0, 1, 2].map((index) => (
+          <div key={index} className="space-y-2 rounded-xl bg-gray-50 px-3 py-2.5">
+            <Skeleton className="h-3 w-14" />
+            <Skeleton className="h-5 w-4/5" />
+            <Skeleton className="h-3 w-8 bg-gray-100" />
+          </div>
+        ))}
+      </div>
+      <Skeleton className="mt-4 h-2.5 w-full rounded-full bg-gray-100" />
+      <div className="mt-2 flex justify-between gap-3">
+        <Skeleton className="h-3 w-20 bg-gray-100" />
+        <Skeleton className="h-3 w-24 bg-gray-100" />
+        <Skeleton className="h-3 w-28 bg-gray-100" />
+      </div>
+    </div>
   );
 }

@@ -37,13 +37,13 @@ import {
   InlineAlert,
   LoadErrorAlert,
   MetricCard,
-  MetricGridSkeleton,
   Modal,
   Money,
   PageHeader,
   SectionHeading,
   Select,
   SegmentedControl,
+  SkeletonStatus,
   DatePicker,
   TableSkeleton,
   toneForAmount,
@@ -90,6 +90,7 @@ import { expensePaymentMethods } from '@/lib/paymentMethods';
 import ExpenseRegistrationForm from './ExpenseRegistrationForm';
 import ExchangeForm from './ExchangeForm';
 import CollectedTab from './CollectedTab';
+import { PaymentCardsSkeleton } from './ReportsSkeleton';
 import WriteOffsTab from './WriteOffsTab';
 import { fetchDollarExpenses, fetchMoneyExchanges, withDollarAmounts } from '@/lib/supabase/moneyExchanges';
 import { fetchReserveMoves } from '@/lib/supabase/reserveMoves';
@@ -1466,7 +1467,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
           <section>
             <SectionHeading size="lg" title={t('moneyLeftByPaymentMethod')} description={t('moneyLeftDescription')} className="mb-3" />
             {loading ? (
-              <MetricGridSkeleton count={4} className="gap-3" />
+              <SkeletonStatus><PaymentCardsSkeleton /></SkeletonStatus>
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {paymentCards.filter((card) => {

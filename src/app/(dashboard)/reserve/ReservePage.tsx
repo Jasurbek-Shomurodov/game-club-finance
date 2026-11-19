@@ -20,9 +20,9 @@ import {
   ChartSkeleton,
   EmptyState,
   LoadErrorAlert,
-  MetricGridSkeleton,
   PageHeader,
   SegmentedControl,
+  SkeletonStatus,
   StatTile,
   TableSkeleton,
   useConfirm,
@@ -48,6 +48,7 @@ import { useClubQuery } from '@/lib/useClubQuery';
 import type { OwnerReserveMethod } from '@/types';
 import { ReserveExchangeModal } from './ReserveExchangeModal';
 import { ReserveHistoryList, type DeletableReserveActivity } from './ReserveHistoryList';
+import { ReserveOverviewSkeleton } from './ReserveSkeleton';
 
 function ChartLoading() {
   return <ChartSkeleton />;
@@ -243,10 +244,7 @@ export default function ReservePage() {
       {viewSwitch}
       {view === 'overview' ? (
         query.loading ? (
-          <>
-            <MetricGridSkeleton />
-            <ChartSkeleton />
-          </>
+          <SkeletonStatus><ReserveOverviewSkeleton /></SkeletonStatus>
         ) : (
           <>
             {/* The reserve is the owner's own money: one pot of sums and one of dollars, whatever side or method it came from. */}

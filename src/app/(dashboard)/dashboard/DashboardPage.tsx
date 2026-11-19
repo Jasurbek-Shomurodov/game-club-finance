@@ -60,7 +60,7 @@ import {
 } from '@/lib/supabase/performanceRpc';
 import { closingStockHref, moneyDetailsHref } from '@/lib/detailLinks';
 import { expenseTotalsByCategory, periodProgress, valuesByDate } from '@/lib/calculations/insights';
-import { SideGlanceCard } from '@/components/dashboard/SideGlanceCard';
+import { SideGlanceCard, SideGlanceCardSkeleton } from '@/components/dashboard/SideGlanceCard';
 import { chartColors } from '@/components/dashboard/ChartCard';
 
 function ChartLoading() {
@@ -455,8 +455,8 @@ export default function DashboardPage({
             </div>
             {loading ? (
               <div className="grid gap-3 xl:grid-cols-2" role="status" aria-label={t('loading')}>
-                <ChartLoading />
-                <ChartLoading />
+                <SideGlanceCardSkeleton />
+                <SideGlanceCardSkeleton />
               </div>
             ) : (
               <div className="grid gap-3 xl:grid-cols-2">
