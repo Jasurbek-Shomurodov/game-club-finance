@@ -11,7 +11,15 @@ type Generate = (options: {
   maxOutputTokens: number;
   maxRetries: number;
   providerOptions?: Record<string, Record<string, unknown>>;
+  abortSignal?: AbortSignal;
 }) => Promise<{ text: string }>;
+
+/**
+ * Longest one model may take before the chain moves on. The cron route has 60
+ * seconds in all; a model that hangs (seen with a busy Gemini preview) must
+ * not use them up before a single reply is saved.
+ */
+export const MODEL_TIMEOUT_MS = 10_000;
 
 /**
  * Writes review replies with the assistant's configured models (Claude by
@@ -22,6 +30,7 @@ type Generate = (options: {
 export function createReviewReplyWriter(
   env: Record<string, string | undefined> = process.env,
   generate: Generate = generateText as unknown as Generate,
+  timeoutMs = MODEL_TIMEOUT_MS,
 ) {
   const provider = providerFromEnv(env, { provider: 'anthropic' });
   if (!provider.configured || provider.models.length === 0) return null;
@@ -37,6 +46,7 @@ export function createReviewReplyWriter(
           maxOutputTokens: 600,
           maxRetries: 1,
           providerOptions: model.providerOptions ?? provider.providerOptions,
+          abortSignal: AbortSignal.timeout(timeoutMs),
         });
         const reply = cleanReply(text);
         if (reply) return reply;

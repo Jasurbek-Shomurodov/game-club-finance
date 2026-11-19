@@ -23,4 +23,14 @@ describe('createReviewReplyWriter', () => {
     const write = createReviewReplyWriter({ ASSISTANT_PROVIDER: 'anthropic', ANTHROPIC_API_KEY: 'test' }, generate)!;
     await expect(write(REVIEW, 'Pixel Gaming')).rejects.toThrow('overloaded');
   });
+
+  it('moves to the next model when one hangs past the timeout', async () => {
+    const generate = vi.fn((options: { abortSignal?: AbortSignal }) => generate.mock.calls.length === 1
+      ? new Promise<{ text: string }>((_, reject) => options.abortSignal?.addEventListener('abort', () => reject(new Error('aborted'))))
+      : Promise.resolve({ text: 'Rahmat!' }));
+    const write = createReviewReplyWriter({ ASSISTANT_PROVIDER: 'gemini', GEMINI_API_KEY: 'test' }, generate, 20)!;
+    await expect(write(REVIEW, 'Pixel Gaming')).resolves.toBe('Rahmat!');
+    expect(generate).toHaveBeenCalledTimes(2);
+    expect(generate.mock.calls[0][0].abortSignal).toBeInstanceOf(AbortSignal);
+  });
 });
