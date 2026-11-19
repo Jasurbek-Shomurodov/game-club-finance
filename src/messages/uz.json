@@ -2778,7 +2778,12 @@
       "takenFrom": "Qayerdan olingan",
       "returnedTo": "Qayerga qaytgan",
       "paidWith": "Nima bilan to'langan",
-      "sums": "So'm"
+      "sums": "So'm",
+      "rate": "Kurs",
+      "dollars": "Dollar",
+      "sumsPart": "So'm",
+      "sumsMethod": "So'm to'lov turi",
+      "exchangeHint": "Jamg'arma jami o'zgarmaydi: faqat so'm va dollar almashdi."
     },
     "fromExchange": "Dollarga almashtirilgan; bekor qilish uchun almashtirishni o'chiring",
     "toExchange": "Dollar qayta almashtirildi; pul oyga qaytdi",
@@ -2786,7 +2791,8 @@
     "kinds": {
       "deposit": "Jamg'armaga qo'yildi",
       "return": "Foydaga qaytarildi",
-      "purchase": "Jamg'armadan to'landi"
+      "purchase": "Jamg'armadan to'landi",
+      "exchange": "Jamg'arma ichida almashtirildi"
     },
     "returnTitle": "Foydaga qaytarish",
     "returnDescription": "Pul {month} uchun egasi foydasiga qo'shiladi va uni yechib olish mumkin.",
@@ -2805,7 +2811,10 @@
       "already_used": "Bu pul allaqachon sarflangan, qaytarilgan yoki yechib olingan. Avval uni bekor qiling.",
       "migration_required": "Jamg'arma uchun 136-ma'lumotlar bazasi migratsiyasi kerak. Avval uni qo'llang.",
       "forbidden": "Jamg'armadan faqat klub egasi foydalana oladi.",
-      "failed": "Saqlab bo'lmadi. Internetni tekshirib, qayta urinib ko'ring."
+      "failed": "Saqlab bo'lmadi. Internetni tekshirib, qayta urinib ko'ring.",
+      "day_collected": "Bu kun puli yig'ib olingan, kun yopilgan. Boshqa sanani tanlang.",
+      "note_required": "Kamida 3 so'zdan iborat izoh yozing.",
+      "method_disabled": "Bu to'lov turi klub uchun yoqilmagan."
     },
     "leftInMonth": "{month} dan qolgan: {amount}",
     "depositAllShort": "Hammasini qo'yish · {amount}",
@@ -2817,7 +2826,9 @@
     "payDescription": "Jamg'arma pulidan to'langan ta'mir yoki xaridni yozing. Bu xarajat, lekin shu oy egasi foydasi o'zgarmaydi.",
     "paidToast": "Jamg'armadan to'landi.",
     "historyCount": "Tarixda {count} ta yozuv",
-    "openPage": "Grafiklar va tarix"
+    "openPage": "Grafiklar va tarix",
+    "exchangeBought": "{usd} sotib olindi",
+    "exchangeSold": "{usd} sotildi"
   },
   "reservePage": {
     "title": "Jamg'arma",
@@ -2837,6 +2848,49 @@
     "balanceDescription": "Har kun oxirida jamg'armada qancha bo'lgani; dollar sotib olingan narxida.",
     "flowTitle": "Kirim va chiqim",
     "flowDescription": "Qo'yilgan va qaytarilgan yoki sarflangan, oylar bo'yicha.",
-    "loadError": "Jamg'armani yuklab bo'lmadi."
+    "loadError": "Jamg'armani yuklab bo'lmadi.",
+    "exchangeButton": "Almashtirish",
+    "buyDollars": "Dollar sotib olish",
+    "sellDollars": "Dollar sotish",
+    "averageRate": "O'rtacha $1 uchun {rate} so'm",
+    "lastRate": "Oxirgi kurs {rate} so'm · {date}",
+    "worthAtLastRate": "Oxirgi kurs bo'yicha: {amount}",
+    "exchangesCount": "Jamg'arma ichida {count} ta almashtirish",
+    "filter": {
+      "label": "Ko'rsatish",
+      "all": "Hammasi",
+      "deposit": "Qo'yilgan",
+      "return": "Qaytarilgan",
+      "purchase": "To'langan",
+      "exchange": "Almashtirishlar"
+    },
+    "filterEmpty": "Bunday yozuv hali yo'q.",
+    "exchange": {
+      "title": "Jamg'arma ichida almashtirish",
+      "description": "Jamg'armadagi so'mni dollarga yoki aksincha almashtiring. Pul jamg'armada qoladi, egasining foydasi o'zgarmaydi.",
+      "direction": "Almashtirish",
+      "buy": "So'm → $",
+      "sell": "$ → so'm",
+      "methodBuy": "So'm qayerdan",
+      "methodSell": "So'm qanday saqlanadi",
+      "methodHint": "Shu to'lov turidan qo'yilgan jamg'arma puli",
+      "amountSums": "Almashtiriladigan so'm",
+      "amountDollars": "Sotiladigan dollar",
+      "available": "Mavjud: {amount}",
+      "tooMuch": "Ko'pi bilan {amount} kiriting.",
+      "rate": "Almashtirish kursi",
+      "rateHint": "1 AQSH dollari uchun so'm",
+      "receive": "Jamg'armaga tushadi",
+      "date": "Sana",
+      "note": "Izoh",
+      "notePlaceholder": "Masalan: jamg'armani saqlash uchun dollar sotib oldik",
+      "submit": "Almashtirishni saqlash",
+      "savedToast": "Almashtirish saqlandi.",
+      "rateRequired": "Almashtirish kursini kiriting.",
+      "nothingToBuy": "Jamg'armada almashtirish uchun so'm yo'q.",
+      "nothingToSell": "Jamg'armada dollar yo'q.",
+      "deleteConfirm": "{sums} va {dollars} almashtirishini o'chirasizmi? Ikkala tomoni ham bekor qilinadi.",
+      "deletedToast": "Almashtirish o'chirildi."
+    }
   }
 }

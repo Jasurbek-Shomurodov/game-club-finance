@@ -108,8 +108,9 @@ describe('migration 150: owner money bundle', () => {
     expect(Object.keys(result.exchanges[0]).sort()).toEqual(
       ['comment', 'created_at', 'created_by', 'date', 'from_amount', 'from_method', 'id', 'rate', 'to_amount', 'to_method'],
     );
+    // Every column since 170, like the separate select('*') read.
     expect(Object.keys(result.reserveEntries[0]).sort()).toEqual(
-      ['amount', 'club_id', 'collection_date', 'comment', 'created_at', 'created_by', 'entry_date', 'id', 'kind', 'payment_method', 'period_month', 'source'],
+      ['amount', 'club_id', 'collection_date', 'comment', 'created_at', 'created_by', 'entry_date', 'from_collected', 'id', 'kind', 'paired_exchange_id', 'payment_method', 'period_month', 'source'],
     );
     expect(Object.keys(result.reserveExpenses[0]).sort()).toEqual(
       ['amount', 'category', 'comment', 'created_at', 'date', 'id', 'payment_method', 'payment_source'],

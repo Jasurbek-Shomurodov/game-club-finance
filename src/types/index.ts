@@ -357,6 +357,8 @@ export interface OwnerReserveEntry {
   entry_date?: string | null;
   /** A deposit made from collected money, not the till (169); absent before migration 169. */
   from_collected?: boolean;
+  /** The exchange this entry is the sums half of: dollars bought or sold inside the reserve (170). */
+  paired_exchange_id?: string | null;
   created_by: string;
   created_at: string;
 }

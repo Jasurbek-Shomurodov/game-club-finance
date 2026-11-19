@@ -17,6 +17,7 @@ export const EXCHANGE_ERROR_CODES = [
   'NOT_AVAILABLE',
   'DAY_COLLECTED',
   'INSUFFICIENT_BALANCE',
+  'RESERVE_USED',
   'SERVER_ERROR',
 ] as const;
 
@@ -33,6 +34,7 @@ const ERRORS: Record<ExchangeErrorCode, { status: number; text: string }> = {
   NOT_AVAILABLE: { status: 503, text: 'Exchanges are not set up in the database yet' },
   DAY_COLLECTED: { status: 409, text: 'The money for this day was collected; the day is closed' },
   INSUFFICIENT_BALANCE: { status: 409, text: 'The payment method does not hold enough money for this exchange' },
+  RESERVE_USED: { status: 409, text: 'The money this reserve exchange moved was already spent or returned' },
   SERVER_ERROR: { status: 500, text: 'Exchange failed' },
 };
 
@@ -45,6 +47,8 @@ export function exchangeErrorCode(error: { code?: string | null; message?: strin
   if (isNoteRequiredError(error)) return 'NOTE_REQUIRED';
   // The 144 and 146 checks: the exchange (or its deletion) would leave a method negative.
   if (isInsufficientBalanceError(error)) return 'INSUFFICIENT_BALANCE';
+  // 170: undoing an exchange inside the reserve whose dollars or sums were already used.
+  if (error.hint === 'reserve_already_used') return 'RESERVE_USED';
   if (/not enabled for this club/i.test(message)) return 'PAYMENT_METHOD_DISABLED';
   if (/could not find the function|does not exist/i.test(message) || error.code === 'PGRST202') return 'NOT_AVAILABLE';
   if (error.code === '42501') return 'FORBIDDEN';

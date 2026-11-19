@@ -2778,7 +2778,12 @@
       "takenFrom": "Taken from",
       "returnedTo": "Returned to",
       "paidWith": "Paid with",
-      "sums": "UZS"
+      "sums": "UZS",
+      "rate": "Rate",
+      "dollars": "Dollars",
+      "sumsPart": "Sums",
+      "sumsMethod": "Sums method",
+      "exchangeHint": "The reserve’s total stays the same: only sums and dollars swapped."
     },
     "fromExchange": "Exchanged into dollars; delete the exchange to undo",
     "toExchange": "Dollars exchanged back; the money joined the month",
@@ -2786,7 +2791,8 @@
     "kinds": {
       "deposit": "Put into reserve",
       "return": "Returned to profit",
-      "purchase": "Paid from reserve"
+      "purchase": "Paid from reserve",
+      "exchange": "Exchanged inside the reserve"
     },
     "returnTitle": "Return to profit",
     "returnDescription": "The money joins owner profit for {month}, where you can withdraw it.",
@@ -2805,7 +2811,10 @@
       "already_used": "This money has already been spent, returned or withdrawn. Undo that first.",
       "migration_required": "The reserve needs database migration 136. Apply it first.",
       "forbidden": "Only the club owner can use the reserve.",
-      "failed": "Could not save. Check your connection and try again."
+      "failed": "Could not save. Check your connection and try again.",
+      "day_collected": "The money for this day was collected, so the day is closed. Choose another date.",
+      "note_required": "Write a note of at least 3 words.",
+      "method_disabled": "This payment method is not enabled for the club."
     },
     "leftInMonth": "Left of {month}: {amount}",
     "depositAllShort": "Put all in · {amount}",
@@ -2817,7 +2826,9 @@
     "payDescription": "Record a repair or purchase paid with reserve money. It is an expense, but this month's owner profit stays the same.",
     "paidToast": "Paid from the reserve.",
     "historyCount": "{count, plural, one {# entry} other {# entries}} in the history",
-    "openPage": "Charts and history"
+    "openPage": "Charts and history",
+    "exchangeBought": "Bought {usd}",
+    "exchangeSold": "Sold {usd}"
   },
   "reservePage": {
     "title": "Reserve",
@@ -2837,6 +2848,49 @@
     "balanceDescription": "What the reserve held at the end of every day, dollars at what was paid for them.",
     "flowTitle": "Money in and out",
     "flowDescription": "Put in versus returned or spent, month by month.",
-    "loadError": "Could not load the reserve."
+    "loadError": "Could not load the reserve.",
+    "exchangeButton": "Exchange",
+    "buyDollars": "Buy dollars",
+    "sellDollars": "Sell dollars",
+    "averageRate": "Average {rate} UZS per $1",
+    "lastRate": "Last rate {rate} UZS · {date}",
+    "worthAtLastRate": "At the last rate: {amount}",
+    "exchangesCount": "{count, plural, one {# exchange} other {# exchanges}} inside the reserve",
+    "filter": {
+      "label": "Show",
+      "all": "All",
+      "deposit": "Put in",
+      "return": "Returned",
+      "purchase": "Paid",
+      "exchange": "Exchanges"
+    },
+    "filterEmpty": "Nothing of this kind yet.",
+    "exchange": {
+      "title": "Exchange inside the reserve",
+      "description": "Swap the reserve’s sums for dollars or back. The money stays in the reserve, and owner profit does not change.",
+      "direction": "Exchange",
+      "buy": "UZS → $",
+      "sell": "$ → UZS",
+      "methodBuy": "Sums taken from",
+      "methodSell": "Sums kept as",
+      "methodHint": "The reserve money saved from this method",
+      "amountSums": "Sums to exchange",
+      "amountDollars": "Dollars to sell",
+      "available": "Available: {amount}",
+      "tooMuch": "Enter at most {amount}.",
+      "rate": "Exchange rate",
+      "rateHint": "UZS for 1 US dollar",
+      "receive": "Goes into the reserve",
+      "date": "Date",
+      "note": "Note",
+      "notePlaceholder": "For example: bought dollars to keep the savings safe",
+      "submit": "Save exchange",
+      "savedToast": "Exchange saved.",
+      "rateRequired": "Enter the exchange rate.",
+      "nothingToBuy": "The reserve has no sums to exchange.",
+      "nothingToSell": "The reserve holds no dollars.",
+      "deleteConfirm": "Delete this exchange of {sums} and {dollars}? Both sides are undone.",
+      "deletedToast": "Exchange deleted."
+    }
   }
 }

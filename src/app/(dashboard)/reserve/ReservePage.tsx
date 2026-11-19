@@ -6,12 +6,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ArrowDownToLine, ArrowUpFromLine, ShoppingCart } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, ArrowRightLeft, ShoppingCart } from 'lucide-react';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
 import { ChartCard, ChartEmpty } from '@/components/dashboard/ChartCard';
 import {
+  Button,
   ButtonLink,
   Card,
   ChartSkeleton,
@@ -26,14 +27,24 @@ import {
   useToast,
 } from '@/components/PresentationFoundation';
 import { dollarsForMonth } from '@/lib/calculations/moneyExchanges';
-import { reserveActivity, reserveBalances, reserveDailySeries, reserveMonthlySeries } from '@/lib/calculations/ownerReserve';
-import { formatCurrency, formatUnitCurrency } from '@/lib/formatters';
+import {
+  reserveActivity,
+  reserveBalances,
+  reserveBuyLimits,
+  reserveDailySeries,
+  reserveDollarRates,
+  reserveFlowTotals,
+  reserveMonthlySeries,
+  type ReserveActivity,
+} from '@/lib/calculations/ownerReserve';
+import { formatCurrency, formatDateShort, formatUnitCurrency } from '@/lib/formatters';
 import { createClient } from '@/lib/supabase/client';
 import { EMPTY_OWNER_RESERVE, fetchOwnerReserve } from '@/lib/supabase/ownerMoney';
-import { requestReserveDelete } from '@/lib/ownerReserveRequests';
+import { requestReserveDelete, requestReserveExchangeDelete } from '@/lib/ownerReserveRequests';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useClubQuery } from '@/lib/useClubQuery';
 import type { OwnerReserveMethod } from '@/types';
+import { ReserveExchangeModal } from './ReserveExchangeModal';
 import { ReserveHistoryList, type DeletableReserveActivity } from './ReserveHistoryList';
 
 function ChartLoading() {
@@ -44,6 +55,8 @@ const ReserveBalanceChart = dynamic(() => loadCharts().then((module) => module.R
 const ReserveFlowChart = dynamic(() => loadCharts().then((module) => module.ReserveFlowChart), { ssr: false, loading: ChartLoading });
 
 type ReserveView = 'overview' | 'history';
+type HistoryFilter = 'all' | ReserveActivity['kind'];
+const FILTER_KINDS: readonly ReserveActivity['kind'][] = ['deposit', 'return', 'purchase', 'exchange'];
 
 export default function ReservePage() {
   const sectionTabs = useSectionTabs('ownerMoney');
@@ -66,6 +79,8 @@ export default function ReservePage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [exchangeDirection, setExchangeDirection] = useState<'buy' | 'sell' | null>(null);
+  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all');
 
   // Keep the tab shareable.
   useEffect(() => {
@@ -96,11 +111,21 @@ export default function ReservePage() {
   const currency = tc('currency');
   // Two pots (155): the sums, whatever side or method they were saved from, and the dollars.
   const sumsHeld = balances.game_club.held + balances.bar.held - balances.game_club.byMethod.usd;
-  const totals = {
-    deposited: balances.game_club.deposited + balances.bar.deposited,
-    returned: balances.game_club.returned + balances.bar.returned,
-    spent: balances.game_club.spent + balances.bar.spent,
-  };
+  // As the history shows it: exchanges inside the reserve (170) move nothing in or out.
+  const totals = useMemo(() => reserveFlowTotals(activity), [activity]);
+  const dollarsSumsValue = balances.game_club.byMethod.usd;
+  const buyLimits = useMemo(() => reserveBuyLimits(reserveEntries, sumsHeld), [reserveEntries, sumsHeld]);
+  const rates = useMemo(() => reserveDollarRates(exchangeRows, dollarsHeld, dollarsSumsValue), [exchangeRows, dollarsHeld, dollarsSumsValue]);
+  const canBuy = buyLimits.cash > 0 || buyLimits.terminal > 0 || buyLimits.card > 0;
+  const filterOptions = useMemo(() => {
+    const present = new Set(activity.map((row) => row.kind));
+    return FILTER_KINDS.filter((kind) => present.has(kind));
+  }, [activity]);
+  const shownFilter: HistoryFilter = historyFilter === 'all' || filterOptions.includes(historyFilter) ? historyFilter : 'all';
+  const shownActivity = useMemo(
+    () => (shownFilter === 'all' ? activity : activity.filter((row) => row.kind === shownFilter)),
+    [activity, shownFilter],
+  );
   const methodLabel = (method: OwnerReserveMethod) => (
     method === 'playstation' ? tm('playstation') : method === 'usd' ? tm('dollars') : tc(`paymentMethods.${method}`)
   );
@@ -109,17 +134,23 @@ export default function ReservePage() {
   async function handleDelete(row: DeletableReserveActivity) {
     if (!selectedClubId || busyId) return;
     const loadBeforeConfirm = currentLoad.current;
+    const amount = `${formatCurrency(row.amount)} ${currency}`;
     const confirmed = await confirm({
       title: tc('delete'),
-      description: tr(row.kind === 'deposit' ? 'deleteDepositConfirm' : 'deleteReturnConfirm', { amount: `${formatCurrency(row.amount)} ${currency}` }),
+      description: row.kind === 'exchange'
+        ? t('exchange.deleteConfirm', { sums: amount, dollars: `$${formatUnitCurrency(row.usd)}` })
+        : tr(row.kind === 'deposit' ? 'deleteDepositConfirm' : 'deleteReturnConfirm', { amount }),
       confirmLabel: tc('delete'),
     });
     if (!confirmed || loadBeforeConfirm !== currentLoad.current) return;
     setBusyId(row.id);
     try {
-      const failure = await requestReserveDelete(selectedClubId, row.id);
+      const failure = row.kind === 'exchange'
+        ? await requestReserveExchangeDelete(selectedClubId, row.id)
+        : await requestReserveDelete(selectedClubId, row.id);
       if (loadBeforeConfirm !== currentLoad.current) return;
-      showToast(failure ? tr(`errors.${failure}`) : tr('deletedToast'), failure ? 'error' : 'success');
+      const done = row.kind === 'exchange' ? t('exchange.deletedToast') : tr('deletedToast');
+      showToast(failure ? tr(`errors.${failure}`) : done, failure ? 'error' : 'success');
       await query.reload({ silent: true });
     } catch {
       showToast(tr('errors.failed'), 'error');
@@ -200,10 +231,51 @@ export default function ReservePage() {
                   </p>
                   {dollarsHeld !== 0 ? (
                     <p className="mt-2 text-sm text-gray-500">
-                      {t('dollarsBoughtFor', { amount: `${formatCurrency(balances.game_club.byMethod.usd)} ${currency}` })}
+                      {t('dollarsBoughtFor', { amount: `${formatCurrency(dollarsSumsValue)} ${currency}` })}
+                      {rates.averageRate !== null ? <span className="whitespace-nowrap"> · {t('averageRate', { rate: formatUnitCurrency(rates.averageRate) })}</span> : null}
+                    </p>
+                  ) : null}
+                  {rates.lastRate !== null && rates.lastDate ? (
+                    <p className="mt-1 text-xs text-gray-500">
+                      {t('lastRate', { rate: formatUnitCurrency(rates.lastRate), date: formatDateShort(rates.lastDate, locale) })}
+                      {dollarsHeld > 0 ? (
+                        <span className="whitespace-nowrap">
+                          {' · '}{t('worthAtLastRate', { amount: `${formatCurrency(Math.round(dollarsHeld * rates.lastRate))} ${currency}` })}
+                        </span>
+                      ) : null}
                     </p>
                   ) : null}
                 </div>
+              </div>
+              {/* Inside the reserve: sums become dollars or back, nothing leaves it (170). */}
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!canBuy}
+                  onClick={() => setExchangeDirection('buy')}
+                  icon={<ArrowRightLeft size={15} aria-hidden="true" />}
+                >
+                  {t('buyDollars')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={dollarsHeld <= 0}
+                  onClick={() => setExchangeDirection('sell')}
+                  icon={<ArrowRightLeft size={15} aria-hidden="true" />}
+                >
+                  {t('sellDollars')}
+                </Button>
+                {totals.exchanged > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => { setHistoryFilter('exchange'); showHistory(); }}
+                    className="text-xs text-gray-500 hover:text-gray-700 hover:underline"
+                  >
+                    {t('exchangesCount', { count: totals.exchanged })}
+                  </button>
+                ) : null}
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <StatTile variant="soft" onClick={showHistory} icon={ArrowDownToLine} label={t('putIn')} value={formatCurrency(totals.deposited)} unit={currency} tone="success" />
@@ -223,20 +295,51 @@ export default function ReservePage() {
       ) : query.loading ? (
         <TableSkeleton rows={6} columns={3} />
       ) : (
-        <Card as="section" padding="none" className="max-w-4xl overflow-hidden" aria-label={tr('activityLabel')}>
+        <div className="max-w-4xl space-y-3">
+          {filterOptions.length > 1 ? (
+            <SegmentedControl
+              variant="soft"
+              size="sm"
+              label={t('filter.label')}
+              options={[
+                { value: 'all' as HistoryFilter, label: t('filter.all') },
+                ...filterOptions.map((kind) => ({ value: kind as HistoryFilter, label: t(`filter.${kind}`) })),
+              ]}
+              value={shownFilter}
+              onChange={setHistoryFilter}
+            />
+          ) : null}
+          <Card as="section" padding="none" className="overflow-hidden" aria-label={tr('activityLabel')}>
           {activity.length === 0 ? (
             <div className="p-4 sm:p-5"><EmptyState compact title={tr('empty')} description={tr('emptyHint')} /></div>
+          ) : shownActivity.length === 0 ? (
+            <div className="p-4 sm:p-5"><EmptyState compact title={t('filterEmpty')} /></div>
           ) : (
             <ReserveHistoryList
-              activity={activity}
+              activity={shownActivity}
               methodLabel={methodLabel}
               busyId={busyId}
               disabled={busyId !== null || query.loading}
               onDelete={(row) => void handleDelete(row)}
             />
           )}
-        </Card>
+          </Card>
+        </div>
       )}
+      {exchangeDirection ? (
+        <ReserveExchangeModal
+          initialDirection={exchangeDirection}
+          buyLimits={buyLimits}
+          dollarsHeld={dollarsHeld}
+          lastRate={rates.lastRate}
+          onClose={() => setExchangeDirection(null)}
+          onSaved={async () => {
+            setExchangeDirection(null);
+            showToast(t('exchange.savedToast'), 'success');
+            await query.reload({ silent: true });
+          }}
+        />
+      ) : null}
       {confirmDialog}
     </div>
   );

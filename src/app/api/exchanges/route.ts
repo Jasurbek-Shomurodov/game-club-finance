@@ -1,14 +1,13 @@
 import { after } from 'next/server';
-import type { SupabaseClient, User } from '@supabase/supabase-js';
-import { isExchangeMethod, type ExchangeMethod } from '@/lib/calculations/moneyExchanges';
+import { isExchangeMethod } from '@/lib/calculations/moneyExchanges';
 import { validateEntryNote } from '@/lib/entryNote';
 import { createClient } from '@/lib/supabase/server';
 import { actorName } from '@/lib/telegram/actorName';
 import { targetChatId } from '@/lib/telegram/clubChat';
 import { deleteTelegramMessage } from '@/lib/telegram/deleteTelegramMessage';
 import { buildExchangeDeletedNotice, sendClubNotice } from '@/lib/telegram/entryChangeNotification';
-import { buildExchangeNotification } from '@/lib/telegram/exchangeNotification';
-import { isIsoDate, sendTelegramMessage } from '@/lib/telegram/sendDailyFinanceReport';
+import { notifyExchange, type ExchangeRow } from '@/lib/telegram/exchangeDelivery';
+import { isIsoDate } from '@/lib/telegram/sendDailyFinanceReport';
 import { exchangeErrorCode, exchangeErrorResponse } from './errors';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -17,63 +16,9 @@ const isPositive = (value: unknown): value is number => typeof value === 'number
 
 type DatabaseError = { message: string; code?: string; hint?: string };
 
-interface ExchangeRow {
-  id: string;
-  club_id: string;
-  date: string;
-  from_method: ExchangeMethod;
-  to_method: ExchangeMethod;
-  from_amount: number | string;
-  to_amount: number | string;
-  rate: number | string | null;
-  comment: string;
-  telegram_chat_id: string | null;
-  telegram_message_id: number | string | null;
-}
-
 function failure(scope: string, context: Record<string, unknown>, error: DatabaseError) {
   console.error(`[exchanges] ${scope} failed`, { ...context, code: error.code, error: error.message });
   return exchangeErrorResponse(exchangeErrorCode(error));
-}
-
-/** Best-effort, after the response: Telegram never fails or delays a saved exchange. */
-async function notifyExchange(supabase: SupabaseClient, user: User, exchange: ExchangeRow) {
-  const chatId = targetChatId(exchange.club_id);
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  if (!chatId || !botToken) return;
-  try {
-    const telegram = await sendTelegramMessage({
-      botToken,
-      chatId,
-      text: buildExchangeNotification({
-        addedBy: await actorName(supabase, user),
-        date: exchange.date,
-        from: exchange.from_method,
-        to: exchange.to_method,
-        fromAmount: Number(exchange.from_amount),
-        toAmount: Number(exchange.to_amount),
-        rate: exchange.rate === null ? null : Number(exchange.rate),
-        comment: exchange.comment || null,
-      }),
-    });
-    const { error } = await supabase.rpc('set_money_exchange_telegram_message', {
-      p_club_id: exchange.club_id,
-      p_id: exchange.id,
-      p_chat_id: String(telegram.result.chat.id),
-      p_message_id: telegram.result.message_id,
-    });
-    if (error) {
-      console.error('[telegram/exchange] message coordinates were not saved', {
-        clubId: exchange.club_id, exchangeId: exchange.id, error: error.message,
-      });
-    }
-  } catch (notificationError) {
-    console.error('[telegram/exchange] notification failed', {
-      clubId: exchange.club_id,
-      exchangeId: exchange.id,
-      error: notificationError instanceof Error ? notificationError.message : String(notificationError),
-    });
-  }
 }
 
 export async function POST(request: Request) {

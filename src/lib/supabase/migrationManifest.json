@@ -4671,13 +4671,7 @@
   },
   {
     "file": "145_exchange_delete_balance_limit.sql",
-    "probes": [
-      {
-        "kind": "functionBody",
-        "signature": "public.delete_money_exchange(uuid,uuid)",
-        "md5": "23e736d94aafa770ecefba07808c2dfc"
-      }
-    ]
+    "probes": []
   },
   {
     "file": "146_method_never_negative.sql",
@@ -4906,11 +4900,6 @@
       },
       {
         "kind": "functionBody",
-        "signature": "public.delete_owner_reserve_entry(uuid,uuid)",
-        "md5": "26ab3b5f2a02263ea16ad3373ec8302a"
-      },
-      {
-        "kind": "functionBody",
         "signature": "public.get_owner_reserve_balances(uuid)",
         "md5": "0d4860b5b5683af2817f6ed20eb2edea"
       },
@@ -5080,11 +5069,6 @@
         "kind": "constraint",
         "table": "public.owner_reserve_entries",
         "name": "owner_reserve_entries_entry_date_in_month"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.get_owner_money_bundle(uuid,date)",
-        "md5": "a24d46221de0a782ee9656fac0fd0dda"
       },
       {
         "kind": "functionBody",
@@ -5312,6 +5296,48 @@
       {
         "kind": "function",
         "signature": "public.move_collected_to_reserve(uuid,uuid,date,text,numeric,text)"
+      }
+    ]
+  },
+  {
+    "file": "170_reserve_exchanges.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.owner_reserve_entries",
+        "column": "paired_exchange_id"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_reserve_entries",
+        "name": "owner_reserve_entries_paired_exchange_fkey"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_reserve_entries_paired_exchange"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.delete_money_exchange(uuid,uuid)",
+        "md5": "88d5931ec14a5cf1d50b1213011a7fdd"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.delete_owner_reserve_entry(uuid,uuid)",
+        "md5": "d61484127b86de177ae2ed755c580d39"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_owner_money_bundle(uuid,date)",
+        "md5": "1d0f998c195144b3763d64a835ed6f44"
+      },
+      {
+        "kind": "function",
+        "signature": "public.exchange_owner_reserve(uuid,uuid,uuid,date,text,text,numeric,numeric,text)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.delete_owner_reserve_exchange(uuid,uuid)"
       }
     ]
   }

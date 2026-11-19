@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isNoteRequiredError } from '@/lib/entryNote';
+import { isDayCollectedError } from './dailyCashCollections';
 import { isInsufficientBalanceError, isMissingDatabaseFunction } from './errors';
 import type { OwnerWithdrawalPaymentMethod, OwnerWithdrawalSource } from '@/types';
 
@@ -8,6 +10,11 @@ export type ReserveErrorCode =
   /** On the chosen day the method held less than this (162's never-negative check): pick a later day. */
   | 'day_balance'
   | 'already_used'
+  /** The exchange's day was collected, so it is closed (097). */
+  | 'day_collected'
+  /** An exchange needs a note of at least 3 words (108). */
+  | 'note_required'
+  | 'method_disabled'
   | 'migration_required'
   | 'forbidden'
   | 'failed';
@@ -17,6 +24,9 @@ export function reserveErrorCode(error: { code?: string | null; message?: string
   if (error.hint === 'reserve_exceeds_available') return 'exceeds_available';
   if (error.hint === 'reserve_insufficient') return 'insufficient';
   if (error.hint === 'reserve_already_used') return 'already_used';
+  if (isDayCollectedError(error)) return 'day_collected';
+  if (isNoteRequiredError(error)) return 'note_required';
+  if (/not enabled for this club/i.test(error.message ?? '')) return 'method_disabled';
   if (isInsufficientBalanceError(error)) return 'day_balance';
   if (error.code === '42501') return 'forbidden';
   return 'failed';
@@ -62,6 +72,39 @@ export const depositToReserve = (supabase: SupabaseClient, clubId: string, input
 
 /** Gives reserve money back to a month's owner profit, where it can be withdrawn. Server-side: /api/reserve. */
 export const returnFromReserve = (supabase: SupabaseClient, clubId: string, input: ReserveMoveInput) => move(supabase, clubId, 'return_owner_reserve', input);
+
+export interface ReserveExchangeInput {
+  /** The money_exchanges row's id; also the idempotency key. */
+  id: string;
+  /** The reserve entry for the sums half. */
+  entryId: string;
+  /** YYYY-MM-DD, not after the club's business today. */
+  date: string;
+  /** buy: sums into dollars (`amount` in sums); sell: dollars into sums (`amount` in dollars). */
+  direction: 'buy' | 'sell';
+  /** The Game Club method the sums pass through. */
+  method: 'cash' | 'terminal' | 'card';
+  amount: number;
+  /** UZS per one dollar. */
+  rate: number;
+  comment: string;
+}
+
+/** Buys or sells dollars with the reserve's own sums, both halves at once (170). Server-side: /api/reserve/exchange. */
+export async function exchangeInReserve(supabase: SupabaseClient, clubId: string, input: ReserveExchangeInput): Promise<ReserveMoveResult> {
+  const { data, error } = await supabase.rpc('exchange_owner_reserve', {
+    p_club_id: clubId,
+    p_id: input.id,
+    p_entry_id: input.entryId,
+    p_date: input.date,
+    p_direction: input.direction,
+    p_method: input.method,
+    p_amount: input.amount,
+    p_rate: input.rate,
+    p_comment: input.comment.trim(),
+  });
+  return error ? { failure: reserveErrorCode(error, 'exchange_owner_reserve'), created: false } : { failure: null, created: data !== false };
+}
 
 export async function deleteReserveEntry(supabase: SupabaseClient, clubId: string, entryId: string): Promise<ReserveErrorCode | null> {
   const { error } = await supabase.rpc('delete_owner_reserve_entry', { p_club_id: clubId, p_entry_id: entryId });

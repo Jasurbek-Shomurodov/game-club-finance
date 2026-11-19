@@ -1,17 +1,17 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { ArrowDownToLine, ArrowUpFromLine, CalendarRange, ChevronRight, ShoppingCart, Trash2 } from 'lucide-react';
+import { ArrowDownToLine, ArrowRightLeft, ArrowUpFromLine, CalendarRange, ChevronRight, ShoppingCart, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { Badge, Button, Modal } from '@/components/PresentationFoundation';
 import { groupReserveActivityByDay, type ReserveActivity } from '@/lib/calculations/ownerReserve';
 import { isKnownExpenseCategory } from '@/lib/expenseCategories';
-import { formatCurrency, formatDateOnly, formatDateShort, formatDateTime, formatYearMonth } from '@/lib/formatters';
+import { formatCurrency, formatDateOnly, formatDateShort, formatDateTime, formatUnitCurrency, formatYearMonth } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import type { OwnerReserveMethod } from '@/types';
 
-export type DeletableReserveActivity = Extract<ReserveActivity, { kind: 'deposit' | 'return' }>;
+export type DeletableReserveActivity = Extract<ReserveActivity, { kind: 'deposit' | 'return' | 'exchange' }>;
 
 interface ReserveHistoryListProps {
   activity: readonly ReserveActivity[];
@@ -21,16 +21,21 @@ interface ReserveHistoryListProps {
   onDelete: (activity: DeletableReserveActivity) => void;
 }
 
-const KIND_ICON = { deposit: ArrowDownToLine, return: ArrowUpFromLine, purchase: ShoppingCart } as const;
+const KIND_ICON = { deposit: ArrowDownToLine, return: ArrowUpFromLine, purchase: ShoppingCart, exchange: ArrowRightLeft } as const;
 const KIND_TONE = {
   deposit: 'bg-primary-50 text-primary-600',
   return: 'bg-warning-50 text-warning-700',
   purchase: 'bg-gray-100 text-gray-600',
+  exchange: 'bg-purple-50 text-purple-600',
 } as const;
+
+const dollars = (value: number) => `$${formatUnitCurrency(value)}`;
 
 /** Why a row cannot be deleted here, or null when it can. */
 function lockReason(row: ReserveActivity): 'purchase' | 'exchange' | 'collection' | null {
   if (row.kind === 'purchase') return 'purchase';
+  // An exchange inside the reserve (170) is undone here, both halves at once.
+  if (row.kind === 'exchange') return null;
   if (row.entry.exchange_id) return 'exchange';
   if (row.kind === 'deposit' && row.entry.collection_date) return 'collection';
   return null;
@@ -60,10 +65,11 @@ export function ReserveHistoryList({ activity, methodLabel, busyId, disabled, on
           : formatDateOnly(collectionDate, locale),
       });
     }
+    if (row.kind === 'exchange') return t(row.direction === 'buy' ? 'exchangeBought' : 'exchangeSold', { usd: dollars(row.usd) });
     return row.note ?? t(`kinds.${row.kind}`);
   };
   /** The month whose owner profit the money left (deposit) or joined (return). */
-  const monthOf = (row: ReserveActivity) => (row.kind === 'purchase'
+  const monthOf = (row: ReserveActivity) => (row.kind === 'purchase' || row.kind === 'exchange'
     ? null
     : t(row.kind === 'deposit' ? 'fromMonth' : 'toMonth', { month: formatYearMonth(row.entry.period_month.slice(0, 7), locale) }));
 
@@ -112,13 +118,21 @@ export function ReserveHistoryList({ activity, methodLabel, busyId, disabled, on
                           </span>
                         ) : null}
                       </span>
-                      <span className={cn(
-                        'shrink-0 whitespace-nowrap text-right text-base font-bold tabular-nums sm:w-40',
-                        incoming ? 'text-primary-600' : 'text-gray-900',
-                      )}>
-                        {incoming ? '+' : '−'}{formatCurrency(row.amount)}
-                        <span className="ml-1 text-xs font-medium text-gray-500">{tc('currency')}</span>
-                      </span>
+                      {row.kind === 'exchange' ? (
+                        // Sums swapped for dollars: the reserve's total is unchanged.
+                        <span className="shrink-0 whitespace-nowrap text-right tabular-nums sm:w-40">
+                          <span className="block text-base font-bold text-gray-900">{dollars(row.usd)}</span>
+                          <span className="block text-xs text-gray-500">{formatCurrency(row.amount)} {tc('currency')}</span>
+                        </span>
+                      ) : (
+                        <span className={cn(
+                          'shrink-0 whitespace-nowrap text-right text-base font-bold tabular-nums sm:w-40',
+                          incoming ? 'text-primary-600' : 'text-gray-900',
+                        )}>
+                          {incoming ? '+' : '−'}{formatCurrency(row.amount)}
+                          <span className="ml-1 text-xs font-medium text-gray-500">{tc('currency')}</span>
+                        </span>
+                      )}
                       <ChevronRight size={16} aria-hidden="true" className="shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5" />
                     </button>
                   </li>
@@ -180,21 +194,31 @@ function ReserveEntryDetails({ row, title, month, methodLabel, categoryLabel, bu
       hint: t(incoming ? 'details.depositMonthHint' : 'details.returnMonthHint'),
     });
   }
-  if (row.kind === 'purchase') facts.push({ label: t('details.paidOn'), value: formatDateOnly(row.date, locale) });
+  if (row.kind === 'purchase' || row.kind === 'exchange') facts.push({ label: t('details.paidOn'), value: formatDateOnly(row.date, locale) });
+  if (row.kind === 'exchange') {
+    facts.push({ label: t('details.dollars'), value: `${row.direction === 'buy' ? '+' : '−'}${dollars(row.usd)}` });
+    facts.push({ label: t('details.sumsPart'), value: `${row.direction === 'buy' ? '−' : '+'}${formatCurrency(row.amount)} ${tc('currency')}` });
+    if (row.rate !== null) facts.push({ label: t('details.rate'), value: `${formatUnitCurrency(row.rate)} ${tc('currency')}` });
+    if (row.method) facts.push({ label: t('details.sumsMethod'), value: methodLabel(row.method) });
+  }
   facts.push({ label: t('details.madeOn'), value: formatDateTime(row.createdAt, locale) });
   if (collectionDate) facts.push({ label: t('details.collectionDay'), value: formatDateOnly(collectionDate, locale) });
   // The reserve is one pot; where the money came from is kept for reference only.
   // A purchase is paid by the pot itself, in sums or dollars, never by a side's method (155).
-  facts.push({
-    label: t(row.kind === 'deposit' ? 'details.takenFrom' : row.kind === 'return' ? 'details.returnedTo' : 'details.paidWith'),
-    value: row.kind === 'purchase'
-      ? (row.method === 'usd' ? methodLabel('usd') : t('details.sums'))
-      : [t(`sources.${row.source}`), row.method && methodLabel(row.method)].filter(Boolean).join(' · '),
-  });
+  if (row.kind !== 'exchange') {
+    facts.push({
+      label: t(row.kind === 'deposit' ? 'details.takenFrom' : row.kind === 'return' ? 'details.returnedTo' : 'details.paidWith'),
+      value: row.kind === 'purchase'
+        ? (row.method === 'usd' ? methodLabel('usd') : t('details.sums'))
+        : [t(`sources.${row.source}`), row.method && methodLabel(row.method)].filter(Boolean).join(' · '),
+    });
+  }
   if (row.kind === 'purchase') facts.push({ label: t('details.category'), value: categoryLabel(row.category) });
   if (row.note && row.note !== title) facts.push({ label: t('details.note'), value: row.note });
 
-  const lockText = locked === 'exchange'
+  const lockText = row.kind === 'exchange'
+    ? t('details.exchangeHint')
+    : locked === 'exchange'
     ? t(incoming ? 'fromExchange' : 'toExchange')
     : locked === 'collection'
       ? t('details.lockedCollection')
@@ -230,10 +254,18 @@ function ReserveEntryDetails({ row, title, month, methodLabel, categoryLabel, bu
           <Icon size={20} aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <p className={cn('text-2xl font-bold tabular-nums', incoming ? 'text-primary-600' : 'text-gray-900')}>
-            {incoming ? '+' : '−'}{formatCurrency(row.amount)}
-            <span className="ml-1 text-sm font-medium text-gray-500">{tc('currency')}</span>
-          </p>
+          {row.kind === 'exchange' ? (
+            <p className="text-2xl font-bold tabular-nums text-gray-900">
+              {row.direction === 'buy'
+                ? `${formatCurrency(row.amount)} ${tc('currency')} → ${dollars(row.usd)}`
+                : `${dollars(row.usd)} → ${formatCurrency(row.amount)} ${tc('currency')}`}
+            </p>
+          ) : (
+            <p className={cn('text-2xl font-bold tabular-nums', incoming ? 'text-primary-600' : 'text-gray-900')}>
+              {incoming ? '+' : '−'}{formatCurrency(row.amount)}
+              <span className="ml-1 text-sm font-medium text-gray-500">{tc('currency')}</span>
+            </p>
+          )}
           {title !== kindLabel ? <p className="break-words text-sm text-gray-600">{title}</p> : null}
         </div>
       </div>

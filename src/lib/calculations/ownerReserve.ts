@@ -1,5 +1,5 @@
 import { sumAvailableMoneyResults, type AvailableMoneyByMonth, type AvailableSourceBalance } from './availableMoney';
-import type { MoneyExchangeRow } from './moneyExchanges';
+import type { ExchangeMethod, MoneyExchangeRow } from './moneyExchanges';
 import {
   OWNER_RESERVE_METHODS,
   type OwnerReserveEntry,
@@ -45,8 +45,17 @@ export function reserveExpenseMethod(source: string | null, method: string | nul
   return method === 'cash' || method === 'terminal' || method === 'playstation' || method === 'usd' ? method : 'card';
 }
 
-/** A reserve entry, or one that stands for a dollar exchange (143) and is undone by deleting it. */
-export type ReserveLedgerEntry = OwnerReserveEntry & { exchange_id?: string | null };
+/**
+ * A reserve entry, or one that stands for a dollar exchange (143) and is
+ * undone by deleting it. Those carry the exchange's dollars, rate and the
+ * sums method on its other side.
+ */
+export type ReserveLedgerEntry = OwnerReserveEntry & {
+  exchange_id?: string | null;
+  usd_amount?: number;
+  rate?: number | null;
+  exchange_method?: ExchangeMethod;
+};
 
 /**
  * The reserve's dollars (143), as owner_reserve_dollar_exchanges reads them:
@@ -70,6 +79,9 @@ export function dollarReserveEntries(exchanges: readonly MoneyExchangeRow[], clu
       collection_date: null,
       entry_date: row.date,
       exchange_id: row.id,
+      usd_amount: Number(bought ? row.to_amount : row.from_amount),
+      rate: row.rate === null || row.rate === undefined ? null : Number(row.rate),
+      exchange_method: bought ? row.from_method : row.to_method,
       created_by: row.created_by ?? '',
       created_at: row.created_at ?? `${row.date}T00:00:00`,
     }];
@@ -180,7 +192,23 @@ export function reserveBalances(
 
 export type ReserveActivity =
   | { kind: 'deposit' | 'return'; id: string; date: string; source: OwnerWithdrawalSource; amount: number; method: OwnerReserveMethod | null; note: string | null; createdAt: string; entry: ReserveLedgerEntry }
-  | { kind: 'purchase'; id: string; date: string; source: OwnerWithdrawalSource; amount: number; method: OwnerReserveMethod | null; note: string | null; createdAt: string; category: string };
+  | { kind: 'purchase'; id: string; date: string; source: OwnerWithdrawalSource; amount: number; method: OwnerReserveMethod | null; note: string | null; createdAt: string; category: string }
+  /**
+   * Dollars bought with the reserve's sums or sold for them (170): `id` is the
+   * exchange's, `amount` the sums, `method` the method the sums passed through.
+   * The reserve's total does not change.
+   */
+  | { kind: 'exchange'; id: string; date: string; source: 'game_club'; amount: number; method: OwnerReserveMethod | null; note: string | null; createdAt: string; direction: 'buy' | 'sell'; usd: number; rate: number | null; entry: ReserveLedgerEntry };
+
+/** Exchange ids whose sums half is a reserve entry: the dollars were bought or sold inside the reserve (170). */
+export function pairedExchangeIds(entries: readonly ReserveLedgerEntry[]): Set<string> {
+  return new Set(entries.flatMap((entry) => (entry.paired_exchange_id ? [entry.paired_exchange_id] : [])));
+}
+
+/** True for either half of an exchange inside the reserve: it moves nothing into or out of it. */
+const isReserveExchangeLeg = (entry: ReserveLedgerEntry, paired: ReadonlySet<string>) => (
+  Boolean(entry.paired_exchange_id) || Boolean(entry.exchange_id && paired.has(entry.exchange_id))
+);
 
 /**
  * The day a deposit or return moved money: its own date (162), else, as the
@@ -195,16 +223,33 @@ export function reserveEntryDate(entry: Pick<ReserveLedgerEntry, 'entry_date' | 
   return recorded < monthStart ? monthStart : recorded > monthEnd ? monthEnd : recorded;
 }
 
-/** Every deposit, return and purchase, newest first. Deposits and returns are dated by the day the money moved. */
+/**
+ * Every deposit, return, purchase and exchange inside the reserve, newest
+ * first. Deposits and returns are dated by the day the money moved. The two
+ * halves of an exchange inside the reserve (170) are one row.
+ */
 export function reserveActivity(
   entries: readonly ReserveLedgerEntry[],
   expenses: readonly ReservePaidExpense[],
 ): ReserveActivity[] {
+  const paired = pairedExchangeIds(entries);
+  const sumsHalf = new Map(entries.flatMap((entry) => (entry.paired_exchange_id ? [[entry.paired_exchange_id, entry] as const] : [])));
   return [
-    ...entries.map((entry): ReserveActivity => ({
-      kind: entry.kind, id: entry.id, date: reserveEntryDate(entry), source: entry.source, amount: Number(entry.amount),
-      method: entry.payment_method, note: entry.comment, createdAt: entry.created_at, entry,
-    })),
+    ...entries.flatMap((entry): ReserveActivity[] => {
+      if (entry.paired_exchange_id) return [];
+      if (entry.exchange_id && paired.has(entry.exchange_id)) {
+        const half = sumsHalf.get(entry.exchange_id);
+        return [{
+          kind: 'exchange', id: entry.exchange_id, date: reserveEntryDate(entry), source: 'game_club', amount: Number(entry.amount),
+          method: half?.payment_method ?? null, note: entry.comment, createdAt: entry.created_at,
+          direction: entry.kind === 'deposit' ? 'buy' : 'sell', usd: entry.usd_amount ?? 0, rate: entry.rate ?? null, entry,
+        }];
+      }
+      return [{
+        kind: entry.kind, id: entry.id, date: reserveEntryDate(entry), source: entry.source, amount: Number(entry.amount),
+        method: entry.payment_method, note: entry.comment, createdAt: entry.created_at, entry,
+      }];
+    }),
     ...expenses.map((expense): ReserveActivity => ({
       kind: 'purchase', id: expense.id, date: expense.date, source: sideOf(expense.payment_source), amount: Number(expense.amount),
       method: reserveExpenseMethod(expense.payment_source, expense.payment_method), note: expense.comment, createdAt: expense.created_at,
@@ -233,8 +278,9 @@ export function groupReserveActivityByDay(activity: readonly ReserveActivity[]):
       days.push(day);
     }
     day.rows.push(row);
+    // An exchange inside the reserve only swaps sums for dollars.
     if (row.kind === 'deposit') day.deposited += row.amount;
-    else day.withdrawn += row.amount;
+    else if (row.kind !== 'exchange') day.withdrawn += row.amount;
   }
   return days;
 }
@@ -261,6 +307,9 @@ export function reserveMonthlySeries(
   expenses: readonly ReservePaidExpense[],
   throughMonth: string,
 ): ReserveMonthRow[] {
+  // Both halves of an exchange inside the reserve fall in one month and cancel out (170).
+  const paired = pairedExchangeIds(entries);
+  entries = entries.filter((entry) => !isReserveExchangeLeg(entry, paired));
   const months = [
     ...entries.map((entry) => entry.period_month.slice(0, 7)),
     ...expenses.map((expense) => expense.date.slice(0, 7)),
@@ -321,7 +370,8 @@ export function reserveDailySeries(
   const change = new Map<string, number>();
   for (const row of reserveActivity(entries, expenses)) {
     const day = row.date > throughDate ? throughDate : row.date;
-    change.set(day, (change.get(day) ?? 0) + (row.kind === 'deposit' ? row.amount : -row.amount));
+    const amount = row.kind === 'deposit' ? row.amount : row.kind === 'exchange' ? 0 : -row.amount;
+    change.set(day, (change.get(day) ?? 0) + amount);
   }
   if (change.size === 0) return [];
 
@@ -352,4 +402,69 @@ export function planGameClubDepositAll(
     left -= amount;
   }
   return plan;
+}
+
+/**
+ * What went into and out of the reserve, as its history shows it: deposits,
+ * returns to profit and purchases. Exchanges inside the reserve (170) move
+ * nothing in or out, so they are counted apart.
+ */
+export function reserveFlowTotals(activity: readonly ReserveActivity[]): ReserveFlow & { exchanged: number } {
+  const totals = { ...emptyFlow(), exchanged: 0 };
+  for (const row of activity) {
+    if (row.kind === 'deposit') totals.deposited += row.amount;
+    else if (row.kind === 'return') totals.returned += row.amount;
+    else if (row.kind === 'purchase') totals.spent += row.amount;
+    else totals.exchanged += 1;
+  }
+  return totals;
+}
+
+/**
+ * Sums the reserve can turn into dollars through each Game Club method, as
+ * exchange_owner_reserve limits a buy (170): what that method saved minus what
+ * went back from it, never above the sums the reserve holds.
+ */
+export function reserveBuyLimits(
+  entries: readonly ReserveLedgerEntry[],
+  sumsHeld: number,
+): Record<OwnerWithdrawalPaymentMethod, number> {
+  const net: Record<OwnerWithdrawalPaymentMethod, number> = { cash: 0, terminal: 0, card: 0, playstation: 0 };
+  for (const entry of entries) {
+    if (entry.source !== 'game_club' || !entry.payment_method || entry.payment_method === 'usd') continue;
+    net[entry.payment_method] += (entry.kind === 'deposit' ? 1 : -1) * Number(entry.amount);
+  }
+  const cap = Math.max(0, sumsHeld);
+  return {
+    cash: Math.max(0, Math.min(net.cash, cap)),
+    terminal: Math.max(0, Math.min(net.terminal, cap)),
+    card: Math.max(0, Math.min(net.card, cap)),
+    playstation: Math.max(0, Math.min(net.playstation, cap)),
+  };
+}
+
+export interface DollarRates {
+  /** UZS per dollar of the latest exchange into or out of dollars; null when there was none. */
+  lastRate: number | null;
+  lastDate: string | null;
+  /** UZS paid per dollar still held: their sums value over the dollars; null without dollars. */
+  averageRate: number | null;
+}
+
+/** The rates behind the reserve's dollars: the latest one used and what the held dollars cost on average. */
+export function reserveDollarRates(
+  exchanges: readonly MoneyExchangeRow[],
+  dollarsHeld: number,
+  dollarsSumsValue: number,
+): DollarRates {
+  let last: MoneyExchangeRow | null = null;
+  for (const row of exchanges) {
+    if (row.rate === null || row.rate === undefined || (row.from_method !== 'usd' && row.to_method !== 'usd')) continue;
+    if (!last || row.date > last.date || (row.date === last.date && (row.created_at ?? '') > (last.created_at ?? ''))) last = row;
+  }
+  return {
+    lastRate: last ? Number(last.rate) : null,
+    lastDate: last?.date ?? null,
+    averageRate: dollarsHeld > 0 && dollarsSumsValue > 0 ? Math.round((dollarsSumsValue / dollarsHeld) * 100) / 100 : null,
+  };
 }
