@@ -32,6 +32,7 @@ import { useClub } from '@/components/layout/DashboardShell';
 import {
   Button,
   Card,
+  CategoryIcon,
   DateRangePicker,
   DetailListSkeleton,
   EmptyState,
@@ -571,7 +572,9 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
                                 <li key={`${line.kind}-${index}`}>
                                   <Link href={moneyDetailLineHref(side, row.date, line)} className="group/line -mx-2 flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-gray-50 focus-visible:bg-primary-50 focus-visible:outline-none">
                                     <span title={deductionKindLabel(line)}>
-                                      <IconChip icon={DEDUCTION_ICONS[line.kind]} tone={line.kind === 'purchase' ? 'primary' : line.kind === 'reserve' ? 'neutral' : 'danger'} size="sm" />
+                                      {line.kind === 'expense'
+                                        ? <CategoryIcon category={line.category} size="sm" />
+                                        : <IconChip icon={DEDUCTION_ICONS[line.kind]} tone={line.kind === 'purchase' ? 'primary' : 'neutral'} size="sm" />}
                                     </span>
                                     <span className="min-w-0 flex-1">
                                       <span className="block break-words text-sm leading-5 text-gray-700">{deductionLabel(line)}</span>

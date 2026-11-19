@@ -29,6 +29,7 @@ import {
   Button,
   Card,
   CardHeader,
+  CategoryIcon,
   ChartSkeleton,
   DataTable,
   DateRangePicker,
@@ -121,7 +122,6 @@ import { fetchDailyCashCollections, type DailyCashCollection } from '@/lib/supab
 import type { ExchangeMethod, MoneyExchangeRow } from '@/lib/calculations/moneyExchanges';
 import { EXPENSE_CATEGORIES, isKnownExpenseCategory, manualExpenseCategoriesFor } from '@/lib/expenseCategories';
 import { moneyDetailsHref } from '@/lib/detailLinks';
-import { EXPENSE_CATEGORY_ICONS, MONEY_MOVE_ICONS } from '@/components/expenseCategoryIcons';
 import dynamic from 'next/dynamic';
 import { ChartCard } from '@/components/dashboard/ChartCard';
 
@@ -173,27 +173,6 @@ function activityKindVariant(kind: MoneyReportActivity['kind']): BadgeVariant {
   if (kind === 'income') return 'success';
   if (kind === 'debt_payment' || kind === 'exchange') return 'info';
   return 'danger';
-}
-
-/**
- * A tinted tile at the start of each closeout row showing where the money
- * went (the expense category) or how it came in. Bar-paid expenses wear the
- * bar's orange, so the paying side is visible too.
- */
-function ActivityIcon({ activity }: { activity: MoneyReportActivity }) {
-  const Icon = activity.kind === 'income' ? MONEY_MOVE_ICONS.income
-    : activity.kind === 'debt_payment' ? MONEY_MOVE_ICONS.debtPayment
-      : activity.kind === 'exchange' ? MONEY_MOVE_ICONS.exchange
-        : EXPENSE_CATEGORY_ICONS[activity.category ?? 'other'] ?? EXPENSE_CATEGORY_ICONS.other;
-  const tone = activity.kind === 'income' ? 'bg-success-50 text-success-600'
-    : activity.kind === 'debt_payment' ? 'bg-primary-50 text-primary-600'
-      : activity.kind === 'exchange' ? 'bg-gray-100 text-gray-600'
-        : activity.paymentSource === 'bar' ? 'bg-orange-50 text-orange-600' : 'bg-danger-50 text-danger-600';
-  return (
-    <span aria-hidden="true" className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', tone)}>
-      <Icon size={17} strokeWidth={2.1} />
-    </span>
-  );
 }
 
 /** The closeout table lists a subtle day header row followed by that day's entries. */
@@ -1222,7 +1201,11 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         </span>
       ) : (
         <span className="flex items-center gap-3">
-          <ActivityIcon activity={row.activity} />
+          <CategoryIcon
+            category={row.activity.category}
+            kind={row.activity.kind === 'debt_payment' ? 'debtPayment' : row.activity.kind}
+            tone={row.activity.kind === 'expense' && row.activity.paymentSource === 'bar' ? 'bar' : undefined}
+          />
           <span className="block min-w-0">
             <span className="block text-gray-700">{formatTime(row.activity.createdAt, locale)}</span>
             <span className="mt-0.5 block max-w-40 truncate text-xs text-gray-500" title={row.activity.createdByName || t('unknownCreator')}>

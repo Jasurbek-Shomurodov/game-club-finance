@@ -15,6 +15,7 @@
  */
 export { Avatar, initialsOf } from './Avatar';
 export { ClubLogo, DEFAULT_CLUB_LOGO } from './ClubLogo';
+export { CategoryIcon, type CategoryIconTone } from './CategoryIcon';
 export { Badge, type BadgeVariant } from './Badge';
 export { Button, ButtonLink, buttonClassName, type ButtonProps, type ButtonVariant, type ButtonSize } from './Button';
 export { DatePicker, DateRangePicker, MonthPicker } from './CalendarPicker';

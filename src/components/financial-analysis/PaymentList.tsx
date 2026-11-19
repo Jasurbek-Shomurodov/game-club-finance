@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { EmptyState } from '@/components/PresentationFoundation';
+import { CategoryIcon, EmptyState } from '@/components/PresentationFoundation';
 import { formatCurrency, formatDateShort } from '@/lib/formatters';
 import type { ExpenseRow } from '@/lib/calculations/dashboardMetrics';
 
@@ -31,7 +31,8 @@ export function PaymentList({ rows, showCategory = false, labelFor, locale, curr
         const method = methodLabel(row.payment_method);
         const content = (
           <>
-            <div className="min-w-0">
+            <CategoryIcon category={row.category} tone={row.payment_source === 'bar' ? 'bar' : 'expense'} size="sm" className="mt-0.5" />
+            <div className="min-w-0 flex-1">
               <p className="break-words text-sm text-gray-900">
                 {showCategory && <span className="font-medium">{labelFor(row.category)} · </span>}
                 {row.comment || <span className="text-gray-400">{t('drawerNoComment')}</span>}

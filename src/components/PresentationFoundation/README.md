@@ -18,6 +18,7 @@ import { Button, Card, Field, Input, InlineAlert, PageHeader } from '@/component
 | Text / money / select / textarea | `Field` + `Input` / `CurrencyInput` / `DecimalInput` / `Select` / `Textarea` / `Checkbox` |
 | Required note on a spending entry (5+ words) | `useEntryNoteGuard` + `NoteField`; call `guard.check(note)` before saving and render `guard.dialog` |
 | Multi-select option tiles (payment methods, page access) | `Checkbox variant="card"` |
+| Where an expense went, at the start of its row | `CategoryIcon` (`category`, or `kind` for income / debt payments / exchanges; `tone="bar"` when bar money paid). Every list of expenses starts its rows with one |
 | Person or product initials | `Avatar` (`tone`: primary for people, neutral for products) |
 | Search box | `SearchInput` |
 | Mutually exclusive choice (payment method, tabs, filters) | `SegmentedControl` (`variant`: solid, soft, chips) |

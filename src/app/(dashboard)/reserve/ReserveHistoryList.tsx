@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { ArrowDownToLine, ArrowRightLeft, ArrowUpFromLine, CalendarRange, ChevronRight, ShoppingCart, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { Badge, Button, IconButton, Modal } from '@/components/PresentationFoundation';
+import { Badge, Button, CategoryIcon, IconButton, Modal } from '@/components/PresentationFoundation';
 import { groupReserveActivityByDay, type ReserveActivity } from '@/lib/calculations/ownerReserve';
 import { isKnownExpenseCategory } from '@/lib/expenseCategories';
 import { formatCurrency, formatDateOnly, formatDateShort, formatDateTime, formatUnitCurrency, formatYearMonth } from '@/lib/formatters';
@@ -107,9 +107,12 @@ export function ReserveHistoryList({ activity, methodLabel, busyId, disabled, on
                       aria-haspopup="dialog"
                       className="group flex min-w-0 flex-1 items-center gap-3 py-3 pl-4 pr-2 text-left focus-visible:bg-gray-50/70 focus-visible:outline-none sm:pl-5"
                     >
-                      <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', KIND_TONE[row.kind])}>
-                        <Icon size={18} aria-hidden="true" />
-                      </span>
+                      {/* A purchase shows what it paid for; the other kinds show how the money moved. */}
+                      {row.kind === 'purchase' ? <CategoryIcon category={row.category} tone="move" /> : (
+                        <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', KIND_TONE[row.kind])}>
+                          <Icon size={18} aria-hidden="true" />
+                        </span>
+                      )}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium leading-5 text-gray-900">{title}</span>
                         {/* One pot: which side or method the money came from is only in the details. */}

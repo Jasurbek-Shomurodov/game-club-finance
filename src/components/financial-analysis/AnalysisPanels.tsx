@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, ChevronRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { Badge } from '@/components/PresentationFoundation';
+import { Badge, CategoryIcon } from '@/components/PresentationFoundation';
 import { ChartEmpty, chartColors } from '@/components/dashboard/ChartCard';
 import { formatCurrency, formatDateShort } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
@@ -151,7 +151,10 @@ export function CategoryComparison({
                 className="w-full rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
               >
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <span className="min-w-0 truncate text-sm text-gray-700">{labelFor(row.category)}</span>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <CategoryIcon category={row.category} tone="move" size="sm" />
+                    <span className="truncate text-sm text-gray-700">{labelFor(row.category)}</span>
+                  </span>
                   <Badge variant={row.change === 0 ? 'neutral' : up ? 'danger' : 'success'} className="shrink-0 tabular-nums">
                     {row.change !== 0 && <Icon size={11} aria-hidden="true" />}
                     {row.changePct === null ? t('newItem') : formatShare(Math.abs(row.changePct), locale)}
@@ -256,8 +259,9 @@ export function LargestPayments({
             <button
               type="button"
               onClick={() => onSelect(row.category)}
-              className="grid w-full grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 rounded-lg px-1.5 py-2.5 text-left transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              className="grid w-full grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-1 rounded-lg px-1.5 py-2.5 text-left transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
             >
+              <CategoryIcon category={row.category} tone={row.payment_source === 'bar' ? 'bar' : 'expense'} size="sm" />
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-gray-950">
                   {labelFor(row.category)}
@@ -270,7 +274,7 @@ export function LargestPayments({
               <p className="text-right text-sm font-semibold tabular-nums text-gray-950">
                 {formatCurrency(amount)} <span className="text-xs font-medium text-gray-500">{currency}</span>
               </p>
-              <div className="col-span-2 h-1.5 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
+              <div className="col-span-2 col-start-2 h-1.5 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
                 <div className="h-full rounded-full" style={{ width: `${(amount / max) * 100}%`, backgroundColor: colors[row.category] ?? chartColors.gray }} />
               </div>
             </button>

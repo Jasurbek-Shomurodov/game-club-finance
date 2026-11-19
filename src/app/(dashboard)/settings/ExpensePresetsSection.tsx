@@ -7,6 +7,7 @@ import {
   Badge,
   Button,
   Card,
+  CategoryIcon,
   CurrencyInput,
   Field,
   IconButton,
@@ -192,13 +193,14 @@ function PresetList({ clubId, isOwner }: { clubId: string; isOwner: boolean }) {
             <LoadErrorAlert retrying={query.loading} onRetry={() => void query.reload()}>{t('loadError')}</LoadErrorAlert>
           </div>
         ) : !query.data ? (
-          <div className="space-y-2 px-5 py-4"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div>
+          <div className="space-y-3 px-5 py-4">{[0, 1].map((row) => <div key={row} className="flex items-center gap-3"><Skeleton className="h-9 w-9 shrink-0 rounded-xl" /><Skeleton className="h-10 flex-1" /></div>)}</div>
         ) : live.length === 0 ? (
           <p className="px-5 py-4 text-sm text-gray-500">{t('empty')}</p>
         ) : (
           <ul aria-label={t('title')} className="divide-y divide-gray-100">
             {live.map((preset) => (
               <li key={preset.id} className="flex items-center gap-3 px-5 py-3">
+                <CategoryIcon category={preset.category} tone={preset.payment_source === 'bar' ? 'bar' : 'expense'} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-gray-950">{preset.name}</p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-gray-500">

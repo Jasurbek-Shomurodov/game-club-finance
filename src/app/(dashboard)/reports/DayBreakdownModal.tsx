@@ -3,7 +3,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { ArrowRight } from 'lucide-react';
-import { Button, Checkbox, Modal, Money, SegmentedControl } from '@/components/PresentationFoundation';
+import { Button, CategoryIcon, Checkbox, Modal, Money, SegmentedControl } from '@/components/PresentationFoundation';
 import {
   activityKey,
   contributionsTo,
@@ -162,8 +162,16 @@ function DayBreakdown({
                 disabled={key === null}
                 onChange={(event) => key && toggle(key, event.target.checked)}
                 label={(
-                  <span className={cn(!included && 'line-through')}>
-                    {activityTypeLabel(activity)} · {categoryLabel(activity)}
+                  <span className="flex items-center gap-2">
+                    <CategoryIcon
+                      size="sm"
+                      category={activity.category}
+                      kind={activity.kind === 'debt_payment' ? 'debtPayment' : activity.kind}
+                      tone={activity.kind === 'expense' && activity.paymentSource === 'bar' ? 'bar' : undefined}
+                    />
+                    <span className={cn(!included && 'line-through')}>
+                      {activityTypeLabel(activity)} · {categoryLabel(activity)}
+                    </span>
                   </span>
                 )}
                 description={[

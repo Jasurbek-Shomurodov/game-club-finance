@@ -15,6 +15,7 @@ import {
   DatePicker,
   EmptyState,
   Field,
+  CategoryIcon,
   LoadErrorAlert,
   MetricCard,
   MetricGridSkeleton,
@@ -215,8 +216,9 @@ export default function DailyReportPage() {
                     <button
                       type="button"
                       onClick={() => setSelectedExpense(e)}
-                      className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-2 rounded-lg px-2 py-2 text-left text-sm transition-colors hover:bg-gray-50 focus-visible:bg-primary-50 focus-visible:outline-none"
+                      className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-2 text-left text-sm transition-colors hover:bg-gray-50 focus-visible:bg-primary-50 focus-visible:outline-none"
                     >
+                      <CategoryIcon category={e.category} tone={e.payment_source === 'bar' ? 'bar' : 'expense'} size="sm" />
                       <span className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:justify-between">
                         <span className="text-gray-600">
                           {expenseLabel(e.category)}
