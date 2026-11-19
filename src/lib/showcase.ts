@@ -1,3 +1,4 @@
+import { LOGO_ICON_PATH } from '@/lib/logoIcon';
 import type { ClubShowcase, ShowcaseBrand, ShowcaseGame, ShowcaseOffer, ShowcasePcZone, ShowcaseTranslations, ShowcaseZoneKind } from '@/types';
 import { formatCurrencyInput, formatPhone, normalizePhone, parseCurrencyInput } from './formatters';
 import { APP_TIME_ZONE } from './utils';
@@ -730,9 +731,14 @@ export function brandLogoUrl(brand: Pick<PublicBrand, 'clubs'>): string | null {
   return brand.clubs.find((club) => club.logo_url)?.logo_url ?? null;
 }
 
-/** Browser-tab and home-screen icon of a public page; none without a logo. */
+/**
+ * Browser-tab and home-screen icon of a public page; none without a logo.
+ * Uploaded logos are square photos with a solid background, which shrink to
+ * an unreadable dark square in a tab, so the tab icon is the round crop the
+ * logo route draws. The home-screen icon keeps the original: iOS rounds it.
+ */
 export function logoIcons(logoUrl: string | null): { icon: string; apple: string } | undefined {
-  return logoUrl ? { icon: logoUrl, apple: logoUrl } : undefined;
+  return logoUrl ? { icon: `${LOGO_ICON_PATH}?src=${encodeURIComponent(logoUrl)}`, apple: logoUrl } : undefined;
 }
 
 /** The get_public_brand payload; clubs that fail to parse are dropped. */

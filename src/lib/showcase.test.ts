@@ -193,7 +193,7 @@ describe('brand', () => {
       clubs: [brandPayload.clubs[0], { ...brandPayload.clubs[1], logo_url: 'https://cdn.example/logo.jpg' }],
     })!;
     expect(brandLogoUrl(brand)).toBe('https://cdn.example/logo.jpg');
-    expect(logoIcons(brandLogoUrl(brand))).toEqual({ icon: 'https://cdn.example/logo.jpg', apple: 'https://cdn.example/logo.jpg' });
+    expect(logoIcons(brandLogoUrl(brand))).toEqual({ icon: '/api/logo-icon?src=https%3A%2F%2Fcdn.example%2Flogo.jpg', apple: 'https://cdn.example/logo.jpg' });
     expect(brandLogoUrl(parsePublicBrand(brandPayload)!)).toBeNull();
     expect(logoIcons(null)).toBeUndefined();
   });
