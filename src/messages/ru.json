@@ -114,6 +114,7 @@
     "incomeTrend": "Динамика дохода",
     "gameClubDailyAverage": "Среднее клуба в день",
     "barDailyAverage": "Среднее бара в день",
+    "dailyAverages": "Средние в день",
     "incomeByCategory": "Доход по категориям",
     "expensesByCategory": "Расходы по категориям",
     "noExpensesForPeriod": "Нет расходов за этот период",

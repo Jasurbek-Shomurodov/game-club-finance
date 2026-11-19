@@ -1,9 +1,10 @@
 'use client';
 
+import { useId } from 'react';
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -11,9 +12,19 @@ import {
 } from 'recharts';
 import { useTranslations } from 'next-intl';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { formatCurrency } from '@/lib/formatters';
+import { SIDE_ICONS } from '@/components/sideIcons';
 import type { DailySalesLineRow } from '@/lib/calculations/dashboardMetrics';
-import { ChartCard, chartColors, chartTooltipStyle, formatAxis } from './ChartCard';
+import {
+  CHART_Y_AXIS_WIDTH,
+  ChartCard,
+  ChartLegendToggle,
+  ChartTooltipBody,
+  chartColors,
+  formatAxis,
+  seriesOpacity,
+  seriesTotal,
+  useSeriesVisibility,
+} from './ChartCard';
 
 interface DailySalesLineChartProps {
   /** One row per day; the date is already formatted for the axis. */
@@ -21,42 +32,58 @@ interface DailySalesLineChartProps {
 }
 
 const SERIES = [
-  { key: 'gameClub', color: chartColors.primary },
-  { key: 'playstation', color: chartColors.purple },
-  { key: 'bar', color: chartColors.orange },
+  { key: 'gameClub', color: chartColors.primary, icon: SIDE_ICONS.gameClub },
+  { key: 'playstation', color: chartColors.purple, icon: SIDE_ICONS.playstation },
+  { key: 'bar', color: chartColors.orange, icon: SIDE_ICONS.bar },
 ] as const;
 
-/** Each day's Game Club, PlayStation and bar sales as three lines over the selected range. */
+const SERIES_KEYS = SERIES.map((series) => series.key);
+
+/** Each day's Game Club, PlayStation and bar sales as three lines; tap a legend pill to hide or show one. */
 export function DailySalesLineChart({ data }: DailySalesLineChartProps) {
   const t = useTranslations('dashboard');
   const tc = useTranslations('common');
   const { locale } = useAppLocale();
   const currency = tc('currency');
+  const gradientId = useId().replace(/:/g, '');
+  const { hidden, focused, setFocused, toggle } = useSeriesVisibility();
   const seriesNames: Record<string, string> = {
     gameClub: t('gameClubIncome'),
     playstation: t('playstationIncome'),
     bar: t('barSales'),
   };
+  const series = SERIES.map((item) => ({ ...item, label: seriesNames[item.key] }));
 
   return (
     <ChartCard
       title={t('dailySales')}
       help={t('dailySalesHelp')}
       action={(
-        <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-gray-500">
-          {SERIES.map((series) => (
-            <span key={series.key} className="inline-flex items-center gap-2">
-              <span className="h-0.5 w-3 rounded-full" style={{ backgroundColor: series.color }} aria-hidden="true" />
-              {seriesNames[series.key]}
-            </span>
-          ))}
-        </div>
+        <ChartLegendToggle
+          label={t('chartLegendLabel', { title: t('dailySales') })}
+          hidden={hidden}
+          onToggle={(key) => toggle(key, SERIES_KEYS)}
+          onFocus={setFocused}
+          items={series.map((item) => ({
+            ...item,
+            swatch: 'line' as const,
+            total: formatAxis(seriesTotal(data, (row) => row[item.key]), locale),
+          }))}
+        />
       )}
     >
       <div className="mt-3 h-64 sm:h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart accessibilityLayer data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-            <CartesianGrid stroke={chartColors.grid} vertical={false} />
+          <AreaChart accessibilityLayer data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+            <defs>
+              {SERIES.map((item) => (
+                <linearGradient key={item.key} id={`${gradientId}-${item.key}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={item.color} stopOpacity={0.28} />
+                  <stop offset="100%" stopColor={item.color} stopOpacity={0} />
+                </linearGradient>
+              ))}
+            </defs>
+            <CartesianGrid stroke={chartColors.grid} strokeDasharray="3 4" vertical={false} />
             <XAxis
               dataKey="date"
               tick={{ fontSize: 11, fill: chartColors.axis }}
@@ -69,27 +96,32 @@ export function DailySalesLineChart({ data }: DailySalesLineChartProps) {
               tick={{ fontSize: 11, fill: chartColors.axis }}
               tickLine={false}
               axisLine={false}
-              width={44}
+              width={CHART_Y_AXIS_WIDTH}
             />
             <Tooltip
-              {...chartTooltipStyle}
-              cursor={{ stroke: chartColors.grid }}
-              formatter={(value, name) => [`${formatCurrency(Number(value))} ${currency}`, seriesNames[String(name)] ?? String(name)]}
+              cursor={{ stroke: chartColors.axis, strokeDasharray: '3 3' }}
+              content={({ active, label, payload }) => (
+                <ChartTooltipBody active={active} label={label} payload={payload} series={series} currency={currency} />
+              )}
             />
-            {SERIES.map((series) => (
-              <Line
-                key={series.key}
-                dataKey={series.key}
-                name={series.key}
+            {SERIES.map((item) => (
+              <Area
+                key={item.key}
+                dataKey={item.key}
+                name={item.key}
                 type="monotone"
-                stroke={series.color}
-                strokeWidth={2.5}
-                dot={{ r: 2.5, strokeWidth: 0, fill: series.color }}
-                activeDot={{ r: 4 }}
-                isAnimationActive={false}
+                hide={hidden.has(item.key)}
+                stroke={item.color}
+                strokeWidth={focused === item.key ? 3 : 2.25}
+                strokeOpacity={seriesOpacity(item.key, focused)}
+                fill={`url(#${gradientId}-${item.key})`}
+                fillOpacity={seriesOpacity(item.key, focused)}
+                dot={false}
+                activeDot={{ r: 4.5, strokeWidth: 2, stroke: 'rgb(var(--c-surface))', fill: item.color }}
+                animationDuration={500}
               />
             ))}
-          </LineChart>
+          </AreaChart>
         </ResponsiveContainer>
       </div>
     </ChartCard>
