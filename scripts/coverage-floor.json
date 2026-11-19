@@ -1,7 +1,7 @@
 {
-  "lines": 43,
-  "branches": 39,
-  "functions": 39,
+  "lines": 44,
+  "branches": 40,
+  "functions": 40,
   "untested": [
     "src/lib/assistant/loaders.ts",
     "src/lib/supabase/server.ts",
