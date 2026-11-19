@@ -23,7 +23,7 @@ import ExpenseRegistrationForm from '../reports/ExpenseRegistrationForm';
 import { CashShortageForm } from '@/components/cash-shortages/CashShortageForm';
 import { fetchCashShortages, type ShortageEmployee } from '@/lib/supabase/cashShortages';
 import { loadDailyCashSummary, emptyDailyCashSummary, type DailyCashSummary } from '@/lib/supabase/dailyCashSummary';
-import { requestDailyCashDeletion } from '@/lib/dailyCashApi';
+import { requestDailyCashDeletion, requestDailyCashUpdate } from '@/lib/dailyCashApi';
 import { isInsufficientBalanceError } from '@/lib/supabase/errors';
 import { calculateGameClubIncome } from '@/lib/calculations/dailyCash';
 import { canEditEntryForRole, getEditDeadline } from '@/lib/time/editWindow';
@@ -343,29 +343,47 @@ export default function DailyCashPage() {
         updated_at: new Date().toISOString(),
       };
 
-      const result = entry
-        ? await supabase.from('daily_cash_entries').update(payload).eq('id', entry.id).eq('club_id', clubId).select('id')
-        : await supabase.from('daily_cash_entries').insert({
-            ...payload,
-            created_by: session?.user?.id ?? null,
-          });
+      if (entry) {
+        // Corrections go through the route so the club group hears about them.
+        const { status, code } = await requestDailyCashUpdate(clubId, entry.id, {
+          date,
+          cashIncome: values.cashIncome,
+          terminalIncome: values.terminalIncome,
+          cardIncome: values.cardIncome,
+          playstationIncome: values.playstationIncome,
+          comment: payload.comment,
+        });
+        if (currentClubId.current !== clubId) return;
+        if (status === 404) {
+          // RLS refused the update (edit window closed or no permission).
+          // The reload clears the error, so it is set once the reload lands.
+          await reload({ silent: true });
+          if (currentClubId.current === clubId) setError(t('entryLocked'));
+          return;
+        }
+        if (status !== 200) {
+          setError(code === 'DUPLICATE_DATE' ? t('duplicateEntryError')
+            : code === 'DAY_COLLECTED' ? tc('dayClosed')
+            : code === 'INSUFFICIENT_BALANCE' ? tc('incomeAlreadySpent')
+            : status === 401 || status === 403 ? tc('accessDeniedDescription') : t('saveError'));
+          return;
+        }
+      } else {
+        const result = await supabase.from('daily_cash_entries').insert({
+          ...payload,
+          created_by: session?.user?.id ?? null,
+        });
 
-      // The user switched clubs while saving: the write went to the club it was
-      // made for; do not paint its result over the newly selected club.
-      if (currentClubId.current !== clubId) return;
+        // The user switched clubs while saving: the write went to the club it was
+        // made for; do not paint its result over the newly selected club.
+        if (currentClubId.current !== clubId) return;
 
-      if (result.error) {
-        setError(result.error.code === '23505' ? t('duplicateEntryError')
-          : isDayCollectedError(result.error) ? tc('dayClosed')
-          : isInsufficientBalanceError(result.error) ? tc('incomeAlreadySpent') : t('saveError'));
-        return;
-      }
-      if (entry && (result.data ?? []).length === 0) {
-        // RLS filtered the update out (edit window closed or no permission).
-        // The reload clears the error, so it is set once the reload lands.
-        await reload({ silent: true });
-        if (currentClubId.current === clubId) setError(t('entryLocked'));
-        return;
+        if (result.error) {
+          setError(result.error.code === '23505' ? t('duplicateEntryError')
+            : isDayCollectedError(result.error) ? tc('dayClosed')
+            : isInsufficientBalanceError(result.error) ? tc('incomeAlreadySpent') : t('saveError'));
+          return;
+        }
       }
 
       showToast(entry ? t('entryUpdated') : t('entrySaved'));

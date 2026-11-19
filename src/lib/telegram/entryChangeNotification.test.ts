@@ -9,6 +9,7 @@ import {
   buildExchangeDeletedNotice,
   buildExpenseChangedNotice,
   buildExpenseDeletedNotice,
+  buildIncomeChangedNotice,
   buildIncomeDeletedNotice,
   sendClubNotice,
 } from './entryChangeNotification';
@@ -69,6 +70,23 @@ describe('entry change notices', () => {
       '🗑 Удалена выручка: 2 284 000 сум',
       'Наличные 2 134 000 · PlayStation 150 000 · 24 октября',
       'Удалил(а) Owner',
+    ]);
+  });
+
+  it('shows a corrected income entry and old → new only for what changed', () => {
+    const before = { date: '2026-10-24', cash_income: 2_000_000, terminal_income: 500_000, card_income: 0, playstation_income: 0, comment: null };
+    expect(buildIncomeChangedNotice(before, { ...before, cash_income: 2_100_000, comment: 'kassa' }, 'Admin').split('\n')).toEqual([
+      '✏️ Изменена выручка: 2 600 000 сум',
+      'Наличные 2 100 000 · Терминал 500 000 · 24 октября',
+      'Наличные: 2 000 000 → 2 100 000',
+      'Комментарий: — → kassa',
+      'Изменил(а) Admin',
+    ]);
+    expect(buildIncomeChangedNotice(before, { ...before, date: '2026-10-23' }, 'Owner').split('\n')).toEqual([
+      '✏️ Изменена выручка: 2 500 000 сум',
+      'Наличные 2 000 000 · Терминал 500 000 · 23 октября',
+      'Дата: 24 октября → 23 октября',
+      'Изменил(а) Owner',
     ]);
   });
 

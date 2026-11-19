@@ -21,3 +21,27 @@ export async function requestDailyCashDeletion(clubId: string, entryId: string):
   const body = await response.json().catch(() => null) as { code?: unknown } | null;
   return { status: response.status, code: typeof body?.code === 'string' ? body.code : null };
 }
+
+export interface DailyCashUpdate {
+  date: string;
+  cashIncome: number;
+  terminalIncome: number;
+  cardIncome: number;
+  playstationIncome: number;
+  comment: string | null;
+}
+
+/**
+ * Browser call that saves a correction to a daily income entry through
+ * /api/daily-cash, so the club's Telegram group is told what changed.
+ */
+export async function requestDailyCashUpdate(clubId: string, entryId: string, update: DailyCashUpdate): Promise<DailyCashDeletionResult> {
+  const response = await mutateFinanceRequest('/api/daily-cash', {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ clubId, entryId, ...update }),
+  });
+  if (response.ok) return { status: response.status, code: null };
+  const body = await response.json().catch(() => null) as { code?: unknown } | null;
+  return { status: response.status, code: typeof body?.code === 'string' ? body.code : null };
+}

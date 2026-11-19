@@ -44,7 +44,10 @@ the club group (`ownerChatId` in `clubChat.ts`). Create a Telegram group with
 only the owners and the bot, then set its id here and redeploy.
 
 The club group also gets instant notices from the routes that save money
-changes (daily cash, expenses, exchanges, collections, salaries). Owner reserve changes go
+changes (daily cash, expenses, exchanges, collections, salaries).
+Every correction is announced too: expense edits from Entry details and daily
+income edits (`PATCH /api/daily-cash`, never a direct browser write) post an
+"✏️ Изменён…" message listing each field as old → new. Owner reserve changes go
 through `/api/reserve` for this reason: every deposit, return to profit and
 deleted entry posts one message naming the month whose profit the money left or
 joined. "Put all in" sends one message for all its method parts. Purchases paid

@@ -96,18 +96,45 @@ export interface IncomeNoticeRow {
   playstation_income: number | null;
 }
 
+const incomeParts = (entry: IncomeNoticeRow): Array<[string, number]> => [
+  ['Наличные', Number(entry.cash_income ?? 0)],
+  ['Терминал', Number(entry.terminal_income ?? 0)],
+  ['Карта', Number(entry.card_income ?? 0)],
+  ['PlayStation', Number(entry.playstation_income ?? 0)],
+];
+const incomeTotal = (entry: IncomeNoticeRow) => incomeParts(entry).reduce((total, [, amount]) => total + amount, 0);
+const incomeDetails = (entry: IncomeNoticeRow) => details(
+  ...incomeParts(entry).filter(([, amount]) => amount !== 0).map(([label, amount]) => `${label} ${formatCurrency(amount)}`),
+  noticeDate(entry.date),
+);
+
 export function buildIncomeDeletedNotice(entry: IncomeNoticeRow, deletedBy: string): string {
-  const parts: Array<[string, number]> = [
-    ['Наличные', Number(entry.cash_income ?? 0)],
-    ['Терминал', Number(entry.terminal_income ?? 0)],
-    ['Карта', Number(entry.card_income ?? 0)],
-    ['PlayStation', Number(entry.playstation_income ?? 0)],
-  ];
-  const total = parts.reduce((total, [, amount]) => total + amount, 0);
   return lines(
-    `🗑 Удалена выручка: ${sum(total)}`,
-    details(...parts.filter(([, amount]) => amount !== 0).map(([label, amount]) => `${label} ${formatCurrency(amount)}`), noticeDate(entry.date)),
+    `🗑 Удалена выручка: ${sum(incomeTotal(entry))}`,
+    incomeDetails(entry),
     `Удалил(а) ${deletedBy}`,
+  );
+}
+
+/** The corrected income entry, then "Field: old → new" for each field that changed. */
+export function buildIncomeChangedNotice(
+  before: IncomeNoticeRow & { comment?: string | null },
+  after: IncomeNoticeRow & { comment?: string | null },
+  changedBy: string,
+): string {
+  const afterParts = incomeParts(after);
+  const changes = incomeParts(before)
+    .map(([label, old], index) => [label, old, afterParts[index][1]] as const)
+    .filter(([, old, now]) => old !== now)
+    .map(([label, old, now]) => `${label}: ${formatCurrency(old)} → ${formatCurrency(now)}`);
+  const commentChanged = (before.comment ?? '') !== (after.comment ?? '');
+  return lines(
+    `✏️ Изменена выручка: ${sum(incomeTotal(after))}`,
+    incomeDetails(after),
+    ...changes,
+    before.date !== after.date && `Дата: ${noticeDate(before.date)} → ${noticeDate(after.date)}`,
+    commentChanged ? `Комментарий: ${before.comment || '—'} → ${after.comment || '—'}` : commentLine(after.comment),
+    `Изменил(а) ${changedBy}`,
   );
 }
 

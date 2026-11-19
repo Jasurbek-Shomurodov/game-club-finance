@@ -55,10 +55,13 @@ test('INC-001 XAPP-001 editing the day\'s cash entry moves every game club total
   await cash.fill(String(dailyCash.arcade.cash_income + 100_000));
   await expect(cash).toHaveValue(uzs(dailyCash.arcade.cash_income + 100_000));
   const writes = [];
-  page.on('request', request => { if (['POST', 'PATCH'].includes(request.method()) && request.url().includes('/rest/v1/daily_cash_entries')) writes.push(request.url()); });
+  // A correction goes through /api/daily-cash so the club group is told; nothing writes the table from the browser.
+  page.on('request', request => {
+    if (['POST', 'PATCH'].includes(request.method()) && (request.url().includes('/rest/v1/daily_cash_entries') || request.url().endsWith('/api/daily-cash'))) writes.push(`${request.method()} ${request.url()}`);
+  });
   await page.getByRole('button', { name: 'Save Entry' }).click();
   await expect(page.getByText('Entry updated.')).toBeVisible();
-  expect(writes).toHaveLength(1);
+  expect(writes).toEqual([expect.stringMatching(/^PATCH .*\/api\/daily-cash$/)]);
   await open(page, 'Dashboard');
   await expectDashboardAmount(page, 'Game Club Income', expected.gameClubIncome + 100_000);
   await expectDashboardAmount(page, 'Game Club Net Profit', expected.gameClubNetProfit + 100_000);
