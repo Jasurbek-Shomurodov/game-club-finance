@@ -5347,5 +5347,9 @@
         "name": "public.idx_cash_shortages_club_employee"
       }
     ]
+  },
+  {
+    "file": "172_recategorize_bar_water_and_bread.sql",
+    "probes": []
   }
 ]
