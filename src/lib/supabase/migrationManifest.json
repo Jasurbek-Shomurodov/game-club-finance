@@ -5351,5 +5351,15 @@
   {
     "file": "172_recategorize_bar_water_and_bread.sql",
     "probes": []
+  },
+  {
+    "file": "173_review_digest_in_report_album.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.google_review_digests",
+        "column": "awaiting_report"
+      }
+    ]
   }
 ]

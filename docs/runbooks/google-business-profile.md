@@ -44,9 +44,9 @@ post / photo / video -> /api/google-business/posts|photos|videos (showcase featu
 
 Supabase Cron (migration `152_google_review_auto_replies.sql`, job
 `game-club-google-review-replies`) calls `/api/cron/google-review-replies`
-every day at `03:00 UTC` (08:00 Tashkent), the same time as the daily finance
-report since migration `161_google_review_replies_with_reports.sql`, with the
-same Vault secret and `CRON_SECRET` as the Telegram report.
+every day at `02:50 UTC` (07:50 Tashkent), ten minutes before the daily finance
+report since migration `173_review_digest_in_report_album.sql`, with the same
+Vault secret and `CRON_SECRET` as the Telegram report.
 
 ```text
 cron -> /api/cron/google-review-replies (CRON_SECRET)
@@ -55,7 +55,9 @@ cron -> /api/cron/google-review-replies (CRON_SECRET)
   -> AI writes a reply in the review's language (src/lib/googleBusiness/reviews.ts prompt)
   -> v4 reviews.updateReply -> google_review_replies (one row per review)
   -> per club with a Telegram group: google_review_digests row (claims the day)
-  -> "AI bot" image (src/lib/googleBusiness/reviewDigestImage.ts) -> sendPhoto
+  -> report still to come: row saved with awaiting_report = true; the 08:00
+     daily report renders the "AI bot" image and sends it in its album
+  -> report already sent: "AI bot" image (src/lib/googleBusiness/reviewDigestImage.ts) -> sendPhoto
 ```
 
 - After replying, each club whose `TELEGRAM_*_CLUB_ID` maps to a
@@ -67,8 +69,16 @@ cron -> /api/cron/google-review-replies (CRON_SECRET)
   `160_google_review_digests.sql`) is inserted before sending, so a repeated
   or timed-out run never posts the image twice; a failed send is kept in
   `send_error` and not retried. Without `TELEGRAM_BOT_TOKEN` no image is sent.
-  The JSON's `digest` per club is `sent`, `held` (already sent today),
-  `skipped` (no group) or `failed`.
+  The JSON's `digest` per club is `sent`, `queued` (left for the report
+  album), `held` (already handled today), `skipped` (no group) or `failed`.
+- The image rides in the daily report album when that club's scheduled report
+  for its last closed business day is not yet `sent`, `dispatching` or
+  `manual_review` in `telegram_report_deliveries`. The report run adds the
+  newest `awaiting_report` digest as the album's last photo, adds an
+  `🤖 ИИ-бот` line to the caption, and then records the digest as sent
+  (`reviewDigestSent` in its JSON). After a text-only report the image follows
+  on its own. If the report fails, the digest keeps waiting and goes out with
+  the report's recovery run.
 
 - Replies are written by the assistant's model chain (`ASSISTANT_PROVIDER`,
   `ANTHROPIC_API_KEY` or `GEMINI_API_KEY`, optional `ASSISTANT_MODEL`). Without

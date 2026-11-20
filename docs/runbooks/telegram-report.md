@@ -113,7 +113,10 @@ carries the write-off card (the caption and text fallback keep their totals).
 non-zero adjustment; `summarizeStockWriteOffsForReport` keeps shortage/expired
 and `summarizeStockCorrectionsForReport` keeps `correction` reasons, so older
 free-text adjustments are not listed. The album is the report's one delivery: the ledger records it as `photo` with
-`photoCount: 2`, and retries resend the whole album. Only when the report image
+`photoCount` (2 or 3), and retries resend the whole album. When the morning
+Google review run left an "AI bot" image waiting (migration 173, see
+`google-business-profile.md`), it is the album's last photo, so a day can
+send the report and that image as an album even without write-offs. Only when the report image
 itself falls back to text is the write-offs image sent after it, once and
 best-effort (failure logged as `telegram_report_write_offs_image_failed`). The
 result reports `writeOffsImageSent`.

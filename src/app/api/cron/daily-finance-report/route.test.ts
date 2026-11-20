@@ -11,6 +11,16 @@ const mocks = vi.hoisted(() => ({
   claimDelivery: vi.fn(),
   beginDispatch: vi.fn(),
   completeDelivery: vi.fn(),
+  loadReviewDigest: vi.fn(),
+  completeReviewDigest: vi.fn(),
+}));
+
+vi.mock('@/lib/googleBusiness/reviewDigestPhoto', () => ({
+  loadAwaitingReviewDigestPhoto: mocks.loadReviewDigest,
+}));
+
+vi.mock('@/lib/googleBusiness/reviewDigestRows', () => ({
+  completeReviewDigest: mocks.completeReviewDigest,
 }));
 
 vi.mock('@/lib/supabase/service', () => ({
@@ -100,6 +110,8 @@ describe('daily finance report cron route', () => {
     });
     mocks.beginDispatch.mockResolvedValue(undefined);
     mocks.completeDelivery.mockResolvedValue(undefined);
+    mocks.loadReviewDigest.mockResolvedValue(null);
+    mocks.completeReviewDigest.mockResolvedValue(undefined);
     mocks.buildReport.mockResolvedValue({
       clubId: CLUB_ID,
       chatId: '-1001',
@@ -436,6 +448,75 @@ describe('daily finance report cron route', () => {
       outcome: 'sent',
       telegramResult: expect.objectContaining({ deliveryType: 'photo', photoCount: 2 }),
     }));
+  });
+
+  it('adds the waiting AI bot image to the album and records it as sent', async () => {
+    mocks.loadReviewDigest.mockResolvedValue({
+      digestDate: '2026-08-27',
+      png: Buffer.from('reviews'),
+      fileName: 'google-reviews-2026-08-27.png',
+      caption: 'reviews caption',
+      reportLine: '🤖 ИИ-бот: ответов на отзывы Google Maps: 1',
+    });
+    mocks.buildReport.mockResolvedValue({
+      clubId: CLUB_ID,
+      chatId: '-1001',
+      businessDate: '2026-08-26',
+      message: 'report',
+      caption: 'caption',
+      imagePng: Buffer.from('png'),
+      imageFileName: 'report.png',
+      adjustmentsImage: { png: Buffer.from('write-offs'), fileName: 'write-offs.png', caption: 'write-offs caption' },
+    });
+
+    const payload = await (await GET(cronRequest('?date=2026-08-26&target=pixel'))).json();
+
+    expect(payload.sent[0]).toMatchObject({ status: 'sent', writeOffsImageSent: true, reviewDigestSent: true });
+    expect(mocks.sendTelegramPhoto).not.toHaveBeenCalled();
+    expect(mocks.sendTelegramPhotoAlbum).toHaveBeenCalledWith(expect.objectContaining({
+      caption: 'caption\n🤖 ИИ-бот: ответов на отзывы Google Maps: 1',
+      photos: [
+        { png: Buffer.from('png'), fileName: 'report.png' },
+        { png: Buffer.from('write-offs'), fileName: 'write-offs.png' },
+        { png: Buffer.from('reviews'), fileName: 'google-reviews-2026-08-27.png' },
+      ],
+    }));
+    expect(mocks.completeDelivery).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      telegramResult: expect.objectContaining({ photoCount: 3 }),
+    }));
+    expect(mocks.completeReviewDigest).toHaveBeenCalledWith(expect.anything(), CLUB_ID, '2026-08-27', { messageId: 51 });
+  });
+
+  it('makes a two-photo album of the report and the AI bot image', async () => {
+    mocks.loadReviewDigest.mockResolvedValue({
+      digestDate: '2026-08-27', png: Buffer.from('reviews'), fileName: 'reviews.png', caption: 'reviews caption', reportLine: 'line',
+    });
+    await GET(cronRequest('?date=2026-08-26&target=pixel'));
+    expect(mocks.sendTelegramPhotoAlbum).toHaveBeenCalledWith(expect.objectContaining({
+      photos: [{ png: Buffer.from('png'), fileName: 'report.png' }, { png: Buffer.from('reviews'), fileName: 'reviews.png' }],
+    }));
+  });
+
+  it('still sends the report when the AI bot image cannot be loaded', async () => {
+    mocks.loadReviewDigest.mockRejectedValue(new Error('render failed'));
+    const payload = await (await GET(cronRequest('?date=2026-08-26&target=pixel'))).json();
+    expect(payload.sent[0]).toMatchObject({ status: 'sent', reviewDigestSent: false });
+    expect(mocks.sendTelegramPhoto).toHaveBeenCalledOnce();
+    expect(mocks.completeReviewDigest).not.toHaveBeenCalled();
+  });
+
+  it('sends the AI bot image after a text fallback report', async () => {
+    mocks.loadReviewDigest.mockResolvedValue({
+      digestDate: '2026-08-27', png: Buffer.from('reviews'), fileName: 'reviews.png', caption: 'reviews caption', reportLine: 'line',
+    });
+    mocks.buildReport.mockResolvedValue({
+      clubId: CLUB_ID, chatId: '-1001', businessDate: '2026-08-26', message: 'text report', caption: 'caption',
+      imagePng: null, imageFileName: 'report.png',
+    });
+    const payload = await (await GET(cronRequest('?date=2026-08-26&target=pixel'))).json();
+    expect(payload.sent[0]).toMatchObject({ format: 'text', reviewDigestSent: true });
+    expect(mocks.sendTelegramPhoto).toHaveBeenCalledWith(expect.objectContaining({ imageFileName: 'reviews.png', caption: 'reviews caption' }));
+    expect(mocks.completeReviewDigest).toHaveBeenCalledWith(expect.anything(), CLUB_ID, '2026-08-27', { messageId: 51 });
   });
 
   it('sends a single photo when the day had no write-offs or corrections', async () => {

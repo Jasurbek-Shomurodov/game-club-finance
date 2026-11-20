@@ -17,6 +17,8 @@ import {
   sendTelegramPhotoAlbum,
   TelegramSendError,
 } from '@/lib/telegram/sendDailyFinanceReport';
+import { loadAwaitingReviewDigestPhoto, type ReviewDigestPhoto } from '@/lib/googleBusiness/reviewDigestPhoto';
+import { completeReviewDigest } from '@/lib/googleBusiness/reviewDigestRows';
 import {
   beginReportDispatch,
   claimReportDelivery,
@@ -535,20 +537,40 @@ export async function GET(request: NextRequest) {
         };
       }
 
+      // The Google Maps "AI bot" image the morning review run left for this
+      // report (migration 173). Best-effort: the report never waits on it.
+      let reviewDigest: ReviewDigestPhoto | null = null;
+      try {
+        reviewDigest = await loadAwaitingReviewDigestPhoto(supabase, target.clubId);
+      } catch (error) {
+        logDeliveryEvent('error', 'telegram_report_review_digest_failed', {
+          businessDate,
+          target: target.key,
+          deliveryId: claim.deliveryId,
+          stage: 'load',
+          error: describeUnknownError(error),
+        });
+      }
+
       try {
         const deliveryType = report.imagePng ? 'photo' : 'text';
-        // With write-offs or corrections that day, the report and their image
-        // go out together as one album of two photos.
-        const album = Boolean(report.imagePng && report.adjustmentsImage);
-        const telegram = report.imagePng && report.adjustmentsImage
+        // The report, the write-offs/corrections image and the AI bot image
+        // go out together as one album whenever there is more than the report.
+        const albumPhotos = report.imagePng
+          ? [
+              { png: report.imagePng, fileName: report.imageFileName },
+              ...(report.adjustmentsImage ? [{ png: report.adjustmentsImage.png, fileName: report.adjustmentsImage.fileName }] : []),
+              ...(reviewDigest ? [{ png: reviewDigest.png, fileName: reviewDigest.fileName }] : []),
+            ]
+          : [];
+        const album = albumPhotos.length >= 2;
+        const albumCaption = reviewDigest ? `${report.caption}\n${reviewDigest.reportLine}` : report.caption;
+        const telegram = album
           ? await sendTelegramPhotoAlbum({
               botToken,
               chatId: report.chatId,
-              photos: [
-                { png: report.imagePng, fileName: report.imageFileName },
-                { png: report.adjustmentsImage.png, fileName: report.adjustmentsImage.fileName },
-              ],
-              caption: report.caption,
+              photos: albumPhotos,
+              caption: albumCaption,
               deadlineAt,
             })
           : report.imagePng
@@ -568,7 +590,7 @@ export async function GET(request: NextRequest) {
             });
         const telegramResult = {
           deliveryType,
-          ...(album ? { photoCount: 2 } : {}),
+          ...(album ? { photoCount: albumPhotos.length } : {}),
           messageId: telegram.result.message_id,
           chatId: telegram.result.chat.id,
           chatTitle: telegram.result.chat.title ?? null,
@@ -611,7 +633,7 @@ export async function GET(request: NextRequest) {
 
         // When the report itself fell back to text, the write-offs image
         // follows it once; a failure is logged and never fails the report.
-        let writeOffsImageSent = album;
+        let writeOffsImageSent = album && Boolean(report.adjustmentsImage);
         if (report.adjustmentsImage && !album) {
           try {
             await sendTelegramPhoto({
@@ -633,6 +655,40 @@ export async function GET(request: NextRequest) {
             });
           }
         }
+        // The AI bot image rode in the album; after a text-only report it
+        // follows on its own. Either way the digest stops waiting.
+        let reviewDigestSent = false;
+        if (reviewDigest) {
+          let digestResult: { messageId: number | null } | { error: string } = { messageId: telegram.result.message_id };
+          if (!album) {
+            try {
+              const sent = await sendTelegramPhoto({
+                botToken,
+                chatId: String(telegram.result.chat.id),
+                imagePng: reviewDigest.png,
+                imageFileName: reviewDigest.fileName,
+                caption: reviewDigest.caption,
+                maxAttempts: 1,
+                deadlineAt,
+              });
+              digestResult = { messageId: sent.result.message_id };
+            } catch (error) {
+              digestResult = { error: describeUnknownError(error).slice(0, 500) };
+            }
+          }
+          reviewDigestSent = !('error' in digestResult);
+          try {
+            await completeReviewDigest(supabase, target.clubId, reviewDigest.digestDate, digestResult);
+          } catch (error) {
+            logDeliveryEvent('error', 'telegram_report_review_digest_failed', {
+              businessDate,
+              target: target.key,
+              deliveryId: claim.deliveryId,
+              stage: 'record',
+              error: describeUnknownError(error),
+            });
+          }
+        }
         return {
           ok: true,
           target: target.key,
@@ -647,6 +703,7 @@ export async function GET(request: NextRequest) {
           telegramDate: telegram.result.date,
           attempts: telegram.attempts.length,
           writeOffsImageSent,
+          reviewDigestSent,
         };
       } catch (error) {
         const telegramAttempts = error instanceof TelegramSendError ? error.attempts : [];

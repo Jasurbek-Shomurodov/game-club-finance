@@ -2,12 +2,13 @@ import { replyToReview, listReviews } from '@/lib/googleBusiness/api';
 import { createReviewReplyWriter } from '@/lib/googleBusiness/replyWriter';
 import { reviewDigestFromOutcome, sendReviewDigest, type ReviewDigestDeps, type ReviewDigestStatus } from '@/lib/googleBusiness/reviewDigest';
 import { renderReviewDigestPng } from '@/lib/googleBusiness/reviewDigestImage';
+import { completeReviewDigest, fetchPreviousReviewDigest } from '@/lib/googleBusiness/reviewDigestRows';
 import { replyToAllReviews, type ReviewReplyClub } from '@/lib/googleBusiness/reviewReplies';
 import { connectedAccessToken, googleConfig, locationPath, type GoogleConnectionRow } from '@/lib/googleBusiness/server';
 import { cronAuthorizationStatus } from '@/lib/cronAuth';
 import { createServiceClient } from '@/lib/supabase/service';
 import { targetChatId } from '@/lib/telegram/clubChat';
-import { sendTelegramPhoto } from '@/lib/telegram/sendDailyFinanceReport';
+import { getClubBusinessDayStartHour, previousClubBusinessDateIso, sendTelegramPhoto } from '@/lib/telegram/sendDailyFinanceReport';
 import { serverTodayIso } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -25,9 +26,11 @@ function log(event: string, fields: Record<string, unknown>) {
 }
 
 /**
- * Daily (Supabase Cron, migration 152): replies to new Google Maps reviews of
- * every connected listing whose owner left auto replies on, then sends each
- * club's Telegram group the day's "AI bot" image (migration 160).
+ * Daily at 07:50 Tashkent (Supabase Cron, migrations 152 and 173): replies to
+ * new Google Maps reviews of every connected listing whose owner left auto
+ * replies on, then gets each club's Telegram group the day's "AI bot" image
+ * (migration 160): inside the 08:00 daily report album when that report is
+ * still to go out, otherwise on its own.
  */
 export async function GET(request: Request) {
   const startedAt = Date.now();
@@ -112,7 +115,21 @@ function telegramDigestDeps(supabase: ReturnType<typeof createServiceClient>): R
   if (!botToken) return null;
   return {
     chatId: (clubId) => targetChatId(clubId)?.trim() || null,
-    async claim(clubId, digest, chatId) {
+    async reportPending(clubId) {
+      // The report sent next carries the club's last closed business day.
+      const startHour = await getClubBusinessDayStartHour(supabase, clubId);
+      const { data, error } = await supabase
+        .from('telegram_report_deliveries')
+        .select('id')
+        .eq('club_id', clubId)
+        .eq('business_date', previousClubBusinessDateIso(new Date(), startHour))
+        .eq('delivery_key', 'scheduled')
+        .in('status', ['sent', 'dispatching', 'manual_review'])
+        .limit(1);
+      if (error) throw error;
+      return (data ?? []).length === 0;
+    },
+    async claim(clubId, digest, chatId, awaitingReport) {
       const { data, error } = await supabase.from('google_review_digests').upsert({
         club_id: clubId,
         digest_date: digest.digestDate,
@@ -124,37 +141,18 @@ function telegramDigestDeps(supabase: ReturnType<typeof createServiceClient>): R
         error: digest.error,
         results: digest.results,
         telegram_chat_id: chatId,
+        awaiting_report: awaitingReport,
       }, { onConflict: 'club_id,digest_date', ignoreDuplicates: true }).select('club_id');
       if (error) throw error;
       return (data ?? []).length > 0;
     },
-    async previous(clubId, date) {
-      const { data, error } = await supabase
-        .from('google_review_digests')
-        .select('average_rating, total_review_count')
-        .eq('club_id', clubId)
-        .lt('digest_date', date)
-        .order('digest_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (error || !data) return null;
-      return {
-        averageRating: data.average_rating === null ? null : Number(data.average_rating),
-        totalReviewCount: data.total_review_count,
-      };
-    },
+    previous: (clubId, date) => fetchPreviousReviewDigest(supabase, clubId, date),
     render: renderReviewDigestPng,
     async send(chatId, png, caption, fileName) {
       const result = await sendTelegramPhoto({ botToken, chatId, imagePng: png, imageFileName: fileName, caption, maxAttempts: 3, timeoutMs: 6_000 });
       return result.result.message_id ?? null;
     },
-    async complete(clubId, date, result) {
-      const update = 'error' in result
-        ? { send_error: result.error }
-        : { telegram_message_id: result.messageId, sent_at: new Date().toISOString(), send_error: null };
-      const { error } = await supabase.from('google_review_digests').update(update).eq('club_id', clubId).eq('digest_date', date);
-      if (error) throw error;
-    },
+    complete: (clubId, date, result) => completeReviewDigest(supabase, clubId, date, result),
     log,
   };
 }

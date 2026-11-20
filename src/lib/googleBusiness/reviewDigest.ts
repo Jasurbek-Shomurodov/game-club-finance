@@ -1,7 +1,10 @@
-// After the daily review-reply run, sends each club's "AI bot" image to its
-// Telegram group at most once a day. The send is claimed in
+// After the daily review-reply run, gets each club's "AI bot" image to its
+// Telegram group at most once a day. The day is claimed in
 // `google_review_digests` first: a timeout leaves the outcome unknown, so a
-// claimed day is never sent again. Every outside call is passed in.
+// claimed day is never sent again. When the club's daily finance report has
+// not gone out yet, the digest is only saved (`awaiting_report`) and the report
+// sends it in its album (migration 173); otherwise it is sent on its own.
+// Every outside call is passed in.
 
 import type { ClubReplyOutcome } from './reviewReplies';
 import type { ReviewDigest, ReviewDigestPrevious } from './reviewDigestImage';
@@ -9,8 +12,10 @@ import type { ReviewDigest, ReviewDigestPrevious } from './reviewDigestImage';
 export interface ReviewDigestDeps {
   /** The club's Telegram group, or null when it has none. */
   chatId(clubId: string): string | null;
+  /** Whether the club's daily finance report is still to be sent, so it can carry the image. */
+  reportPending(clubId: string): Promise<boolean>;
   /** Inserts the day's row with the send claimed; false when it already exists. */
-  claim(clubId: string, digest: ReviewDigest, chatId: string): Promise<boolean>;
+  claim(clubId: string, digest: ReviewDigest, chatId: string, awaitingReport: boolean): Promise<boolean>;
   /** The latest earlier digest's numbers, for the day-over-day deltas. */
   previous(clubId: string, digestDate: string): Promise<ReviewDigestPrevious | null>;
   render(digest: ReviewDigest, previous: ReviewDigestPrevious | null): Promise<Buffer>;
@@ -19,7 +24,7 @@ export interface ReviewDigestDeps {
   log(event: string, fields: Record<string, unknown>): void;
 }
 
-export type ReviewDigestStatus = 'sent' | 'held' | 'skipped' | 'failed';
+export type ReviewDigestStatus = 'sent' | 'queued' | 'held' | 'skipped' | 'failed';
 
 export interface ReviewDigestClub {
   clubId: string;
@@ -50,12 +55,19 @@ export function reviewDigestCaption(digest: ReviewDigest) {
 export async function sendReviewDigest(club: ReviewDigestClub, digest: ReviewDigest, deps: ReviewDigestDeps): Promise<ReviewDigestStatus> {
   const chatId = deps.chatId(club.clubId);
   if (!chatId) return 'skipped';
+  // When in doubt, send now: a digest left waiting for a report that never
+  // comes would never be sent.
+  const awaitingReport = await deps.reportPending(club.clubId).catch((error: unknown) => {
+    deps.log('digest_report_check_failed', { clubId: club.clubId, error: error instanceof Error ? error.message : String(error) });
+    return false;
+  });
   try {
-    if (!(await deps.claim(club.clubId, digest, chatId))) return 'held';
+    if (!(await deps.claim(club.clubId, digest, chatId, awaitingReport))) return 'held';
   } catch (error) {
     deps.log('digest_claim_failed', { clubId: club.clubId, error: error instanceof Error ? error.message : String(error) });
     return 'failed';
   }
+  if (awaitingReport) return 'queued';
 
   try {
     const previous = await deps.previous(club.clubId, digest.digestDate).catch(() => null);

@@ -22,6 +22,7 @@ const digest = (overrides: Partial<ClubReplyOutcome> = {}): ReviewDigest => revi
 function deps(overrides: Partial<ReviewDigestDeps> = {}): ReviewDigestDeps {
   return {
     chatId: () => '-1001',
+    reportPending: vi.fn(async () => false),
     claim: vi.fn(async () => true),
     previous: vi.fn(async () => ({ averageRating: 4.7, totalReviewCount: 150 })),
     render: vi.fn(async () => Buffer.from('png')),
@@ -98,8 +99,23 @@ describe('sendReviewDigest', () => {
   it('claims the day, sends the image and records the message', async () => {
     const d = deps();
     await expect(sendReviewDigest(CLUB, digest(), d)).resolves.toBe('sent');
+    expect(d.claim).toHaveBeenCalledWith('club-1', digest(), '-1001', false);
     expect(d.send).toHaveBeenCalledWith('-1001', Buffer.from('png'), reviewDigestCaption(digest()), 'google-reviews-2026-11-18.png');
     expect(d.complete).toHaveBeenCalledWith('club-1', '2026-11-18', { messageId: 42 });
+  });
+
+  it('leaves the image for the daily report album when that report is still to come', async () => {
+    const d = deps({ reportPending: vi.fn(async () => true) });
+    await expect(sendReviewDigest(CLUB, digest(), d)).resolves.toBe('queued');
+    expect(d.claim).toHaveBeenCalledWith('club-1', digest(), '-1001', true);
+    expect(d.send).not.toHaveBeenCalled();
+    expect(d.complete).not.toHaveBeenCalled();
+  });
+
+  it('sends on its own when the report check fails', async () => {
+    const d = deps({ reportPending: async () => { throw new Error('db down'); } });
+    await expect(sendReviewDigest(CLUB, digest(), d)).resolves.toBe('sent');
+    expect(d.claim).toHaveBeenCalledWith('club-1', digest(), '-1001', false);
   });
 
   it('skips a club without a Telegram group', async () => {
