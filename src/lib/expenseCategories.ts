@@ -26,20 +26,16 @@ export function isManualExpenseCategory(category: string): boolean {
 }
 
 /**
- * Bar money pays only for cleaning: bar stock is recorded as a bar purchase,
- * not as an expense, so admins are not offered anything else there.
+ * Bar money pays only for cleaning and food/drinks (bar consumables such as
+ * water or bread); stock for sale is recorded as a bar purchase instead.
  */
-const BAR_EXPENSE_CATEGORIES: readonly string[] = ['cleaning'];
-
-/** Never chosen by hand from any source: food and drinks are bar purchases. */
-const RETIRED_MANUAL_CATEGORIES: readonly string[] = ['food_drinks'];
+const BAR_EXPENSE_CATEGORIES: readonly string[] = ['cleaning', 'food_drinks'];
 
 /** Whether a manual expense of this category may be paid from this source. */
 export function isExpenseCategoryAllowedForSource(
   category: string,
   source: 'game_club' | 'bar' | 'reserve',
 ): boolean {
-  if (RETIRED_MANUAL_CATEGORIES.includes(category)) return false;
   return source !== 'bar' || BAR_EXPENSE_CATEGORIES.includes(category);
 }
 

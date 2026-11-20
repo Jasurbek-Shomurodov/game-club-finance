@@ -1064,7 +1064,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   }
 
   /**
-   * Hand-chosen categories its source may pay for (Bar money: cleaning only),
+   * Hand-chosen categories its source may pay for (Bar money: cleaning and food/drinks),
    * plus the current one so an old category still displays.
    */
   function categoryOptions(activity: MoneyReportActivity): string[] {

@@ -223,7 +223,7 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
       if (field === 'payment_source' && value !== current.payment_source) {
         const offered = methodsFor(next.payment_source);
         if (!offered.includes(next.payment_method) || next.payment_source === 'reserve') next.payment_method = offered[0] ?? next.payment_method;
-        // Bar money pays only for cleaning, so a category the new source does not offer is cleared.
+        // Bar money pays only for cleaning and food/drinks, so a category the new source does not offer is cleared.
         if (!current.preset_id && !isExpenseCategoryAllowedForSource(next.category, categorySource(next.payment_source))) next.category = '';
       }
       // Leaving dollars for sums: sum amounts are whole, so show what will be saved.
@@ -537,7 +537,7 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
         <Field label={t('category')} htmlFor="expense-category" required>
           <Select id="expense-category" required disabled={selectedPreset !== null} value={form.category} onChange={(event) => set('category', event.target.value)}>
             <option value="" disabled>{t('selectCategory')}</option>
-            {/* Bar money offers only cleaning; a chosen plan always shows its own category. */}
+            {/* Bar money offers only cleaning and food/drinks; a chosen plan always shows its own category. */}
             {[...new Set([...manualExpenseCategoriesFor(categorySource(form.payment_source)), ...(selectedPreset ? [selectedPreset.category] : [])])].map((category) => (
               <option key={category} value={category}>{categoryLabel(category)}</option>
             ))}

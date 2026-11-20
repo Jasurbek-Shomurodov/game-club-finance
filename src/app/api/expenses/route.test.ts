@@ -318,18 +318,18 @@ describe('expense creation route', () => {
     }
   });
 
-  it('takes only cleaning from Bar money and never food and drinks', async () => {
-    mockCreate();
-    expect((await create({ ...body, category: 'cleaning', paymentSource: 'bar' })).status).toBe(201);
+  it('takes only cleaning and food and drinks from Bar money', async () => {
     for (const payload of [
-      { category: 'repair', paymentSource: 'bar' },
+      { category: 'cleaning', paymentSource: 'bar' },
       { category: 'food_drinks', paymentSource: 'bar' },
       { category: 'food_drinks', paymentSource: 'game_club' },
       { category: 'food_drinks', fromReserve: true },
     ]) {
       mockCreate();
-      expect((await create({ ...body, ...payload })).status).toBe(400);
+      expect((await create({ ...body, ...payload })).status).toBe(201);
     }
+    mockCreate();
+    expect((await create({ ...body, category: 'repair', paymentSource: 'bar' })).status).toBe(400);
   });
 
   it('refuses PlayStation money for a Bar expense', async () => {
@@ -627,12 +627,13 @@ describe('expense payment method route', () => {
       expect(rpc).not.toHaveBeenCalled();
     });
 
-    it('keeps Bar money expenses on cleaning and refuses food and drinks', async () => {
-      const { rpc } = mockPatchSupabase({ ...baseExpense, category: 'cleaning', payment_source: 'game_club' });
-      expect((await patchBody({ category: 'food_drinks' })).status).toBe(400);
-      mockPatchSupabase(baseExpense);
+    it('keeps Bar money expenses on cleaning or food and drinks', async () => {
+      const { rpc } = mockPatchSupabase(baseExpense);
       expect((await patchBody({ category: 'repair' })).status).toBe(400);
       expect(rpc).not.toHaveBeenCalled();
+      const club = mockPatchSupabase({ ...baseExpense, category: 'cleaning', payment_source: 'game_club' });
+      expect((await patchBody({ category: 'food_drinks' })).status).toBe(200);
+      expect(club.rpc).toHaveBeenCalledWith('update_expense_category', { p_club_id: CLUB_ID, p_expense_id: EXPENSE_ID, p_category: 'food_drinks' });
       const bar = mockPatchSupabase(baseExpense);
       expect((await patchBody({ category: 'cleaning' })).status).toBe(200);
       expect(bar.rpc).toHaveBeenCalledWith('update_expense_category', { p_club_id: CLUB_ID, p_expense_id: EXPENSE_ID, p_category: 'cleaning' });

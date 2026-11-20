@@ -276,7 +276,7 @@ function PresetList({ clubId, isOwner }: { clubId: string; isOwner: boolean }) {
                 onChange={(source) => setForm({
                   ...form,
                   payment_source: source,
-                  // Bar money pays only for cleaning.
+                  // Bar money pays only for cleaning and food/drinks.
                   category: isExpenseCategoryAllowedForSource(form.category, source) ? form.category : '',
                 })}
                 options={SOURCES.map((source) => ({ value: source, label: tExpenses(`paymentSources.${source}`) }))}

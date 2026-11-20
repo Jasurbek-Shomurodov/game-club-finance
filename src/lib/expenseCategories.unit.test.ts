@@ -25,13 +25,13 @@ describe('investments', () => {
 });
 
 describe('categories by money source', () => {
-  it('offers Bar money only cleaning', () => {
-    expect(manualExpenseCategoriesFor('bar')).toEqual(['cleaning']);
+  it('offers Bar money only cleaning and food and drinks', () => {
+    expect(manualExpenseCategoriesFor('bar')).toEqual(['cleaning', 'food_drinks']);
     expect(isExpenseCategoryAllowedForSource('rent', 'bar')).toBe(false);
   });
-  it('never offers food and drinks, which are bar purchases', () => {
+  it('offers food and drinks from every source', () => {
     for (const source of ['game_club', 'bar', 'reserve'] as const) {
-      expect(manualExpenseCategoriesFor(source)).not.toContain('food_drinks');
+      expect(manualExpenseCategoriesFor(source)).toContain('food_drinks');
     }
   });
   it('offers Game Club money and the reserve everything else', () => {

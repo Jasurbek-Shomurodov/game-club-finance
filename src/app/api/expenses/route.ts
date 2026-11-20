@@ -90,7 +90,7 @@ function isValidBody(body: ExpenseRequestBody): body is ValidExpenseRequestBody 
     && body.amount > 0
     && typeof body.category === 'string'
     && isManualExpenseCategory(body.category.trim())
-    // Bar money pays only for cleaning and food/drinks are bar purchases; a chosen
+    // Bar money pays only for cleaning and food/drinks; a chosen
     // planned expense keeps the category the owner set on it (091 checks the match).
     && (isId(body.presetId)
       || isExpenseCategoryAllowedForSource(body.category.trim(), body.fromReserve === true ? 'reserve' : body.paymentSource as 'game_club' | 'bar'))
@@ -416,7 +416,7 @@ export async function PATCH(request: Request) {
   }
   const changeDate = date !== null && expense.date !== date;
   const changeCategory = category !== null && expense.category !== category;
-  // Bar money pays only for cleaning; food and drinks are bar purchases, not expenses.
+  // Bar money pays only for cleaning and food/drinks.
   if (changeCategory && !isExpenseCategoryAllowedForSource(category, expenseFromReserve(expense) ? 'reserve' : expense.payment_source)) {
     return expenseErrorResponse('INVALID_REQUEST');
   }

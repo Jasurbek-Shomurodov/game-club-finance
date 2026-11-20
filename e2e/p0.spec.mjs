@@ -113,8 +113,8 @@ test('EXP-010 a Game Club expense can be paid from PlayStation money, a Bar expe
   // Bar money has no PlayStation method, so the choice falls back to the club's default.
   await dialog.getByRole('radio', { name: 'Bar Money' }).click();
   await expect(playstation).toBeHidden();
-  // Bar money pays only for cleaning.
-  await expect(dialog.locator('#expense-category option:not([disabled])')).toHaveText(['Cleaning']);
+  // Bar money pays only for cleaning and food/drinks.
+  await expect(dialog.locator('#expense-category option:not([disabled])')).toHaveText(['Cleaning', 'Food / Drinks']);
   await dialog.getByRole('radio', { name: 'Game Club Money' }).click();
   await playstation.click();
   // No category yet: the expense cannot be saved.
