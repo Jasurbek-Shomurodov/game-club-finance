@@ -5,8 +5,8 @@
  * compose these instead of writing bespoke Tailwind class strings.
  *
  * Layout & surfaces: Card, CardHeader, CardBody, CardFooter, SectionHeading, PageHeader, TopBarSlotProvider
- * Actions:           Button, ButtonLink, IconButton, ActionMenu, Stepper
- * Forms:             Field, Input, CurrencyInput, DecimalInput, Textarea, Select, Checkbox, SearchInput, NoteField/useEntryNoteGuard,
+ * Actions:           Button, ButtonLink, IconButton, ActionMenu, Stepper, NavTab
+ * Forms:             Field, Input, CurrencyInput, DecimalInput, Textarea, Select, NativeSelectOverlay, Checkbox, SearchInput, NoteField/useEntryNoteGuard,
  *                    SegmentedControl, DatePicker, DateRangePicker, MonthPicker
  * Feedback:          InlineAlert, LoadErrorAlert, Toast/useToast, Modal, Drawer, ConfirmDialog/useConfirm, EmptyState, Disclosure, HelpButton,
  *                    Badge, Spinner, skeletons
@@ -22,7 +22,7 @@ export { Button, ButtonLink, buttonClassName, type ButtonProps, type ButtonVaria
 export { DatePicker, DateRangePicker, MonthPicker } from './CalendarPicker';
 export { Card, CardBody, CardFooter, CardHeader, SectionHeading } from './Card';
 export { ConfirmDialog, useConfirm } from './ConfirmDialog';
-export { DataTable, type DataTableColumn, type DataTableGroup } from './DataTable';
+export { DataTable, type DataTableColumn, type DataTableGroup, type DataTableProps } from './DataTable';
 export { DetailHero, DetailList, type DetailHeroProps, type DetailListItem, type DetailListProps } from './DetailList';
 export { Disclosure, type DisclosureProps } from './Disclosure';
 export { Drawer, type DrawerProps } from './Drawer';
@@ -33,6 +33,7 @@ export {
   DecimalInput,
   Field,
   Input,
+  NativeSelectOverlay,
   Select,
   Textarea,
   controlClassName,
@@ -49,6 +50,7 @@ export { LoadErrorAlert, type LoadErrorAlertProps } from './LoadErrorAlert';
 export { ThemeToggle } from './ThemeToggle';
 export { AmountCard, MetricCard, MetricMoney, StatTile, metricGridClassName, metricToneClassName, toneForAmount, type MetricTone } from './MetricCard';
 export { Modal } from './Modal';
+export { NavTab, type NavTabProps } from './NavTab';
 export { NoteField, useEntryNoteGuard, type EntryNoteGuard, type NoteFieldProps } from './NoteField';
 export { PageHeader } from './PageHeader';
 export { TopBarSlotProvider, useTopBarSlot } from './TopBarSlot';

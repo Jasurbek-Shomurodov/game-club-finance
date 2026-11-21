@@ -13,6 +13,8 @@ import {
   type ButtonVariant,
   Card,
   CardHeader,
+  DataTable,
+  type DataTableColumn,
   EmptyState,
   Field,
   Input,
@@ -59,9 +61,6 @@ import { AddAccessControls } from './AddAccessControls';
 import { MemberAccessPanel } from './MemberAccessPanel';
 import { PendingRequestCard } from './PendingRequestCard';
 import { useTeamMembers } from './useTeamMembers';
-
-// Member, role, page access, manage: one column set shared by the header and rows.
-const MEMBER_GRID = 'grid items-center gap-x-4 px-5 lg:grid-cols-[minmax(0,1.3fr)_110px_minmax(0,1.5fr)_auto]';
 
 // One accent for the highest role; the rest stay quiet.
 const ROLE_BADGE_VARIANT: Record<UserRole, BadgeVariant> = {
@@ -339,13 +338,13 @@ export default function TeamPageClient() {
     return (
       <div className="min-w-0" title={access.labels.join(', ') || undefined}>
         <div className="flex items-center gap-2.5">
-          <div className="h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
+          <div className="h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-gray-100 sm:max-md:hidden md:max-xl:w-16" aria-hidden="true">
             <div
               className={cn('h-full rounded-full', access.all ? 'bg-primary-500' : 'bg-gray-400')}
               style={{ width: `${percent}%` }}
             />
           </div>
-          <span className="text-xs font-medium tabular-nums text-gray-700">
+          <span className="whitespace-nowrap text-xs font-medium tabular-nums text-gray-700">
             {membership.role === 'owner' ? t('everything') : t('pagesOfTotal', { count: access.count, total: access.total })}
           </span>
         </div>
@@ -358,6 +357,73 @@ export default function TeamPageClient() {
       </div>
     );
   }
+
+  type ClubMember = (typeof clubMembers)[number];
+  // Member, role, page access, manage. On phones each member is a card: the
+  // name with the manage button in its corner, then role and page access.
+  const memberColumns: DataTableColumn<ClubMember>[] = [
+    {
+      key: 'member',
+      header: t('member'),
+      className: 'sm:w-[34%]',
+      // Lets the name truncate instead of widening the table.
+      cellClassName: 'sm:max-w-0',
+      render: ({ member: profile, membership }) => (
+        <div className="flex min-w-0 items-center gap-3 max-sm:pr-5">
+          <Avatar name={profile.full_name} tone={membership.role === 'viewer' ? 'neutral' : 'primary'} />
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2">
+              <p className="truncate text-sm font-semibold text-gray-950" title={profile.full_name}>{profile.full_name}</p>
+              {profile.id === currentUserId && <Badge variant="outline" size="sm">{t('you')}</Badge>}
+            </div>
+            {profile.email && profile.email !== profile.full_name && (
+              <p className="mt-0.5 truncate text-xs text-gray-500" title={profile.email}>{profile.email}</p>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'role',
+      header: t('role'),
+      className: 'sm:w-28',
+      render: ({ membership }) => (
+        <Badge size="sm" variant={ROLE_BADGE_VARIANT[membership.role]}>
+          {t(`roles.${membership.role}`)}
+        </Badge>
+      ),
+    },
+    {
+      key: 'pageAccess',
+      header: t('pageAccess'),
+      mobile: 'full',
+      cellClassName: 'sm:max-w-0 sm:overflow-hidden',
+      render: ({ membership }) => (team.featureAccessAvailable ? renderPageAccess(membership) : null),
+    },
+    {
+      key: 'actions',
+      header: <span className="sr-only">{t('manageAccess')}</span>,
+      align: 'right',
+      className: 'sm:w-px sm:whitespace-nowrap',
+      render: ({ member: profile }) => {
+        const expanded = expandedMemberId === profile.id;
+        return (
+          <Button
+            variant={expanded ? 'outline' : 'ghost'}
+            size="sm"
+            onClick={() => setExpandedMemberId(expanded ? null : profile.id)}
+            aria-label={t('manageMember', { name: profile.full_name })}
+            aria-expanded={expanded}
+            aria-controls={`member-access-${profile.id}`}
+            icon={<Settings2 size={15} aria-hidden="true" />}
+            iconRight={<ChevronDown size={14} className={cn('shrink-0 transition-transform motion-reduce:transition-none', expanded && 'rotate-180')} aria-hidden="true" />}
+          >
+            <span className="hidden xl:inline">{t('manageAccess')}</span>
+          </Button>
+        );
+      },
+    },
+  ];
 
   if (!clubLoading && currentClubRole !== 'owner') {
     return (
@@ -457,81 +523,32 @@ export default function TeamPageClient() {
                   )}
                 />
               ) : (
-                <>
-                  <div className={cn(MEMBER_GRID, 'hidden border-b border-gray-100 bg-gray-50/60 py-2 text-xs font-semibold text-gray-500 lg:grid')}>
-                    <span>{t('member')}</span>
-                    <span>{t('role')}</span>
-                    <span>{t('pageAccess')}</span>
-                    <span className="sr-only">{t('manageAccess')}</span>
-                  </div>
-                  <div className="divide-y divide-gray-100">
-                    {filteredClubMembers.map(({ member: profile, membership }) => {
-                      const expanded = expandedMemberId === profile.id;
-                      const saving = isSavingProfile(profile.id);
-
-                      return (
-                        <article key={profile.id} className={cn(expanded && 'bg-gray-50/40')}>
-                          <div className={cn(MEMBER_GRID, 'grid-cols-[minmax(0,1fr)_auto] gap-y-3 py-3.5 transition-colors motion-reduce:transition-none', !expanded && 'hover:bg-gray-50/60')}>
-                            <div className="flex min-w-0 items-center gap-3">
-                              <Avatar name={profile.full_name} tone={membership.role === 'viewer' ? 'neutral' : 'primary'} />
-                              <div className="min-w-0">
-                                <div className="flex min-w-0 items-center gap-2">
-                                  <p className="truncate text-sm font-semibold text-gray-950" title={profile.full_name}>{profile.full_name}</p>
-                                  {profile.id === currentUserId && <Badge variant="outline" size="sm">{t('you')}</Badge>}
-                                </div>
-                                {profile.email && profile.email !== profile.full_name && (
-                                  <p className="mt-0.5 truncate text-xs text-gray-500" title={profile.email}>{profile.email}</p>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="order-3 col-span-2 flex items-center gap-3 pl-12 lg:order-none lg:col-span-1 lg:pl-0">
-                              <Badge size="sm" variant={ROLE_BADGE_VARIANT[membership.role]}>
-                                {t(`roles.${membership.role}`)}
-                              </Badge>
-                              {team.featureAccessAvailable && <div className="min-w-0 flex-1 lg:hidden">{renderPageAccess(membership)}</div>}
-                            </div>
-
-                            <div className="hidden min-w-0 lg:block">
-                              {team.featureAccessAvailable && renderPageAccess(membership)}
-                            </div>
-
-                            <Button
-                              variant={expanded ? 'outline' : 'ghost'}
-                              size="sm"
-                              className="justify-self-end"
-                              onClick={() => setExpandedMemberId(expanded ? null : profile.id)}
-                              aria-label={t('manageMember', { name: profile.full_name })}
-                              aria-expanded={expanded}
-                              aria-controls={`member-access-${profile.id}`}
-                              icon={<Settings2 size={15} aria-hidden="true" />}
-                              iconRight={<ChevronDown size={14} className={cn('shrink-0 transition-transform motion-reduce:transition-none', expanded && 'rotate-180')} aria-hidden="true" />}
-                            >
-                              <span className="hidden sm:inline">{t('manageAccess')}</span>
-                            </Button>
-                          </div>
-
-                          {expanded && (
-                            <MemberAccessPanel
-                              member={profile}
-                              membership={membership}
-                              isCurrentUser={profile.id === currentUserId}
-                              canManage={ownedClubIds.has(membership.clubId)}
-                              protectedOwner={isProtectedOwner(profiles, profile, membership, currentUserId)}
-                              saving={saving}
-                              savingFeatures={savingId === `${profile.id}:${membership.clubId}:features`}
-                              featureAccessAvailable={team.featureAccessAvailable}
-                              onRoleChange={(role) => void updateMembershipRole(profile, membership, role)}
-                              onFeatureChange={(featureKey, enabled) => void updateMembershipFeatureAccess(profile, membership, featureKey, enabled)}
-                              onRemove={() => void removeClubAccess(profile, membership)}
-                              onClose={() => setExpandedMemberId(null)}
-                            />
-                          )}
-                        </article>
-                      );
-                    })}
-                  </div>
-                </>
+                <DataTable
+                  bare
+                  mobileCards
+                  minWidth={480}
+                  columns={memberColumns}
+                  data={filteredClubMembers}
+                  keyExtractor={({ member }) => member.id}
+                  rowClassName={({ member }) => (expandedMemberId === member.id ? 'bg-gray-50/40 hover:bg-gray-50/40' : undefined)}
+                  isExpanded={({ member }) => expandedMemberId === member.id}
+                  renderExpanded={({ member: profile, membership }) => (
+                    <MemberAccessPanel
+                      member={profile}
+                      membership={membership}
+                      isCurrentUser={profile.id === currentUserId}
+                      canManage={ownedClubIds.has(membership.clubId)}
+                      protectedOwner={isProtectedOwner(profiles, profile, membership, currentUserId)}
+                      saving={isSavingProfile(profile.id)}
+                      savingFeatures={savingId === `${profile.id}:${membership.clubId}:features`}
+                      featureAccessAvailable={team.featureAccessAvailable}
+                      onRoleChange={(role) => void updateMembershipRole(profile, membership, role)}
+                      onFeatureChange={(featureKey, enabled) => void updateMembershipFeatureAccess(profile, membership, featureKey, enabled)}
+                      onRemove={() => void removeClubAccess(profile, membership)}
+                      onClose={() => setExpandedMemberId(null)}
+                    />
+                  )}
+                />
               )}
             </Card>
           )}

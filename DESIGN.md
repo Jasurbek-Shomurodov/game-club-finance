@@ -153,6 +153,8 @@ toasts. Components own their z-index; pages do not write `z-*`.
 - The sidebar appears at `lg` (1024). 1024 to 1280 is where guessed
   breakpoints fail: prefer layouts that wrap by themselves (`flex-wrap`,
   auto-fit grids) over more breakpoints.
+- Above 1536px the page content and top bar are capped (`max-w-screen-2xl`) and
+  centred; cards and text lines do not stretch on very wide screens.
 - `Modal` is a bottom sheet on phones; its title and footer stay in view.
 - Tables become cards (`mobileCards`) or scroll inside their own card.
 

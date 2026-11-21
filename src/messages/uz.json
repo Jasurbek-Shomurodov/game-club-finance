@@ -54,6 +54,7 @@
     "products": "Mahsulotlar",
     "debtors": "Qarzdorlar",
     "noResults": "Hech narsa topilmadi. Boshqa so'z bilan urinib ko'ring.",
+    "escKey": "Esc",
     "quickAdd": "Tez qo'shish",
     "addExpense": "Xarajat qo'shish",
     "enterCash": "Bugungi kassani kiritish",

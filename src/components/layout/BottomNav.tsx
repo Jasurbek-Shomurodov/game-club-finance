@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useEffect, useState, type ElementType, type MouseEvent } from 'react';
 import { BarChart3, CircleDollarSign, HandCoins, LayoutDashboard, Menu, Package, Plus, Users, Wallet } from 'lucide-react';
@@ -8,7 +7,7 @@ import type { UserRole } from '@/types';
 import type { FeatureKey } from '@/lib/permissions';
 import { DASHBOARD_PATH } from '@/lib/routes';
 import { isPrimaryNavItemActive, primaryNavItems, type PrimaryNavItem } from '@/lib/navigation';
-import { cn } from '@/lib/utils';
+import { IconButton, NavTab } from '@/components/PresentationFoundation';
 
 const ICONS: Record<PrimaryNavItem['key'], ElementType> = {
   dashboard: LayoutDashboard,
@@ -43,8 +42,6 @@ export function useTypingInField(): boolean {
   return typing;
 }
 
-const ITEM_CLASS = 'flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-xs leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500';
-
 interface BottomNavProps {
   role: UserRole;
   featureAccess: FeatureKey[];
@@ -75,18 +72,17 @@ export function BottomNav({ role, featureAccess, activePathname, menuOpen, onOpe
   }
 
   const quickAdd = onQuickAdd && (
-    <button
-      key="quick-add"
-      type="button"
-      onClick={onQuickAdd}
-      aria-label={t('quickAdd')}
-      aria-haspopup="dialog"
-      className="flex min-h-14 w-16 shrink-0 items-center justify-center focus-visible:outline-none [&:focus-visible>span]:ring-2 [&:focus-visible>span]:ring-primary-500 [&:focus-visible>span]:ring-offset-2"
-    >
-      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-600 text-on-accent shadow-pop transition-transform active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100">
-        <Plus size={22} strokeWidth={2.5} aria-hidden="true" />
-      </span>
-    </button>
+    <span key="quick-add" className="flex min-h-14 w-16 shrink-0 items-center justify-center">
+      <IconButton
+        variant="primary"
+        size="lg"
+        shape="round"
+        label={t('quickAdd')}
+        aria-haspopup="dialog"
+        onClick={onQuickAdd}
+        icon={<Plus size={22} strokeWidth={2.5} aria-hidden="true" />}
+      />
+    </span>
   );
 
   return (
@@ -95,43 +91,30 @@ export function BottomNav({ role, featureAccess, activePathname, menuOpen, onOpe
       className="fixed inset-x-0 bottom-0 z-30 flex border-t border-gray-200 bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
     >
       {items.map((item, index) => {
-        const Icon = ICONS[item.key];
-        const active = isPrimaryNavItemActive(item, activePathname);
         const link = (
-          <Link
+          <NavTab
             key={item.key}
             href={item.href}
             // The dashboard embeds live totals in its server response; the sidebar prefetches the rest in full.
             prefetch={item.href === DASHBOARD_PATH ? false : undefined}
             onClick={(event) => handleClick(event, item.href)}
-            aria-current={active ? 'page' : undefined}
-            className={cn(ITEM_CLASS, active ? 'font-semibold text-primary-700' : 'font-medium text-gray-500 hover:text-gray-950')}
-          >
-            <Icon size={20} strokeWidth={active ? 2.25 : 2} aria-hidden="true" />
-            <span className="max-w-full truncate">{t(item.key)}</span>
-          </Link>
+            active={isPrimaryNavItemActive(item, activePathname)}
+            icon={ICONS[item.key]}
+            label={t(item.key)}
+          />
         );
         return index === addAfter ? [quickAdd, link] : link;
       })}
       {addAfter === items.length && quickAdd}
-      <button
-        type="button"
+      <NavTab
         onClick={onOpenMenu}
         aria-expanded={menuOpen}
         aria-controls="mobile-nav"
         aria-haspopup="dialog"
-        className={cn(ITEM_CLASS, 'font-medium text-gray-500 hover:text-gray-950')}
-      >
-        <span className="relative">
-          <Menu size={20} aria-hidden="true" />
-          {menuBadge > 0 && (
-            <span className="absolute -right-3 -top-1.5 min-w-4 rounded-full bg-warning-50 px-1 text-center text-xs font-semibold leading-4 text-warning-700 ring-1 ring-surface">
-              {menuBadge}
-            </span>
-          )}
-        </span>
-        <span className="max-w-full truncate">{t('more')}</span>
-      </button>
+        icon={Menu}
+        label={t('more')}
+        badge={menuBadge}
+      />
     </nav>
   );
 }

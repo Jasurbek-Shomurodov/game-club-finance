@@ -29,7 +29,7 @@ function ShellSkeleton() {
       <main className="lg:pl-64">
         {/* The desktop top bar is in the flow (sticky), so it takes its 3.5rem here too. */}
         <div className="hidden h-14 lg:block" />
-        <div className="w-full px-4 pb-6 pt-[4.5rem] sm:px-6 lg:px-8 lg:pb-8 lg:pt-2">
+        <div className="mx-auto w-full max-w-screen-2xl px-4 pb-6 pt-[4.5rem] sm:px-6 lg:px-8 lg:pb-8 lg:pt-2">
           <PageSkeleton />
         </div>
       </main>

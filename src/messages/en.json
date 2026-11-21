@@ -54,6 +54,7 @@
     "products": "Products",
     "debtors": "People who owe",
     "noResults": "Nothing matches. Try another word.",
+    "escKey": "Esc",
     "quickAdd": "Quick add",
     "addExpense": "Add an expense",
     "enterCash": "Enter today's cash",

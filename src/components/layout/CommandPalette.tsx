@@ -15,7 +15,7 @@ import { requestPageSearch, requestQuickAction, type SearchTarget } from '@/lib/
 import { createClient } from '@/lib/supabase/client';
 import { EMPTY_COMMAND_SEARCH, fetchCommandSearchData, type CommandSearchData } from '@/lib/supabase/commandSearch';
 import { formatCurrency } from '@/lib/formatters';
-import { Modal, TappableSurface } from '@/components/PresentationFoundation';
+import { Modal, SearchInput, TappableSurface } from '@/components/PresentationFoundation';
 import { cn } from '@/lib/utils';
 
 const ICONS: Record<string, ElementType> = {
@@ -228,27 +228,25 @@ function CommandSearch({ titleId, onClose, role, featureAccess, clubId, onNaviga
   return (
     <>
       <h2 id={titleId} className="sr-only">{t('title')}</h2>
-      <div className="flex items-center gap-3 border-b border-gray-100 px-4">
-        <Search size={18} className="shrink-0 text-gray-400" aria-hidden="true" />
-        <input
-          type="search"
-          role="combobox"
-          aria-expanded="true"
-          aria-controls={listId}
-          aria-activedescendant={results.length > 0 ? `${listId}-${current}` : undefined}
-          aria-label={t('placeholder')}
-          placeholder={t('placeholder')}
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
-          enterKeyHint="go"
-          value={query}
-          onChange={(event) => { setQuery(event.target.value); setActive(0); }}
-          onKeyDown={onKeyDown}
-          className="h-14 min-w-0 flex-1 bg-transparent text-base text-gray-950 outline-none placeholder:text-gray-400 [&::-webkit-search-cancel-button]:hidden"
-        />
-        <kbd className="hidden shrink-0 rounded-md border border-gray-200 px-1.5 py-0.5 text-xs font-medium text-gray-500 sm:block">Esc</kbd>
-      </div>
+      <SearchInput
+        className="border-b border-gray-100 px-4"
+        variant="bare"
+        clearable={false}
+        role="combobox"
+        aria-expanded="true"
+        aria-controls={listId}
+        aria-activedescendant={results.length > 0 ? `${listId}-${current}` : undefined}
+        label={t('placeholder')}
+        placeholder={t('placeholder')}
+        autoComplete="off"
+        autoCorrect="off"
+        spellCheck={false}
+        enterKeyHint="go"
+        value={query}
+        onChange={(value) => { setQuery(value); setActive(0); }}
+        onKeyDown={onKeyDown}
+        trailing={<kbd className="hidden shrink-0 rounded-md border border-gray-200 px-1.5 py-0.5 text-xs font-medium text-gray-500 sm:block">{t('escKey')}</kbd>}
+      />
       <div ref={listRef} id={listId} role="listbox" aria-label={t('title')} className="max-h-[min(24rem,55dvh)] overflow-y-auto pb-1.5">
         {sections}
         {results.length === 0 && <p role="status" className="px-4 py-8 text-center text-sm text-gray-500">{t('noResults')}</p>}

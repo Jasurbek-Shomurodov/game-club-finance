@@ -22,7 +22,6 @@ import {
   EmptyState,
   LoadErrorAlert,
   MetricCard,
-  Modal,
   PageHeader,
   SegmentedControl,
   SkeletonStatus,
@@ -56,7 +55,7 @@ import { ReserveExchangeModal } from './ReserveExchangeModal';
 import { ReserveHistoryList, type DeletableReserveActivity } from './ReserveHistoryList';
 import { ReserveHistorySkeleton, ReserveOverviewSkeleton } from './ReserveSkeleton';
 import { ReserveReturnModal } from './ReserveReturnModal';
-import ExpenseRegistrationForm from '@/components/expenses/ExpenseRegistrationForm';
+import { ExpenseModal } from '@/components/expenses/ExpenseModal';
 import { scrollBehavior } from '@/lib/scroll';
 
 function ChartLoading() {
@@ -465,22 +464,18 @@ export default function ReservePage() {
           }}
         />
       ) : null}
-      <Modal
+      <ExpenseModal
         open={reservePayOpen}
         onClose={() => setReservePayOpen(false)}
         title={tr('payTitle')}
         description={tr('payDescription')}
-        size="xl"
-      >
-        <ExpenseRegistrationForm
-          defaultFromReserve
-          onSaved={async () => {
-            setReservePayOpen(false);
-            showToast(tr('paidToast'), 'success');
-            await query.reload({ silent: true });
-          }}
-        />
-      </Modal>
+        defaultFromReserve
+        onSaved={async () => {
+          setReservePayOpen(false);
+          showToast(tr('paidToast'), 'success');
+          await query.reload({ silent: true });
+        }}
+      />
       {confirmDialog}
       {toastElement}
     </div>

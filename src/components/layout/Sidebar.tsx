@@ -15,7 +15,6 @@ import {
   LogOut,
   X,
   ChevronRight,
-  ChevronsUpDown,
   Shield,
   CircleDollarSign,
   BarChart3,
@@ -27,7 +26,7 @@ import {
 } from 'lucide-react';
 import type { Club, UserRole } from '@/types';
 import { canAccessFeature, featureForPath, type FeatureKey } from '@/lib/permissions';
-import { Avatar, ClubLogo, Drawer, IconButton, LanguageSwitcher } from '@/components/PresentationFoundation';
+import { Avatar, ClubLogo, Drawer, IconButton, LanguageSwitcher, NativeSelectOverlay } from '@/components/PresentationFoundation';
 import { DASHBOARD_PATH } from '@/lib/routes';
 import { accessibleSectionPaths, sectionForPath, sectionHome, type NavSection } from '@/lib/navigation';
 
@@ -262,26 +261,27 @@ export function Sidebar({
     <div className="flex h-full flex-col bg-surface">
       <div className="flex items-center gap-2 px-3 pb-2 pt-3">
         {memberships.length > 0 ? (
-          <label className="relative flex min-h-12 min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-xl border border-gray-200 bg-surface px-2.5 transition hover:border-gray-300 focus-within:ring-2 focus-within:ring-primary-500">
-            <ClubLogo src={selectedClub?.logo_url} />
-            <span className="min-w-0 flex-1 leading-tight">
-              <span className="block truncate text-sm font-semibold text-gray-950">{selectedClub?.name ?? t('appName')}</span>
-              <span className="block truncate text-xs text-gray-500">{tTeam(`roles.${role}`)}</span>
-            </span>
-            <select
-              className="absolute inset-0 h-full w-full cursor-pointer appearance-none text-base opacity-0"
-              value={selectedClubId}
-              onChange={(event) => onSelectClub?.(event.target.value)}
-              aria-label={t('club')}
-            >
-              {memberships.map((membership) => (
-                <option key={membership.club.id} value={membership.club.id}>
-                  {membership.club.name}
-                </option>
-              ))}
-            </select>
-            <ChevronsUpDown size={15} className="pointer-events-none shrink-0 text-gray-400" aria-hidden="true" />
-          </label>
+          <NativeSelectOverlay
+            className="flex-1"
+            value={selectedClubId}
+            onChange={(event) => onSelectClub?.(event.target.value)}
+            aria-label={t('club')}
+            display={(
+              <>
+                <ClubLogo src={selectedClub?.logo_url} />
+                <span className="min-w-0 flex-1 leading-tight">
+                  <span className="block truncate text-sm font-semibold text-gray-950">{selectedClub?.name ?? t('appName')}</span>
+                  <span className="block truncate text-xs text-gray-500">{tTeam(`roles.${role}`)}</span>
+                </span>
+              </>
+            )}
+          >
+            {memberships.map((membership) => (
+              <option key={membership.club.id} value={membership.club.id}>
+                {membership.club.name}
+              </option>
+            ))}
+          </NativeSelectOverlay>
         ) : (
           <div className="flex min-h-12 min-w-0 flex-1 items-center gap-2.5 px-2.5">
             <ClubLogo />

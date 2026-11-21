@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { Fragment, useMemo, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { PresenceCell, presenceProps, useListPresence, type Presence } from './listPresence';
 import { stickyOffsetBelow, useElementHeight } from './useElementHeight';
@@ -66,6 +66,15 @@ export interface DataTableProps<T> {
   mobileCards?: boolean;
   /** A refetch is replacing the rows: dims the table and reports `aria-busy`. */
   busy?: boolean;
+  /**
+   * Content shown full width directly under a row while `isExpanded(row)` is
+   * true (a settings panel, the lines of an order). The caller owns the state
+   * and the toggle: put a button in one of the row's cells with
+   * `aria-expanded` and, if the content has an id, `aria-controls`.
+   */
+  renderExpanded?: (row: T) => ReactNode;
+  /** Which rows show their `renderExpanded` content. */
+  isExpanded?: (row: T) => boolean;
 }
 
 type MobileMode = NonNullable<DataTableColumn<unknown>['mobile']> | 'value';
@@ -129,6 +138,8 @@ export function DataTable<T>({
   groups,
   mobileCards = false,
   busy,
+  renderExpanded,
+  isExpanded,
 }: DataTableProps<T>) {
   const stickyColumn = columns[0]?.sticky ? STICKY_COLUMN[mobileCards ? 'wide' : 'always'] : null;
   const stickyColumnLayer = STICKY_COLUMN_LAYER[mobileCards ? 'wide' : 'always'];
@@ -143,9 +154,13 @@ export function DataTable<T>({
   );
   const shown = useListPresence(tagged, (entry) => `${entry.group}\u0000${keyExtractor(entry.row)}`);
 
-  const renderRow = (row: T, index: number, presence?: Presence) => (
+  const renderRow = (row: T, index: number, presence?: Presence) => {
+    const rowKey = keyExtractor(row);
+    // A row folding away takes its panel with it at once.
+    const expanded = presence !== 'exit' && renderExpanded && isExpanded?.(row) ? renderExpanded(row) : null;
+    const main = (
     <tr
-      key={keyExtractor(row)}
+      key={rowKey}
       {...presenceProps(presence)}
       onClick={onRowClick ? (event) => {
         // A button or link inside the row does its own thing, not open the row.
@@ -182,7 +197,19 @@ export function DataTable<T>({
         );
       })}
     </tr>
-  );
+    );
+    if (expanded == null || expanded === false) return main;
+    return (
+      <Fragment key={rowKey}>
+        {main}
+        <tr data-expanded-row="" className={cn(mobileCards && 'max-sm:block')}>
+          <td colSpan={columns.length} className={cn('p-0 text-gray-800', mobileCards && 'max-sm:block')}>
+            {expanded}
+          </td>
+        </tr>
+      </Fragment>
+    );
+  };
 
   // No rows: show the empty state on its own, not inside a min-width table
   // where it would be off-centre and scroll sideways on phones.

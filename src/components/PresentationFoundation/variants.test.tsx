@@ -5,10 +5,12 @@ import { ActionMenu, ActionMenuList, menuKeyAction, menuPosition } from './Actio
 import { Badge } from './Badge';
 import { ButtonLink } from './Button';
 import { Card } from './Card';
-import { DataTable } from './DataTable';
+import { DataTable, type DataTableProps } from './DataTable';
 import { DetailHero, DetailList } from './DetailList';
 import { EmptyState } from './EmptyState';
+import { NativeSelectOverlay } from './Field';
 import { IconButton } from './IconButton';
+import { NavTab } from './NavTab';
 import { InlineAlert } from './InlineAlert';
 import { SegmentedControl } from './SegmentedControl';
 import { TappableSurface } from './Tappable';
@@ -236,5 +238,92 @@ describe('variants', () => {
     expect(html).toContain('<h2 ');
     expect(html).toContain('bg-warning-50');
     expect(renderToStaticMarkup(<EmptyState icon={Trash2} title="Nothing" />)).toMatch(/bg-gray-100 text-gray-500.*<h3 /);
+  });
+});
+
+describe('DataTable expanded rows', () => {
+  const columns = [{ key: 'name', header: 'Name' }, { key: 'total', header: 'Total' }];
+  const data = [{ name: 'Cola', total: '10' }, { name: 'Water', total: '4' }];
+  const table = (props: Partial<DataTableProps<(typeof data)[number]>> = {}) =>
+    renderToStaticMarkup(<DataTable columns={columns} data={data} keyExtractor={(row) => row.name} {...props} />);
+
+  it('renders nothing extra without both props or while no row is expanded', () => {
+    const plain = table();
+    expect(plain).not.toContain('data-expanded-row');
+    expect(table({ renderExpanded: (row) => <p>{row.name} details</p> })).toBe(plain);
+    expect(table({ renderExpanded: (row) => <p>{row.name} details</p>, isExpanded: () => false })).toBe(plain);
+    expect(table({ isExpanded: () => true })).toBe(plain);
+  });
+
+  it('puts the content in a full-width row directly under the expanded row', () => {
+    const html = table({ renderExpanded: (row) => <p>{row.name} details</p>, isExpanded: (row) => row.name === 'Cola' });
+    expect(html.match(/data-expanded-row/g)).toHaveLength(1);
+    expect(html).toMatch(/Cola.*?<\/tr><tr data-expanded-row=""[^>]*><td colSpan="2" class="p-0[^"]*"><p>Cola details<\/p><\/td><\/tr><tr[^>]*>.*Water/);
+    expect(html).not.toContain('Water details');
+  });
+
+  it('keeps the panel under its card on phones', () => {
+    const html = table({ mobileCards: true, renderExpanded: () => <p>Details</p>, isExpanded: (row) => row.name === 'Water' });
+    expect(html).toMatch(/<tr data-expanded-row="" class="max-sm:block"><td colSpan="2" class="[^"]*max-sm:block"><p>Details<\/p>/);
+  });
+
+  it('expands rows inside sections too', () => {
+    const html = table({
+      groups: [{ key: 'drinks', header: 'Drinks', rows: data }],
+      renderExpanded: (row) => <p>{row.name} details</p>,
+      isExpanded: () => true,
+    });
+    expect(html.match(/data-expanded-row/g)).toHaveLength(2);
+  });
+});
+
+describe('IconButton shape', () => {
+  it('is a square with the variant shadow by default, and a floating circle when round', () => {
+    const square = renderToStaticMarkup(<IconButton label="Add" icon={<span />} variant="primary" size="lg" />);
+    expect(square).toContain('rounded-xl');
+    expect(square).toContain('shadow-sm');
+    const round = renderToStaticMarkup(<IconButton label="Add" icon={<span />} variant="primary" size="lg" shape="round" />);
+    expect(round).toContain('rounded-full');
+    expect(round).toContain('shadow-pop');
+    expect(round).not.toContain('shadow-sm');
+    expect(round).not.toContain('rounded-xl');
+    expect(round).toContain('motion-reduce:active:scale-100');
+    expect(round).toContain('h-11 w-11');
+  });
+});
+
+describe('NativeSelectOverlay', () => {
+  it('shows its display under an invisible, named native select', () => {
+    const html = renderToStaticMarkup(
+      <NativeSelectOverlay aria-label="Club" value="a" onChange={() => undefined} display={<span>Arcade</span>} className="flex-1">
+        <option value="a">Arcade</option>
+        <option value="b">Bunker</option>
+      </NativeSelectOverlay>,
+    );
+    expect(html).toMatch(/^<label class="[^"]*focus-within:ring-2 focus-within:ring-primary-500[^"]*flex-1"><span>Arcade<\/span><select class="absolute inset-0 [^"]*opacity-0[^"]*" aria-label="Club">/);
+    expect(html.match(/<option/g)).toHaveLength(2);
+    expect(html).toContain('<option value="a" selected="">Arcade</option>');
+  });
+});
+
+describe('NavTab', () => {
+  it('is a link that marks the current screen', () => {
+    const active = renderToStaticMarkup(<NavTab href="/reports" icon={Trash2} label="Reports" active />);
+    expect(active).toMatch(/^<a [^>]*aria-current="page"[^>]*href="\/reports"|^<a [^>]*href="\/reports"[^>]*aria-current="page"/);
+    expect(active).toContain('text-primary-700');
+    expect(active).toContain('text-xs');
+    expect(active).toContain('min-h-14');
+    const idle = renderToStaticMarkup(<NavTab href="/reports" icon={Trash2} label="Reports" />);
+    expect(idle).not.toContain('aria-current');
+    expect(idle).toContain('text-gray-500');
+  });
+
+  it('is a button with a count when it opens something', () => {
+    const html = renderToStaticMarkup(<NavTab icon={Trash2} label="More" badge={3} aria-expanded={false} aria-controls="mobile-nav" />);
+    expect(html).toMatch(/^<button [^>]*type="button"/);
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('aria-controls="mobile-nav"');
+    expect(html).toMatch(/bg-warning-50[^>]*>3<\/span>/);
+    expect(renderToStaticMarkup(<NavTab icon={Trash2} label="More" />)).not.toContain('bg-warning-50');
   });
 });

@@ -566,7 +566,7 @@ export function DashboardShell({
 
         <div className={cn('flex min-w-0 flex-1 flex-col transition-[padding] duration-200 ease-linear motion-reduce:transition-none', sidebarCollapsed ? 'lg:pl-0' : 'lg:pl-64')}>
           {/* Top bar: the drawer button, the open page's title (the club name on phones until a page sets one), and the light/dark toggle. */}
-          <div ref={topBarRef} className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-3 border-b border-gray-200 bg-surface/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur lg:sticky lg:border-b-0 lg:bg-gray-50/90 lg:px-8">
+          <div ref={topBarRef} className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-3 border-b border-gray-200 bg-surface/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur lg:sticky lg:mx-auto lg:w-full lg:max-w-screen-2xl lg:border-b-0 lg:bg-gray-50/90 lg:px-8">
             {/* On desktop the toggle only appears once the sidebar is collapsed. */}
             <IconButton
               className={sidebarCollapsed ? undefined : 'lg:hidden'}
@@ -615,7 +615,8 @@ export function DashboardShell({
           </div>
 
           <main id="main-content" ref={mainRef} tabIndex={-1} className="min-w-0 flex-1 overflow-x-clip outline-none">
-            <div className="w-full px-4 pb-[max(1.5rem,env(safe-area-inset-bottom),calc(var(--bottom-nav,0px)+1rem))] pt-[4.5rem] sm:px-6 lg:px-8 lg:pb-8 lg:pt-2">
+            {/* Capped and centred, so a very wide screen does not stretch cards and lines of text. */}
+            <div className="mx-auto w-full max-w-screen-2xl px-4 pb-[max(1.5rem,env(safe-area-inset-bottom),calc(var(--bottom-nav,0px)+1rem))] pt-[4.5rem] sm:px-6 lg:px-8 lg:pb-8 lg:pt-2">
               {!online && (
                 <InlineAlert variant="warning" title={tn('offlineTitle')} className="mb-4">
                   {tn('offlineBody')}

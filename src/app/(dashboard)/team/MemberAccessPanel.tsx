@@ -50,7 +50,7 @@ export function MemberAccessPanel({
   const featureAccess = featureAccessForMembership(membership.role, membership.featureAccess);
 
   return (
-    <div id={`member-access-${member.id}`} className="border-t border-gray-100 bg-gray-50/60 px-5 py-5">
+    <div id={`member-access-${member.id}`} className="bg-gray-50/60 px-4 py-5 text-left sm:px-5">
       <SectionHeading
         as="h3"
         size="sm"

@@ -11,7 +11,7 @@ import {
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   MAX_MONEY_INPUT_DIGITS,
@@ -312,6 +312,41 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
       </select>
       <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" aria-hidden="true" />
     </div>
+  );
+});
+
+export interface NativeSelectOverlayProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'className'> {
+  /** What the person sees: any content (a logo, two lines of text). The select itself is invisible on top of it. */
+  display: ReactNode;
+  /** Placement of the whole control (`flex-1`, a width). */
+  className?: string;
+}
+
+/**
+ * A picker that looks like a custom row but is a native select: `display` is
+ * what shows, and an invisible `<select>` covers it, so a tap opens the
+ * platform's own list (deliberate on phones) and the keyboard works as on any
+ * select. The frame carries the shared focus ring. `children` are the
+ * `<option>`s; always pass `aria-label`, since `display` is not the name.
+ */
+export const NativeSelectOverlay = forwardRef<HTMLSelectElement, NativeSelectOverlayProps>(function NativeSelectOverlay(
+  { display, className, children, ...rest },
+  ref,
+) {
+  return (
+    <label
+      className={cn(
+        'relative flex min-h-12 min-w-0 cursor-pointer items-center gap-2.5 rounded-xl border border-gray-200 bg-surface px-2.5 transition hover:border-gray-300 focus-within:ring-2 focus-within:ring-primary-500 motion-reduce:transition-none has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60',
+        className,
+      )}
+    >
+      {display}
+      {/* 16px text: iOS does not zoom the page when the list opens. */}
+      <select ref={ref} className="absolute inset-0 h-full w-full cursor-pointer appearance-none text-base opacity-0 disabled:cursor-not-allowed" {...rest}>
+        {children}
+      </select>
+      <ChevronsUpDown size={15} className="pointer-events-none shrink-0 text-gray-400" aria-hidden="true" />
+    </label>
   );
 });
 
