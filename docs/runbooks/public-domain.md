@@ -66,4 +66,5 @@ Apply it before detaching that address, or the 08:00 report stops.
   club taglines saved on the admin Public page, so write those in the page's
   language.
 - After a domain change, resubmit the sitemap in Google Search Console and
-  Yandex Webmaster.
+  Yandex Webmaster. The Search Console property is `https://www.pixelgaming.uz/`,
+  verified by the meta tag in `src/lib/seoServer.ts`; keep that tag.

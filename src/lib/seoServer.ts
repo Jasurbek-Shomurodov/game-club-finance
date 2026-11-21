@@ -9,6 +9,12 @@ import { openGraphLocale, snippetText } from '@/lib/seo';
 
 const publicSite = readPublicSiteConfig(process.env);
 
+/**
+ * Search Console ownership proof for https://www.pixelgaming.uz/ (owner's
+ * Google account). It is public by design; removing it un-verifies the site.
+ */
+const GOOGLE_SITE_VERIFICATION = 'h4RpBKMnoAxCba40mZP8PTUdNHT_6pnkdnFcUO2nSRQ';
+
 /** The indexed site address: the configured public host, else the host this request came in on. */
 export async function siteOrigin(): Promise<string> {
   const configured = publicSiteOrigin(publicSite);
@@ -35,6 +41,7 @@ async function publicMetadata(input: { title: string; description: string | null
     description,
     robots: { index: true, follow: true },
     alternates: { canonical: input.path },
+    verification: { google: GOOGLE_SITE_VERIFICATION },
     openGraph: {
       title: input.title,
       description,
