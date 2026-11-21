@@ -29,12 +29,18 @@ export const tappableClassName =
 /** The ring a tappable surface wears while the filter it stands for is on. */
 export const selectedClassName = 'border-primary-400 ring-1 ring-primary-400';
 
-export function TappableSurface({ href, onClick, selected, className, chevron = true, label, children }: TappableCardProps & {
+export function TappableSurface({ href, onClick, selected, className, chevron = true, label, expanded, controls, fit = false, children }: TappableCardProps & {
   className?: string;
   /** Corner chevron on a tappable surface; turn off when the content already shows one. */
   chevron?: boolean;
   /** Accessible name when the content does not name the destination. */
   label?: string;
+  /** The button shows or hides something in place: reported as `aria-expanded`. */
+  expanded?: boolean;
+  /** Id of the element the button shows or hides (`aria-controls`). */
+  controls?: string;
+  /** As wide as its content instead of the full row. */
+  fit?: boolean;
   children: ReactNode;
 }) {
   const mark = chevron ? (
@@ -45,10 +51,10 @@ export function TappableSurface({ href, onClick, selected, className, chevron = 
     />
   ) : null;
   if (href) {
-    return <Link href={href} aria-label={label} aria-current={selected || undefined} className={cn(className, tappableClassName, selected && selectedClassName)}>{children}{mark}</Link>;
+    return <Link href={href} aria-label={label} aria-current={selected || undefined} className={cn(className, tappableClassName, fit && 'w-fit', selected && selectedClassName)}>{children}{mark}</Link>;
   }
   if (onClick) {
-    return <button type="button" onClick={onClick} aria-label={label} aria-pressed={selected} className={cn(className, tappableClassName, selected && selectedClassName)}>{children}{mark}</button>;
+    return <button type="button" onClick={onClick} aria-label={label} aria-pressed={selected} aria-expanded={expanded} aria-controls={controls} className={cn(className, tappableClassName, fit && 'w-fit', selected && selectedClassName)}>{children}{mark}</button>;
   }
   return <div className={cn(className, selected && selectedClassName)}>{children}</div>;
 }

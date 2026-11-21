@@ -129,13 +129,11 @@
     "date": "Sana",
     "moneyLeftForDay": "Kunlik qoldiq",
     "dayByDay": "Kunlar bo‘yicha",
-    "dayByDayHint": "Har bir kun uchun tushum va chegirmalar",
+    "dayByDayHint": "Har bir kun uchun tushum va chegirmalar. Kunni ochish uchun uning ustunlarini bosing.",
     "daysListTitle": "Kunlar",
     "bestDay": "Eng yaxshi kun",
     "worstDay": "Eng kuchsiz kun",
     "averagePerDay": "Kunlik o‘rtacha",
-    "keptShare": "Qoldi {percent}%",
-    "spentShare": "Sarflandi {percent}%",
     "daysCount": "{count, plural, other {# kun}}",
     "moneyLeftForPeriod": "Davr uchun qoldiq",
     "totalCollected": "Jami tushum",
@@ -600,6 +598,7 @@
       "toReserveTooMuch": "Bu usulda yig‘ilgan pul faqat {amount}.",
       "toReserveNoProfit": "Bu oydagi egasining foydasi bu summadan kam.",
       "movedToReserveToast": "Jamg‘armaga o‘tkazildi",
+      "whereTitle": "Pul hozir qayerda",
       "inKassaCard": "Adminda",
       "inKassaCardHelper": "Hali klub kassasidagi pul",
       "collectedCard": "Yig‘ilgan",
@@ -689,6 +688,8 @@
     "gameClubProfit": "Klub foydasi"
   },
   "closingStock": {
+    "noMatchTitle": "Mos mahsulot topilmadi",
+    "noMatchBody": "Yozilishini tekshiring yoki qidiruv va toifani tozalang.",
     "viewerReadOnlyTitle": "Faqat koʻrish",
     "viewerReadOnlyBody": "Sizning rolingiz qoldiqlarni koʻrishga ruxsat beradi, lekin oʻzgartirishga emas. Bugungi qoldiqlarni kiritishni egasi yoki administratordan soʻrang.",
     "closingRequired": "{product}: saqlashdan oldin kun oxiridagi qoldiqni kiriting.",
@@ -700,7 +701,7 @@
     "noSnapshotTitle": "Bu sana uchun qoldiq saqlanmagan",
     "noSnapshotBody": "{date} uchun hech narsa yozilmagan. Saqlangan qoldiqlarni koʻrish uchun boshqa sanani tanlang.",
     "loadFailed": "Qoldiqlarni yuklab boʻlmadi. Internet aloqasini tekshirib, qayta urinib koʻring.",
-    "draftDisabledSaved": "Bu sana uchun qoldiqlar allaqachon saqlangan. Ularni oʻzgartirish uchun «Qoldiqlarni saqlash» tugmasidan foydalaning.",
+    "moreActions": "Boshqa amallar",
     "unsavedChangesTitle": "Saqlanmagan oʻzgarishlar bekor qilinsinmi?",
     "unsavedChangesBody": "Bu sana uchun kiritilgan oʻzgarishlar saqlanmagan. Sanani almashtirsangiz, ular yoʻqoladi.",
     "discardChanges": "Oʻzgarishlarni bekor qilish",
@@ -866,6 +867,8 @@
     "productDays": "{count} kunda"
   },
   "stockPurchase": {
+    "historyEmptyTitle": "Bu filtrlar bo‘yicha xaridlar yo‘q",
+    "historyEmptyBody": "Yuqoridagi formada xaridni yozing yoki davrni kengaytiring.",
     "lowStock": "Kam qolgan",
     "productsLoadFailed": "Mahsulotlarni yuklab boʻlmadi. Internet aloqasini tekshirib, qayta urinib koʻring.",
     "purchasesLoadFailed": "Soʻnggi xaridlarni yuklab boʻlmadi. Internet aloqasini tekshirib, qayta urinib koʻring.",
@@ -1262,7 +1265,6 @@
   },
   "monthlyReport": {
     "title": "Oylik hisobot",
-    "selectMonth": "Oy tanlang",
     "date": "Sana",
     "gameClubIncome": "O'yin klubi daromadi",
     "barIncome": "Bar daromadi",
@@ -1390,6 +1392,8 @@
     "clubDetailsError_logo_invalid": "Logotip http(s) rasm havolasi bo‘lishi kerak."
   },
   "team": {
+    "emptyTitle": "Hozircha boshqa hech kimda ruxsat yo‘q",
+    "emptyBody": "Administrator yoki kuzatuvchini taklif qiling va ular ochishi mumkin bo‘lgan sahifalarni tanlang.",
     "title": "Jamoa",
     "description": "Moliya, amallar va hisobotlarga kirish huquqlarini boshqaring.",
     "refresh": "Yangilash",
@@ -1554,7 +1558,6 @@
     "playstation": "PlayStation",
     "monthlyWithdrawn": "Shu oyda yechilgan",
     "monthlyRemaining": "Egasi pul yechganidan keyingi qoldiq",
-    "monthlyOverallProfit": "Oylik umumiy foyda",
     "migrationRequired": "Ixtiyoriy summani olish uchun ma’lumotlar bazasining 051 migratsiyasi talab qilinadi.",
     "allAllocation": "Avval o‘yin klubi, keyin bar foydasi ishlatiladi. Har bir qism alohida qayd etiladi.",
     "amount": "Olinadigan summa",
@@ -1585,7 +1588,6 @@
     "deleteError": "Pul olish yozuvini o'chirib bo'lmadi. Qayta urinib ko'ring.",
     "deleteConfirmDetailed": "{month} uchun {amount} ({source}) pul olish yozuvi o'chirilsinmi? Miqdor shu oyning mavjud qoldig'iga qaytadi.",
     "breakdownTitle": "Manbalar bo'yicha taqsimot",
-    "recordedColumn": "Yozilgan",
     "paymentMethod": "Qayerdan olinadi",
     "availableForMethod": "Mavjud: {method}",
     "noMethodAvailable": "Bu oy uchun hech bir to‘lov usulida o‘yin klubi foydasi qolmagan.",
@@ -1758,7 +1760,6 @@
     "incomeAlreadySpent": "Bu daromad allaqachon sarflangan yoki almashtirilgan: uni kamaytirsangiz yoki o‘chirsangiz, to‘lov usuli minusga tushadi. Avval keyingi xarajat yoki almashtirishlarni o‘chiring."
   },
   "salaries": {
-    "title": "Ish haqi",
     "addEmployee": "Yangi xodim",
     "editEmployee": "Ish haqini sozlash",
     "activeEmployees": "Faol xodimlar",
@@ -1933,6 +1934,8 @@
       "alreadyAbsent": "Bu xodim shu kuni allaqachon kelmadi deb belgilangan."
     },
     "openInReports": "Hisobotda ochish",
+    "recordedAt": "Kiritilgan",
+    "openEmployee": "Xodimni ochish",
     "paidOfEarned": "Hisoblangandan to‘langan"
   },
   "testChecklist": {
@@ -2251,7 +2254,7 @@
     "error_monitor_size_invalid": "Diagonalni dyuymda kiriting, 10 dan 100 gacha.",
     "error_monitor_refresh_invalid": "Chastotani butun son bilan Gs da kiriting, 30 dan 1000 gacha.",
     "languageSwitch": "Matn tili",
-    "languageMissing": "{language}: to‘ldirilmagan",
+    "languageNotFilled": "to‘ldirilmagan",
     "languagesMissingHint": "To‘ldirilmagan: {languages}. Bu tillardagi tashrif buyuruvchilar birinchi to‘ldirilgan tilni ko‘radi.",
     "taglineHint": "Uchala tilni to‘ldiring — tashrif buyuruvchi tanlagan tilni ko‘radi.",
     "offers": "Paketlar va aksiyalar",
@@ -2331,6 +2334,7 @@
     "navZones": "Kompyuterlar",
     "navPrices": "Narxlar",
     "sectionsLabel": "Sahifa bo‘limlari",
+    "navMenu": "Bo‘limlar menyusi",
     "notFoundTitle": "Sahifa topilmadi",
     "notFoundDescription": "Bunday klub sahifasi yo‘q yoki hali e’lon qilinmagan.",
     "backHome": "Bosh sahifaga",
@@ -2805,8 +2809,6 @@
     "empty": "Jamg'armada hozircha hech narsa yo'q.",
     "emptyHint": "Pastdagi «Hammasini qo'yish»ni bosing yoki «Oylik foydani olish»da summani kiritib «Jamg'armaga qo'yish»ni tanlang.",
     "activityLabel": "Jamg'arma tarixi",
-    "showHistory": "Tarix · {count}",
-    "hideHistory": "Tarixni yashirish",
     "collectionOf": "{date} inkassatsiyasi",
     "dayCount": "{count} ta yozuv",
     "fromMonth": "{month} foydasidan",
@@ -2833,7 +2835,6 @@
     },
     "fromExchange": "Dollarga almashtirilgan; bekor qilish uchun almashtirishni o'chiring",
     "toExchange": "Dollar qayta almashtirildi; pul oyga qaytdi",
-    "dollarsHeld": "Dollar {amount}",
     "kinds": {
       "deposit": "Jamg'armaga qo'yildi",
       "return": "Foydaga qaytarildi",
@@ -2872,7 +2873,6 @@
     "payTitle": "Jamg'armadan to'lash",
     "payDescription": "Jamg'arma pulidan to'langan ta'mir yoki xaridni yozing. Bu xarajat, lekin shu oy egasi foydasi o'zgarmaydi.",
     "paidToast": "Jamg'armadan to'landi.",
-    "historyCount": "Tarixda {count} ta yozuv",
     "openPage": "Grafiklar va tarix",
     "exchangeBought": "{usd} sotib olindi",
     "exchangeSold": "{usd} sotildi"
@@ -2882,7 +2882,6 @@
     "viewSwitcher": "Jamg'arma ko'rinishi",
     "overview": "Umumiy ko'rinish",
     "history": "Tarix · {count}",
-    "manage": "Qo'yish yoki to'lash",
     "totalHeld": "Hozir jamg'armada",
     "sumsPot": "So'm",
     "dollarsPot": "AQSH dollari",
@@ -2896,7 +2895,6 @@
     "flowTitle": "Kirim va chiqim",
     "flowDescription": "Qo'yilgan va qaytarilgan yoki sarflangan, oylar bo'yicha.",
     "loadError": "Jamg'armani yuklab bo'lmadi.",
-    "exchangeButton": "Almashtirish",
     "buyDollars": "Dollar sotib olish",
     "sellDollars": "Dollar sotish",
     "averageRate": "O'rtacha $1 uchun {rate} so'm",

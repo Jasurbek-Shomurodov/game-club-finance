@@ -18,7 +18,7 @@ import {
   type OwnerWithdrawalPaymentMethod,
   type OwnerWithdrawalSource,
 } from '@/types';
-import { METHOD_ICONS } from '../money-taken/profitIcons';
+import { METHOD_ICONS } from '@/components/owner-money/profitIcons';
 
 /** Mounted only while open, so every opening starts a fresh return. */
 interface ReserveReturnModalProps {

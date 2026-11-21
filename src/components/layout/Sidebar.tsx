@@ -215,13 +215,11 @@ export function Sidebar({
   // The dashboard embeds live totals, so it keeps the skeleton-only
   // prefetch, and only once the drawer opens.
   const router = useRouter();
-  // Every tab of a section too, so switching tabs is as instant as the sidebar.
+  // Every tab of a section too (the bar, the reports, salaries, the public page…), so switching tabs is as instant as the sidebar.
   const navHrefs = Array.from(new Set([
     ...groups.flatMap((group) => group.items.map((item) => item.href)),
     ...accessibleSectionPaths(role, featureAccess),
   ]));
-  // The day and month reports are tabs of Reports.
-  if (canAccessFeature(role, featureAccess, 'reports')) navHrefs.push('/daily-report', '/monthly-report');
   if (allowed('settings')) navHrefs.push('/settings');
   const navHrefKey = navHrefs.join('|');
   useEffect(() => {
@@ -315,7 +313,7 @@ export function Sidebar({
         {groups.map((group, index) => (
           <div key={group.label ?? index} className="space-y-0.5">
             {group.label && (
-              <p className="px-2.5 pb-1 pt-1 text-xs font-semibold uppercase tracking-wider text-gray-500">{group.label}</p>
+              <p className="px-2.5 pb-1 pt-1 text-xs font-semibold text-gray-500">{group.label}</p>
             )}
             {group.items.map((item) => (
               <NavLink

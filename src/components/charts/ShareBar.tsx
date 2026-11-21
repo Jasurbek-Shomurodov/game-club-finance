@@ -11,15 +11,17 @@ export interface ShareBarPart {
 
 /**
  * One whole split into parts as a single bar, with a legend naming each part's
- * share. Parts at or below zero are left out; nothing renders when no part is positive.
+ * share (unless `legend` is off). Parts at or below zero are left out; nothing renders when no part is positive.
  */
-export function ShareBar({ parts, label, locale, className, size = 'md' }: {
+export function ShareBar({ parts, label, locale, className, size = 'md', legend = true }: {
   parts: readonly ShareBarPart[];
   /** Accessible name of the whole bar. */
   label: string;
   locale: string;
   className?: string;
   size?: 'sm' | 'md';
+  /** Pass false when the parts are already named beside the bar. */
+  legend?: boolean;
 }) {
   const shown = parts.filter((part) => part.value > 0);
   const whole = shown.reduce((sum, part) => sum + part.value, 0);
@@ -35,11 +37,12 @@ export function ShareBar({ parts, label, locale, className, size = 'md' }: {
         {shown.map((part) => (
           <span
             key={part.key}
-            className="grow-x h-full transition-[width] duration-500 first:rounded-l-full last:rounded-r-full motion-reduce:transition-none"
+            className="grow-x h-full transition-[width] duration-300 first:rounded-l-full last:rounded-r-full motion-reduce:transition-none"
             style={{ width: `${(part.value / whole) * 100}%`, backgroundColor: part.color }}
           />
         ))}
       </div>
+      {legend && (
       <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500" aria-hidden="true">
         {shown.map((part) => (
           <li key={part.key} className="flex min-w-0 items-center gap-1.5">
@@ -49,6 +52,7 @@ export function ShareBar({ parts, label, locale, className, size = 'md' }: {
           </li>
         ))}
       </ul>
+      )}
     </div>
   );
 }

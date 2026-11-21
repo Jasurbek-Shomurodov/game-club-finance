@@ -47,3 +47,20 @@ describe('choosing when an employee edit starts', () => {
     expect(employeeEditChanges(backdated)).toEqual({ role: false, salary: true, kpi: false });
   });
 });
+
+describe('KPI percent typed with a comma or a dot', () => {
+  const fractional: SalaryRate = { ...rate, kpi_percent: 12.5 };
+
+  it('shows a stored fraction the way it is typed', () => {
+    expect(employeeEditState(employee, fractional).kpi).toBe('12,5');
+    expect(employeeEditState(employee, rate).kpi).toBe('5');
+  });
+
+  it.each(['12,5', '12.5'])('reads %s as the same number', (typed) => {
+    const edit = { ...employeeEditState(employee, rate), kpi: typed };
+    expect(employeeEditChanges(edit).kpi).toBe(true);
+    expect(withLandedEmployeeChange(edit, 'kpi').rate?.kpi_percent).toBe(12.5);
+    // Typed over a rate that already is 12.5, neither spelling counts as a change.
+    expect(employeeEditChanges({ ...employeeEditState(employee, fractional), kpi: typed }).kpi).toBe(false);
+  });
+});

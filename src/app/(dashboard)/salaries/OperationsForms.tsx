@@ -9,6 +9,7 @@ import {
   Checkbox,
   CurrencyInput,
   DatePicker,
+  DecimalInput,
   EmptyState,
   Field,
   InlineAlert,
@@ -178,7 +179,7 @@ function OperationForm({
         {setupMode !== 'salary' && (
           <>
           <Field label={t('kpiPercent')} htmlFor="salary-kpi">
-            <Input id="salary-kpi" type="number" required min="0" max="100" step="0.01" inputMode="decimal" value={employeeForm.kpi} onChange={(e) => setEmployeeForm({ ...employeeForm, kpi: e.target.value })} onWheel={(event) => event.currentTarget.blur()} trailingAddon="%" />
+            <DecimalInput id="salary-kpi" required value={employeeForm.kpi} onValueChange={(kpi) => setEmployeeForm({ ...employeeForm, kpi })} trailingAddon="%" />
           </Field>
             <Field label={t('kpiBasis')} htmlFor="salary-kpi-basis" hint={t(KPI_BASIS_LABELS[employeeForm.kpi_basis].help)} className="sm:col-span-2">
               <Select id="salary-kpi-basis" value={employeeForm.kpi_basis} onChange={(e) => setEmployeeForm({ ...employeeForm, ...kpiBasisChange(e.target.value as KpiBasis) })}>

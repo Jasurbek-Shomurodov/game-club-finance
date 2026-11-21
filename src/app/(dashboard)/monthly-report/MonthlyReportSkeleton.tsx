@@ -1,5 +1,5 @@
 import { TableSkeleton } from '@/components/PresentationFoundation';
-import { ReportTotalsSkeleton } from '../reports/ReportTotals';
+import { ReportTotalsSkeleton } from '@/components/reports/ReportTotals';
 
 /**
  * The monthly report while it loads: the game club's three and the bar's six

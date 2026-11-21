@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { useModalForm, useReportFormState, type ModalFormProps } from '@/components/expenses/modalForm';
 import { ArrowRightLeft, CircleDollarSign, type LucideIcon } from 'lucide-react';
 import { PAYMENT_METHOD_ICONS } from '@/components/paymentMethodIcons';
 import { useClub } from '@/components/layout/DashboardShell';
@@ -15,8 +16,9 @@ import {
   NoteField,
   SegmentedControl,
   useEntryNoteGuard,
+  Modal,
 } from '@/components/PresentationFoundation';
-import { formatCurrency, formatCurrencyInput, formatDecimalInput, formatUnitCurrency, parseCurrencyInput, parseDecimalInput } from '@/lib/formatters';
+import { formatCurrency, formatCurrencyInput, formatDecimalInput, formatDollars, parseCurrencyInput, parseDecimalInput } from '@/lib/formatters';
 import {
   exchangeNeedsRate,
   exchangeReceivedAmount,
@@ -29,7 +31,7 @@ import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { useCollectedDay } from '@/lib/useCollectedDay';
 import { useClubQuery } from '@/lib/useClubQuery';
 
-interface ExchangeFormProps {
+interface ExchangeFormProps extends ModalFormProps {
   onSaved?: () => void | Promise<void>;
 }
 
@@ -46,7 +48,7 @@ const ERROR_KEYS: Record<string, string> = {
 const METHOD_ICONS: Record<ExchangeMethod, LucideIcon> = { ...PAYMENT_METHOD_ICONS, usd: CircleDollarSign };
 
 /** Moves Game Club money between payment methods, or into and out of dollars at a typed rate. */
-export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
+export default function ExchangeForm({ onSaved, formId, onFormState }: ExchangeFormProps) {
   const t = useTranslations('exchanges');
   const tc = useTranslations('common');
   const { selectedClubId, businessDayStartHour, enabledPaymentMethods } = useClub();
@@ -123,7 +125,7 @@ export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
   const availableFrom = balances ? balances[form.from] : null;
   const nothingAvailable = availableFrom !== null && availableFrom <= 0;
   const formatAmount = (method: ExchangeMethod, value: number) => (
-    method === 'usd' ? `$${formatUnitCurrency(value)}` : `${formatCurrency(value)} ${tc('currency')}`
+    method === 'usd' ? formatDollars(value) : `${formatCurrency(value)} ${tc('currency')}`
   );
   const methodOptions = methods.map((method) => {
     const Icon = METHOD_ICONS[method];
@@ -216,8 +218,10 @@ export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
     }
   }
 
+  useReportFormState(onFormState, saving, dayClosed || nothingAvailable);
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form id={formId} onSubmit={handleSubmit} className="space-y-5">
       {error && <InlineAlert variant="danger">{error}</InlineAlert>}
 
       <Field label={t('from')}>
@@ -292,10 +296,25 @@ export default function ExchangeForm({ onSaved }: ExchangeFormProps) {
         maxLength={300}
       />
 
-      <Button type="submit" size="lg" fullWidth disabled={dayClosed || nothingAvailable} loading={saving} loadingLabel={tc('saving')} icon={<ArrowRightLeft size={18} aria-hidden="true" />}>
-        {t('submit')}
-      </Button>
+      {/* In a dialog the Save button is in its footer (useModalForm). */}
+      {!formId && (
+        <Button type="submit" size="lg" fullWidth disabled={dayClosed || nothingAvailable} loading={saving} loadingLabel={tc('saving')} icon={<ArrowRightLeft size={18} aria-hidden="true" />}>
+          {t('submit')}
+        </Button>
+      )}
       {note.dialog}
     </form>
+  );
+}
+
+/** The exchange form as a dialog: the form in the body, Cancel and Save in the footer. */
+export function ExchangeModal({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: () => void | Promise<void> }) {
+  const t = useTranslations('exchanges');
+  const tr = useTranslations('reports');
+  const { formProps, footer, saving } = useModalForm({ submitLabel: t('submit'), icon: <ArrowRightLeft size={18} aria-hidden="true" />, onCancel: onClose });
+  return (
+    <Modal open={open} onClose={onClose} locked={saving} title={tr('exchangeMoney')} size="xl" footer={footer}>
+      <ExchangeForm {...formProps} onSaved={onSaved} />
+    </Modal>
   );
 }

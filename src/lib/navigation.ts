@@ -5,14 +5,27 @@ import { DASHBOARD_PATH } from '@/lib/routes';
 /** Screens that belong together and share one sidebar item; each stays its own route. */
 export type NavSection = 'bar' | 'ownerMoney' | 'team';
 
+/**
+ * Every row of tabs beside a page title: the sidebar sections, plus the areas
+ * whose sidebar item is a page of its own with its sub-screens as tabs.
+ */
+export type TabSection = NavSection | 'reports' | 'salaries' | 'showcase';
+
+/** Message namespace a tab's label (or a tab row's accessible name) is read from. */
+export type TabLabelNamespace = 'nav' | 'reports' | 'salaries' | 'showcase';
+
 export interface SectionTab {
+  /** Where the tab leads; a view inside one page carries its query (`/reports?view=collected`). */
   href: string;
-  /** Key in the `nav` messages. */
-  labelKey: 'closingStock' | 'writeOffs' | 'stockPurchase' | 'products' | 'promotions' | 'moneyTaken' | 'reserve' | 'team' | 'history';
+  /** Key of the label in `labelNs` (the `nav` messages unless given). */
+  labelKey: string;
+  labelNs?: TabLabelNamespace;
+  /** Shown to owners only, whatever feature access says. */
+  ownerOnly?: boolean;
 }
 
 /** Tabs of each section, in the order they are shown. The first one a member can open is the section's home. */
-const SECTION_TABS: Record<NavSection, readonly SectionTab[]> = {
+const SECTION_TABS: Record<TabSection, readonly SectionTab[]> = {
   bar: [
     { href: '/closing-stock', labelKey: 'closingStock' },
     { href: '/write-offs', labelKey: 'writeOffs' },
@@ -28,39 +41,88 @@ const SECTION_TABS: Record<NavSection, readonly SectionTab[]> = {
     { href: '/team', labelKey: 'team' },
     { href: '/history', labelKey: 'history' },
   ],
+  // The closeout, collected days and write-offs are views of /reports; the day and month reports are pages.
+  reports: [
+    { href: '/reports', labelKey: 'title', labelNs: 'reports' },
+    { href: '/reports?view=collected', labelKey: 'collectedTab', labelNs: 'reports' },
+    // Write-offs are an owner tool.
+    { href: '/reports?view=writeOffs', labelKey: 'writeOffsTab', labelNs: 'reports', ownerOnly: true },
+    { href: '/daily-report', labelKey: 'dayTab', labelNs: 'reports' },
+    { href: '/monthly-report', labelKey: 'monthTab', labelNs: 'reports' },
+  ],
+  salaries: [
+    { href: '/salaries/employees', labelKey: 'employees', labelNs: 'salaries' },
+    { href: '/salaries/operations', labelKey: 'dailyOperations', labelNs: 'salaries' },
+    { href: '/salaries/history', labelKey: 'history', labelNs: 'salaries' },
+  ],
+  showcase: [
+    { href: '/showcase', labelKey: 'tabPage', labelNs: 'showcase' },
+    { href: '/showcase/games', labelKey: 'libraryTitle', labelNs: 'showcase' },
+    { href: '/showcase/google', labelKey: 'tabGoogle', labelNs: 'showcase' },
+    { href: '/showcase/brand', labelKey: 'brandTitle', labelNs: 'showcase', ownerOnly: true },
+  ],
 };
 
+/** The accessible name of each tab row. */
+export const SECTION_TABS_LABEL: Record<TabSection, { ns: TabLabelNamespace; key: string }> = {
+  bar: { ns: 'nav', key: 'sectionTabs' },
+  ownerMoney: { ns: 'nav', key: 'sectionTabs' },
+  team: { ns: 'nav', key: 'sectionTabs' },
+  reports: { ns: 'reports', key: 'viewSwitcher' },
+  salaries: { ns: 'salaries', key: 'viewSwitcher' },
+  showcase: { ns: 'showcase', key: 'title' },
+};
+
+/** Sections that are one sidebar item: a page in one of them lights that item only. */
+const NAV_SECTIONS: readonly NavSection[] = ['bar', 'ownerMoney', 'team'];
+
 const underPath = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
+const normalizePath = (pathname: string) => (pathname !== '/' ? pathname.replace(/\/$/, '') : pathname);
+
+/** A tab's route without its query. */
+export function tabPath(href: string): string {
+  return href.split('?')[0];
+}
 
 /** The section's tabs this member can open. Feature access decides, exactly as it does for the pages. */
-export function sectionTabs(section: NavSection, role: UserRole, explicitAccess: unknown): SectionTab[] {
-  return SECTION_TABS[section].filter((tab) => canAccessPath(role, explicitAccess, tab.href));
+export function sectionTabs(section: TabSection, role: UserRole, explicitAccess: unknown): SectionTab[] {
+  return SECTION_TABS[section].filter((tab) => (!tab.ownerOnly || role === 'owner') && canAccessPath(role, explicitAccess, tabPath(tab.href)));
 }
 
 /** Where the section's sidebar item leads: its first tab the member can open, or null when there is none. */
-export function sectionHome(section: NavSection, role: UserRole, explicitAccess: unknown): string | null {
+export function sectionHome(section: TabSection, role: UserRole, explicitAccess: unknown): string | null {
   return sectionTabs(section, role, explicitAccess)[0]?.href ?? null;
 }
 
-/** The section a path belongs to, so its sidebar item stays highlighted on every tab. */
+/** The sidebar section a path belongs to, so its sidebar item stays highlighted on every tab. */
 export function sectionForPath(pathname: string): NavSection | null {
-  const normalized = pathname !== '/' ? pathname.replace(/\/$/, '') : pathname;
-  for (const section of Object.keys(SECTION_TABS) as NavSection[]) {
+  const normalized = normalizePath(pathname);
+  for (const section of NAV_SECTIONS) {
     if (SECTION_TABS[section].some((tab) => underPath(normalized, tab.href))) return section;
   }
   return null;
 }
 
-/** The tab of `tabs` a path is on, or null (a page outside the section). */
+/**
+ * The tab of `tabs` a path is on, or null (a page outside the section). The
+ * deepest matching route wins (`/showcase/games` over `/showcase`); views that
+ * share one route cannot be told apart by path, so the first of them is named
+ * and the page says which view it shows.
+ */
 export function activeSectionTab(tabs: readonly SectionTab[], pathname: string): string | null {
-  const normalized = pathname !== '/' ? pathname.replace(/\/$/, '') : pathname;
-  return tabs.find((tab) => underPath(normalized, tab.href))?.href ?? null;
+  const normalized = normalizePath(pathname);
+  let best: SectionTab | null = null;
+  for (const tab of tabs) {
+    if (underPath(normalized, tabPath(tab.href)) && (!best || tabPath(tab.href).length > tabPath(best.href).length)) best = tab;
+  }
+  return best?.href ?? null;
 }
 
 /** Every tab route of every section this member can open, for the sidebar's up-front prefetch. */
 export function accessibleSectionPaths(role: UserRole, explicitAccess: unknown): string[] {
-  return (Object.keys(SECTION_TABS) as NavSection[])
-    .flatMap((section) => sectionTabs(section, role, explicitAccess).map((tab) => tab.href));
+  const paths = (Object.keys(SECTION_TABS) as TabSection[])
+    .flatMap((section) => sectionTabs(section, role, explicitAccess).map((tab) => tabPath(tab.href)));
+  return Array.from(new Set(paths));
 }
 
 /** A destination of the phone bottom bar. `key` is its label in the `nav` messages. */

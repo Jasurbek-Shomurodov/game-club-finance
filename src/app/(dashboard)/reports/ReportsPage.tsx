@@ -15,7 +15,6 @@ import {
   Gamepad2,
   HandCoins,
   Landmark,
-  PiggyBank,
   Lock,
   ReceiptText,
   Trash2,
@@ -36,19 +35,15 @@ import {
   InlineAlert,
   LoadErrorAlert,
   MetricCard,
-  Modal,
   Money,
   PageHeader,
   SectionHeading,
   Select,
   SegmentedControl,
-  SkeletonStatus,
-  DatePicker,
   TableSkeleton,
   toneForAmount,
   useConfirm,
   useToast,
-  type BadgeVariant,
   type DataTableColumn,
   type MetricTone,
   metricGridClassName,
@@ -66,14 +61,13 @@ import {
   type MoneyReportCashRow,
   type MoneyReportBarSalesRow,
   type MoneyReportDebtPaymentRow,
-  type MoneyReportPaymentBreakdown,
 } from '@/lib/calculations/moneyReport';
 import type { StockPurchaseCostRow } from '@/lib/calculations/barMoney';
 import {
   getDashboardRange,
   type ExpenseRow,
 } from '@/lib/calculations/dashboardMetrics';
-import { formatCurrency, formatDateOnly, formatDateShort, formatTime, formatUnitCurrency } from '@/lib/formatters';
+import { formatCurrency, formatDateOnly, formatDateShort, formatDollars, formatTime } from '@/lib/formatters';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import { createClient, mutateFinanceRequest } from '@/lib/supabase/client';
 import { requestDailyCashDeletion } from '@/lib/dailyCashApi';
@@ -86,11 +80,13 @@ import { useQuickAction } from '@/lib/quickActions';
 import { csvFileName, csvSeparatorForLocale, downloadCsv, toCsv } from '@/lib/csv';
 import { canAccessFeature } from '@/lib/permissions';
 import { expensePaymentMethods } from '@/lib/paymentMethods';
-import ExpenseRegistrationForm from './ExpenseRegistrationForm';
-import ExchangeForm from './ExchangeForm';
+import ExpenseRegistrationForm from '@/components/expenses/ExpenseRegistrationForm';
+import { ExpenseModal } from '@/components/expenses/ExpenseModal';
+import { ExchangeModal } from './ExchangeForm';
 import CollectedTab from './CollectedTab';
 import { DonutSkeleton, InOutChartSkeleton } from '@/components/charts/ChartSkeletons';
-import { PaymentCardsSkeleton, paymentCardsGridClassName } from './ReportsSkeleton';
+import { MoneyWhereabouts, PaymentMethodTiles } from './PaymentMethodSection';
+import { EntryDetailsSheet, activityKindVariant, type ExpenseCorrection } from './EntryDetailsSheet';
 import WriteOffsTab from './WriteOffsTab';
 import { fetchDollarExpenses, fetchMoneyExchanges, withDollarAmounts } from '@/lib/supabase/moneyExchanges';
 import { fetchReserveMoves } from '@/lib/supabase/reserveMoves';
@@ -111,7 +107,7 @@ import {
   moveCollectedToReserve,
 } from '@/lib/supabase/moneyCollections';
 import { fetchReserveHoldings } from '@/lib/supabase/ownerReserve';
-import CollectMoneyForm from './CollectMoneyForm';
+import { CollectMoneyModal } from './CollectMoneyForm';
 import { ReportsTabs, type ReportsView } from './ReportsTabs';
 import { DayBreakdownModal } from './DayBreakdownModal';
 import { MethodDaysModal, type PaymentMethodFigure } from './MethodDaysModal';
@@ -175,12 +171,6 @@ function amountToneClassName(amount: number): string {
   return amount < 0 ? 'text-danger-600' : 'text-success-600';
 }
 
-function activityKindVariant(kind: MoneyReportActivity['kind']): BadgeVariant {
-  if (kind === 'income') return 'success';
-  if (kind === 'debt_payment' || kind === 'exchange') return 'info';
-  return 'danger';
-}
-
 /** The closeout table lists a subtle day header row followed by that day's entries. */
 type CloseoutRow =
   | {
@@ -226,219 +216,6 @@ function SummaryCard({
     />
   );
 }
-
-/** The payment-method cards' headline figure, shared with the dollars card. */
-const paymentValueClassName = 'mt-2.5 break-words text-xl font-bold leading-none tracking-tight tabular-nums sm:text-2xl';
-
-function PaymentCard({
-  label,
-  data,
-  icon: Icon,
-  openingLabel,
-  collectedLabel,
-  expensesLabel,
-  exchangedInLabel,
-  exchangedOutLabel,
-  reservedLabel,
-  leftLabel,
-  takenLabel,
-  stillHeldLabel,
-  taken,
-  onClick,
-}: {
-  /** Opens the days that moved this method. */
-  onClick: () => void;
-  label: string;
-  data: MoneyReportPaymentBreakdown;
-  icon: LucideIcon;
-  openingLabel: string;
-  collectedLabel: string;
-  expensesLabel: string;
-  exchangedInLabel: string;
-  exchangedOutLabel: string;
-  reservedLabel: string;
-  leftLabel: string;
-  takenLabel: string;
-  stillHeldLabel: string;
-  /** What collected money (169) still holds of this method, over the same span as `left`. */
-  taken: number;
-}) {
-  const stillHeld = moneyStillHeld(data.left, taken);
-  return (
-    <Card onClick={onClick} className="h-full">
-      <div className="flex items-center gap-2">
-        <Icon size={15} className="shrink-0 text-gray-500" aria-hidden="true" />
-        <SectionHeading as="h3" size="sm" title={label} />
-      </div>
-      <p className={cn(paymentValueClassName, amountToneClassName(data.left))}>
-        <Money amount={data.left} currencyClassName="text-sm font-medium tracking-normal text-gray-500" />
-      </p>
-      <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500"><span aria-hidden="true" className="h-2 w-2 rounded-sm bg-success-500" />{leftLabel}</p>
-      <MethodFlowBar data={data} />
-      <dl className="mt-4 space-y-2 border-t border-gray-100 pt-3 text-sm">
-        {data.opening !== 0 && (
-          <div className="flex items-baseline justify-between gap-3">
-            <dt className="text-gray-500">{openingLabel}</dt>
-            <dd className={cn('shrink-0 font-semibold tabular-nums', data.opening < 0 ? 'text-danger-600' : 'text-gray-900')}>
-              <Money amount={data.opening} currency={null} />
-            </dd>
-          </div>
-        )}
-        <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-gray-500">{collectedLabel}</dt>
-          <dd className="shrink-0 font-semibold tabular-nums text-gray-900">
-            <Money amount={data.collected} currency={null} />
-          </dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-3">
-          <dt className="flex items-center gap-1.5 text-gray-500"><span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-sm bg-danger-500" />{expensesLabel}</dt>
-          <dd className="shrink-0 font-semibold tabular-nums text-danger-600">
-            <Money amount={data.expenses} currency={null} />
-          </dd>
-        </div>
-        {data.exchangedIn !== 0 && (
-          <div className="flex items-baseline justify-between gap-3">
-            <dt className="text-gray-500">{exchangedInLabel}</dt>
-            <dd className="shrink-0 font-semibold tabular-nums text-gray-900">
-              <Money amount={data.exchangedIn} currency={null} />
-            </dd>
-          </div>
-        )}
-        {data.exchangedOut !== 0 && (
-          <div className="flex items-baseline justify-between gap-3">
-            <dt className="flex items-center gap-1.5 text-gray-500"><span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-sm bg-gray-400" />{exchangedOutLabel}</dt>
-            <dd className="shrink-0 font-semibold tabular-nums text-gray-900">
-              <Money amount={data.exchangedOut} currency={null} />
-            </dd>
-          </div>
-        )}
-        {/* The reserve is the owner's own money (156): what went into it is no longer this method's. */}
-        {(data.reserved ?? 0) !== 0 && (
-          <div className="flex items-baseline justify-between gap-3">
-            <dt className="flex items-center gap-1.5 text-gray-500"><span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-sm bg-purple-500" />{reservedLabel}</dt>
-            <dd className="shrink-0 font-semibold tabular-nums text-gray-900">
-              <Money amount={data.reserved ?? 0} currency={null} />
-            </dd>
-          </div>
-        )}
-      </dl>
-      {/* Money left is what the method earned; part of it is already with the collector (169). */}
-      <dl className="mt-3 space-y-2 border-t border-gray-100 pt-3 text-sm">
-        <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-gray-500">{takenLabel}</dt>
-          <dd className="shrink-0 font-semibold tabular-nums text-gray-900">
-            <Money amount={taken} currency={null} />
-          </dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-3">
-          <dt className="font-semibold text-gray-900">{stillHeldLabel}</dt>
-          <dd className={cn('shrink-0 text-base font-bold tabular-nums', amountToneClassName(stillHeld))}>
-            <Money amount={stillHeld} currency={null} />
-          </dd>
-        </div>
-      </dl>
-    </Card>
-  );
-}
-
-/**
- * What a method's money did over the period as one bar: spent, exchanged out,
- * put into the reserve and still left, each as a share of everything the
- * method had. The rows below name each part with its amount.
- */
-function MethodFlowBar({ data }: { data: MoneyReportPaymentBreakdown }) {
-  const parts = [
-    { key: 'expenses', value: data.expenses, className: 'bg-danger-500' },
-    { key: 'out', value: data.exchangedOut, className: 'bg-gray-400' },
-    { key: 'reserve', value: data.reserved ?? 0, className: 'bg-purple-500' },
-    { key: 'left', value: Math.max(0, data.left), className: 'bg-success-500' },
-  ].filter((part) => part.value > 0);
-  const whole = parts.reduce((sum, part) => sum + part.value, 0);
-  if (!whole) return null;
-  return (
-    <div aria-hidden="true" className="mt-3 flex h-1.5 gap-0.5 overflow-hidden rounded-full bg-gray-100">
-      {parts.map((part) => (
-        <span key={part.key} className={cn('h-full first:rounded-l-full last:rounded-r-full', part.className)} style={{ width: `${(part.value / whole) * 100}%` }} />
-      ))}
-    </div>
-  );
-}
-
-/**
- * Where the Game Club's money is right now (169): with the admin, with the
- * collector, and in the owner reserve. Each card stands on its own; they are
- * three places, not parts of one total.
- */
-function MoneyWhereaboutsCards({
-  loading,
-  kassa,
-  collected,
-  reserve,
-  kassaLabel,
-  kassaHelper,
-  collectedLabel,
-  collectedHelper,
-  reserveLabel,
-  reserveHelper,
-  onCollectedClick,
-  onKassaClick,
-  kassaSelected,
-}: {
-  loading: boolean;
-  kassa: number;
-  collected: number;
-  /** Null when the viewer cannot read the reserve. */
-  reserve: number | null;
-  kassaLabel: string;
-  kassaHelper: string;
-  collectedLabel: string;
-  collectedHelper: string;
-  reserveLabel: string;
-  reserveHelper: string;
-  onCollectedClick: () => void;
-  /** Narrows the closeout to the days whose money is still with the admin; a second tap clears it. */
-  onKassaClick: () => void;
-  kassaSelected: boolean;
-}) {
-  const valueClassName = 'text-sm font-medium tracking-normal text-gray-500';
-  return (
-    <section className={cn(metricGridClassName, reserve === null ? 'sm:grid-cols-2' : 'sm:grid-cols-3')}>
-      <MetricCard
-        loading={loading}
-        label={kassaLabel}
-        value={<Money amount={kassa} currencyClassName={valueClassName} />}
-        helper={kassaHelper}
-        tone={toneForAmount(kassa, 'primary')}
-        icon={Landmark}
-        selected={kassaSelected}
-        onClick={onKassaClick}
-      />
-      <MetricCard
-        loading={loading}
-        label={collectedLabel}
-        value={<Money amount={collected} currencyClassName={valueClassName} />}
-        helper={collectedHelper}
-        tone="success"
-        icon={HandCoins}
-        onClick={onCollectedClick}
-      />
-      {reserve !== null && (
-        <MetricCard
-          loading={loading}
-          label={reserveLabel}
-          value={<Money amount={reserve} currencyClassName={valueClassName} />}
-          helper={reserveHelper}
-          accent="reserve"
-          icon={PiggyBank}
-          href="/reserve"
-        />
-      )}
-    </section>
-  );
-}
-
-/** One fact of the entry sheet: label over value on phones, side by side from `sm`. */
-const detailRowClassName = 'grid grid-cols-1 gap-1 py-3 text-sm sm:grid-cols-[120px_minmax(0,1fr)] sm:gap-3';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -926,7 +703,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   /** Owners correct an ordinary expense's payment method, date or category; the club group message is edited server-side. */
   async function handleUpdateExpense(
     activity: MoneyReportActivity,
-    change: { paymentMethod: string } | { date: string } | { category: string },
+    change: ExpenseCorrection,
   ) {
     if (!isOwner || !selectedClubId || !activity.id || activity.source !== 'expense' || methodSaving) return;
     if ('paymentMethod' in change && change.paymentMethod === activity.paymentMethod) return;
@@ -1026,11 +803,10 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       }
       return (
         <IconButton
-          variant="ghost"
+          variant="success"
           size="sm"
           label={`${label} · ${t('collectionUndo')}: ${dateLabel}`}
           icon={<CircleCheck size={18} aria-hidden="true" />}
-          className="text-success-600 hover:bg-success-50 hover:text-success-700"
           loading={collectingDate === date}
           disabled={collectingDate !== null && collectingDate !== date}
           onClick={(event) => {
@@ -1107,7 +883,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
 
   /** "500 000 UZS" or "$40"; dollars keep cents. */
   function exchangeAmountLabel(method: ExchangeMethod, amount: number): string {
-    return method === 'usd' ? `$${formatUnitCurrency(amount)}` : `${formatCurrency(amount)} ${tc('currency')}`;
+    return method === 'usd' ? formatDollars(amount) : `${formatCurrency(amount)} ${tc('currency')}`;
   }
 
   function activityTypeLabel(activity: MoneyReportActivity): string {
@@ -1209,9 +985,9 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   /** A day header figure that opens its entries; the header row itself stays inert. */
   function dayFigureButton(date: string, figure: DayFigure, children: ReactNode) {
     return (
-      <button
-        type="button"
-        className="inline-flex items-center gap-1 rounded underline decoration-gray-300 max-sm:min-h-9 decoration-dotted underline-offset-2 hover:text-gray-900 hover:decoration-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+      <Button
+        variant="ghost"
+        size="sm"
         title={t('showDayFigure', { figure: dayFigureLabels[figure] })}
         onClick={(event) => {
           event.stopPropagation();
@@ -1219,7 +995,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         }}
       >
         {children}
-      </button>
+      </Button>
     );
   }
 
@@ -1316,35 +1092,24 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       className: 'min-w-60',
       mobile: 'full',
       render: (row) => (row.kind === 'day' ? (
-        <span className="block text-xs text-gray-500">
+        <span className="-mx-2 flex flex-wrap items-center gap-x-1">
           {/* Income minus these game-club expenses is the day total; bar-paid
               expenses come out of bar cash, so they are listed separately.
               Each figure opens its entries, where some can be left out. */}
-          {dayFigureButton(row.date, 'income', <>{t('income')}: <Money amount={row.income} currency={null} className="text-gray-700" /></>)}
-          {' · '}
-          {dayFigureButton(row.date, 'expenses', <>{t('expenses')}: <Money amount={row.gameClubExpenses} currency={null} className="text-gray-700" /></>)}
-          {row.barExpenses > 0 && (
-            <>
-              {' · '}
-              {dayFigureButton(row.date, 'barExpenses', <>{t('bar')} · {t('expenses')}: <Money amount={row.barExpenses} currency={null} className="text-gray-700" /></>)}
-            </>
-          )}
-          {paymentCards.some((card) => row.left[card.method] !== 0) && (
-            <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span>{t('left')}:</span>
-              {paymentCards.filter((card) => row.left[card.method] !== 0).map(({ method, icon: Icon, label }) => (
-                <span key={method} className="inline-flex items-center gap-1 whitespace-nowrap" title={label}>
-                  {dayFigureButton(row.date, method, (
-                    <>
-                      <Icon size={13} className="shrink-0 text-gray-400" aria-hidden="true" />
-                      {label}
-                      <Money amount={row.left[method]} currency={null} className={cn('font-medium', amountToneClassName(row.left[method]))} />
-                    </>
-                  ))}
-                </span>
+          {dayFigureButton(row.date, 'income', <>{t('income')}: <Money amount={row.income} currency={null} /></>)}
+          {dayFigureButton(row.date, 'expenses', <>{t('expenses')}: <Money amount={row.gameClubExpenses} currency={null} /></>)}
+          {row.barExpenses > 0 && dayFigureButton(row.date, 'barExpenses', <>{t('bar')} · {t('expenses')}: <Money amount={row.barExpenses} currency={null} /></>)}
+          {paymentCards.filter((card) => row.left[card.method] !== 0).map(({ method, icon: Icon, label }) => (
+            <span key={method} className="contents" title={`${t('left')}: ${label}`}>
+              {dayFigureButton(row.date, method, (
+                <>
+                  <Icon size={13} className="shrink-0 text-gray-500" aria-hidden="true" />
+                  {t('left')} · {label}
+                  <Money amount={row.left[method]} currency={null} className={amountToneClassName(row.left[method])} />
+                </>
               ))}
             </span>
-          )}
+          ))}
         </span>
       ) : (
         <span className="block max-w-xs break-words text-gray-600">{row.activity.comment || t('noDescription')}</span>
@@ -1387,6 +1152,26 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       },
     }] : []),
   ];
+
+  // Where the money is right now: on the closeout under the period totals, on Collected above its own.
+  const whereabouts = (
+    <MoneyWhereabouts
+      loading={loading}
+      title={t('collectMoney.whereTitle')}
+      kassa={kassaTotal}
+      collected={collectedSummary.held.total}
+      reserve={reportRows.reserveSums}
+      kassaLabel={t('collectMoney.inKassaCard')}
+      kassaHelper={t('collectMoney.inKassaCardHelper')}
+      collectedLabel={t('collectMoney.collectedCard')}
+      collectedHelper={t('collectMoney.collectedCardHelper')}
+      reserveLabel={t('collectMoney.reserveCard')}
+      reserveHelper={t('collectMoney.reserveCardHelper')}
+      onCollectedClick={() => setView('collected')}
+      onKassaClick={showPendingDays}
+      kassaSelected={view === 'closeout' && collectionFilter === 'pending'}
+    />
+  );
 
   return (
     <div className="space-y-5">
@@ -1452,23 +1237,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       {hasReportsAccess && isOwner && view === 'writeOffs' && (
         <WriteOffsTab clubId={selectedClubId} from={range.from} to={range.to} />
       )}
-      {hasReportsAccess && !loadFailed && (view === 'closeout' || view === 'collected') && (
-        <MoneyWhereaboutsCards
-          loading={loading}
-          kassa={kassaTotal}
-          collected={collectedSummary.held.total}
-          reserve={reportRows.reserveSums}
-          kassaLabel={t('collectMoney.inKassaCard')}
-          kassaHelper={t('collectMoney.inKassaCardHelper')}
-          collectedLabel={t('collectMoney.collectedCard')}
-          collectedHelper={t('collectMoney.collectedCardHelper')}
-          reserveLabel={t('collectMoney.reserveCard')}
-          reserveHelper={t('collectMoney.reserveCardHelper')}
-          onCollectedClick={() => setView('collected')}
-          onKassaClick={showPendingDays}
-          kassaSelected={view === 'closeout' && collectionFilter === 'pending'}
-        />
-      )}
+      {hasReportsAccess && !loadFailed && view === 'collected' && whereabouts}
       {hasReportsAccess && !loadFailed && view === 'collected' && (
         <CollectedTab
           summary={collectedSummary}
@@ -1491,46 +1260,21 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
             <SummaryCard loading={loading} href={moneyDetailsHref('bar', range)} label={t('barCashLeft')} value={report.barLeft} icon={Banknote} tone={toneForAmount(report.barLeft, 'default')} />
           </section>
 
-          <section>
-            <SectionHeading size="lg" title={t('moneyLeftByPaymentMethod')} description={t('moneyLeftDescription')} className="mb-3" />
-            {loading ? (
-              <SkeletonStatus><PaymentCardsSkeleton count={enabledPaymentMethods.length + 1} /></SkeletonStatus>
-            ) : (
-              <div className={paymentCardsGridClassName(shownPaymentCards.length + (report.usd !== 0 ? 1 : 0))}>
-                {shownPaymentCards.map((card) => (
-                  <PaymentCard
-                    key={card.method}
-                    onClick={() => setMethodDays(card.method)}
-                    label={card.label}
-                    icon={card.icon}
-                    data={paymentCardData[card.method]}
-                    openingLabel={t('openingBalance')}
-                    collectedLabel={t('collected')}
-                    expensesLabel={t('expenses')}
-                    exchangedInLabel={t('exchangedIn')}
-                    exchangedOutLabel={t('exchangedOut')}
-                    reservedLabel={t('intoReserve')}
-                    leftLabel={t('left')}
-                    takenLabel={t('takenByCollection')}
-                    stillHeldLabel={t('stillInKassa')}
-                    taken={collectedByMethod[card.method]}
-                  />
-                ))}
-                {report.usd !== 0 && (
-                  <Card onClick={() => showCloseout('exchange', null)} className="h-full">
-                    <div className="flex items-center gap-2">
-                      <CircleDollarSign size={15} className="shrink-0 text-gray-500" aria-hidden="true" />
-                      <SectionHeading as="h3" size="sm" title={t('usd')} />
-                    </div>
-                    <p className={cn(paymentValueClassName, amountToneClassName(report.usd))}>
-                      {report.usd < 0 ? '−' : ''}${formatUnitCurrency(Math.abs(report.usd))}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-500">{t('usdHeld')}</p>
-                  </Card>
-                )}
-              </div>
-            )}
-          </section>
+          {whereabouts}
+
+          <PaymentMethodTiles
+            loading={loading}
+            skeletonCount={enabledPaymentMethods.length + 1}
+            title={t('moneyLeftByPaymentMethod')}
+            description={t('moneyLeftDescription')}
+            methods={shownPaymentCards}
+            data={paymentCardData}
+            usd={report.usd}
+            usdLabel={t('usd')}
+            usdNote={t('usdHeld')}
+            onSelectMethod={setMethodDays}
+            onSelectUsd={() => showCloseout('exchange', null)}
+          />
 
           {(loading || dailyFlow.length > 1 || spendingSlices.length > 0) && (
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
@@ -1665,202 +1409,67 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         label={paymentCards.find((card) => card.method === methodDays)?.label ?? ''}
         days={report.days}
         data={methodDays ? paymentCardData[methodDays] : null}
+        taken={methodDays ? collectedByMethod[methodDays] : 0}
         onSelectDay={(date) => methodDays && setDayBreakdown({ date, figure: methodDays })}
         onClose={() => setMethodDays(null)}
       />
 
       {hasReportsAccess && (canCollect || isOwner) && (
-        <Modal
+        <CollectMoneyModal
           open={collectDialogOpen}
           onClose={() => setCollectDialogOpen(false)}
-          title={t('collectMoney.title')}
-          description={t('collectMoney.description')}
-          size="lg"
-        >
-          <CollectMoneyForm
-            onSaved={async () => {
-              setCollectDialogOpen(false);
-              showToast(t('collectMoney.saved'));
-              await reloadReport({ silent: true });
-            }}
-          />
-        </Modal>
+          onSaved={async () => {
+            setCollectDialogOpen(false);
+            showToast(t('collectMoney.saved'));
+            await reloadReport({ silent: true });
+          }}
+        />
       )}
 
       {hasReportsAccess && canRegisterExpenses && (
-        <Modal
+        <ExpenseModal
           open={expenseDialogOpen}
           onClose={() => setExpenseDialogOpen(false)}
-          title={t('registerExpense')}
-          size="xl"
-        >
-          <ExpenseRegistrationForm
-            onSaved={async () => {
-              setExpenseDialogOpen(false);
-              showToast(t('expenseRegistered'));
-              await reloadReport({ silent: true });
-            }}
-          />
-        </Modal>
+          onSaved={async () => {
+            setExpenseDialogOpen(false);
+            showToast(t('expenseRegistered'));
+            await reloadReport({ silent: true });
+          }}
+        />
       )}
 
       {canRegisterExpenses && (
-        <Modal
+        <ExchangeModal
           open={exchangeDialogOpen}
           onClose={() => setExchangeDialogOpen(false)}
-          title={t('exchangeMoney')}
-          size="xl"
-        >
-          <ExchangeForm
-            onSaved={async () => {
-              setExchangeDialogOpen(false);
-              showToast(t('exchangeSaved'));
-              await reloadReport({ silent: true });
-            }}
-          />
-        </Modal>
+          onSaved={async () => {
+            setExchangeDialogOpen(false);
+            showToast(t('exchangeSaved'));
+            await reloadReport({ silent: true });
+          }}
+        />
       )}
 
-      <Modal
-        open={Boolean(selectedEntry)}
+      <EntryDetailsSheet
+        entry={selectedEntry}
         onClose={() => setSelectedEntry(null)}
-        title={t('entryDetails')}
-        size="lg"
-      >
-        {selectedEntry && (
-          <div className="space-y-5">
-            {actionError && <InlineAlert variant="danger">{actionError}</InlineAlert>}
-            {collectionsByDate.has(selectedEntry.date) && (
-              <InlineAlert variant="danger" title={t('dayClosed')}>
-                {t('dayClosedDetails', {
-                  name: collectionsByDate.get(selectedEntry.date)?.collector_name || t('unknownCreator'),
-                })}
-              </InlineAlert>
-            )}
-            <div>
-              <Badge variant={activityKindVariant(selectedEntry.activity.kind)}>
-                {activityTypeLabel(selectedEntry.activity)}
-              </Badge>
-              {selectedEntry.activity.exchange ? (
-                <p className="mt-3 text-2xl font-bold tracking-tight tabular-nums text-gray-900">
-                  {exchangeAmountLabel(selectedEntry.activity.exchange.from, selectedEntry.activity.exchange.fromAmount)}
-                  {' → '}
-                  {exchangeAmountLabel(selectedEntry.activity.exchange.to, selectedEntry.activity.exchange.toAmount)}
-                </p>
-              ) : (
-                <p className={cn('mt-3 text-2xl font-bold tracking-tight tabular-nums', amountToneClassName(selectedEntry.activity.amount))}>
-                  <Money amount={selectedEntry.activity.amount} showPlus currencyClassName="text-sm font-medium tracking-normal text-gray-500" />
-                </p>
-              )}
-            </div>
-
-            <dl className="divide-y divide-gray-100 rounded-xl border border-gray-200 px-4">
-              <div className={detailRowClassName}>
-                <dt className="text-gray-500">{t('dateAndTime')}</dt>
-                <dd className="font-semibold text-gray-900 sm:text-right">
-                  {canCorrectExpense(selectedEntry.activity, selectedEntry.date) ? (
-                    <div className="flex flex-col gap-1 sm:ml-auto sm:max-w-60 sm:items-end">
-                      <DatePicker
-                        ariaLabel={t('date')}
-                        value={selectedEntry.date}
-                        max={businessToday}
-                        disabled={methodSaving}
-                        className="w-full"
-                        onChange={(date) => void handleUpdateExpense(selectedEntry.activity, { date })}
-                      />
-                      <span className="text-xs font-normal text-gray-500">
-                        {t('addedAt', { time: formatTime(selectedEntry.activity.createdAt, locale) })}
-                      </span>
-                    </div>
-                  ) : (
-                    <>{formatDateOnly(selectedEntry.date, locale)} · {formatTime(selectedEntry.activity.createdAt, locale)}</>
-                  )}
-                </dd>
-              </div>
-              <div className={detailRowClassName}>
-                <dt className="text-gray-500">{t('category')}</dt>
-                <dd className="break-words font-semibold text-gray-900 sm:text-right">
-                  {canCorrectExpense(selectedEntry.activity, selectedEntry.date) && !selectedEntry.activity.exchange ? (
-                    <Select
-                      value={selectedEntry.activity.category ?? ''}
-                      onChange={(event) => void handleUpdateExpense(selectedEntry.activity, { category: event.target.value })}
-                      disabled={methodSaving}
-                      aria-label={t('category')}
-                      className="w-full sm:ml-auto sm:w-48"
-                    >
-                      {categoryOptions(selectedEntry.activity).map((category) => (
-                        <option key={category} value={category}>{expenseCategoryLabel(category)}</option>
-                      ))}
-                    </Select>
-                  ) : (
-                    categoryLabel(selectedEntry.activity)
-                  )}
-                </dd>
-              </div>
-              <div className={detailRowClassName}>
-                <dt className="text-gray-500">{t('addedBy')}</dt>
-                <dd className="break-words font-semibold text-gray-900 sm:text-right">
-                  {selectedEntry.activity.createdByName || t('unknownCreator')}
-                </dd>
-              </div>
-              {selectedEntry.activity.exchange?.rate != null && (
-                <div className={detailRowClassName}>
-                  <dt className="text-gray-500">{t('exchangeRate')}</dt>
-                  <dd className="font-semibold tabular-nums text-gray-900 sm:text-right">
-                    1 $ = {formatUnitCurrency(selectedEntry.activity.exchange.rate)} {tc('currency')}
-                  </dd>
-                </div>
-              )}
-              {!selectedEntry.activity.exchange && (
-                <div className={detailRowClassName}>
-                  <dt className="text-gray-500">{t('paymentMethod')}</dt>
-                  <dd className="font-semibold text-gray-900 sm:text-right">
-                    {selectedEntry.activity.paymentBreakdown ? (
-                      <div className="flex flex-wrap gap-2 sm:justify-end">
-                        {Object.entries(selectedEntry.activity.paymentBreakdown)
-                          .filter(([, amount]) => amount !== 0)
-                          .map(([method, amount]) => (
-                            <Badge key={method} variant="outline">
-                              {paymentLabel(method)} · <Money amount={amount} />
-                            </Badge>
-                          ))}
-                      </div>
-                    ) : selectedEntry.activity.dollars ? (
-                      // Dollars were converted at their own rate, so the method stays.
-                      <span>
-                        {paymentLabel('usd')} · ${formatUnitCurrency(selectedEntry.activity.dollars.amount)}
-                        <span className="block text-xs font-normal text-gray-500">
-                          {t('exchangeRate')}: {formatUnitCurrency(selectedEntry.activity.dollars.rate)} {tc('currency')}
-                        </span>
-                      </span>
-                    ) : canCorrectPaymentMethod(selectedEntry.activity, selectedEntry.date) ? (
-                      <Select
-                        value={selectedEntry.activity.paymentMethod ?? ''}
-                        onChange={(event) => void handleUpdateExpense(selectedEntry.activity, { paymentMethod: event.target.value })}
-                        disabled={methodSaving}
-                        aria-label={t('paymentMethod')}
-                        className="w-full sm:ml-auto sm:w-40"
-                      >
-                        {paymentMethodOptions(selectedEntry.activity).map((method) => (
-                          <option key={method} value={method}>{paymentLabel(method)}</option>
-                        ))}
-                      </Select>
-                    ) : (
-                      paymentLabel(selectedEntry.activity.paymentMethod)
-                    )}
-                  </dd>
-                </div>
-              )}
-              <div className={detailRowClassName}>
-                <dt className="text-gray-500">{t('descriptionLabel')}</dt>
-                <dd className="break-words text-gray-700 sm:text-right">
-                  {selectedEntry.activity.comment || t('noDescription')}
-                </dd>
-              </div>
-            </dl>
-          </div>
-        )}
-      </Modal>
+        error={actionError}
+        closedBy={selectedEntry && collectionsByDate.has(selectedEntry.date)
+          ? collectionsByDate.get(selectedEntry.date)?.collector_name || t('unknownCreator')
+          : null}
+        canCorrectExpense={Boolean(selectedEntry && canCorrectExpense(selectedEntry.activity, selectedEntry.date))}
+        canCorrectPaymentMethod={Boolean(selectedEntry && canCorrectPaymentMethod(selectedEntry.activity, selectedEntry.date))}
+        saving={methodSaving}
+        businessToday={businessToday}
+        categoryOptions={selectedEntry ? categoryOptions(selectedEntry.activity) : []}
+        paymentMethodOptions={selectedEntry ? paymentMethodOptions(selectedEntry.activity) : []}
+        activityTypeLabel={activityTypeLabel}
+        categoryLabel={categoryLabel}
+        expenseCategoryLabel={expenseCategoryLabel}
+        paymentLabel={paymentLabel}
+        exchangeAmountLabel={exchangeAmountLabel}
+        onCorrect={(change) => selectedEntry && void handleUpdateExpense(selectedEntry.activity, change)}
+      />
 
       {toastElement}
       {confirmDialog}

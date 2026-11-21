@@ -1,5 +1,5 @@
 import { Skeleton, TableSkeleton } from '@/components/PresentationFoundation';
-import { ReportTotalsSkeleton } from '../reports/ReportTotals';
+import { ReportTotalsSkeleton } from '@/components/reports/ReportTotals';
 import { SkeletonCard } from '@/components/charts/ChartSkeletons';
 
 /**

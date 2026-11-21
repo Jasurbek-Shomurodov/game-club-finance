@@ -113,21 +113,28 @@ function PendingApproval({ fullName }: { fullName: string }) {
 
   return (
     <div className="mx-auto flex min-h-[calc(100dvh-8rem)] w-full max-w-xl items-center justify-center">
-      <Card padding="lg" className="w-full text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-warning-50 text-warning-600">
-          <Clock3 size={28} aria-hidden="true" />
-        </div>
-        <h1 className="mt-5 text-2xl font-bold tracking-tight text-gray-950">{t('title')}</h1>
-        <p className="mt-3 text-sm leading-6 text-gray-600">
-          {t('description', { name: fullName || t('fallbackName') })}
-        </p>
-        <div className="mt-5 flex items-center justify-center gap-2 rounded-xl bg-primary-50 px-4 py-3 text-sm font-medium text-primary-800">
-          <ShieldCheck size={17} aria-hidden="true" />
-          {t('ownerOnly')}
-        </div>
-        <Button variant="outline" className="mt-6" onClick={signOut} loading={signingOut} icon={<LogOut size={16} />}>
-          {t('signOut')}
-        </Button>
+      <Card padding="lg" className="w-full">
+        <EmptyState
+          as="h1"
+          tone="warning"
+          className="py-6"
+          icon={Clock3}
+          title={t('title')}
+          description={(
+            <>
+              {t('description', { name: fullName || t('fallbackName') })}
+              <span className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-primary-50 px-4 py-3 font-medium text-primary-800">
+                <ShieldCheck size={17} aria-hidden="true" />
+                {t('ownerOnly')}
+              </span>
+            </>
+          )}
+          action={(
+            <Button variant="outline" onClick={signOut} loading={signingOut} icon={<LogOut size={16} />}>
+              {t('signOut')}
+            </Button>
+          )}
+        />
       </Card>
     </div>
   );

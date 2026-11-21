@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { auditEntryDate, auditRecordHref, auditFieldChanges, auditFieldKind, filterAuditLogs } from './entryHistory';
+import { auditEntryDate, auditRecordHref, auditFieldChanges, auditFieldKind, auditMoneyUnit, filterAuditLogs } from './entryHistory';
 
 describe('auditFieldChanges', () => {
   it('lists only the visible fields an edit changed', () => {
@@ -45,6 +45,33 @@ describe('auditFieldKind for reserve and dollar fields', () => {
     expect(auditFieldKind('usd_amount')).toBe('unitMoney');
     expect(auditFieldKind('usd_rate')).toBe('unitMoney');
     expect(auditFieldKind('paid_from_reserve')).toBe('yesNo');
+  });
+});
+
+describe('auditMoneyUnit', () => {
+  it('shows ledger amounts and rates in sums', () => {
+    expect(auditMoneyUnit('amount', { payment_method: 'cash' })).toBe('uzs');
+    expect(auditMoneyUnit('cash_income', {})).toBe('uzs');
+    expect(auditMoneyUnit('cost_price', {})).toBe('uzs');
+    expect(auditMoneyUnit('rate', { from_method: 'cash', to_method: 'usd' })).toBe('uzs');
+    expect(auditMoneyUnit('usd_rate', {})).toBe('uzs');
+    // A reserve entry is always recorded in sums, whatever its method says.
+    expect(auditMoneyUnit('amount', { kind: 'deposit', payment_method: 'usd' })).toBe('uzs');
+  });
+
+  it('shows the dollar side of an exchange and a dollar expense in dollars', () => {
+    const bought = { from_method: 'cash', to_method: 'usd' };
+    expect(auditMoneyUnit('from_amount', bought)).toBe('uzs');
+    expect(auditMoneyUnit('to_amount', bought)).toBe('usd');
+    const sold = { from_method: 'usd', to_method: 'card' };
+    expect(auditMoneyUnit('from_amount', sold)).toBe('usd');
+    expect(auditMoneyUnit('to_amount', sold)).toBe('uzs');
+    expect(auditMoneyUnit('usd_amount', {})).toBe('usd');
+  });
+
+  it('has no unit for fields that are not money', () => {
+    expect(auditMoneyUnit('quantity', {})).toBeNull();
+    expect(auditMoneyUnit('comment', {})).toBeNull();
   });
 });
 

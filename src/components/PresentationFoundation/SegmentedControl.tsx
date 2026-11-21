@@ -23,7 +23,8 @@ export interface SegmentedControlProps<T extends string> {
    * tabs: plain text with an underline under the selected one (page tabs beside the title).
    */
   variant?: 'solid' | 'soft' | 'chips' | 'tabs';
-  size?: 'sm' | 'md';
+  /** `lg` is 56px tall, for a big payment-method picker. Chips and tabs have one size. */
+  size?: 'sm' | 'md' | 'lg';
   /** Grid columns for solid/soft; defaults to one column per option. Pass 'auto' to control columns via className. */
   columns?: number | 'auto';
   disabled?: boolean;
@@ -117,7 +118,7 @@ export function SegmentedControl<T extends string>({
     buttonsRef.current[next]?.focus();
     onChange(options[next].value);
   }
-  const height = size === 'sm' ? 'min-h-9 text-xs' : 'min-h-11 text-sm';
+  const height = size === 'sm' ? 'min-h-9 text-xs' : size === 'lg' ? 'min-h-14 text-sm' : 'min-h-11 text-sm';
 
   return (
     <div

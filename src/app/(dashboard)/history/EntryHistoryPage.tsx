@@ -29,11 +29,12 @@ import {
   auditRecordHref,
   auditFieldChanges,
   auditFieldKind,
+  auditMoneyUnit,
   filterAuditLogs,
   type AuditLogFilter,
 } from '@/lib/entryHistory';
 import { isKnownExpenseCategory } from '@/lib/expenseCategories';
-import { formatCurrency, formatDateOnly, formatDateTime, formatNumber, formatUnitCurrency, formatYearMonth } from '@/lib/formatters';
+import { formatCurrency, formatDateOnly, formatDateTime, formatDollars, formatNumber, formatUnitCurrency, formatYearMonth } from '@/lib/formatters';
 import { fetchEntryHistory, type EntryHistory } from '@/lib/supabase/entryHistory';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useClubQuery } from '@/lib/useClubQuery';
@@ -56,6 +57,7 @@ export default function EntryHistoryPage() {
   const sectionTabs = useSectionTabs('team');
   const t = useTranslations('history');
   const te = useTranslations('expenses.categories');
+  const tc = useTranslations('common');
   const { locale } = useAppLocale();
   const { selectedClubId, businessDayStartHour } = useClub();
   const today = useBusinessToday(businessDayStartHour);
@@ -72,12 +74,15 @@ export default function EntryHistoryPage() {
   const { logs, names, products, missing } = query.data;
   const visible = useMemo(() => filterAuditLogs(logs, filter), [logs, filter]);
 
-  function formatValue(field: string, value: unknown): string {
+  /** `row` is the row the value came from: it says which side of an exchange is in dollars. */
+  function formatValue(field: string, value: unknown, row: Record<string, unknown>): string {
     if (value === null || value === undefined || value === '') return '—';
     const text = String(value);
     switch (auditFieldKind(field)) {
-      case 'money': return Number.isFinite(Number(value)) ? formatCurrency(Number(value)) : text;
-      case 'unitMoney': return Number.isFinite(Number(value)) ? formatUnitCurrency(Number(value)) : text;
+      case 'money': return Number.isFinite(Number(value)) ? `${formatCurrency(Number(value))} ${tc('currency')}` : text;
+      case 'unitMoney':
+        if (!Number.isFinite(Number(value))) return text;
+        return auditMoneyUnit(field, row) === 'usd' ? formatDollars(Number(value)) : `${formatUnitCurrency(Number(value))} ${tc('currency')}`;
       case 'quantity': return Number.isFinite(Number(value)) ? formatNumber(Number(value)) : text;
       case 'date': return formatDateOnly(text.slice(0, 10), locale);
       case 'month': return formatYearMonth(text.slice(0, 7), locale);
@@ -125,13 +130,13 @@ export default function EntryHistoryPage() {
                 <dt className="text-gray-500">{fieldLabel(change.field)}</dt>
                 <dd className="break-words text-gray-900 sm:text-right">
                   {log.action === 'delete' ? (
-                    formatValue(change.field, change.before)
+                    formatValue(change.field, change.before, log.old_row)
                   ) : (
                     <>
-                      <span className="text-gray-500 line-through">{formatValue(change.field, change.before)}</span>
+                      <span className="text-gray-500 line-through">{formatValue(change.field, change.before, log.old_row)}</span>
                       <span aria-hidden="true" className="mx-1.5 text-gray-400">→</span>
                       <span className="sr-only">{t('changedTo')}</span>
-                      <span className="font-semibold">{formatValue(change.field, change.after)}</span>
+                      <span className="font-semibold">{formatValue(change.field, change.after, log.new_row ?? log.old_row)}</span>
                     </>
                   )}
                 </dd>

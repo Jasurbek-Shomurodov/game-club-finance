@@ -18,7 +18,7 @@ import {
   PageHeader,
   SkeletonStatus,
 } from '@/components/PresentationFoundation';
-import { ReportTotals } from '../reports/ReportTotals';
+import { ReportTotals } from '@/components/reports/ReportTotals';
 import { MonthlyReportSkeleton } from './MonthlyReportSkeleton';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { monthRange } from '@/lib/utils';
@@ -235,7 +235,7 @@ export default function MonthlyReportPage() {
             onRowClick={linkIfAllowed(dailyReportHref('')) ? (row) => router.push(dailyReportHref(row.date)) : undefined}
             data={rows}
             columns={[
-              { key: 'date', header: t('date'), className: 'sticky left-0 z-[25] bg-gray-50', cellClassName: 'z-10 bg-surface', render: (row) => <span className="font-medium text-gray-700">{formatDate(row.date, locale)}</span> },
+              { key: 'date', header: t('date'), sticky: true, render: (row) => <span className="font-medium text-gray-700">{formatDate(row.date, locale)}</span> },
               { key: 'manualIncome', header: t('manualIncome'), align: 'right', render: (row) => formatCurrency(row.manualIncome) },
               { key: 'debtIncome', header: t('debtIncome'), align: 'right', render: (row) => <span className="text-warning-600">{formatCurrency(row.debtIncome)}</span> },
               { key: 'gameClubExpenses', header: t('gameClubExpenses'), align: 'right', render: (row) => danger(row.gameClubExpenses) },

@@ -12,7 +12,7 @@ import { cashShortageTotalsForMonth, recoverableAmount, type CashShortageSummary
 import { capitalizeFirst, formatCurrency, formatDateOnly, formatDateTime, formatYearMonth } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { OWNER_WITHDRAWAL_SOURCES } from '@/types';
-import { SOURCE_ICONS, SOURCE_TONES } from './profitIcons';
+import { SOURCE_ICONS, SOURCE_TONES } from '@/components/owner-money/profitIcons';
 
 interface CashShortagesSectionProps {
   /** YYYY-MM shown on the page. */

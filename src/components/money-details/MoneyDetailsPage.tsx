@@ -46,6 +46,7 @@ import {
   SectionHeading,
   SkeletonStatus,
   StatTile,
+  TappableSurface,
 } from '@/components/PresentationFoundation';
 import { InOutChartSkeleton } from '@/components/charts/ChartSkeletons';
 import { ShareBar } from '@/components/charts/ShareBar';
@@ -59,7 +60,7 @@ import { cn } from '@/lib/utils';
 import { moneyDetailLineHref } from '@/lib/detailLinks';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useClubQuery } from '@/lib/useClubQuery';
-import { sharePercent, summarizeMoneyDetailRows } from '@/lib/calculations/moneyDetailsSummary';
+import { summarizeMoneyDetailRows } from '@/lib/calculations/moneyDetailsSummary';
 import type { MoneyDetailCollectedKey, MoneyDetailLine, MoneyDetailRow } from '@/lib/calculations/moneyDetails';
 import { DASHBOARD_PATH } from '@/lib/routes';
 
@@ -124,6 +125,14 @@ function weekdayKey(isoDate: string) {
 
 function dayAnchorId(date: string) {
   return `money-day-${date}`;
+}
+
+/** A line's share of its day's total as a two-part bar: the line, then the rest of the day in grey. */
+function shareParts(amount: number, total: number, label: string, restLabel: string, color: string) {
+  return [
+    { key: 'line', label, value: Math.max(0, Math.min(amount, total)), color },
+    { key: 'rest', label: restLabel, value: Math.max(0, total - Math.max(0, amount)), color: chartColors.grid },
+  ];
 }
 
 const lineClassName = '-mx-2 flex items-center gap-3 rounded-xl px-2 py-2';
@@ -403,14 +412,15 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
                   padding="none"
                   className={cn('scroll-mt-24 overflow-hidden', highlightedDate === row.date && 'ring-2 ring-primary-500 ring-offset-2')}
                 >
-                  {/* A disclosure header (aria-expanded), so it stays a button with the shared focus ring. */}
-                  <button
-                    type="button"
+                  <TappableSurface
+                    chevron={false}
                     onClick={() => toggleDate(row.date)}
-                    aria-expanded={open}
-                    aria-controls={panelId}
-                    className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 motion-reduce:transition-none sm:px-4"
+                    expanded={open}
+                    controls={panelId}
+                    className="rounded-2xl px-3 py-2.5 sm:px-4"
                   >
+                    {/* The surface is a block; the row layout sits inside it. */}
+                    <span className="flex items-center gap-3">
                     <span
                       aria-hidden="true"
                       className={cn(
@@ -449,7 +459,8 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
                       aria-hidden="true"
                       className={cn('shrink-0 text-gray-500 transition-transform duration-300 motion-reduce:transition-none', open && 'rotate-180 text-gray-600')}
                     />
-                  </button>
+                    </span>
+                  </TappableSurface>
 
                   {open && (
                     <div id={panelId} className="presence" data-presence="enter">
@@ -469,9 +480,14 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
                                   <IconChip icon={COLLECTED_ICONS[item.key]} tone="success" size="sm" />
                                   <span className="min-w-0 flex-1">
                                     <span className="block break-words text-sm text-gray-700">{collectedLabel(item.key)}</span>
-                                    <span className="mt-1 block h-1 max-w-56 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
-                                      <span className="block h-full rounded-full bg-success-500" style={{ width: `${sharePercent(item.amount, row.collectedTotal)}%` }} />
-                                    </span>
+                                    <ShareBar
+                                      className="mt-1 max-w-56"
+                                      size="sm"
+                                      legend={false}
+                                      label={collectedLabel(item.key)}
+                                      locale={locale}
+                                      parts={shareParts(item.amount, row.collectedTotal, collectedLabel(item.key), labels.collectedLabel, chartColors.success)}
+                                    />
                                   </span>
                                   <Money amount={item.amount} className="shrink-0 text-sm font-semibold text-gray-950" currencyClassName="text-xs text-gray-500" />
                                 </LineRow>
@@ -504,9 +520,14 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
                                         {variant === 'bar' && (
                                           <span className="text-xs font-medium text-gray-500">{deductionKindLabel(line)}</span>
                                         )}
-                                        <span className="block h-1 max-w-56 flex-1 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
-                                          <span className="block h-full rounded-full bg-danger-500" style={{ width: `${sharePercent(line.amount, row.deductionsTotal)}%` }} />
-                                        </span>
+                                        <ShareBar
+                                          className="max-w-56 flex-1"
+                                          size="sm"
+                                          legend={false}
+                                          label={deductionLabel(line)}
+                                          locale={locale}
+                                          parts={shareParts(line.amount, row.deductionsTotal, deductionLabel(line), labels.deductionsLabel, chartColors.danger)}
+                                        />
                                       </span>
                                     </span>
                                     <span className="shrink-0 text-sm font-semibold text-danger-600">

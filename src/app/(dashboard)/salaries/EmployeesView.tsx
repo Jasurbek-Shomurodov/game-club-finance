@@ -175,7 +175,7 @@ function EmployeeCard({
             className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-100"
           >
             <div
-              className={cn('grow-x h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none', paidPercent >= 100 ? 'bg-success-500' : 'bg-primary-500')}
+              className={cn('grow-x h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none', paidPercent >= 100 ? 'bg-success-500' : 'bg-primary-500')}
               style={{ width: `${Math.min(100, paidPercent)}%` }}
             />
           </div>

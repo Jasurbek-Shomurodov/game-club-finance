@@ -15,17 +15,17 @@ export function AuthLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="grid min-h-dvh bg-surface lg:grid-cols-2">
-      <aside className="relative hidden flex-col justify-between overflow-hidden bg-[#0b1018] p-10 text-white lg:flex xl:p-14">
+      <aside className="relative hidden flex-col justify-between overflow-hidden bg-panel p-10 text-on-panel lg:flex xl:p-14">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -right-32 -top-32 h-[28rem] w-[28rem] rounded-full bg-primary-600/40 blur-3xl"
+          className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-primary-600/40 blur-3xl"
         />
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -bottom-40 -left-24 h-96 w-96 rounded-full bg-primary-400/20 blur-3xl"
         />
         <div className="relative flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-600 text-white">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-600 text-on-accent">
             <Gamepad2 size={20} aria-hidden="true" />
           </span>
           <span className="text-base font-semibold">{tn('appName')} · {tn('appSubtitle')}</span>
@@ -33,9 +33,10 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         <div className="relative max-w-md">
           {/* Not a heading: the page's own h1 sits in the form column and must come first. */}
           <p className="text-3xl font-bold leading-tight tracking-tight xl:text-4xl">{t('heroTitle')}</p>
-          <p className="mt-4 text-base leading-relaxed text-white/70">{t('heroSubtitle')}</p>
+          <p className="mt-4 text-base leading-relaxed text-on-panel/70">{t('heroSubtitle')}</p>
         </div>
-        <p className="relative text-xs text-white/60">RU · UZ · EN</p>
+        {/* Keeps the hero text in the middle of the panel; the language switch itself is in the form column. */}
+        <span aria-hidden="true" />
       </aside>
 
       <main className="flex flex-col px-5 py-6 sm:px-10 lg:px-16 xl:px-24">

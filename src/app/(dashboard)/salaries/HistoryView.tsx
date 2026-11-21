@@ -3,17 +3,22 @@
 import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { Trash2, Users } from 'lucide-react';
+import { ChevronRight, Trash2, Users } from 'lucide-react';
 import {
   Badge,
   type BadgeVariant,
   Button,
+  ButtonLink,
   Card,
   DataTable,
+  DetailHero,
+  DetailList,
   EmptyState,
   IconButton,
+  Modal,
   Money,
   SectionHeading,
+  TappableSurface,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { buildSalaryCalendar, shiftYearMonth } from '@/lib/calculations/salaryCalendar';
@@ -63,6 +68,7 @@ export function HistoryView({
   const { kpiSummary, currency } = useSalaryText();
   const [calendarMonth, setCalendarMonth] = useState(() => today.slice(0, 7));
   const [selectedDate, setSelectedDate] = useState('');
+  const [openEntryId, setOpenEntryId] = useState<string | null>(null);
   const historyEntries = useMemo(() => entries.filter((e) => !historyEmployee || e.employee_id === historyEmployee.id)
     .sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at)), [entries, historyEmployee]);
   const staff = useMemo(() => (historyEmployee ? [historyEmployee] : employees), [historyEmployee, employees]);
@@ -99,6 +105,9 @@ export function HistoryView({
     </>
   ));
   const deleterName = (id?: string | null) => (id ? deleterNames[id] : undefined);
+  const entryAmount = (entry: SalaryEntry) => (entry.kind === 'absence' ? t('absenceNoPay') : `${entry.kind === 'bonus' ? '+' : '−'}${currency(Number(entry.amount))}`);
+  const deleteEntry = (entry: SalaryEntry) => onDelete({ id: entry.id, employeeId: entry.employee_id, kind: 'entry', label: `${employeePrefix(entry.employee_id)}${t(entry.kind)} · ${formatDateOnly(entry.date, locale)}${entry.kind === 'absence' ? '' : ` · ${currency(Number(entry.amount))}`}` });
+  const openEntry = historyEntries.find((entry) => entry.id === openEntryId) ?? null;
 
   return (
     <Card as="section" padding="lg">
@@ -178,47 +187,40 @@ export function HistoryView({
               </div>
             ))}
             {visibleEntries.map((entry) => (
-              <div key={entry.id} className={cn('flex items-start gap-3 rounded-xl border border-gray-200 p-3 text-sm', entry.deleted_at && 'opacity-60')}>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={ENTRY_BADGE[entry.kind]} size="sm">{t(entry.kind)}</Badge>
-                    <span className="font-semibold text-gray-900">{employeeLink(entry.employee_id)}{formatDateOnly(entry.date, locale)}</span>
-                  </div>
-                  {entry.payment_method && (
-                    <p className="mt-1 text-xs text-gray-500">
-                      {tc(`paymentMethods.${entry.payment_method}`)} · {tp(`paymentSources.${entry.payment_source}`)}
-                      {entry.kind === 'payment' && !entry.deleted_at && (
-                        <>
-                          {' · '}
-                          <Link
-                            href={reportsHref(dayRange(entry.date), { category: 'expense:salary', source: entry.payment_source === 'bar' ? 'bar' : 'game_club' })}
-                            className="font-medium text-primary-700 hover:underline"
-                          >
-                            {t('openInReports')}
-                          </Link>
-                        </>
+              // The row opens the entry's details; the trash button beside it deletes after a confirmation.
+              <div key={entry.id} className={cn('flex items-start gap-2 rounded-xl border border-gray-200 p-3 text-sm', entry.deleted_at && 'opacity-60')}>
+                <TappableSurface onClick={() => setOpenEntryId(entry.id)} chevron={false} className="min-w-0 flex-1 rounded-lg">
+                  <span className="flex items-start gap-3">
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <Badge variant={ENTRY_BADGE[entry.kind]} size="sm">{t(entry.kind)}</Badge>
+                        <span className="font-semibold text-gray-900">{employeePrefix(entry.employee_id)}{formatDateOnly(entry.date, locale)}</span>
+                      </span>
+                      {entry.payment_method && (
+                        <span className="mt-1 block text-xs text-gray-500">
+                          {tc(`paymentMethods.${entry.payment_method}`)} · {tp(`paymentSources.${entry.payment_source}`)}
+                        </span>
                       )}
-                    </p>
-                  )}
-                  {entry.comment && <p className="mt-1.5 whitespace-pre-line break-words text-gray-600">{entry.comment}</p>}
-                  {entry.delete_reason && <p className="mt-1 break-words text-xs text-gray-500">{t('deleteReason')}: {entry.delete_reason}</p>}
-                  {deleterName(entry.deleted_by) && <p className="mt-0.5 break-words text-xs text-gray-500">{t('deletedBy')}: {deleterName(entry.deleted_by)}</p>}
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
-                  <strong className={cn('whitespace-nowrap tabular-nums', entry.kind === 'bonus' ? 'text-primary-700' : entry.kind === 'fine' ? 'text-danger-600' : 'text-gray-900')}>{entry.kind === 'absence' ? t('absenceNoPay') : `${entry.kind === 'bonus' ? '+' : '−'}${currency(Number(entry.amount))}`}</strong>
-                  {entry.deleted_at ? (
-                    <Badge variant="neutral" size="sm">{t('deleted')} · {formatDateTime(entry.deleted_at, locale)}</Badge>
-                  ) : isOwner && (
-                    <IconButton
-                      variant="danger"
-                      size="sm"
-                      label={`${t('delete')}: ${employeePrefix(entry.employee_id)}${t(entry.kind)} · ${formatDateOnly(entry.date, locale)}`}
-                      icon={<Trash2 size={16} aria-hidden="true" />}
-                      disabled={saving}
-                      onClick={() => onDelete({ id: entry.id, employeeId: entry.employee_id, kind: 'entry', label: `${employeePrefix(entry.employee_id)}${t(entry.kind)} · ${formatDateOnly(entry.date, locale)}${entry.kind === 'absence' ? '' : ` · ${currency(Number(entry.amount))}`}` })}
-                    />
-                  )}
-                </div>
+                      {entry.comment && <span className="mt-1.5 block whitespace-pre-line break-words text-gray-600">{entry.comment}</span>}
+                    </span>
+                    <span className="flex shrink-0 flex-col items-end gap-1">
+                      <strong className={cn('whitespace-nowrap tabular-nums', entry.kind === 'bonus' ? 'text-primary-700' : entry.kind === 'fine' ? 'text-danger-600' : 'text-gray-900')}>{entryAmount(entry)}</strong>
+                      {entry.deleted_at && <Badge variant="neutral" size="sm">{t('deleted')} · {formatDateTime(entry.deleted_at, locale)}</Badge>}
+                    </span>
+                    <ChevronRight size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-gray-400" />
+                  </span>
+                </TappableSurface>
+                {!entry.deleted_at && isOwner ? (
+                  <IconButton
+                    variant="danger"
+                    size="sm"
+                    className="shrink-0"
+                    label={`${t('delete')}: ${employeePrefix(entry.employee_id)}${t(entry.kind)} · ${formatDateOnly(entry.date, locale)}`}
+                    icon={<Trash2 size={16} aria-hidden="true" />}
+                    disabled={saving}
+                    onClick={() => deleteEntry(entry)}
+                  />
+                ) : null}
               </div>
             ))}
             {visibleEntries.length === 0 && kpiRows.length === 0 && <EmptyState compact bordered title={t('noTransactions')} />}
@@ -251,6 +253,68 @@ export function HistoryView({
           />
         </div>
       </div>
+
+      {openEntry ? (
+        <Modal
+          open
+          onClose={() => setOpenEntryId(null)}
+          size="md"
+          title={t(openEntry.kind)}
+          footer={(
+            <div className="flex w-full items-center justify-between gap-3">
+              {!openEntry.deleted_at && isOwner ? (
+                <Button
+                  variant="danger"
+                  icon={<Trash2 size={16} aria-hidden="true" />}
+                  disabled={saving}
+                  onClick={() => {
+                    setOpenEntryId(null);
+                    deleteEntry(openEntry);
+                  }}
+                >
+                  {t('delete')}
+                </Button>
+              ) : <span />}
+              <Button variant="secondary" onClick={() => setOpenEntryId(null)}>{tc('close')}</Button>
+            </div>
+          )}
+        >
+          <DetailHero
+            badge={<Badge variant={ENTRY_BADGE[openEntry.kind]} size="sm">{t(openEntry.kind)}</Badge>}
+            title={employees.find((e) => e.id === openEntry.employee_id)?.name ?? t('employee')}
+            subtitle={formatDateOnly(openEntry.date, locale)}
+            amount={entryAmount(openEntry)}
+            tone={openEntry.kind === 'fine' ? 'danger' : openEntry.kind === 'bonus' ? 'primary' : 'neutral'}
+          />
+          <DetailList
+            stack
+            className="mt-5"
+            items={[
+              { label: t('entryType'), value: t(openEntry.kind) },
+              { label: t('date'), value: formatDateOnly(openEntry.date, locale) },
+              openEntry.payment_method ? { label: tp('paymentMethod'), value: tc(`paymentMethods.${openEntry.payment_method}`) } : null,
+              openEntry.payment_source ? { label: tp('paymentSource'), value: tp(`paymentSources.${openEntry.payment_source}`) } : null,
+              openEntry.comment ? { label: t('comment'), value: <span className="whitespace-pre-line">{openEntry.comment}</span> } : null,
+              { label: t('recordedAt'), value: formatDateTime(openEntry.created_at, locale) },
+              openEntry.deleted_at ? { label: t('deleted'), value: formatDateTime(openEntry.deleted_at, locale) } : null,
+              openEntry.delete_reason ? { label: t('deleteReason'), value: openEntry.delete_reason } : null,
+              deleterName(openEntry.deleted_by) ? { label: t('deletedBy'), value: deleterName(openEntry.deleted_by) } : null,
+            ]}
+          />
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <ButtonLink href={employeeSalaryHref(openEntry.employee_id)} variant="secondary" className="flex-1">{t('openEmployee')}</ButtonLink>
+            {openEntry.kind === 'payment' && !openEntry.deleted_at && openEntry.payment_method ? (
+              <ButtonLink
+                href={reportsHref(dayRange(openEntry.date), { category: 'expense:salary', source: openEntry.payment_source === 'bar' ? 'bar' : 'game_club' })}
+                variant="secondary"
+                className="flex-1"
+              >
+                {t('openInReports')}
+              </ButtonLink>
+            ) : null}
+          </div>
+        </Modal>
+      ) : null}
     </Card>
   );
 }

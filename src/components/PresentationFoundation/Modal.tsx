@@ -29,6 +29,8 @@ export interface ModalProps {
   children: ReactNode;
   className?: string;
   bodyClassName?: string;
+  /** `none` leaves the body edge to edge, for a list or table that brings its own padding. */
+  padding?: 'md' | 'none';
   /** Accessible name when there is no visible `title` (e.g. confirm dialogs render their own heading). */
   ariaLabelledBy?: string;
 }
@@ -121,6 +123,7 @@ export function Modal({
   children,
   className,
   bodyClassName,
+  padding = 'md',
   ariaLabelledBy,
 }: ModalProps) {
   const tc = useTranslations('common');
@@ -221,7 +224,7 @@ export function Modal({
             </button>
           </div>
         )}
-        <div className={cn('min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6', !content.footer && 'pb-[max(1.25rem,env(safe-area-inset-bottom))]', bodyClassName)}>{content.children}</div>
+        <div className={cn('min-h-0 flex-1 overflow-y-auto', padding === 'md' && 'px-5 py-5 sm:px-6', padding === 'md' && !content.footer && 'pb-[max(1.25rem,env(safe-area-inset-bottom))]', bodyClassName)}>{content.children}</div>
         {content.footer && (
           <div className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-gray-50/80 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:px-6">
             {content.footer}

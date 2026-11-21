@@ -15,6 +15,9 @@ import {
   CardHeader,
   CurrencyInput,
   DatePicker,
+  DetailHero,
+  DetailList,
+  type DetailListItem,
   EmptyState,
   Field,
   IconButton,
@@ -29,6 +32,7 @@ import {
   SectionHeading,
   SegmentedControl,
   SkeletonStatus,
+  TappableSurface,
   type SegmentedOption,
   Skeleton,
   PresenceItem,
@@ -616,7 +620,8 @@ export default function DebtsPage() {
                   const person = personTotals.get(debtPersonKey(debt.person_name));
                   return (
                     <PresenceItem key={key} presence={presence} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:px-5">
-                      <button type="button" onClick={() => openDetail(debt.id)} className="tappable group flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+                      <TappableSurface chevron={false} onClick={() => openDetail(debt.id)} className="min-w-0 flex-1 rounded-lg">
+                        <span className="flex items-center gap-3">
                         <Avatar name={debt.person_name} />
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
@@ -636,7 +641,8 @@ export default function DebtsPage() {
                           )}
                         </div>
                         <ChevronRight size={15} aria-hidden="true" className="shrink-0 text-gray-300 group-hover:text-gray-500" />
-                      </button>
+                      </span>
+                      </TappableSurface>
                       <div className="flex items-center justify-between gap-3 sm:justify-end">
                         <div className="text-right">
                           <p className={cn('font-semibold tabular-nums', remaining > 0 ? 'text-danger-600' : 'text-gray-900')}>
@@ -689,7 +695,8 @@ export default function DebtsPage() {
                   {paidShown.map(({ key, item: debt, presence }) => (
                     <PresenceItem key={key} presence={presence} className="px-4 py-3 sm:px-5">
                       {/* The section is titled "Paid", so the row needs no badge: the name keeps the width on phones. */}
-                      <button type="button" onClick={() => openDetail(debt.id)} className="tappable group flex w-full items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+                      <TappableSurface chevron={false} onClick={() => openDetail(debt.id)} className="rounded-lg">
+                        <span className="flex items-center gap-3">
                         <Avatar name={debt.person_name} size="sm" tone="neutral" />
                         <span className="flex min-w-0 flex-1 flex-col gap-x-3 gap-y-0.5 sm:flex-row sm:items-center sm:justify-between">
                           <span className="min-w-0">
@@ -702,7 +709,8 @@ export default function DebtsPage() {
                           <span className="shrink-0 font-semibold tabular-nums text-gray-500"><Money amount={debt.amount} /></span>
                         </span>
                         <ChevronRight size={15} aria-hidden="true" className="shrink-0 text-gray-300 group-hover:text-gray-500" />
-                      </button>
+                      </span>
+                      </TappableSurface>
                     </PresenceItem>
                   ))}
                 </ul>
@@ -752,7 +760,7 @@ export default function DebtsPage() {
         {detailDebt && (() => {
           const status = getDebtStatus(detailDebt.amount, detailDebt.paid_amount);
           const person = personTotals.get(debtPersonKey(detailDebt.person_name));
-          const facts: Array<{ label: string; value: React.ReactNode }> = [
+          const facts: DetailListItem[] = [
             { label: t('date'), value: formatDate(detailDebt.date, locale) },
             { label: t('amount'), value: <Money amount={detailDebt.amount} /> },
             { label: t('paidAmount'), value: <Money amount={detailDebt.paid_amount} /> },
@@ -763,23 +771,15 @@ export default function DebtsPage() {
           ];
           return (
             <div className="space-y-5">
+              <DetailHero
+                badge={<Badge variant={statusVariant(status)} size="sm">{t(status)}</Badge>}
+                title={t('remaining')}
+                amount={<Money amount={remainingFor(detailDebt)} currencyClassName="text-sm font-medium text-gray-500" />}
+                tone={remainingFor(detailDebt) > 0 ? 'danger' : 'neutral'}
+              />
+              <DetailList items={facts} />
               <div>
-                <Badge variant={statusVariant(status)} size="sm">{t(status)}</Badge>
-                <p className={cn('mt-2 text-2xl font-bold tabular-nums', remainingFor(detailDebt) > 0 ? 'text-danger-600' : 'text-gray-900')}>
-                  <Money amount={remainingFor(detailDebt)} currencyClassName="text-sm font-medium text-gray-500" />
-                </p>
-                <p className="text-xs text-gray-500">{t('remaining')}</p>
-              </div>
-              <dl className="divide-y divide-gray-100 rounded-xl border border-gray-100 text-sm">
-                {facts.map((fact) => (
-                  <div key={fact.label} className="flex items-start justify-between gap-4 px-4 py-2.5">
-                    <dt className="shrink-0 text-gray-500">{fact.label}</dt>
-                    <dd className="min-w-0 break-words text-right font-medium text-gray-900">{fact.value}</dd>
-                  </div>
-                ))}
-              </dl>
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase text-gray-500">{t('debtPayments')}</p>
+                <p className="mb-2 text-xs font-semibold text-gray-500">{t('debtPayments')}</p>
                 {paymentsLoading ? (
                   <div role="status" aria-label={t('paymentsLoading')} className="space-y-2">
                     <Skeleton className="h-9 w-full rounded-lg bg-gray-100" />
@@ -796,7 +796,7 @@ export default function DebtsPage() {
                       <li key={p.id}>
                         <Link
                           href={reportsHref(dayRange(p.date), { category: 'debt_payment' })}
-                          className="flex items-center justify-between gap-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 focus-visible:bg-primary-50 focus-visible:outline-none"
+                          className="tappable group flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500"
                         >
                           <span className="min-w-0">
                             {formatDate(p.date, locale)} · {tc.has(`paymentMethods.${p.payment_method}`) ? tc(`paymentMethods.${p.payment_method as EntryPaymentMethod}`) : p.payment_method}
@@ -824,7 +824,7 @@ export default function DebtsPage() {
         locked={saving}
         footer={(
           <>
-            <Button variant="outline" onClick={() => setAddOpen(false)} disabled={saving}>{tc('cancel')}</Button>
+            <Button variant="secondary" onClick={() => setAddOpen(false)} disabled={saving}>{tc('cancel')}</Button>
             <Button type="submit" form="add-debt-form" loading={saving} loadingLabel={tc('saving')}>{tc('save')}</Button>
           </>
         )}
@@ -878,7 +878,7 @@ export default function DebtsPage() {
         locked={saving}
         footer={(
           <>
-            <Button variant="outline" onClick={closePayModal} disabled={saving}>{tc('cancel')}</Button>
+            <Button variant="secondary" onClick={closePayModal} disabled={saving}>{tc('cancel')}</Button>
             <Button type="submit" form="add-payment-form" loading={saving} loadingLabel={tc('saving')}>{tc('save')}</Button>
           </>
         )}
@@ -908,7 +908,7 @@ export default function DebtsPage() {
               </LoadErrorAlert>
             ) : activePayments.length > 0 && (
               <div>
-                <p className="mb-2 text-xs font-semibold uppercase text-gray-500">{t('debtPayments')}</p>
+                <p className="mb-2 text-xs font-semibold text-gray-500">{t('debtPayments')}</p>
                 <ul className="divide-y divide-gray-100 rounded-lg border border-gray-100">
                   {activePayments.map((p) => (
                     <li key={p.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm text-gray-600">

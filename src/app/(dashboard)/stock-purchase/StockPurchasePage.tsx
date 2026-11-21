@@ -21,6 +21,8 @@ import {
   CurrencyInput,
   DataTable,
   DatePicker,
+  DetailHero,
+  DetailList,
   Disclosure,
   EmptyState,
   Field,
@@ -29,6 +31,7 @@ import {
   Input,
   LoadErrorAlert,
   Modal,
+  Money,
   PageHeader,
   SearchInput,
   SectionHeading,
@@ -958,8 +961,8 @@ export default function StockPurchasePage() {
             onRowClick={setSelectedPurchase}
             data={purchases}
             minWidth={980}
-            className={purchasesLoading ? 'opacity-60 transition-opacity motion-reduce:transition-none' : 'transition-opacity motion-reduce:transition-none'}
-            emptyState={<EmptyState compact icon={ShoppingCart} title={tc('noData')} />}
+            busy={purchasesLoading}
+            emptyState={<EmptyState compact icon={ShoppingCart} title={t('historyEmptyTitle')} description={t('historyEmptyBody')} />}
             columns={[
               { key: 'index', header: '#', className: 'w-12', mobile: 'hidden', render: (_row, index) => <span className="text-gray-500 tabular-nums">{(purchasePage - 1) * PURCHASES_PAGE_SIZE + index + 1}</span> },
               { key: 'date', header: t('date'), mobile: 'title', render: (row) => <span className="font-medium text-gray-900">{formatDateOnly(row.date, locale)}</span> },
@@ -1082,21 +1085,12 @@ export default function StockPurchasePage() {
           ];
           return (
             <div className="space-y-5">
-              <div>
-                <p className="text-lg font-semibold text-gray-900">{selectedPurchase.products?.name ?? '—'}</p>
-                <p className="mt-1 text-2xl font-bold tabular-nums text-gray-900">
-                  {formatCurrency(total)} <span className="text-sm font-medium text-gray-500">{currency}</span>
-                </p>
-                <p className="text-xs text-gray-500">{t('totalCostHeader')}</p>
-              </div>
-              <dl className="divide-y divide-gray-100 rounded-xl border border-gray-100 text-sm">
-                {facts.map((fact) => (
-                  <div key={fact.label} className="flex items-start justify-between gap-4 px-4 py-2.5">
-                    <dt className="shrink-0 text-gray-500">{fact.label}</dt>
-                    <dd className="min-w-0 break-words text-right font-medium text-gray-900">{fact.value}</dd>
-                  </div>
-                ))}
-              </dl>
+              <DetailHero
+                title={selectedPurchase.products?.name ?? '—'}
+                amount={<Money amount={total} currencyClassName="text-sm font-medium tracking-normal text-gray-500" />}
+                amountLabel={t('totalCostHeader')}
+              />
+              <DetailList items={facts} />
               <ButtonLink href={closingStockHref(selectedPurchase.date)} variant="secondary" className="w-full" iconRight={<ChevronRight size={15} aria-hidden="true" />}>
                 {t('purchaseOpenDay')}
               </ButtonLink>

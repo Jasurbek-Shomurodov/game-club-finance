@@ -20,6 +20,12 @@ export interface DataTableColumn<T> {
    * `hidden` is left out.
    */
   mobile?: 'title' | 'full' | 'action' | 'hidden';
+  /**
+   * First column only: keeps it at the left edge while a wide table scrolls
+   * sideways, behind a hairline. The cell is painted with the surface colour,
+   * so a row tinted through `rowClassName` does not tint it.
+   */
+  sticky?: boolean;
 }
 
 export interface DataTableGroup<T> {
@@ -58,6 +64,8 @@ export interface DataTableProps<T> {
    * one table, so nothing changes from `sm` up.
    */
   mobileCards?: boolean;
+  /** A refetch is replacing the rows: dims the table and reports `aria-busy`. */
+  busy?: boolean;
 }
 
 type MobileMode = NonNullable<DataTableColumn<unknown>['mobile']> | 'value';
@@ -87,9 +95,23 @@ function withLiveIndex<E extends { presence?: Presence }>(entries: E[]) {
   return entries.map((entry) => ({ entry, index: entry.presence === 'exit' ? live : live++ }));
 }
 
+/**
+ * Stacking order of a table with a sticky first column, bottom to top: body,
+ * the sticky column, section titles, the header row, the header's corner cell.
+ * The scroll box is isolated so these never compete with the page. A table
+ * without a sticky column keeps the two layers it always had.
+ */
+const LAYER = { column: 'z-10', group: 'z-20', header: 'z-30', corner: 'z-40' };
+/** The sticky first column and its hairline; from `sm` up only when phones show cards. */
+const STICKY_COLUMN = {
+  always: 'sticky left-0 shadow-[inset_-1px_0_0_rgb(var(--c-gray-200))]',
+  wide: 'sm:sticky sm:left-0 sm:shadow-[inset_-1px_0_0_rgb(var(--c-gray-200))]',
+};
+const STICKY_COLUMN_LAYER = { always: 'z-10', wide: 'sm:z-10' };
+
 const alignClass = { left: 'text-left', right: 'text-right tabular-nums', center: 'text-center' };
 
-/** Standard data table: uppercase header, zebra hover, optional totals row. */
+/** Standard data table: sentence-case header, zebra hover, optional totals row. */
 export function DataTable<T>({
   columns,
   data,
@@ -106,7 +128,10 @@ export function DataTable<T>({
   label,
   groups,
   mobileCards = false,
+  busy,
 }: DataTableProps<T>) {
+  const stickyColumn = columns[0]?.sticky ? STICKY_COLUMN[mobileCards ? 'wide' : 'always'] : null;
+  const stickyColumnLayer = STICKY_COLUMN_LAYER[mobileCards ? 'wide' : 'always'];
   const cellPadding = dense ? 'px-3 py-2.5' : 'px-4 py-3';
   const hasAction = columns.some((column, index) => mobileMode(column, index) === 'action');
   const [theadRef, theadHeight] = useElementHeight<HTMLTableSectionElement>();
@@ -136,7 +161,7 @@ export function DataTable<T>({
         }
       } : undefined}
       tabIndex={onRowClick ? 0 : undefined}
-      className={cn('transition-colors hover:bg-gray-50/80', mobileCards && MOBILE_ROW, onRowClick && 'cursor-pointer focus-visible:bg-primary-50 focus-visible:outline-none', rowClassName?.(row, index))}
+      className={cn('transition-colors hover:bg-gray-50/80', stickyColumn && 'group/row', mobileCards && MOBILE_ROW, onRowClick && 'cursor-pointer focus-visible:bg-primary-50 focus-visible:outline-none', rowClassName?.(row, index))}
     >
       {columns.map((column, columnIndex) => {
         const content = column.render ? column.render(row, index) : String((row as Record<string, unknown>)[column.key] ?? '');
@@ -147,7 +172,7 @@ export function DataTable<T>({
         return (
         <td
           key={column.key}
-          className={cn(cellPadding, 'text-gray-800', alignClass[column.align ?? 'left'], column.className, column.cellClassName, mobileCards && (blank ? 'max-sm:hidden' : mobileCellClassName(mode, hasAction)))}
+          className={cn(cellPadding, 'text-gray-800', alignClass[column.align ?? 'left'], columnIndex === 0 && stickyColumn && cn(stickyColumn, stickyColumnLayer, 'bg-surface group-hover/row:bg-gray-50', onRowClick && 'group-focus-visible/row:bg-primary-50'), column.className, column.cellClassName, mobileCards && (blank ? 'max-sm:hidden' : mobileCellClassName(mode, hasAction)))}
         >
           <PresenceCell>
             {labelled && <span className={MOBILE_LABEL}>{column.header}</span>}
@@ -168,7 +193,11 @@ export function DataTable<T>({
       role={label ? 'region' : undefined}
       aria-label={label}
       tabIndex={label ? 0 : undefined}
+      aria-busy={busy || undefined}
       className={cn(
+        'transition-opacity motion-reduce:transition-none',
+        busy && 'opacity-60',
+        stickyColumn && 'isolate',
         'max-w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
         !bare && 'rounded-2xl border border-gray-200 bg-surface shadow-card',
         stickyHeader ? 'max-h-[calc(100dvh-12rem)] overflow-auto' : 'overflow-x-auto',
@@ -182,7 +211,7 @@ export function DataTable<T>({
         <table className={cn('w-full text-sm', mobileCards && 'max-sm:block max-sm:!min-w-0')} style={{ minWidth: typeof minWidth === 'number' ? `${minWidth}px` : minWidth }}>
           <thead ref={theadRef} className={cn(mobileCards && 'max-sm:sr-only')}>
             <tr className="border-b border-gray-200 bg-surface">
-              {columns.map((column) => (
+              {columns.map((column, columnIndex) => (
                 <th
                   key={column.key}
                   scope="col"
@@ -190,7 +219,8 @@ export function DataTable<T>({
                     cellPadding,
                     'text-xs font-medium text-gray-500',
                     alignClass[column.align ?? 'left'],
-                    stickyHeader && 'sticky top-0 z-20 border-b border-gray-200 bg-surface',
+                    stickyHeader && cn('sticky top-0 border-b border-gray-200 bg-surface', stickyColumn ? LAYER.header : 'z-20'),
+                    columnIndex === 0 && stickyColumn && cn(stickyColumn, 'bg-surface', stickyHeader ? LAYER.corner : stickyColumnLayer),
                     column.className,
                   )}
                 >
@@ -210,7 +240,7 @@ export function DataTable<T>({
                     className={cn(
                       dense ? 'px-3 py-2' : 'px-4 py-2.5',
                       'bg-gray-50 text-left shadow-[inset_0_1px_0_rgb(var(--c-gray-200)),inset_0_-1px_0_rgb(var(--c-gray-200))] text-sm font-semibold text-gray-900',
-                      stickyHeader && 'sticky z-10',
+                      stickyHeader && cn('sticky', stickyColumn ? LAYER.group : 'z-10'),
                       mobileCards && 'max-sm:static max-sm:block',
                     )}
                   >
@@ -236,7 +266,9 @@ export function DataTable<T>({
                   <td
                     key={column.key}
                     className={cn(
-                      cellPadding, alignClass[column.align ?? 'left'], column.className,
+                      cellPadding, alignClass[column.align ?? 'left'],
+                      columnIndex === 0 && stickyColumn && cn(stickyColumn, stickyColumnLayer, 'bg-gray-50'),
+                      column.className,
                       // A totals row has gaps under the columns it does not sum; on phones only the filled ones are shown.
                       mobileCards && (content == null ? 'max-sm:hidden' : mobileCellClassName(mode, false)),
                     )}

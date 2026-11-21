@@ -30,14 +30,17 @@ describe('commandPages', () => {
   it('lists every screen for an owner, section tabs included', () => {
     expect(hrefs(commandPages('owner', null))).toEqual([
       '/dashboard', '/financial-analysis', '/assistant', '/daily-cash', '/closing-stock', '/write-offs', '/stock-purchase',
-      '/products', '/promotions', '/reports', '/daily-report', '/monthly-report', '/money-taken', '/reserve', '/debts', '/salaries',
-      '/showcase', '/team', '/history', '/test-checklist', '/settings',
+      '/products', '/promotions', '/reports', '/reports?view=collected', '/daily-report', '/monthly-report', '/money-taken', '/reserve', '/debts',
+      '/salaries', '/salaries/operations', '/salaries/history',
+      '/showcase', '/showcase/games', '/showcase/google', '/showcase/brand', '/team', '/history', '/test-checklist', '/settings',
     ]);
   });
 
   it('follows feature access and keeps owner-only screens from others', () => {
     const pages = hrefs(commandPages('admin', ['daily_cash', 'expenses']));
-    expect(pages).toEqual(['/daily-cash', '/reports', '/salaries']);
+    // Expenses alone opens Reports but not its Collected view; the salary views are everyone's.
+    expect(pages).toEqual(['/daily-cash', '/reports', '/salaries', '/salaries/operations', '/salaries/history']);
+    expect(hrefs(commandPages('admin', ['showcase']))).toEqual(['/salaries', '/salaries/operations', '/salaries/history', '/showcase', '/showcase/games', '/showcase/google']);
     expect(hrefs(commandPages('admin', ['team', 'owner_profit']))).not.toContain('/team');
     expect(hrefs(commandPages('admin', ['team', 'owner_profit']))).not.toContain('/reserve');
   });

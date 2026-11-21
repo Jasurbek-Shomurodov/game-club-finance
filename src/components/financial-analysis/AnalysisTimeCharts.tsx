@@ -31,19 +31,6 @@ import {
 } from '@/lib/calculations/financialAnalysis';
 import { SPENDING_GROUP_COLORS } from './analysisFormat';
 
-export function LegendItem({ color, label, line = false, dashed = false }: { color: string; label: string; line?: boolean; dashed?: boolean }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      {dashed
-        ? <span className="w-4 border-t-2 border-dashed" style={{ borderColor: color }} aria-hidden="true" />
-        : line
-        ? <span className="h-0.5 w-4 rounded-full" style={{ backgroundColor: color }} aria-hidden="true" />
-        : <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: color }} aria-hidden="true" />}
-      {label}
-    </span>
-  );
-}
-
 export const axisProps = {
   tick: { fontSize: 11, fill: chartColors.axis },
   tickLine: false,

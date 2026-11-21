@@ -9,13 +9,13 @@ import {
   DatePicker,
   Field,
   InlineAlert,
-  Input,
+  DecimalInput,
   Modal,
   SectionHeading,
   Select,
 } from '@/components/PresentationFoundation';
 import { KPI_BASES, rateInForce, type KpiBasis, type SalaryEmployee, type SalaryRate } from '@/lib/calculations/salaries';
-import { formatCurrencyInput, parseCurrencyInput } from '@/lib/formatters';
+import { formatCurrencyInput, formatDecimalInput, parseCurrencyInput, parseDecimalInput } from '@/lib/formatters';
 import { employeeRoles, KPI_BASIS_LABELS, kpiBasisChange, knownEmployeeRole } from './shared';
 
 export interface EmployeeEditState {
@@ -50,7 +50,7 @@ export function employeeEditState(
     role: knownEmployeeRole(employee.job_title) ?? employee.job_title,
     salary_type: rate?.salary_type ?? 'daily',
     amount: formatCurrencyInput(Number(rate?.amount ?? 0)),
-    kpi: String(Number(rate?.kpi_percent ?? 0)),
+    kpi: formatDecimalInput(Number(rate?.kpi_percent ?? 0)),
     kpi_basis: (rate?.kpi_basis ?? 'overall_profit') as KpiBasis,
     kpi_game_club: rate?.kpi_game_club ?? true,
     kpi_bar: rate?.kpi_bar ?? true,
@@ -80,7 +80,7 @@ export function employeeEditChanges(edit: EmployeeEditState) {
   return {
     role: edit.role.trim() !== (knownEmployeeRole(employee.job_title) ?? employee.job_title),
     salary: edit.salary_type !== (rate?.salary_type ?? 'daily') || parseCurrencyInput(edit.amount) !== Number(rate?.amount ?? 0),
-    kpi: Number(edit.kpi) !== Number(rate?.kpi_percent ?? 0)
+    kpi: parseDecimalInput(edit.kpi) !== Number(rate?.kpi_percent ?? 0)
       || edit.kpi_basis !== (rate?.kpi_basis ?? 'overall_profit')
       || edit.kpi_game_club !== (rate?.kpi_game_club ?? true)
       || edit.kpi_bar !== (rate?.kpi_bar ?? true),
@@ -95,7 +95,7 @@ export function withLandedEmployeeChange(edit: EmployeeEditState, part: keyof Re
   if (part === 'salary') {
     return { ...edit, rate: { ...rate, salary_type: edit.salary_type as SalaryRate['salary_type'], amount: parseCurrencyInput(edit.amount) } };
   }
-  return { ...edit, rate: { ...rate, kpi_percent: Number(edit.kpi), kpi_basis: edit.kpi_basis, kpi_game_club: edit.kpi_game_club, kpi_bar: edit.kpi_bar } };
+  return { ...edit, rate: { ...rate, kpi_percent: parseDecimalInput(edit.kpi), kpi_basis: edit.kpi_basis, kpi_game_club: edit.kpi_game_club, kpi_bar: edit.kpi_bar } };
 }
 
 /** Owner dialog behind the card's pencil: role, salary and KPI in one place. */
@@ -123,7 +123,7 @@ export function EmployeeEditDialog({ edit, saving, error, onChange, onClose, onS
       size="md"
       footer={(
         <>
-          <Button type="button" variant="outline" disabled={saving} onClick={onClose}>{tc('cancel')}</Button>
+          <Button type="button" variant="secondary" disabled={saving} onClick={onClose}>{tc('cancel')}</Button>
           <Button type="submit" form="salary-employee-edit-form" loading={saving} loadingLabel={tc('saving')} disabled={!hasChanges}>{tc('save')}</Button>
         </>
       )}
@@ -160,7 +160,7 @@ export function EmployeeEditDialog({ edit, saving, error, onChange, onClose, onS
               <SectionHeading as="h3" size="sm" title={t('kpi')} />
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label={t('kpiPercent')} htmlFor="salary-edit-kpi">
-                  <Input id="salary-edit-kpi" type="number" required min="0" max="100" step="0.01" inputMode="decimal" value={edit.kpi} onChange={(event) => set({ kpi: event.target.value })} onWheel={(event) => event.currentTarget.blur()} trailingAddon="%" />
+                  <DecimalInput id="salary-edit-kpi" required value={edit.kpi} onValueChange={(kpi) => set({ kpi })} trailingAddon="%" />
                 </Field>
                 <Field label={t('kpiBasis')} htmlFor="salary-edit-kpi-basis" hint={t(KPI_BASIS_LABELS[edit.kpi_basis].help)}>
                   <Select id="salary-edit-kpi-basis" value={edit.kpi_basis} onChange={(event) => set(kpiBasisChange(event.target.value as KpiBasis))}>

@@ -24,7 +24,7 @@ import {
 import { ChartCard, ChartEmpty, chartColors } from '@/components/dashboard/ChartCard';
 import { DailyInOutChart } from '@/components/charts/DailyInOutChart';
 import { InOutChartSkeleton } from '@/components/charts/ChartSkeletons';
-import { WriteOffDetailsModal } from '@/components/WriteOffDetailsModal';
+import { WriteOffDetailsModal } from '@/components/stock-adjustments/WriteOffDetailsModal';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { createClient } from '@/lib/supabase/client';
 import { fetchAllRows } from '@/lib/supabase/pagination';

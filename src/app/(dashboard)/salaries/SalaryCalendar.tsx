@@ -54,7 +54,7 @@ export function SalaryCalendar({ month, days, selectedDate, maxMonth, onMonthCha
       <div>
         <div className="grid grid-cols-7 gap-1 md:gap-1.5" role="group" aria-label={`${t('calendarTitle')}: ${monthLabel}`}>
           {WEEKDAYS.map((key) => (
-            <div key={key} aria-hidden="true" className="truncate pb-1 text-center text-xs font-bold uppercase text-gray-500">{tc(`weekdays.${key}`)}</div>
+            <div key={key} aria-hidden="true" className="truncate pb-1 text-center text-xs font-semibold text-gray-500">{tc(`weekdays.${key}`)}</div>
           ))}
           {days.map((day) => {
             const selected = day.date === selectedDate;

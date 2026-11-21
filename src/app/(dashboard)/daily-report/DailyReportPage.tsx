@@ -21,8 +21,9 @@ import {
   SectionHeading,
   SkeletonStatus,
   StatTile,
+  TappableSurface,
 } from '@/components/PresentationFoundation';
-import { ReportTotals } from '../reports/ReportTotals';
+import { ReportTotals } from '@/components/reports/ReportTotals';
 import { DailyReportSkeleton } from './DailyReportSkeleton';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
@@ -178,7 +179,7 @@ export default function DailyReportPage() {
                 onRowClick={stockHref ? () => router.push(stockHref) : undefined}
                 data={stockCounts}
                 columns={[
-                  { key: 'product', header: t('product'), className: 'sticky left-0 z-10 bg-gray-50', cellClassName: 'bg-surface', render: (row) => <span className="font-medium text-gray-900">{row.product_name ?? row.product_id}</span> },
+                  { key: 'product', header: t('product'), sticky: true, render: (row) => <span className="font-medium text-gray-900">{row.product_name ?? row.product_id}</span> },
                   { key: 'sold', header: t('sold'), align: 'right', render: (row) => formatNumber(row.sold_quantity) },
                   { key: 'income', header: t('barSales'), align: 'right', render: (row) => <span className="text-success-600">{formatCurrency(row.bar_income)}</span> },
                   { key: 'cost', header: t('costOfGoodsSold'), align: 'right', render: (row) => <span className="text-danger-600">{formatCurrency(row.bar_cost)}</span> },
@@ -201,11 +202,8 @@ export default function DailyReportPage() {
               <ul className="mt-3 divide-y divide-gray-100">
                 {expenses.map((e) => (
                   <li key={e.id} className="-mx-2">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedExpense(e)}
-                      className="tappable group flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                    >
+                    <TappableSurface chevron={false} onClick={() => setSelectedExpense(e)} className="rounded-lg px-2 py-2 text-sm">
+                      <span className="flex items-center gap-3">
                       <CategoryIcon category={e.category} tone={e.payment_source === 'bar' ? 'bar' : 'expense'} size="sm" />
                       <span className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:justify-between">
                         <span className="text-gray-600">
@@ -215,7 +213,8 @@ export default function DailyReportPage() {
                         <span className="font-medium text-danger-600"><Money amount={e.amount} /></span>
                       </span>
                       <ChevronRight size={15} aria-hidden="true" className="shrink-0 text-gray-300" />
-                    </button>
+                      </span>
+                    </TappableSurface>
                   </li>
                 ))}
                 <li className="flex flex-col gap-1 pt-3 text-sm font-semibold sm:flex-row sm:justify-between">

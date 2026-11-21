@@ -37,7 +37,7 @@
   --c-success-50: 232 247 240;
   --c-success-100: 205 238 224;
   --c-success-500: 18 163 111;
-  --c-success-600: 14 138 93;
+  --c-success-600: 12 128 86;
   --c-success-700: 11 112 73;
   --c-danger-50: 253 238 237;
   --c-danger-100: 251 217 214;
@@ -48,13 +48,13 @@
   --c-warning-50: 253 245 230;
   --c-warning-100: 250 232 196;
   --c-warning-500: 227 154 30;
-  --c-warning-600: 192 127 18;
-  --c-warning-700: 154 100 16;
+  --c-warning-600: 161 104 10;
+  --c-warning-700: 133 86 12;
   --c-orange-50: 255 244 236;
   --c-orange-100: 255 228 208;
   --c-orange-500: 240 122 43;
-  --c-orange-600: 217 100 26;
-  --c-orange-700: 178 79 19;
+  --c-orange-600: 190 84 16;
+  --c-orange-700: 156 68 14;
   --c-purple-50: 243 241 255;
   --c-purple-100: 230 225 255;
   --c-purple-500: 124 92 242;
@@ -66,6 +66,11 @@
   --c-viz-3: 61 143 217;
   --c-viz-4: 176 133 14;
   --c-viz-5: 201 58 120;
+  --c-viz-6: 14 140 160;
+  --c-viz-7: 104 122 52;
+  /* The always-dark brand panel beside the sign-in forms: the same in both themes. */
+  --c-panel: 11 16 24;
+  --c-on-panel: 255 255 255;
   /* Highlight that sweeps across loading placeholders. */
   --c-shimmer: 255 255 255;
 }
@@ -134,6 +139,8 @@
     --c-viz-3: 79 143 224;
     --c-viz-4: 179 138 18;
     --c-viz-5: 217 87 143;
+    --c-viz-6: 48 170 190;
+    --c-viz-7: 148 166 84;
     --c-shimmer: 84 100 89;
   }
 }
@@ -194,6 +201,8 @@
   --c-viz-3: 79 143 224;
   --c-viz-4: 179 138 18;
   --c-viz-5: 217 87 143;
+    --c-viz-6: 48 170 190;
+    --c-viz-7: 148 166 84;
   --c-shimmer: 84 100 89;
 }
 
@@ -214,6 +223,13 @@
   h2,
   h3 {
     text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  /* Where hyphenation is on (card labels), only long words break, with at least four letters on each side. */
+  * {
+    hyphenate-limit-chars: 10 4 4;
   }
   ::selection {
     @apply bg-primary-100 text-primary-900;
@@ -326,7 +342,7 @@ roll-text { font-variant-numeric: tabular-nums; }
 roll-chars { display: inline-flex; align-items: flex-start; white-space: pre; }
 roll-chars > * { display: inline-block; height: 1lh; }
 roll-digit { overflow: hidden; }
-roll-strip { display: flex; flex-direction: column; transition: transform 0.9s cubic-bezier(0.16, 1, 0.3, 1) var(--roll-delay, 0ms); }
+roll-strip { display: flex; flex-direction: column; transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1) var(--roll-delay, 0ms); }
 roll-strip > roll-char { display: block; height: 1lh; }
 @media (prefers-reduced-motion: reduce) { roll-strip { transition: none; } }
 /* Browsers without the lh unit (Safari < 16.4): fix the line box so 1.2em is exactly one line. */
@@ -363,14 +379,14 @@ roll-strip > roll-char { display: block; height: 1lh; }
 @keyframes pop-in { from { opacity: 0; transform: scale(0.96); } }
 @keyframes grow-x { from { transform: scaleX(0); } }
 
-.rise-in { animation: rise-in 460ms var(--ease-out) backwards; }
+.rise-in { animation: rise-in 280ms var(--ease-out) backwards; }
 .fade-in { animation: fade-in 300ms ease-out backwards; }
-.pop-in { animation: pop-in 320ms var(--ease-out) backwards; }
+.pop-in { animation: pop-in 240ms var(--ease-out) backwards; }
 /* A meter or share bar filling from its start edge. */
-.grow-x { transform-origin: left center; animation: grow-x 700ms var(--ease-out) backwards; }
+.grow-x { transform-origin: left center; animation: grow-x 450ms var(--ease-out) backwards; }
 
 .page-enter > * > *,
-.stagger > * { animation: rise-in 460ms var(--ease-out) backwards; animation-delay: calc(var(--stagger-step, 45ms) * var(--i, 0)); }
+.stagger > * { animation: rise-in 280ms var(--ease-out) backwards; animation-delay: calc(var(--stagger-step, 30ms) * var(--i, 0)); }
 .page-enter > * > *:nth-child(2), .stagger > *:nth-child(2) { --i: 1; }
 .page-enter > * > *:nth-child(3), .stagger > *:nth-child(3) { --i: 2; }
 .page-enter > * > *:nth-child(4), .stagger > *:nth-child(4) { --i: 3; }

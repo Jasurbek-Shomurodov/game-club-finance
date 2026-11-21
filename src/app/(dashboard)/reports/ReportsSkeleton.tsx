@@ -1,70 +1,85 @@
 import { MetricGridSkeleton, Skeleton, TableSkeleton, metricGridClassName } from '@/components/PresentationFoundation';
-import { DonutCardSkeleton, InOutChartCardSkeleton, SkeletonCard } from '@/components/charts/ChartSkeletons';
+import { DonutCardSkeleton, HeadingSkeleton, InOutChartCardSkeleton, SkeletonCard } from '@/components/charts/ChartSkeletons';
 import { cn } from '@/lib/utils';
+import { CollectedGlanceSkeleton, CollectedSplitSkeleton } from './CollectedGlance';
+import type { ReportsView } from './ReportsTabs';
+
+/** Tiles per row from `sm` up follow how many there are, so a row never ends in a lone tile or an empty cell. */
+const WIDE_COLUMNS: Record<number, string> = {
+  1: 'sm:grid-cols-1',
+  2: 'sm:grid-cols-2',
+  3: 'sm:grid-cols-3',
+  4: 'sm:grid-cols-2 lg:grid-cols-4',
+  // Five: three to a row then two wider ones until there is room for all five.
+  5: 'sm:grid-cols-6 sm:[&>*]:col-span-2 sm:[&>*:nth-last-child(-n+2)]:col-span-3 lg:grid-cols-5 lg:[&>*]:col-span-1 lg:[&>*:nth-last-child(-n+2)]:col-span-1',
+};
+
+/** Grid of money tiles: two to a line on phones (an odd last one full width), then by count. */
+export function moneyTilesGridClassName(count: number): string {
+  return cn(metricGridClassName, WIDE_COLUMNS[Math.min(Math.max(count, 1), 5)]);
+}
+
+/** `count` soft stat tiles in the money-tile grid. */
+export function MoneyTilesSkeleton({ count, tall = false, className }: { count: number; /** Tiles whose label has a second line. */ tall?: boolean; className?: string }) {
+  return (
+    <div className={cn(moneyTilesGridClassName(count), className)} aria-hidden="true">
+      {Array.from({ length: count }, (_, index) => <Skeleton key={index} className={cn('rounded-xl bg-gray-100', tall ? 'h-20' : 'h-16')} />)}
+    </div>
+  );
+}
+
+/** A card with a small heading over a row of money tiles (where the money is, money left by method). */
+function MoneyTilesCardSkeleton({ count, description = false }: { count: number; description?: boolean }) {
+  return (
+    <SkeletonCard>
+      <HeadingSkeleton description={description} />
+      <MoneyTilesSkeleton count={count} tall={!description} className="mt-3" />
+    </SkeletonCard>
+  );
+}
 
 /**
- * Reports while the route loads: where the money is, the period totals, the
- * payment-method cards, the day-by-day chart beside the spending donut and the
- * closeout table. Keep it
- * in step with ReportsPage's closeout view.
+ * Reports while the route loads, in the shape of the view being opened.
+ * Closeout: the four period totals, where the money is, money left by method,
+ * the day-by-day chart beside the spending donut and the closeout table.
+ * Collected: where the money is, the four collected totals, the split bar, its
+ * two charts and the list. Write-offs: the ledger. Keep it in step with
+ * ReportsPage, CollectedTab and StockAdjustmentsLedger.
  */
-export function ReportsSkeleton() {
+export function ReportsSkeleton({ view = 'closeout', whereabouts = 3 }: {
+  view?: ReportsView;
+  /** Places shown in "where the money is": three for an owner (with the reserve), two for everyone else. */
+  whereabouts?: 2 | 3;
+}) {
+  if (view === 'writeOffs') {
+    return (
+      <div className="space-y-5">
+        <MetricGridSkeleton count={3} className={cn(metricGridClassName, 'sm:grid-cols-3 xl:grid-cols-3')} />
+        <TableSkeleton rows={8} columns={6} />
+      </div>
+    );
+  }
+  if (view === 'collected') {
+    return (
+      <div className="space-y-5">
+        <MoneyTilesCardSkeleton count={whereabouts} />
+        <MetricGridSkeleton count={4} className={cn(metricGridClassName, 'sm:grid-cols-2 xl:grid-cols-4')} />
+        <CollectedSplitSkeleton />
+        <CollectedGlanceSkeleton />
+        <TableSkeleton rows={6} columns={6} />
+      </div>
+    );
+  }
   return (
     <div className="space-y-5">
-      <MetricGridSkeleton count={3} className={cn(metricGridClassName, 'gap-3 sm:grid-cols-3 xl:grid-cols-3')} />
-      <MetricGridSkeleton count={4} className={cn(metricGridClassName, 'gap-3 sm:grid-cols-2 xl:grid-cols-4')} />
-      <div className="space-y-3">
-        <Skeleton className="h-6 w-64" />
-        <PaymentCardsSkeleton />
-      </div>
+      <MetricGridSkeleton count={4} className={cn(metricGridClassName, 'sm:grid-cols-2 xl:grid-cols-4')} />
+      <MoneyTilesCardSkeleton count={whereabouts} />
+      <MoneyTilesCardSkeleton count={4} description />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         <InOutChartCardSkeleton />
         <DonutCardSkeleton />
       </div>
       <TableSkeleton rows={8} columns={6} />
-    </div>
-  );
-}
-
-const PAYMENT_GRID_WIDE: Record<number, string> = {
-  2: 'xl:grid-cols-2',
-  3: 'xl:grid-cols-3',
-  4: 'xl:grid-cols-4',
-  // Five cards: three to a row, then two wider ones, so no cell stays empty.
-  5: 'xl:grid-cols-6 xl:[&>*]:col-span-2 xl:[&>*:nth-last-child(-n+2)]:col-span-3',
-};
-
-/**
- * The payment-method cards' grid for `count` cards: the columns follow the
- * count, so a row never ends in a lone card or an empty column.
- */
-export function paymentCardsGridClassName(count: number): string {
-  return cn(
-    'grid grid-cols-1 gap-3 sm:grid-cols-2 sm:max-xl:[&>*:last-child:nth-child(odd)]:col-span-2',
-    PAYMENT_GRID_WIDE[Math.min(Math.max(count, 1), 5)],
-  );
-}
-
-/** One placeholder per payment-method card: the amount left, its split bar and the rows under it. */
-export function PaymentCardsSkeleton({ count = 4 }: { count?: number }) {
-  return (
-    <div className={paymentCardsGridClassName(count)} aria-hidden="true">
-      {Array.from({ length: count }, (_, index) => (
-        <SkeletonCard key={index}>
-          <Skeleton className="h-3 w-20" />
-          <Skeleton className="mt-3 h-7 w-3/4" />
-          <Skeleton className="mt-2 h-3 w-10 bg-gray-100" />
-          <Skeleton className="mt-3 h-1.5 w-full rounded-full bg-gray-100" />
-          <div className="mt-4 space-y-2.5 border-t border-gray-100 pt-3">
-            {[0, 1, 2, 3].map((row) => (
-              <div key={row} className="flex justify-between gap-3">
-                <Skeleton className="h-3 w-20 bg-gray-100" />
-                <Skeleton className="h-3 w-16" />
-              </div>
-            ))}
-          </div>
-        </SkeletonCard>
-      ))}
     </div>
   );
 }

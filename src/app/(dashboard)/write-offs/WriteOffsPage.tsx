@@ -47,10 +47,10 @@ import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
 import { monthRange } from '@/lib/utils';
 import { AdjustmentCost, AdjustmentQuantity, StockAdjustmentsLedger } from '@/components/stock-adjustments/StockAdjustmentsLedger';
-import { WriteOffDetailsModal } from '@/components/WriteOffDetailsModal';
+import { WriteOffDetailsModal } from '@/components/stock-adjustments/WriteOffDetailsModal';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { useLatestRef } from '@/components/i18n/useLatestRef';
-import { StockWriteOffModal, type StockWriteOffInput } from '../closing-stock/StockWriteOffModal';
+import { StockWriteOffModal, type StockWriteOffInput } from '@/components/stock-adjustments/StockWriteOffModal';
 
 interface RecordedWriteOff {
   row: ClosingStockRowData;

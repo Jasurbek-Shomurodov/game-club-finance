@@ -5,9 +5,9 @@ import { useTranslations } from 'next-intl';
 import { Button, ButtonLink, IconChip, SectionHeading, StatTile } from '@/components/PresentationFoundation';
 import type { ReserveBalance } from '@/lib/calculations/ownerReserve';
 import { reserveHistoryHref } from '@/lib/detailLinks';
-import { formatCurrency, formatUnitCurrency } from '@/lib/formatters';
+import { formatCurrency, formatDollars } from '@/lib/formatters';
 import { OWNER_WITHDRAWAL_SOURCES, type OwnerWithdrawalSource } from '@/types';
-import { SOURCE_ICONS, SOURCE_TONES } from './profitIcons';
+import { SOURCE_ICONS, SOURCE_TONES } from '@/components/owner-money/profitIcons';
 
 interface ReserveSectionProps {
   balances: Record<OwnerWithdrawalSource, ReserveBalance>;
@@ -53,7 +53,7 @@ export function ReserveSection({ balances, depositAllAmounts, monthLabel, dollar
           unit={(
             <>
               {tc('currency')}
-              {dollarsHeld !== 0 ? <span className="tabular-nums"> · {dollarsHeld < 0 ? '−' : ''}${formatUnitCurrency(Math.abs(dollarsHeld))}</span> : null}
+              {dollarsHeld !== 0 ? <span className="tabular-nums"> · {formatDollars(dollarsHeld)}</span> : null}
             </>
           )}
         />

@@ -6,7 +6,7 @@ export function EntryHistoryListSkeleton({ rows = 4 }: { rows?: number }) {
   return (
     <div className="space-y-3" aria-hidden="true">
       {Array.from({ length: rows }, (_, index) => (
-        <SkeletonCard key={index} className="space-y-3 !p-3 sm:!p-4">
+        <SkeletonCard key={index} padding="sm" className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <Skeleton className="h-5 w-16 rounded-full" />
             <Skeleton className="h-4 w-32" />

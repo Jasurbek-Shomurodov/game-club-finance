@@ -502,10 +502,10 @@ export function SettingsPageClient() {
 
           {(detailsError || businessDayError || paymentMethodsError || internetPaymentDayError || !isOwner) && (
             <div className="space-y-2 bg-gray-50/60 px-5 py-3">
-              {detailsError && <InlineAlert variant="danger" hideIcon>{detailsError}</InlineAlert>}
-              {businessDayError && <InlineAlert variant="danger" hideIcon>{businessDayError}</InlineAlert>}
-              {paymentMethodsError && <InlineAlert variant="danger" hideIcon>{paymentMethodsError}</InlineAlert>}
-              {internetPaymentDayError && <InlineAlert variant="danger" hideIcon>{internetPaymentDayError}</InlineAlert>}
+              {detailsError && <InlineAlert variant="danger" hideIcon size="sm">{detailsError}</InlineAlert>}
+              {businessDayError && <InlineAlert variant="danger" hideIcon size="sm">{businessDayError}</InlineAlert>}
+              {paymentMethodsError && <InlineAlert variant="danger" hideIcon size="sm">{paymentMethodsError}</InlineAlert>}
+              {internetPaymentDayError && <InlineAlert variant="danger" hideIcon size="sm">{internetPaymentDayError}</InlineAlert>}
               {!isOwner && <p className="text-xs text-gray-500">{t('businessDayOwnerOnly')} {t('paymentMethodsOwnerOnly')}</p>}
             </div>
           )}
@@ -522,8 +522,8 @@ export function SettingsPageClient() {
                   padding="sm"
                   chevron={false}
                   onClick={() => setSelectedClubId(membership.club.id)}
-                  // Card has no `selected` prop yet; the ring marks the club in use, and the row below says so in words.
-                  className={cn('h-full min-h-24', selected && 'border-primary-600 ring-1 ring-primary-600')}
+                  selected={selected}
+                  className="h-full min-h-24"
                 >
                   <span className="flex items-start gap-3">
                   <ClubLogo src={membership.club.logo_url} size={36} className="shrink-0 rounded-lg" />
@@ -553,8 +553,8 @@ export function SettingsPageClient() {
                 padding="sm"
                 chevron={false}
                 onClick={() => setCreateClubOpen(true)}
-                // A tappable Card ignores `dashed`, so the placeholder look is set here.
-                className="h-full min-h-24 border-dashed border-gray-300 bg-transparent shadow-none"
+                dashed
+                className="h-full min-h-24"
               >
                 <span className="flex h-full min-h-16 items-center justify-center gap-2 text-sm font-medium text-gray-600">
                   <Plus size={16} aria-hidden="true" />

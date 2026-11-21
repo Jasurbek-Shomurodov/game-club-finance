@@ -4,7 +4,7 @@
     "appSubtitle": "Finance",
     "mainNavigation": "Main navigation",
     "skipToContent": "Skip to content",
-    "testChecklist": "System checks",
+    "testChecklist": "System sanity checks",
     "shellLoadError": "Could not load your clubs. Check your connection and try again.",
     "dashboard": "Dashboard",
     "dailyCash": "Daily Cash",
@@ -129,13 +129,11 @@
     "date": "Date",
     "moneyLeftForDay": "Left for day",
     "dayByDay": "Day by day",
-    "dayByDayHint": "Collected against deductions for each day",
+    "dayByDayHint": "Collected against deductions for each day. Tap a day’s bars to open it.",
     "daysListTitle": "Days",
     "bestDay": "Best day",
     "worstDay": "Weakest day",
     "averagePerDay": "Average per day",
-    "keptShare": "Kept {percent}%",
-    "spentShare": "Spent {percent}%",
     "daysCount": "{count, plural, one {# day} other {# days}}",
     "moneyLeftForPeriod": "Left for period",
     "totalCollected": "Total collected",
@@ -600,6 +598,7 @@
       "toReserveTooMuch": "Collected money holds only {amount} in this method.",
       "toReserveNoProfit": "This month’s owner profit is less than that amount.",
       "movedToReserveToast": "Moved to the reserve",
+      "whereTitle": "Where the money is",
       "inKassaCard": "With the admin",
       "inKassaCardHelper": "Money still in the club’s kassa",
       "collectedCard": "Collected",
@@ -689,6 +688,8 @@
     "gameClubProfit": "Game Club Profit"
   },
   "closingStock": {
+    "noMatchTitle": "No products match",
+    "noMatchBody": "Check the spelling or clear the search and category.",
     "viewerReadOnlyTitle": "View-only access",
     "viewerReadOnlyBody": "Your role can view stock counts but not change them. Ask an owner or admin to record today’s counts.",
     "closingRequired": "{product}: enter the closing stock count before saving.",
@@ -700,7 +701,7 @@
     "noSnapshotTitle": "No stock count saved for this date",
     "noSnapshotBody": "Nothing was recorded for {date}. Choose another date to view its saved counts.",
     "loadFailed": "Could not load stock counts. Check your connection and try again.",
-    "draftDisabledSaved": "Counts are already saved for this date. Use “Save Stock Counts” to update them.",
+    "moreActions": "More actions",
     "unsavedChangesTitle": "Discard unsaved changes?",
     "unsavedChangesBody": "Your edits for this date have not been saved. Switching the date will discard them.",
     "discardChanges": "Discard changes",
@@ -866,6 +867,8 @@
     "productDays": "{count, plural, one {on # day} other {on # days}}"
   },
   "stockPurchase": {
+    "historyEmptyTitle": "No purchases for these filters",
+    "historyEmptyBody": "Record a purchase in the form above, or widen the period.",
     "lowStock": "Low stock",
     "productsLoadFailed": "Could not load products. Check your connection and try again.",
     "purchasesLoadFailed": "Could not load recent purchases. Check your connection and try again.",
@@ -1262,7 +1265,6 @@
   },
   "monthlyReport": {
     "title": "Monthly Report",
-    "selectMonth": "Select Month",
     "date": "Date",
     "gameClubIncome": "Game Club Income",
     "barIncome": "Bar Income",
@@ -1390,6 +1392,8 @@
     "clubDetailsError_logo_invalid": "The logo must be an http(s) image link."
   },
   "team": {
+    "emptyTitle": "No one else has access yet",
+    "emptyBody": "Invite an administrator or a viewer and choose the pages they can open.",
     "title": "Team",
     "description": "Manage who can access finance, operations, and reports.",
     "refresh": "Refresh",
@@ -1554,7 +1558,6 @@
     "playstation": "PlayStation",
     "monthlyWithdrawn": "Withdrawn this month",
     "monthlyRemaining": "Remaining after owner withdrawals",
-    "monthlyOverallProfit": "Overall profit for the month",
     "migrationRequired": "Custom withdrawals require database migration 051. Apply it before recording a withdrawal.",
     "allAllocation": "All uses Game Club profit first, then Bar profit. Each portion is recorded separately.",
     "amount": "Withdrawal amount",
@@ -1585,7 +1588,6 @@
     "deleteError": "Could not delete the withdrawal. Try again.",
     "deleteConfirmDetailed": "Delete the {source} withdrawal of {amount} for {month}? The amount will return to that month's available balance.",
     "breakdownTitle": "Breakdown by source",
-    "recordedColumn": "Recorded",
     "paymentMethod": "Take from",
     "availableForMethod": "Available in {method}",
     "noMethodAvailable": "No payment method has Game Club profit left for this month.",
@@ -1758,7 +1760,6 @@
     "incomeAlreadySpent": "This income was already spent or exchanged, so taking it back would leave the payment method negative. Delete the later expenses or exchanges first."
   },
   "salaries": {
-    "title": "Salaries",
     "addEmployee": "New employee",
     "editEmployee": "Salary setup",
     "activeEmployees": "Active employees",
@@ -1933,6 +1934,8 @@
       "alreadyAbsent": "This employee is already marked as not come on this day."
     },
     "openInReports": "Open in Reports",
+    "recordedAt": "Recorded",
+    "openEmployee": "Open the employee",
     "paidOfEarned": "Paid of earned"
   },
   "testChecklist": {
@@ -2251,7 +2254,7 @@
     "error_monitor_size_invalid": "Enter the monitor size in inches, from 10 to 100.",
     "error_monitor_refresh_invalid": "Enter the refresh rate as a whole number of Hz, from 30 to 1000.",
     "languageSwitch": "Language of this text",
-    "languageMissing": "{language}: not filled in",
+    "languageNotFilled": "not filled in",
     "languagesMissingHint": "Not filled in: {languages}. Visitors in those languages see the first filled language.",
     "taglineHint": "Fill in all three languages; visitors see the one they picked.",
     "offers": "Packages & offers",
@@ -2331,6 +2334,7 @@
     "navZones": "Computers",
     "navPrices": "Prices",
     "sectionsLabel": "Sections of the page",
+    "navMenu": "Sections menu",
     "notFoundTitle": "Page not found",
     "notFoundDescription": "This club page does not exist or is not published yet.",
     "backHome": "To the home page",
@@ -2805,8 +2809,6 @@
     "empty": "Nothing in the reserve yet.",
     "emptyHint": "Use Put all into reserve below, or enter an amount in Withdraw monthly profit and choose Put into reserve.",
     "activityLabel": "Reserve history",
-    "showHistory": "History · {count}",
-    "hideHistory": "Hide history",
     "collectionOf": "Collection of {date}",
     "dayCount": "{count, plural, one {# entry} other {# entries}}",
     "fromMonth": "From {month} profit",
@@ -2833,7 +2835,6 @@
     },
     "fromExchange": "Exchanged into dollars; delete the exchange to undo",
     "toExchange": "Dollars exchanged back; the money joined the month",
-    "dollarsHeld": "Dollars {amount}",
     "kinds": {
       "deposit": "Put into reserve",
       "return": "Returned to profit",
@@ -2872,7 +2873,6 @@
     "payTitle": "Pay from reserve",
     "payDescription": "Record a repair or purchase paid with reserve money. It is an expense, but this month's owner profit stays the same.",
     "paidToast": "Paid from the reserve.",
-    "historyCount": "{count, plural, one {# entry} other {# entries}} in the history",
     "openPage": "Charts and history",
     "exchangeBought": "Bought {usd}",
     "exchangeSold": "Sold {usd}"
@@ -2882,7 +2882,6 @@
     "viewSwitcher": "Reserve view",
     "overview": "Overview",
     "history": "History · {count}",
-    "manage": "Put in or pay",
     "totalHeld": "In the reserve now",
     "sumsPot": "UZS",
     "dollarsPot": "US dollars",
@@ -2896,7 +2895,6 @@
     "flowTitle": "Money in and out",
     "flowDescription": "Put in versus returned or spent, month by month.",
     "loadError": "Could not load the reserve.",
-    "exchangeButton": "Exchange",
     "buyDollars": "Buy dollars",
     "sellDollars": "Sell dollars",
     "averageRate": "Average {rate} UZS per $1",

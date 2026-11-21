@@ -17,7 +17,7 @@ import {
   type OwnerWithdrawalPaymentMethod,
   type OwnerWithdrawalSource,
 } from '@/types';
-import { METHOD_ICONS, SOURCE_ICONS, SOURCE_TINTS, SOURCE_TONES } from './profitIcons';
+import { METHOD_ICONS, SOURCE_ICONS, SOURCE_TINTS, SOURCE_TONES } from '@/components/owner-money/profitIcons';
 import { scrollBehavior } from '@/lib/scroll';
 
 export type HistoryRow =
@@ -189,13 +189,14 @@ export function WithdrawalHistory({
 
             return (
               <section key={month} id={`${baseId}-section-${month}`} className="scroll-mt-20" aria-label={formatYearMonth(month, locale)}>
-                <button
-                  type="button"
-                  aria-expanded={open}
-                  aria-controls={panelId}
+                <TappableSurface
+                  expanded={open}
+                  controls={panelId}
+                  chevron={false}
                   onClick={() => setToggled((current) => ({ ...current, [month]: !open }))}
-                  className="flex w-full flex-col gap-3 bg-gray-50/60 px-4 py-3 text-left transition-colors hover:bg-gray-100/70 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 sm:px-5"
+                  className="bg-gray-50/60 px-4 py-3 sm:px-5"
                 >
+                  <span className="flex flex-col gap-3">
                   <span className="flex w-full items-center gap-3">
                     <IconChip icon={CalendarDays} />
                     <span className="min-w-0 flex-1">
@@ -203,7 +204,7 @@ export function WithdrawalHistory({
                       <span className="block text-xs text-gray-500">{t('historyEntries', { count: monthRows.length })}</span>
                     </span>
                     <span className="hidden text-right sm:block sm:min-w-36">
-                      <span className="flex items-center justify-end gap-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+                      <span className="flex items-center justify-end gap-1 text-xs font-medium text-gray-500">
                         <PiggyBank size={12} aria-hidden="true" />
                         {t('historyMonthReserved')}
                       </span>
@@ -213,7 +214,7 @@ export function WithdrawalHistory({
                       </span>
                     </span>
                     <span className="text-right sm:min-w-36">
-                        <span className="flex items-center justify-end gap-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+                        <span className="flex items-center justify-end gap-1 text-xs font-medium text-gray-500">
                           <Sprout size={12} aria-hidden="true" />
                           {t('historyMonthInvested')}
                         </span>
@@ -224,7 +225,7 @@ export function WithdrawalHistory({
                       </span>
                     {/* Always shown, so a month with only moves or investments still reads "nothing withdrawn". */}
                     <span className="text-right sm:min-w-36">
-                      <span className="block text-xs font-medium uppercase tracking-wide text-gray-500">{t('historyMonthTotal')}</span>
+                      <span className="block text-xs font-medium text-gray-500">{t('historyMonthTotal')}</span>
                       <span className={cn('block text-lg font-bold leading-tight tabular-nums', total > 0 ? 'text-gray-900' : 'text-gray-500')}>
                         {formatCurrency(total)}
                         <span className="ml-1 text-xs font-medium text-gray-500">{tc('currency')}</span>
@@ -245,7 +246,7 @@ export function WithdrawalHistory({
                       {sides.map((source) => (
                         <span
                           key={source}
-                          className={cn('grow-x h-full transition-[width] duration-500 motion-reduce:transition-none', SOURCE_TINTS[source].bar)}
+                          className={cn('grow-x h-full transition-[width] duration-300 motion-reduce:transition-none', SOURCE_TINTS[source].bar)}
                           style={{ width: `${(totals[source] / total) * 100}%` }}
                         />
                       ))}
@@ -272,7 +273,8 @@ export function WithdrawalHistory({
                       ))}
                     </span>
                   </span>
-                </button>
+                  </span>
+                </TappableSurface>
 
                 {open ? (
                   <ul id={panelId} className="divide-y divide-gray-100">

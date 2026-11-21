@@ -8,6 +8,7 @@ import {
   exceedsDecimalInputLimit,
   extractCurrencyDigits,
   formatCurrency,
+  formatDollars,
   formatPhone,
   normalizePhone,
   formatCurrencyInput,
@@ -321,3 +322,15 @@ describe('quantity input cap', () => {
     expect(MAX_QUANTITY).toBe(999_999);
   });
 });
+
+describe('formatDollars', () => {
+  it('prints the symbol before the amount with up to two decimals', () => {
+    expect(formatDollars(546.92)).toBe('$546,92');
+    expect(formatDollars(1200)).toBe('$1 200');
+  });
+
+  it('puts a real minus sign before the symbol', () => {
+    expect(formatDollars(-12.5)).toBe('−$12,5');
+  });
+});
+

@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useEffect, useId, useMemo, useRef, useState, type ElementType, type KeyboardEvent } from 'react';
 import {
   BarChart3, CalendarDays, CalendarRange, ChartPie, CircleDollarSign, ClipboardList, CornerDownLeft, Gamepad2, HandCoins,
-  History, LayoutDashboard, Package, PackagePlus, PiggyBank, ReceiptText, Search, Settings, Shield, ShoppingCart, Sparkles,
+  History, LayoutDashboard, MapPin, Package, PackagePlus, PiggyBank, ReceiptText, Search, Settings, Shield, ShoppingCart, Sparkles,
   Tag, UserPlus, Users, Wallet,
 } from 'lucide-react';
 import type { UserRole } from '@/types';
@@ -15,7 +15,7 @@ import { requestPageSearch, requestQuickAction, type SearchTarget } from '@/lib/
 import { createClient } from '@/lib/supabase/client';
 import { EMPTY_COMMAND_SEARCH, fetchCommandSearchData, type CommandSearchData } from '@/lib/supabase/commandSearch';
 import { formatCurrency } from '@/lib/formatters';
-import { Modal } from '@/components/PresentationFoundation';
+import { Modal, TappableSurface } from '@/components/PresentationFoundation';
 import { cn } from '@/lib/utils';
 
 const ICONS: Record<string, ElementType> = {
@@ -33,13 +33,19 @@ const ICONS: Record<string, ElementType> = {
   'page:/products': Package,
   'page:/promotions': Tag,
   'page:/reports': BarChart3,
+  'page:/reports?view=collected': HandCoins,
   'page:/daily-report': CalendarDays,
   'page:/monthly-report': CalendarRange,
   'page:/money-taken': CircleDollarSign,
   'page:/reserve': PiggyBank,
   'page:/debts': Users,
   'page:/salaries': HandCoins,
+  'page:/salaries/operations': ReceiptText,
+  'page:/salaries/history': History,
   'page:/showcase': Gamepad2,
+  'page:/showcase/games': Gamepad2,
+  'page:/showcase/google': MapPin,
+  'page:/showcase/brand': Sparkles,
   'page:/team': Shield,
   'page:/history': History,
   'page:/settings': Settings,
@@ -61,7 +67,12 @@ function useCommands(role: UserRole, featureAccess: FeatureKey[], onNavigate: (h
   const router = useRouter();
   const tNav = useTranslations('nav');
   const tCommands = useTranslations('commands');
-  const label = (item: CommandItem) => (item.labelNs === 'nav' ? tNav(item.labelKey) : tCommands(item.labelKey));
+  // A tab of a page keeps the tab's own wording, read from its area's messages, under the page's name.
+  const tAny = useTranslations() as unknown as (key: string) => string;
+  const label = (item: CommandItem) => {
+    const own = item.labelNs === 'nav' ? tNav(item.labelKey) : item.labelNs === 'commands' ? tCommands(item.labelKey) : tAny(`${item.labelNs}.${item.labelKey}`);
+    return item.parentKey ? `${tNav(item.parentKey)}: ${own}` : own;
+  };
   const actions = useMemo(() => quickActions(role, featureAccess), [role, featureAccess]);
   const pages = useMemo(() => commandPages(role, featureAccess), [role, featureAccess]);
 
@@ -94,7 +105,7 @@ export function CommandPalette({ open, onClose, ...rest }: CommandSurfaceProps) 
     if (open) setOpening((count) => count + 1);
   }
   return (
-    <Modal open={open} onClose={onClose} size="lg" ariaLabelledBy={titleId} bodyClassName="!p-0" className="sm:mb-[18vh]">
+    <Modal open={open} onClose={onClose} size="lg" ariaLabelledBy={titleId} padding="none" className="sm:mb-[18vh]">
       <CommandSearch key={opening} titleId={titleId} onClose={onClose} {...rest} />
     </Modal>
   );
@@ -184,7 +195,7 @@ function CommandSearch({ titleId, onClose, role, featureAccess, clubId, onNaviga
     offset += entries.length;
     return entries.length > 0 && (
       <div key={title} role="group" aria-label={title} className="py-1.5">
-        <p className="px-4 pb-1 pt-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">{title}</p>
+        <p className="px-4 pb-1 pt-1.5 text-xs font-semibold text-gray-500">{title}</p>
         {entries.map((item, index) => {
           const Icon = item.icon;
           const selected = start + index === current;
@@ -255,17 +266,14 @@ export function QuickAddSheet({ open, onClose, role, featureAccess, onNavigate }
         {actions.map((item) => {
           const Icon = ICONS[item.id] ?? Search;
           return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => run(item)}
-              className="flex min-h-14 items-center gap-3 rounded-2xl border border-gray-200 bg-surface px-3.5 text-left text-sm font-semibold text-gray-900 tappable hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-600 text-on-accent">
-                <Icon size={18} aria-hidden="true" />
+            <TappableSurface key={item.id} onClick={() => run(item)} chevron={false} className="rounded-2xl border border-gray-200 bg-surface px-3.5 hover:bg-gray-50">
+              <span className="flex min-h-14 items-center gap-3 text-sm font-semibold text-gray-900">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-600 text-on-accent">
+                  <Icon size={18} aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">{label(item)}</span>
               </span>
-              <span className="min-w-0 flex-1">{label(item)}</span>
-            </button>
+            </TappableSurface>
           );
         })}
       </div>

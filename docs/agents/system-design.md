@@ -150,7 +150,8 @@ database (migrations/)                              RLS, constraints, atomic RPC
 ```
 
 - A component shared by two routes moves to `src/components/<feature>/`
-  (`stock-adjustments`, `money-details`, `cash-shortages`). A component used by
+  (`stock-adjustments`, `money-details`, `cash-shortages`, `expenses`,
+  `reports`, `owner-money`). A component used by
   one page stays beside it.
 - A page file over roughly 600 lines is carrying feature components that should
   be split out beside it. `ReportsPage.tsx` and `MoneyTakenPage.tsx` are the
@@ -186,9 +187,6 @@ Recorded so they are chosen deliberately instead of rediscovered:
   what each person is owed from every entry ever recorded, and the
   overpayment cap is enforced only in the form. The database cannot answer
   "what is owed to X" and does not stop an overpayment sent another way.
-- **Two chart dialects.** Dashboard and Reports charts use the custom tooltip
-  and toggling legend; Financial Analysis (overall) and Reserve charts still
-  use Recharts defaults.
 - **Large page files**, as listed in section 6.
 - `assistant_model_usage` and `record_assistant_model_request` have no caller
   in `src`; confirm no rows are being written before dropping them.

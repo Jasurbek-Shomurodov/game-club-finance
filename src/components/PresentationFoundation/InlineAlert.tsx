@@ -18,6 +18,8 @@ export interface InlineAlertProps {
   action?: ReactNode;
   /** Hide the leading icon for very compact placements. */
   hideIcon?: boolean;
+  /** `sm` tightens the padding, for an alert inside a form row or a card. */
+  size?: 'sm' | 'md';
   className?: string;
 }
 
@@ -25,12 +27,12 @@ export interface InlineAlertProps {
  * Inline status message. Danger/warning announce as `alert`, the rest as
  * `status`, so screen readers hear save results and failures.
  */
-export function InlineAlert({ variant = 'info', title, children, action, hideIcon = false, className }: InlineAlertProps) {
+export function InlineAlert({ variant = 'info', title, children, action, hideIcon = false, size = 'md', className }: InlineAlertProps) {
   const { box, icon, Icon } = variantStyles[variant];
   const role = variant === 'danger' || variant === 'warning' ? 'alert' : 'status';
 
   return (
-    <div role={role} className={cn('flex gap-3 rounded-xl border px-4 py-3 text-sm', box, className)}>
+    <div role={role} className={cn('flex gap-3 rounded-xl border text-sm', size === 'sm' ? 'px-3 py-2' : 'px-4 py-3', box, className)}>
       {!hideIcon && <Icon size={17} className={cn('mt-0.5 shrink-0', icon)} aria-hidden="true" />}
       <div className="min-w-0 flex-1">
         {title && <p className="font-semibold">{title}</p>}

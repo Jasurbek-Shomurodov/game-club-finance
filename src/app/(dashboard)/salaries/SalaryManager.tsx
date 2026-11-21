@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import { useTranslations } from 'next-intl';
 import { Banknote, Building2, CalendarCheck, Gift, ShieldAlert, Users, Wallet } from 'lucide-react';
 import { useClub } from '@/components/layout/DashboardShell';
+import { SectionTabs } from '@/components/layout/SectionTabs';
 import {
   Badge,
   Card,
@@ -17,11 +18,9 @@ import {
   MetricCard,
   MetricMoney,
   PageHeader,
-  SegmentedControl,
   SkeletonStatus,
   Textarea,
   useToast,
-  type SegmentedOption,
 } from '@/components/PresentationFoundation';
 import { SalariesSkeleton, salaryHistoryMetricGridClassName, salaryMetricGridClassName } from './SalariesSkeleton';
 import { scrollBehavior } from '@/lib/scroll';
@@ -46,7 +45,7 @@ import {
   type SalaryEmployee,
 } from '@/lib/calculations/salaries';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { formatCurrency, formatCurrencyInput, formatDateOnly, parseCurrencyInput } from '@/lib/formatters';
+import { formatCurrency, formatCurrencyInput, formatDateOnly, formatDecimalInput, parseCurrencyInput, parseDecimalInput } from '@/lib/formatters';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
 import { canAccessFeature } from '@/lib/permissions';
 import { useBusinessToday } from '@/lib/useBusinessToday';
@@ -74,6 +73,7 @@ import {
 const emptyData: Awaited<ReturnType<typeof loadSalaries>> = { employees: [], rates: [], entries: [], deleterNames: {}, monthlyProfit: [], dailyIncome: [] };
 
 const VIEW_PATHS: Record<SalaryView, string> = { employees: '/salaries/employees', operations: '/salaries/operations', history: '/salaries/history' };
+const SALARY_VIEWS = Object.keys(VIEW_PATHS) as SalaryView[];
 
 export default function SalariesPage({ view = 'employees', employeeId }: { view?: SalaryView; employeeId?: string }) {
   const t = useTranslations('salaries');
@@ -205,7 +205,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
       date: employee && employee.joined_on > today ? employee.joined_on : today,
       salary_type: rate?.salary_type ?? 'daily',
       amount: rate ? formatCurrencyInput(Number(rate.amount)) : '0',
-      kpi: String(rate?.kpi_percent ?? 0),
+      kpi: formatDecimalInput(Number(rate?.kpi_percent ?? 0)),
       kpi_basis: (rate?.kpi_basis ?? 'overall_profit') as KpiBasis,
       kpi_game_club: rate?.kpi_game_club ?? true,
       kpi_bar: rate?.kpi_bar ?? true,
@@ -269,7 +269,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
     if ((dialog === 'entry' || setupMode !== 'new') && !targetEmployee) return;
     // A "did not come" day carries no amount.
     const absence = dialog === 'entry' && entryForm.kind === 'absence';
-    const amount = absence ? 0 : dialog === 'employee' && setupMode === 'kpi' ? Number(employeeForm.kpi) : parseCurrencyInput(dialog === 'employee' ? employeeForm.amount : entryForm.amount);
+    const amount = absence ? 0 : dialog === 'employee' && setupMode === 'kpi' ? parseDecimalInput(employeeForm.kpi) : parseCurrencyInput(dialog === 'employee' ? employeeForm.amount : entryForm.amount);
     if (!absence && (!Number.isFinite(amount) || amount >= 100000000000000 || (dialog === 'employee' ? amount < 0 : amount <= 0))) {
       setError(tc('invalidAmount'));
       return;
@@ -280,6 +280,11 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
         setError(t('paymentExceedsBalance', { max: formatCurrency(max), currency: tc('currency') }));
         return;
       }
+    }
+    // The KPI field is free text ("12,5"), so its 0-100 range is checked here, not by the browser.
+    if (dialog === 'employee' && setupMode !== 'salary' && parseDecimalInput(employeeForm.kpi) > 100) {
+      setError(tc('invalidAmount'));
+      return;
     }
     if (dialog === 'employee' && setupMode !== 'salary' && !employeeForm.kpi_game_club && !employeeForm.kpi_bar) {
       setError(t('kpiPoolRequired'));
@@ -304,7 +309,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
       } else {
         await postSalary(clubId, {
           action: 'save_employee', employeeId: employeeForm.id, name: employeeForm.name.trim(), jobTitle: employeeForm.job_title.trim(),
-          date: employeeForm.date, salaryType: employeeForm.salary_type, amount, kpi: Number(employeeForm.kpi), active: employeeForm.active,
+          date: employeeForm.date, salaryType: employeeForm.salary_type, amount, kpi: parseDecimalInput(employeeForm.kpi), active: employeeForm.active,
           kpiBasis: employeeForm.kpi_basis, kpiGameClub: employeeForm.kpi_game_club, kpiBar: employeeForm.kpi_bar,
         });
       }
@@ -332,7 +337,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
     if (!employeeEdit || !isOwner || mutating.current) return;
     const changes = employeeEditChanges(employeeEdit);
     const amount = parseCurrencyInput(employeeEdit.amount);
-    const kpi = Number(employeeEdit.kpi);
+    const kpi = parseDecimalInput(employeeEdit.kpi);
     if (changes.salary && (!Number.isFinite(amount) || amount < 0 || amount >= 100000000000000)) { setEditError(tc('invalidAmount')); return; }
     if (changes.kpi && (!Number.isFinite(kpi) || kpi < 0 || kpi > 100)) { setEditError(tc('invalidAmount')); return; }
     if (changes.kpi && !employeeEdit.kpi_game_club && !employeeEdit.kpi_bar) { setEditError(t('kpiPoolRequired')); return; }
@@ -455,11 +460,6 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
     finally { mutating.current = false; setSavingTarget(null); }
   }
 
-  const viewOptions: SegmentedOption<SalaryView>[] = [
-    { value: 'employees', label: t('employees') },
-    { value: 'operations', label: t('dailyOperations') },
-    { value: 'history', label: t('history') },
-  ];
   // Switches in place (the loaded data is reused) but keeps the address in step,
   // so a reload, a shared link or Back lands on the same tab.
   const changeView = (next: SalaryView) => {
@@ -491,12 +491,16 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
           </div>
         )}
         tabs={employeeId ? undefined : (
-          <SegmentedControl
-            variant="tabs"
-            label={t('viewSwitcher')}
-            options={viewOptions}
-            value={view}
-            onChange={changeView}
+          <SectionTabs
+            section="salaries"
+            active={VIEW_PATHS[view]}
+            // Switches in place: the loaded data is reused and `changeView` keeps the address in step.
+            onSelect={(href) => {
+              const next = SALARY_VIEWS.find((candidate) => VIEW_PATHS[candidate] === href);
+              if (!next) return false;
+              changeView(next);
+              return true;
+            }}
           />
         )}
       />

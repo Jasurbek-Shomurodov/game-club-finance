@@ -2,7 +2,7 @@
 
 // Route: /closing-stock
 
-import { Fragment, useState, useEffect, useCallback, useMemo, useRef, type KeyboardEvent } from 'react';
+import { Fragment, useState, useEffect, useCallback, useMemo, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -12,6 +12,7 @@ import { promotionsForProduct } from '@/lib/promotions';
 import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
+  ActionMenu,
   Avatar,
   Badge,
   Button,
@@ -23,26 +24,32 @@ import {
   InlineAlert,
   Input,
   LoadErrorAlert,
+  MetricCard,
   MetricGridSkeleton,
+  MetricMoney,
   PageHeader,
   SearchInput,
   SectionHeading,
   SegmentedControl,
   Select,
-  StatTile,
   Stepper,
   TableSkeleton,
   TappableSurface,
   stickyOffsetBelow,
   useElementHeight,
+  metricGridClassName,
+  toneForAmount,
   useConfirm,
   useToast,
+  type ActionMenuItem,
+  type MetricTone,
+  type Tone,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { BulkStockUpdateModal } from './BulkStockUpdateModal';
-import { StockWriteOffModal, type StockWriteOffInput } from './StockWriteOffModal';
+import { StockWriteOffModal, type StockWriteOffInput } from '@/components/stock-adjustments/StockWriteOffModal';
 import { groupByCategory } from '@/lib/productSections';
-import { calendarTodayIso, isoDateParam, todayIso } from '@/lib/utils';
+import { calendarTodayIso, cn, isoDateParam, todayIso } from '@/lib/utils';
 import { dayRange, moneyDetailsHref, purchaseHistoryHref, reportsHref } from '@/lib/detailLinks';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { useBusinessToday } from '@/lib/useBusinessToday';
@@ -77,8 +84,9 @@ import {
   type StorageLike,
 } from '@/lib/closingStock';
 import { applyStockWriteOff, notifyStockWriteOff, rowStockAdjustment, shouldNotifyStockAdjustment, StockWriteOffError, writeOffKindVariant, type StockWriteOffEntry } from '@/lib/stockWriteOffs';
-import { WriteOffDetailsModal } from '@/components/WriteOffDetailsModal';
+import { WriteOffDetailsModal } from '@/components/stock-adjustments/WriteOffDetailsModal';
 import {
+  Banknote,
   CalendarX,
   Gift,
   Info,
@@ -88,10 +96,12 @@ import {
   Save,
   Search,
   ShoppingCart,
+  TrendingUp,
+  type LucideIcon,
 } from 'lucide-react';
 import type { Product, Promotion } from '@/types';
 import { useLatestRef } from '@/components/i18n/useLatestRef';
-import { StockGlance, StockGlanceSkeleton } from './StockGlance';
+import { StockGlance, StockGlanceSkeleton, type StockGlanceFigure } from './StockGlance';
 
 type RowData = ClosingStockRowData;
 
@@ -156,6 +166,8 @@ const stickyIndexCellClass = 'sticky left-0 z-10 w-12 bg-surface px-3 py-4 group
 const stickyProductHeaderCellClass = 'sticky left-12 top-0 z-40 border-b border-gray-100 bg-gray-50 px-4 py-3 align-bottom shadow-[1px_0_0_0_rgb(var(--c-gray-200))]';
 const stickyProductCellClass = 'sticky left-12 z-10 bg-surface px-4 py-4 shadow-[1px_0_0_0_rgb(var(--c-gray-200))] group-hover:bg-gray-50';
 const TABLE_COLUMN_COUNT = 11;
+/** The five headline figures: two to a line on phones, one row from `lg`. */
+const KPI_GRID = `${metricGridClassName} sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-5`;
 const addedTodayHeaderCellClass = stickyHeaderCellClass;
 
 function rowSummary(row: RowData) {
@@ -652,21 +664,44 @@ export default function ClosingStockPage() {
   }
 
   const day = dayRange(date);
-  const kpis: Array<{ label: string; value: string; unit?: string; tone?: 'default' | 'success' | 'danger'; href?: string }> = [
+  const dayMoneyHref = moneyDetailsHref('bar', day);
+  // Five headline figures; the rest of the day's figures sit in the glance below.
+  const kpis: Array<{ label: string; value: ReactNode; icon: LucideIcon; tone?: MetricTone; accent?: Tone; href: string }> = [
+    { href: dayMoneyHref, label: t('totalSold'), value: `${formatNumber(totals.sold)} ${t('pcs')}`, icon: ShoppingCart, accent: 'bar' },
+    { href: dayMoneyHref, label: t('barIncomeEst'), value: <MetricMoney amount={totals.income} />, icon: Banknote, tone: 'success' },
+    { href: dayMoneyHref, label: t('barProfitEst'), value: <MetricMoney amount={totals.profit} />, icon: TrendingUp, tone: toneForAmount(totals.profit) },
+    { href: '/products', label: t('stockValue'), value: <MetricMoney amount={totals.stockValue} />, icon: Package, accent: 'bar' },
+    { href: purchaseHistoryHref(date), label: t('stockPurchased'), value: `${formatNumber(totals.added)} ${t('pcs')}`, icon: PackagePlus, accent: 'bar' },
+  ];
+  const glanceFigures: StockGlanceFigure[] = [
     { href: '/products', label: t('totalProducts'), value: formatNumber(rows.length) },
-    { href: purchaseHistoryHref(date), label: t('stockPurchased'), value: formatNumber(totals.added), unit: t('pcs') },
-    { href: moneyDetailsHref('bar', day), label: t('totalSold'), value: formatNumber(totals.sold), unit: t('pcs') },
-    { href: moneyDetailsHref('bar', day), label: t('barIncomeEst'), value: formatCurrency(totals.income), unit: tc('currency'), tone: 'success' },
-    { href: moneyDetailsHref('bar', day), label: t('barProfitEst'), value: formatCurrency(totals.profit), unit: tc('currency'), tone: totals.profit < 0 ? 'danger' : 'success' },
     { href: '/promotions', label: t('promoCost'), value: formatCurrency(totals.giveawayCost), unit: tc('currency'), tone: totals.giveawayCost > 0 ? 'danger' : 'default' },
     // Write-offs are an owner tool: only owners see their cost and badges.
     ...(isOwner ? [{ href: reportsHref(day, { view: 'writeOffs' }), label: t('writeOffCost'), value: formatCurrency(totals.writeOffCost), unit: tc('currency'), tone: totals.writeOffCost > 0 ? 'danger' as const : 'default' as const }] : []),
-    { href: '/products', label: t('stockValue'), value: formatCurrency(totals.stockValue), unit: tc('currency') },
   ];
   const categoryChipOptions = [{ value: '', label: tc('all') }, ...categoryOptions.map((category) => ({ value: category, label: category }))];
   const hasFilters = Boolean(query.trim() || selectedCategory);
   const saveDisabled = loading || refreshing || isReadOnly || Boolean(loadError) || rows.length === 0;
   const draftDisabled = saving || loading || refreshing || isReadOnly || Boolean(loadError) || hasSavedCounts;
+  // The header shows Submit and Write-off; the other actions sit behind "more".
+  const moreActions: ActionMenuItem[] = [
+    {
+      label: t('bulkUpdate'),
+      icon: <ShoppingCart size={16} aria-hidden="true" />,
+      disabled: saving || saveDisabled || bulkRows.length === 0,
+      onSelect: () => {
+        setError('');
+        setBulkUpdateOpen(true);
+      },
+    },
+    // Once the day's counts are saved there is nothing left to draft.
+    ...(!hasSavedCounts ? [{
+      label: t('saveDraft'),
+      icon: <Save size={16} aria-hidden="true" />,
+      disabled: draftDisabled,
+      onSelect: handleSaveDraft,
+    }] : []),
+  ];
   const bannerTitle = isReadOnly
     ? (isHistoricalDate ? t('readOnlyTitle') : t('viewerReadOnlyTitle'))
     : t('ownerHistoricalEditTitle');
@@ -726,18 +761,6 @@ export default function ClosingStockPage() {
             </div>
             {!isReadOnly && !loading && !loadError && (
               <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setError('');
-                    setBulkUpdateOpen(true);
-                  }}
-                  disabled={saving || saveDisabled || bulkRows.length === 0}
-                  icon={<ShoppingCart size={15} aria-hidden="true" />}
-                >
-                  {t('bulkUpdate')}
-                </Button>
                 {canWriteOff && (
                   <Button
                     variant="outline"
@@ -752,17 +775,8 @@ export default function ClosingStockPage() {
                     {t('writeOffButton')}
                   </Button>
                 )}
-                {/* Once the day's counts are saved there is nothing left to draft. */}
-                {!hasSavedCounts && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSaveDraft}
-                    disabled={draftDisabled}
-                    icon={<Save size={15} aria-hidden="true" />}
-                  >
-                    {t('saveDraft')}
-                  </Button>
+                {moreActions.length > 0 && (
+                  <ActionMenu label={t('moreActions')} variant="outline" items={moreActions} />
                 )}
               </div>
             )}
@@ -807,34 +821,29 @@ export default function ClosingStockPage() {
       ) : (
         <>
           {loading ? (
-            <MetricGridSkeleton count={kpis.length} className={isOwner ? 'grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8' : 'grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7'} />
+            <MetricGridSkeleton count={kpis.length} className={KPI_GRID} />
           ) : (
-            <Card as="section" padding="none" className="overflow-hidden" aria-busy={refreshing || undefined}>
-              {/* Hairlines are the grid's gaps, so they stay right at 2, 4 and 7-8 columns. Eight columns
-                  only from 2xl: at laptop widths they squeezed "156 000" onto two lines. */}
-              <div className={`grid grid-cols-2 gap-px bg-gray-100 lg:grid-cols-4 ${isOwner ? '2xl:grid-cols-8' : '2xl:grid-cols-7'}`}>
-                {kpis.map((kpi) => (
-                  <StatTile
-                    key={kpi.label}
-                    href={dirty ? undefined : kpi.href}
-                    variant="flat"
-                    size="sm"
-                    label={kpi.label}
-                    value={kpi.value}
-                    unit={kpi.unit}
-                    tone={kpi.tone}
-                    className="rounded-none bg-surface p-3 sm:p-4 [&:last-child:nth-child(odd)]:col-span-2 2xl:[&:last-child]:col-span-1"
-                  />
-                ))}
-              </div>
-            </Card>
+            <section className={cn(KPI_GRID, 'stagger')} aria-label={t('title')} aria-busy={refreshing || undefined}>
+              {kpis.map((kpi) => (
+                <MetricCard
+                  key={kpi.label}
+                  href={dirty ? undefined : kpi.href}
+                  label={kpi.label}
+                  value={kpi.value}
+                  icon={kpi.icon}
+                  tone={kpi.tone}
+                  accent={kpi.accent}
+                />
+              ))}
+            </section>
           )}
 
           {error && <InlineAlert variant="danger">{error}</InlineAlert>}
 
-          {loading ? <StockGlanceSkeleton /> : (
+          {loading ? <StockGlanceSkeleton figures={glanceFigures.length} /> : (
             <StockGlance
               rows={glanceRows}
+              figures={dirty ? glanceFigures.map((figure) => ({ ...figure, href: undefined })) : glanceFigures}
               stockValue={totals.stockValue}
               onFindProduct={findProduct}
               onSelectCategory={selectCategoryFromGlance}
@@ -896,7 +905,8 @@ export default function ClosingStockPage() {
               <EmptyState
                 compact
                 icon={Search}
-                title={tc('noData')}
+                title={t('noMatchTitle')}
+                description={t('noMatchBody')}
                 action={hasFilters ? (
                   <Button variant="outline" size="sm" onClick={() => { setQuery(''); setSelectedCategory(''); }}>{t('clearFilters')}</Button>
                 ) : undefined}
@@ -1006,7 +1016,8 @@ export default function ClosingStockPage() {
                                 {writeOff && writeOff.sign === -1 && (
                                   <TappableSurface
                                     chevron={false}
-                                    className="mt-1 !w-fit rounded-full max-sm:py-2"
+                                    fit
+                                    className="mt-1 rounded-full max-sm:py-2"
                                     onClick={() => setViewedWriteOff({
                                       date,
                                       productId: row.product.id,

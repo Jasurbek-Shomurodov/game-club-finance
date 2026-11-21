@@ -144,8 +144,8 @@ export function SideScorecard({ title, icon: Icon, accent = 'neutral', color, in
 
       <div className="mt-4">
         <div className="flex h-2.5 overflow-hidden rounded-full bg-gray-100" role="img" aria-label={`${labels.spent} ${spentText}, ${labels.kept} ${keptText}`}>
-          {hasIncome && <span className="grow-x h-full bg-danger-500/80 transition-[width] duration-700 motion-reduce:transition-none" style={{ width: `${spentShare * 100}%` }} />}
-          {keptShare > 0 && <span className="grow-x ml-0.5 h-full rounded-r-full transition-[width] duration-700 motion-reduce:transition-none" style={{ width: `${keptShare * 100}%`, backgroundColor: color }} />}
+          {hasIncome && <span className="grow-x h-full bg-danger-500/80 transition-[width] duration-300 motion-reduce:transition-none" style={{ width: `${spentShare * 100}%` }} />}
+          {keptShare > 0 && <span className="grow-x ml-0.5 h-full rounded-r-full transition-[width] duration-300 motion-reduce:transition-none" style={{ width: `${keptShare * 100}%`, backgroundColor: color }} />}
         </div>
         <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-gray-500">
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-danger-500/80" aria-hidden="true" />{labels.spent} · {spentText}</span>

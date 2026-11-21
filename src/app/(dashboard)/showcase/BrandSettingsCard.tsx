@@ -6,6 +6,7 @@ import { ExternalLink, Store } from 'lucide-react';
 import {
   Badge,
   Button,
+  ButtonLink,
   Card,
   CardBody,
   CardHeader,
@@ -16,7 +17,6 @@ import {
   LoadErrorAlert,
   SectionHeading,
   SkeletonStatus,
-  buttonClassName,
 } from '@/components/PresentationFoundation';
 import { createClient } from '@/lib/supabase/client';
 import { refreshPublicShowcase } from '@/lib/showcaseRefresh';
@@ -110,10 +110,9 @@ export function BrandSettingsCard({ userId, clubId, onSaved }: BrandSettingsCard
             ? <Badge variant="success">{t('published')}</Badge>
             : <Badge variant="neutral">{t('draft')}</Badge>}
           action={brand?.is_published ? (
-            <a href={`/brand/${brand.slug}`} target="_blank" rel="noopener noreferrer" className={buttonClassName({ variant: 'outline', size: 'sm' })}>
-              <ExternalLink size={15} aria-hidden="true" />
+            <ButtonLink href={`/brand/${brand.slug}`} target="_blank" rel="noopener noreferrer" size="sm" icon={<ExternalLink size={15} aria-hidden="true" />}>
               {t('openBrandPage')}
-            </a>
+            </ButtonLink>
           ) : undefined}
         />
       </CardHeader>

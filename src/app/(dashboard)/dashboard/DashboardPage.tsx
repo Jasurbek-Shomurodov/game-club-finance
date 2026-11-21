@@ -465,7 +465,7 @@ export default function DashboardPage({
                 <div className="flex min-w-44 items-center gap-2 text-xs text-gray-500">
                   <span className="tabular-nums">{t('monthDayProgress', { elapsed: monthProgress.elapsed, total: monthProgress.total })}</span>
                   <span className="h-1.5 w-28 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
-                    <span className="grow-x block h-full rounded-full bg-primary-600 transition-[width] duration-700 motion-reduce:transition-none" style={{ width: `${monthProgress.ratio * 100}%` }} />
+                    <span className="grow-x block h-full rounded-full bg-primary-600 transition-[width] duration-300 motion-reduce:transition-none" style={{ width: `${monthProgress.ratio * 100}%` }} />
                   </span>
                 </div>
               ) : undefined}

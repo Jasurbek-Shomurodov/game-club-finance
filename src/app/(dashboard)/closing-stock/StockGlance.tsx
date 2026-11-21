@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
 import { PackageX } from 'lucide-react';
-import { Disclosure, Skeleton } from '@/components/PresentationFoundation';
+import { Disclosure, Skeleton, StatTile, type MetricTone } from '@/components/PresentationFoundation';
 import { DonutSkeleton, SkeletonCard } from '@/components/charts/ChartSkeletons';
 import { ChartCard, colorWithAlpha, chartColors } from '@/components/dashboard/ChartCard';
 import { toDonutSlices } from '@/components/charts/donutSlices';
@@ -20,14 +20,29 @@ const DonutBreakdown = dynamic(() => import('@/components/charts/DonutBreakdown'
 
 const LIST_SHOWN = 6;
 
+/** A figure of the day that is not a headline: shown as a tile above the glance cards. */
+export interface StockGlanceFigure {
+  label: string;
+  /** Already formatted. */
+  value: string;
+  unit?: string;
+  tone?: MetricTone;
+  /** The records behind the figure. */
+  href?: string;
+}
+
+const FIGURE_GRID = 'grid grid-cols-2 gap-3 sm:grid-cols-3 max-sm:[&>*:last-child:nth-child(odd)]:col-span-2';
+
 /**
  * The bar's stock for the selected day in three reads: where the stock value
  * sits, what sold best, and what has run out or is about to. Tapping a product
  * finds it in the table; tapping a category filters to it.
  */
-export function StockGlance({ rows, stockValue, onFindProduct, onSelectCategory }: {
+export function StockGlance({ rows, stockValue, figures = [], onFindProduct, onSelectCategory }: {
   rows: readonly StockGlanceRow[];
   stockValue: number;
+  /** The day's secondary figures (product count, promotion cost, write-off cost). */
+  figures?: readonly StockGlanceFigure[];
   onFindProduct: (name: string) => void;
   onSelectCategory: (category: string) => void;
 }) {
@@ -58,7 +73,14 @@ export function StockGlance({ rows, stockValue, onFindProduct, onSelectCategory 
         </span>
       )}
     >
-      <div className="mt-2 grid gap-4 lg:grid-cols-3">
+      {figures.length > 0 && (
+        <div className={cn(FIGURE_GRID, 'mt-2')}>
+          {figures.map((figure) => (
+            <StatTile key={figure.label} size="sm" href={figure.href} label={figure.label} value={figure.value} unit={figure.unit} tone={figure.tone} />
+          ))}
+        </div>
+      )}
+      <div className={cn('grid gap-4 lg:grid-cols-3', figures.length > 0 ? 'mt-4' : 'mt-2')}>
         <ChartCard title={t('valueTitle')}>
           <div className="mt-3">
             {slices.length ? (
@@ -136,11 +158,16 @@ export function StockGlance({ rows, stockValue, onFindProduct, onSelectCategory 
 }
 
 /** The open glance while the day loads: its summary line over the value donut, top sellers and attention chips. */
-export function StockGlanceSkeleton() {
+export function StockGlanceSkeleton({ figures = 3 }: { figures?: number }) {
   return (
     <div aria-hidden="true">
       <Skeleton className="h-5 w-56 max-w-full" />
-      <div className="mt-2 grid gap-4 lg:grid-cols-3">
+      {figures > 0 && (
+        <div className={cn(FIGURE_GRID, 'mt-2')}>
+          {Array.from({ length: figures }, (_, index) => <Skeleton key={index} className="h-16 rounded-xl bg-gray-100" />)}
+        </div>
+      )}
+      <div className={cn('grid gap-4 lg:grid-cols-3', figures > 0 ? 'mt-4' : 'mt-2')}>
         <SkeletonCard>
           <Skeleton className="h-4 w-32" />
           <DonutSkeleton className="mt-3" />

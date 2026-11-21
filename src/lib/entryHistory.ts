@@ -75,6 +75,23 @@ export function auditFieldKind(field: string): AuditFieldKind {
   return FIELD_KINDS[field] ?? 'text';
 }
 
+export type AuditMoneyUnit = 'uzs' | 'usd';
+
+/**
+ * The currency a money field of an audited row is in, or null when the field
+ * is not money. Everything is in sums except the dollar side of an exchange
+ * (the amount whose method is `usd`) and an expense's `usd_amount`; rates are
+ * sums per one dollar. `row` is the row the value was read from.
+ */
+export function auditMoneyUnit(field: string, row: Record<string, unknown>): AuditMoneyUnit | null {
+  const kind = auditFieldKind(field);
+  if (kind !== 'money' && kind !== 'unitMoney') return null;
+  if (field === 'usd_amount') return 'usd';
+  if (field === 'from_amount') return row.from_method === 'usd' ? 'usd' : 'uzs';
+  if (field === 'to_amount') return row.to_method === 'usd' ? 'usd' : 'uzs';
+  return 'uzs';
+}
+
 export interface AuditFieldChange {
   field: string;
   before: unknown;

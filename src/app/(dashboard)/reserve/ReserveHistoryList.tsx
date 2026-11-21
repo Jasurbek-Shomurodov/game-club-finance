@@ -7,7 +7,7 @@ import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { Badge, Button, CategoryIcon, IconButton, IconChip, Modal, TappableSurface, type Tone } from '@/components/PresentationFoundation';
 import { groupReserveActivityByDay, type ReserveActivity } from '@/lib/calculations/ownerReserve';
 import { isKnownExpenseCategory } from '@/lib/expenseCategories';
-import { formatCurrency, formatDateOnly, formatDateShort, formatDateTime, formatUnitCurrency, formatYearMonth } from '@/lib/formatters';
+import { formatCurrency, formatDateOnly, formatDateShort, formatDateTime, formatUnitCurrency, formatYearMonth, formatDollars } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import type { OwnerReserveMethod } from '@/types';
 
@@ -24,7 +24,7 @@ interface ReserveHistoryListProps {
 const KIND_ICON = { deposit: ArrowDownToLine, return: ArrowUpFromLine, purchase: ShoppingCart, exchange: ArrowRightLeft } as const;
 const KIND_TONE: Record<ReserveActivity['kind'], Tone> = { deposit: 'primary', return: 'warning', purchase: 'neutral', exchange: 'reserve' };
 
-const dollars = (value: number) => `$${formatUnitCurrency(value)}`;
+const dollars = (value: number) => formatDollars(value);
 
 /** Why a row cannot be deleted here, or null when it can. */
 function lockReason(row: ReserveActivity): 'exchange' | 'collection' | null {

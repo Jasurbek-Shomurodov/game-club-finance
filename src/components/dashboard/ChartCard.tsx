@@ -34,21 +34,15 @@ export const chartColors = {
  */
 export const categoricalColors = [1, 2, 3, 4, 5].map((slot) => token(`viz-${slot}`));
 
+/**
+ * The same five hues plus two more, for the one view that names seven expense
+ * categories at once (Financial Analysis). The first five match
+ * `categoricalColors`, so a category ranked the same has the same colour there.
+ */
+export const extendedCategoricalColors = [...categoricalColors, token('viz-6'), token('viz-7')];
+
 /** Y-axis gutter wide enough for compact labels like "4,5 млн" without clipping the first digit. */
 export const CHART_Y_AXIS_WIDTH = 60;
-
-/** Themed Recharts tooltip box; spread onto every `<Tooltip>` so it is not white in dark mode. */
-export const chartTooltipStyle = {
-  contentStyle: {
-    backgroundColor: token('surface'),
-    border: `1px solid ${token('gray-200')}`,
-    borderRadius: 8,
-    boxShadow: '0 8px 24px rgb(0 0 0 / 0.18)',
-    fontSize: 12,
-  },
-  labelStyle: { color: token('gray-950'), fontWeight: 600, marginBottom: 4 },
-  itemStyle: { padding: '1px 0' },
-} as const;
 
 /** Card wrapper shared by every dashboard chart; the section is named by its heading. */
 export function ChartCard({ title, description, help, action, className, children }: {
@@ -202,6 +196,8 @@ interface TooltipRow {
   color: string;
   icon?: LucideIcon;
   dashed?: boolean;
+  /** Prints this row's value itself (a percentage, a count) instead of as money with the currency. */
+  format?: (value: number) => string;
 }
 
 /** Tooltip card for dashboard charts: the day, then one row per visible series with its icon. */
@@ -217,7 +213,7 @@ export function ChartTooltipBody({ active, label, payload, series, currency }: {
   const rows = series.filter((row) => typeof values.get(row.key) === 'number');
   if (!rows.length) return null;
   return (
-    <div className="min-w-48 rounded-xl border border-gray-200 bg-surface/95 p-3 text-xs shadow-pop backdrop-blur">
+    <div className="min-w-48 rounded-xl border border-gray-200 bg-surface p-3 text-xs shadow-pop">
       <p className="mb-2 font-semibold text-gray-950">{label}</p>
       <ul className="space-y-1.5">
         {rows.map((row) => {
@@ -233,7 +229,9 @@ export function ChartTooltipBody({ active, label, payload, series, currency }: {
               )}
               <span className="flex-1 text-gray-600">{row.label}</span>
               <span className="tabular-nums font-semibold text-gray-950">
-                {formatCurrency(Number(values.get(row.key)))} <span className="font-medium text-gray-500">{currency}</span>
+                {row.format
+                  ? row.format(Number(values.get(row.key)))
+                  : <>{formatCurrency(Number(values.get(row.key)))} <span className="font-medium text-gray-500">{currency}</span></>}
               </span>
             </li>
           );

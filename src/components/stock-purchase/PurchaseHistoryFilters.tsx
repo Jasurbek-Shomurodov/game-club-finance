@@ -64,10 +64,10 @@ export function PurchaseHistoryFilterBar({
           onChange={(period) => set('period', period)}
         />
         {filters.period === 'day' && (
-          <DatePicker className="w-full lg:w-60" ariaLabel={t('periodDay')} value={filters.day} max={businessToday} onChange={(day) => set('day', day)} />
+          <DatePicker className="w-full sm:w-56" ariaLabel={t('periodDay')} value={filters.day} max={businessToday} onChange={(day) => set('day', day)} />
         )}
         {filters.period === 'month' && (
-          <MonthPicker className="w-full lg:w-60" value={filters.month} max={businessToday.slice(0, 7)} onChange={(month) => set('month', month)} />
+          <MonthPicker className="w-full sm:w-56" value={filters.month} max={businessToday.slice(0, 7)} onChange={(month) => set('month', month)} />
         )}
         {filters.period === 'range' && (
           <DateRangePicker

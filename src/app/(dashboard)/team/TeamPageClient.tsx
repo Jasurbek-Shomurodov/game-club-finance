@@ -413,7 +413,7 @@ export default function TeamPageClient() {
 
           {clubMembers.length === 0 ? (
             // A failed load already shows its own alert; "no data" would contradict it.
-            team.loadFailed ? null : <Card><EmptyState icon={Users} title={tc('noData')} /></Card>
+            team.loadFailed ? null : <Card><EmptyState icon={Users} title={t('emptyTitle')} description={t('emptyBody')} /></Card>
           ) : (
             <Card as="section" padding="none" className="overflow-hidden">
               <CardHeader className="space-y-4">
@@ -458,7 +458,7 @@ export default function TeamPageClient() {
                 />
               ) : (
                 <>
-                  <div className={cn(MEMBER_GRID, 'hidden border-b border-gray-100 bg-gray-50/60 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 lg:grid')}>
+                  <div className={cn(MEMBER_GRID, 'hidden border-b border-gray-100 bg-gray-50/60 py-2 text-xs font-semibold text-gray-500 lg:grid')}>
                     <span>{t('member')}</span>
                     <span>{t('role')}</span>
                     <span>{t('pageAccess')}</span>

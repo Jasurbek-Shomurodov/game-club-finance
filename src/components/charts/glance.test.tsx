@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import messages from '@/messages/en.json';
 import { ChangeHint, GlanceStat } from './GlanceStat';
 import { ShareBar } from './ShareBar';
+import { ChartTooltipBody } from '@/components/dashboard/ChartCard';
 import { toDonutSlices } from './donutSlices';
 import { StockGlance } from '@/app/(dashboard)/closing-stock/StockGlance';
 import type { StockGlanceRow } from '@/lib/calculations/pageGlance';
@@ -29,6 +30,28 @@ describe('ShareBar', () => {
   });
   it('renders nothing without a positive part', () => {
     expect(render(<ShareBar label="Pay" locale="en" size="sm" parts={[{ key: 'a', label: 'A', value: 0, color: 'red' }]} />)).toBe('');
+  });
+  it('can leave its legend to the caller and still name the parts', () => {
+    const parts = [{ key: 'a', label: 'Base', value: 300, color: 'red' }];
+    expect(render(<ShareBar label="Pay" locale="en" parts={parts} />)).toContain('<ul');
+    const html = render(<ShareBar label="Pay" locale="en" parts={parts} legend={false} />);
+    expect(html).not.toContain('<ul');
+    expect(html).toContain('aria-label="Pay: Base 100%"');
+  });
+});
+
+describe('ChartTooltipBody', () => {
+  it('prints money with the currency, and a formatted series as it is', () => {
+    const html = render(
+      <ChartTooltipBody active label="21 Nov" currency="UZS" payload={[{ dataKey: 'income', value: 1500000 }, { dataKey: 'margin', value: 0.425 }]}
+        series={[
+          { key: 'income', label: 'Income', color: 'red' },
+          { key: 'margin', label: 'Margin', color: 'blue', format: (value) => `${Math.round(value * 100)}%` },
+        ]} />,
+    );
+    expect(html).toMatch(/Income<\/span><span[^>]*>1 500 000 <span[^>]*>UZS<\/span>/);
+    expect(html).toMatch(/Margin<\/span><span[^>]*>43%<\/span>/);
+    expect(html.match(/UZS/g)).toHaveLength(1);
   });
 });
 

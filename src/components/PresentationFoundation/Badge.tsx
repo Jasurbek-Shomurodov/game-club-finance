@@ -24,9 +24,15 @@ const variantClasses: Record<BadgeVariant, string> = {
   outline: 'border border-gray-200 bg-surface text-gray-600',
 };
 
+const sizeClasses = {
+  sm: 'px-2 py-0.5 text-xs',
+  md: 'px-2.5 py-1 text-xs',
+  lg: 'px-3 py-2 text-sm',
+};
+
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
   icon?: ReactNode;
   children: ReactNode;
 }
@@ -36,7 +42,7 @@ export function Badge({ variant = 'neutral', size = 'md', icon, className, child
     <span
       className={cn(
         'inline-flex items-center gap-1 whitespace-nowrap rounded-full font-semibold',
-        size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-2.5 py-1 text-xs',
+        sizeClasses[size],
         variantClasses[variant],
         className,
       )}

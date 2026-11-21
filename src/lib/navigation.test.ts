@@ -27,6 +27,32 @@ describe('sectionTabs', () => {
   });
 });
 
+describe('tab rows of pages with their own sidebar item', () => {
+  it('lists the report views and pages, write-offs for owners only', () => {
+    expect(hrefs(sectionTabs('reports', 'owner', null))).toEqual(['/reports', '/reports?view=collected', '/reports?view=writeOffs', '/daily-report', '/monthly-report']);
+    expect(hrefs(sectionTabs('reports', 'admin', ['reports']))).toEqual(['/reports', '/reports?view=collected', '/daily-report', '/monthly-report']);
+    // Expenses alone opens /reports but not the day and month reports.
+    expect(hrefs(sectionTabs('reports', 'admin', ['expenses']))).toEqual(['/reports', '/reports?view=collected']);
+  });
+
+  it('shows every member the salary views and keeps the brand page for owners', () => {
+    expect(hrefs(sectionTabs('salaries', 'viewer', null))).toEqual(['/salaries/employees', '/salaries/operations', '/salaries/history']);
+    expect(hrefs(sectionTabs('showcase', 'owner', null))).toEqual(['/showcase', '/showcase/games', '/showcase/google', '/showcase/brand']);
+    expect(hrefs(sectionTabs('showcase', 'admin', ['showcase']))).toEqual(['/showcase', '/showcase/games', '/showcase/google']);
+    expect(sectionTabs('showcase', 'admin', ['dashboard'])).toEqual([]);
+  });
+
+  it('names the deepest matching tab and leaves the sidebar sections alone', () => {
+    const showcase = sectionTabs('showcase', 'owner', null);
+    expect(activeSectionTab(showcase, '/showcase')).toBe('/showcase');
+    expect(activeSectionTab(showcase, '/showcase/games')).toBe('/showcase/games');
+    // Views of one route cannot be told apart by path: the page names its view itself.
+    expect(activeSectionTab(sectionTabs('reports', 'owner', null), '/reports')).toBe('/reports');
+    expect(sectionForPath('/reports')).toBeNull();
+    expect(sectionForPath('/showcase/games')).toBeNull();
+  });
+});
+
 describe('sectionHome', () => {
   it('is the first tab the member can open', () => {
     expect(sectionHome('bar', 'owner', null)).toBe('/closing-stock');
@@ -66,8 +92,15 @@ describe('accessibleSectionPaths', () => {
   it('lists every tab route the member can open', () => {
     expect(accessibleSectionPaths('owner', null)).toEqual([
       '/closing-stock', '/write-offs', '/stock-purchase', '/products', '/promotions', '/money-taken', '/reserve', '/team', '/history',
+      // The views of /reports share one route, listed once.
+      '/reports', '/daily-report', '/monthly-report',
+      '/salaries/employees', '/salaries/operations', '/salaries/history',
+      '/showcase', '/showcase/games', '/showcase/google', '/showcase/brand',
     ]);
-    expect(accessibleSectionPaths('viewer', null)).toEqual(['/products', '/money-taken']);
+    expect(accessibleSectionPaths('viewer', null)).toEqual([
+      '/products', '/money-taken', '/reports', '/daily-report', '/monthly-report',
+      '/salaries/employees', '/salaries/operations', '/salaries/history',
+    ]);
   });
 });
 

@@ -10,6 +10,7 @@ import {
   CurrencyInput,
   Field,
   InlineAlert,
+  Modal,
   MonthPicker,
   NoteField,
   SegmentedControl,
@@ -56,13 +57,22 @@ interface CashShortageFormProps {
   onCancel?: () => void;
 }
 
-/** Records money missing from the till, optionally taking part back from the responsible employee's salary. */
 /**
- * Records money missing from the till in a month, optionally taking part back
- * from the responsible employee's salary. The amount can never exceed what that
- * month still has in the chosen money (migration 151 refuses it as well).
+ * The dialog that records money missing from the till in a month, optionally
+ * taking part back from the responsible employee's salary. The amount can never
+ * exceed what that month still has in the chosen money (migration 151 refuses
+ * it as well). Mounted only while open, so every opening starts a fresh form.
  */
-export function CashShortageForm({ clubId, defaultMonth, today, enabledPaymentMethods, employees, onSaved, onCancel }: CashShortageFormProps) {
+export function CashShortageModal(props: CashShortageFormProps & { onCancel: () => void }) {
+  return <ShortageForm {...props} modal />;
+}
+
+/** The same form inline, with its buttons under the fields, for a caller that brings its own dialog. */
+export function CashShortageForm(props: CashShortageFormProps) {
+  return <ShortageForm {...props} />;
+}
+
+function ShortageForm({ clubId, defaultMonth, today, enabledPaymentMethods, employees, onSaved, onCancel, modal = false }: CashShortageFormProps & { modal?: boolean }) {
   const t = useTranslations('cashShortages');
   const tc = useTranslations('common');
   const note = useEntryNoteGuard();
@@ -176,8 +186,25 @@ export function CashShortageForm({ clubId, defaultMonth, today, enabledPaymentMe
 
   const reasonIcons: Record<CashShortageReason, LucideIcon> = { stolen: TriangleAlert, short_handover: HandCoins, unknown: CircleHelp };
 
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4" aria-busy={saving || undefined}>
+  const actions = (
+    <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      {onCancel ? <Button type="button" variant="secondary" disabled={saving} onClick={onCancel}>{tc('cancel')}</Button> : null}
+      <Button
+        type="submit"
+        form="cash-shortage-form"
+        variant="danger"
+        disabled={!amountValid || !recoverValid || !limitsReady || !date}
+        loading={saving}
+        loadingLabel={tc('saving')}
+        icon={<TriangleAlert size={17} aria-hidden="true" />}
+      >
+        {amountValid ? t('saveAmount', { amount: `${formatCurrency(amountValue)} ${tc('currency')}` }) : t('save')}
+      </Button>
+    </div>
+  );
+
+  const form = (
+    <form id="cash-shortage-form" onSubmit={handleSubmit} className="space-y-4" aria-busy={saving || undefined}>
       <div className="grid gap-4 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
         <Field label={t('month')} hint={date && limits ? t('datedOn', { date: formatDateOnly(date, locale) }) : undefined}>
           <MonthPicker value={month} max={maxMonth} disabled={saving} onChange={setMonth} />
@@ -342,20 +369,15 @@ export function CashShortageForm({ clubId, defaultMonth, today, enabledPaymentMe
       {limitsFailed ? <InlineAlert variant="danger">{t('limitsLoadError')}</InlineAlert> : null}
       {error ? <InlineAlert variant="danger">{t(`errors.${error}`)}</InlineAlert> : null}
 
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        {onCancel ? <Button type="button" variant="secondary" disabled={saving} onClick={onCancel}>{tc('cancel')}</Button> : null}
-        <Button
-          type="submit"
-          variant="danger"
-          disabled={!amountValid || !recoverValid || !limitsReady || !date}
-          loading={saving}
-          loadingLabel={tc('saving')}
-          icon={<TriangleAlert size={17} aria-hidden="true" />}
-        >
-          {amountValid ? t('saveAmount', { amount: `${formatCurrency(amountValue)} ${tc('currency')}` }) : t('save')}
-        </Button>
-      </div>
+      {modal ? null : actions}
       {note.dialog}
     </form>
+  );
+
+  if (!modal) return form;
+  return (
+    <Modal open onClose={onCancel ?? (() => {})} title={t('title')} description={t('description')} size="xl" footer={actions}>
+      {form}
+    </Modal>
   );
 }

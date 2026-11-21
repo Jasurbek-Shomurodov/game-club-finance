@@ -16,9 +16,18 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { ReactElement, ReactNode } from 'react';
+import type { ComponentProps, ReactElement, ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
-import { CHART_Y_AXIS_WIDTH, chartColors, chartTooltipStyle, formatAxis } from '@/components/dashboard/ChartCard';
+import {
+  CHART_Y_AXIS_WIDTH,
+  ChartLegendToggle,
+  ChartTooltipBody,
+  chartColors,
+  formatAxis,
+  seriesOpacity,
+  useSeriesVisibility,
+  type ChartLegendItem,
+} from '@/components/dashboard/ChartCard';
 import {
   capitalizeFirst,
   formatCurrency,
@@ -40,7 +49,7 @@ import type {
   YearOverYear,
 } from '@/lib/calculations/analysisSeries';
 import { OTHER_CATEGORY, type CategoryAmount } from '@/lib/calculations/financialAnalysis';
-import { axisProps, LegendItem } from './AnalysisTimeCharts';
+import { axisProps } from './AnalysisTimeCharts';
 import { formatShare, SOURCE_COLORS } from './analysisFormat';
 
 type Side = 'gameClub' | 'bar';
@@ -59,10 +68,6 @@ function periodLabels(granularity: Granularity, locale: string) {
   };
 }
 
-function Legend({ children }: { children: ReactNode }) {
-  return <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium text-gray-500">{children}</div>;
-}
-
 function ChartFrame({ children }: { children: ReactElement }) {
   return (
     <div className="mt-3 h-64">
@@ -71,9 +76,48 @@ function ChartFrame({ children }: { children: ReactElement }) {
   );
 }
 
-const moneyFormatter = (currency: string, names: Record<string, string>) => (
-  (value: unknown, name: unknown) => [`${formatCurrency(Number(value))} ${currency}`, names[String(name)] ?? String(name)] as [string, string]
-);
+type TooltipSeries = ComponentProps<typeof ChartTooltipBody>['series'];
+
+interface TooltipContentProps {
+  active?: boolean;
+  label?: unknown;
+  payload?: ReadonlyArray<{ dataKey?: unknown; value?: unknown }>;
+}
+
+/** The shared tooltip card for a chart: `title` writes the hovered bucket, `series` its rows in drawing order. */
+function tooltipContent(currency: string, title: (label: unknown) => ReactNode, series: TooltipSeries | ((label: unknown) => TooltipSeries)) {
+  function OverallTooltip({ active, label, payload }: TooltipContentProps) {
+    return (
+      <ChartTooltipBody
+        active={active}
+        label={title(label)}
+        payload={payload}
+        series={typeof series === 'function' ? series(label) : series}
+        currency={currency}
+      />
+    );
+  }
+  return OverallTooltip;
+}
+
+/**
+ * The legend of a chart as pills that show or hide each mark, and what the
+ * chart needs to follow it: which keys are hidden and how strongly to draw a
+ * mark while another pill is hovered.
+ */
+function useChartLegend(label: string, items: readonly ChartLegendItem[]) {
+  const { hidden, focused, setFocused, toggle } = useSeriesVisibility();
+  const keys = items.map((item) => item.key);
+  return {
+    shown: (key: string) => !hidden.has(key),
+    opacity: (key: string, base = 1) => base * seriesOpacity(key, focused),
+    legend: (
+      <div className="mt-3">
+        <ChartLegendToggle label={label} items={items} hidden={hidden} onToggle={(key) => toggle(key, keys)} onFocus={setFocused} />
+      </div>
+    ),
+  };
+}
 
 /** One side per chart: money in and spending as bars, profit as a line. */
 export function SideFlowChart({ rows, side, granularity, locale, currency }: {
@@ -87,17 +131,18 @@ export function SideFlowChart({ rows, side, granularity, locale, currency }: {
   const income = side === 'gameClub' ? 'gameClubIncome' : 'barSales';
   const spent = side === 'gameClub' ? 'gameClubSpent' : 'barSpent';
   const left = side === 'gameClub' ? 'gameClubLeft' : 'barLeft';
-  const names: Record<string, string> = { [income]: t(side === 'gameClub' ? 'moneyIn' : 'barSalesIn'), [spent]: t('spent'), [left]: t('profit') };
   const labels = periodLabels(granularity, locale);
   const ends = new Map(rows.map((row) => [row.period, row.end]));
+  const series: ChartLegendItem[] = [
+    { key: income, label: t(side === 'gameClub' ? 'moneyIn' : 'barSalesIn'), color: SIDE_COLOR[side], swatch: 'square' },
+    { key: spent, label: t('spent'), color: chartColors.danger, swatch: 'square' },
+    { key: left, label: t('profit'), color: chartColors.success, swatch: 'line' },
+  ];
+  const { legend, shown, opacity } = useChartLegend(t(side === 'gameClub' ? 'sideFlowGameClubTitle' : 'sideFlowBarTitle'), series);
 
   return (
     <>
-      <Legend>
-        <LegendItem color={SIDE_COLOR[side]} label={names[income]} />
-        <LegendItem color={chartColors.danger} label={names[spent]} />
-        <LegendItem color={chartColors.success} label={names[left]} line />
-      </Legend>
+      {legend}
       <ChartFrame>
         <ComposedChart accessibilityLayer data={rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barGap={2} barCategoryGap="22%">
           <CartesianGrid stroke={chartColors.grid} vertical={false} />
@@ -105,14 +150,12 @@ export function SideFlowChart({ rows, side, granularity, locale, currency }: {
           <YAxis {...axisProps} axisLine={false} width={CHART_Y_AXIS_WIDTH} tickFormatter={(value: number) => formatAxis(value, locale)} />
           <ReferenceLine y={0} stroke={chartColors.axis} strokeOpacity={0.4} />
           <Tooltip
-            {...chartTooltipStyle}
             cursor={{ fill: chartColors.cursor }}
-            labelFormatter={(period) => labels.title(String(period), ends.get(String(period)))}
-            formatter={moneyFormatter(currency, names)}
+            content={tooltipContent(currency, (period) => labels.title(String(period), ends.get(String(period))), series)}
           />
-          <Bar dataKey={income} fill={SIDE_COLOR[side]} radius={[3, 3, 0, 0]} maxBarSize={22} />
-          <Bar dataKey={spent} fill={chartColors.danger} fillOpacity={0.8} radius={[3, 3, 0, 0]} maxBarSize={22} />
-          <Line dataKey={left} type="monotone" stroke={chartColors.success} strokeWidth={2.5} dot={rows.length <= 31 ? { r: 2.5 } : false} />
+          <Bar dataKey={income} hide={!shown(income)} fill={SIDE_COLOR[side]} fillOpacity={opacity(income)} radius={[3, 3, 0, 0]} maxBarSize={22} />
+          <Bar dataKey={spent} hide={!shown(spent)} fill={chartColors.danger} fillOpacity={opacity(spent, 0.8)} radius={[3, 3, 0, 0]} maxBarSize={22} />
+          <Line dataKey={left} hide={!shown(left)} type="monotone" stroke={chartColors.success} strokeOpacity={opacity(left)} strokeWidth={2.5} dot={rows.length <= 31 ? { r: 2.5 } : false} />
         </ComposedChart>
       </ChartFrame>
     </>
@@ -127,16 +170,17 @@ export function CumulativeProfitChart({ rows, granularity, locale, currency }: {
   currency: string;
 }) {
   const t = useTranslations('financialAnalysis');
-  const names: Record<string, string> = { gameClubCumulative: t('drill.gameClubLeft'), barCumulative: t('drill.barLeft') };
   const labels = periodLabels(granularity, locale);
   const ends = new Map(rows.map((row) => [row.period, row.end]));
+  const series: ChartLegendItem[] = [
+    { key: 'gameClubCumulative', label: t('drill.gameClubLeft'), color: chartColors.primary, swatch: 'square' },
+    { key: 'barCumulative', label: t('drill.barLeft'), color: chartColors.orange, swatch: 'square' },
+  ];
+  const { legend, shown, opacity } = useChartLegend(t('cumulativeTitle'), series);
 
   return (
     <>
-      <Legend>
-        <LegendItem color={chartColors.primary} label={names.gameClubCumulative} />
-        <LegendItem color={chartColors.orange} label={names.barCumulative} />
-      </Legend>
+      {legend}
       <ChartFrame>
         <AreaChart accessibilityLayer data={rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
           <defs>
@@ -153,13 +197,9 @@ export function CumulativeProfitChart({ rows, granularity, locale, currency }: {
           <XAxis dataKey="period" {...axisProps} axisLine={{ stroke: chartColors.grid }} minTickGap={12} tickFormatter={labels.tick} />
           <YAxis {...axisProps} axisLine={false} width={CHART_Y_AXIS_WIDTH} tickFormatter={(value: number) => formatAxis(value, locale)} />
           <ReferenceLine y={0} stroke={chartColors.axis} strokeOpacity={0.4} />
-          <Tooltip
-            {...chartTooltipStyle}
-            labelFormatter={(period) => labels.title(String(period), ends.get(String(period)))}
-            formatter={moneyFormatter(currency, names)}
-          />
-          <Area dataKey="gameClubCumulative" type="monotone" stroke={chartColors.primary} strokeWidth={2} fill="url(#cumulative-gameClub)" />
-          <Area dataKey="barCumulative" type="monotone" stroke={chartColors.orange} strokeWidth={2} fill="url(#cumulative-bar)" />
+          <Tooltip content={tooltipContent(currency, (period) => labels.title(String(period), ends.get(String(period))), series)} />
+          <Area dataKey="gameClubCumulative" hide={!shown('gameClubCumulative')} type="monotone" stroke={chartColors.primary} strokeOpacity={opacity('gameClubCumulative')} strokeWidth={2} fill="url(#cumulative-gameClub)" fillOpacity={opacity('gameClubCumulative')} />
+          <Area dataKey="barCumulative" hide={!shown('barCumulative')} type="monotone" stroke={chartColors.orange} strokeOpacity={opacity('barCumulative')} strokeWidth={2} fill="url(#cumulative-bar)" fillOpacity={opacity('barCumulative')} />
         </AreaChart>
       </ChartFrame>
     </>
@@ -175,28 +215,25 @@ export function IncomeMixChart({ rows, granularity, locale, currency }: {
 }) {
   const t = useTranslations('financialAnalysis');
   const keys = ['computers', 'playstation', 'debts'] as const;
-  const names: Record<string, string> = Object.fromEntries(keys.map((key) => [key, t(`sources.${key}`)]));
   const labels = periodLabels(granularity, locale);
   const ends = new Map(rows.map((row) => [row.period, row.end]));
+  const series: ChartLegendItem[] = keys.map((key) => ({ key, label: t(`sources.${key}`), color: SOURCE_COLORS[key], swatch: 'square' }));
+  const { legend, shown, opacity } = useChartLegend(t('incomeMixTitle'), series);
 
   return (
     <>
-      <Legend>
-        {keys.map((key) => <LegendItem key={key} color={SOURCE_COLORS[key]} label={names[key]} />)}
-      </Legend>
+      {legend}
       <ChartFrame>
         <BarChart accessibilityLayer data={rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barCategoryGap="22%">
           <CartesianGrid stroke={chartColors.grid} vertical={false} />
           <XAxis dataKey="period" {...axisProps} axisLine={{ stroke: chartColors.grid }} minTickGap={12} tickFormatter={labels.tick} />
           <YAxis {...axisProps} axisLine={false} width={CHART_Y_AXIS_WIDTH} tickFormatter={(value: number) => formatAxis(value, locale)} />
           <Tooltip
-            {...chartTooltipStyle}
             cursor={{ fill: chartColors.cursor }}
-            labelFormatter={(period) => labels.title(String(period), ends.get(String(period)))}
-            formatter={moneyFormatter(currency, names)}
+            content={tooltipContent(currency, (period) => labels.title(String(period), ends.get(String(period))), series)}
           />
           {keys.map((key, index) => (
-            <Bar key={key} dataKey={key} stackId="income" fill={SOURCE_COLORS[key]} maxBarSize={28} radius={index === keys.length - 1 ? [3, 3, 0, 0] : undefined} />
+            <Bar key={key} dataKey={key} hide={!shown(key)} stackId="income" fill={SOURCE_COLORS[key]} fillOpacity={opacity(key)} maxBarSize={28} radius={index === keys.length - 1 ? [3, 3, 0, 0] : undefined} />
           ))}
         </BarChart>
       </ChartFrame>
@@ -214,29 +251,27 @@ export function CategoryTrendChart({ rows, categories, colors, labelFor, granula
   locale: string;
   currency: string;
 }) {
+  const t = useTranslations('financialAnalysis');
   const keys = categories.map((row) => row.category);
-  const names: Record<string, string> = Object.fromEntries(keys.map((key) => [key, labelFor(key)]));
   const labels = periodLabels(granularity, locale);
   const colorOf = (key: string) => colors[key] ?? colors[OTHER_CATEGORY];
+  const series: ChartLegendItem[] = keys.map((key) => ({ key, label: labelFor(key), color: colorOf(key), swatch: 'square' }));
+  const { legend, shown, opacity } = useChartLegend(t('categoryTrendTitle'), series);
 
   return (
     <>
-      <Legend>
-        {keys.map((key) => <LegendItem key={key} color={colorOf(key)} label={names[key]} />)}
-      </Legend>
+      {legend}
       <ChartFrame>
         <BarChart accessibilityLayer data={rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barCategoryGap="22%">
           <CartesianGrid stroke={chartColors.grid} vertical={false} />
           <XAxis dataKey="period" {...axisProps} axisLine={{ stroke: chartColors.grid }} minTickGap={12} tickFormatter={labels.tick} />
           <YAxis {...axisProps} axisLine={false} width={CHART_Y_AXIS_WIDTH} tickFormatter={(value: number) => formatAxis(value, locale)} />
           <Tooltip
-            {...chartTooltipStyle}
             cursor={{ fill: chartColors.cursor }}
-            labelFormatter={(period) => labels.title(String(period))}
-            formatter={moneyFormatter(currency, names)}
+            content={tooltipContent(currency, (period) => labels.title(String(period)), series)}
           />
           {keys.map((key, index) => (
-            <Bar key={key} dataKey={key} stackId="expenses" fill={colorOf(key)} maxBarSize={28} radius={index === keys.length - 1 ? [3, 3, 0, 0] : undefined} />
+            <Bar key={key} dataKey={key} hide={!shown(key)} stackId="expenses" fill={colorOf(key)} fillOpacity={opacity(key)} maxBarSize={28} radius={index === keys.length - 1 ? [3, 3, 0, 0] : undefined} />
           ))}
         </BarChart>
       </ChartFrame>
@@ -260,35 +295,40 @@ export function WeeklyAverageChart({ rows, side, average, locale, currency }: {
   const total = side === 'gameClub' ? 'gameClubIncome' : 'barSales';
   const labels = periodLabels('week', locale);
   const byPeriod = new Map(rows.map((row) => [row.period, row]));
+  const perDay: ChartLegendItem = { key: value, label: t('weeklyAveragePerDay'), color: SIDE_COLOR[side], swatch: 'square' };
+  const { legend, shown, opacity } = useChartLegend(t(side === 'gameClub' ? 'weeklyAverageGameClubTitle' : 'weeklyAverageBarTitle'), [
+    perDay,
+    { key: 'overall', label: t('weeklyAverageOverall'), color: chartColors.axis, swatch: 'dashed' },
+  ]);
 
   return (
     <>
-      <Legend>
-        <LegendItem color={SIDE_COLOR[side]} label={t('weeklyAveragePerDay')} />
-        <LegendItem color={chartColors.axis} label={t('weeklyAverageOverall')} dashed />
-      </Legend>
+      {legend}
       <ChartFrame>
         <ComposedChart accessibilityLayer data={rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barCategoryGap="22%">
           <CartesianGrid stroke={chartColors.grid} vertical={false} />
           <XAxis dataKey="period" {...axisProps} axisLine={{ stroke: chartColors.grid }} minTickGap={12} tickFormatter={labels.tick} />
           <YAxis {...axisProps} axisLine={false} width={CHART_Y_AXIS_WIDTH} tickFormatter={(amount: number) => formatAxis(amount, locale)} />
-          <ReferenceLine y={average} stroke={chartColors.axis} strokeDasharray="5 4" />
+          {shown('overall') && <ReferenceLine y={average} stroke={chartColors.axis} strokeOpacity={opacity('overall')} strokeDasharray="5 4" />}
           <Tooltip
-            {...chartTooltipStyle}
             cursor={{ fill: chartColors.cursor }}
-            labelFormatter={(period) => labels.title(String(period), byPeriod.get(String(period))?.end)}
-            formatter={(amount, _name, item) => {
-              const row = item?.payload as WeeklyAverageRow | undefined;
-              const weekTotal = row ? `${formatCurrency(row[total])} ${currency}` : '';
-              return [
-                `${formatCurrency(Number(amount))} ${currency} · ${t('weeklyAverageWeekTotal', { amount: weekTotal })}`,
-                t('weeklyAveragePerDay'),
-              ];
-            }}
+            content={tooltipContent(
+              currency,
+              (period) => labels.title(String(period), byPeriod.get(String(period))?.end),
+              // The row carries the day average and, beside it, that week's total.
+              (period) => {
+                const row = byPeriod.get(String(period));
+                const weekTotal = row ? `${formatCurrency(row[total])} ${currency}` : '';
+                return [{
+                  ...perDay,
+                  format: (amount: number) => `${formatCurrency(amount)} ${currency} · ${t('weeklyAverageWeekTotal', { amount: weekTotal })}`,
+                }];
+              },
+            )}
           />
-          <Bar dataKey={value} radius={[3, 3, 0, 0]} maxBarSize={28}>
+          <Bar dataKey={value} hide={!shown(value)} radius={[3, 3, 0, 0]} maxBarSize={28}>
             {rows.map((row) => (
-              <Cell key={row.period} fill={SIDE_COLOR[side]} fillOpacity={row[value] >= average ? 1 : 0.55} />
+              <Cell key={row.period} fill={SIDE_COLOR[side]} fillOpacity={opacity(value, row[value] >= average ? 1 : 0.55)} />
             ))}
           </Bar>
         </ComposedChart>
@@ -302,23 +342,24 @@ const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 /** Average money in per weekday, each side as its own bar. */
 export function WeekdayChart({ rows, locale, currency }: { rows: WeekdayPatternRow[]; locale: string; currency: string }) {
   const t = useTranslations('financialAnalysis');
-  const names: Record<string, string> = { gameClubAverage: t('gameClubIncome'), barAverage: t('barSales') };
   const data = rows.map((row) => ({ ...row, label: t(`weekdays.${WEEKDAY_KEYS[row.weekday]}`) }));
+  const series: ChartLegendItem[] = [
+    { key: 'gameClubAverage', label: t('gameClubIncome'), color: chartColors.primary, swatch: 'square' },
+    { key: 'barAverage', label: t('barSales'), color: chartColors.orange, swatch: 'square' },
+  ];
+  const { legend, shown, opacity } = useChartLegend(t('weekdayTitle'), series);
 
   return (
     <>
-      <Legend>
-        <LegendItem color={chartColors.primary} label={names.gameClubAverage} />
-        <LegendItem color={chartColors.orange} label={names.barAverage} />
-      </Legend>
+      {legend}
       <ChartFrame>
         <BarChart accessibilityLayer data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barGap={3} barCategoryGap="24%">
           <CartesianGrid stroke={chartColors.grid} vertical={false} />
           <XAxis dataKey="label" {...axisProps} axisLine={{ stroke: chartColors.grid }} interval={0} />
           <YAxis {...axisProps} axisLine={false} width={CHART_Y_AXIS_WIDTH} tickFormatter={(value: number) => formatAxis(value, locale)} />
-          <Tooltip {...chartTooltipStyle} cursor={{ fill: chartColors.cursor }} formatter={moneyFormatter(currency, names)} />
-          <Bar dataKey="gameClubAverage" fill={chartColors.primary} radius={[3, 3, 0, 0]} maxBarSize={32} />
-          <Bar dataKey="barAverage" fill={chartColors.orange} radius={[3, 3, 0, 0]} maxBarSize={32} />
+          <Tooltip cursor={{ fill: chartColors.cursor }} content={tooltipContent(currency, (label) => String(label), series)} />
+          <Bar dataKey="gameClubAverage" hide={!shown('gameClubAverage')} fill={chartColors.primary} fillOpacity={opacity('gameClubAverage')} radius={[3, 3, 0, 0]} maxBarSize={32} />
+          <Bar dataKey="barAverage" hide={!shown('barAverage')} fill={chartColors.orange} fillOpacity={opacity('barAverage')} radius={[3, 3, 0, 0]} maxBarSize={32} />
         </BarChart>
       </ChartFrame>
     </>
@@ -336,19 +377,28 @@ export function ProfitMonthsChart({ rows, average, locale, currency }: {
   currency: string;
 }) {
   const t = useTranslations('financialAnalysis');
-  const names: Record<string, string> = { profit: t('profit'), marginPct: t('margin') };
   const monthTitle = (month: string) => capitalizeFirst(formatYearMonth(month.slice(0, 7), locale), locale);
+  // A month is either a profit or a loss: two series on one stack, so each can be shown or hidden by its own pill.
+  const data = rows.map((row) => ({ ...row, gain: row.profit >= 0 ? row.profit : null, loss: row.profit < 0 ? row.profit : null }));
+  const margin = { key: 'marginPct', label: t('margin'), color: chartColors.purple, swatch: 'line' as const };
+  const { legend, shown, opacity } = useChartLegend(t('overallSection'), [
+    { key: 'gain', label: t('profit'), color: chartColors.success, swatch: 'square' },
+    { key: 'loss', label: t('loss'), color: chartColors.danger, swatch: 'square' },
+    { key: 'average', label: t('average'), color: chartColors.axis, swatch: 'dashed' },
+    margin,
+  ]);
+  // Both read "Profit" in the tooltip, as the one figure they are; the margin is a percentage, not money.
+  const tooltipSeries: TooltipSeries = [
+    { key: 'gain', label: t('profit'), color: chartColors.success },
+    { key: 'loss', label: t('profit'), color: chartColors.danger },
+    { ...margin, format: (value: number) => formatShare(value, locale) },
+  ];
 
   return (
     <>
-      <Legend>
-        <LegendItem color={chartColors.success} label={t('profit')} />
-        <LegendItem color={chartColors.danger} label={t('loss')} />
-        <LegendItem color={chartColors.axis} label={t('average')} dashed />
-        <LegendItem color={chartColors.purple} label={t('margin')} line />
-      </Legend>
+      {legend}
       <ChartFrame>
-        <ComposedChart accessibilityLayer data={rows} margin={{ top: 8, right: 0, bottom: 0, left: 0 }} barCategoryGap="28%">
+        <ComposedChart accessibilityLayer data={data} margin={{ top: 8, right: 0, bottom: 0, left: 0 }} barCategoryGap="28%">
           <CartesianGrid stroke={chartColors.grid} vertical={false} />
           <XAxis
             dataKey="month"
@@ -360,19 +410,14 @@ export function ProfitMonthsChart({ rows, average, locale, currency }: {
           <YAxis yAxisId="money" {...axisProps} axisLine={false} width={CHART_Y_AXIS_WIDTH} tickFormatter={(value: number) => formatAxis(value, locale)} />
           <YAxis yAxisId="pct" orientation="right" {...axisProps} axisLine={false} width={36} tickFormatter={(value: number) => `${value}%`} />
           <ReferenceLine yAxisId="money" y={0} stroke={chartColors.axis} strokeOpacity={0.4} />
-          <ReferenceLine yAxisId="money" y={average} stroke={chartColors.axis} strokeDasharray="5 4" />
+          {shown('average') && <ReferenceLine yAxisId="money" y={average} stroke={chartColors.axis} strokeOpacity={opacity('average')} strokeDasharray="5 4" />}
           <Tooltip
-            {...chartTooltipStyle}
             cursor={{ fill: chartColors.cursor }}
-            labelFormatter={(month) => monthTitle(String(month))}
-            formatter={(value, name) => (name === 'marginPct'
-              ? [formatShare(value === null ? null : Number(value), locale), names.marginPct]
-              : [`${formatCurrency(Number(value))} ${currency}`, names.profit])}
+            content={tooltipContent(currency, (month) => monthTitle(String(month)), tooltipSeries)}
           />
-          <Bar yAxisId="money" dataKey="profit" radius={[3, 3, 0, 0]} maxBarSize={36}>
-            {rows.map((row) => <Cell key={row.month} fill={row.profit < 0 ? chartColors.danger : chartColors.success} />)}
-          </Bar>
-          <Line yAxisId="pct" dataKey="marginPct" type="monotone" stroke={chartColors.purple} strokeWidth={2} dot={{ r: 3 }} connectNulls />
+          <Bar yAxisId="money" dataKey="gain" stackId="profit" hide={!shown('gain')} fill={chartColors.success} fillOpacity={opacity('gain')} radius={[3, 3, 0, 0]} maxBarSize={36} />
+          <Bar yAxisId="money" dataKey="loss" stackId="profit" hide={!shown('loss')} fill={chartColors.danger} fillOpacity={opacity('loss')} radius={[3, 3, 0, 0]} maxBarSize={36} />
+          <Line yAxisId="pct" dataKey="marginPct" hide={!shown('marginPct')} type="monotone" stroke={chartColors.purple} strokeOpacity={opacity('marginPct')} strokeWidth={2} dot={{ r: 3 }} connectNulls />
         </ComposedChart>
       </ChartFrame>
     </>
@@ -382,22 +427,18 @@ export function ProfitMonthsChart({ rows, average, locale, currency }: {
 /** Owner money per month: each side's withdrawals stacked under what is still left to take. */
 export function OwnerMonthsChart({ rows, locale, currency }: { rows: OwnerMonthRow[]; locale: string; currency: string }) {
   const t = useTranslations('financialAnalysis');
-  const names: Record<string, string> = {
-    gameClubWithdrawn: t('tableGameClubWithdrawn'),
-    gameClubLeft: t('gameClubLeftToTake'),
-    barWithdrawn: t('tableBarWithdrawn'),
-    barLeft: t('barLeftToTake'),
-  };
   const monthTitle = (month: string) => capitalizeFirst(formatYearMonth(month.slice(0, 7), locale), locale);
+  const series: ChartLegendItem[] = [
+    { key: 'gameClubWithdrawn', label: t('tableGameClubWithdrawn'), color: chartColors.primary, swatch: 'square' },
+    { key: 'gameClubLeft', label: t('gameClubLeftToTake'), color: chartColors.success, swatch: 'square' },
+    { key: 'barWithdrawn', label: t('tableBarWithdrawn'), color: chartColors.orange, swatch: 'square' },
+    { key: 'barLeft', label: t('barLeftToTake'), color: chartColors.purple, swatch: 'square' },
+  ];
+  const { legend, shown, opacity } = useChartLegend(t('ownerChartTitle'), series);
 
   return (
     <>
-      <Legend>
-        <LegendItem color={chartColors.primary} label={names.gameClubWithdrawn} />
-        <LegendItem color={chartColors.success} label={names.gameClubLeft} />
-        <LegendItem color={chartColors.orange} label={names.barWithdrawn} />
-        <LegendItem color={chartColors.purple} label={names.barLeft} />
-      </Legend>
+      {legend}
       <ChartFrame>
         <BarChart accessibilityLayer data={rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barGap={4} barCategoryGap="26%">
           <CartesianGrid stroke={chartColors.grid} vertical={false} />
@@ -411,15 +452,13 @@ export function OwnerMonthsChart({ rows, locale, currency }: { rows: OwnerMonthR
           <YAxis {...axisProps} axisLine={false} width={CHART_Y_AXIS_WIDTH} tickFormatter={(value: number) => formatAxis(value, locale)} />
           <ReferenceLine y={0} stroke={chartColors.axis} strokeOpacity={0.4} />
           <Tooltip
-            {...chartTooltipStyle}
             cursor={{ fill: chartColors.cursor }}
-            labelFormatter={(month) => monthTitle(String(month))}
-            formatter={moneyFormatter(currency, names)}
+            content={tooltipContent(currency, (month) => monthTitle(String(month)), series)}
           />
-          <Bar dataKey="gameClubWithdrawn" stackId="gameClub" fill={chartColors.primary} maxBarSize={30} />
-          <Bar dataKey="gameClubLeft" stackId="gameClub" fill={chartColors.success} maxBarSize={30} radius={[3, 3, 0, 0]} />
-          <Bar dataKey="barWithdrawn" stackId="bar" fill={chartColors.orange} maxBarSize={30} />
-          <Bar dataKey="barLeft" stackId="bar" fill={chartColors.purple} maxBarSize={30} radius={[3, 3, 0, 0]} />
+          <Bar dataKey="gameClubWithdrawn" hide={!shown('gameClubWithdrawn')} stackId="gameClub" fill={chartColors.primary} fillOpacity={opacity('gameClubWithdrawn')} maxBarSize={30} />
+          <Bar dataKey="gameClubLeft" hide={!shown('gameClubLeft')} stackId="gameClub" fill={chartColors.success} fillOpacity={opacity('gameClubLeft')} maxBarSize={30} radius={[3, 3, 0, 0]} />
+          <Bar dataKey="barWithdrawn" hide={!shown('barWithdrawn')} stackId="bar" fill={chartColors.orange} fillOpacity={opacity('barWithdrawn')} maxBarSize={30} />
+          <Bar dataKey="barLeft" hide={!shown('barLeft')} stackId="bar" fill={chartColors.purple} fillOpacity={opacity('barLeft')} maxBarSize={30} radius={[3, 3, 0, 0]} />
         </BarChart>
       </ChartFrame>
     </>
@@ -438,33 +477,28 @@ export function ForecastChart({ forecast, side, locale, currency }: {
 }) {
   const t = useTranslations('financialAnalysis');
   const keys = { actual: `${side}Actual`, projected: `${side}Projected`, lastMonth: `${side}LastMonth` };
-  const names: Record<string, string> = {
-    [keys.actual]: t('forecastActual'),
-    [keys.projected]: t('forecastProjected'),
-    [keys.lastMonth]: t('forecastLastMonth'),
-  };
   const dayTitle = (day: number) => formatDate(`${forecast.month}-${String(day).padStart(2, '0')}`, locale);
+  const actual: ChartLegendItem = { key: keys.actual, label: t('forecastActual'), color: SIDE_COLOR[side], swatch: 'line' };
+  const projected: ChartLegendItem = { key: keys.projected, label: t('forecastProjected'), color: SIDE_COLOR[side], swatch: 'dashed' };
+  const lastMonth: ChartLegendItem = { key: keys.lastMonth, label: t('forecastLastMonth'), color: chartColors.gray, swatch: 'line' };
+  const { legend, shown, opacity } = useChartLegend(
+    t(side === 'gameClub' ? 'forecastGameClubTitle' : side === 'bar' ? 'forecastBarTitle' : 'forecastPlaystationTitle'),
+    [actual, projected, lastMonth],
+  );
 
   return (
     <>
-      <Legend>
-        <LegendItem color={SIDE_COLOR[side]} label={names[keys.actual]} line />
-        <LegendItem color={SIDE_COLOR[side]} label={names[keys.projected]} dashed />
-        <LegendItem color={chartColors.gray} label={names[keys.lastMonth]} line />
-      </Legend>
+      {legend}
       <ChartFrame>
         <LineChart accessibilityLayer data={forecast.days} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
           <CartesianGrid stroke={chartColors.grid} vertical={false} />
           <XAxis dataKey="day" {...axisProps} axisLine={{ stroke: chartColors.grid }} minTickGap={12} />
           <YAxis {...axisProps} axisLine={false} width={CHART_Y_AXIS_WIDTH} tickFormatter={(value: number) => formatAxis(value, locale)} />
-          <Tooltip
-            {...chartTooltipStyle}
-            labelFormatter={(day) => dayTitle(Number(day))}
-            formatter={moneyFormatter(currency, names)}
-          />
-          <Line dataKey={keys.lastMonth} type="monotone" stroke={chartColors.gray} strokeWidth={1.5} dot={false} connectNulls={false} />
-          <Line dataKey={keys.projected} type="linear" stroke={SIDE_COLOR[side]} strokeWidth={2} strokeDasharray="6 4" dot={false} />
-          <Line dataKey={keys.actual} type="monotone" stroke={SIDE_COLOR[side]} strokeWidth={2.5} dot={false} />
+          {/* Rows in drawing order: last month, the forecast, then the actual line on top. */}
+          <Tooltip content={tooltipContent(currency, (day) => dayTitle(Number(day)), [lastMonth, { ...projected, dashed: true }, actual])} />
+          <Line dataKey={keys.lastMonth} hide={!shown(keys.lastMonth)} type="monotone" stroke={chartColors.gray} strokeOpacity={opacity(keys.lastMonth)} strokeWidth={1.5} dot={false} connectNulls={false} />
+          <Line dataKey={keys.projected} hide={!shown(keys.projected)} type="linear" stroke={SIDE_COLOR[side]} strokeOpacity={opacity(keys.projected)} strokeWidth={2} strokeDasharray="6 4" dot={false} />
+          <Line dataKey={keys.actual} hide={!shown(keys.actual)} type="monotone" stroke={SIDE_COLOR[side]} strokeOpacity={opacity(keys.actual)} strokeWidth={2.5} dot={false} />
         </LineChart>
       </ChartFrame>
     </>
@@ -475,29 +509,27 @@ const YEAR_COLORS = [chartColors.gray, chartColors.purple, chartColors.orange, c
 
 /** One side's money in by calendar month, one bar per year. */
 export function YearOverYearChart({ data, locale, currency }: { data: YearOverYear; locale: string; currency: string }) {
+  const t = useTranslations('financialAnalysis');
   // The newest year takes the strongest colour.
   const colorOf = (index: number) => YEAR_COLORS[(YEAR_COLORS.length - data.years.length + index + YEAR_COLORS.length) % YEAR_COLORS.length];
-  const names: Record<string, string> = Object.fromEntries(data.years.map((year) => [year, year]));
   const monthLabel = (month: number) => formatMonthShort(`2000-${String(month).padStart(2, '0')}`, locale);
+  const series: ChartLegendItem[] = data.years.map((year, index) => ({ key: String(year), label: String(year), color: colorOf(index), swatch: 'square' }));
+  const { legend, shown, opacity } = useChartLegend(t('yoySection'), series);
 
   return (
     <>
-      <Legend>
-        {data.years.map((year, index) => <LegendItem key={year} color={colorOf(index)} label={year} />)}
-      </Legend>
+      {legend}
       <ChartFrame>
         <BarChart accessibilityLayer data={data.rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barGap={2} barCategoryGap="20%">
           <CartesianGrid stroke={chartColors.grid} vertical={false} />
           <XAxis dataKey="month" {...axisProps} axisLine={{ stroke: chartColors.grid }} interval={0} tickFormatter={monthLabel} />
           <YAxis {...axisProps} axisLine={false} width={CHART_Y_AXIS_WIDTH} tickFormatter={(value: number) => formatAxis(value, locale)} />
           <Tooltip
-            {...chartTooltipStyle}
             cursor={{ fill: chartColors.cursor }}
-            labelFormatter={(month) => capitalizeFirst(monthLabel(Number(month)), locale)}
-            formatter={moneyFormatter(currency, names)}
+            content={tooltipContent(currency, (month) => capitalizeFirst(monthLabel(Number(month)), locale), series)}
           />
           {data.years.map((year, index) => (
-            <Bar key={year} dataKey={year} fill={colorOf(index)} radius={[3, 3, 0, 0]} maxBarSize={18} />
+            <Bar key={year} dataKey={year} hide={!shown(String(year))} fill={colorOf(index)} fillOpacity={opacity(String(year))} radius={[3, 3, 0, 0]} maxBarSize={18} />
           ))}
         </BarChart>
       </ChartFrame>

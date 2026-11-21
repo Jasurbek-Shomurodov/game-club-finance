@@ -18,7 +18,7 @@ import {
   useEntryNoteGuard,
 } from '@/components/PresentationFoundation';
 import { exchangeReceivedAmount } from '@/lib/calculations/moneyExchanges';
-import { formatCurrency, formatCurrencyInput, formatDecimalInput, formatUnitCurrency, parseCurrencyInput, parseDecimalInput } from '@/lib/formatters';
+import { formatCurrency, formatCurrencyInput, formatDecimalInput, parseCurrencyInput, parseDecimalInput, formatDollars } from '@/lib/formatters';
 import { requestReserveExchange } from '@/lib/ownerReserveRequests';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useCollectedDay } from '@/lib/useCollectedDay';
@@ -80,7 +80,7 @@ export function ReserveExchangeModal({ initialDirection, buyLimits, dollarsHeld,
   const rate = parseDecimalInput(form.rate);
   const received = exchangeReceivedAmount(buying ? form.method : 'usd', buying ? 'usd' : form.method, amount, rate > 0 ? rate : null);
   const sums = (value: number) => `${formatCurrency(value)} ${tc('currency')}`;
-  const dollars = (value: number) => `$${formatUnitCurrency(value)}`;
+  const dollars = (value: number) => formatDollars(value);
   const limitText = buying ? sums(limit) : dollars(limit);
   const nothing = buying ? methods.every((method) => buyLimits[method] <= 0) : dollarsHeld <= 0;
 

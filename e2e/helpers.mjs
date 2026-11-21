@@ -76,3 +76,15 @@ export async function openTab(page, tab, heading = tab) {
   await page.getByRole('radiogroup', { name: 'Section pages' }).getByRole('radio', { name: tab, exact: true }).click();
   await expect(page.getByRole('heading', { name: heading, level: 1 })).toBeVisible();
 }
+
+/** Opens the command palette with its shortcut and returns the dialog, with the search field focused. */
+export async function openCommandPalette(page) {
+  const palette = page.getByRole('dialog', { name: 'Search and commands' });
+  // A server-rendered page can show before the shortcut listener is attached, and a press in that gap is lost:
+  // press again until the palette opens.
+  await expect(async () => {
+    if (!(await palette.isVisible())) await page.keyboard.press('Control+k');
+    await expect(palette.getByRole('combobox')).toBeFocused({ timeout: 2000 });
+  }).toPass({ timeout: 15000 });
+  return palette;
+}

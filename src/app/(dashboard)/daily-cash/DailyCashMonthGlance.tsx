@@ -4,7 +4,7 @@ import { useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
 import { CalendarCheck, CalendarX2 } from 'lucide-react';
-import { Card, EmptyState, LoadErrorAlert, SectionHeading, Skeleton } from '@/components/PresentationFoundation';
+import { Card, EmptyState, LoadErrorAlert, SectionHeading, SegmentedControl, Skeleton } from '@/components/PresentationFoundation';
 import { CalendarHeatmap } from '@/components/charts/CalendarHeatmap';
 import { WeekdayBars } from '@/components/charts/WeekdayBars';
 import { ChangeHint, GlanceStat } from '@/components/charts/GlanceStat';
@@ -24,7 +24,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { formatCurrency, formatDateShort, formatYearMonth } from '@/lib/formatters';
-import { cn, monthRange, previousYearMonth } from '@/lib/utils';
+import { monthRange, previousYearMonth } from '@/lib/utils';
 
 const DonutBreakdown = dynamic(() => import('@/components/charts/DonutBreakdown').then((module) => module.DonutBreakdown), {
   ssr: false,
@@ -162,20 +162,14 @@ export function DailyCashMonthGlance({ clubId, date, today, enabledPaymentMethod
                 <CalendarX2 size={14} aria-hidden="true" />
                 {t('dailyCash.missing', { count: missing.length })}
               </span>
-              {missing.slice(0, MISSING_SHOWN).map((day) => (
-                <button
-                  key={day}
-                  type="button"
-                  onClick={() => onSelectDate(day)}
-                  className={cn(
-                    'inline-flex min-h-9 items-center rounded-full border border-warning-100 bg-warning-50 px-3 font-medium tabular-nums text-warning-700 transition-colors motion-reduce:transition-none',
-                    'hover:bg-warning-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
-                    day === date && 'ring-2 ring-warning-500',
-                  )}
-                >
-                  {formatDateShort(day, locale)}
-                </button>
-              ))}
+              <SegmentedControl
+                variant="chips"
+                size="sm"
+                label={t('dailyCash.missing', { count: missing.length })}
+                value={date}
+                onChange={onSelectDate}
+                options={missing.slice(0, MISSING_SHOWN).map((day) => ({ value: day, label: formatDateShort(day, locale) }))}
+              />
               {missing.length > MISSING_SHOWN && <span className="text-gray-500">{t('more', { count: missing.length - MISSING_SHOWN })}</span>}
             </div>
           ) : glance.expectedDays > 0 && (

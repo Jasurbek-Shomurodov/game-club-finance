@@ -1,20 +1,19 @@
-import { Skeleton, TableSkeleton } from '@/components/PresentationFoundation';
+import { MetricGridSkeleton, Skeleton, TableSkeleton, metricGridClassName } from '@/components/PresentationFoundation';
+import { cn } from '@/lib/utils';
 import { HeadingSkeleton, SkeletonCard } from '@/components/charts/ChartSkeletons';
 
 /**
- * Products while they load: the recent-sales card with four tiles, then the
+ * Products while they load: the recent-sales heading over four figures, then the
  * list card with its actions, search, filter chips and table. Keep it in step
  * with the products page.
  */
-/** The recent-sales card: its heading over four tiles. Also stands in while the sales read is still on its way. */
+/** The recent-sales figures: their heading over four metric cards. Also stands in while the sales read is still on its way. */
 export function ProductSalesSkeleton() {
   return (
-    <SkeletonCard>
+    <div className="space-y-3" aria-hidden="true">
       <HeadingSkeleton />
-      <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
-        {[0, 1, 2, 3].map((index) => <Skeleton key={index} className="h-16 rounded-xl bg-gray-100" />)}
-      </div>
-    </SkeletonCard>
+      <MetricGridSkeleton count={4} className={cn(metricGridClassName, 'lg:grid-cols-4')} />
+    </div>
   );
 }
 

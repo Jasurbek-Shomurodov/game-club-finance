@@ -1,4 +1,4 @@
-import { categoricalColors, chartColors, formatAxis } from '@/components/dashboard/ChartCard';
+import { chartColors, extendedCategoricalColors, formatAxis } from '@/components/dashboard/ChartCard';
 import { intlLocaleFor } from '@/lib/formatters';
 import {
   BAR_COST_TARGET,
@@ -48,8 +48,8 @@ export const SPENDING_GROUP_COLORS: Record<SpendingGroupKey, string> = {
   barExpenses: chartColors.purple,
 };
 
-// Seven named categories need seven hues; all are theme tokens (the blue and pink are the chart palette's viz-3 and viz-5).
-const CATEGORY_PALETTE = [chartColors.danger, chartColors.primary, chartColors.purple, categoricalColors[2], chartColors.warning, categoricalColors[4], chartColors.axis];
+// Seven named categories, in the chart palette's fixed order (the first five match the Dashboard donut).
+const CATEGORY_PALETTE = extendedCategoricalColors;
 
 /** One colour per expense category, shared by the sankeys, donut and comparison bars. */
 export function categoryColors(topCategories: CategoryAmount[]): Record<string, string> {
@@ -60,7 +60,8 @@ export function categoryColors(topCategories: CategoryAmount[]): Record<string, 
   topCategories
     .filter((row) => row.category !== OTHER_CATEGORY)
     .forEach((row, index) => {
-      colors[row.category] = CATEGORY_PALETTE[index % CATEGORY_PALETTE.length];
+      // Never cycle back to a hue already in use: anything past the palette is drawn like the folded rest.
+      colors[row.category] = CATEGORY_PALETTE[index] ?? chartColors.gray;
     });
   return colors;
 }
@@ -76,11 +77,13 @@ const DRILL_COLORS: Record<string, string> = {
 
 /**
  * Colour of a node in a money-flow Sankey: income sources and categories keep
- * their shared colours; anything else takes the palette by position.
+ * their shared colours; anything else takes the palette by position, and
+ * nodes past its end are grey rather than a repeated hue.
  */
 export function drillNodeColor(key: string, index: number, colors: Record<string, string>): string {
   return DRILL_COLORS[key]
     ?? SOURCE_COLORS[key as IncomeSourceKey]
     ?? colors[key]
-    ?? CATEGORY_PALETTE[index % CATEGORY_PALETTE.length];
+    ?? CATEGORY_PALETTE[index]
+    ?? chartColors.gray;
 }

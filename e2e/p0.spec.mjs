@@ -3,8 +3,8 @@
 // Expected figures are worked out from the fixture, never read off the screen.
 import { readFile } from 'node:fs/promises';
 import { test, expect } from '@playwright/test';
-import { englishCookie, expectDashboardAmount, expectGameClubExpenses, open, pageText, resetDatabase, restAs, signIn, uzs, openTab } from './helpers.mjs';
-import { clubs, dailyCash, debts, expected, expenses, products, today } from './fixture.mjs';
+import { englishCookie, expectDashboardAmount, expectGameClubExpenses, open, openCommandPalette, pageText, resetDatabase, restAs, signIn, uzs, openTab } from './helpers.mjs';
+import { clubs, dailyCash, debts, expected, expenses, products, purchase, today } from './fixture.mjs';
 import { accounts, pendingAccount, storageStatePath } from './settings.mjs';
 
 test.beforeEach(async () => { await resetDatabase(); });
@@ -691,13 +691,15 @@ test('SET-006 the brand page has its own tab after Google Maps, and the club pag
   await page.goto('/showcase');
   await expect(page.getByRole('heading', { name: 'Page settings' })).toBeVisible();
   await expect(page.getByLabel('Brand name')).toHaveCount(0);
-  await expect(page.getByRole('radio')).toHaveText(['Page', 'Game library', 'Google Maps', 'Brand page']);
+  // The section's own tabs: each translated field on the page has an RU / UZ / EN group of its own.
+  const tabs = page.getByRole('radiogroup', { name: 'Public page' });
+  await expect(tabs.getByRole('radio')).toHaveText(['Page', 'Game library', 'Google Maps', 'Brand page']);
 
-  await page.getByRole('radio', { name: 'Brand page' }).click();
+  await tabs.getByRole('radio', { name: 'Brand page' }).click();
   await expect(page).toHaveURL(/\/showcase\/brand$/);
   await expect(page.getByLabel('Brand name')).toBeVisible();
   await page.reload();
-  await expect(page.getByRole('radio', { name: 'Brand page', checked: true })).toBeVisible();
+  await expect(tabs.getByRole('radio', { name: 'Brand page', checked: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Page settings' })).toHaveCount(0);
 });
 
@@ -1183,4 +1185,377 @@ test('REP-010 a collector takes money from the admin, and a bill is paid from wh
   await expect(page.getByRole('table').filter({ hasText: 'Collected by' })).toContainText(uzs(2_370_000));
   // The card first, then the split bar's legend naming the same share.
   await expect(page.getByText('Paid from collected').first()).toBeVisible();
+});
+
+// The reserve (/reserve) is the home of everything done with reserve money: paying from it and returning it to profit.
+const month = today.slice(0, 7);
+const monthLabel = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${month}-01T00:00:00Z`));
+/** Puts or returns reserve money through /api/reserve, as the Owner Profit and Reserve pages do. Bar money has no method. */
+async function moveReserve(page, kind, source, amount, method = source === 'bar' ? null : 'cash') {
+  const response = await page.request.post('/api/reserve', { data: { clubId: clubs.arcade.id, kind, month, source, comment: '', parts: [{ id: crypto.randomUUID(), method, amount }] } });
+  expect(response.status(), `${kind} of ${amount} from ${source}`).toBe(200);
+}
+
+/** The accessible name of a tile or card on the Reserve page: its label, then the figure and the unit. Read by name,
+ * because the figure rolls to its value and the rolling digits are in the element's text. */
+const tileName = (label, amount) => new RegExp(`^${label}\\s${uzs(amount).replace(/ /g, '\\s')}\\sUZS$`);
+
+test('RES-001 money returned from the reserve leaves it and is back in the month\'s owner profit', async ({ page }) => {
+  await page.goto('/reserve');
+  await expect(page.getByRole('heading', { name: 'Reserve', level: 1 })).toBeVisible();
+  // 500 000 of the month's cash (1 280 000 left) and the Bar's whole 48 000 go into the reserve.
+  await moveReserve(page, 'deposit', 'game_club', 500_000);
+  await moveReserve(page, 'deposit', 'bar', expected.barSales - expected.stockPurchaseCost);
+  await page.reload();
+  const held = page.getByRole('region', { name: 'In the reserve now' });
+  await expect(held.getByRole('button', { name: tileName('UZS', 548_000) })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Return to profit' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Return to profit' });
+  // The reserve has no month of its own: the month the money goes back to is chosen here, this month first.
+  await expect(dialog.getByRole('button', { name: monthLabel })).toBeVisible();
+  await expect(dialog).toContainText(`The money joins owner profit for ${monthLabel}`);
+  const side = dialog.getByRole('radiogroup', { name: 'Profit source' });
+  await expect(side.getByRole('radio')).toHaveText(['Game Club', 'Bar']);
+  await expect(side.getByRole('radio', { name: 'Game Club' })).toBeChecked();
+  await side.getByRole('radio', { name: 'Bar' }).click();
+  await expect(dialog.getByText(`In the reserve: ${uzs(48_000)} UZS`)).toBeVisible();
+  await side.getByRole('radio', { name: 'Game Club' }).click();
+  await expect(dialog.getByRole('radio', { name: /^Cash/ })).toBeChecked();
+  await expect(dialog.getByText(`In the reserve: ${uzs(500_000)} UZS`)).toBeVisible();
+
+  // More than the method holds is refused before any request.
+  const amount = dialog.locator('#reserve-return-amount');
+  await amount.fill('600000');
+  await expect(dialog.getByText(`Enter at most ${uzs(500_000)}.`)).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Return', exact: true })).toBeDisabled();
+  await amount.fill('200000');
+  await expect(amount).toHaveValue(uzs(200_000));
+  await dialog.getByRole('button', { name: 'Return', exact: true }).click();
+  await expect(dialog).toBeHidden();
+
+  // 548 000 − 200 000 stays in the reserve.
+  await expect(held.getByRole('button', { name: tileName('UZS', 348_000) })).toBeVisible();
+  await expect(held.getByRole('button', { name: tileName('Returned to profit', 200_000) })).toBeVisible();
+
+  // The month has it back: cash left to take is 1 280 000 − 500 000 + 200 000.
+  await openTab(page, 'Owner Profit');
+  const table = page.getByRole('table').first();
+  await expect(table.getByRole('row').filter({ hasText: 'Cash' })).toContainText(uzs(980_000));
+  await expect(page.getByRole('link', { name: tileName('In the reserve', 348_000) })).toBeVisible();
+});
+
+test('RES-002 a purchase paid on the Reserve page lowers the reserve and leaves the month\'s profit alone', async ({ page }) => {
+  await page.goto('/reserve');
+  await expect(page.getByRole('heading', { name: 'Reserve', level: 1 })).toBeVisible();
+  await moveReserve(page, 'deposit', 'game_club', 500_000);
+  await page.reload();
+  const held = page.getByRole('region', { name: 'In the reserve now' });
+  await expect(held.getByRole('button', { name: tileName('UZS', 500_000) })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Pay from reserve' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Pay from reserve' });
+  // The expense form opens already paying from the reserve's sums.
+  await expect(dialog.getByRole('radio', { name: 'Reserve', exact: true })).toBeChecked();
+  await expect(dialog.getByRole('radio', { name: /^UZS/ })).toBeChecked();
+  await expect(dialog.getByRole('radio', { name: /^UZS/ })).toContainText(`${uzs(500_000)} UZS`);
+  await dialog.locator('#expense-amount').fill('300000');
+  await dialog.locator('#expense-category').selectOption('equipment');
+  await dialog.locator('#expense-comment').fill('New gaming mouse and keyboards for hall');
+  const posts = [];
+  page.on('request', request => { if (request.method() === 'POST' && request.url().endsWith('/api/expenses')) posts.push(request.postDataJSON()); });
+  await dialog.getByRole('button', { name: 'Save Expense' }).click();
+  await expect(dialog).toBeHidden();
+  expect(posts).toHaveLength(1);
+  expect(posts[0]).toMatchObject({ amount: 300000, category: 'equipment', fromReserve: true });
+
+  // 500 000 − 300 000 is left, and the purchase is in the reserve's own history.
+  await expect(held.getByRole('button', { name: tileName('UZS', 200_000) })).toBeVisible();
+  await expect(held.getByRole('button', { name: tileName('Paid from reserve', 300_000) })).toBeVisible();
+  await page.getByRole('radio', { name: /^History · 2$/ }).click();
+  const history = page.getByRole('list', { name: 'Reserve history' });
+  await expect(history).toContainText('Paid from reserve');
+  await expect(history).toContainText(uzs(300_000));
+
+  // It is an expense, but the month keeps its profit: cash left to take is still 1 280 000 − 500 000.
+  await openTab(page, 'Owner Profit');
+  const table = page.getByRole('table').first();
+  await expect(table.getByRole('row').filter({ hasText: 'Cash' })).toContainText(uzs(780_000));
+  await expect(page.getByRole('link', { name: tileName('In the reserve', 200_000) })).toBeVisible();
+});
+
+test('RES-003 the Put in, Returned and Paid tiles each open the history narrowed to that kind', async ({ page }) => {
+  await page.goto('/reserve');
+  await expect(page.getByRole('heading', { name: 'Reserve', level: 1 })).toBeVisible();
+  await moveReserve(page, 'deposit', 'game_club', 500_000);
+  await moveReserve(page, 'return', 'game_club', 100_000);
+  const bought = await page.request.post('/api/expenses', { data: {
+    id: crypto.randomUUID(), clubId: clubs.arcade.id, date: today, amount: 150_000, category: 'equipment',
+    paymentMethod: 'cash', paymentSource: 'game_club', comment: 'New gaming mouse and keyboards for hall', fromReserve: true,
+  } });
+  expect(bought.status()).toBe(201);
+  await page.reload();
+
+  const held = page.getByRole('region', { name: 'In the reserve now' });
+  const history = page.getByRole('list', { name: 'Reserve history' });
+  const filter = page.getByRole('radiogroup', { name: 'Show' });
+  for (const [tile, amount, kind, label] of [
+    ['Put in', 500_000, 'Put in', 'Put into reserve'],
+    ['Returned to profit', 100_000, 'Returned', 'Returned to profit'],
+    ['Paid from reserve', 150_000, 'Paid', 'Paid from reserve'],
+  ]) {
+    await held.getByRole('button', { name: tileName(tile, amount) }).click();
+    await expect(page).toHaveURL(/\/reserve\?view=history$/);
+    await expect(filter.getByRole('radio', { name: kind, exact: true })).toBeChecked();
+    // One entry of that kind, and nothing of the other two.
+    await expect(history.getByRole('button', { name: /^Delete: / })).toHaveCount(1);
+    await expect(history).toContainText(label);
+    await expect(history).toContainText(uzs(amount));
+    await page.getByRole('radio', { name: 'Overview' }).click();
+    await expect(page).toHaveURL(/\/reserve$/);
+  }
+  // The filter itself shows all three again.
+  await page.getByRole('radio', { name: /^History · 3$/ }).click();
+  await filter.getByRole('radio', { name: 'All' }).click();
+  await expect(history.getByRole('button', { name: /^Delete: / })).toHaveCount(3);
+});
+
+test('RES-004 the Reserve page confirms a return with a toast', async ({ page }) => {
+  await page.goto('/reserve');
+  await moveReserve(page, 'deposit', 'game_club', 500_000);
+  await page.reload();
+  await page.getByRole('button', { name: 'Return to profit' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Return to profit' });
+  await dialog.locator('#reserve-return-amount').fill('200000');
+  await dialog.getByRole('button', { name: 'Return', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Money returned to owner profit.' })).toBeVisible();
+});
+
+test('SYS-001 the owner opens System sanity checks from the command palette and all seven pass', async ({ page }) => {
+  await page.goto('/dashboard');
+  await expect(page.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeVisible();
+  const palette = await openCommandPalette(page);
+  await palette.getByRole('combobox').fill('sanity');
+  await expect(palette.getByRole('option')).toHaveText(['System sanity checks']);
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/test-checklist$/);
+  await expect(page.getByRole('heading', { name: 'System sanity checks', level: 1 })).toBeVisible();
+  const checks = page.getByRole('list', { name: 'System sanity checks' });
+  await expect(checks.getByRole('listitem')).toHaveCount(7);
+  // The fixture's day is consistent, so every check passes on its own figures.
+  await expect(page.getByRole('status').filter({ hasText: 'All 7 checks passed' })).toBeVisible();
+  await expect(checks.getByText('Passed', { exact: true })).toHaveCount(7);
+  await expect(checks.getByRole('listitem').first()).toContainText(`Total ${uzs(expected.gameClubIncome - debts.reduce((sum, debt) => sum + debt.amount, 0))} UZS`);
+});
+
+test('MD-001 the dashboard\'s income cards open the month\'s money details, and Best day jumps to that day', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const [year, monthNumber] = today.split('-').map(Number);
+  const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+  const range = `from=${month}-01&to=${month}-${String(lastDay).padStart(2, '0')}`;
+  const main = page.locator('#main-content');
+  const collected = dailyCash.arcade.cash_income + dailyCash.arcade.terminal_income + dailyCash.arcade.card_income + dailyCash.arcade.playstation_income
+    + debts.reduce((sum, debt) => sum + (debt.payment?.amount ?? 0), 0); // 2 850 000
+
+  await page.goto('/dashboard');
+  await expectDashboardAmount(page, 'Game Club Income', expected.gameClubIncome);
+  await main.getByRole('link', { name: /^Game Club Income/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/game-club-money-details\\?${range}$`));
+  await expect(page.getByRole('heading', { name: 'Total Money Left calculation', level: 1 })).toBeVisible();
+  // The headline: what was collected, less what the game club paid, is the money left.
+  await expectDashboardAmount(page, 'Total Money Left', expected.gameClubMoneyLeft);
+  await expectDashboardAmount(page, 'Total collected', collected);
+  await expectDashboardAmount(page, 'Game club expenses', expected.gameClubExpenses);
+  // The fixture has one business day, closed until it is asked for.
+  const day = main.getByRole('button', { name: /Left for day/ });
+  await expect(day).toHaveCount(1);
+  await expect(day).toContainText(`${uzs(expected.gameClubMoneyLeft)} UZS`);
+  await expect(day).toHaveAttribute('aria-expanded', 'false');
+  await page.getByRole('region', { name: 'Day by day' }).getByRole('button', { name: /^Best day · / }).click();
+  await expect(day).toHaveAttribute('aria-expanded', 'true');
+  const panel = page.locator(`#money-day-${today}-panel`);
+  await expect(panel.getByRole('link', { name: /^Cash/ })).toContainText(`${uzs(dailyCash.arcade.cash_income)} UZS`);
+  // Money taken away prints with a real minus sign.
+  await expect(panel.getByRole('listitem').filter({ hasText: expenses[0].comment })).toContainText(`− ${uzs(expenses[0].amount)} UZS`);
+  await expect(page.locator(`#money-day-${today}`)).toBeInViewport();
+
+  // The bar has the same page of its own.
+  await page.goto('/dashboard');
+  await expectDashboardAmount(page, 'Bar Sales', expected.barSales);
+  await main.getByRole('link', { name: /^Bar Sales/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/bar-money-details\\?${range}$`));
+  await expect(page.getByRole('heading', { name: 'Bar Money Left calculation', level: 1 })).toBeVisible();
+  await expectDashboardAmount(page, 'Bar Money Left', expected.barSales - expected.stockPurchaseCost);
+  await expectDashboardAmount(page, 'Total deductions', expected.stockPurchaseCost);
+  await page.getByRole('region', { name: 'Day by day' }).getByRole('button', { name: /^Best day · / }).click();
+  await expect(page.locator(`#money-day-${today}-panel`)).toContainText(`${products[purchase.product].name} × ${purchase.quantity}`);
+  expect(errors).toEqual([]);
+});
+
+test('SAL-010 a history row opens its details with a link to the employee, and a KPI of 12,5 saves as 12.5', async ({ page }) => {
+  const employee = crypto.randomUUID();
+  expect((await restAs(accounts.owner, 'POST', 'rpc/save_salary_employee', {
+    p_club_id: clubs.arcade.id, p_employee_id: employee, p_name: 'E2E Izzat', p_job_title: 'Admin',
+    p_effective_date: today, p_salary_type: 'daily', p_amount: 100000, p_kpi_percent: 0, p_active: true,
+  })).ok).toBe(true);
+  expect((await restAs(accounts.owner, 'POST', 'rpc/record_salary_entry_with_status', {
+    p_club_id: clubs.arcade.id, p_employee_id: employee, p_request_id: crypto.randomUUID(), p_date: today,
+    p_kind: 'payment', p_amount: 50000, p_comment: '', p_payment_method: 'cash', p_payment_source: 'game_club',
+  })).ok).toBe(true);
+
+  await page.goto('/salaries/history');
+  await expect(page.getByRole('heading', { name: 'History', level: 1 })).toBeVisible();
+  const row = page.locator('#main-content').getByRole('button', { name: /^Payment E2E Izzat/ });
+  // A payment takes from what the employee is owed: a real minus sign, and a space before the unit.
+  await expect(row).toContainText(`−${uzs(50_000)} UZS`);
+  await row.click();
+  const dialog = page.getByRole('dialog', { name: 'Payment' });
+  await expect(dialog).toContainText('E2E Izzat');
+  await expect(dialog).toContainText(`${uzs(50_000)} UZS`);
+  await expect(dialog).toContainText('Entry type');
+  await expect(dialog).toContainText('Cash');
+  await expect(dialog.getByRole('link', { name: 'Open the employee' })).toHaveAttribute('href', `/salaries/employees/${employee}`);
+  await dialog.getByRole('link', { name: 'Open the employee' }).click();
+  await expect(page).toHaveURL(new RegExp(`/salaries/employees/${employee}$`));
+  await expect(page.getByRole('heading', { name: 'E2E Izzat' })).toBeVisible();
+
+  // Daily operations: the KPI percent is typed the way it is written here, with a comma.
+  await page.goto('/salaries/operations');
+  await expect(page.getByRole('heading', { name: 'Daily operations', level: 1 })).toBeVisible();
+  await page.locator('#salary-employee-name').fill('E2E Kamola');
+  await page.locator('#salary-employee-role').selectOption('Admin');
+  await page.locator('#salary-amount').fill('90000');
+  await page.locator('#salary-kpi').fill('12,5');
+  await expect(page.locator('#salary-kpi')).toHaveValue('12,5');
+  await page.locator('#main-content').getByRole('button', { name: 'Save', exact: true }).click();
+  await expect.poll(async () => {
+    const [saved] = await (await restAs(accounts.owner, 'GET', `salary_employees?select=id&club_id=eq.${clubs.arcade.id}&name=eq.E2E%20Kamola`)).json();
+    if (!saved) return [];
+    const rates = await (await restAs(accounts.owner, 'GET', `salary_rates?select=amount,kpi_percent&employee_id=eq.${saved.id}`)).json();
+    return rates.map(rate => [Number(rate.amount), Number(rate.kpi_percent)]);
+  }).toEqual([[90000, 12.5]]);
+});
+
+test('NAV-004 the assistant, daily operations, game library and Google Maps pages each open with one title and no error', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  for (const [path, heading] of [['/assistant', 'AI Assistant'], ['/salaries/operations', 'Daily operations'], ['/showcase/games', 'Public page'], ['/showcase/google', 'Public page']]) {
+    const response = await page.goto(path);
+    expect(response.status(), path).toBe(200);
+    await expect(page).toHaveURL(new RegExp(`${path}$`));
+    await expect(page.getByRole('heading', { name: heading, level: 1 })).toBeVisible();
+    // Past its loading state: the skeleton is gone and the page's own content is there.
+    await expect(page.locator('#main-content [aria-busy="true"]')).toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 1 }), `${path} has one title`).toHaveCount(1);
+    // The route announcer is an empty alert; anything with words in it is an error shown to the user.
+    await expect(page.getByRole('alert').filter({ hasText: /\S/ }), `${path} shows an error`).toHaveCount(0);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('STOCK-010 the Closing Stock "More actions" menu works from the keyboard', async ({ page }) => {
+  await page.goto('/closing-stock');
+  await expect(page.getByRole('heading', { name: 'Closing Stock', level: 1 })).toBeVisible();
+  // The header keeps the two everyday actions; the rest are behind "More actions".
+  await expect(page.getByRole('button', { name: 'Save Stock Counts' }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Write-off' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Bulk Update' })).toHaveCount(0);
+  const more = page.getByRole('button', { name: 'More actions' });
+  const menu = page.getByRole('menu', { name: 'More actions' });
+  await expect(more).toHaveAttribute('aria-expanded', 'false');
+
+  // Enter opens it with the first action focused; Escape closes it and gives the focus back.
+  await expect(async () => {
+    await more.focus();
+    if (!(await menu.isVisible())) await page.keyboard.press('Enter');
+    await expect(menu).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 15000 });
+  await expect(more).toHaveAttribute('aria-expanded', 'true');
+  const bulk = menu.getByRole('menuitem', { name: 'Bulk Update' });
+  await expect(bulk).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+  await expect(more).toBeFocused();
+  await expect(more).toHaveAttribute('aria-expanded', 'false');
+
+  // Arrow down opens it too, and the arrows stay inside the menu.
+  await page.keyboard.press('ArrowDown');
+  await expect(bulk).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(menu.getByRole('menuitem').and(page.locator(':focus'))).toHaveCount(1);
+  await page.keyboard.press('Home');
+  await expect(bulk).toBeFocused();
+  // Enter on the action runs it: the bulk update form opens.
+  await page.keyboard.press('Enter');
+  await expect(menu).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toBeVisible();
+});
+
+test.describe('as a viewer', () => {
+  test.use({ storageState: storageStatePath('viewer') });
+
+  test('SYS-001 a viewer who opens /test-checklist is sent to the dashboard', async ({ page }) => {
+    await page.goto('/test-checklist');
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeVisible();
+    await expect(page.getByRole('list', { name: 'System sanity checks' })).toHaveCount(0);
+    // Nor is it offered: the palette has no such page for a member.
+    const palette = await openCommandPalette(page);
+    await palette.getByRole('combobox').fill('sanity');
+    await expect(palette.getByRole('status')).toHaveText('Nothing matches. Try another word.');
+  });
+});
+
+test.describe('a visitor of the public site', () => {
+  test.use({ storageState: { cookies: [{ name: englishCookie.name, value: englishCookie.value, domain: 'localhost', path: '/', expires: -1, httpOnly: false, secure: false, sameSite: 'Lax' }], origins: [] } });
+
+  test('PUB-001 an unknown club page is a 404 in the public site\'s look, with a way home and no admin link', async ({ page }) => {
+    const response = await page.goto('/club/no-such-club');
+    expect(response.status()).toBe(404);
+    await expect(page).toHaveURL(/\/club\/no-such-club$/);
+    await expect(page.getByRole('heading', { name: 'Page not found', level: 1 })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'To the home page' })).toHaveAttribute('href', '/');
+    // A visitor is never pointed at the admin app.
+    await expect(page.getByRole('link', { name: 'Back to dashboard' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /login|sign in/i })).toHaveCount(0);
+  });
+
+  test.describe('on a phone', () => {
+    test.use({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
+
+    test('PUB-002 the Sections menu button opens the section links of a club page', async ({ page }) => {
+      const errors = [];
+      page.on('pageerror', error => errors.push(error.message));
+      // Public reads are cached for a minute by slug, so each run publishes under a slug of its own.
+      const slug = `e2e-arcade-${Date.now().toString(36)}`;
+      expect((await restAs(accounts.owner, 'POST', 'club_showcases', {
+        club_id: clubs.arcade.id, slug, is_published: true, headline: 'E2E Arcade', phone: '+998901234567', address: 'E2E street 1',
+      })).status).toBe(201);
+      const response = await page.goto(`/club/${slug}`);
+      expect(response.status()).toBe(200);
+      await expect(page.getByRole('heading', { name: 'E2E Arcade', level: 1 })).toBeVisible();
+
+      // At this width the section links are not in the bar: they are behind the menu button.
+      const bar = page.getByRole('banner');
+      const menu = bar.getByRole('button', { name: 'Sections menu' });
+      await expect(menu).toHaveAttribute('aria-expanded', 'false');
+      await expect(bar.getByRole('link', { name: 'Contacts' })).toHaveCount(0);
+      await expect(async () => {
+        if ((await menu.getAttribute('aria-expanded')) !== 'true') await menu.click();
+        await expect(menu).toHaveAttribute('aria-expanded', 'true', { timeout: 2000 });
+      }).toPass({ timeout: 15000 });
+      const contacts = bar.getByRole('link', { name: 'Contacts' });
+      await expect(contacts).toBeVisible();
+      await expect(contacts).toHaveAttribute('href', '#contacts');
+      await expect(bar.getByRole('link', { name: 'Call us' })).toHaveAttribute('href', 'tel:+998901234567');
+      // A link takes the visitor to its section and puts the menu away.
+      await contacts.click();
+      await expect(page).toHaveURL(/#contacts$/);
+      await expect(menu).toHaveAttribute('aria-expanded', 'false');
+      await expect(bar.getByRole('link', { name: 'Contacts' })).toHaveCount(0);
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
+      expect(errors).toEqual([]);
+    });
+  });
 });

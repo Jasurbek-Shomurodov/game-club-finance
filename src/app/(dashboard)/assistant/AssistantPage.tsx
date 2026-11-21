@@ -12,6 +12,7 @@ import { formatNumber, intlLocaleFor } from '@/lib/formatters';
 import {
   Badge,
   Button,
+  ButtonLink,
   Card,
   EmptyState,
   IconButton,
@@ -35,6 +36,7 @@ function msUntil(iso: string) {
 
 export default function AssistantPage() {
   const t = useTranslations('assistant');
+  const tc = useTranslations('common');
   const { locale } = useAppLocale();
   const { selectedClubId } = useClub();
   const [draft, setDraft] = useState('');
@@ -70,6 +72,9 @@ export default function AssistantPage() {
     await chat.send(text);
     inputRef.current?.focus();
   }
+
+  /** The latest question asked, for retrying a failed answer. */
+  const lastQuestion = [...entries].reverse().find((entry) => entry.role === 'user')?.content ?? '';
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -143,7 +148,7 @@ export default function AssistantPage() {
         ) : undefined}
       />
 
-      <div className="flex-1 space-y-4" aria-live="polite">
+      <div className="flex-1 space-y-4">
         {entries.length === 0 ? (
           <Card>
             <EmptyState
@@ -162,7 +167,7 @@ export default function AssistantPage() {
               )}
             />
           </Card>
-        ) : entries.map((entry) => (
+        ) : entries.map((entry, index) => (
           entry.role === 'user' ? (
             <div key={entry.id} className="flex justify-end">
               <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-primary-600 px-4 py-2.5 text-sm text-on-accent">
@@ -171,7 +176,14 @@ export default function AssistantPage() {
               </div>
             </div>
           ) : (
-            <Card key={entry.id} padding="sm" className="max-w-full space-y-3">
+            // Only the newest answer is announced, and only once it has finished streaming.
+            <Card
+              key={entry.id}
+              padding="sm"
+              className="max-w-full space-y-3"
+              aria-live={index === entries.length - 1 ? 'polite' : undefined}
+              aria-busy={index === entries.length - 1 && entry.pending ? true : undefined}
+            >
               {entry.content && <AssistantMarkdown source={entry.content} />}
               {entry.pending && (
                 <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -182,22 +194,35 @@ export default function AssistantPage() {
               {entry.files.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {entry.files.map((file) => (
-                    <a
+                    <ButtonLink
                       key={file.url}
                       href={file.url}
                       download={file.fileName}
-                      className="inline-flex min-h-10 max-w-full items-center gap-2 rounded-xl border border-gray-200 bg-surface px-3 py-2 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 motion-reduce:transition-none"
+                      prefetch={false}
+                      variant="outline"
+                      size="sm"
+                      className="max-w-full"
+                      icon={<FileSpreadsheet size={18} className="shrink-0 text-success-600" aria-hidden="true" />}
+                      iconRight={<Download size={15} className="shrink-0 text-gray-500" aria-hidden="true" />}
                     >
-                      <FileSpreadsheet size={18} className="shrink-0 text-success-600" aria-hidden="true" />
                       <span className="truncate">{file.fileName}</span>
-                      <Download size={15} className="shrink-0 text-gray-500" aria-hidden="true" />
                       <span className="sr-only">{t('download')}</span>
-                    </a>
+                    </ButtonLink>
                   ))}
                 </div>
               )}
               {entry.stopped && <p className="text-sm text-gray-500">{t('stopped')}</p>}
-              {entry.error && <InlineAlert variant="danger">{t(`errors.${entry.error}`)}</InlineAlert>}
+              {entry.error && (
+                <InlineAlert
+                  variant="danger"
+                  // Asks the question behind the failed answer again; offered on the newest answer only.
+                  action={index === entries.length - 1 && lastQuestion && !busy ? (
+                    <Button size="sm" variant="outline" onClick={() => void ask(lastQuestion)}>{tc('retry')}</Button>
+                  ) : undefined}
+                >
+                  {t(`errors.${entry.error}`)}
+                </InlineAlert>
+              )}
             </Card>
           )
         ))}
@@ -220,19 +245,21 @@ export default function AssistantPage() {
           />
           {busy ? (
             <IconButton
+              variant="primary"
+              size="lg"
               label={t('stop')}
               icon={<Square size={16} aria-hidden="true" />}
               onClick={chat.stop}
-              className="h-11 w-11"
             />
           ) : (
-            <Button
+            <IconButton
               type="submit"
-              aria-label={t('send')}
+              variant="primary"
+              size="lg"
+              label={t('send')}
               title={t('send')}
               icon={<SendHorizontal size={18} aria-hidden="true" />}
               disabled={!draft.trim() || !selectedClubId}
-              className="h-11 w-11 px-0"
             />
           )}
         </div>

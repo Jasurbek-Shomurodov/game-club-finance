@@ -10,17 +10,18 @@ export function ReserveOverviewSkeleton({ withSwitch = false }: { withSwitch?: b
   return (
     <div className="space-y-6" aria-hidden="true">
       {withSwitch && <Skeleton className="h-10 w-72 max-w-full rounded-xl" />}
+      <div className="space-y-3">
+      <Skeleton className="h-3 w-28" />
+      <div className="grid gap-3 sm:grid-cols-2">
+        {[0, 1].map((index) => (
+          <SkeletonCard key={index} className="space-y-3">
+            <Skeleton className="h-4 w-24 bg-gray-100" />
+            <Skeleton className="h-8 w-48 max-w-full" />
+          </SkeletonCard>
+        ))}
+      </div>
       <SkeletonCard>
-        <Skeleton className="h-3 w-28" />
-        <div className="mt-3 grid gap-4 sm:grid-cols-2">
-          {[0, 1].map((index) => (
-            <div key={index} className="space-y-2">
-              <Skeleton className="h-4 w-16 bg-gray-100" />
-              <Skeleton className="h-9 w-48 max-w-full" />
-            </div>
-          ))}
-        </div>
-        <div className="mt-4 flex gap-2">
+        <div className="flex gap-2">
           <Skeleton className="h-9 w-28 rounded-lg" />
           <Skeleton className="h-9 w-24 rounded-lg bg-gray-100" />
         </div>
@@ -38,6 +39,7 @@ export function ReserveOverviewSkeleton({ withSwitch = false }: { withSwitch?: b
           <Skeleton className="h-3 w-20 bg-gray-100" />
         </div>
       </SkeletonCard>
+      </div>
       <div className="grid gap-4 xl:grid-cols-2">
         <ChartSkeleton />
         <DonutCardSkeleton />

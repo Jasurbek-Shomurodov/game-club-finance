@@ -23,6 +23,7 @@ import {
   SegmentedControl,
   Select,
   TableSkeleton,
+  TappableSurface,
   type BadgeVariant,
   type DataTableColumn,
   metricGridClassName,
@@ -408,15 +409,13 @@ export default function CollectedTab({
               const share = summary.collected.total > 0 ? Math.round((row.total / summary.collected.total) * 100) : 0;
               return (
                 <li key={key || 'unknown'} className="border-b border-gray-100 sm:border-r">
-                  <button
-                    type="button"
-                    aria-pressed={selected}
+                  <TappableSurface
+                    chevron={false}
+                    selected={selected}
                     onClick={() => setCollectorFilter(selected ? null : key)}
-                    className={cn(
-                      'flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 motion-reduce:transition-none',
-                      selected && 'bg-primary-50 hover:bg-primary-50',
-                    )}
+                    className={cn('h-full px-4 py-3', selected && 'bg-primary-50')}
                   >
+                    <span className="flex items-start gap-3">
                     <span className={cn('mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500', selected && 'bg-primary-100 text-primary-700')}>
                       <UserRound size={16} aria-hidden="true" />
                     </span>
@@ -428,11 +427,20 @@ export default function CollectedTab({
                       <span className="mt-0.5 block text-xs text-gray-500">
                         {tv('collectorStats', { count: row.count, share, last: formatDateOnly(row.lastDate, locale) })}
                       </span>
-                      <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
-                        <span className="block h-full rounded-full bg-success-500" style={{ width: `${share}%` }} />
-                      </span>
+                      <ShareBar
+                        className="mt-1.5"
+                        size="sm"
+                        legend={false}
+                        label={personName(row.collectorId)}
+                        locale={locale}
+                        parts={[
+                          { key: 'own', label: personName(row.collectorId), value: row.total, color: chartColors.success },
+                          { key: 'others', label: t('collectedTakenTotal'), value: summary.collected.total - row.total, color: chartColors.grid },
+                        ]}
+                      />
                     </span>
-                  </button>
+                    </span>
+                  </TappableSurface>
                 </li>
               );
             })}
@@ -599,8 +607,22 @@ function MoveToReserveModal({
   }
 
   return (
-    <Modal open onClose={onClose} locked={saving} title={tm('toReserveTitle')} description={tm('toReserveDescription')}>
-      <form onSubmit={submit} className="space-y-5">
+    <Modal
+      open
+      onClose={onClose}
+      locked={saving}
+      title={tm('toReserveTitle')}
+      description={tm('toReserveDescription')}
+      footer={(
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>{tc('cancel')}</Button>
+          <Button type="submit" form="to-reserve-form" loading={saving} loadingLabel={tc('saving')} disabled={limit <= 0} icon={<PiggyBank size={18} aria-hidden="true" />}>
+            {tm('toReserveSubmit')}
+          </Button>
+        </>
+      )}
+    >
+      <form id="to-reserve-form" onSubmit={submit} className="space-y-5">
         {error && <InlineAlert variant="danger">{error}</InlineAlert>}
         <Field label={tm('method')} htmlFor="to-reserve-method">
           <Select
@@ -635,10 +657,6 @@ function MoveToReserveModal({
         <Field label={tm('date')}>
           <DatePicker ariaLabel={tm('date')} value={date} max={businessToday} onChange={setDate} />
         </Field>
-        <Button type="submit" size="lg" fullWidth loading={saving} loadingLabel={tc('saving')} disabled={limit <= 0}
-          icon={<PiggyBank size={18} aria-hidden="true" />}>
-          {tm('toReserveSubmit')}
-        </Button>
       </form>
     </Modal>
   );

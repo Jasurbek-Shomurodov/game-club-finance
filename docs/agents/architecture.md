@@ -120,10 +120,16 @@ While the browser reports no connection the shell shows a notice above the
 page (`useOnline` in `DashboardShell`): saving will fail and the figures may
 be stale, and the page says so instead of failing silently (NET-001).
 
-Reports works the same way with its own tab row (`reports/ReportsTabs.tsx`):
-the closeout, collected and write-off views switch inside `/reports`, and the
-Day and Month tabs open `/daily-report` and `/monthly-report`, which show the
-same row.
+Reports, Salaries and the Public page keep their own sidebar item and use the
+same tab mechanism: their rows are the `reports`, `salaries` and `showcase`
+entries of `SECTION_TABS`, rendered by `SectionTabs` (labels and the row's
+accessible name stay in each area's own messages; `ownerOnly` hides a tab from
+everyone else). The closeout, collected and write-off tabs are views of
+`/reports` (a tab href may carry a query) and switch in place through
+`SectionTabs`' `onSelect`, as the salary views do; the Day and Month tabs open
+`/daily-report` and `/monthly-report`, which show the same row.
+`reports/ReportsTabs.tsx` and `showcase/ShowcaseTabs.tsx` only translate a
+page's own view name into the tab href.
 
 Sidebar routes use intent-based full prefetching. Do not eagerly prefetch every
 dynamic route on mount: that would execute protected server work for pages the

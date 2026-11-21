@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { BadgePercent, Cpu, ExternalLink, Gamepad2, Monitor, Mouse, Pencil, Plus, Trash2 } from 'lucide-react';
+import { BadgePercent, ExternalLink, Gamepad2, Monitor, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useClub } from '@/components/layout/DashboardShell';
 import { canAccessFeature } from '@/lib/permissions';
 import {
@@ -15,7 +15,6 @@ import {
   CardBody,
   CardHeader,
   Checkbox,
-  CurrencyInput,
   EmptyState,
   Field,
   InlineAlert,
@@ -24,11 +23,8 @@ import {
   Modal,
   PageHeader,
   SectionHeading,
-  SegmentedControl,
   SkeletonStatus,
   TappableSurface,
-  Textarea,
-  buttonClassName,
   useConfirm,
   useToast,
 } from '@/components/PresentationFoundation';
@@ -36,25 +32,20 @@ import { createClient } from '@/lib/supabase/client';
 import { fetchShowcaseAdminData, type ShowcaseAdminData } from '@/lib/supabase/showcase';
 import { formatCurrency, formatPhone } from '@/lib/formatters';
 import {
-  PLAYSTATION_MODELS,
-  applyPlaystationModel,
   buildShowcaseGamePayload,
   buildShowcaseOfferPayload,
   buildShowcasePcZonePayload,
   buildShowcaseSettingsPayload,
   nextSortOrder,
   normalizeSlugInput,
-  playstationModel,
   showcaseGameForm,
   showcaseOfferForm,
   showcasePcZoneForm,
   showcaseSettingsForm,
-  switchZoneKind,
   validateShowcaseGame,
   validateShowcaseOffer,
   validateShowcasePcZone,
   validateShowcaseSettings,
-  type PlaystationModel,
   type ShowcaseGameForm,
   type ShowcaseOfferForm,
   type ShowcasePcZoneForm,
@@ -63,10 +54,13 @@ import {
 import { refreshPublicShowcase } from '@/lib/showcaseRefresh';
 import { useClubQuery } from '@/lib/useClubQuery';
 import type { ShowcaseGame, ShowcaseOffer, ShowcasePcZone, ShowcaseZoneKind } from '@/types';
+import { GameEditor } from './GameEditor';
 import { LocalizedTextField } from './LocalizedTextField';
+import { OfferEditor } from './OfferEditor';
 import { ShowcaseImageField } from './ShowcaseImageField';
 import { ShowcaseSkeleton } from './ShowcaseSkeletons';
 import { ShowcaseTabs } from './ShowcaseTabs';
+import { ZoneEditor } from './ZoneEditor';
 
 const EMPTY: ShowcaseAdminData & { missing: boolean } = { showcase: null, games: [], zones: [], offers: [], offersMissing: false, missing: false };
 
@@ -164,10 +158,6 @@ export default function ShowcasePage() {
     setEditor({ kind: 'offer', id: offer?.id ?? null, form: showcaseOfferForm(offer, nextSortOrder(offers)) });
   }
 
-  function setEditorField(field: string, value: unknown) {
-    setEditor((prev) => (prev ? { ...prev, form: { ...prev.form, [field]: value } } as Editor : prev));
-  }
-
   async function saveItem(event: React.FormEvent) {
     event.preventDefault();
     if (!editor || !canEdit || !selectedClubId) return;
@@ -239,10 +229,9 @@ export default function ShowcasePage() {
   }
 
   const openPublicLink = publicPath && showcase?.is_published ? (
-    <a href={publicPath} target="_blank" rel="noopener noreferrer" className={buttonClassName({ variant: 'outline' })}>
-      <ExternalLink size={16} aria-hidden="true" />
+    <ButtonLink href={publicPath} target="_blank" rel="noopener noreferrer" icon={<ExternalLink size={16} aria-hidden="true" />}>
       {t('openPublicPage')}
-    </a>
+    </ButtonLink>
   ) : undefined;
 
   return (
@@ -519,175 +508,11 @@ export default function ShowcasePage() {
         {editor && (
           <form id="showcase-item-form" noValidate onSubmit={saveItem} className="space-y-4">
             {editor.kind === 'game' ? (
-              <>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_7rem]">
-                  <Field label={t('gameTitle')} htmlFor="game-title" required>
-                    <Input id="game-title" value={editor.form.title} maxLength={80} onChange={(e) => setEditorField('title', e.target.value)} />
-                  </Field>
-                  <Field label={t('genre')} htmlFor="game-genre">
-                    <Input id="game-genre" value={editor.form.genre} maxLength={60} placeholder={t('genrePlaceholder')} onChange={(e) => setEditorField('genre', e.target.value)} />
-                  </Field>
-                  <Field label={t('sortOrder')} htmlFor="game-sort">
-                    <Input id="game-sort" inputMode="numeric" value={editor.form.sort_order} onChange={(e) => setEditorField('sort_order', e.target.value.replace(/[^\d-]/g, ''))} />
-                  </Field>
-                </div>
-                <ShowcaseImageField
-                  label={t('coverImage')}
-                  clubId={selectedClubId}
-                  kind="game"
-                  value={editor.form.image_url}
-                  onChange={(url) => setEditorField('image_url', url)}
-                  onUploadingChange={setUploading}
-                />
-              </>
+              <GameEditor form={editor.form} onChange={(update) => setEditor((prev) => (prev?.kind === 'game' ? { ...prev, form: update(prev.form) } : prev))} clubId={selectedClubId} onUploadingChange={setUploading} />
             ) : editor.kind === 'zone' ? (
-              <>
-                <SegmentedControl<ShowcaseZoneKind>
-                  label={t('zoneKind')}
-                  variant="soft"
-                  value={editor.form.kind}
-                  onChange={(kind) => setEditor({ ...editor, form: switchZoneKind(editor.form, kind) })}
-                  options={[
-                    { value: 'pc', label: t('zoneKindPc'), icon: <Monitor size={15} aria-hidden="true" /> },
-                    { value: 'playstation', label: t('zoneKindPlaystation'), icon: <Gamepad2 size={15} aria-hidden="true" /> },
-                  ]}
-                />
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div className="sm:col-span-2">
-                    <LocalizedTextField
-                      id="zone-name"
-                      label={t('zoneName')}
-                      maxLength={60}
-                      placeholder={editor.form.kind === 'playstation' ? t('playstationZoneNamePlaceholder') : t('zoneNamePlaceholder')}
-                      value={editor.form.name}
-                      onChange={(value) => setEditorField('name', value)}
-                    />
-                  </div>
-                  <Field label={editor.form.kind === 'playstation' ? t('consoleCount') : t('pcCount')} htmlFor="zone-count" required>
-                    <Input id="zone-count" inputMode="numeric" value={editor.form.pc_count} onChange={(e) => setEditorField('pc_count', e.target.value.replace(/\D/g, ''))} />
-                  </Field>
-                  <Field label={t('pricePerHour')} htmlFor="zone-price" className="sm:col-span-2">
-                    <CurrencyInput id="zone-price" value={editor.form.price_per_hour} onValueChange={(value) => setEditorField('price_per_hour', value)} trailingAddon={tc('currency')} />
-                  </Field>
-                  <Field label={t('sortOrder')} htmlFor="zone-sort">
-                    <Input id="zone-sort" inputMode="numeric" value={editor.form.sort_order} onChange={(e) => setEditorField('sort_order', e.target.value.replace(/[^\d-]/g, ''))} />
-                  </Field>
-                </div>
-                {editor.form.kind === 'playstation' ? (
-                  <Card tone="muted" padding="sm" className="space-y-3">
-                    <SectionHeading as="h3" size="sm" title={t('specsConsole')} icon={<Gamepad2 size={16} aria-hidden="true" />} />
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_10rem]">
-                      <Field label={t('console')} required>
-                        <SegmentedControl<PlaystationModel | ''>
-                          label={t('console')}
-                          variant="soft"
-                          value={playstationModel(editor.form.console) ?? ''}
-                          onChange={(model) => model && setEditor({ ...editor, form: applyPlaystationModel(editor.form, model) })}
-                          options={PLAYSTATION_MODELS.map((model) => ({ value: model, label: model.toUpperCase() }))}
-                        />
-                      </Field>
-                      <Field label={t('controllers')} htmlFor="zone-controllers" hint={t('controllersHint')}>
-                        <Input id="zone-controllers" inputMode="numeric" value={editor.form.controllers} placeholder="2" onChange={(e) => setEditorField('controllers', e.target.value.replace(/\D/g, ''))} />
-                      </Field>
-                    </div>
-                  </Card>
-                ) : (
-                <Card tone="muted" padding="sm" className="space-y-3">
-                  <SectionHeading as="h3" size="sm" title={t('specsComputer')} icon={<Cpu size={16} aria-hidden="true" />} />
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <Field label={t('cpu')} htmlFor="zone-cpu">
-                      <Input id="zone-cpu" value={editor.form.cpu} maxLength={80} placeholder="Intel Core i7-14700K" onChange={(e) => setEditorField('cpu', e.target.value)} />
-                    </Field>
-                    <Field label={t('gpu')} htmlFor="zone-gpu">
-                      <Input id="zone-gpu" value={editor.form.gpu} maxLength={80} placeholder="RTX 4070 Super" onChange={(e) => setEditorField('gpu', e.target.value)} />
-                    </Field>
-                    <Field label={t('ram')} htmlFor="zone-ram" className="sm:col-span-2">
-                      <Input id="zone-ram" value={editor.form.ram} maxLength={80} placeholder="32 GB DDR5" onChange={(e) => setEditorField('ram', e.target.value)} />
-                    </Field>
-                  </div>
-                </Card>
-                )}
-                <Card tone="muted" padding="sm" className="space-y-3">
-                  <SectionHeading as="h3" size="sm" title={editor.form.kind === 'playstation' ? t('specsTv') : t('specsMonitor')} icon={<Monitor size={16} aria-hidden="true" />} />
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_8rem_8rem]">
-                    <Field label={editor.form.kind === 'playstation' ? t('tvModel') : t('monitorModel')} htmlFor="zone-monitor">
-                      <Input id="zone-monitor" value={editor.form.monitor} maxLength={80} placeholder={editor.form.kind === 'playstation' ? 'Samsung QLED 4K' : 'ASUS ROG Swift'} onChange={(e) => setEditorField('monitor', e.target.value)} />
-                    </Field>
-                    <Field label={t('monitorSize')} htmlFor="zone-monitor-size">
-                      <Input id="zone-monitor-size" inputMode="decimal" value={editor.form.monitor_size_inches} placeholder="27" trailingAddon={t('inchUnit')} onChange={(e) => setEditorField('monitor_size_inches', e.target.value.replace(/[^\d.,]/g, ''))} />
-                    </Field>
-                    <Field label={t('monitorRefresh')} htmlFor="zone-monitor-hz">
-                      <Input id="zone-monitor-hz" inputMode="numeric" value={editor.form.monitor_refresh_hz} placeholder="240" trailingAddon={t('hzUnit')} onChange={(e) => setEditorField('monitor_refresh_hz', e.target.value.replace(/\D/g, ''))} />
-                    </Field>
-                  </div>
-                </Card>
-                {editor.form.kind === 'pc' && (
-                  <Card tone="muted" padding="sm" className="space-y-3">
-                    <SectionHeading as="h3" size="sm" title={t('specsPeripherals')} icon={<Mouse size={16} aria-hidden="true" />} />
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <Field label={t('mouse')} htmlFor="zone-mouse">
-                        <Input id="zone-mouse" value={editor.form.mouse} maxLength={80} placeholder="Logitech G Pro X Superlight" onChange={(e) => setEditorField('mouse', e.target.value)} />
-                      </Field>
-                      <Field label={t('keyboard')} htmlFor="zone-keyboard">
-                        <Input id="zone-keyboard" value={editor.form.keyboard} maxLength={80} placeholder="SteelSeries Apex Pro" onChange={(e) => setEditorField('keyboard', e.target.value)} />
-                      </Field>
-                      <Field label={t('headset')} htmlFor="zone-headset">
-                        <Input id="zone-headset" value={editor.form.headset} maxLength={80} placeholder="HyperX Cloud II" onChange={(e) => setEditorField('headset', e.target.value)} />
-                      </Field>
-                      <Field label={t('chair')} htmlFor="zone-chair">
-                        <Input id="zone-chair" value={editor.form.chair} maxLength={80} placeholder="DXRacer" onChange={(e) => setEditorField('chair', e.target.value)} />
-                      </Field>
-                    </div>
-                    <Field label={t('peripherals')} htmlFor="zone-peripherals">
-                      <Textarea id="zone-peripherals" rows={2} maxLength={240} value={editor.form.peripherals} placeholder={t('peripheralsPlaceholder')} onChange={(e) => setEditorField('peripherals', e.target.value)} />
-                    </Field>
-                  </Card>
-                )}
-                <ShowcaseImageField
-                  label={t('zoneImage')}
-                  clubId={selectedClubId}
-                  kind="zone"
-                  aspect="wide"
-                  value={editor.form.image_url}
-                  onChange={(url) => setEditorField('image_url', url)}
-                  onUploadingChange={setUploading}
-                />
-              </>
+              <ZoneEditor form={editor.form} onChange={(update) => setEditor((prev) => (prev?.kind === 'zone' ? { ...prev, form: update(prev.form) } : prev))} clubId={selectedClubId} onUploadingChange={setUploading} />
             ) : (
-              <>
-                <LocalizedTextField
-                  id="offer-title"
-                  label={t('offerTitle')}
-                  maxLength={80}
-                  placeholder={t('offerTitlePlaceholder')}
-                  value={editor.form.title}
-                  onChange={(value) => setEditorField('title', value)}
-                />
-                <LocalizedTextField
-                  id="offer-description"
-                  label={t('offerDescription')}
-                  multiline
-                  maxLength={240}
-                  placeholder={t('offerDescriptionPlaceholder')}
-                  value={editor.form.description}
-                  onChange={(value) => setEditorField('description', value)}
-                />
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Field label={t('offerBadge')} htmlFor="offer-badge" hint={t('offerBadgeHint')}>
-                    <Input id="offer-badge" value={editor.form.badge} maxLength={12} placeholder="2+1" onChange={(e) => setEditorField('badge', e.target.value)} />
-                  </Field>
-                  <Field label={t('offerTimeWindow')} htmlFor="offer-time" hint={t('offerTimeWindowHint')}>
-                    <Input id="offer-time" value={editor.form.time_window} maxLength={40} placeholder="22:00 – 08:00" onChange={(e) => setEditorField('time_window', e.target.value)} />
-                  </Field>
-                  <Field label={t('offerPrice')} htmlFor="offer-price">
-                    <CurrencyInput id="offer-price" value={editor.form.price} onValueChange={(value) => setEditorField('price', value)} trailingAddon={tc('currency')} />
-                  </Field>
-                  <Field label={t('sortOrder')} htmlFor="offer-sort">
-                    <Input id="offer-sort" inputMode="numeric" value={editor.form.sort_order} onChange={(e) => setEditorField('sort_order', e.target.value.replace(/[^\d-]/g, ''))} />
-                  </Field>
-                </div>
-                <Checkbox id="offer-active" checked={editor.form.is_active} onChange={(e) => setEditorField('is_active', e.target.checked)} label={t('offerActive')} />
-              </>
+              <OfferEditor form={editor.form} onChange={(update) => setEditor((prev) => (prev?.kind === 'offer' ? { ...prev, form: update(prev.form) } : prev))} />
             )}
             {editorError && <InlineAlert variant="danger">{editorError}</InlineAlert>}
           </form>

@@ -19,8 +19,8 @@ import { createClient } from '@/lib/supabase/client';
 import { calculateFinancialReportTotals, calculateManualIncome } from '@/lib/calculations/dailyReport';
 import { canAccessFeature, canAccessPath, canReadFinancialTotals, canReadStockCounts } from '@/lib/permissions';
 import { closingStockHref, dayRange, moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
-import ExpenseRegistrationForm from '../reports/ExpenseRegistrationForm';
-import { CashShortageForm } from '@/components/cash-shortages/CashShortageForm';
+import { ExpenseModal } from '@/components/expenses/ExpenseModal';
+import { CashShortageModal } from '@/components/cash-shortages/CashShortageForm';
 import { fetchCashShortages, type ShortageEmployee } from '@/lib/supabase/cashShortages';
 import { loadDailyCashSummary, emptyDailyCashSummary, type DailyCashSummary } from '@/lib/supabase/dailyCashSummary';
 import { requestDailyCashDeletion, requestDailyCashUpdate } from '@/lib/dailyCashApi';
@@ -38,7 +38,6 @@ import {
   Field,
   InlineAlert,
   LoadErrorAlert,
-  Modal,
   Money,
   PageHeader,
   SectionHeading,
@@ -50,7 +49,7 @@ import {
   useToast,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { todayIso } from '@/lib/utils';
+import { cn, todayIso } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useCollectedDay } from '@/lib/useCollectedDay';
 import { isDayCollectedError } from '@/lib/supabase/dailyCashCollections';
@@ -91,11 +90,12 @@ function amountToInput(value: number | null | undefined): string {
   return value && value > 0 ? formatCurrencyInput(value) : '';
 }
 
+// The saved entry sits in the narrow side column from `xl`: two tiles to a row there, one row below it.
 const savedBreakdownGrid: Record<number, string> = {
   2: 'lg:grid-cols-2',
-  3: 'lg:grid-cols-3',
-  4: 'lg:grid-cols-4',
-  5: 'lg:grid-cols-5',
+  3: 'lg:grid-cols-3 xl:grid-cols-2',
+  4: 'lg:grid-cols-4 xl:grid-cols-2',
+  5: 'lg:grid-cols-5 xl:grid-cols-2',
 };
 
 function formatRemaining(ms: number): string {
@@ -573,7 +573,7 @@ export default function DailyCashPage() {
           </div>
 
           {entry && deadline && editable && (
-            <Badge variant="success" icon={<Clock3 size={15} aria-hidden="true" />} className="self-start px-3 py-2 text-sm sm:self-center">
+            <Badge variant="success" icon={<Clock3 size={15} aria-hidden="true" />} size="lg" className="self-start sm:self-center">
               {isOwner ? t('ownerAccessEdit') : (
                 <>
                   {t('editUntil', { time: formatDateTime(deadline, locale) })}
@@ -675,7 +675,7 @@ export default function DailyCashPage() {
             ) : undefined}
           />
 
-          <div className={`mt-4 grid grid-cols-2 gap-3 xl:!grid-cols-2 ${savedBreakdownGrid[Math.min(savedBreakdown.length + 1, 5)]}`}>
+          <div className={cn('mt-4 grid grid-cols-2 gap-3', savedBreakdownGrid[Math.min(savedBreakdown.length + 1, 5)])}>
             {savedBreakdown.map((item) => (
               <StatTile key={item.label} href={savedEntryHref} label={item.label} value={formatCurrency(item.amount)} unit={tc('currency')} variant="soft" size="sm" />
             ))}
@@ -720,47 +720,34 @@ export default function DailyCashPage() {
         />
       )}
 
-      <Modal
+      <ExpenseModal
         open={expenseDialogOpen}
         onClose={() => setExpenseDialogOpen(false)}
-        title={tr('registerExpense')}
-        size="xl"
-      >
-        <ExpenseRegistrationForm
-          onSaved={async () => {
-            setExpenseDialogOpen(false);
-            showToast(tr('expenseRegistered'));
-            // A new expense changes the day's net profit tile.
-            await refreshSummary(form.date);
-          }}
-        />
-      </Modal>
+        onSaved={async () => {
+          setExpenseDialogOpen(false);
+          showToast(tr('expenseRegistered'));
+          // A new expense changes the day's net profit tile.
+          await refreshSummary(form.date);
+        }}
+      />
 
       {isOwner && selectedClubId ? (
-        <Modal
-          open={shortageDialog !== null}
-          onClose={() => setShortageDialog(null)}
-          title={tsh('title')}
-          description={tsh('description')}
-          size="xl"
-        >
-          {shortageDialog ? (
-            <CashShortageForm
-              clubId={selectedClubId}
-              defaultMonth={form.date.slice(0, 7)}
-              today={businessToday}
-              enabledPaymentMethods={enabledPaymentMethods}
-              employees={shortageDialog.employees}
-              onCancel={() => setShortageDialog(null)}
-              onSaved={async () => {
-                setShortageDialog(null);
-                showToast(tsh('savedToast'));
-                // A shortage is an expense: the day's profit tiles change.
-                await refreshSummary(form.date);
-              }}
-            />
-          ) : null}
-        </Modal>
+        shortageDialog ? (
+          <CashShortageModal
+            clubId={selectedClubId}
+            defaultMonth={form.date.slice(0, 7)}
+            today={businessToday}
+            enabledPaymentMethods={enabledPaymentMethods}
+            employees={shortageDialog.employees}
+            onCancel={() => setShortageDialog(null)}
+            onSaved={async () => {
+              setShortageDialog(null);
+              showToast(tsh('savedToast'));
+              // A shortage is an expense: the day's profit tiles change.
+              await refreshSummary(form.date);
+            }}
+          />
+        ) : null
       ) : null}
 
       {toastElement}

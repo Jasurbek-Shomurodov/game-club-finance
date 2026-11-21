@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { forwardRef, type ButtonHTMLAttributes, type HTMLAttributeAnchorTarget, type ReactNode } from 'react';
 import Link, { type LinkProps } from 'next/link';
 import { cn } from '@/lib/utils';
 import { Spinner } from './Spinner';
@@ -117,9 +117,17 @@ export interface ButtonLinkProps extends Omit<LinkProps, 'className'> {
   className?: string;
   children: ReactNode;
   'aria-label'?: string;
+  /** `_blank` (or any target but `_self`) opens outside the app, as a plain link with a safe `rel`. */
+  target?: HTMLAttributeAnchorTarget;
+  rel?: string;
+  /** Saves the file instead of navigating; pass a string to name it. */
+  download?: boolean | string;
 }
 
-/** A Next.js link styled exactly like `Button`. */
+/**
+ * A Next.js link styled exactly like `Button`. A download or a link that
+ * opens outside the app is a plain `<a>`, so the router does not handle it.
+ */
 export function ButtonLink({
   variant = 'outline',
   size = 'md',
@@ -128,10 +136,31 @@ export function ButtonLink({
   fullWidth = false,
   className,
   children,
+  target,
+  rel,
+  download,
   ...rest
 }: ButtonLinkProps) {
+  const leavesApp = (download !== undefined && download !== false) || (target !== undefined && target !== '_self');
+  if (leavesApp && typeof rest.href === 'string') {
+    return (
+      <a
+        href={rest.href}
+        target={target}
+        rel={rel ?? (target === '_blank' ? 'noopener noreferrer' : undefined)}
+        download={download}
+        aria-label={rest['aria-label']}
+        onClick={rest.onClick}
+        className={buttonClassName({ variant, size, fullWidth, className })}
+      >
+        {icon}
+        {children}
+        {iconRight}
+      </a>
+    );
+  }
   return (
-    <Link className={buttonClassName({ variant, size, fullWidth, className })} {...rest}>
+    <Link className={buttonClassName({ variant, size, fullWidth, className })} target={target} rel={rel} {...rest}>
       {icon}
       {children}
       {iconRight}

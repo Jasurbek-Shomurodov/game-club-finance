@@ -47,6 +47,9 @@ const config: Config = {
         orange: scale("orange", [50, 100, 500, 600, 700]),
         purple: scale("purple", [50, 100, 500, 600, 700]),
         sidebar: "rgb(var(--c-surface) / <alpha-value>)",
+        // The always-dark brand panel on the auth pages and the text on it.
+        panel: "rgb(var(--c-panel) / <alpha-value>)",
+        "on-panel": "rgb(var(--c-on-panel) / <alpha-value>)",
       },
       ringOffsetColor: {
         DEFAULT: "rgb(var(--c-gray-50))",

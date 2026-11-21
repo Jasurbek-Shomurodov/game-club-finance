@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import { TappableSurface, type TappableCardProps } from './Tappable';
 
 type CardPadding = 'none' | 'sm' | 'md' | 'lg';
-type CardTone = 'default' | 'primary' | 'info' | 'success' | 'warning' | 'orange' | 'muted';
+type CardTone = 'default' | 'primary' | 'info' | 'success' | 'warning' | 'danger' | 'orange' | 'muted';
 
 const paddingClasses: Record<CardPadding, string> = {
   none: '',
@@ -20,6 +20,7 @@ const toneClasses: Record<CardTone, string> = {
   info: 'border-primary-100 bg-primary-50/50',
   success: 'border-success-100 bg-success-50/50',
   warning: 'border-warning-100 bg-warning-50/50',
+  danger: 'border-danger-100 bg-danger-50/50',
   orange: 'border-orange-100 bg-orange-50/50',
   muted: 'border-gray-200 bg-gray-50',
 };
@@ -65,7 +66,7 @@ export function Card({
         selected={selected}
         label={label}
         chevron={chevron}
-        className={cn('min-w-0 rounded-2xl border', toneClasses[tone], paddingClasses[padding], chevron && 'pr-8 sm:pr-9', className)}
+        className={cn('min-w-0 rounded-2xl border', toneClasses[tone], dashed && 'border-dashed shadow-none', paddingClasses[padding], chevron && 'pr-8 sm:pr-9', className)}
       >
         {children}
       </TappableSurface>

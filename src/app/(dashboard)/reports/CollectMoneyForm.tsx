@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { useModalForm, useReportFormState, type ModalFormProps } from '@/components/expenses/modalForm';
 import { HandCoins } from 'lucide-react';
 import { PAYMENT_METHOD_ICONS } from '@/components/paymentMethodIcons';
 import { useClub } from '@/components/layout/DashboardShell';
@@ -13,6 +14,7 @@ import {
   InlineAlert,
   Money,
   Textarea,
+  Modal,
 } from '@/components/PresentationFoundation';
 import { formatCurrency, formatCurrencyInput, parseCurrencyInput } from '@/lib/formatters';
 import { COLLECTED_METHODS, type CollectedMethod, type CollectionBalances } from '@/lib/calculations/collectedMoney';
@@ -30,7 +32,7 @@ const EMPTY_AMOUNTS: Amounts = { cash: '', terminal: '', card: '', playstation: 
  * method starts filled with everything the kassa can give on the chosen day,
  * so collecting it all is one tap; the collector can lower any amount.
  */
-export default function CollectMoneyForm({ onSaved }: { onSaved?: () => void | Promise<void> }) {
+export default function CollectMoneyForm({ onSaved, formId, onFormState }: { onSaved?: () => void | Promise<void> } & ModalFormProps) {
   const t = useTranslations('reports.collectMoney');
   const tc = useTranslations('common');
   const tr = useTranslations('reports');
@@ -138,8 +140,10 @@ export default function CollectMoneyForm({ onSaved }: { onSaved?: () => void | P
     if (saved) await onSaved?.();
   }
 
+  useReportFormState(onFormState, saving, total <= 0 || balanceQuery.loading);
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form id={formId} onSubmit={handleSubmit} className="space-y-5">
       {error && <InlineAlert variant="danger">{error}</InlineAlert>}
 
       <div className="rounded-2xl border border-primary-200 bg-primary-50 px-4 py-3">
@@ -199,17 +203,31 @@ export default function CollectMoneyForm({ onSaved }: { onSaved?: () => void | P
         <span className="font-semibold tabular-nums text-gray-900"><Money amount={total} /></span>
       </div>
 
-      <Button
-        type="submit"
-        size="lg"
-        fullWidth
-        disabled={total <= 0 || balanceQuery.loading}
-        loading={saving}
-        loadingLabel={tc('saving')}
-        icon={<HandCoins size={18} aria-hidden="true" />}
-      >
-        {t('submit')}
-      </Button>
+      {/* In a dialog the Save button is in its footer (useModalForm). */}
+      {!formId && (
+        <Button
+          type="submit"
+          size="lg"
+          fullWidth
+          disabled={total <= 0 || balanceQuery.loading}
+          loading={saving}
+          loadingLabel={tc('saving')}
+          icon={<HandCoins size={18} aria-hidden="true" />}
+        >
+          {t('submit')}
+        </Button>
+      )}
     </form>
+  );
+}
+
+/** The collection form as a dialog: the form in the body, Cancel and Save in the footer. */
+export function CollectMoneyModal({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: () => void | Promise<void> }) {
+  const t = useTranslations('reports.collectMoney');
+  const { formProps, footer, saving } = useModalForm({ submitLabel: t('submit'), icon: <HandCoins size={18} aria-hidden="true" />, onCancel: onClose });
+  return (
+    <Modal open={open} onClose={onClose} locked={saving} title={t('title')} description={t('description')} size="lg" footer={footer}>
+      <CollectMoneyForm {...formProps} onSaved={onSaved} />
+    </Modal>
   );
 }

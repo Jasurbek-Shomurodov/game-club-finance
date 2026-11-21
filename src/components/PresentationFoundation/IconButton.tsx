@@ -4,20 +4,25 @@ import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { Spinner } from './Spinner';
 
-type IconButtonVariant = 'outline' | 'ghost' | 'soft' | 'danger';
-type IconButtonSize = 'sm' | 'md';
+type IconButtonVariant = 'outline' | 'ghost' | 'soft' | 'danger' | 'primary' | 'success';
+type IconButtonSize = 'sm' | 'md' | 'lg';
 
 const variantClasses: Record<IconButtonVariant, string> = {
   outline: 'border border-gray-200 bg-surface text-gray-700 shadow-sm hover:border-gray-300 hover:bg-gray-50 hover:text-gray-950',
   ghost: 'text-gray-500 hover:bg-gray-100 hover:text-gray-900',
   soft: 'bg-primary-50 text-primary-700 hover:bg-primary-100',
   danger: 'text-gray-500 hover:bg-danger-50 hover:text-danger-600 focus-visible:ring-danger-500',
+  // Filled, like the `Button` variants of the same name.
+  primary: 'bg-primary-600 text-on-accent shadow-sm hover:bg-primary-700 dark:hover:bg-primary-400',
+  success: 'bg-success-600 text-on-accent shadow-sm hover:bg-success-700 focus-visible:ring-success-500',
 };
 
 const sizeClasses: Record<IconButtonSize, string> = {
   // 32px visually; on phones an invisible ring widens the hit area to 40px.
   sm: "relative h-8 w-8 max-sm:before:absolute max-sm:before:-inset-1 max-sm:before:content-['']",
   md: 'h-10 w-10',
+  // 44px: the height of a `Button` of size `md`, for an icon action beside one.
+  lg: 'h-11 w-11',
 };
 
 export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {

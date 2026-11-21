@@ -54,10 +54,8 @@ import { dollarsForMonth } from '@/lib/calculations/moneyExchanges';
 import {
   formatCurrency,
   formatCurrencyInput,
-  formatUnitCurrency,
   parseCurrencyInput,
-  formatYearMonth,
-} from '@/lib/formatters';
+  formatYearMonth, formatDollars } from '@/lib/formatters';
 import { monthRange, nextYearMonth } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessRollover } from '@/lib/useBusinessPeriod';
@@ -72,7 +70,7 @@ import {
   type OwnerWithdrawalSource,
 } from '@/types';
 import { SIDE_ICONS } from '@/components/sideIcons';
-import { METHOD_ICONS, SOURCE_ICONS, SOURCE_TINTS, SOURCE_TONES } from './profitIcons';
+import { METHOD_ICONS, SOURCE_ICONS, SOURCE_TINTS, SOURCE_TONES } from '@/components/owner-money/profitIcons';
 import { WithdrawalHistory, historyCreatedAt, type HistoryRow } from './WithdrawalHistory';
 import { CashShortagesSection } from './CashShortagesSection';
 import { ReserveSection } from './ReserveSection';
@@ -81,7 +79,7 @@ import { fetchAllRows } from '@/lib/supabase/pagination';
 import { parseWriteOffReason, summarizeStockWriteOffs, type StockWriteOffCountRow } from '@/lib/stockWriteOffs';
 import { planGameClubDepositAll, reserveBalances, reserveForMonth, reservedNet } from '@/lib/calculations/ownerReserve';
 import { requestReserveMove } from '@/lib/ownerReserveRequests';
-import { CashShortageForm } from '@/components/cash-shortages/CashShortageForm';
+import { CashShortageModal } from '@/components/cash-shortages/CashShortageForm';
 import {
   EMPTY_CASH_SHORTAGES,
   deleteCashShortage,
@@ -153,7 +151,7 @@ function ProfitSplitBar({ withdrawn, reserved, left, label }: { withdrawn: numbe
   return (
     <div role="img" aria-label={label} className="mt-4 flex h-2 gap-0.5 overflow-hidden rounded-full bg-gray-100">
       {parts.map((part) => (
-        <span key={part.key} className={cn('grow-x h-full transition-[width] duration-700 first:rounded-l-full last:rounded-r-full motion-reduce:transition-none', part.className)} style={{ width: `${(part.value / whole) * 100}%` }} />
+        <span key={part.key} className={cn('grow-x h-full transition-[width] duration-300 first:rounded-l-full last:rounded-r-full motion-reduce:transition-none', part.className)} style={{ width: `${(part.value / whole) * 100}%` }} />
       ))}
     </div>
   );
@@ -726,7 +724,7 @@ export default function MoneyTakenPage() {
       available: monthDollars.uzs + monthReserve.byMethod.usd.spent - reservedNet(monthReserve.byMethod.usd),
       nested: true,
       hint: t('dollarsHint', {
-        held: `${monthDollars.heldUsd < 0 ? '−' : ''}$${formatUnitCurrency(Math.abs(monthDollars.heldUsd))}`,
+        held: formatDollars(monthDollars.heldUsd),
       }),
     }] : []),
     {
@@ -1047,7 +1045,7 @@ export default function MoneyTakenPage() {
                     side.available > 0 ? (
                       <div
                         key={side.source}
-                        className={cn('grow-x h-full transition-[width] duration-700 motion-reduce:transition-none', SOURCE_TINTS[side.source].bar)}
+                        className={cn('grow-x h-full transition-[width] duration-300 motion-reduce:transition-none', SOURCE_TINTS[side.source].bar)}
                         style={{ width: `${(side.available / overall.available) * 100}%` }}
                       />
                     ) : null
@@ -1190,7 +1188,7 @@ export default function MoneyTakenPage() {
                               <IconChip icon={SIDE_ICONS.playstation} tone="reserve" size="sm" />
                               <div className="min-w-0">
                                 <p className="text-sm font-semibold text-gray-900">{t('playstation')}</p>
-                                <p className="truncate text-xs text-gray-500">
+                                <p className="break-words text-xs text-gray-500">
                                   {t('hero.playstationTaken', {
                                     withdrawn: formatCurrency(playstationProfit.withdrawn),
                                     earned: formatCurrency(playstationProfit.earned),
@@ -1486,15 +1484,8 @@ export default function MoneyTakenPage() {
         </>
       )}
 
-      {isOwner && selectedClubId ? (
-        <Modal
-          open={shortageFormOpen}
-          onClose={() => setShortageFormOpen(false)}
-          title={tsh('title')}
-          description={tsh('description')}
-          size="xl"
-        >
-          <CashShortageForm
+      {isOwner && selectedClubId && shortageFormOpen ? (
+        <CashShortageModal
             key={form.month}
             clubId={selectedClubId}
             defaultMonth={form.month}
@@ -1508,7 +1499,6 @@ export default function MoneyTakenPage() {
               await reloadAfterShortage();
             }}
           />
-        </Modal>
       ) : null}
 
       <Modal

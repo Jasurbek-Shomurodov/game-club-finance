@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ArrowDownToLine, ArrowUpFromLine, ArrowRightLeft, ShoppingCart, Undo2 } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, ArrowRightLeft, Banknote, DollarSign, ShoppingCart, Undo2 } from 'lucide-react';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
@@ -15,17 +15,18 @@ import { InOutChartSkeleton } from '@/components/charts/ChartSkeletons';
 import { rankShares } from '@/lib/calculations/insights';
 import { formatPercentShare } from '@/components/charts/chartFormat';
 import {
+  AmountCard,
   Button,
   Card,
   ChartSkeleton,
   EmptyState,
   LoadErrorAlert,
+  MetricCard,
   Modal,
   PageHeader,
   SegmentedControl,
   SkeletonStatus,
   StatTile,
-  TappableSurface,
   toneClasses,
   useConfirm,
   useToast,
@@ -44,7 +45,7 @@ import {
   reserveSumsHeld,
   type ReserveActivity,
 } from '@/lib/calculations/ownerReserve';
-import { formatCurrency, formatDateShort, formatMonthShort, formatUnitCurrency } from '@/lib/formatters';
+import { formatCurrency, formatDateShort, formatMonthShort, formatUnitCurrency, formatDollars } from '@/lib/formatters';
 import { createClient } from '@/lib/supabase/client';
 import { EMPTY_OWNER_RESERVE, fetchOwnerReserve } from '@/lib/supabase/ownerMoney';
 import { requestReserveDelete, requestReserveExchangeDelete, requestReservePurchaseDelete } from '@/lib/ownerReserveRequests';
@@ -55,7 +56,7 @@ import { ReserveExchangeModal } from './ReserveExchangeModal';
 import { ReserveHistoryList, type DeletableReserveActivity } from './ReserveHistoryList';
 import { ReserveHistorySkeleton, ReserveOverviewSkeleton } from './ReserveSkeleton';
 import { ReserveReturnModal } from './ReserveReturnModal';
-import ExpenseRegistrationForm from '../reports/ExpenseRegistrationForm';
+import ExpenseRegistrationForm from '@/components/expenses/ExpenseRegistrationForm';
 import { scrollBehavior } from '@/lib/scroll';
 
 function ChartLoading() {
@@ -86,7 +87,7 @@ export default function ReservePage() {
   const businessToday = useBusinessToday(businessDayStartHour);
   const currentMonth = businessToday.slice(0, 7);
   const isOwner = role === 'owner';
-  const { showToast } = useToast();
+  const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
   const [view, setView] = useState<ReserveView>(() => (searchParams.get('view') === 'history' ? 'history' : 'overview'));
   const showHistory = () => {
@@ -174,7 +175,7 @@ export default function ReservePage() {
   const methodLabel = (method: OwnerReserveMethod) => (
     method === 'playstation' ? tm('playstation') : method === 'usd' ? tm('dollars') : tc(`paymentMethods.${method}`)
   );
-  const dollars = `${dollarsHeld < 0 ? '−' : ''}$${formatUnitCurrency(Math.abs(dollarsHeld))}`;
+  const dollars = formatDollars(dollarsHeld);
 
   async function handleDelete(row: DeletableReserveActivity) {
     if (!selectedClubId || busyId) return;
@@ -183,9 +184,9 @@ export default function ReservePage() {
     const confirmed = await confirm({
       title: tc('delete'),
       description: row.kind === 'exchange'
-        ? t('exchange.deleteConfirm', { sums: amount, dollars: `$${formatUnitCurrency(row.usd)}` })
+        ? t('exchange.deleteConfirm', { sums: amount, dollars: formatDollars(row.usd) })
         : row.kind === 'purchase'
-          ? tr('deletePurchaseConfirm', { amount: row.method === 'usd' ? `$${formatUnitCurrency(row.amount)}` : amount })
+          ? tr('deletePurchaseConfirm', { amount: row.method === 'usd' ? formatDollars(row.amount) : amount })
           : tr(row.kind === 'deposit' ? 'deleteDepositConfirm' : 'deleteReturnConfirm', { amount }),
       confirmLabel: tc('delete'),
     });
@@ -282,44 +283,47 @@ export default function ReservePage() {
         ) : (
           <>
             {/* The reserve is the owner's own money: one pot of sums and one of dollars, whatever side or method it came from. */}
-            <Card as="section" aria-labelledby="reserve-total">
+            <section aria-labelledby="reserve-total" className="space-y-3">
               <p id="reserve-total" className="text-xs font-medium text-gray-500">{t('totalHeld')}</p>
-              <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                <TappableSurface onClick={() => { setHistoryFilter('all'); showHistory(); }} className="-m-2 rounded-xl p-2 pr-8">
-                  <p className="text-sm font-medium text-gray-600">{t('sumsPot')}</p>
-                  <p className="mt-1 break-words text-3xl font-bold leading-none tracking-tight tabular-nums text-gray-950 sm:text-4xl">
-                    {formatCurrency(sumsHeld)}
-                    <span className="ml-1.5 text-base font-medium tracking-normal text-gray-500">{currency}</span>
-                  </p>
-                </TappableSurface>
-                <TappableSurface
+              <div className="grid gap-3 sm:grid-cols-2">
+                <AmountCard
+                  onClick={() => { setHistoryFilter('all'); showHistory(); }}
+                  label={t('sumsPot')}
+                  amount={sumsHeld}
+                  icon={Banknote}
+                  accent="reserve"
+                />
+                <MetricCard
                   onClick={() => { setHistoryFilter(totals.exchanged > 0 ? 'exchange' : 'all'); showHistory(); }}
-                  className="-m-2 rounded-xl p-2 pr-8"
-                >
-                  <p className="text-sm font-medium text-gray-600">{t('dollarsPot')}</p>
-                  <p className="mt-1 break-words text-3xl font-bold leading-none tracking-tight tabular-nums text-gray-950 sm:text-4xl">
-                    {dollars}
-                  </p>
-                  {dollarsHeld !== 0 ? (
-                    <p className="mt-2 text-sm text-gray-500">
-                      {t('dollarsBoughtFor', { amount: `${formatCurrency(dollarsSumsValue)} ${currency}` })}
-                      {rates.averageRate !== null ? <span className="whitespace-nowrap"> · {t('averageRate', { rate: formatUnitCurrency(rates.averageRate) })}</span> : null}
-                    </p>
-                  ) : null}
-                  {rates.lastRate !== null && rates.lastDate ? (
-                    <p className="mt-1 text-xs text-gray-500">
-                      {t('lastRate', { rate: formatUnitCurrency(rates.lastRate), date: formatDateShort(rates.lastDate, locale) })}
-                      {dollarsHeld > 0 ? (
-                        <span className="whitespace-nowrap">
-                          {' · '}{t('worthAtLastRate', { amount: `${formatCurrency(Math.round(dollarsHeld * rates.lastRate))} ${currency}` })}
+                  label={t('dollarsPot')}
+                  value={dollars}
+                  icon={DollarSign}
+                  accent="reserve"
+                  helper={dollarsHeld !== 0 || (rates.lastRate !== null && rates.lastDate) ? (
+                    <>
+                      {dollarsHeld !== 0 ? (
+                        <span className="block">
+                          {t('dollarsBoughtFor', { amount: `${formatCurrency(dollarsSumsValue)} ${currency}` })}
+                          {rates.averageRate !== null ? <span className="whitespace-nowrap"> · {t('averageRate', { rate: formatUnitCurrency(rates.averageRate) })}</span> : null}
                         </span>
                       ) : null}
-                    </p>
-                  ) : null}
-                </TappableSurface>
+                      {rates.lastRate !== null && rates.lastDate ? (
+                        <span className="block">
+                          {t('lastRate', { rate: formatUnitCurrency(rates.lastRate), date: formatDateShort(rates.lastDate, locale) })}
+                          {dollarsHeld > 0 ? (
+                            <span className="whitespace-nowrap">
+                              {' · '}{t('worthAtLastRate', { amount: `${formatCurrency(Math.round(dollarsHeld * rates.lastRate))} ${currency}` })}
+                            </span>
+                          ) : null}
+                        </span>
+                      ) : null}
+                    </>
+                  ) : undefined}
+                />
               </div>
+            <Card>
               {/* Inside the reserve: sums become dollars or back, nothing leaves it (170). */}
-              <div className="mt-4 flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -353,7 +357,7 @@ export default function ReservePage() {
                 <div className="mt-4">
                   <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
                     {flowParts.map((part) => (
-                      <span key={part.key} className={`grow-x h-full transition-[width] duration-700 first:rounded-l-full last:rounded-r-full motion-reduce:transition-none ${part.className}`} style={{ width: `${(part.value / flowWhole) * 100}%` }} />
+                      <span key={part.key} className={`grow-x h-full transition-[width] duration-300 first:rounded-l-full last:rounded-r-full motion-reduce:transition-none ${part.className}`} style={{ width: `${(part.value / flowWhole) * 100}%` }} />
                     ))}
                   </div>
                   <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-500" aria-label={t('flowSplitLabel')}>
@@ -368,6 +372,7 @@ export default function ReservePage() {
                 </div>
               ) : null}
             </Card>
+            </section>
 
             <div className="grid gap-4 xl:grid-cols-2">
               <ChartCard title={t('balanceTitle')} description={t('balanceDescription')}>
@@ -477,6 +482,7 @@ export default function ReservePage() {
         />
       </Modal>
       {confirmDialog}
+      {toastElement}
     </div>
   );
 }

@@ -33,7 +33,7 @@ export function RadialMeter({ value, color, children, size = 64, stroke = 7, cla
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={circumference * (1 - filled)}
-          className="transition-[stroke-dashoffset] duration-700 ease-out motion-reduce:transition-none"
+          className="transition-[stroke-dashoffset] duration-300 ease-out motion-reduce:transition-none"
         />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center text-center">{children}</div>

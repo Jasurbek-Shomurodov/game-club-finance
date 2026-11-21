@@ -5,14 +5,15 @@
  * compose these instead of writing bespoke Tailwind class strings.
  *
  * Layout & surfaces: Card, CardHeader, CardBody, CardFooter, SectionHeading, PageHeader, TopBarSlotProvider
- * Actions:           Button, ButtonLink, IconButton, Stepper
+ * Actions:           Button, ButtonLink, IconButton, ActionMenu, Stepper
  * Forms:             Field, Input, CurrencyInput, DecimalInput, Textarea, Select, Checkbox, SearchInput, NoteField/useEntryNoteGuard,
  *                    SegmentedControl, DatePicker, DateRangePicker, MonthPicker
  * Feedback:          InlineAlert, LoadErrorAlert, Toast/useToast, Modal, Drawer, ConfirmDialog/useConfirm, EmptyState, Disclosure, HelpButton,
  *                    Badge, Spinner, skeletons
- * Data display:      MetricCard, AmountCard, StatTile, DataTable, Sparkline
+ * Data display:      MetricCard, AmountCard, StatTile, DataTable, DetailList, DetailHero, Sparkline
  * Misc:              LanguageSwitcher, ThemeToggle
  */
+export { ActionMenu, type ActionMenuItem, type ActionMenuProps } from './ActionMenu';
 export { Avatar, initialsOf } from './Avatar';
 export { ClubLogo, DEFAULT_CLUB_LOGO } from './ClubLogo';
 export { CategoryIcon, type CategoryIconTone } from './CategoryIcon';
@@ -22,6 +23,7 @@ export { DatePicker, DateRangePicker, MonthPicker } from './CalendarPicker';
 export { Card, CardBody, CardFooter, CardHeader, SectionHeading } from './Card';
 export { ConfirmDialog, useConfirm } from './ConfirmDialog';
 export { DataTable, type DataTableColumn, type DataTableGroup } from './DataTable';
+export { DetailHero, DetailList, type DetailHeroProps, type DetailListItem, type DetailListProps } from './DetailList';
 export { Disclosure, type DisclosureProps } from './Disclosure';
 export { Drawer, type DrawerProps } from './Drawer';
 export { EmptyState } from './EmptyState';

@@ -26,6 +26,7 @@ guide relevant to the task; do not load every document or migration by default.
 | Task | Read |
 |---|---|
 | Adding a feature, page, card or chart; where things go; tappability; motion | `docs/agents/system-design.md` |
+| Colours, type, components and layout rules in one page | `DESIGN.md` |
 | Runtime structure or data flow | `docs/agents/architecture.md` |
 | Totals, reports, owner money, or financial definitions | `docs/agents/domain-finance.md` |
 | Products, purchases, or closing stock | `docs/agents/inventory.md` |

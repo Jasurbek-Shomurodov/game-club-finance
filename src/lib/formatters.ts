@@ -286,6 +286,11 @@ export function formatUnitCurrency(amount: number, locale = 'ru-UZ'): string {
   }).format(amount).replace(/[\u00a0\u202f]/g, ' ');
 }
 
+/** A dollar amount ("$546,92", "−$12"): up to two decimals, a real minus sign before the symbol. */
+export function formatDollars(amount: number, locale = 'ru-UZ'): string {
+  return `${amount < 0 ? '\u2212' : ''}$${formatUnitCurrency(Math.abs(amount), locale)}`;
+}
+
 /**
  * Most digits a typed money amount may have: 9 999 999 999 UZS. Larger values
  * are typos (a club never records ten billion in one entry) and would distort

@@ -235,9 +235,9 @@ export default async function TestChecklistPage() {
         {allPass ? t('allPassed', { count: checks.length }) : t('somePassed', { passed: passCount, count: checks.length })}
       </InlineAlert>
 
-      <div className="space-y-3">
+      <ul className="space-y-3" aria-label={t('title')}>
         {checks.map((check) => (
-          <Card key={check.name} className={check.pass ? undefined : 'border-danger-500/30 bg-danger-50'}>
+          <Card as="li" key={check.name} tone={check.pass ? 'default' : 'danger'}>
             <div className="flex items-start gap-3">
               {check.pass
                 ? <CheckCircle size={20} className="mt-0.5 shrink-0 text-success-500" aria-hidden="true" />
@@ -253,7 +253,7 @@ export default async function TestChecklistPage() {
             </div>
           </Card>
         ))}
-      </div>
+      </ul>
 
       <InlineAlert variant="info">{t('note')}</InlineAlert>
     </div>

@@ -94,7 +94,7 @@ export function DonutBreakdown({ slices, total, totalLabel, currency, locale, si
                 <span className="mt-1 flex items-center gap-2">
                   <span className="h-1 flex-1 overflow-hidden rounded-full bg-gray-100">
                     <span
-                      className="grow-x block h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none"
+                      className="grow-x block h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none"
                       style={{ width: `${Math.max(2, slice.share * 100)}%`, backgroundColor: colorWithAlpha(slice.color, 0.85) }}
                     />
                   </span>

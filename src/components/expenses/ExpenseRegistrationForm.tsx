@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { useReportFormState, type ModalFormProps } from './modalForm';
 import { Banknote, HandCoins, PiggyBank, Save } from 'lucide-react';
 import { SIDE_ICONS } from '@/components/sideIcons';
 import { PAYMENT_METHOD_ICONS } from '@/components/paymentMethodIcons';
@@ -20,7 +21,7 @@ import {
   Select,
   useEntryNoteGuard,
 } from '@/components/PresentationFoundation';
-import { formatCurrency, formatCurrencyInput, formatUnitCurrency, parseDecimalInput } from '@/lib/formatters';
+import { formatCurrency, formatCurrencyInput, parseDecimalInput, formatDollars } from '@/lib/formatters';
 import { isExpenseCategoryAllowedForSource, manualExpenseCategoriesFor } from '@/lib/expenseCategories';
 import { createClient, mutateFinanceRequest } from '@/lib/supabase/client';
 import { fetchExpensePresets } from '@/lib/supabase/expensePresets';
@@ -56,7 +57,7 @@ const SOURCE_ICONS: Record<PaymentSource, React.ReactNode> = {
 /** The side a source's money belongs to, for categories: collected money is Game Club's. */
 const categorySource = (source: PaymentSource): 'game_club' | 'bar' | 'reserve' => (source === 'collected' ? 'game_club' : source);
 
-interface ExpenseRegistrationFormProps {
+interface ExpenseRegistrationFormProps extends ModalFormProps {
   onSaved?: () => void | Promise<void>;
   /** Start on "Paid From: Reserve". */
   defaultFromReserve?: boolean;
@@ -79,7 +80,7 @@ const EXPENSE_ERROR_KEYS: Record<string, string> = {
   SERVER_ERROR: 'serverError',
 };
 
-export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = false }: ExpenseRegistrationFormProps) {
+export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = false, formId, onFormState }: ExpenseRegistrationFormProps) {
   const t = useTranslations('expenses');
   const tc = useTranslations('common');
   const { selectedClubId, businessDayStartHour, enabledPaymentMethods, role, featureAccess } = useClub();
@@ -174,7 +175,7 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
 
   function methodMoney(method: ExpensePaymentMethod, amount: number): string {
     return method === 'usd'
-      ? `${amount < 0 ? '−' : ''}$${formatUnitCurrency(Math.abs(amount))}`
+      ? formatDollars(amount)
       : `${formatCurrency(amount)} ${tc('currency')}`;
   }
 
@@ -398,8 +399,11 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
     ? t('overBalance', { amount: methodMoney(form.payment_method, available) })
     : undefined;
 
+  const submitDisabled = enabledPaymentMethods.length === 0 || dayClosed || overBalance || !form.category;
+  useReportFormState(onFormState, saving, submitDisabled);
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form id={formId} onSubmit={handleSubmit} className="space-y-5">
       {error && <InlineAlert variant="danger">{error}</InlineAlert>}
       {enabledPaymentMethods.length === 0 && <InlineAlert variant="warning">{t('paymentMethodUnavailable')}</InlineAlert>}
 
@@ -473,7 +477,7 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
           onChange={(method) => set('payment_method', method)}
           // Three or more labels do not fit one row on a phone.
           columns={paymentMethods.length > 2 ? 2 : undefined}
-          className={showsBalances ? '[&>button]:min-h-14 [&>button]:justify-start [&>button]:px-3' : undefined}
+          size={showsBalances ? 'lg' : 'md'}
           options={paymentMethods.map((method) => ({
             value: method,
             label: methodLabel(method),
@@ -493,7 +497,6 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
               value={form.amount}
               onValueChange={(value) => set('amount', value)}
               trailingAddon="$"
-              className="text-gray-950 placeholder:text-gray-300"
             />
           </Field>
           <Field
@@ -525,7 +528,6 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
             value={form.amount}
             onValueChange={(value) => set('amount', value)}
             trailingAddon={tc('currency')}
-            className="text-gray-950 placeholder:text-gray-300"
           />
         </Field>
       )}
@@ -555,17 +557,20 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
         maxLength={300}
       />
 
-      <Button
-        type="submit"
-        size="lg"
-        fullWidth
-        disabled={enabledPaymentMethods.length === 0 || dayClosed || overBalance || !form.category}
-        loading={saving}
-        loadingLabel={tc('saving')}
-        icon={<Save size={18} aria-hidden="true" />}
-      >
-        {t('submit')}
-      </Button>
+      {/* In a dialog the Save button is in its footer (useModalForm). */}
+      {!formId && (
+        <Button
+          type="submit"
+          size="lg"
+          fullWidth
+          disabled={submitDisabled}
+          loading={saving}
+          loadingLabel={tc('saving')}
+          icon={<Save size={18} aria-hidden="true" />}
+        >
+          {t('submit')}
+        </Button>
+      )}
       {note.dialog}
     </form>
   );

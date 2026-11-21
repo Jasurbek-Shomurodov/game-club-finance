@@ -1,16 +1,17 @@
-import { MetricGridSkeleton, Skeleton, TableSkeleton } from '@/components/PresentationFoundation';
+import { MetricGridSkeleton, Skeleton, TableSkeleton, metricGridClassName } from '@/components/PresentationFoundation';
 import { SkeletonCard } from '@/components/charts/ChartSkeletons';
 import { StockGlanceSkeleton } from './StockGlance';
 
 /**
- * Closing stock while the day loads: the KPI strip, the stock glance, then the
+ * Closing stock while the day loads: the five headline figures, the stock glance
+ * (its three tiles over the three cards), then the
  * products card with its search, category chips and count table. Keep it in
  * step with ClosingStockPage.
  */
 export function ClosingStockSkeleton() {
   return (
     <div className="space-y-5" aria-hidden="true">
-      <MetricGridSkeleton count={8} className="grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8" />
+      <MetricGridSkeleton count={5} className={`${metricGridClassName} sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-5`} />
       <StockGlanceSkeleton />
       <SkeletonCard padded={false} className="overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 sm:px-5 md:flex-row md:items-center md:justify-between">

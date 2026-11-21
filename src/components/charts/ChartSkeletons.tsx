@@ -9,9 +9,15 @@ import { cn } from '@/lib/utils';
  */
 
 /** The `Card` shell (default tone, `md` padding) with nothing in it. */
-export function SkeletonCard({ className, padded = true, children }: { className?: string; padded?: boolean; children?: ReactNode }) {
+export function SkeletonCard({ className, padded = true, padding = 'md', children }: {
+  className?: string;
+  padded?: boolean;
+  /** Matches `Card padding`: `sm` for a card that uses `padding="sm"`. */
+  padding?: 'sm' | 'md';
+  children?: ReactNode;
+}) {
   return (
-    <div aria-hidden="true" className={cn('min-w-0 rounded-2xl border border-gray-200 bg-surface shadow-card', padded && 'p-4 sm:p-5', className)}>
+    <div aria-hidden="true" className={cn('min-w-0 rounded-2xl border border-gray-200 bg-surface shadow-card', padded && (padding === 'sm' ? 'p-3 sm:p-4' : 'p-4 sm:p-5'), className)}>
       {children}
     </div>
   );

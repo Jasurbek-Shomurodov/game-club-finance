@@ -89,6 +89,11 @@ export function slideMotion(visible: boolean, side: 'left' | 'right') {
   );
 }
 
+/** Menu or popover that fades and grows out of the control that opened it (set the `origin-*` on the element). */
+export function popoverMotion(visible: boolean) {
+  return cn('transition-[transform,opacity]', MOTION, visible ? 'scale-100 opacity-100' : 'scale-95 opacity-0');
+}
+
 /** Toast that drops in from the top on phones and rises from the bottom from `sm` up. */
 export function toastMotion(visible: boolean) {
   return cn(

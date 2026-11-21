@@ -38,7 +38,7 @@ export function WeekdayBars({ data, color, currency, locale, averageLabel, class
             <span
               role="img"
               aria-label={label}
-              className="w-full max-w-7 rounded-b-sm rounded-t transition-[height] duration-500 motion-reduce:transition-none"
+              className="w-full max-w-7 rounded-b-sm rounded-t transition-[height] duration-300 motion-reduce:transition-none"
               style={{ height: `${height}%`, backgroundColor: best ? color : colorWithAlpha(color, 0.38) }}
             />
             <span className={cn('text-xs font-medium', best ? 'text-gray-950' : 'text-gray-500')}>{names[slot.weekday]}</span>
