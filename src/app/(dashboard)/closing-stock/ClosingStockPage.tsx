@@ -683,7 +683,7 @@ export default function ClosingStockPage() {
   const hasFilters = Boolean(query.trim() || selectedCategory);
   const saveDisabled = loading || refreshing || isReadOnly || Boolean(loadError) || rows.length === 0;
   const draftDisabled = saving || loading || refreshing || isReadOnly || Boolean(loadError) || hasSavedCounts;
-  // The header shows Submit and Write-off; the other actions sit behind "more".
+  // The header shows Submit, Write-off and Save draft; bulk update sits behind "more".
   const moreActions: ActionMenuItem[] = [
     {
       label: t('bulkUpdate'),
@@ -694,13 +694,6 @@ export default function ClosingStockPage() {
         setBulkUpdateOpen(true);
       },
     },
-    // Once the day's counts are saved there is nothing left to draft.
-    ...(!hasSavedCounts ? [{
-      label: t('saveDraft'),
-      icon: <Save size={16} aria-hidden="true" />,
-      disabled: draftDisabled,
-      onSelect: handleSaveDraft,
-    }] : []),
   ];
   const bannerTitle = isReadOnly
     ? (isHistoricalDate ? t('readOnlyTitle') : t('viewerReadOnlyTitle'))
@@ -773,6 +766,18 @@ export default function ClosingStockPage() {
                     icon={<PackageMinus size={15} aria-hidden="true" />}
                   >
                     {t('writeOffButton')}
+                  </Button>
+                )}
+                {/* Once the day's counts are saved there is nothing left to draft. */}
+                {!hasSavedCounts && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSaveDraft}
+                    disabled={draftDisabled}
+                    icon={<Save size={15} aria-hidden="true" />}
+                  >
+                    {t('saveDraft')}
                   </Button>
                 )}
                 {moreActions.length > 0 && (
