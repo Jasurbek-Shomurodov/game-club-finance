@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { ChevronRight, History, Pencil, Power, Trash2, UserPlus, Users } from 'lucide-react';
 import { SIDE_ICONS } from '@/components/sideIcons';
+import { employeeSalaryHref } from '@/lib/detailLinks';
 import {
   Avatar,
   Badge,
@@ -14,7 +15,12 @@ import {
   EmployeeCardGridSkeleton,
   EmptyState,
   IconButton,
+  IconChip,
   Modal,
+  SectionHeading,
+  TappableSurface,
+  toneClasses,
+  type Tone,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { formatPercentShare } from '@/components/charts/chartFormat';
@@ -23,11 +29,11 @@ import { formatCurrency, formatDateOnly } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { useSalaryText, type EmployeeRateSummary, type SavingTarget } from './shared';
 
-/** Payment source look, matching the Owner Profit cards: Game Club is the brand colour, Bar is orange. */
-const PAYMENT_SOURCES = {
-  game_club: { icon: SIDE_ICONS.gameClub, bubble: 'bg-primary-50 text-primary-600', bar: 'bg-primary-500' },
-  bar: { icon: SIDE_ICONS.bar, bubble: 'bg-orange-50 text-orange-600', bar: 'bg-orange-500' },
-} as const;
+/** Payment source tone (tone.ts), as on Owner Profit: Game Club is the brand colour, Bar is orange. */
+const PAYMENT_SOURCES: Record<'game_club' | 'bar', { icon: typeof SIDE_ICONS.bar; tone: Tone }> = {
+  game_club: { icon: SIDE_ICONS.gameClub, tone: 'primary' },
+  bar: { icon: SIDE_ICONS.bar, tone: 'bar' },
+};
 
 export interface EmployeesViewProps {
   employees: SalaryEmployee[];
@@ -123,7 +129,7 @@ function EmployeeCard({
       <div className="mb-5 flex items-start gap-3">
         <Avatar name={employee.name} size="lg" />
         <div className="min-w-0 flex-1">
-          <h2 className="break-words text-base font-semibold text-gray-950">{employee.name}</h2>
+          <SectionHeading title={employee.name} />
           <div className="mt-0.5 flex items-center gap-1 text-sm text-gray-500">
             <span className="break-words">{roleLabel(employee.job_title)}</span>
             {isOwner && (
@@ -131,7 +137,7 @@ function EmployeeCard({
                 variant="ghost"
                 size="sm"
                 label={`${t('editEmployeeTitle')} · ${employee.name}`}
-                icon={<Pencil size={15} />}
+                icon={<Pencil size={15} aria-hidden="true" />}
                 disabled={saving}
                 onClick={() => onEdit(employee)}
               />
@@ -144,7 +150,7 @@ function EmployeeCard({
         {[
           [t(upcoming ? 'startsOn' : 'joined'), formatDateOnly(employee.joined_on, locale)],
           [t(rate?.salary_type ?? 'daily'), currency(Number(rate?.amount ?? 0))],
-          [t('kpi'), `${Number(rate?.kpi_percent ?? 0)}%`],
+          [t('kpi'), formatPercentShare(Number(rate?.kpi_percent ?? 0) / 100, locale, 2)],
           [t('kpiBasis'), kpiSummary(rate)],
           ...(summary?.deactivatesOn ? [[t('deactivatesOn'), formatDateOnly(summary.deactivatesOn, locale)]] : []),
           ...(summary?.deactivatedFrom ? [[t('deactivatedFrom'), formatDateOnly(summary.deactivatedFrom, locale)]] : []),
@@ -176,34 +182,29 @@ function EmployeeCard({
         </div>
       )}
       <div className="border-t border-gray-100 pt-3 text-sm">
-        <button
-          type="button"
-          onClick={() => setShowBalance(true)}
-          aria-haspopup="dialog"
-          className="-mx-2 flex w-[calc(100%+1rem)] items-center justify-between gap-4 rounded-lg px-2 py-1 text-left transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-        >
-          <span className="flex items-center gap-1 text-gray-500">{balanceLabel}<ChevronRight size={14} aria-hidden="true" /><span className="sr-only">{t('balanceDetailsHint', { label: balanceLabel })}</span></span>
-          <span className={cn('text-right text-xl font-bold tracking-tight tabular-nums', balance > 0 ? 'text-warning-600' : 'text-gray-950')}>
-            {formatCurrency(Math.abs(balance))}
-            <span className="ml-1.5 text-sm font-medium tracking-normal text-gray-500">{tc('currency')}</span>
+        <TappableSurface onClick={() => setShowBalance(true)} chevron={false} className="rounded-lg py-1">
+          <span className="flex items-center justify-between gap-4">
+            <span className="flex items-center gap-1 text-gray-500">{balanceLabel}<ChevronRight size={14} aria-hidden="true" /><span className="sr-only">{t('balanceDetailsHint', { label: balanceLabel })}</span></span>
+            <span className={cn('text-right text-xl font-bold tracking-tight tabular-nums', balance > 0 ? 'text-warning-600' : 'text-gray-950')}>
+              {formatCurrency(Math.abs(balance))}
+              <span className="ml-1.5 text-sm font-medium tracking-normal text-gray-500">{tc('currency')}</span>
+            </span>
           </span>
-        </button>
+        </TappableSurface>
       </div>
       <Modal open={showBalance} onClose={() => setShowBalance(false)} title={`${balanceLabel} · ${employee.name}`} size="md">
         <p className="text-sm leading-6 text-gray-700">
           {t(balance < 0 ? 'advanceExplain' : balance > 0 ? 'balanceExplain' : 'settledExplain', { name: employee.name })}
         </p>
-        <h3 className="mt-5 text-sm font-semibold text-gray-900">{t('paidBySource')}</h3>
+        <SectionHeading as="h3" size="sm" title={t('paidBySource')} className="mt-5" />
         <div className="mt-2 grid gap-3 sm:grid-cols-2">
           {paidSources.map(({ source, amount }) => {
-            const { icon: SourceIcon, bubble, bar } = PAYMENT_SOURCES[source];
+            const { icon: SourceIcon, tone } = PAYMENT_SOURCES[source];
             const share = earnings.paid > 0 ? Math.round((amount / earnings.paid) * 100) : 0;
             return (
               <div key={source} className="min-w-0 rounded-2xl border border-gray-100 bg-gray-50/40 p-4">
                 <div className="flex items-center gap-2.5">
-                  <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-xl', bubble)}>
-                    <SourceIcon size={16} aria-hidden="true" />
-                  </span>
+                  <IconChip icon={SourceIcon} tone={tone} size="sm" />
                   <p className="text-sm font-semibold text-gray-900">{t(source === 'bar' ? 'poolBar' : 'poolGameClub')}</p>
                 </div>
                 <p className="mt-3 break-words text-2xl font-bold leading-none tracking-tight tabular-nums text-gray-950">
@@ -211,14 +212,14 @@ function EmployeeCard({
                   <span className="ml-1.5 text-sm font-medium tracking-normal text-gray-500">{tc('currency')}</span>
                 </p>
                 <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-gray-200" aria-hidden="true">
-                  <div className={cn('h-full rounded-full', bar)} style={{ width: `${share}%` }} />
+                  <div className={cn('grow-x h-full rounded-full', toneClasses[tone].solid)} style={{ width: `${share}%` }} />
                 </div>
-                <p className="mt-1.5 text-xs text-gray-500">{t('paidShare', { percent: share })}</p>
+                <p className="mt-1.5 text-xs text-gray-500">{t('paidShare', { share: formatPercentShare(share / 100, locale) })}</p>
               </div>
             );
           })}
         </div>
-        <h3 className="mt-5 text-sm font-semibold text-gray-900">{t('balanceDetails')}</h3>
+        <SectionHeading as="h3" size="sm" title={t('balanceDetails')} className="mt-5" />
         <dl className="mt-1 divide-y divide-gray-100 text-sm">
           {breakdown.map(([label, value, tone]) => (
             <div key={label} className="flex items-center justify-between gap-4 py-2">
@@ -241,7 +242,7 @@ function EmployeeCard({
         </dl>
       </Modal>
       <div className="mt-5 flex flex-wrap gap-2">
-        <ButtonLink size="sm" href={`/salaries/employees/${employee.id}`} icon={<History size={16} aria-hidden="true" />}>{t('history')}</ButtonLink>
+        <ButtonLink size="sm" href={employeeSalaryHref(employee.id)} icon={<History size={16} aria-hidden="true" />}>{t('history')}</ButtonLink>
         {isOwner && (
           <Button
             variant={rate?.active ? 'dangerOutline' : 'outline'}

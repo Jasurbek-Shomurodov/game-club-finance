@@ -88,17 +88,19 @@ export function MetricCard({
   className,
   href,
   onClick,
+  selected,
 }: MetricCardProps) {
   const tc = useTranslations('common');
   return (
     <CardShell
       href={href}
       onClick={onClick}
+      selected={selected}
       className={cn('min-w-0 rounded-2xl border border-gray-200 bg-surface px-3.5 py-3.5 shadow-card sm:px-5 sm:py-4', (href || onClick) && 'pr-8', className)}
     >
       <div className="flex items-center gap-2">
         {Icon && <IconChip icon={Icon} size="sm" tone={chipTone(tone, accent)} className={iconClassName} />}
-        <p className="min-w-0 break-words text-[13px] font-medium text-gray-500">{label}</p>
+        <p className="min-w-0 hyphens-auto break-words text-[13px] font-medium text-gray-500">{label}</p>
       </div>
       {loading ? (
         <div className="mt-3 space-y-2" role="status" aria-label={tc('loading')}>
@@ -167,6 +169,7 @@ export function AmountCard({
   tone = 'default',
   href,
   onClick,
+  selected,
 }: AmountCardProps) {
   const tc = useTranslations('common');
   const currency = currencyProp ?? tc('currency');
@@ -177,11 +180,12 @@ export function AmountCard({
     <CardShell
       href={href}
       onClick={onClick}
+      selected={selected}
       className={cn('flex min-w-0 flex-col rounded-2xl border border-gray-200 bg-surface p-4 text-left shadow-card sm:p-5', (href || onClick) && 'pr-8 sm:pr-8')}
     >
       <div className="flex items-center gap-2">
         <IconChip icon={Icon} size="sm" tone={chipTone(tone, accent)} className={iconClassName} />
-        <p className="min-w-0 break-words text-[13px] font-medium text-gray-500">{label}</p>
+        <p className="min-w-0 hyphens-auto break-words text-[13px] font-medium text-gray-500">{label}</p>
       </div>
       {loading ? (
         <div className="mt-3 space-y-2" role="status" aria-label={tc('loading')}>
@@ -255,11 +259,13 @@ export function StatTile({
   className,
   href,
   onClick,
+  selected,
 }: StatTileProps) {
   return (
     <CardShell
       href={href}
       onClick={onClick}
+      selected={selected}
       className={cn(
         'min-w-0 rounded-xl',
         variant === 'card' && 'border border-gray-200 bg-surface px-4 py-3',

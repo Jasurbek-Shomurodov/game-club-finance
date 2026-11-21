@@ -184,7 +184,7 @@ function CommandSearch({ titleId, onClose, role, featureAccess, clubId, onNaviga
     offset += entries.length;
     return entries.length > 0 && (
       <div key={title} role="group" aria-label={title} className="py-1.5">
-        <p className="px-4 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{title}</p>
+        <p className="px-4 pb-1 pt-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">{title}</p>
         {entries.map((item, index) => {
           const Icon = item.icon;
           const selected = start + index === current;
@@ -201,7 +201,7 @@ function CommandSearch({ titleId, onClose, role, featureAccess, clubId, onNaviga
                 selected ? 'bg-primary-50 font-semibold text-primary-700' : 'font-medium text-gray-700',
               )}
             >
-              <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', item.accent ? 'bg-primary-600 text-on-accent' : selected ? 'text-primary-600' : 'text-gray-400')}>
+              <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', item.accent ? 'bg-primary-600 text-on-accent' : selected ? 'text-primary-600' : 'text-gray-500')}>
                 <Icon size={16} aria-hidden="true" />
               </span>
               <span className="min-w-0 flex-1 truncate">{item.label}</span>
@@ -236,7 +236,7 @@ function CommandSearch({ titleId, onClose, role, featureAccess, clubId, onNaviga
           onKeyDown={onKeyDown}
           className="h-14 min-w-0 flex-1 bg-transparent text-base text-gray-950 outline-none placeholder:text-gray-400 [&::-webkit-search-cancel-button]:hidden"
         />
-        <kbd className="hidden shrink-0 rounded-md border border-gray-200 px-1.5 py-0.5 text-[11px] font-medium text-gray-500 sm:block">Esc</kbd>
+        <kbd className="hidden shrink-0 rounded-md border border-gray-200 px-1.5 py-0.5 text-xs font-medium text-gray-500 sm:block">Esc</kbd>
       </div>
       <div ref={listRef} id={listId} role="listbox" aria-label={t('title')} className="max-h-[min(24rem,55dvh)] overflow-y-auto pb-1.5">
         {sections}
@@ -259,7 +259,7 @@ export function QuickAddSheet({ open, onClose, role, featureAccess, onNavigate }
               key={item.id}
               type="button"
               onClick={() => run(item)}
-              className="flex min-h-14 items-center gap-3 rounded-2xl border border-gray-200 bg-surface px-3.5 text-left text-[15px] font-semibold text-gray-900 transition hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 active:scale-[0.99]"
+              className="flex min-h-14 items-center gap-3 rounded-2xl border border-gray-200 bg-surface px-3.5 text-left text-sm font-semibold text-gray-900 tappable hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-600 text-on-accent">
                 <Icon size={18} aria-hidden="true" />

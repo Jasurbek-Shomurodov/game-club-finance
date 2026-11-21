@@ -9,6 +9,7 @@ import {
   Checkbox,
   CurrencyInput,
   DatePicker,
+  EmptyState,
   Field,
   InlineAlert,
   Input,
@@ -204,7 +205,8 @@ function OperationForm({
     const balance = salaryBalance(balances[selected?.id ?? ''] ?? []);
     return (
       <>
-        <StatTile className="sm:col-span-2" variant="soft" label={t('balance')} value={formatCurrency(balance)} unit={tc('currency')} tone="primary" />
+        {/* A negative balance is an advance, named and shown without a sign as on the employee's card. */}
+        <StatTile className="sm:col-span-2" variant="soft" label={t(balance < 0 ? 'advance' : 'balance')} value={formatCurrency(Math.abs(balance))} unit={tc('currency')} tone="primary" />
         {entryForm.kind !== 'absence' && (
           <Field label={t('amount')} htmlFor="salary-entry-amount" required>
             <CurrencyInput id="salary-entry-amount" required value={entryForm.amount} onValueChange={(value) => setEntryForm({ ...entryForm, amount: value })} />
@@ -232,6 +234,16 @@ function OperationForm({
           <Textarea id="salary-entry-comment" maxLength={1000} value={entryForm.comment} onChange={(e) => setEntryForm({ ...entryForm, comment: e.target.value })} />
         </Field>
       </>
+    );
+  }
+
+  // Nobody to pay yet: say so instead of an empty employee list.
+  if (dialog === 'entry' && employees.length === 0 && !loading && !loadError) {
+    return (
+      <Card as="section" id="salary-entry-form" padding="lg">
+        <SectionHeading title={title} />
+        <EmptyState compact title={t('emptyTitle')} description={t('emptyDescription')} />
+      </Card>
     );
   }
 

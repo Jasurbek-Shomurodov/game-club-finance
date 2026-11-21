@@ -11,7 +11,7 @@ const variantClasses: Record<IconButtonVariant, string> = {
   outline: 'border border-gray-200 bg-surface text-gray-700 shadow-sm hover:border-gray-300 hover:bg-gray-50 hover:text-gray-950',
   ghost: 'text-gray-500 hover:bg-gray-100 hover:text-gray-900',
   soft: 'bg-primary-50 text-primary-700 hover:bg-primary-100',
-  danger: 'text-gray-400 hover:bg-danger-50 hover:text-danger-600 focus-visible:ring-danger-500',
+  danger: 'text-gray-500 hover:bg-danger-50 hover:text-danger-600 focus-visible:ring-danger-500',
 };
 
 const sizeClasses: Record<IconButtonSize, string> = {

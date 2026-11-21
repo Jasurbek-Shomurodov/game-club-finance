@@ -18,9 +18,10 @@ import {
   InlineAlert,
   LoadErrorAlert,
   PageHeader,
-  PageSkeleton,
   SectionHeading,
   Select,
+  SkeletonStatus,
+  buttonClassName,
   useConfirm,
   useToast,
 } from '@/components/PresentationFoundation';
@@ -29,6 +30,7 @@ import type { GooglePostSummary } from '@/lib/googleBusiness/posts';
 import { canAccessFeature } from '@/lib/permissions';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useClubQuery } from '@/lib/useClubQuery';
+import { GoogleBusinessSkeleton, ShowcaseRowsSkeleton } from '../ShowcaseSkeletons';
 import { ShowcaseTabs } from '../ShowcaseTabs';
 import { GoogleListingCard } from './GoogleListingCard';
 import { GooglePhotoCard } from './GooglePhotoCard';
@@ -142,7 +144,7 @@ export default function GoogleBusinessPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-5">
       <PageHeader title={ts('title')} tabs={<ShowcaseTabs current="/showcase/google" />} />
 
       {outcome && (
@@ -150,9 +152,11 @@ export default function GoogleBusinessPage() {
       )}
 
       {!canEdit ? (
-        <InlineAlert variant="info">{ts('ownerOnly')}</InlineAlert>
+        <Card>
+          <EmptyState icon={MapPin} title={ts('ownerOnly')} />
+        </Card>
       ) : query.loading ? (
-        <PageSkeleton />
+        <SkeletonStatus><GoogleBusinessSkeleton /></SkeletonStatus>
       ) : query.error ? (
         <LoadErrorAlert retrying={query.loading} onRetry={() => void query.reload()}>{t('loadFailed')}</LoadErrorAlert>
       ) : !configured ? (
@@ -247,9 +251,9 @@ export default function GoogleBusinessPage() {
                 </CardHeader>
                 <CardBody>
                   {postsQuery.loading ? (
-                    <PageSkeleton />
+                    <SkeletonStatus><ShowcaseRowsSkeleton rows={3} /></SkeletonStatus>
                   ) : postsQuery.data.failed ? (
-                    <InlineAlert variant="warning">{t(postsQuery.data.failed)}</InlineAlert>
+                    <LoadErrorAlert retrying={postsQuery.loading} onRetry={() => void postsQuery.reload()}>{t(postsQuery.data.failed)}</LoadErrorAlert>
                   ) : postsQuery.data.posts.length === 0 ? (
                     <EmptyState compact title={t('recentEmpty')} />
                   ) : (
@@ -274,8 +278,8 @@ export default function GoogleBusinessPage() {
                             <a
                               href={post.searchUrl}
                               target="_blank"
-                              rel="noreferrer"
-                              className="shrink-0 self-start text-gray-500 hover:text-gray-900"
+                              rel="noopener noreferrer"
+                              className={buttonClassName({ variant: 'ghost', size: 'sm', className: 'shrink-0 self-start' })}
                               aria-label={t('viewOnGoogle')}
                               title={t('viewOnGoogle')}
                             >

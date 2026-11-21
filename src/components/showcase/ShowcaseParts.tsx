@@ -50,6 +50,9 @@ export function HeroBackdrop({ imageUrl }: { imageUrl: string | null }) {
   );
 }
 
+/** Heading level of a card title: h3 under a page section, h5 inside a club panel of the brand page. */
+export type CardHeading = 'h3' | 'h5';
+
 export interface Stat {
   value: ReactNode;
   label: string;
@@ -132,7 +135,7 @@ export function GameGrid({ games }: { games: PublicShowcaseGame[] }) {
             </span>
             <span className="absolute inset-x-0 bottom-0 z-[1] block bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-16">
               {game.genre && (
-                <span className="mb-1.5 inline-block rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-cyan-200 backdrop-blur">
+                <span className="mb-1.5 inline-block rounded-md bg-white/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-cyan-200 backdrop-blur">
                   {game.genre}
                 </span>
               )}
@@ -153,14 +156,14 @@ function Spec({ icon, label, value }: { icon: ReactNode; label: string; value: s
         {icon}
       </span>
       <span className="min-w-0">
-        <span className="block text-[11px] font-semibold uppercase tracking-wider text-white/40">{label}</span>
+        <span className="block text-xs font-semibold uppercase tracking-wider text-white/60">{label}</span>
         <span className="block break-words text-sm font-medium text-white/90">{value}</span>
       </span>
     </li>
   );
 }
 
-export async function ZoneGrid({ zones }: { zones: PublicShowcaseZone[] }) {
+export async function ZoneGrid({ zones, heading: Heading = 'h3' }: { zones: PublicShowcaseZone[]; heading?: CardHeading }) {
   const t = await getTranslations('publicShowcase');
   const tc = await getTranslations('common');
   // "27″ · 240 Hz" with the model below it; older zones only have the model text.
@@ -206,7 +209,7 @@ export async function ZoneGrid({ zones }: { zones: PublicShowcaseZone[] }) {
               </div>
               <div className="flex flex-1 flex-col p-6">
                 <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
-                  <h3 className="sc-display text-2xl font-bold text-white">{zone.name}</h3>
+                  <Heading className="sc-display text-2xl font-bold text-white">{zone.name}</Heading>
                   {zone.price_per_hour !== null && (
                     <p className="sc-display sc-gradient-text whitespace-nowrap text-xl font-bold">
                       {t('perHour', { price: formatCurrency(zone.price_per_hour), currency: tc('currency') })}
@@ -261,7 +264,7 @@ function ContactRow({ icon, label, children }: { icon: ReactNode; label: string;
         {icon}
       </span>
       <span className="min-w-0">
-        <span className="block text-[11px] font-semibold uppercase tracking-wider text-white/40">{label}</span>
+        <span className="block text-xs font-semibold uppercase tracking-wider text-white/60">{label}</span>
         <span className="block break-words text-sm font-medium text-white/90 sm:text-base">{children}</span>
       </span>
     </li>
@@ -353,7 +356,7 @@ export async function ContactPanel({ club, id }: { club: PublicShowcase; id?: st
 }
 
 /** Ticket-style cards for packages and offers ("2+1", night packages). */
-export async function OfferGrid({ offers }: { offers: PublicShowcaseOffer[] }) {
+export async function OfferGrid({ offers, heading: Heading = 'h3' }: { offers: PublicShowcaseOffer[]; heading?: CardHeading }) {
   const t = await getTranslations('publicShowcase');
   const tc = await getTranslations('common');
   const { hourly, packages, others } = groupShowcaseOffers(offers);
@@ -362,7 +365,7 @@ export async function OfferGrid({ offers }: { offers: PublicShowcaseOffer[] }) {
     <>{formatCurrency(value)} <span className="text-xs font-semibold text-white/50">{tc('currency')}</span></>
   );
   const subheading = (label: string) => (
-    <h5 className="mb-4 text-xs font-semibold uppercase tracking-[0.25em] text-white/45">{label}</h5>
+    <p className="mb-4 text-xs font-semibold uppercase tracking-[0.25em] text-white/60">{label}</p>
   );
 
   return (
@@ -400,7 +403,7 @@ export async function OfferGrid({ offers }: { offers: PublicShowcaseOffer[] }) {
                       <span className={`sc-display sc-gradient-text relative min-w-0 break-all font-black leading-none ${group.badge.length > 4 ? 'text-4xl sm:text-5xl' : 'text-5xl sm:text-6xl'}`}>
                         {group.badge}
                       </span>
-                      <h3 className="sc-display relative mt-5 text-xl font-bold text-white">{group.title}</h3>
+                      <Heading className="sc-display relative mt-5 text-xl font-bold text-white">{group.title}</Heading>
                       {group.description && <p className="relative mt-2 text-sm leading-6 text-white/60">{group.description}</p>}
                       <div className="relative mt-auto pt-6">
                         <div className="sc-offer-cut mb-3" aria-hidden="true" />
@@ -409,7 +412,7 @@ export async function OfferGrid({ offers }: { offers: PublicShowcaseOffer[] }) {
                             <div key={option.id} className="flex items-baseline justify-between gap-4 py-2.5">
                               <dt className="min-w-0 text-sm font-semibold text-white/75">
                                 {option.zone}
-                                {option.time_window && <span className="ml-2 text-xs font-normal text-white/45">{option.time_window}</span>}
+                                {option.time_window && <span className="ml-2 text-xs font-normal text-white/60">{option.time_window}</span>}
                               </dt>
                               <dd className={`sc-display shrink-0 text-lg font-bold ${option.price !== null && option.price === cheapest ? 'text-lime-300' : 'text-white'}`}>
                                 {option.price !== null ? price(option.price) : '—'}
@@ -446,7 +449,7 @@ export async function OfferGrid({ offers }: { offers: PublicShowcaseOffer[] }) {
                         </span>
                       )}
                     </div>
-                    <h3 className="sc-display relative mt-5 text-xl font-bold text-white">{offer.title}</h3>
+                    <Heading className="sc-display relative mt-5 text-xl font-bold text-white">{offer.title}</Heading>
                     {offer.description && <p className="relative mt-2 text-sm leading-6 text-white/60">{offer.description}</p>}
                     {offer.price !== null && (
                       <div className="relative mt-auto pt-6">

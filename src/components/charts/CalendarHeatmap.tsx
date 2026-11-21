@@ -37,21 +37,21 @@ export function CalendarHeatmap({ yearMonth, values, through, today, color, curr
 
   return (
     <div className="min-w-0">
-      <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium uppercase tracking-wide text-gray-400">
+      <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium uppercase tracking-wide text-gray-500">
         {weekdays.map((name) => <span key={name} className="truncate">{name}</span>)}
       </div>
       <div className="mt-1 grid grid-cols-7 gap-1">
         {weeks.flat().map((cell, index) => {
           if (!cell) return <span key={`empty-${index}`} aria-hidden="true" />;
           const label = `${formatDateOnly(cell.date, locale)}: ${cell.value === null ? '—' : `${formatCurrency(cell.value)} ${currency}`}`;
-          const strong = cell.level >= 3;
           const selectable = Boolean(onSelectDay) && (cell.value !== null || (selectableThrough !== undefined && cell.date <= selectableThrough));
           const className = cn(
-            'relative flex h-8 items-center justify-center rounded-md text-[11px] font-medium tabular-nums transition-transform',
+            'relative flex h-8 items-center justify-center rounded-md text-xs font-medium tabular-nums transition-transform',
             cell.value === null ? 'border border-dashed border-gray-200 text-gray-300' : 'text-gray-700',
-            strong && 'text-white',
+            cell.level === 3 && 'text-gray-950',
+            cell.level >= 4 && 'text-on-accent',
             cell.date === today && 'ring-2 ring-gray-950/70 ring-offset-1 ring-offset-surface',
-            selectable && 'hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+            selectable && 'hover:scale-110 motion-reduce:transform-none motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
           );
           const style = cell.value === null
             ? undefined
@@ -67,7 +67,7 @@ export function CalendarHeatmap({ yearMonth, values, through, today, color, curr
           );
         })}
       </div>
-      <div className="mt-2 flex items-center justify-end gap-1.5 text-[10px] text-gray-400" aria-hidden="true">
+      <div className="mt-2 flex items-center justify-end gap-1.5 text-xs text-gray-400" aria-hidden="true">
         <span>{legendLow}</span>
         {LEVEL_ALPHA.map((alpha, level) => (
           <span

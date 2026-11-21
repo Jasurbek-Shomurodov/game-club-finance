@@ -274,11 +274,11 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
         aria-invalid={invalid || undefined}
         maxLength={maxLength}
         value={value}
-        className={cn(controlClassName, 'min-h-24 resize-y py-2.5', className)}
+        className={cn(controlClassName, 'max-h-72 min-h-24 resize-y py-2.5 [field-sizing:content]', className)}
         {...rest}
       />
       {showCount && maxLength ? (
-        <p className="mt-1 text-right text-xs text-gray-400">{String(value ?? '').length}/{maxLength}</p>
+        <p className="mt-1 text-right text-xs text-gray-500">{String(value ?? '').length}/{maxLength}</p>
       ) : null}
     </>
   );

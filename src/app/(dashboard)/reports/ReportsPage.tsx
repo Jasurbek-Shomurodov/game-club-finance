@@ -90,7 +90,7 @@ import ExpenseRegistrationForm from './ExpenseRegistrationForm';
 import ExchangeForm from './ExchangeForm';
 import CollectedTab from './CollectedTab';
 import { DonutSkeleton, InOutChartSkeleton } from '@/components/charts/ChartSkeletons';
-import { PaymentCardsSkeleton } from './ReportsSkeleton';
+import { PaymentCardsSkeleton, paymentCardsGridClassName } from './ReportsSkeleton';
 import WriteOffsTab from './WriteOffsTab';
 import { fetchDollarExpenses, fetchMoneyExchanges, withDollarAmounts } from '@/lib/supabase/moneyExchanges';
 import { fetchReserveMoves } from '@/lib/supabase/reserveMoves';
@@ -125,6 +125,7 @@ import dynamic from 'next/dynamic';
 import { ChartCard } from '@/components/dashboard/ChartCard';
 import { toDonutSlices } from '@/components/charts/donutSlices';
 import { expenseTotalsByCategory } from '@/lib/calculations/insights';
+import { scrollBehavior } from '@/lib/scroll';
 
 // The recharts chunk loads only on the closeout view, beside the report data.
 const DonutBreakdown = dynamic(
@@ -226,6 +227,9 @@ function SummaryCard({
   );
 }
 
+/** The payment-method cards' headline figure, shared with the dollars card. */
+const paymentValueClassName = 'mt-2.5 break-words text-xl font-bold leading-none tracking-tight tabular-nums sm:text-2xl';
+
 function PaymentCard({
   label,
   data,
@@ -261,12 +265,12 @@ function PaymentCard({
 }) {
   const stillHeld = moneyStillHeld(data.left, taken);
   return (
-    <Card onClick={onClick} className="h-full pr-4 sm:pr-5">
+    <Card onClick={onClick} className="h-full">
       <div className="flex items-center gap-2">
-        <Icon size={15} className="shrink-0 text-gray-400" aria-hidden="true" />
-        <h3 className="text-[13px] font-medium text-gray-500">{label}</h3>
+        <Icon size={15} className="shrink-0 text-gray-500" aria-hidden="true" />
+        <SectionHeading as="h3" size="sm" title={label} />
       </div>
-      <p className={cn('mt-2.5 break-words text-[1.375rem] font-bold leading-none tracking-tight tabular-nums sm:text-2xl', amountToneClassName(data.left))}>
+      <p className={cn(paymentValueClassName, amountToneClassName(data.left))}>
         <Money amount={data.left} currencyClassName="text-sm font-medium tracking-normal text-gray-500" />
       </p>
       <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500"><span aria-hidden="true" className="h-2 w-2 rounded-sm bg-success-500" />{leftLabel}</p>
@@ -406,7 +410,7 @@ function MoneyWhereaboutsCards({
         helper={kassaHelper}
         tone={toneForAmount(kassa, 'primary')}
         icon={Landmark}
-        className={cn('border-primary-200', kassaSelected && 'ring-2 ring-primary-500')}
+        selected={kassaSelected}
         onClick={onKassaClick}
       />
       <MetricCard
@@ -424,7 +428,7 @@ function MoneyWhereaboutsCards({
           label={reserveLabel}
           value={<Money amount={reserve} currencyClassName={valueClassName} />}
           helper={reserveHelper}
-          tone="warning"
+          accent="reserve"
           icon={PiggyBank}
           href="/reserve"
         />
@@ -432,6 +436,9 @@ function MoneyWhereaboutsCards({
     </section>
   );
 }
+
+/** One fact of the entry sheet: label over value on phones, side by side from `sm`. */
+const detailRowClassName = 'grid grid-cols-1 gap-1 py-3 text-sm sm:grid-cols-[120px_minmax(0,1fr)] sm:gap-3';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -443,7 +450,7 @@ function requestedReportRange(from: string | undefined, to: string | undefined):
 
 /** A `?category` filter from a link; unknown values fall back to every row. */
 function requestedCategoryFilter(category: string | undefined): MoneyReportCategoryFilter {
-  if (category === 'income' || category === 'debt_payment' || category === 'expense' || category === 'exchange') return category;
+  if (category === 'money_in' || category === 'income' || category === 'debt_payment' || category === 'expense' || category === 'exchange') return category;
   if (category?.startsWith('expense:') && isKnownExpenseCategory(category.slice('expense:'.length))) {
     return category as MoneyReportCategoryFilter;
   }
@@ -517,7 +524,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     setCategoryFilter(category);
     setSourceFilter(source);
     setCollectionFilter('all');
-    document.getElementById('report-closeout')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('report-closeout')?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
   };
   /** "With the admin" is the money of the days nobody has collected yet: show those days, or every day on a second tap. */
   const showPendingDays = () => {
@@ -527,7 +534,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     if (selected) return;
     // The table is not mounted yet when this comes from another tab.
     requestAnimationFrame(() => {
-      document.getElementById('report-closeout')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.getElementById('report-closeout')?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
     });
   };
   useEffect(() => {
@@ -1127,6 +1134,16 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     { method: 'playstation' as const, label: t('playstation'), icon: Gamepad2 },
   ];
 
+  // Hide a method the club has turned off, unless it still carries money
+  // in this period (recorded before it was turned off), so totals add up.
+  const shownPaymentCards = paymentCards.filter((card) => {
+    if (card.method === 'playstation') return true;
+    if (enabledPaymentMethods.includes(card.method)) return true;
+    const data = paymentCardData[card.method];
+    return data.opening !== 0 || data.collected !== 0 || data.expenses !== 0 || data.exchangedIn !== 0 || data.exchangedOut !== 0
+      || (data.reserved ?? 0) !== 0 || collectedByMethod[card.method] !== 0;
+  });
+
   /** A payment method's icon and name, as on the payment method cards above the table. */
   function paymentMethodChip(method: string) {
     const Icon = paymentCards.find((card) => card.method === method)?.icon;
@@ -1194,7 +1211,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     return (
       <button
         type="button"
-        className="inline-flex items-center gap-1 rounded underline decoration-gray-300 decoration-dotted underline-offset-2 hover:text-gray-900 hover:decoration-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+        className="inline-flex items-center gap-1 rounded underline decoration-gray-300 max-sm:min-h-9 decoration-dotted underline-offset-2 hover:text-gray-900 hover:decoration-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
         title={t('showDayFigure', { figure: dayFigureLabels[figure] })}
         onClick={(event) => {
           event.stopPropagation();
@@ -1290,13 +1307,13 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         }
         return paymentMethod
           ? <span className="text-xs">{paymentMethodChip(paymentMethod)}</span>
-          : <span className="text-gray-400">—</span>;
+          : <span className="text-gray-500">—</span>;
       },
     },
     {
       key: 'description',
       header: t('descriptionLabel'),
-      className: 'min-w-[240px]',
+      className: 'min-w-60',
       mobile: 'full',
       render: (row) => (row.kind === 'day' ? (
         <span className="block text-xs text-gray-500">
@@ -1330,7 +1347,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
           )}
         </span>
       ) : (
-        <span className="block max-w-[320px] break-words text-gray-600">{row.activity.comment || t('noDescription')}</span>
+        <span className="block max-w-xs break-words text-gray-600">{row.activity.comment || t('noDescription')}</span>
       )),
     },
     ...(showActions ? [{
@@ -1420,7 +1437,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
           {t('loadError')}
         </LoadErrorAlert>
       )}
-      {actionError && <InlineAlert variant="danger">{actionError}</InlineAlert>}
+      {/* While the entry sheet is open it shows the error itself. */}
+      {actionError && !selectedEntry && <InlineAlert variant="danger">{actionError}</InlineAlert>}
       {hasReportsAccess && view === 'closeout' && sourceFilter && (
         <InlineAlert
           variant="info"
@@ -1467,7 +1485,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       {hasReportsAccess && !loadFailed && view === 'closeout' && (
         <>
           <section className={cn(metricGridClassName, 'sm:grid-cols-2 xl:grid-cols-4')}>
-            <SummaryCard loading={loading} onClick={() => showCloseout('income', null)} label={t('totalCollected')} value={report.totalCollected} icon={WalletCards} tone="success" />
+            <SummaryCard loading={loading} onClick={() => showCloseout('money_in', null)} label={t('totalCollected')} value={report.totalCollected} icon={WalletCards} tone="success" />
             <SummaryCard loading={loading} onClick={() => showCloseout('expense', 'game_club')} label={t('gameClubExpenses')} value={report.gameClubExpenses} icon={ReceiptText} tone="danger" />
             <SummaryCard loading={loading} href={moneyDetailsHref('game_club', range)} label={t('gameClubLeft')} value={report.gameClubLeft} icon={CircleDollarSign} tone={toneForAmount(report.gameClubLeft, 'default')} />
             <SummaryCard loading={loading} href={moneyDetailsHref('bar', range)} label={t('barCashLeft')} value={report.barLeft} icon={Banknote} tone={toneForAmount(report.barLeft, 'default')} />
@@ -1476,18 +1494,10 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
           <section>
             <SectionHeading size="lg" title={t('moneyLeftByPaymentMethod')} description={t('moneyLeftDescription')} className="mb-3" />
             {loading ? (
-              <SkeletonStatus><PaymentCardsSkeleton /></SkeletonStatus>
+              <SkeletonStatus><PaymentCardsSkeleton count={enabledPaymentMethods.length + 1} /></SkeletonStatus>
             ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {paymentCards.filter((card) => {
-                  // Hide a method the club has turned off, unless it still carries money
-                  // in this period (recorded before it was turned off), so totals add up.
-                  if (card.method === 'playstation') return true;
-                  if (enabledPaymentMethods.includes(card.method)) return true;
-                  const data = paymentCardData[card.method];
-                  return data.opening !== 0 || data.collected !== 0 || data.expenses !== 0 || data.exchangedIn !== 0 || data.exchangedOut !== 0
-                    || (data.reserved ?? 0) !== 0 || collectedByMethod[card.method] !== 0;
-                }).map((card) => (
+              <div className={paymentCardsGridClassName(shownPaymentCards.length + (report.usd !== 0 ? 1 : 0))}>
+                {shownPaymentCards.map((card) => (
                   <PaymentCard
                     key={card.method}
                     onClick={() => setMethodDays(card.method)}
@@ -1507,12 +1517,12 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                   />
                 ))}
                 {report.usd !== 0 && (
-                  <Card onClick={() => showCloseout('exchange', null)} className="h-full pr-4 sm:pr-5">
+                  <Card onClick={() => showCloseout('exchange', null)} className="h-full">
                     <div className="flex items-center gap-2">
-                      <CircleDollarSign size={15} className="shrink-0 text-gray-400" aria-hidden="true" />
-                      <h3 className="text-[13px] font-medium text-gray-500">{t('usd')}</h3>
+                      <CircleDollarSign size={15} className="shrink-0 text-gray-500" aria-hidden="true" />
+                      <SectionHeading as="h3" size="sm" title={t('usd')} />
                     </div>
-                    <p className={cn('mt-2.5 break-words text-[1.375rem] font-bold leading-none tracking-tight tabular-nums sm:text-2xl', amountToneClassName(report.usd))}>
+                    <p className={cn(paymentValueClassName, amountToneClassName(report.usd))}>
                       {report.usd < 0 ? '−' : ''}${formatUnitCurrency(Math.abs(report.usd))}
                     </p>
                     <p className="mt-1 text-xs text-gray-500">{t('usdHeld')}</p>
@@ -1590,6 +1600,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                     >
                       <option value="all">{t('allCategories')}</option>
                       <optgroup label={t('incomeCategories')}>
+                        <option value="money_in">{t('allIncome')}</option>
                         <option value="income">{t('dailyClubIncome')}</option>
                         <option value="debt_payment">{t('debtPayment')}</option>
                       </optgroup>
@@ -1608,7 +1619,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
               />
             </CardHeader>
             {loading ? (
-              <TableSkeleton rows={6} columns={showActions ? 7 : 6} className="rounded-none border-0 shadow-none" />
+              <TableSkeleton bare rows={6} columns={showActions ? 7 : 6} />
             ) : (
               <DataTable
                 mobileCards
@@ -1744,11 +1755,11 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
             </div>
 
             <dl className="divide-y divide-gray-100 rounded-xl border border-gray-200 px-4">
-              <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 py-3 text-sm">
+              <div className={detailRowClassName}>
                 <dt className="text-gray-500">{t('dateAndTime')}</dt>
-                <dd className="text-right font-semibold text-gray-900">
+                <dd className="font-semibold text-gray-900 sm:text-right">
                   {canCorrectExpense(selectedEntry.activity, selectedEntry.date) ? (
-                    <div className="ml-auto flex max-w-60 flex-col items-end gap-1">
+                    <div className="flex flex-col gap-1 sm:ml-auto sm:max-w-60 sm:items-end">
                       <DatePicker
                         ariaLabel={t('date')}
                         value={selectedEntry.date}
@@ -1766,16 +1777,16 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                   )}
                 </dd>
               </div>
-              <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 py-3 text-sm">
+              <div className={detailRowClassName}>
                 <dt className="text-gray-500">{t('category')}</dt>
-                <dd className="break-words text-right font-semibold text-gray-900">
+                <dd className="break-words font-semibold text-gray-900 sm:text-right">
                   {canCorrectExpense(selectedEntry.activity, selectedEntry.date) && !selectedEntry.activity.exchange ? (
                     <Select
                       value={selectedEntry.activity.category ?? ''}
                       onChange={(event) => void handleUpdateExpense(selectedEntry.activity, { category: event.target.value })}
                       disabled={methodSaving}
                       aria-label={t('category')}
-                      className="ml-auto w-48"
+                      className="w-full sm:ml-auto sm:w-48"
                     >
                       {categoryOptions(selectedEntry.activity).map((category) => (
                         <option key={category} value={category}>{expenseCategoryLabel(category)}</option>
@@ -1786,26 +1797,26 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                   )}
                 </dd>
               </div>
-              <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 py-3 text-sm">
+              <div className={detailRowClassName}>
                 <dt className="text-gray-500">{t('addedBy')}</dt>
-                <dd className="break-words text-right font-semibold text-gray-900">
+                <dd className="break-words font-semibold text-gray-900 sm:text-right">
                   {selectedEntry.activity.createdByName || t('unknownCreator')}
                 </dd>
               </div>
               {selectedEntry.activity.exchange?.rate != null && (
-                <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 py-3 text-sm">
+                <div className={detailRowClassName}>
                   <dt className="text-gray-500">{t('exchangeRate')}</dt>
-                  <dd className="text-right font-semibold tabular-nums text-gray-900">
+                  <dd className="font-semibold tabular-nums text-gray-900 sm:text-right">
                     1 $ = {formatUnitCurrency(selectedEntry.activity.exchange.rate)} {tc('currency')}
                   </dd>
                 </div>
               )}
               {!selectedEntry.activity.exchange && (
-                <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 py-3 text-sm">
+                <div className={detailRowClassName}>
                   <dt className="text-gray-500">{t('paymentMethod')}</dt>
-                  <dd className="text-right font-semibold text-gray-900">
+                  <dd className="font-semibold text-gray-900 sm:text-right">
                     {selectedEntry.activity.paymentBreakdown ? (
-                      <div className="flex flex-wrap justify-end gap-2">
+                      <div className="flex flex-wrap gap-2 sm:justify-end">
                         {Object.entries(selectedEntry.activity.paymentBreakdown)
                           .filter(([, amount]) => amount !== 0)
                           .map(([method, amount]) => (
@@ -1828,7 +1839,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                         onChange={(event) => void handleUpdateExpense(selectedEntry.activity, { paymentMethod: event.target.value })}
                         disabled={methodSaving}
                         aria-label={t('paymentMethod')}
-                        className="ml-auto w-40"
+                        className="w-full sm:ml-auto sm:w-40"
                       >
                         {paymentMethodOptions(selectedEntry.activity).map((method) => (
                           <option key={method} value={method}>{paymentLabel(method)}</option>
@@ -1840,9 +1851,9 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                   </dd>
                 </div>
               )}
-              <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3 py-3 text-sm">
+              <div className={detailRowClassName}>
                 <dt className="text-gray-500">{t('descriptionLabel')}</dt>
-                <dd className="break-words text-right text-gray-700">
+                <dd className="break-words text-gray-700 sm:text-right">
                   {selectedEntry.activity.comment || t('noDescription')}
                 </dd>
               </div>

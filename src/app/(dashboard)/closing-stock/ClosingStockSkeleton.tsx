@@ -20,7 +20,7 @@ export function ClosingStockSkeleton() {
         <div className="flex gap-2 overflow-hidden border-b border-gray-100 px-4 py-3 sm:px-5">
           {[16, 24, 20, 28, 20].map((width, index) => <Skeleton key={index} className="h-8 shrink-0 rounded-full bg-gray-100" style={{ width: `${width * 4}px` }} />)}
         </div>
-        <TableSkeleton rows={8} columns={10} className="rounded-none border-0 shadow-none" />
+        <TableSkeleton bare rows={8} columns={10} />
       </SkeletonCard>
     </div>
   );

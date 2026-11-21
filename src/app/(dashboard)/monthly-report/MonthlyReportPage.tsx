@@ -13,24 +13,21 @@ import {
   DataTable,
   EmptyState,
   Button,
-  Field,
   LoadErrorAlert,
-  MetricCard,
   MonthPicker,
   PageHeader,
   SkeletonStatus,
-  toneForAmount,
-  MetricMoney,
-  metricGridClassName,
 } from '@/components/PresentationFoundation';
+import { ReportTotals } from '../reports/ReportTotals';
 import { MonthlyReportSkeleton } from './MonthlyReportSkeleton';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { cn, monthRange } from '@/lib/utils';
+import { monthRange } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { formatCurrency, formatDate } from '@/lib/formatters';
-import { calculateFinancialReportTotals, calculateManualIncome } from '@/lib/calculations/dailyReport';
+import { calculateFinancialReportTotals, calculateManualIncome, sumDebtIncome } from '@/lib/calculations/dailyReport';
+import { canAccessPath } from '@/lib/permissions';
 import { loadFinanceReportRows, type FinanceReportRows } from '@/lib/supabase/financeReportSnapshot';
 import { BarChart2, Download } from 'lucide-react';
 import { csvFileName, csvSeparatorForLocale, downloadCsv, toCsv } from '@/lib/csv';
@@ -41,6 +38,8 @@ interface DayRow {
   manualIncome: number;
   barSales: number;
   debtIncome: number;
+  /** Entered income plus debt income. */
+  gameClubIncome: number;
   gameClubExpenses: number;
   gameClubProfit: number;
   barCost: number;
@@ -56,6 +55,7 @@ const emptyTotals: DayTotals = {
   manualIncome: 0,
   barSales: 0,
   debtIncome: 0,
+  gameClubIncome: 0,
   gameClubExpenses: 0,
   gameClubProfit: 0,
   barCost: 0,
@@ -94,8 +94,7 @@ function buildDayRows(data: FinanceReportRows): DayRow[] {
   return dates.map((date) => {
     const cashEntry = cashByDate.get(date)?.[0];
     const manualIncome = cashEntry ? calculateManualIncome(cashEntry) : 0;
-    const debtIncome = (debtsByDate.get(date) ?? [])
-      .reduce((sum, debt) => sum + Number(debt.amount ?? 0), 0);
+    const debtIncome = sumDebtIncome(debtsByDate.get(date) ?? []);
     const totals = calculateFinancialReportTotals({
       manualIncome,
       debtIncome,
@@ -108,6 +107,7 @@ function buildDayRows(data: FinanceReportRows): DayRow[] {
       manualIncome,
       barSales: totals.barSales,
       debtIncome,
+      gameClubIncome: totals.gameClubIncome,
       gameClubExpenses: totals.gameClubExpenses,
       gameClubProfit: totals.gameClubProfit,
       barCost: totals.barCost,
@@ -122,7 +122,9 @@ function buildDayRows(data: FinanceReportRows): DayRow[] {
 export default function MonthlyReportPage() {
   const t = useTranslations('monthlyReport');
   const tc = useTranslations('common');
-  const { selectedClubId, businessDayStartHour } = useClub();
+  const { selectedClubId, businessDayStartHour, role, featureAccess } = useClub();
+  /** A figure or a day opens its records only on a page this member may open. */
+  const linkIfAllowed = (href: string) => (role && canAccessPath(role, featureAccess, href.split('?')[0]) ? href : undefined);
   const { locale } = useAppLocale();
   // Business dates are ISO strings, so the business month is their YYYY-MM prefix.
   const businessYearMonth = useBusinessToday(businessDayStartHour).slice(0, 7);
@@ -146,6 +148,7 @@ export default function MonthlyReportPage() {
       manualIncome: sum.manualIncome + row.manualIncome,
       barSales: sum.barSales + row.barSales,
       debtIncome: sum.debtIncome + row.debtIncome,
+      gameClubIncome: sum.gameClubIncome + row.gameClubIncome,
       gameClubExpenses: sum.gameClubExpenses + row.gameClubExpenses,
       gameClubProfit: sum.gameClubProfit + row.gameClubProfit,
       barCost: sum.barCost + row.barCost,
@@ -180,19 +183,19 @@ export default function MonthlyReportPage() {
 
   // The game club and the bar are separate businesses: one row each, never added together.
   const monthBounds = monthRange(month);
-  const gameClubHref = moneyDetailsHref('game_club', monthBounds);
-  const barHref = moneyDetailsHref('bar', monthBounds);
-  const summaryCards = [
-    { href: gameClubHref, label: t('gameClubIncome'), amount: totals.manualIncome + totals.debtIncome, tone: 'success' as const },
-    { href: reportsHref(monthBounds, { category: 'expense', source: 'game_club' }), label: t('gameClubExpenses'), amount: totals.gameClubExpenses, tone: 'danger' as const },
-    { href: gameClubHref, label: t('gameClubProfit'), amount: totals.gameClubProfit, tone: toneForAmount(totals.gameClubProfit) },
-    { href: barHref, label: t('inventoryPurchases'), amount: totals.stockPurchaseCost, tone: 'danger' as const },
-    { href: barHref, label: t('barSales'), amount: totals.barSales, tone: 'success' as const },
-    { href: barHref, label: t('costOfGoodsSold'), amount: totals.barCost, tone: 'danger' as const },
-    { href: reportsHref(monthBounds, { category: 'expense', source: 'bar' }), label: t('barExpenses'), amount: totals.barExpenses, tone: 'danger' as const },
-    { href: barHref, label: t('barProfit'), amount: totals.barProfit, tone: toneForAmount(totals.barProfit) },
-    { href: barHref, label: t('barCashLeft'), amount: totals.barCashLeft, tone: toneForAmount(totals.barCashLeft) },
-  ];
+  const gameClubHref = linkIfAllowed(moneyDetailsHref('game_club', monthBounds));
+  const barHref = linkIfAllowed(moneyDetailsHref('bar', monthBounds));
+  const totalFigures = {
+    gameClubIncome: { href: gameClubHref, label: t('gameClubIncome'), amount: totals.gameClubIncome },
+    gameClubExpenses: { href: linkIfAllowed(reportsHref(monthBounds, { category: 'expense', source: 'game_club' })), label: t('gameClubExpenses'), amount: totals.gameClubExpenses },
+    gameClubProfit: { href: gameClubHref, label: t('gameClubProfit'), amount: totals.gameClubProfit },
+    barSales: { href: barHref, label: t('barSales'), amount: totals.barSales },
+    costOfGoodsSold: { href: barHref, label: t('costOfGoodsSold'), amount: totals.barCost },
+    barExpenses: { href: linkIfAllowed(reportsHref(monthBounds, { category: 'expense', source: 'bar' })), label: t('barExpenses'), amount: totals.barExpenses },
+    barProfit: { href: barHref, label: t('barProfit'), amount: totals.barProfit },
+    inventoryPurchases: { href: barHref, label: t('inventoryPurchases'), amount: totals.stockPurchaseCost },
+    barCashLeft: { href: barHref, label: t('barCashLeft'), amount: totals.barCashLeft },
+  };
 
   return (
     <div>
@@ -204,9 +207,7 @@ export default function MonthlyReportPage() {
             <Button variant="outline" onClick={exportMonth} disabled={loading || rows.length === 0} icon={<Download size={16} aria-hidden="true" />}>
               {tc('export')}
             </Button>
-            <Field label={t('selectMonth')} className="sm:w-72">
-              <MonthPicker value={month} max={businessYearMonth} onChange={setMonth} />
-            </Field>
+            <MonthPicker value={month} max={businessYearMonth} onChange={setMonth} className="sm:w-64" />
           </>
         )}
       />
@@ -223,20 +224,15 @@ export default function MonthlyReportPage() {
         <Card><EmptyState icon={BarChart2} title={t('noData')} /></Card>
       ) : (
         <div className="space-y-4">
-          <div className={cn(metricGridClassName, 'sm:grid-cols-2 sm:gap-4 lg:grid-cols-4')}>
-            {summaryCards.map((card) => (
-              <MetricCard key={card.label} href={card.href} label={card.label} value={<MetricMoney amount={card.amount} currency={currency} />} tone={card.tone} />
-            ))}
-          </div>
-          <p className="text-xs text-gray-500">{t('barCashFormula')}</p>
+          <ReportTotals figures={totalFigures} currency={currency} barNote={t('barCashFormula')} />
 
+          {/* Compared across rows, so phones keep the wide scrolling table (PresentationFoundation README). */}
           <DataTable
-            mobileCards
             stickyHeader
             label={t('title')}
             minWidth={1460}
             keyExtractor={(row) => row.date}
-            onRowClick={(row) => router.push(dailyReportHref(row.date))}
+            onRowClick={linkIfAllowed(dailyReportHref('')) ? (row) => router.push(dailyReportHref(row.date)) : undefined}
             data={rows}
             columns={[
               { key: 'date', header: t('date'), className: 'sticky left-0 z-[25] bg-gray-50', cellClassName: 'z-10 bg-surface', render: (row) => <span className="font-medium text-gray-700">{formatDate(row.date, locale)}</span> },

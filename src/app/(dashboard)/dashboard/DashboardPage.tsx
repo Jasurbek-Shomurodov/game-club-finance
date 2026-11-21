@@ -11,6 +11,7 @@ import {
 import { SIDE_ICONS } from '@/components/sideIcons';
 import { useTranslations } from 'next-intl';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { cn } from '@/lib/utils';
@@ -20,20 +21,19 @@ import { useClub } from '@/components/layout/DashboardShell';
 import {
   AmountCard,
   ButtonLink,
-  ChartSkeleton,
   Field,
   HelpButton,
   LoadErrorAlert,
   MetricMoney,
   MonthPicker,
   PageHeader,
+  SectionHeading,
   StatTile,
   toneForAmount,
   type MetricTone,
 } from '@/components/PresentationFoundation';
 import { canAccessPath } from '@/lib/permissions';
 import { MoneyFlowSankeys } from '@/components/financial-analysis/MoneyFlowSankeys';
-import { SIDE_ICON_CLASS } from '@/components/financial-analysis/analysisFormat';
 import { formatCurrency } from '@/lib/formatters';
 import {
   calculateAverageDailyIncome,
@@ -58,13 +58,14 @@ import {
   markPerformanceRpcMissing,
   shouldTryPerformanceRpc,
 } from '@/lib/supabase/performanceRpc';
-import { closingStockHref, moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
+import { closingStockHref, dailyReportHref, financialAnalysisHref, moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
 import { expenseTotalsByCategory, periodProgress, valuesByDate } from '@/lib/calculations/insights';
 import { SideGlanceCard, SideGlanceCardSkeleton } from '@/components/dashboard/SideGlanceCard';
 import { chartColors } from '@/components/dashboard/ChartCard';
+import { FlowCardSkeleton, HEADLINE_GRID_CLASS, TrendChartSkeleton } from './DashboardSkeleton';
 
 function ChartLoading() {
-  return <ChartSkeleton />;
+  return <TrendChartSkeleton />;
 }
 
 const IncomeTrendChart = dynamic(
@@ -127,6 +128,7 @@ export default function DashboardPage({
   initialSnapshot?: InitialDashboardSnapshot | null;
 }) {
   const { selectedClubId, businessDayStartHour, role, featureAccess } = useClub();
+  const router = useRouter();
   const { locale } = useAppLocale();
   const businessToday = useBusinessToday(businessDayStartHour);
   // The club's current business month unless an earlier one is picked ('' = current,
@@ -267,6 +269,8 @@ export default function DashboardPage({
       { gameClub: data.latestDailyCashEntryDate, bar: data.latestBarEntryDate },
     ).map((row) => ({
       ...row,
+      // The day itself, for opening its report from a tapped bar.
+      iso: row.date,
       date: formatDateShort(row.date, locale),
     })),
     [data.trend, data.latestDailyCashEntryDate, data.latestBarEntryDate, businessToday, locale],
@@ -319,7 +323,8 @@ export default function DashboardPage({
   };
 
 
-  const detailsQuery = new URLSearchParams({ from: range.from, to: range.to }).toString();
+  const gameClubDetailsHref = canOpenGameClubDetails ? moneyDetailsHref('game_club', range) : undefined;
+  const barDetailsHref = canOpenBarDetails ? moneyDetailsHref('bar', range) : undefined;
   const periodLabel = `${formatDateShort(range.from, locale)} – ${formatDateShort(range.to, locale)}`;
   const barProfitComparison = comparisonFor(totals.barProfit, previousTotals.barProfit);
   const inventoryHelper = data.hasInventoryComparisonData
@@ -383,15 +388,15 @@ export default function DashboardPage({
       {!error && (
         <>
           {/* Headline numbers: the figures an owner checks first. */}
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+          <div className={HEADLINE_GRID_CLASS}>
             <AmountCard
               loading={loading}
               currency={currency}
               label={t('gameClubIncome')}
-              href={pathIfAllowed(`/game-club-money-details`) && `/game-club-money-details?${detailsQuery}`}
+              href={gameClubDetailsHref}
               amount={totals.gameClubIncome}
               icon={SIDE_ICONS.gameClub}
-              iconClassName={SIDE_ICON_CLASS.gameClub}
+              accent="primary"
               tone="success"
               comparison={comparisonFor(totals.gameClubIncome, previousTotals.gameClubIncome)}
               helper={paceNote(totals.gameClubIncome, averageGameClubDayCount)}
@@ -405,7 +410,7 @@ export default function DashboardPage({
               href={pathIfAllowed('/reports') && reportsHref(range, { category: 'income' })}
               amount={totals.playstationIncome}
               icon={SIDE_ICONS.playstation}
-              iconClassName={SIDE_ICON_CLASS.gameClub}
+              accent="primary"
               tone="success"
               comparison={comparisonFor(totals.playstationIncome, previousTotals.playstationIncome)}
               helper={paceNote(totals.playstationIncome, averageGameClubDayCount)}
@@ -415,10 +420,10 @@ export default function DashboardPage({
               loading={loading}
               currency={currency}
               label={t('barSales')}
-              href={pathIfAllowed(`/bar-money-details`) && `/bar-money-details?${detailsQuery}`}
+              href={barDetailsHref}
               amount={totals.barSales}
               icon={SIDE_ICONS.bar}
-              iconClassName={SIDE_ICON_CLASS.bar}
+              accent="bar"
               tone="success"
               comparison={comparisonFor(totals.barSales, previousTotals.barSales)}
               helper={paceNote(totals.barSales, averageBarDayCount)}
@@ -429,10 +434,10 @@ export default function DashboardPage({
               loading={loading}
               currency={currency}
               label={t('gameClubNetProfit')}
-              href={pathIfAllowed(`/game-club-money-details`) && `/game-club-money-details?${detailsQuery}`}
+              href={gameClubDetailsHref}
               amount={totals.gameClubProfit}
               icon={totals.gameClubProfit < 0 ? ArrowDownRight : ArrowUpRight}
-              iconClassName={SIDE_ICON_CLASS.gameClub}
+              accent="primary"
               tone={toneForAmount(totals.gameClubProfit)}
               comparison={comparisonFor(totals.gameClubProfit, previousTotals.gameClubProfit)}
               helper={`${t('gameClubPaidExpenses')}: ${formatCurrency(totals.gameClubExpenses)} ${currency}`}
@@ -441,10 +446,10 @@ export default function DashboardPage({
               loading={loading}
               currency={currency}
               label={t('barNetProfit')}
-              href={pathIfAllowed(`/bar-money-details`) && `/bar-money-details?${detailsQuery}`}
+              href={barDetailsHref}
               amount={totals.barProfit}
               icon={totals.barProfit < 0 ? ArrowDownRight : ArrowUpRight}
-              iconClassName={SIDE_ICON_CLASS.bar}
+              accent="bar"
               tone={toneForAmount(totals.barProfit)}
               comparison={barProfitComparison}
               helper={t('barNetProfitDesc')}
@@ -453,18 +458,18 @@ export default function DashboardPage({
 
           {/* The month at a glance: each side on its own, never added together. */}
           <section aria-labelledby="dashboard-glance-heading" className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              <h2 id="dashboard-glance-heading" className="text-base font-semibold tracking-tight text-gray-950">{capitalizeFirst(t('glanceSectionTitle', { month: formatYearMonth(month, locale) }), locale)}</h2>
-              {/* Only a month still running has a "day N of M"; a finished one is simply whole. */}
-              {isCurrentMonth && (
+            <SectionHeading
+              title={<span id="dashboard-glance-heading">{capitalizeFirst(t('glanceSectionTitle', { month: formatYearMonth(month, locale) }), locale)}</span>}
+              // Only a month still running has a "day N of M"; a finished one is simply whole.
+              action={isCurrentMonth ? (
                 <div className="flex min-w-44 items-center gap-2 text-xs text-gray-500">
                   <span className="tabular-nums">{t('monthDayProgress', { elapsed: monthProgress.elapsed, total: monthProgress.total })}</span>
                   <span className="h-1.5 w-28 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
                     <span className="grow-x block h-full rounded-full bg-primary-600 transition-[width] duration-700 motion-reduce:transition-none" style={{ width: `${monthProgress.ratio * 100}%` }} />
                   </span>
                 </div>
-              )}
-            </div>
+              ) : undefined}
+            />
             {loading ? (
               <div className="grid gap-3 xl:grid-cols-2" role="status" aria-label={t('loading')}>
                 <SideGlanceCardSkeleton />
@@ -475,7 +480,7 @@ export default function DashboardPage({
                 <SideGlanceCard
                   title={t('gameClub')}
                   icon={SIDE_ICONS.gameClub}
-                  iconClassName={SIDE_ICON_CLASS.gameClub}
+                  accent="primary"
                   color={chartColors.primary}
                   yearMonth={month}
                   range={range}
@@ -493,7 +498,7 @@ export default function DashboardPage({
                 <SideGlanceCard
                   title={t('bar')}
                   icon={SIDE_ICONS.bar}
-                  iconClassName={SIDE_ICON_CLASS.bar}
+                  accent="bar"
                   color={chartColors.orange}
                   yearMonth={month}
                   range={range}
@@ -515,8 +520,8 @@ export default function DashboardPage({
           {/* Each business gets its own money flow; tapping a node opens the Sankey behind it. */}
           {loading ? (
             <div className="grid gap-3 2xl:grid-cols-2" role="status" aria-label={t('loading')}>
-              <ChartLoading />
-              <ChartLoading />
+              <FlowCardSkeleton />
+              <FlowCardSkeleton />
             </div>
           ) : (
             <MoneyFlowSankeys
@@ -529,15 +534,15 @@ export default function DashboardPage({
               gameClub={{
                 title: tf('gameClubFlowTitle'),
                 description: tf('flowDesc'),
-                action: detailsLink(`/game-club-money-details?${detailsQuery}`),
+                action: gameClubDetailsHref ? detailsLink(gameClubDetailsHref) : undefined,
                 footer: (
                   <FlowFigures
                     loading={loading}
                     items={[
-                      { href: pathIfAllowed('/game-club-money-details') && moneyDetailsHref('game_club', range), label: t('totalMoneyLeft'), helper: t('totalMoneyLeftDesc'), amount: totals.gameClubMoneyLeft, currency, tone: toneForAmount(totals.gameClubMoneyLeft) },
+                      { href: gameClubDetailsHref, label: t('totalMoneyLeft'), helper: t('totalMoneyLeftDesc'), amount: totals.gameClubMoneyLeft, currency, tone: toneForAmount(totals.gameClubMoneyLeft) },
                       { href: pathIfAllowed('/debts'), label: t('activeDebts'), helper: t('activeDebtsDesc', { count: totals.activeDebtCount }), amount: totals.activeDebts, currency, tone: totals.activeDebts > 0 ? 'danger' : 'default' },
-                      { href: pathIfAllowed('/game-club-money-details') && moneyDetailsHref('game_club', range), label: t('averageDailyIncome'), helper: t('averageDailyClubIncomeDesc'), amount: averageGameClubIncome, currency },
-                      { href: pathIfAllowed('/financial-analysis') && '/financial-analysis?view=overall#reports', label: t('averageWeeklyIncome'), helper: t('averageWeeklyClubIncomeDesc'), amount: averageWeeklyGameClubIncome, currency },
+                      { href: gameClubDetailsHref, label: t('averageDailyIncome'), helper: t('averageDailyClubIncomeDesc'), amount: averageGameClubIncome, currency },
+                      { href: gameClubDetailsHref, label: t('averageWeeklyIncome'), helper: t('averageWeeklyClubIncomeDesc'), amount: averageWeeklyGameClubIncome, currency },
                     ]}
                   />
                 ),
@@ -545,15 +550,15 @@ export default function DashboardPage({
               bar={{
                 title: tf('barFlowTitle'),
                 description: tf('flowDesc'),
-                action: detailsLink(`/bar-money-details?${detailsQuery}`),
+                action: barDetailsHref ? detailsLink(barDetailsHref) : undefined,
                 footer: (
                   <FlowFigures
                     loading={loading}
                     items={[
-                      { href: pathIfAllowed('/bar-money-details') && moneyDetailsHref('bar', range), label: t('barMoneyLeft'), helper: t('barMoneyLeftDesc'), amount: totals.barIncome, currency, tone: toneForAmount(totals.barIncome) },
+                      { href: barDetailsHref, label: t('barMoneyLeft'), helper: t('barMoneyLeftDesc'), amount: totals.barIncome, currency, tone: toneForAmount(totals.barIncome) },
                       { href: isCurrentMonth ? productsHref : pathIfAllowed('/closing-stock') && closingStockHref(range.to), label: t('inventoryValue'), helper: inventoryNote, amount: totals.inventoryValue, currency },
-                      { href: pathIfAllowed('/bar-money-details') && moneyDetailsHref('bar', range), label: t('averageDailyIncome'), helper: t('averageDailyBarIncomeDesc'), amount: averageBarIncome, currency },
-                      { href: pathIfAllowed('/financial-analysis') && '/financial-analysis?view=overall#reports', label: t('averageWeeklyIncome'), helper: t('averageWeeklyBarIncomeDesc'), amount: averageWeeklyBarIncome, currency },
+                      { href: barDetailsHref, label: t('averageDailyIncome'), helper: t('averageDailyBarIncomeDesc'), amount: averageBarIncome, currency },
+                      { href: barDetailsHref, label: t('averageWeeklyIncome'), helper: t('averageWeeklyBarIncomeDesc'), amount: averageWeeklyBarIncome, currency },
                     ]}
                   />
                 ),
@@ -562,22 +567,24 @@ export default function DashboardPage({
           )}
 
           {!renderCharts ? (
-            <div ref={chartsAnchorRef} role="status" aria-label={t('loading')}>
-              <ChartLoading />
+            <div ref={chartsAnchorRef} className="space-y-4" role="status" aria-label={t('loading')}>
+              <TrendChartSkeleton />
+              <TrendChartSkeleton />
             </div>
           ) : (
             // Once rendered, the chart stays mounted across range/club changes and is
             // dimmed while the next data loads instead of swapping to a skeleton.
             <div
-              className={cn('space-y-4 transition-opacity', loading && 'pointer-events-none opacity-60')}
+              className={cn('space-y-4 transition-opacity motion-reduce:transition-none', loading && 'pointer-events-none opacity-60')}
               aria-busy={loading || undefined}
             >
               <DailySalesLineChart data={dailySales} />
               <IncomeTrendChart
                 data={trend}
+                onSelectDay={canOpenDailyReport ? (date) => router.push(dailyReportHref(date)) : undefined}
                 link={(
                   <ButtonLink
-                    href={`/financial-analysis?${detailsQuery}`}
+                    href={financialAnalysisHref(month)}
                     variant="ghost"
                     size="sm"
                     iconRight={<ArrowRight size={15} aria-hidden="true" />}

@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { ArrowDownRight, ArrowUpRight, ChevronRight } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Badge, CategoryIcon } from '@/components/PresentationFoundation';
 import { ChartEmpty, chartColors } from '@/components/dashboard/ChartCard';
+import { DonutBreakdown, type DonutSlice } from '@/components/charts/DonutBreakdown';
 import { formatCurrency, formatDateShort } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import type {
@@ -20,7 +20,7 @@ interface CommonProps {
   currency: string;
 }
 
-/** Donut of expense categories with a hover-linked legend. */
+/** Donut of expense categories with a hover-linked legend; a slice or a row opens the category. */
 export function CategoryDonut({
   categories,
   colors,
@@ -37,79 +37,30 @@ export function CategoryDonut({
   onSelect: (category: string) => void;
 }) {
   const t = useTranslations('financialAnalysis');
-  const [hovered, setHovered] = useState<string | null>(null);
   if (!total) return <ChartEmpty title={t('noExpenses')} className="mt-4" />;
 
-  const size = 200;
-  const radius = 78;
-  const stroke = 30;
-  const circumference = 2 * Math.PI * radius;
-  const gap = categories.length > 1 ? 2 : 0;
-  const active = categories.find((row) => row.category === hovered);
-  const segments = categories.map((row, index) => ({
-    row,
-    length: (row.amount / total) * circumference,
-    offset: categories.slice(0, index).reduce((sum, previous) => sum + (previous.amount / total) * circumference, 0),
+  // Every category keeps the colour it has in the other charts of the page; shares keep one decimal under 10%.
+  const slices: DonutSlice[] = categories.map((row) => ({
+    key: row.category,
+    label: labelFor(row.category),
+    value: row.amount,
+    share: row.share / 100,
+    color: colors[row.category] ?? chartColors.gray,
+    onSelect: () => onSelect(row.category),
   }));
+  const shareByRatio = new Map(categories.map((row) => [row.share / 100, row.share]));
 
   return (
-    <div className="mt-4 flex flex-col items-center gap-5 xl:flex-row xl:items-center">
-      <svg viewBox={`0 0 ${size} ${size}`} className="h-48 w-48 shrink-0" role="img" aria-label={t('categoriesTitle')}>
-        <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
-          {segments.map(({ row, length, offset }) => (
-              <circle
-                key={row.category}
-                cx={size / 2}
-                cy={size / 2}
-                r={radius}
-                fill="none"
-                stroke={colors[row.category] ?? chartColors.gray}
-                strokeWidth={hovered === row.category ? stroke + 6 : stroke}
-                strokeDasharray={`${Math.max(0.5, length - gap)} ${circumference}`}
-                strokeDashoffset={-offset}
-                opacity={hovered && hovered !== row.category ? 0.35 : 1}
-                className="cursor-pointer transition-[opacity,stroke-width]"
-                onMouseEnter={() => setHovered(row.category)}
-                onMouseLeave={() => setHovered(null)}
-                onClick={() => onSelect(row.category)}
-              >
-                <title>{`${labelFor(row.category)}: ${formatCurrency(row.amount)} ${currency}`}</title>
-              </circle>
-          ))}
-        </g>
-        <text x={size / 2} y={size / 2 - 6} textAnchor="middle" className="fill-current text-[11px] font-medium text-gray-500">
-          {active ? labelFor(active.category).slice(0, 22) : t('spentTotal')}
-        </text>
-        <text x={size / 2} y={size / 2 + 15} textAnchor="middle" className="fill-current text-[18px] font-bold text-gray-950">
-          {formatCompactMoney(active ? active.amount : total, locale)}
-        </text>
-      </svg>
-      <ul className="w-full min-w-0 space-y-0.5">
-        {categories.map((row) => (
-          <li key={row.category}>
-            <button
-              type="button"
-              onClick={() => onSelect(row.category)}
-              onMouseEnter={() => setHovered(row.category)}
-              onMouseLeave={() => setHovered(null)}
-              onFocus={() => setHovered(row.category)}
-              onBlur={() => setHovered(null)}
-              className={cn(
-                'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
-                hovered === row.category ? 'bg-gray-100' : 'hover:bg-gray-100',
-              )}
-            >
-              <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: colors[row.category] ?? chartColors.gray }} aria-hidden="true" />
-              <span className="min-w-0 flex-1 truncate text-gray-700">{labelFor(row.category)}</span>
-              <span className="text-xs font-medium tabular-nums text-gray-400">{formatShare(row.share, locale)}</span>
-              <span className="w-28 text-right font-semibold tabular-nums text-gray-950">
-                {formatCurrency(row.amount)}
-              </span>
-              <ChevronRight size={14} className="shrink-0 text-gray-400" aria-hidden="true" />
-            </button>
-          </li>
-        ))}
-      </ul>
+    <div className="mt-4">
+      <DonutBreakdown
+        slices={slices}
+        total={total}
+        totalLabel={t('spentTotal')}
+        currency={currency}
+        locale={locale}
+        rowFrom="xl"
+        formatShare={(share) => formatShare(shareByRatio.get(share) ?? share * 100, locale)}
+      />
     </div>
   );
 }
@@ -135,7 +86,7 @@ export function CategoryComparison({
   return (
     <div className="mt-4">
       <div className="mb-3 flex items-center gap-4 text-xs font-medium text-gray-500">
-        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-4 rounded-sm bg-gray-700" aria-hidden="true" />{t('current')}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-4 rounded-sm" style={{ backgroundColor: colors[rows[0].category] ?? chartColors.gray }} aria-hidden="true" />{t('current')}</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-2 w-4 rounded-sm bg-gray-300" aria-hidden="true" />{t('previous')}</span>
       </div>
       <ul className="max-h-[340px] space-y-1 overflow-y-auto overscroll-contain pr-2 [scrollbar-gutter:stable]">

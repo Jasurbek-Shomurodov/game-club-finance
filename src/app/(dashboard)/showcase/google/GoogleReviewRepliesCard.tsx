@@ -11,12 +11,14 @@ import {
   Checkbox,
   EmptyState,
   InlineAlert,
-  PageSkeleton,
+  LoadErrorAlert,
   SectionHeading,
+  SkeletonStatus,
 } from '@/components/PresentationFoundation';
 import { formatDateTime } from '@/lib/formatters';
 import type { ReviewReplyRecord } from '@/lib/googleBusiness/reviews';
 import { useClubQuery } from '@/lib/useClubQuery';
+import { ShowcaseRowsSkeleton } from '../ShowcaseSkeletons';
 import { errorMessageKey, googleBusinessApi } from './googleBusinessApi';
 
 interface ReviewRepliesState {
@@ -64,9 +66,9 @@ export function GoogleReviewRepliesCard({ clubId, isOwner }: { clubId: string; i
       </CardHeader>
       <CardBody className="space-y-4">
         {query.loading ? (
-          <PageSkeleton />
+          <SkeletonStatus><ShowcaseRowsSkeleton rows={3} thumbnail={false} /></SkeletonStatus>
         ) : failed ? (
-          <InlineAlert variant="warning">{t(failed)}</InlineAlert>
+          <LoadErrorAlert retrying={query.loading} onRetry={() => void query.reload()}>{t(failed)}</LoadErrorAlert>
         ) : (
           <>
             {isOwner ? (
@@ -92,7 +94,7 @@ export function GoogleReviewRepliesCard({ clubId, isOwner }: { clubId: string; i
                     <div className="flex flex-wrap items-center gap-2 text-sm">
                       <span className="font-medium text-gray-900">{reply.reviewerName ?? '—'}</span>
                       {reply.starRating !== null && (
-                        <span className="inline-flex items-center gap-0.5 text-amber-500" aria-label={`${reply.starRating}/5`}>
+                        <span className="inline-flex items-center gap-0.5 text-warning-500" aria-label={`${reply.starRating}/5`}>
                           {Array.from({ length: reply.starRating }, (_, index) => (
                             <Star key={index} size={13} fill="currentColor" aria-hidden="true" />
                           ))}

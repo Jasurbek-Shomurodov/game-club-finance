@@ -1,5 +1,5 @@
 import { MetricGridSkeleton, Skeleton, TableSkeleton, metricGridClassName } from '@/components/PresentationFoundation';
-import { DonutCardSkeleton, InOutChartCardSkeleton } from '@/components/charts/ChartSkeletons';
+import { DonutCardSkeleton, InOutChartCardSkeleton, SkeletonCard } from '@/components/charts/ChartSkeletons';
 import { cn } from '@/lib/utils';
 
 /**
@@ -26,12 +26,31 @@ export function ReportsSkeleton() {
   );
 }
 
+const PAYMENT_GRID_WIDE: Record<number, string> = {
+  2: 'xl:grid-cols-2',
+  3: 'xl:grid-cols-3',
+  4: 'xl:grid-cols-4',
+  // Five cards: three to a row, then two wider ones, so no cell stays empty.
+  5: 'xl:grid-cols-6 xl:[&>*]:col-span-2 xl:[&>*:nth-last-child(-n+2)]:col-span-3',
+};
+
+/**
+ * The payment-method cards' grid for `count` cards: the columns follow the
+ * count, so a row never ends in a lone card or an empty column.
+ */
+export function paymentCardsGridClassName(count: number): string {
+  return cn(
+    'grid grid-cols-1 gap-3 sm:grid-cols-2 sm:max-xl:[&>*:last-child:nth-child(odd)]:col-span-2',
+    PAYMENT_GRID_WIDE[Math.min(Math.max(count, 1), 5)],
+  );
+}
+
 /** One placeholder per payment-method card: the amount left, its split bar and the rows under it. */
 export function PaymentCardsSkeleton({ count = 4 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-hidden="true">
+    <div className={paymentCardsGridClassName(count)} aria-hidden="true">
       {Array.from({ length: count }, (_, index) => (
-        <div key={index} className="rounded-2xl border border-gray-200 bg-surface p-4 shadow-card sm:p-5">
+        <SkeletonCard key={index}>
           <Skeleton className="h-3 w-20" />
           <Skeleton className="mt-3 h-7 w-3/4" />
           <Skeleton className="mt-2 h-3 w-10 bg-gray-100" />
@@ -44,7 +63,7 @@ export function PaymentCardsSkeleton({ count = 4 }: { count?: number }) {
               </div>
             ))}
           </div>
-        </div>
+        </SkeletonCard>
       ))}
     </div>
   );

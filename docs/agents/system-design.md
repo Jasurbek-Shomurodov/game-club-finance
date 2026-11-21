@@ -26,6 +26,11 @@ of the owner's day.
 Drill-down pages (`/game-club-money-details`, `/bar-money-details`) have no nav
 item on purpose: they are only reached by tapping a figure.
 
+`/test-checklist` is an owner-only data check with no nav item; it is opened
+from the command palette. `/expense`, `/expenses`, `/balance` (to `/reports`)
+and `/income` (to `/daily-cash`) are redirects kept for old bookmarks; they are
+not screens and get no links.
+
 Sections with several screens share one sidebar item and switch with tabs
 beside the page title (`src/lib/navigation.ts`, `SECTION_TABS`). Add a screen to
 a section there; do not add a sidebar item for it.

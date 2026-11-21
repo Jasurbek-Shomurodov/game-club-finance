@@ -69,6 +69,8 @@ export function commandPages(role: UserRole, explicitAccess: unknown): CommandIt
     [can('/showcase'), page('showcase', '/showcase', 'public site')],
     [can('/team'), page('team', '/team', 'members access')],
     [can('/history'), page('history', '/history', 'audit edits')],
+    // Owner-only diagnostic (permissions.ts maps it to the team feature); it has no sidebar item or tab.
+    [can('/test-checklist'), page('testChecklist', '/test-checklist', 'sanity checks diagnostic data')],
     [can('/settings'), page('settings', '/settings', 'club profile')],
   ];
   return candidates.filter(([allowed]) => allowed).map(([, item]) => item);

@@ -5,13 +5,14 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { Badge, Button, ButtonLink, EmptyState, IconButton, Modal, SectionHeading } from '@/components/PresentationFoundation';
+import { Badge, Button, ButtonLink, EmptyState, IconButton, IconChip, Modal, SectionHeading, TappableSurface } from '@/components/PresentationFoundation';
+import { dayRange, employeeSalaryHref, reportsHref } from '@/lib/detailLinks';
 import { SHORTAGE_METHOD_ICONS } from '@/components/cash-shortages/CashShortageForm';
 import { cashShortageTotalsForMonth, recoverableAmount, type CashShortageSummary } from '@/lib/calculations/cashShortages';
 import { capitalizeFirst, formatCurrency, formatDateOnly, formatDateTime, formatYearMonth } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { OWNER_WITHDRAWAL_SOURCES } from '@/types';
-import { SOURCE_ICONS, SOURCE_TINTS } from './profitIcons';
+import { SOURCE_ICONS, SOURCE_TONES } from './profitIcons';
 
 interface CashShortagesSectionProps {
   /** YYYY-MM shown on the page. */
@@ -46,9 +47,7 @@ export function CashShortagesSection({ month, summaries, employeeNames, busyId, 
     <>
       <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
         <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-danger-50 text-danger-600">
-            <TriangleAlert size={20} aria-hidden="true" />
-          </span>
+          <IconChip icon={TriangleAlert} tone="danger" />
           <SectionHeading
             title={t('sectionTitle', { month: capitalizeFirst(formatYearMonth(month, locale), locale) })}
             description={t('sectionDescription')}
@@ -62,14 +61,11 @@ export function CashShortagesSection({ month, summaries, employeeNames, busyId, 
       {sides.length > 0 ? (
         <div className="grid gap-3 border-b border-gray-100 px-4 py-4 sm:grid-cols-2 sm:px-5">
           {sides.map((source) => {
-            const SourceIcon = SOURCE_ICONS[source];
             const side = totals[source];
             return (
               <div key={source} className="rounded-2xl border border-gray-100 bg-gray-50/40 p-4">
                 <p className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                  <span className={cn('flex h-7 w-7 items-center justify-center rounded-lg', SOURCE_TINTS[source].bubble)}>
-                    <SourceIcon size={15} aria-hidden="true" />
-                  </span>
+                  <IconChip icon={SOURCE_ICONS[source]} tone={SOURCE_TONES[source]} size="sm" />
                   {t(`sources.${source}`)}
                 </p>
                 <dl className="mt-3 grid grid-cols-3 gap-2 text-sm">
@@ -83,7 +79,7 @@ export function CashShortagesSection({ month, summaries, employeeNames, busyId, 
                   </div>
                   <div>
                     <dt className="text-xs text-gray-500">{t('lost')}</dt>
-                    <dd className={cn('mt-0.5 whitespace-nowrap font-bold tabular-nums', side.lost > 0 ? 'text-danger-600' : 'text-gray-400')}>{formatCurrency(side.lost)}</dd>
+                    <dd className={cn('mt-0.5 whitespace-nowrap font-bold tabular-nums', side.lost > 0 ? 'text-danger-600' : 'text-gray-500')}>{formatCurrency(side.lost)}</dd>
                   </div>
                 </dl>
               </div>
@@ -104,28 +100,24 @@ export function CashShortagesSection({ month, summaries, employeeNames, busyId, 
             const employee = shortage.employee_id ? employeeNames[shortage.employee_id] ?? t('removedEmployee') : null;
             const canRecover = recoverableAmount(summary) > 0;
             return (
-              <li key={shortage.id} className="group flex items-start gap-3 px-4 py-3.5 sm:px-5">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-danger-50 text-danger-600">
-                  <TriangleAlert size={18} aria-hidden="true" />
-                </span>
+              <li key={shortage.id} className="flex items-start gap-3 px-4 py-3.5 sm:px-5">
+                <IconChip icon={TriangleAlert} tone="danger" />
                 <div className="min-w-0 flex-1">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedId(shortage.id)}
-                    className="-mx-1 flex flex-wrap items-center gap-1.5 rounded-md px-1 text-left hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                  >
-                    <span className="font-semibold text-gray-900 underline-offset-2 group-hover:underline">{t(`reasons.${shortage.reason}`)}</span>
+                  <TappableSurface onClick={() => setSelectedId(shortage.id)} chevron={false} className="-mx-1 rounded-md px-1 py-0.5">
+                    <span className="flex flex-wrap items-center gap-1.5">
+                    <span className="font-semibold text-gray-900">{t(`reasons.${shortage.reason}`)}</span>
                     <Badge size="sm" variant="outline">{t(`sources.${shortage.payment_source}`)}</Badge>
                     <Badge size="sm" variant="outline" icon={<MethodIcon size={12} aria-hidden="true" />}>
                       {tc(`paymentMethods.${shortage.payment_method}`)}
                     </Badge>
-                    <ChevronRight size={14} aria-hidden="true" className="text-gray-300" />
-                  </button>
+                    <ChevronRight size={14} aria-hidden="true" className="text-gray-400" />
+                    </span>
+                  </TappableSurface>
                   {employee ? (
                     <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-700">
                       <UserRound size={14} aria-hidden="true" className="shrink-0 text-gray-400" />
                       {shortage.employee_id ? (
-                        <Link href={`/salaries/employees/${shortage.employee_id}`} className="hover:underline">{employee}</Link>
+                        <Link href={employeeSalaryHref(shortage.employee_id)} className="hover:underline">{employee}</Link>
                       ) : employee}
                     </p>
                   ) : null}
@@ -133,7 +125,7 @@ export function CashShortagesSection({ month, summaries, employeeNames, busyId, 
                     <MessageSquareText size={14} aria-hidden="true" className="mt-0.5 shrink-0 text-gray-400" />
                     <span className="min-w-0 break-words">{shortage.comment}</span>
                   </p>
-                  <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-400">
+                  <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
                     <Clock size={12} aria-hidden="true" />
                     {formatDateOnly(shortage.date, locale)}
                   </p>
@@ -160,7 +152,7 @@ export function CashShortagesSection({ month, summaries, employeeNames, busyId, 
                     ) : null}
                     {recovered > 0 ? (
                       <p className="whitespace-nowrap text-xs text-gray-500">
-                        {t('lostShort')} <span className={cn('font-semibold tabular-nums', lost > 0 ? 'text-danger-600' : 'text-gray-400')}>{formatCurrency(lost)}</span>
+                        {t('lostShort')} <span className={cn('font-semibold tabular-nums', lost > 0 ? 'text-danger-600' : 'text-gray-500')}>{formatCurrency(lost)}</span>
                       </p>
                     ) : null}
                   </div>
@@ -168,11 +160,11 @@ export function CashShortagesSection({ month, summaries, employeeNames, busyId, 
                     variant="danger"
                     size="sm"
                     label={`${tc('delete')}: ${t(`reasons.${shortage.reason}`)} · ${formatCurrency(Number(shortage.amount))} ${tc('currency')}`}
-                    icon={<Trash2 size={16} />}
+                    icon={<Trash2 size={16} aria-hidden="true" />}
                     loading={busyId === shortage.id}
                     disabled={disabled}
                     onClick={() => onDelete(summary)}
-                    className={cn('mt-0.5 transition-opacity', busyId !== shortage.id && 'sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100')}
+                    className="mt-0.5"
                   />
                 </div>
               </li>
@@ -192,7 +184,7 @@ export function CashShortagesSection({ month, summaries, employeeNames, busyId, 
               <div className="flex gap-2">
                 <Button
                   variant="danger"
-                  icon={<Trash2 size={16} />}
+                  icon={<Trash2 size={16} aria-hidden="true" />}
                   loading={busyId === selected.shortage.id}
                   disabled={disabled}
                   onClick={() => {
@@ -244,14 +236,14 @@ export function CashShortagesSection({ month, summaries, employeeNames, busyId, 
           </dl>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <ButtonLink
-              href={`/reports?from=${selected.shortage.date}&to=${selected.shortage.date}`}
+              href={reportsHref(dayRange(selected.shortage.date))}
               variant="secondary"
               className="flex-1"
             >
               {t('detailsOpenDay')}
             </ButtonLink>
             {selected.shortage.employee_id ? (
-              <ButtonLink href={`/salaries/employees/${selected.shortage.employee_id}`} variant="secondary" className="flex-1">
+              <ButtonLink href={employeeSalaryHref(selected.shortage.employee_id)} variant="secondary" className="flex-1">
                 {t('detailsOpenEmployee')}
               </ButtonLink>
             ) : null}

@@ -3,6 +3,7 @@
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
+import { IconChip, type Tone } from '@/components/PresentationFoundation';
 import { ChartCard } from '@/components/dashboard/ChartCard';
 import { formatCurrency } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
@@ -39,7 +40,7 @@ function PlanRow({ row, currency, locale, href }: { row: ExpensePlanRow; currenc
       <div className="flex items-baseline justify-between gap-3">
         <span className="min-w-0 truncate text-sm font-semibold text-gray-950">
           {row.preset.name}
-          {row.preset.archived_at && <span className="ml-1.5 text-xs font-normal text-gray-400">{t('planArchived')}</span>}
+          {row.preset.archived_at && <span className="ml-1.5 text-xs font-normal text-gray-500">{t('planArchived')}</span>}
         </span>
         <Difference difference={row.difference} currency={currency} className="text-xs font-semibold" />
       </div>
@@ -70,7 +71,7 @@ function PlanRow({ row, currency, locale, href }: { row: ExpensePlanRow; currenc
       {href ? (
         <Link
           href={href}
-          className="-mx-2 block rounded-lg px-2 py-3 transition-colors hover:bg-gray-50 focus-visible:bg-primary-50 focus-visible:outline-none"
+          className="-mx-2 block rounded-lg px-2 py-3 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 motion-reduce:transition-none"
         >
           {body}
         </Link>
@@ -82,10 +83,13 @@ function PlanRow({ row, currency, locale, href }: { row: ExpensePlanRow; currenc
 }
 
 /** Planned against actual spending for one side of the club; never combined with the other side. */
-export function ExpensePlanPanel({ title, icon: Icon, iconClassName, side, currency, locale, rowHref }: {
+export function ExpensePlanPanel({ title, icon: Icon, accent = 'neutral', side, currency, locale, rowHref }: {
   title: string;
   icon: LucideIcon;
-  iconClassName: string;
+  /** Kept for call-site compatibility; the icon tile takes its colour from `accent`. */
+  iconClassName?: string;
+  /** Tone of the icon tile: the side's own (`primary` for the game club, `bar`). */
+  accent?: Tone;
   side: ExpensePlanSide;
   currency: string;
   locale: string;
@@ -96,16 +100,16 @@ export function ExpensePlanPanel({ title, icon: Icon, iconClassName, side, curre
   return (
     <ChartCard
       title={title}
-      action={<Icon size={18} className={cn('shrink-0', iconClassName)} aria-hidden="true" />}
+      action={<IconChip icon={Icon} tone={accent} size="sm" />}
     >
       <dl className="mt-3 grid grid-cols-3 gap-3 rounded-xl bg-gray-50 p-3 text-xs text-gray-500">
         <div>
           <dt>{t('planPlanned')}</dt>
-          <dd className="mt-0.5 text-sm font-semibold tabular-nums text-gray-950">{formatCurrency(side.planned)}</dd>
+          <dd className="mt-0.5 whitespace-nowrap text-sm font-semibold tabular-nums text-gray-950">{formatCurrency(side.planned)}</dd>
         </div>
         <div>
           <dt>{t('planActual')}</dt>
-          <dd className="mt-0.5 text-sm font-semibold tabular-nums text-gray-950">{formatCurrency(side.actual)}</dd>
+          <dd className="mt-0.5 whitespace-nowrap text-sm font-semibold tabular-nums text-gray-950">{formatCurrency(side.actual)}</dd>
         </div>
         <div>
           <dt>{t('planDifference')}</dt>

@@ -26,7 +26,7 @@ const KEYS = ['income', 'expenses'] as const;
  * Money in and money out per day as paired slim bars on one axis, with a
  * legend that shows or hides each series. One business per chart.
  */
-export function DailyInOutChart({ data, incomeLabel, expensesLabel, legendLabel, currency, locale, incomeColor = chartColors.success, expensesColor = chartColors.danger, height = 220 }: {
+export function DailyInOutChart({ data, incomeLabel, expensesLabel, legendLabel, currency, locale, incomeColor = chartColors.success, expensesColor = chartColors.danger, height = 220, onSelectDay }: {
   data: readonly DailyInOutRow[];
   incomeLabel: string;
   expensesLabel: string;
@@ -37,6 +37,8 @@ export function DailyInOutChart({ data, incomeLabel, expensesLabel, legendLabel,
   /** Second series colour; red (money out) unless the pair is not in/out. */
   expensesColor?: string;
   height?: number;
+  /** Tapping a day's bars opens that day (its `date`). */
+  onSelectDay?: (date: string) => void;
 }) {
   const { hidden, focused, setFocused, toggle } = useSeriesVisibility();
   const income = data.reduce((sum, row) => sum + row.income, 0);
@@ -45,6 +47,7 @@ export function DailyInOutChart({ data, incomeLabel, expensesLabel, legendLabel,
     { key: 'income', label: incomeLabel, color: incomeColor },
     { key: 'expenses', label: expensesLabel, color: expensesColor },
   ];
+  const selectDay = onSelectDay ? (bar: { payload?: DailyInOutRow }) => { if (bar.payload?.date) onSelectDay(bar.payload.date); } : undefined;
   return (
     <div className="space-y-3">
       <ChartLegendToggle
@@ -70,10 +73,10 @@ export function DailyInOutChart({ data, incomeLabel, expensesLabel, legendLabel,
               )}
             />
             {!hidden.has('income') && (
-              <Bar dataKey="income" fill={incomeColor} radius={[4, 4, 0, 0]} maxBarSize={18} fillOpacity={seriesOpacity('income', focused)} isAnimationActive={false} />
+              <Bar dataKey="income" onClick={selectDay} cursor={onSelectDay ? 'pointer' : undefined} fill={incomeColor} radius={[4, 4, 0, 0]} maxBarSize={18} fillOpacity={seriesOpacity('income', focused)} isAnimationActive={false} />
             )}
             {!hidden.has('expenses') && (
-              <Bar dataKey="expenses" fill={expensesColor} radius={[4, 4, 0, 0]} maxBarSize={18} fillOpacity={seriesOpacity('expenses', focused)} isAnimationActive={false} />
+              <Bar dataKey="expenses" onClick={selectDay} cursor={onSelectDay ? 'pointer' : undefined} fill={expensesColor} radius={[4, 4, 0, 0]} maxBarSize={18} fillOpacity={seriesOpacity('expenses', focused)} isAnimationActive={false} />
             )}
           </BarChart>
         </ResponsiveContainer>

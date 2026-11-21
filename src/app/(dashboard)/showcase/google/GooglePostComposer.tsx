@@ -133,7 +133,7 @@ export function GooglePostComposer({ clubId, defaultLanguage, today, onPublished
                 <Input id="google-post-coupon" value={form.couponCode} maxLength={COUPON_MAX} onChange={(event) => setField('couponCode', event.target.value)} />
               </Field>
               <Field label={t('terms')} htmlFor="google-post-terms" hint={t('optional')}>
-                <Input id="google-post-terms" value={form.terms} onChange={(event) => setField('terms', event.target.value)} />
+                <Textarea id="google-post-terms" rows={2} value={form.terms} onChange={(event) => setField('terms', event.target.value)} />
               </Field>
             </div>
           )}

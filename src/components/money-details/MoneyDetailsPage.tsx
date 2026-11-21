@@ -3,6 +3,7 @@
 // Shared breakdown page for /bar-money-details and /game-club-money-details.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -24,6 +25,7 @@ import {
   WalletCards,
   type LucideIcon,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -35,15 +37,24 @@ import {
   CategoryIcon,
   DateRangePicker,
   EmptyState,
+  IconChip,
   LoadErrorAlert,
+  MetricCard,
+  MetricMoney,
   Money,
   PageHeader,
   SectionHeading,
   SkeletonStatus,
+  StatTile,
 } from '@/components/PresentationFoundation';
+import { InOutChartSkeleton } from '@/components/charts/ChartSkeletons';
+import { ShareBar } from '@/components/charts/ShareBar';
+import { chartColors } from '@/components/dashboard/ChartCard';
 import { MoneyDetailsSkeleton } from './MoneyDetailsSkeleton';
 import { SIDE_ICONS } from '@/components/sideIcons';
-import { formatDateShort, formatNumber } from '@/lib/formatters';
+import { formatCurrency, formatDateShort, formatNumber } from '@/lib/formatters';
+import { canAccessPath } from '@/lib/permissions';
+import { scrollBehavior } from '@/lib/scroll';
 import { cn } from '@/lib/utils';
 import { moneyDetailLineHref } from '@/lib/detailLinks';
 import { useBusinessToday } from '@/lib/useBusinessToday';
@@ -74,6 +85,12 @@ export interface MoneyDetailsPageProps {
 function validDate(value: string | undefined): value is string {
   return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
 }
+
+// The recharts chunk loads beside the rows, not with the page shell.
+const DailyInOutChart = dynamic(
+  () => import('@/components/charts/DailyInOutChart').then((module) => module.DailyInOutChart),
+  { ssr: false, loading: () => <InOutChartSkeleton height={200} /> },
+);
 
 export function inRangeQuery<T extends { gte: (column: string, value: string) => T; lte: (column: string, value: string) => T }>(
   query: T,
@@ -109,28 +126,16 @@ function dayAnchorId(date: string) {
   return `money-day-${date}`;
 }
 
-type ChipTone = 'success' | 'danger' | 'primary' | 'neutral';
+const lineClassName = '-mx-2 flex items-center gap-3 rounded-xl px-2 py-2';
 
-const chipToneClassName: Record<ChipTone, string> = {
-  success: 'bg-success-50 text-success-600 ring-success-100',
-  danger: 'bg-danger-50 text-danger-600 ring-danger-100',
-  primary: 'bg-primary-50 text-primary-700 ring-primary-100',
-  neutral: 'bg-gray-100 text-gray-600 ring-gray-200',
-};
-
-/** Tinted rounded square holding an icon; colour carries the money direction. */
-function IconChip({ icon: Icon, tone, size = 'md' }: { icon: LucideIcon; tone: ChipTone; size?: 'sm' | 'md' }) {
+/** One collected or deducted line of a day: a link to its records when the viewer may open them, otherwise a plain row. */
+function LineRow({ href, children }: { href?: string; children: ReactNode }) {
+  if (!href) return <div className={lineClassName}>{children}</div>;
   return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        'flex shrink-0 items-center justify-center ring-1 ring-inset',
-        size === 'md' ? 'h-9 w-9 rounded-xl' : 'h-7 w-7 rounded-lg',
-        chipToneClassName[tone],
-      )}
-    >
-      <Icon size={size === 'md' ? 17 : 14} strokeWidth={2.2} />
-    </span>
+    <Link href={href} className={cn(lineClassName, 'tappable group hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500')}>
+      {children}
+      <ChevronRight size={14} aria-hidden="true" className="shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-gray-500 motion-reduce:transition-none" />
+    </Link>
   );
 }
 
@@ -138,10 +143,13 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
   const pathname = usePathname();
   const side = variant === 'bar' ? 'bar' as const : 'game_club' as const;
   const t = useTranslations('dashboard');
+  const tc = useTranslations('common');
   const te = useTranslations('expenses');
   const tcal = useTranslations('calendar');
   const { locale } = useAppLocale();
-  const { selectedClubId, businessDayStartHour } = useClub();
+  const { selectedClubId, businessDayStartHour, role, featureAccess } = useClub();
+  /** A line opens its records only on a page this member may open. */
+  const linkIfAllowed = (href: string) => (role && canAccessPath(role, featureAccess, href.split('?')[0]) ? href : undefined);
   const fallbackDate = useBusinessToday(businessDayStartHour);
   const requested = useMemo(() => {
     const from = validDate(requestedFrom) ? requestedFrom : fallbackDate;
@@ -153,9 +161,16 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
   const [pickedRange, setPickedRange] = useState<{ from: string; to: string } | null>(null);
   const range = pickedRange ?? requested;
   const [expandedDates, setExpandedDates] = useState<Set<string>>(() => new Set());
-  // The day just jumped to from the chart, briefly outlined so the eye finds it.
+  // The day just jumped to from a stat, briefly outlined so the eye finds it.
   const [highlightedDate, setHighlightedDate] = useState<string | null>(null);
   const highlightTimer = useRef<number | undefined>(undefined);
+  // This page is only reached by tapping a figure (reports, daily cash, the day
+  // and month reports, the dashboard): Back returns there. Opened directly
+  // (a shared link), there is nothing to go back to, so it leads to the dashboard.
+  const [hasHistory, setHasHistory] = useState(false);
+  useEffect(() => {
+    setHasHistory(window.history.length > 1);
+  }, []);
 
   useEffect(() => {
     setPickedRange(null);
@@ -179,11 +194,13 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
     window.history.replaceState(null, '', `${pathname}?${params.toString()}`);
   }
 
-  // The dashboard always shows the current business month, so it takes no range.
-  const backHref = DASHBOARD_PATH;
-
   const summary = useMemo(() => summarizeMoneyDetailRows(rows), [rows]);
   const allRowsExpanded = rows.length > 0 && rows.every((row) => expandedDates.has(row.date));
+  // Collected against deducted per day, oldest first, for the shared in/out chart.
+  const dailyFlow = useMemo(
+    () => rows.map((row) => ({ date: row.date, label: formatDateShort(row.date, locale), income: row.collectedTotal, expenses: row.deductionsTotal })),
+    [rows, locale],
+  );
 
   function toggleDate(date: string) {
     setExpandedDates((current) => {
@@ -198,15 +215,14 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
     setExpandedDates(allRowsExpanded ? new Set() : new Set(rows.map((row) => row.date)));
   }
 
-  /** Opens a day from the chart or a stat, scrolls it into view and outlines it. */
+  /** Opens a day from a stat, scrolls it into view and outlines it. */
   function jumpToDate(date: string) {
     setExpandedDates((current) => new Set(current).add(date));
     setHighlightedDate(date);
     window.clearTimeout(highlightTimer.current);
     highlightTimer.current = window.setTimeout(() => setHighlightedDate(null), 1600);
     requestAnimationFrame(() => {
-      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      document.getElementById(dayAnchorId(date))?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+      document.getElementById(dayAnchorId(date))?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
     });
   }
 
@@ -239,19 +255,13 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
 
   const SideIcon = variant === 'bar' ? SIDE_ICONS.bar : SIDE_ICONS.gameClub;
   const negativeTotal = summary.moneyLeft < 0;
-  const keptWidth = sharePercent(summary.moneyLeft, summary.collected);
-
-  // Chart scale: the zero line sits where positive and negative days fit together.
-  const maxPositive = Math.max(0, ...rows.map((row) => row.moneyLeft));
-  const maxNegative = Math.max(0, ...rows.map((row) => -row.moneyLeft));
-  const chartSpan = maxPositive + maxNegative || 1;
-  const positiveArea = (maxPositive / chartSpan) * 100;
+  const currency = tc('currency');
 
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
-        back={backHref}
-        backLabel={t('backToDashboard')}
+        back={hasHistory ? true : DASHBOARD_PATH}
+        backLabel={hasHistory ? tc('back') : t('backToDashboard')}
         title={labels.title}
         className="mb-0"
         action={(
@@ -279,173 +289,94 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
         <Card><EmptyState icon={CalendarDays} title={labels.emptyLabel} /></Card>
       ) : (
         <>
-          {/* One headline number, then the two figures it is made of. */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)]">
-            <Card
-              as="section"
-              className="relative overflow-hidden sm:col-span-2 lg:col-span-1"
-              aria-label={labels.resultLabel}
-            >
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0"
-                style={{
-                  backgroundImage: `radial-gradient(circle at 100% 0%, rgb(var(${negativeTotal ? '--c-danger-500' : '--c-success-500'}) / 0.12), transparent 55%)`,
-                }}
+          {/* One headline number, then the two figures it is made of. They sum the days listed below, so they stay plain. */}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Card as="section" className="sm:col-span-2 lg:col-span-1" aria-label={labels.resultLabel}>
+              <div className="flex items-center gap-2">
+                <IconChip icon={Wallet} tone={negativeTotal ? 'danger' : 'success'} size="sm" />
+                <p className="min-w-0 break-words text-sm font-medium text-gray-500">{labels.resultLabel}</p>
+              </div>
+              <p className={cn('mt-2 break-words text-2xl font-bold leading-none tracking-tight tabular-nums sm:text-3xl', negativeTotal ? 'text-danger-600' : 'text-success-600')}>
+                <Money amount={summary.moneyLeft} currencyClassName="text-sm tracking-normal text-gray-500" />
+              </p>
+              <p className="mt-1.5 text-xs leading-5 text-gray-500">
+                {formatDateShort(range.from, locale)} – {formatDateShort(range.to, locale)} · {t('daysCount', { count: rows.length })}
+              </p>
+              <ShareBar
+                className="mt-3"
+                size="sm"
+                label={labels.collectedLabel}
+                locale={locale}
+                parts={[
+                  { key: 'left', label: labels.resultLabel, value: summary.moneyLeft, color: chartColors.success },
+                  { key: 'deductions', label: labels.deductionsLabel, value: summary.deductions, color: chartColors.danger },
+                ]}
               />
-              <div className="relative flex items-center gap-3">
-                <IconChip icon={Wallet} tone={negativeTotal ? 'danger' : 'success'} />
-                <div className="min-w-0">
-                  <p className="text-[13px] font-medium text-gray-500">{labels.resultLabel}</p>
-                  <p className="text-xs text-gray-400">
-                    {formatDateShort(range.from, locale)} – {formatDateShort(range.to, locale)} · {t('daysCount', { count: rows.length })}
-                  </p>
-                </div>
-              </div>
-              <p className={cn('relative mt-4 break-words text-3xl font-bold leading-none tracking-tight tabular-nums sm:text-4xl', negativeTotal ? 'text-danger-600' : 'text-success-600')}>
-                <Money amount={summary.moneyLeft} currencyClassName="text-base text-gray-500" />
-              </p>
-              <p className="relative mt-2 text-xs leading-5 text-gray-500">{labels.resultDescription}</p>
-
-              {summary.keptPercent !== null && (
-                <div className="relative mt-4">
-                  <div className="flex h-2 overflow-hidden rounded-full bg-danger-500/25" aria-hidden="true">
-                    <div className="grow-x h-full rounded-full bg-success-500 transition-[width] duration-700 ease-out motion-reduce:transition-none" style={{ width: `${keptWidth}%` }} />
-                  </div>
-                  <div className="mt-2 flex justify-between gap-3 text-xs font-medium">
-                    <span className="flex items-center gap-1.5 text-success-600">
-                      <span className="h-2 w-2 rounded-full bg-success-500" aria-hidden="true" />
-                      {t('keptShare', { percent: summary.keptPercent })}
-                    </span>
-                    <span className="flex items-center gap-1.5 text-danger-600">
-                      <span className="h-2 w-2 rounded-full bg-danger-500/60" aria-hidden="true" />
-                      {t('spentShare', { percent: Math.round(sharePercent(summary.deductions, summary.collected)) })}
-                    </span>
-                  </div>
-                </div>
-              )}
             </Card>
-
-            <Card as="section" aria-label={labels.collectedLabel} className="flex flex-col">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[13px] font-medium text-gray-500">{labels.collectedLabel}</p>
-                <IconChip icon={SideIcon} tone="success" size="sm" />
-              </div>
-              <p className="mt-3 flex items-center gap-1.5 text-2xl font-bold tracking-tight tabular-nums text-success-600">
-                <ArrowDownLeft size={20} strokeWidth={2.4} aria-hidden="true" className="shrink-0" />
-                <Money amount={summary.collected} currencyClassName="text-sm text-gray-500" />
-              </p>
-              <p className="mt-auto pt-3 text-xs text-gray-500">
-                {t('averagePerDay')}: <Money amount={Math.round(summary.collected / rows.length)} className="font-semibold text-gray-700" currencyClassName="text-gray-500" />
-              </p>
-            </Card>
-
-            <Card as="section" aria-label={labels.deductionsLabel} className="flex flex-col">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[13px] font-medium text-gray-500">{labels.deductionsLabel}</p>
-                <IconChip icon={Receipt} tone="danger" size="sm" />
-              </div>
-              <p className="mt-3 flex items-center gap-1.5 text-2xl font-bold tracking-tight tabular-nums text-danger-600">
-                <ArrowUpRight size={20} strokeWidth={2.4} aria-hidden="true" className="shrink-0" />
-                <Money amount={summary.deductions} currencyClassName="text-sm text-gray-500" />
-              </p>
-              {labels.deductionsHint && <p className="mt-auto pt-3 text-xs text-gray-500">{labels.deductionsHint}</p>}
-            </Card>
+            <MetricCard
+              label={labels.collectedLabel}
+              value={<MetricMoney amount={summary.collected} currency={currency} />}
+              tone="success"
+              icon={SideIcon}
+              helper={<>{t('averagePerDay')}: <Money amount={Math.round(summary.collected / rows.length)} className="font-semibold text-gray-700" currencyClassName="text-gray-500" /></>}
+            />
+            <MetricCard
+              label={labels.deductionsLabel}
+              value={<MetricMoney amount={summary.deductions} currency={currency} />}
+              tone="danger"
+              icon={Receipt}
+              helper={labels.deductionsHint}
+            />
           </div>
 
-          {/* Day-by-day bars: green above the line, red below; tap one to open that day. */}
+          {/* Day by day: the best, weakest and average day, then money in against money out. */}
           <Card as="section" aria-label={t('dayByDay')}>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="text-sm font-semibold text-gray-950">{t('dayByDay')}</h2>
-                <p className="mt-0.5 text-xs text-gray-500">{t('dayByDayHint')}</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {summary.best && (
-                  <button
-                    type="button"
-                    onClick={() => jumpToDate(summary.best!.date)}
-                    className="flex items-center gap-2 rounded-xl border border-gray-200 px-2.5 py-1.5 text-left transition hover:border-success-500/50 hover:bg-success-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                  >
-                    <Trophy size={14} className="text-success-600" aria-hidden="true" />
-                    <span className="text-xs">
-                      <span className="block text-gray-500">{t('bestDay')} · {formatDateShort(summary.best.date, locale)}</span>
-                      <Money amount={summary.best.moneyLeft} className="font-semibold text-success-600" currencyClassName="text-gray-500" />
-                    </span>
-                  </button>
-                )}
-                {summary.worst && summary.worst.date !== summary.best?.date && (
-                  <button
-                    type="button"
-                    onClick={() => jumpToDate(summary.worst!.date)}
-                    className="flex items-center gap-2 rounded-xl border border-gray-200 px-2.5 py-1.5 text-left transition hover:border-danger-500/50 hover:bg-danger-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                  >
-                    <TrendingDown size={14} className="text-danger-600" aria-hidden="true" />
-                    <span className="text-xs">
-                      <span className="block text-gray-500">{t('worstDay')} · {formatDateShort(summary.worst.date, locale)}</span>
-                      <Money amount={summary.worst.moneyLeft} className={cn('font-semibold', summary.worst.moneyLeft < 0 ? 'text-danger-600' : 'text-gray-800')} currencyClassName="text-gray-500" />
-                    </span>
-                  </button>
-                )}
-                <div className="flex items-center gap-2 rounded-xl border border-gray-200 px-2.5 py-1.5">
-                  <Sigma size={14} className="text-primary-600" aria-hidden="true" />
-                  <span className="text-xs">
-                    <span className="block text-gray-500">{t('averagePerDay')}</span>
-                    <Money amount={summary.averagePerDay} className="font-semibold text-gray-800" currencyClassName="text-gray-500" />
-                  </span>
-                </div>
-              </div>
+            <SectionHeading size="sm" title={t('dayByDay')} description={t('dayByDayHint')} />
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              {summary.best && (
+                <StatTile
+                  size="sm"
+                  icon={Trophy}
+                  label={`${t('bestDay')} · ${formatDateShort(summary.best.date, locale)}`}
+                  value={formatCurrency(summary.best.moneyLeft)}
+                  unit={currency}
+                  tone={summary.best.moneyLeft < 0 ? 'danger' : 'success'}
+                  onClick={() => jumpToDate(summary.best!.date)}
+                />
+              )}
+              {summary.worst && summary.worst.date !== summary.best?.date && (
+                <StatTile
+                  size="sm"
+                  icon={TrendingDown}
+                  label={`${t('worstDay')} · ${formatDateShort(summary.worst.date, locale)}`}
+                  value={formatCurrency(summary.worst.moneyLeft)}
+                  unit={currency}
+                  tone={summary.worst.moneyLeft < 0 ? 'danger' : 'default'}
+                  onClick={() => jumpToDate(summary.worst!.date)}
+                />
+              )}
+              <StatTile size="sm" icon={Sigma} label={t('averagePerDay')} value={formatCurrency(summary.averagePerDay)} unit={currency} tone={summary.averagePerDay < 0 ? 'danger' : 'default'} />
             </div>
-
-            <div className="-mx-1 overflow-x-auto px-1 pb-1 pt-9">
-              <div className="relative flex h-40 min-w-full items-stretch gap-[3px] sm:h-48" style={{ minWidth: `${rows.length * 9}px` }}>
-                {/* Zero line */}
-                <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 border-t border-dashed border-gray-300" style={{ top: `${positiveArea}%` }} />
-                {rows.map((row) => {
-                  const negative = row.moneyLeft < 0;
-                  const height = (Math.abs(row.moneyLeft) / chartSpan) * 100;
-                  const open = expandedDates.has(row.date);
-                  return (
-                    <button
-                      key={row.date}
-                      type="button"
-                      onClick={() => jumpToDate(row.date)}
-                      aria-label={`${formatDateShort(row.date, locale)}: ${formatNumber(row.moneyLeft)}`}
-                      className="group/bar relative min-w-[6px] flex-1 rounded-md transition-colors hover:bg-gray-100 focus-visible:bg-gray-100 focus-visible:outline-none"
-                    >
-                      <span
-                        aria-hidden="true"
-                        className={cn(
-                          'absolute inset-x-[15%] transition-[opacity,transform] duration-200 group-hover/bar:opacity-100',
-                          negative ? 'rounded-b-[4px] bg-danger-500' : 'rounded-t-[4px] bg-success-500',
-                          open ? 'opacity-100' : 'opacity-75',
-                        )}
-                        style={negative
-                          ? { top: `${positiveArea}%`, height: `${Math.max(height, 1)}%` }
-                          : { bottom: `${100 - positiveArea}%`, height: `${Math.max(height, 1)}%` }}
-                      />
-                      {/* Hover tooltip */}
-                      <span
-                        aria-hidden="true"
-                        className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 translate-y-1 whitespace-nowrap rounded-lg bg-gray-950 px-2 py-1 text-[11px] font-medium text-gray-50 opacity-0 shadow-pop transition duration-150 group-hover/bar:translate-y-0 group-hover/bar:opacity-100 group-focus-visible/bar:translate-y-0 group-focus-visible/bar:opacity-100"
-                      >
-                        {formatDateShort(row.date, locale)} · <span className={negative ? 'text-danger-400' : 'text-success-500'}>{formatNumber(row.moneyLeft)}</span>
-                      </span>
-                    </button>
-                  );
-                })}
+            {dailyFlow.length > 1 && (
+              <div className="mt-4">
+                <DailyInOutChart
+                  data={dailyFlow}
+                  incomeLabel={labels.collectedLabel}
+                  expensesLabel={labels.deductionsLabel}
+                  legendLabel={t('dayByDay')}
+                  currency={currency}
+                  locale={locale}
+                  height={200}
+                  onSelectDay={jumpToDate}
+                />
               </div>
-              <div className="mt-1.5 flex justify-between text-[11px] text-gray-400" aria-hidden="true">
-                <span>{formatDateShort(rows[0].date, locale)}</span>
-                <span>{formatDateShort(rows[rows.length - 1].date, locale)}</span>
-              </div>
-            </div>
+            )}
           </Card>
 
           <section className="space-y-3">
             <SectionHeading
               size="sm"
-              title={t('date')}
+              title={t('daysListTitle')}
               className="sm:items-center"
               action={(
                 <Button
@@ -453,7 +384,7 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
                   size="sm"
                   onClick={toggleAllDates}
                   aria-expanded={allRowsExpanded}
-                  iconRight={<ChevronDown size={15} className={cn('transition-transform', allRowsExpanded && 'rotate-180')} aria-hidden="true" />}
+                  iconRight={<ChevronDown size={15} className={cn('transition-transform motion-reduce:transition-none', allRowsExpanded && 'rotate-180')} aria-hidden="true" />}
                 >
                   {allRowsExpanded ? t('collapseAll') : t('expandAll')}
                 </Button>
@@ -466,21 +397,19 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
               const dayNumber = Number(row.date.slice(8, 10));
               const panelId = `${dayAnchorId(row.date)}-panel`;
               return (
-                <div
+                <Card
                   key={row.date}
                   id={dayAnchorId(row.date)}
-                  className={cn(
-                    'scroll-mt-24 overflow-hidden rounded-2xl border bg-surface shadow-card transition-[border-color,box-shadow] duration-300',
-                    open ? 'border-gray-300' : 'border-gray-200 hover:border-gray-300',
-                    highlightedDate === row.date && 'ring-2 ring-primary-500 ring-offset-2',
-                  )}
+                  padding="none"
+                  className={cn('scroll-mt-24 overflow-hidden', highlightedDate === row.date && 'ring-2 ring-primary-500 ring-offset-2')}
                 >
+                  {/* A disclosure header (aria-expanded), so it stays a button with the shared focus ring. */}
                   <button
                     type="button"
                     onClick={() => toggleDate(row.date)}
                     aria-expanded={open}
                     aria-controls={panelId}
-                    className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 sm:px-4"
+                    className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 motion-reduce:transition-none sm:px-4"
                   >
                     <span
                       aria-hidden="true"
@@ -490,7 +419,7 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
                       )}
                     >
                       <span className={cn('text-base font-bold tabular-nums', negative ? 'text-danger-600' : 'text-gray-900')}>{dayNumber}</span>
-                      <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wide text-gray-400">{tcal(`weekdays.${weekdayKey(row.date)}`)}</span>
+                      <span className="mt-0.5 text-xs font-medium text-gray-500">{tcal(`weekdays.${weekdayKey(row.date)}`)}</span>
                     </span>
 
                     <span className="min-w-0 flex-1">
@@ -508,22 +437,17 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
                     </span>
 
                     <span className="flex shrink-0 flex-col items-end gap-1">
-                      <span className="hidden text-[11px] font-medium text-gray-400 sm:block">{t('moneyLeftForDay')}</span>
-                      <span
-                        className={cn(
-                          'flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-bold tracking-tight ring-1 ring-inset',
-                          negative ? 'bg-danger-50 text-danger-600 ring-danger-100' : 'bg-success-50 text-success-600 ring-success-100',
-                        )}
-                      >
+                      <span className="hidden text-xs font-medium text-gray-500 sm:block">{t('moneyLeftForDay')}</span>
+                      <span className={cn('flex items-center gap-1 text-sm font-bold tracking-tight', negative ? 'text-danger-600' : 'text-success-600')}>
                         {negative ? <TrendingDown size={14} aria-hidden="true" /> : <TrendingUp size={14} aria-hidden="true" />}
-                        <Money amount={row.moneyLeft} currencyClassName="text-[11px] text-gray-500" />
+                        <Money amount={row.moneyLeft} currencyClassName="text-xs text-gray-500" />
                       </span>
                     </span>
 
                     <ChevronDown
                       size={18}
                       aria-hidden="true"
-                      className={cn('shrink-0 text-gray-400 transition-transform duration-300', open && 'rotate-180 text-gray-600')}
+                      className={cn('shrink-0 text-gray-500 transition-transform duration-300 motion-reduce:transition-none', open && 'rotate-180 text-gray-600')}
                     />
                   </button>
 
@@ -531,79 +455,75 @@ export default function MoneyDetailsPage({ variant, requestedFrom, requestedTo, 
                     <div id={panelId} className="presence" data-presence="enter">
                       <div className={cn('grid border-t border-gray-100', variant === 'bar' ? 'lg:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]' : 'lg:grid-cols-2')}>
                         <section className="p-4 sm:p-5 lg:border-r lg:border-gray-100">
-                          <div className="mb-2 flex items-center justify-between gap-3">
-                            <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                              <ArrowDownLeft size={13} className="text-success-600" aria-hidden="true" />
-                              {labels.collectedLabel}
-                            </h3>
-                            <Money amount={row.collectedTotal} showPlus className="text-sm font-semibold text-success-600" currencyClassName="text-xs text-gray-500" />
-                          </div>
+                          <SectionHeading
+                            as="h3"
+                            size="sm"
+                            className="mb-2 flex-row items-center justify-between sm:items-center"
+                            title={labels.collectedLabel}
+                            action={<Money amount={row.collectedTotal} showPlus className="text-sm font-semibold text-success-600" currencyClassName="text-xs text-gray-500" />}
+                          />
                           <ul className="space-y-0.5">
                             {row.collected.map((item) => (
                               <li key={item.key}>
-                                <Link href={moneyDetailLineHref(side, row.date, { kind: 'collected', key: item.key })} className="tappable group/line -mx-2 flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+                                <LineRow href={linkIfAllowed(moneyDetailLineHref(side, row.date, { kind: 'collected', key: item.key }))}>
                                   <IconChip icon={COLLECTED_ICONS[item.key]} tone="success" size="sm" />
                                   <span className="min-w-0 flex-1">
                                     <span className="block break-words text-sm text-gray-700">{collectedLabel(item.key)}</span>
-                                    <span className="mt-1 block h-1 max-w-[220px] overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
-                                      <span className="block h-full rounded-full bg-success-500/70" style={{ width: `${sharePercent(item.amount, row.collectedTotal)}%` }} />
+                                    <span className="mt-1 block h-1 max-w-56 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
+                                      <span className="block h-full rounded-full bg-success-500" style={{ width: `${sharePercent(item.amount, row.collectedTotal)}%` }} />
                                     </span>
                                   </span>
-                                  <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-gray-950">
-                                    <Money amount={item.amount} currencyClassName="text-xs text-gray-500" />
-                                    <ChevronRight size={14} aria-hidden="true" className="text-gray-300 transition-transform group-hover/line:translate-x-0.5 group-hover/line:text-gray-500" />
-                                  </span>
-                                </Link>
+                                  <Money amount={item.amount} className="shrink-0 text-sm font-semibold text-gray-950" currencyClassName="text-xs text-gray-500" />
+                                </LineRow>
                               </li>
                             ))}
                           </ul>
                         </section>
 
                         <section className="border-t border-gray-100 p-4 sm:p-5 lg:border-t-0">
-                          <div className="mb-2 flex items-center justify-between gap-3">
-                            <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                              <ArrowUpRight size={13} className="text-danger-600" aria-hidden="true" />
-                              {labels.deductionsLabel}
-                            </h3>
-                            <span className="text-sm font-semibold text-danger-600">− <Money amount={row.deductionsTotal} currencyClassName="text-xs text-gray-500" /></span>
-                          </div>
+                          <SectionHeading
+                            as="h3"
+                            size="sm"
+                            className="mb-2 flex-row items-center justify-between sm:items-center"
+                            title={labels.deductionsLabel}
+                            action={<span className="text-sm font-semibold text-danger-600">− <Money amount={row.deductionsTotal} currencyClassName="text-xs text-gray-500" /></span>}
+                          />
                           {row.deductions.length ? (
                             <ul className="space-y-0.5">
                               {row.deductions.map((line, index) => (
                                 <li key={`${line.kind}-${index}`}>
-                                  <Link href={moneyDetailLineHref(side, row.date, line)} className="tappable group/line -mx-2 flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+                                  <LineRow href={linkIfAllowed(moneyDetailLineHref(side, row.date, line))}>
                                     <span title={deductionKindLabel(line)}>
                                       {line.kind === 'expense'
                                         ? <CategoryIcon category={line.category} size="sm" />
-                                        : <IconChip icon={DEDUCTION_ICONS[line.kind]} tone={line.kind === 'purchase' ? 'primary' : 'neutral'} size="sm" />}
+                                        : <IconChip icon={DEDUCTION_ICONS[line.kind]} tone={line.kind === 'purchase' ? 'primary' : 'reserve'} size="sm" />}
                                     </span>
                                     <span className="min-w-0 flex-1">
                                       <span className="block break-words text-sm leading-5 text-gray-700">{deductionLabel(line)}</span>
                                       <span className="mt-0.5 flex items-center gap-2">
                                         {variant === 'bar' && (
-                                          <span className="text-[11px] font-medium text-gray-400">{deductionKindLabel(line)}</span>
+                                          <span className="text-xs font-medium text-gray-500">{deductionKindLabel(line)}</span>
                                         )}
-                                        <span className="block h-1 max-w-[220px] flex-1 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
-                                          <span className="block h-full rounded-full bg-danger-500/60" style={{ width: `${sharePercent(line.amount, row.deductionsTotal)}%` }} />
+                                        <span className="block h-1 max-w-56 flex-1 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
+                                          <span className="block h-full rounded-full bg-danger-500" style={{ width: `${sharePercent(line.amount, row.deductionsTotal)}%` }} />
                                         </span>
                                       </span>
                                     </span>
-                                    <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-danger-600">
+                                    <span className="shrink-0 text-sm font-semibold text-danger-600">
                                       − <Money amount={line.amount} currencyClassName="text-xs text-gray-500" />
-                                      <ChevronRight size={14} aria-hidden="true" className="text-gray-300 transition-transform group-hover/line:translate-x-0.5 group-hover/line:text-gray-500" />
                                     </span>
-                                  </Link>
+                                  </LineRow>
                                 </li>
                               ))}
                             </ul>
                           ) : (
-                            <EmptyState compact bordered title={t('noDeductionsForDay')} className="border-gray-200 py-5" />
+                            <EmptyState compact bordered title={t('noDeductionsForDay')} />
                           )}
                         </section>
                       </div>
                     </div>
                   )}
-                </div>
+                </Card>
               );
             })}
           </section>

@@ -15,6 +15,7 @@ import {
   DataTable,
   Field,
   FormSkeleton,
+  IconChip,
   InlineAlert,
   LoadErrorAlert,
   Modal,
@@ -25,9 +26,11 @@ import {
   SectionHeading,
   SegmentedControl,
   Skeleton,
+  StatTile,
   TableSkeleton,
   TappableSurface,
   metricToneClassName,
+  toneClasses,
   toneForAmount,
   useConfirm,
   useEntryNoteGuard,
@@ -69,18 +72,16 @@ import {
   type OwnerWithdrawalSource,
 } from '@/types';
 import { SIDE_ICONS } from '@/components/sideIcons';
-import { METHOD_ICONS, SOURCE_ICONS, SOURCE_TINTS } from './profitIcons';
+import { METHOD_ICONS, SOURCE_ICONS, SOURCE_TINTS, SOURCE_TONES } from './profitIcons';
 import { WithdrawalHistory, historyCreatedAt, type HistoryRow } from './WithdrawalHistory';
 import { CashShortagesSection } from './CashShortagesSection';
 import { ReserveSection } from './ReserveSection';
 import { BarWriteOffsSection } from './BarWriteOffsSection';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import { parseWriteOffReason, summarizeStockWriteOffs, type StockWriteOffCountRow } from '@/lib/stockWriteOffs';
-import { planGameClubDepositAll, reserveActivity, reserveBalances, reserveForMonth, reservedNet } from '@/lib/calculations/ownerReserve';
-import type { ReserveErrorCode } from '@/lib/supabase/ownerReserve';
+import { planGameClubDepositAll, reserveBalances, reserveForMonth, reservedNet } from '@/lib/calculations/ownerReserve';
 import { requestReserveMove } from '@/lib/ownerReserveRequests';
 import { CashShortageForm } from '@/components/cash-shortages/CashShortageForm';
-import ExpenseRegistrationForm from '../reports/ExpenseRegistrationForm';
 import {
   EMPTY_CASH_SHORTAGES,
   deleteCashShortage,
@@ -95,7 +96,8 @@ import {
   summarizeCashShortages,
   type CashShortageSummary,
 } from '@/lib/calculations/cashShortages';
-import { moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
+import { financialAnalysisHref, moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
+import { formatPercentShare } from '@/components/charts/chartFormat';
 import { OwnerProfitTrend, OwnerProfitTrendSkeleton } from './OwnerProfitTrend';
 
 type MoneySource = OwnerWithdrawalSource | 'all';
@@ -131,8 +133,8 @@ const EMPTY_WRITE_OFFS: StockWriteOffCountRow[] = [];
 
 /** Colour keys tying the split bar to its rows below. */
 const SPLIT_DOTS: Record<string, string> = {
-  withdrawn: 'bg-orange-500',
-  reserved: 'bg-purple-500',
+  withdrawn: toneClasses.bar.solid,
+  reserved: toneClasses.reserve.solid,
 };
 
 /**
@@ -142,9 +144,9 @@ const SPLIT_DOTS: Record<string, string> = {
  */
 function ProfitSplitBar({ withdrawn, reserved, left, label }: { withdrawn: number; reserved: number; left: number; label: string }) {
   const parts = [
-    { key: 'withdrawn', value: withdrawn, className: 'bg-orange-500' },
-    { key: 'reserved', value: reserved, className: 'bg-purple-500' },
-    { key: 'left', value: left, className: 'bg-success-500' },
+    { key: 'withdrawn', value: withdrawn, className: toneClasses.bar.solid },
+    { key: 'reserved', value: reserved, className: toneClasses.reserve.solid },
+    { key: 'left', value: left, className: toneClasses.success.solid },
   ].filter((part) => part.value > 0);
   const whole = parts.reduce((sum, part) => sum + part.value, 0);
   if (!whole) return null;
@@ -157,8 +159,9 @@ function ProfitSplitBar({ withdrawn, reserved, left, label }: { withdrawn: numbe
   );
 }
 
-function withdrawnPercent(withdrawn: number, earned: number) {
-  return earned > 0 ? Math.min(100, Math.round((withdrawn / earned) * 100)) : 0;
+/** Withdrawn as a share of what was earned, 0-1, never above the whole. */
+function withdrawnShare(withdrawn: number, earned: number) {
+  return earned > 0 ? Math.min(1, withdrawn / earned) : 0;
 }
 
 export default function MoneyTakenPage() {
@@ -222,15 +225,9 @@ export default function MoneyTakenPage() {
   ), [writeOffQuery.data]);
   const tsh = useTranslations('cashShortages');
   const tr = useTranslations('ownerReserve');
-  const [returnTarget, setReturnTarget] = useState<OwnerWithdrawalSource | null>(null);
-  const [returnMethod, setReturnMethod] = useState<OwnerWithdrawalPaymentMethod>('cash');
-  const [returnInput, setReturnInput] = useState('');
-  const [reservePayOpen, setReservePayOpen] = useState(false);
-  const [reserveError, setReserveError] = useState<ReserveErrorCode | null>(null);
   const [reserveBusy, setReserveBusy] = useState<string | null>(null);
   /** The day a deposit moved the money; '' or a day outside the selected month means the default. */
   const [reserveDate, setReserveDate] = useState('');
-  const reserveRequestId = useRef<string | null>(null);
   const [shortageFormOpen, setShortageFormOpen] = useState(false);
   const [recoverTarget, setRecoverTarget] = useState<CashShortageSummary | null>(null);
   const [recoverInput, setRecoverInput] = useState('');
@@ -749,7 +746,7 @@ export default function MoneyTakenPage() {
     <span className={cn('whitespace-nowrap tabular-nums', className)}>{formatCurrency(amount)}</span>
   );
   const carriedCell = (amount: number, className?: string) => (amount === 0
-    ? <span className="tabular-nums text-gray-400">0</span>
+    ? <span className="tabular-nums text-gray-500">0</span>
     : (
       <span className={cn('whitespace-nowrap tabular-nums', amount > 0 ? 'text-success-600' : 'text-gray-600', className)}>
         {amount > 0 ? '+' : '−'}{formatCurrency(Math.abs(amount))}
@@ -770,15 +767,13 @@ export default function MoneyTakenPage() {
           {row.icon ? <row.icon size={15} aria-hidden="true" className="shrink-0 text-gray-400" /> : null}
           <span className="min-w-0">
             <span className="block">{row.label}</span>
-            {row.hint ? <span className="block text-xs leading-5 text-gray-400">{row.hint}</span> : null}
+            {row.hint ? <span className="block text-xs leading-5 text-gray-500">{row.hint}</span> : null}
           </span>
         </span>
       ) : (
         <span className="flex items-center gap-2.5 font-semibold text-gray-900">
           {row.icon ? (
-            <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', SOURCE_TINTS[row.key === 'bar' ? 'bar' : 'game_club'].bubble)}>
-              <row.icon size={15} aria-hidden="true" />
-            </span>
+            <IconChip icon={row.icon} tone={SOURCE_TONES[row.key === 'bar' ? 'bar' : 'game_club']} size="sm" />
           ) : null}
           {row.label}
         </span>
@@ -810,7 +805,7 @@ export default function MoneyTakenPage() {
       className: moneyColumnClassName,
       render: (row: BreakdownRow) => (row.earned === null ? emptyCell : amountCell(row.reserved, cn(
         !row.nested && 'font-semibold',
-        row.reserved !== 0 ? 'text-primary-600' : 'text-gray-400',
+        row.reserved !== 0 ? toneClasses.reserve.text : 'text-gray-500',
       ))),
     }] : []),
     {
@@ -820,7 +815,7 @@ export default function MoneyTakenPage() {
       className: moneyColumnClassName,
       render: (row) => amountCell(row.withdrawn, cn(
         !row.nested && 'font-semibold',
-        row.withdrawn > 0 ? 'text-gray-900' : 'text-gray-400',
+        row.withdrawn > 0 ? 'text-gray-900' : 'text-gray-500',
       )),
     },
     {
@@ -847,11 +842,7 @@ export default function MoneyTakenPage() {
   ].sort((a, b) => b.month.localeCompare(a.month) || historyCreatedAt(b).localeCompare(historyCreatedAt(a)));
 
   const reserveHeld = reserveBalances(reserveEntries, reserveExpenses);
-  const reserveRows = reserveActivity(reserveEntries, reserveExpenses);
   const reserveActionsDisabled = loading || !!error || reserveBusy !== null || saving !== null;
-  const returnMax = returnTarget === 'game_club' ? reserveHeld.game_club.byMethod[returnMethod] : returnTarget === 'bar' ? reserveHeld.bar.held : 0;
-  const returnValue = parseCurrencyInput(returnInput);
-  const returnValid = Number.isFinite(returnValue) && returnValue > 0 && returnValue <= returnMax;
   // Everything still left of the month on each side; Game Club is split over its methods.
   const depositAllPlan = {
     game_club: planGameClubDepositAll(methodBreakdown.methods, monthlyBalance?.gameClub.available ?? 0),
@@ -861,46 +852,6 @@ export default function MoneyTakenPage() {
     game_club: depositAllPlan.game_club.reduce((sum, row) => sum + row.amount, 0),
     bar: depositAllPlan.bar,
   };
-
-  function openReturn(source: OwnerWithdrawalSource) {
-    reserveRequestId.current = null;
-    setReserveError(null);
-    const method = OWNER_WITHDRAWAL_PAYMENT_METHODS.find((value) => reserveHeld.game_club.byMethod[value] > 0) ?? 'cash';
-    setReturnMethod(method);
-    setReturnInput('');
-    setReturnTarget(source);
-  }
-
-  async function handleReturn(event: React.FormEvent) {
-    event.preventDefault();
-    if (!selectedClubId || !returnTarget || !returnValid || reserveBusy) return;
-    const operationLoad = currentLoad.current;
-    reserveRequestId.current ??= crypto.randomUUID();
-    setReserveBusy('return');
-    setReserveError(null);
-    try {
-      const failure = await requestReserveMove(selectedClubId, {
-        kind: 'return',
-        month: form.month,
-        source: returnTarget,
-        comment: '',
-        parts: [{ id: reserveRequestId.current, method: returnTarget === 'game_club' ? returnMethod : null, amount: Math.round(returnValue) }],
-      });
-      if (operationLoad !== currentLoad.current) return;
-      if (failure) {
-        reserveRequestId.current = null;
-        setReserveError(failure);
-        return;
-      }
-      setReturnTarget(null);
-      showToast(tr('returnedToast'), 'success');
-      await loadData({ silent: true });
-    } catch {
-      setReserveError('failed');
-    } finally {
-      setReserveBusy(null);
-    }
-  }
 
   /** Puts everything left of the selected month on one side into the reserve. */
   async function handleDepositAll(source: OwnerWithdrawalSource) {
@@ -1051,7 +1002,7 @@ export default function MoneyTakenPage() {
           <Card as="section" padding="lg" aria-labelledby="owner-profit-headline">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
               <div className="min-w-0">
-                <p id="owner-profit-headline" className="flex items-center gap-2 text-[13px] font-medium text-gray-500">
+                <p id="owner-profit-headline" className="flex items-center gap-2 text-sm font-medium text-gray-500">
                   <Wallet size={15} aria-hidden="true" className="shrink-0" />
                   <span>{t('hero.leftToTake', { month: formatYearMonth(form.month, locale) })}</span>
                 </p>
@@ -1068,40 +1019,23 @@ export default function MoneyTakenPage() {
               </div>
 
               {/* Earned and withdrawn for both businesses, each a link to where it comes from. */}
-              <div className="grid grid-cols-2 divide-x divide-gray-100 rounded-2xl border border-gray-100 lg:min-w-[26rem]">
-                <TappableSurface
-                  href={`/financial-analysis?month=${form.month}`}
-                  chevron={false}
-                  className="min-w-0 rounded-l-2xl px-4 py-3 hover:bg-gray-50"
-                >
-                  <p className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <TrendingUp size={13} aria-hidden="true" className="shrink-0 text-gray-400" />
-                    {t('hero.earned')}
-                    <ChevronRight size={13} aria-hidden="true" className="ml-auto shrink-0 text-gray-300 group-hover:text-gray-500" />
-                  </p>
-                  <div className="mt-1 truncate text-lg font-semibold tabular-nums text-gray-900">
-                    {loading ? <Skeleton className="h-6 w-28" /> : formatCurrency(overall.earned)}
-                  </div>
-                </TappableSurface>
-                <TappableSurface
+              <div className="grid gap-3 sm:grid-cols-2 lg:min-w-96">
+                <StatTile
+                  variant="soft"
+                  href={financialAnalysisHref(form.month)}
+                  icon={TrendingUp}
+                  label={t('hero.earned')}
+                  value={loading ? '—' : formatCurrency(overall.earned)}
+                  unit={loading ? undefined : tc('currency')}
+                />
+                <StatTile
+                  variant="soft"
                   href="#withdrawal-history"
-                  chevron={false}
-                  className="min-w-0 rounded-r-2xl px-4 py-3 hover:bg-gray-50"
-                >
-                  <p className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <HandCoins size={13} aria-hidden="true" className="shrink-0 text-gray-400" />
-                    {t('hero.withdrawn')}
-                    <ChevronRight size={13} aria-hidden="true" className="ml-auto shrink-0 text-gray-300 group-hover:text-gray-500" />
-                  </p>
-                  <div className="mt-1 flex items-baseline gap-2 text-lg font-semibold tabular-nums text-gray-900">
-                    {loading ? <Skeleton className="h-6 w-28" /> : (
-                      <>
-                        <span className="truncate">{formatCurrency(overall.withdrawn)}</span>
-                        <span className="text-xs font-medium text-gray-400">{withdrawnPercent(overall.withdrawn, overall.earned)}%</span>
-                      </>
-                    )}
-                  </div>
-                </TappableSurface>
+                  icon={HandCoins}
+                  label={loading ? t('hero.withdrawn') : `${t('hero.withdrawn')} · ${formatPercentShare(withdrawnShare(overall.withdrawn, overall.earned), locale)}`}
+                  value={loading ? '—' : formatCurrency(overall.withdrawn)}
+                  unit={loading ? undefined : tc('currency')}
+                />
               </div>
             </div>
 
@@ -1125,7 +1059,7 @@ export default function MoneyTakenPage() {
                       <span className={cn('h-2 w-2 shrink-0 rounded-full', SOURCE_TINTS[side.source].dot)} aria-hidden="true" />
                       {t(`sources.${side.source}`)}
                       <span className="font-medium tabular-nums text-gray-700">
-                        {Math.round((Math.max(0, side.available) / overall.available) * 100)}%
+                        {formatPercentShare(Math.max(0, side.available) / overall.available, locale)}
                       </span>
                     </li>
                   ))}
@@ -1141,19 +1075,19 @@ export default function MoneyTakenPage() {
                   {
                     key: 'earned',
                     icon: TrendingUp,
-                    iconClassName: 'text-gray-400',
+                    iconClassName: 'text-gray-500',
                     label: t('hero.earned'),
                     value: <span className="tabular-nums text-gray-900">{formatCurrency(side.earned)}</span>,
                   },
                   {
                     key: 'withdrawn',
                     icon: HandCoins,
-                    iconClassName: 'text-gray-400',
+                    iconClassName: 'text-gray-500',
                     label: t('hero.withdrawn'),
                     value: (
                       <span className="tabular-nums text-gray-900">
                         {formatCurrency(side.withdrawn)}
-                        <span className="ml-1.5 text-xs font-normal text-gray-400">{withdrawnPercent(side.withdrawn, side.earned)}%</span>
+                        <span className="ml-1.5 text-xs font-normal text-gray-500">{formatPercentShare(withdrawnShare(side.withdrawn, side.earned), locale)}</span>
                       </span>
                     ),
                   },
@@ -1162,9 +1096,9 @@ export default function MoneyTakenPage() {
                   facts.push({
                     key: 'reserved',
                     icon: PiggyBank,
-                    iconClassName: 'text-primary-500',
+                    iconClassName: 'text-purple-500',
                     label: t('hero.reserved'),
-                    value: <span className="tabular-nums text-primary-600">{formatCurrency(reserved)}</span>,
+                    value: <span className={cn('tabular-nums', toneClasses.reserve.text)}>{formatCurrency(reserved)}</span>,
                   });
                 }
                 if (monthShortages[side.source].amount > 0) {
@@ -1189,7 +1123,7 @@ export default function MoneyTakenPage() {
                   facts.push({
                     key: 'carried',
                     icon: CalendarArrowUp,
-                    iconClassName: 'text-gray-400',
+                    iconClassName: 'text-gray-500',
                     label: t('carriedColumn'),
                     value: carriedCell(side.carried),
                   });
@@ -1203,9 +1137,7 @@ export default function MoneyTakenPage() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-2.5">
-                        <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', SOURCE_TINTS[side.source].bubble)}>
-                          <SourceIcon size={17} aria-hidden="true" />
-                        </span>
+                        <IconChip icon={SourceIcon} tone={SOURCE_TONES[side.source]} />
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-gray-900">{t(`sources.${side.source}`)}</p>
                           <p className="flex items-center gap-1.5 text-xs text-gray-500">{t('hero.leftToTakeShort')}<span aria-hidden="true" className="h-2 w-2 rounded-sm bg-success-500" /></p>
@@ -1233,7 +1165,7 @@ export default function MoneyTakenPage() {
                           left={Math.max(0, side.available)}
                           label={`${t('hero.withdrawn')} ${formatCurrency(side.withdrawn)}, ${t('hero.reserved')} ${formatCurrency(Math.max(0, reserved))}, ${t('hero.leftToTakeShort')} ${formatCurrency(Math.max(0, side.available))}`}
                         />
-                        <dl className="mt-4 divide-y divide-gray-100 border-t border-gray-100 text-[13px]">
+                        <dl className="mt-4 divide-y divide-gray-100 border-t border-gray-100 text-sm">
                           {facts.map((fact) => {
                             const FactIcon = fact.icon;
                             const dot = SPLIT_DOTS[fact.key];
@@ -1253,14 +1185,12 @@ export default function MoneyTakenPage() {
                         {/* PlayStation money is part of Game Club profit, so it sits inside its card. */}
                         {side.source === 'game_club' && playstationProfit
                           && (playstationProfit.earned !== 0 || playstationProfit.withdrawn !== 0 || playstationProfit.available !== 0) ? (
-                          <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-purple-50/60 px-3 py-2.5 dark:bg-purple-500/10">
+                          <div className={cn('mt-2 flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5', toneClasses.reserve.surface)}>
                             <div className="flex min-w-0 items-center gap-2">
-                              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-purple-600 dark:bg-purple-500/20">
-                                <SIDE_ICONS.playstation size={14} aria-hidden="true" />
-                              </span>
+                              <IconChip icon={SIDE_ICONS.playstation} tone="reserve" size="sm" />
                               <div className="min-w-0">
-                                <p className="text-[13px] font-semibold text-gray-900">{t('playstation')}</p>
-                                <p className="truncate text-[11px] text-gray-500">
+                                <p className="text-sm font-semibold text-gray-900">{t('playstation')}</p>
+                                <p className="truncate text-xs text-gray-500">
                                   {t('hero.playstationTaken', {
                                     withdrawn: formatCurrency(playstationProfit.withdrawn),
                                     earned: formatCurrency(playstationProfit.earned),
@@ -1337,7 +1267,7 @@ export default function MoneyTakenPage() {
                                   <MethodPickerIcon method={method} />
                                   {methodLabel(method)}
                                 </span>
-                                <span className="mt-0.5 text-[11px] font-normal tabular-nums opacity-80">{formatCurrency(methodWithdrawable[method])}</span>
+                                <span className="mt-0.5 text-xs font-normal tabular-nums opacity-80">{formatCurrency(methodWithdrawable[method])}</span>
                               </span>
                             ),
                           }))}
@@ -1366,7 +1296,7 @@ export default function MoneyTakenPage() {
                           type="button"
                           variant="secondary"
                           size="lg"
-                          className="min-h-14 shrink-0"
+                          className="shrink-0"
                           disabled={withdrawable <= 0}
                           aria-label={t('takeAllLabel', { amount: currency(withdrawable) })}
                           onClick={() => setField('amount', formatCurrencyInput(withdrawable))}
@@ -1473,25 +1403,36 @@ export default function MoneyTakenPage() {
                 )}
               </Card>
 
+              {/* Reserve, shortages and write-offs keep their place while loading and say so when they fail. */}
+              {isOwner && loading ? (
+                <>
+                  <TableSkeleton rows={2} columns={2} />
+                  <TableSkeleton rows={2} columns={3} />
+                  <TableSkeleton rows={1} columns={3} />
+                </>
+              ) : null}
+
               {isOwner && reserveSupported && !loading ? (
                 <Card as="section" padding="none" className="overflow-hidden">
                   <ReserveSection
                     balances={reserveHeld}
                     depositAllAmounts={depositAllAmounts}
                     monthLabel={formatYearMonth(form.month, locale)}
-                    activity={reserveRows}
                     dollarsHeld={dollarsForMonth(exchangeRows, currentMonth, dollarExpenses).heldUsd}
-                    methodLabel={methodLabel}
                     busyId={reserveBusy}
                     disabled={reserveActionsDisabled}
-                    onReturn={openReturn}
                     onDepositAll={(source) => void handleDepositAll(source)}
-                    onPay={() => setReservePayOpen(true)}
                   />
                 </Card>
               ) : null}
 
-              {isOwner && shortages.supported && !loading ? (
+              {isOwner && !loading && shortageQuery.error ? (
+                <LoadErrorAlert retrying={shortageQuery.loading} onRetry={() => void shortageQuery.reload()}>
+                  {t('loadError')}
+                </LoadErrorAlert>
+              ) : isOwner && !loading && shortageQuery.loading ? (
+                <TableSkeleton rows={2} columns={3} />
+              ) : isOwner && shortages.supported && !loading ? (
                 <Card as="section" padding="none" className="overflow-hidden">
                   <CashShortagesSection
                     month={form.month}
@@ -1506,7 +1447,13 @@ export default function MoneyTakenPage() {
                 </Card>
               ) : null}
 
-              {isOwner && !loading && !writeOffQuery.loading && !writeOffQuery.error ? (
+              {isOwner && !loading && writeOffQuery.error ? (
+                <LoadErrorAlert retrying={writeOffQuery.loading} onRetry={() => void writeOffQuery.reload()}>
+                  {t('loadError')}
+                </LoadErrorAlert>
+              ) : isOwner && !loading && writeOffQuery.loading ? (
+                <TableSkeleton rows={1} columns={3} />
+              ) : isOwner && !loading ? (
                 <Card as="section" padding="none" className="overflow-hidden">
                   <BarWriteOffsSection month={form.month} summary={writeOffSummary} />
                 </Card>
@@ -1573,8 +1520,16 @@ export default function MoneyTakenPage() {
           ? tsh('recoverDescription', { name: employeeNames[recoverTarget.shortage.employee_id] ?? tsh('removedEmployee') })
           : undefined}
         size="md"
+        footer={(
+          <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="secondary" disabled={shortageBusy !== null} onClick={() => setRecoverTarget(null)}>{tc('cancel')}</Button>
+            <Button type="submit" form="shortage-recover-form" disabled={!recoverValid} loading={shortageBusy !== null} loadingLabel={tc('saving')} icon={<Undo2 size={17} aria-hidden="true" />}>
+              {tsh('recoverSave')}
+            </Button>
+          </div>
+        )}
       >
-        <form onSubmit={handleRecover} className="space-y-4">
+        <form id="shortage-recover-form" onSubmit={handleRecover} className="space-y-4">
           <Field
             label={`${tsh('recoverAmount')} (${tc('currency')})`}
             htmlFor="shortage-recover-amount"
@@ -1591,94 +1546,7 @@ export default function MoneyTakenPage() {
             />
           </Field>
           {recoverError ? <InlineAlert variant="danger">{tsh(`errors.${recoverError}`)}</InlineAlert> : null}
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button type="button" variant="ghost" disabled={shortageBusy !== null} onClick={() => setRecoverTarget(null)}>{tc('cancel')}</Button>
-            <Button type="submit" disabled={!recoverValid} loading={shortageBusy !== null} loadingLabel={tc('saving')} icon={<Undo2 size={17} aria-hidden="true" />}>
-              {tsh('recoverSave')}
-            </Button>
-          </div>
         </form>
-      </Modal>
-
-      <Modal
-        open={returnTarget !== null}
-        onClose={() => (reserveBusy ? undefined : setReturnTarget(null))}
-        locked={reserveBusy !== null}
-        title={tr('returnTitle')}
-        description={tr('returnDescription', { month: formatYearMonth(form.month, locale) })}
-        size="md"
-      >
-        <form onSubmit={handleReturn} className="space-y-4">
-          {returnTarget === 'game_club' ? (
-            <Field label={t('paymentMethod')} required>
-              <SegmentedControl
-                label={t('paymentMethod')}
-                columns="auto"
-                className="grid-cols-2"
-                value={returnMethod}
-                onChange={(method) => {
-                  setReturnMethod(method);
-                  setReturnInput('');
-                }}
-                options={OWNER_WITHDRAWAL_PAYMENT_METHODS.map((method) => ({
-                  value: method,
-                  disabled: reserveHeld.game_club.byMethod[method] <= 0,
-                  label: (
-                    <span className="flex flex-col items-center py-1 leading-tight">
-                      <span className="inline-flex items-center gap-1.5"><MethodPickerIcon method={method} />{methodLabel(method)}</span>
-                      <span className="mt-0.5 text-[11px] font-normal tabular-nums opacity-80">{formatCurrency(reserveHeld.game_club.byMethod[method])}</span>
-                    </span>
-                  ),
-                }))}
-              />
-            </Field>
-          ) : null}
-          <Field
-            label={`${tr('returnAmount')} (${tc('currency')})`}
-            htmlFor="reserve-return-amount"
-            required
-            hint={tr('returnLeft', { amount: currency(Math.max(0, returnMax)) })}
-            error={returnInput && !returnValid ? tr('returnTooLarge', { amount: formatCurrency(Math.max(0, returnMax)) }) : undefined}
-          >
-            <div className="flex gap-2">
-              <CurrencyInput
-                id="reserve-return-amount"
-                controlSize="lg"
-                className="flex-1"
-                value={returnInput}
-                invalid={Boolean(returnInput) && !returnValid}
-                onValueChange={setReturnInput}
-              />
-              <Button type="button" variant="secondary" size="lg" className="min-h-14 shrink-0" disabled={returnMax <= 0} onClick={() => setReturnInput(formatCurrencyInput(returnMax))}>
-                {t('takeAll')}
-              </Button>
-            </div>
-          </Field>
-          {reserveError ? <InlineAlert variant="danger">{tr(`errors.${reserveError}`)}</InlineAlert> : null}
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button type="button" variant="ghost" disabled={reserveBusy !== null} onClick={() => setReturnTarget(null)}>{tc('cancel')}</Button>
-            <Button type="submit" disabled={!returnValid} loading={reserveBusy === 'return'} loadingLabel={tc('saving')} icon={<Undo2 size={17} aria-hidden="true" />}>
-              {tr('returnSave')}
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      <Modal
-        open={reservePayOpen}
-        onClose={() => setReservePayOpen(false)}
-        title={tr('payTitle')}
-        description={tr('payDescription')}
-        size="xl"
-      >
-        <ExpenseRegistrationForm
-          defaultFromReserve
-          onSaved={async () => {
-            setReservePayOpen(false);
-            showToast(tr('paidToast'), 'success');
-            await loadData({ silent: true });
-          }}
-        />
       </Modal>
 
       {toastElement}

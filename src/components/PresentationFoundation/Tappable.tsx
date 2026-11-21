@@ -9,6 +9,8 @@ export interface TappableCardProps {
   href?: string;
   /** Tapping opens something in place, such as a details sheet. */
   onClick?: () => void;
+  /** The surface is a filter that is switched on: draws the selected ring and reports `aria-pressed`. */
+  selected?: boolean;
 }
 
 /**
@@ -24,7 +26,10 @@ export const tappableClassName =
  * or a plain `div` from the same classes, and draws the corner chevron that
  * says "this opens". Cards, metric cards and stat tiles are all built on it.
  */
-export function TappableSurface({ href, onClick, className, chevron = true, label, children }: TappableCardProps & {
+/** The ring a tappable surface wears while the filter it stands for is on. */
+export const selectedClassName = 'border-primary-400 ring-1 ring-primary-400';
+
+export function TappableSurface({ href, onClick, selected, className, chevron = true, label, children }: TappableCardProps & {
   className?: string;
   /** Corner chevron on a tappable surface; turn off when the content already shows one. */
   chevron?: boolean;
@@ -40,10 +45,10 @@ export function TappableSurface({ href, onClick, className, chevron = true, labe
     />
   ) : null;
   if (href) {
-    return <Link href={href} aria-label={label} className={cn(className, tappableClassName)}>{children}{mark}</Link>;
+    return <Link href={href} aria-label={label} aria-current={selected || undefined} className={cn(className, tappableClassName, selected && selectedClassName)}>{children}{mark}</Link>;
   }
   if (onClick) {
-    return <button type="button" onClick={onClick} aria-label={label} className={cn(className, tappableClassName)}>{children}{mark}</button>;
+    return <button type="button" onClick={onClick} aria-label={label} aria-pressed={selected} className={cn(className, tappableClassName, selected && selectedClassName)}>{children}{mark}</button>;
   }
-  return <div className={className}>{children}</div>;
+  return <div className={cn(className, selected && selectedClassName)}>{children}</div>;
 }

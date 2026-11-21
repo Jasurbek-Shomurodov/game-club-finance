@@ -32,7 +32,7 @@ import {
   useToast,
   type SegmentedOption,
 } from '@/components/PresentationFoundation';
-import { ProductsSkeleton } from './ProductsSkeleton';
+import { ProductSalesSkeleton, ProductsSkeleton } from './ProductsSkeleton';
 import { cleanQuantityInput, formatCurrency, formatNumber, formatUnitCurrency } from '@/lib/formatters';
 import { fetchProductsOrdered, isMissingSortOrder, updateProductSortOrders } from '@/lib/supabase/products';
 import {
@@ -413,13 +413,16 @@ export default function ProductsPage() {
   const editingInactive = Boolean(editingProduct && !editingProduct.is_active && !editingProduct.is_deleted);
   const editingArchived = Boolean(editingProduct?.is_deleted);
 
+  // With an empty catalog the empty state carries the primary "Add product".
+  const catalogEmpty = !loading && !loadError && products.length === 0;
+
   return (
-    <div>
+    <div className="space-y-5">
       <PageHeader
         title={t('title')}
         tabs={sectionTabs}
         action={canManageInventory ? (
-          <Button onClick={openAdd} icon={<Plus size={16} aria-hidden="true" />}>{t('addProduct')}</Button>
+          <Button variant={catalogEmpty ? 'outline' : 'primary'} onClick={openAdd} icon={<Plus size={16} aria-hidden="true" />}>{t('addProduct')}</Button>
         ) : undefined}
       />
 
@@ -433,20 +436,23 @@ export default function ProductsPage() {
         <Card>
           <EmptyState
             icon={Package}
-            title={tc('noData')}
+            title={t('emptyTitle')}
+            description={canManageInventory ? t('emptyBody') : undefined}
             action={canManageInventory ? (
               <Button onClick={openAdd} icon={<Plus size={16} aria-hidden="true" />}>{t('addProduct')}</Button>
             ) : undefined}
           />
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-5">
           {/* A failed silent reload keeps the catalog on screen; retry quietly. */}
           {loadError && (
             <LoadErrorAlert onRetry={() => void loadProducts({ silent: true })}>
               {t('loadFailed')}
             </LoadErrorAlert>
           )}
+          {/* The sales read lands after the catalog: hold the card's place so the list does not jump. */}
+          {salesQuery.loading && !hasSales && <ProductSalesSkeleton />}
           {hasSales && (
             <Card as="section" aria-label={t('salesTitle', { days: SALES_PERIOD_DAYS })}>
               <SectionHeading
@@ -625,7 +631,7 @@ export default function ProductsPage() {
                   className: 'whitespace-nowrap',
                   render: (r: Product) => {
                     const insight = sales.byProduct.get(r.id);
-                    if (!insight || insight.sold === 0) return <span className="text-gray-400">—</span>;
+                    if (!insight || insight.sold === 0) return <span className="text-gray-500">—</span>;
                     return (
                       <span className="inline-flex flex-col sm:items-end">
                         <span className="font-medium text-gray-900">{t('stockUnits', { count: formatNumber(insight.sold) })}</span>

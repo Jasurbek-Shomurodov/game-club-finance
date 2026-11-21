@@ -207,7 +207,8 @@ export default function PromotionsPage() {
         title={t('title')}
         tabs={sectionTabs}
         action={isOwner ? (
-          <Button onClick={openAdd} icon={<Plus size={16} aria-hidden="true" />}>{t('addPromotion')}</Button>
+          // With no promotions yet the empty state carries the primary "Add promotion".
+          <Button variant={!loading && !loadError && promotions.length === 0 ? 'outline' : 'primary'} onClick={openAdd} icon={<Plus size={16} aria-hidden="true" />}>{t('addPromotion')}</Button>
         ) : undefined}
       />
 
@@ -350,7 +351,7 @@ export default function PromotionsPage() {
             <Field label={t('minSpend')} htmlFor="promotion-min-spend" hint={t('minSpendHint')}>
               <CurrencyInput id="promotion-min-spend" value={form.min_spend} onValueChange={(value) => set('min_spend', value)} trailingAddon={tc('currency')} />
             </Field>
-            <Field label={t('startsOn')} htmlFor="promotion-starts-on" required>
+            <Field label={t('startsOn')} required>
               <DatePicker ariaLabel={t('startsOn')} value={form.starts_on} onChange={(value) => set('starts_on', value)} />
             </Field>
           </div>
@@ -362,7 +363,7 @@ export default function PromotionsPage() {
               label={t('noEndDate')}
             />
             {form.ends_on !== '' && (
-              <Field label={t('endsOn')} htmlFor="promotion-ends-on">
+              <Field label={t('endsOn')}>
                 <DatePicker ariaLabel={t('endsOn')} value={form.ends_on} min={form.starts_on} onChange={(value) => set('ends_on', value)} />
               </Field>
             )}

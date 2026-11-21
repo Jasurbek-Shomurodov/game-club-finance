@@ -51,6 +51,21 @@ export function stockPurchaseHref(product: { id: string; shortfall?: number }): 
   return `/stock-purchase?${params.toString()}`;
 }
 
+/** Purchases recorded on one day, in the purchase history below the form. */
+export function purchaseHistoryHref(day: string): string {
+  return `/stock-purchase?${new URLSearchParams({ period: 'day', day }).toString()}`;
+}
+
+/** Financial Analysis for a month (`YYYY-MM`). */
+export function financialAnalysisHref(month: string): string {
+  return `/financial-analysis?${new URLSearchParams({ month }).toString()}`;
+}
+
+/** The owner reserve's own ledger. */
+export function reserveHistoryHref(): string {
+  return '/reserve?view=history';
+}
+
 /** Where a money-details line opens: the closing count for bar sales and purchases, otherwise that day in Reports. */
 export function moneyDetailLineHref(
   side: MoneySide,
@@ -59,7 +74,7 @@ export function moneyDetailLineHref(
 ): string {
   if (line.kind === 'purchase') return closingStockHref(date);
   // Money moved into the owner reserve is listed in the reserve's own history.
-  if (line.kind === 'reserve') return '/reserve?view=history';
+  if (line.kind === 'reserve') return reserveHistoryHref();
   if (line.kind === 'expense') return reportsHref(dayRange(date), { category: `expense:${line.category}`, source: side });
   if (line.key === 'barSales') return closingStockHref(date);
   return reportsHref(dayRange(date), { category: line.key === 'debtPayments' ? 'debt_payment' : 'income' });

@@ -12,9 +12,10 @@ import {
   Field,
   InlineAlert,
   Input,
-  PageSkeleton,
+  LoadErrorAlert,
   SectionHeading,
   Select,
+  SkeletonStatus,
   Textarea,
 } from '@/components/PresentationFoundation';
 import {
@@ -30,6 +31,7 @@ import {
 } from '@/lib/googleBusiness/listing';
 import { formatPhone } from '@/lib/formatters';
 import { useClubQuery } from '@/lib/useClubQuery';
+import { GoogleListingSkeleton } from '../ShowcaseSkeletons';
 import { errorMessageKey, googleBusinessApi } from './googleBusinessApi';
 
 interface GoogleListingCardProps {
@@ -102,9 +104,9 @@ export function GoogleListingCard({ clubId, isOwner, onSaved }: GoogleListingCar
       </CardHeader>
       <CardBody>
         {query.loading ? (
-          <PageSkeleton />
+          <SkeletonStatus><GoogleListingSkeleton /></SkeletonStatus>
         ) : query.data.failed || !form ? (
-          <InlineAlert variant="warning">{t(query.data.failed ?? 'error_generic')}</InlineAlert>
+          <LoadErrorAlert retrying={query.loading} onRetry={() => void query.reload()}>{t(query.data.failed ?? 'error_generic')}</LoadErrorAlert>
         ) : (
           <form className="space-y-5" onSubmit={save} noValidate>
             {!isOwner && <InlineAlert variant="info">{t('listingOwnerOnly')}</InlineAlert>}

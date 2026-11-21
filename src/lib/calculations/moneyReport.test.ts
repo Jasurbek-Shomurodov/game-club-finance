@@ -331,6 +331,13 @@ describe('money report', () => {
     expect(income.barExpenses).toBe(0);
     expect(income.days[0].activities.map((activity) => activity.kind)).toEqual(['income']);
 
+    // Money in lists exactly the rows behind the unfiltered "total collected".
+    const moneyIn = buildFilteredMoneyReport(cashRows, expenseRows, debtRows, 'money_in');
+    expect(moneyIn.totalCollected).toBe(buildFilteredMoneyReport(cashRows, expenseRows, debtRows, 'all').totalCollected);
+    expect(moneyIn.totalCollected).toBe(1_100);
+    expect(moneyIn.gameClubExpenses).toBe(0);
+    expect(moneyIn.days[0].activities.map((activity) => activity.kind).sort()).toEqual(['debt_payment', 'income']);
+
     const expenses = buildFilteredMoneyReport(cashRows, expenseRows, debtRows, 'expense');
     expect(expenses.totalCollected).toBe(0);
     expect(expenses.gameClubExpenses).toBe(500);

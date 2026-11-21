@@ -127,3 +127,12 @@ Motion (globals.css, "Motion system"; all of it is skipped under reduced motion)
 - These animations fill backwards only, so nothing keeps a transform after it
   has played (sticky headers and fixed children are safe). Do not animate with
   `forwards`/`both` on a container.
+
+## Shared states added in the November 2026 audit
+
+- `selected` on `MetricCard`, `StatTile`, `Card` and `TappableSurface`: the one ring for "this filter is on" (also sets `aria-pressed`). Do not paint a ring through `className`.
+- `TableSkeleton bare`: the placeholder for a `DataTable bare` inside a card.
+- `Textarea` grows with its text (up to `max-h-72`); do not use a single-line `Input` for free text.
+- Programmatic scrolling uses `scrollBehavior()` from `@/lib/scroll`, so it respects reduced motion.
+- Negative amounts from `formatNumber`/`formatCurrency` carry a real minus sign (U+2212).
+

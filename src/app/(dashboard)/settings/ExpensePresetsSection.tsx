@@ -2,13 +2,14 @@
 
 import { useCallback, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Archive, Pencil, Plus } from 'lucide-react';
+import { Archive, CalendarClock, Pencil, Plus } from 'lucide-react';
 import {
   Badge,
   Button,
   Card,
   CategoryIcon,
   CurrencyInput,
+  EmptyState,
   Field,
   IconButton,
   InlineAlert,
@@ -187,7 +188,7 @@ function PresetList({ clubId, isOwner }: { clubId: string; isOwner: boolean }) {
       ) : undefined}
     >
       <Card padding="none" className="divide-y divide-gray-100 overflow-hidden">
-        <p className="px-5 py-3 text-[13px] leading-5 text-gray-500">{t('help')}</p>
+        <p className="px-5 py-3 text-xs leading-5 text-gray-500">{t('help')}</p>
         {query.error ? (
           <div className="px-5 py-4">
             <LoadErrorAlert retrying={query.loading} onRetry={() => void query.reload()}>{t('loadError')}</LoadErrorAlert>
@@ -195,7 +196,7 @@ function PresetList({ clubId, isOwner }: { clubId: string; isOwner: boolean }) {
         ) : !query.data ? (
           <div className="space-y-3 px-5 py-4">{[0, 1].map((row) => <div key={row} className="flex items-center gap-3"><Skeleton className="h-9 w-9 shrink-0 rounded-xl" /><Skeleton className="h-10 flex-1" /></div>)}</div>
         ) : live.length === 0 ? (
-          <p className="px-5 py-4 text-sm text-gray-500">{t('empty')}</p>
+          <EmptyState compact icon={CalendarClock} title={t('empty')} />
         ) : (
           <ul aria-label={t('title')} className="divide-y divide-gray-100">
             {live.map((preset) => (

@@ -40,7 +40,6 @@ export function AddAccessControls({
       </Select>
       <Button
         variant={buttonVariant}
-        className="px-5"
         loading={saving}
         onClick={onSubmit}
         icon={<UserPlus size={16} aria-hidden="true" />}

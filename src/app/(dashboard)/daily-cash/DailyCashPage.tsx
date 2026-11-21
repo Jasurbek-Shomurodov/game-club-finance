@@ -60,6 +60,7 @@ import { formatCurrency, formatCurrencyInput, formatDateOnly, formatDateTime, pa
 import type { DailyCashEntry } from '@/types';
 import { DailyCashMonthGlance } from './DailyCashMonthGlance';
 import { DailyCashSkeleton } from './DailyCashSkeleton';
+import { scrollBehavior } from '@/lib/scroll';
 
 const isOwnerRole = (role: string | null | undefined) => role === 'owner';
 
@@ -483,7 +484,7 @@ export default function DailyCashPage() {
       if (!discard) return;
     }
     setField('date', next);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: scrollBehavior() });
   }
 
   function handleReset() {
@@ -560,7 +561,7 @@ export default function DailyCashPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-gray-600">{t('date')}</span>
-            <div className="w-full max-w-[220px]">
+            <div className="w-full max-w-56">
               <DatePicker
                 ariaLabel={t('date')}
                 value={form.date}

@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { ArrowDownToLine, ArrowRightLeft, ArrowUpFromLine, CalendarRange, ChevronRight, ShoppingCart, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { Badge, Button, CategoryIcon, IconButton, Modal } from '@/components/PresentationFoundation';
+import { Badge, Button, CategoryIcon, IconButton, IconChip, Modal, TappableSurface, type Tone } from '@/components/PresentationFoundation';
 import { groupReserveActivityByDay, type ReserveActivity } from '@/lib/calculations/ownerReserve';
 import { isKnownExpenseCategory } from '@/lib/expenseCategories';
 import { formatCurrency, formatDateOnly, formatDateShort, formatDateTime, formatUnitCurrency, formatYearMonth } from '@/lib/formatters';
@@ -22,12 +22,7 @@ interface ReserveHistoryListProps {
 }
 
 const KIND_ICON = { deposit: ArrowDownToLine, return: ArrowUpFromLine, purchase: ShoppingCart, exchange: ArrowRightLeft } as const;
-const KIND_TONE = {
-  deposit: 'bg-primary-50 text-primary-600',
-  return: 'bg-warning-50 text-warning-700',
-  purchase: 'bg-gray-100 text-gray-600',
-  exchange: 'bg-purple-50 text-purple-600',
-} as const;
+const KIND_TONE: Record<ReserveActivity['kind'], Tone> = { deposit: 'primary', return: 'warning', purchase: 'neutral', exchange: 'reserve' };
 
 const dollars = (value: number) => `$${formatUnitCurrency(value)}`;
 
@@ -100,18 +95,12 @@ export function ReserveHistoryList({ activity, methodLabel, busyId, disabled, on
                 const month = monthOf(row);
                 const deletable = !lockReason(row);
                 return (
-                  <li key={keyOf(row)} className="flex items-center pr-2 transition-colors hover:bg-gray-50/70 sm:pr-3">
-                    <button
-                      type="button"
-                      onClick={() => setOpenKey(keyOf(row))}
-                      aria-haspopup="dialog"
-                      className="group flex min-w-0 flex-1 items-center gap-3 py-3 pl-4 pr-2 text-left focus-visible:bg-gray-50/70 focus-visible:outline-none sm:pl-5"
-                    >
+                  <li key={keyOf(row)} className="flex items-center pr-2 sm:pr-3">
+                    <TappableSurface onClick={() => setOpenKey(keyOf(row))} chevron={false} className="min-w-0 flex-1 rounded-lg py-3 pl-4 pr-2 sm:pl-5">
+                      <span className="flex items-center gap-3">
                       {/* A purchase shows what it paid for; the other kinds show how the money moved. */}
                       {row.kind === 'purchase' ? <CategoryIcon category={row.category} tone="move" /> : (
-                        <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', KIND_TONE[row.kind])}>
-                          <Icon size={18} aria-hidden="true" />
-                        </span>
+                        <IconChip icon={Icon} tone={KIND_TONE[row.kind]} />
                       )}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium leading-5 text-gray-900">{title}</span>
@@ -138,8 +127,9 @@ export function ReserveHistoryList({ activity, methodLabel, busyId, disabled, on
                           <span className="ml-1 text-xs font-medium text-gray-500">{tc('currency')}</span>
                         </span>
                       )}
-                      <ChevronRight size={16} aria-hidden="true" className="shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5" />
-                    </button>
+                      <ChevronRight size={16} aria-hidden="true" className="shrink-0 text-gray-400" />
+                      </span>
+                    </TappableSurface>
                     {deletable ? (
                       <IconButton
                         variant="danger"
@@ -252,7 +242,7 @@ function ReserveEntryDetails({ row, title, month, methodLabel, categoryLabel, bu
           {!locked ? (
             <Button
               variant="danger"
-              icon={<Trash2 size={16} />}
+              icon={<Trash2 size={16} aria-hidden="true" />}
               loading={busy}
               disabled={disabled}
               onClick={() => onDelete(row)}
@@ -265,9 +255,7 @@ function ReserveEntryDetails({ row, title, month, methodLabel, categoryLabel, bu
       )}
     >
       <div className="flex items-center gap-3">
-        <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl', KIND_TONE[row.kind])}>
-          <Icon size={20} aria-hidden="true" />
-        </span>
+        <IconChip icon={Icon} tone={KIND_TONE[row.kind]} size="lg" />
         <div className="min-w-0">
           {row.kind === 'exchange' ? (
             <p className="text-2xl font-bold tabular-nums text-gray-900">

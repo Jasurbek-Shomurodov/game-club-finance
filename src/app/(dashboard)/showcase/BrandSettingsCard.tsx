@@ -13,8 +13,9 @@ import {
   Field,
   InlineAlert,
   Input,
+  LoadErrorAlert,
   SectionHeading,
-  Skeleton,
+  SkeletonStatus,
   buttonClassName,
 } from '@/components/PresentationFoundation';
 import { createClient } from '@/lib/supabase/client';
@@ -30,6 +31,7 @@ import {
 import type { ShowcaseBrand } from '@/types';
 import { LocalizedTextField } from './LocalizedTextField';
 import { ShowcaseImageField } from './ShowcaseImageField';
+import { ShowcaseFormSkeleton } from './ShowcaseSkeletons';
 
 interface BrandSettingsCardProps {
   userId: string;
@@ -117,9 +119,9 @@ export function BrandSettingsCard({ userId, clubId, onSaved }: BrandSettingsCard
       </CardHeader>
       <CardBody>
         {status === 'loading' ? (
-          <Skeleton className="h-40 w-full" />
+          <SkeletonStatus><ShowcaseFormSkeleton fields={5} /></SkeletonStatus>
         ) : status === 'error' ? (
-          <InlineAlert variant="danger">{t('loadFailed')}</InlineAlert>
+          <LoadErrorAlert onRetry={() => { setStatus('loading'); void load(); }}>{t('loadFailed')}</LoadErrorAlert>
         ) : (
           <form onSubmit={save} className="space-y-4">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

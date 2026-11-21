@@ -24,20 +24,25 @@ export interface DonutSlice {
  * slice is named with its amount and share, so colour never carries identity
  * alone. Hovering a slice or a legend row spotlights the other.
  */
-export function DonutBreakdown({ slices, total, totalLabel, currency, locale, size = 'md' }: {
+export function DonutBreakdown({ slices, total, totalLabel, currency, locale, size = 'md', rowFrom = 'sm', formatShare }: {
   slices: readonly DonutSlice[];
   total: number;
   totalLabel: string;
   currency: string;
   locale: string;
   size?: 'sm' | 'md';
+  /** Where the legend moves beside the ring; `xl` for a donut in a half-width card. */
+  rowFrom?: 'sm' | 'xl';
+  /** How a 0-1 share is written; whole percents in the app language by default. */
+  formatShare?: (share: number) => string;
 }) {
   const [active, setActive] = useState<string | null>(null);
   const activeSlice = slices.find((slice) => slice.key === active) ?? null;
   const diameter = size === 'sm' ? 'h-36 w-36' : 'h-44 w-44';
+  const shareText = (share: number) => (formatShare ? formatShare(share) : formatPercentShare(share, locale));
 
   return (
-    <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
+    <div className={cn('flex flex-col items-center gap-4', rowFrom === 'xl' ? 'xl:flex-row xl:items-center' : 'sm:flex-row sm:items-center')}>
       <div className={cn('relative shrink-0', diameter)} onMouseLeave={() => setActive(null)}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -59,19 +64,19 @@ export function DonutBreakdown({ slices, total, totalLabel, currency, locale, si
                   key={slice.key}
                   fill={slice.color}
                   fillOpacity={active && active !== slice.key ? 0.25 : 1}
-                  className={cn('outline-none transition-[fill-opacity]', slice.onSelect && 'cursor-pointer')}
+                  className={cn('outline-none transition-[fill-opacity] motion-reduce:transition-none', slice.onSelect && 'cursor-pointer')}
                 />
               ))}
             </Pie>
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-6 text-center" aria-live="polite">
-          <span className="line-clamp-2 text-[11px] font-medium leading-4 text-gray-500">{activeSlice ? activeSlice.label : totalLabel}</span>
+          <span className="line-clamp-2 text-xs font-medium leading-4 text-gray-500">{activeSlice ? activeSlice.label : totalLabel}</span>
           <span className="mt-0.5 text-base font-bold tabular-nums tracking-tight text-gray-950">
             {formatCurrency(activeSlice ? activeSlice.value : total)}
           </span>
-          <span className="text-[11px] text-gray-500">
-            {activeSlice ? formatPercentShare(activeSlice.share, locale) : currency}
+          <span className="text-xs text-gray-500">
+            {activeSlice ? shareText(activeSlice.share) : currency}
           </span>
         </div>
       </div>
@@ -93,7 +98,7 @@ export function DonutBreakdown({ slices, total, totalLabel, currency, locale, si
                       style={{ width: `${Math.max(2, slice.share * 100)}%`, backgroundColor: colorWithAlpha(slice.color, 0.85) }}
                     />
                   </span>
-                  <span className="w-10 shrink-0 text-right text-[11px] tabular-nums text-gray-500">{formatPercentShare(slice.share, locale)}</span>
+                  <span className="w-10 shrink-0 text-right text-xs tabular-nums text-gray-500">{shareText(slice.share)}</span>
                 </span>
               </span>
               {slice.onSelect && <ChevronRight size={14} aria-hidden="true" className="shrink-0 text-gray-400" />}
@@ -111,7 +116,7 @@ export function DonutBreakdown({ slices, total, totalLabel, currency, locale, si
                   onClick={slice.onSelect}
                   onFocus={() => setActive(slice.key)}
                   onBlur={() => setActive(null)}
-                  aria-label={`${slice.label}: ${formatCurrency(slice.value)} ${currency}, ${formatPercentShare(slice.share, locale)}`}
+                  aria-label={`${slice.label}: ${formatCurrency(slice.value)} ${currency}, ${shareText(slice.share)}`}
                   className={cn(rowClass, 'hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500')}
                 >
                   {row}

@@ -63,12 +63,12 @@ export function ClubLogoField({ clubId, value, disabled, onChange, onError, onUp
       >
         <ClubLogo src={value || null} size={44} className="h-full w-full rounded-none" />
         {!disabled && (
-          <span className="absolute inset-0 flex items-center justify-center bg-gray-950/45 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+          <span className="absolute inset-0 flex items-center justify-center bg-gray-950/45 text-gray-50 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
             {uploading ? <Spinner size={16} /> : <ImagePlus size={16} aria-hidden="true" />}
           </span>
         )}
         {uploading && (
-          <span className="absolute inset-0 flex items-center justify-center bg-gray-950/45 text-white">
+          <span className="absolute inset-0 flex items-center justify-center bg-gray-950/45 text-gray-50">
             <Spinner size={16} />
           </span>
         )}
@@ -79,7 +79,7 @@ export function ClubLogoField({ clubId, value, disabled, onChange, onError, onUp
           onClick={() => onChange('')}
           aria-label={t('clubLogoRemove')}
           title={t('clubLogoRemove')}
-          className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-gray-200 bg-surface text-gray-500 shadow-sm hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+          className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-gray-200 bg-surface text-gray-500 shadow-sm before:absolute before:-inset-2.5 before:content-[''] hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
         >
           <X size={12} aria-hidden="true" />
         </button>

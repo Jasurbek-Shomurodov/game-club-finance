@@ -11,6 +11,7 @@ import type { AvailableSourceBalance } from '@/lib/calculations/availableMoney';
 import type { ProfitMonthRow } from '@/lib/calculations/analysisSeries';
 import type { SourceIndicators } from '@/lib/calculations/financialAnalysis';
 import { formatCompactMoney, formatShare } from './analysisFormat';
+import { scrollBehavior } from '@/lib/scroll';
 
 type Side = 'gameClub' | 'bar';
 
@@ -60,19 +61,24 @@ function ProfitSparkBars({ months, locale, currency }: { months: ProfitMonthRow[
           return (
             <div key={row.month} className="flex min-w-0 flex-1 flex-col" title={title} role="img" aria-label={title}>
               <div className={cn('flex flex-col justify-end', hasLoss ? 'h-1/2' : 'h-full')}>
-                {row.profit >= 0 && <span className="w-full rounded-t-[3px]" style={{ height, backgroundColor: chartColors.success }} />}
+                {row.profit >= 0 && <span className="w-full rounded-t-sm" style={{ height, backgroundColor: chartColors.success }} />}
               </div>
               {hasLoss && (
                 <div className="flex h-1/2 flex-col border-t" style={{ borderColor: chartColors.grid }}>
-                  {row.profit < 0 && <span className="w-full rounded-b-[3px]" style={{ height, backgroundColor: chartColors.danger }} />}
+                  {row.profit < 0 && <span className="w-full rounded-b-sm" style={{ height, backgroundColor: chartColors.danger }} />}
                 </div>
               )}
             </div>
           );
         })}
       </div>
-      <div className="mt-1 flex gap-1.5 text-[10px] text-gray-500" aria-hidden="true">
-        {shown.map((row) => <span key={row.month} className="min-w-0 flex-1 truncate text-center">{formatMonthShort(row.month, locale)}</span>)}
+      <div className="mt-1 flex gap-1.5 text-xs text-gray-500" aria-hidden="true">
+        {/* Every third month is named, counted back from the latest: twelve names do not fit under twelve slim bars. */}
+        {shown.map((row, index) => (
+          <span key={row.month} className="flex min-w-0 flex-1 justify-center whitespace-nowrap">
+            {(shown.length - 1 - index) % 3 === 0 ? formatMonthShort(row.month, locale) : ''}
+          </span>
+        ))}
       </div>
     </div>
   );
@@ -145,14 +151,15 @@ export function SideSummaryCard({ side, title, icon: Icon, incomeLabel, data, mo
                 />
               )}
             </g>
-            <text x="66" y="60" textAnchor="middle" className="fill-gray-500" style={{ fontSize: 10 }}>
+            <text x="66" y="58" textAnchor="middle" className="fill-gray-500 text-sm">
               {t('margin')}
             </text>
             <text
               x="66"
-              y="80"
+              y="82"
               textAnchor="middle"
-              style={{ fontSize: 20, fontWeight: 700, fill: loss ? chartColors.danger : chartColors.success }}
+              className="text-xl font-bold"
+              style={{ fill: loss ? chartColors.danger : chartColors.success }}
             >
               {formatShare(data.marginPct, locale)}
             </text>
@@ -319,7 +326,7 @@ export function SectionNav({ items, label }: { items: Array<{ id: string; label:
     const chip = nav?.querySelector<HTMLElement>(`[data-section="${active}"]`);
     if (!nav || !chip) return;
     const left = chip.offsetLeft - nav.clientWidth / 2 + chip.clientWidth / 2;
-    nav.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+    nav.scrollTo({ left: Math.max(0, left), behavior: scrollBehavior() });
   }, [active]);
 
   const jump = (event: MouseEvent<HTMLAnchorElement>, id: string) => {
@@ -348,7 +355,7 @@ export function SectionNav({ items, label }: { items: Array<{ id: string; label:
               aria-current={current ? 'location' : undefined}
               onClick={(event) => jump(event, item.id)}
               className={cn(
-                'shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+                'inline-flex min-h-10 shrink-0 items-center rounded-full border px-3.5 text-xs font-medium transition-colors motion-reduce:transition-none sm:min-h-9 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
                 current
                   ? 'border-primary-600 bg-primary-600 text-on-accent'
                   : 'border-gray-200 bg-surface text-gray-700 hover:border-primary-300 hover:text-primary-700',

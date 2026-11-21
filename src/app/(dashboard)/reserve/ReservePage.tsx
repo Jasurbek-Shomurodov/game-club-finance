@@ -6,26 +6,27 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ArrowDownToLine, ArrowUpFromLine, ArrowRightLeft, ShoppingCart } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, ArrowRightLeft, ShoppingCart, Undo2 } from 'lucide-react';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
 import { ChartCard, ChartEmpty, categoricalColors, chartColors } from '@/components/dashboard/ChartCard';
+import { InOutChartSkeleton } from '@/components/charts/ChartSkeletons';
 import { rankShares } from '@/lib/calculations/insights';
 import { formatPercentShare } from '@/components/charts/chartFormat';
 import {
   Button,
-  ButtonLink,
   Card,
   ChartSkeleton,
   EmptyState,
   LoadErrorAlert,
+  Modal,
   PageHeader,
   SegmentedControl,
   SkeletonStatus,
   StatTile,
   TappableSurface,
-  TableSkeleton,
+  toneClasses,
   useConfirm,
   useToast,
 } from '@/components/PresentationFoundation';
@@ -36,11 +37,14 @@ import {
   reserveBuyLimits,
   reserveDailySeries,
   reserveDollarRates,
+  reserveFlowSplit,
   reserveFlowTotals,
   reserveMonthlySeries,
+  reserveSpendingByCategory,
+  reserveSumsHeld,
   type ReserveActivity,
 } from '@/lib/calculations/ownerReserve';
-import { formatCurrency, formatDateShort, formatUnitCurrency } from '@/lib/formatters';
+import { formatCurrency, formatDateShort, formatMonthShort, formatUnitCurrency } from '@/lib/formatters';
 import { createClient } from '@/lib/supabase/client';
 import { EMPTY_OWNER_RESERVE, fetchOwnerReserve } from '@/lib/supabase/ownerMoney';
 import { requestReserveDelete, requestReserveExchangeDelete, requestReservePurchaseDelete } from '@/lib/ownerReserveRequests';
@@ -49,14 +53,20 @@ import { useClubQuery } from '@/lib/useClubQuery';
 import type { OwnerReserveMethod } from '@/types';
 import { ReserveExchangeModal } from './ReserveExchangeModal';
 import { ReserveHistoryList, type DeletableReserveActivity } from './ReserveHistoryList';
-import { ReserveOverviewSkeleton } from './ReserveSkeleton';
+import { ReserveHistorySkeleton, ReserveOverviewSkeleton } from './ReserveSkeleton';
+import { ReserveReturnModal } from './ReserveReturnModal';
+import ExpenseRegistrationForm from '../reports/ExpenseRegistrationForm';
+import { scrollBehavior } from '@/lib/scroll';
 
 function ChartLoading() {
   return <ChartSkeleton />;
 }
 const loadCharts = () => import('./ReserveCharts');
 const ReserveBalanceChart = dynamic(() => loadCharts().then((module) => module.ReserveBalanceChart), { ssr: false, loading: ChartLoading });
-const ReserveFlowChart = dynamic(() => loadCharts().then((module) => module.ReserveFlowChart), { ssr: false, loading: ChartLoading });
+const DailyInOutChart = dynamic(() => import('@/components/charts/DailyInOutChart').then((module) => module.DailyInOutChart), {
+  ssr: false,
+  loading: () => <InOutChartSkeleton height={256} />,
+});
 const DonutBreakdown = dynamic(() => import('@/components/charts/DonutBreakdown').then((module) => module.DonutBreakdown), { ssr: false, loading: ChartLoading });
 
 type ReserveView = 'overview' | 'history';
@@ -81,10 +91,12 @@ export default function ReservePage() {
   const [view, setView] = useState<ReserveView>(() => (searchParams.get('view') === 'history' ? 'history' : 'overview'));
   const showHistory = () => {
     setView('history');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: scrollBehavior() });
   };
   const [busyId, setBusyId] = useState<string | null>(null);
   const [exchangeDirection, setExchangeDirection] = useState<'buy' | 'sell' | null>(null);
+  const [returnOpen, setReturnOpen] = useState(false);
+  const [reservePayOpen, setReservePayOpen] = useState(false);
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all');
 
   // Keep the tab shareable.
@@ -115,7 +127,7 @@ export default function ReservePage() {
 
   const currency = tc('currency');
   // Two pots (155): the sums, whatever side or method they were saved from, and the dollars.
-  const sumsHeld = balances.game_club.held + balances.bar.held - balances.game_club.byMethod.usd;
+  const sumsHeld = reserveSumsHeld(balances);
   // As the history shows it: exchanges inside the reserve (170) move nothing in or out.
   const totals = useMemo(() => reserveFlowTotals(activity), [activity]);
   const dollarsSumsValue = balances.game_club.byMethod.usd;
@@ -125,17 +137,13 @@ export default function ReservePage() {
   const te = useTranslations('expenses');
   // What the reserve paid for, largest category first; the tail folds into "other".
   const spendingSlices = useMemo(() => {
-    const byCategory = new Map<string, number>();
-    for (const row of activity) {
-      if (row.kind === 'purchase') byCategory.set(row.category, (byCategory.get(row.category) ?? 0) + row.amount);
-    }
     const label = (category: string) => {
       const key = `categories.${category}`;
       return te.has(key) ? te(key as Parameters<typeof te>[0]) : category.replace(/_/g, ' ');
     };
     let colorIndex = 0;
     return rankShares(
-      [...byCategory.entries()].map(([category, value]) => ({ key: category, label: label(category), value })),
+      reserveSpendingByCategory(activity).map(({ category, amount }) => ({ key: category, label: label(category), value: amount })),
       categoricalColors.length,
       { key: 'other', label: te('categories.other') },
     ).map((slice) => ({
@@ -145,11 +153,14 @@ export default function ReservePage() {
     }));
   }, [activity, te]);
   // Everything put in, as what was spent, sent back to profit and is still held.
+  const flowSplit = reserveFlowSplit(totals);
   const flowParts = [
-    { key: 'spent', label: t('spent'), value: totals.spent, className: 'bg-danger-500' },
-    { key: 'returned', label: t('returned'), value: totals.returned, className: 'bg-gray-400' },
-    { key: 'held', label: t('stillHeld'), value: Math.max(0, totals.deposited - totals.spent - totals.returned), className: 'bg-primary-600' },
+    { key: 'spent', label: t('spent'), value: flowSplit.spent, className: toneClasses.danger.solid },
+    { key: 'returned', label: t('returned'), value: flowSplit.returned, className: toneClasses.neutral.solid },
+    { key: 'held', label: t('stillHeld'), value: flowSplit.held, className: toneClasses.reserve.solid },
   ].filter((part) => part.value > 0);
+  // Money in and out by month, in the shape the shared in/out chart draws.
+  const flowSeries = series.map((row) => ({ date: row.month, label: formatMonthShort(`${row.month}-01`, locale), income: row.deposited, expenses: row.withdrawn }));
   const flowWhole = flowParts.reduce((sum, part) => sum + part.value, 0);
   const filterOptions = useMemo(() => {
     const present = new Set(activity.map((row) => row.kind));
@@ -197,12 +208,34 @@ export default function ReservePage() {
     }
   }
 
+  const actionsDisabled = query.loading || !!query.error || !reserveSupported || busyId !== null;
   const header = (
     <PageHeader
       title={t('title')}
       className="mb-0"
       tabs={sectionTabs}
-      action={<ButtonLink href="/money-taken" variant="outline" size="sm">{t('manage')}</ButtonLink>}
+      action={(
+        <>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={actionsDisabled || (balances.game_club.held - balances.game_club.byMethod.usd <= 0 && balances.bar.held <= 0)}
+            onClick={() => setReservePayOpen(true)}
+            icon={<ShoppingCart size={16} aria-hidden="true" />}
+          >
+            {tr('payButton')}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={actionsDisabled || (balances.game_club.held <= 0 && balances.bar.held <= 0)}
+            onClick={() => setReturnOpen(true)}
+            icon={<Undo2 size={16} aria-hidden="true" />}
+          >
+            {tr('returnButton')}
+          </Button>
+        </>
+      )}
     />
   );
   // The header tabs switch between Owner Profit and the reserve; this switches the reserve's own two views.
@@ -252,7 +285,7 @@ export default function ReservePage() {
             <Card as="section" aria-labelledby="reserve-total">
               <p id="reserve-total" className="text-xs font-medium text-gray-500">{t('totalHeld')}</p>
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                <TappableSurface onClick={() => { setHistoryFilter('all'); showHistory(); }} className="-m-2 !w-auto rounded-xl p-2 pr-8 hover:bg-gray-50">
+                <TappableSurface onClick={() => { setHistoryFilter('all'); showHistory(); }} className="-m-2 rounded-xl p-2 pr-8">
                   <p className="text-sm font-medium text-gray-600">{t('sumsPot')}</p>
                   <p className="mt-1 break-words text-3xl font-bold leading-none tracking-tight tabular-nums text-gray-950 sm:text-4xl">
                     {formatCurrency(sumsHeld)}
@@ -261,7 +294,7 @@ export default function ReservePage() {
                 </TappableSurface>
                 <TappableSurface
                   onClick={() => { setHistoryFilter(totals.exchanged > 0 ? 'exchange' : 'all'); showHistory(); }}
-                  className="-m-2 !w-auto rounded-xl p-2 pr-8 hover:bg-gray-50"
+                  className="-m-2 rounded-xl p-2 pr-8"
                 >
                   <p className="text-sm font-medium text-gray-600">{t('dollarsPot')}</p>
                   <p className="mt-1 break-words text-3xl font-bold leading-none tracking-tight tabular-nums text-gray-950 sm:text-4xl">
@@ -306,19 +339,15 @@ export default function ReservePage() {
                   {t('sellDollars')}
                 </Button>
                 {totals.exchanged > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => { setHistoryFilter('exchange'); showHistory(); }}
-                    className="rounded text-xs text-gray-500 hover:text-gray-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
-                  >
+                  <Button variant="ghost" size="sm" onClick={() => { setHistoryFilter('exchange'); showHistory(); }}>
                     {t('exchangesCount', { count: totals.exchanged })}
-                  </button>
+                  </Button>
                 ) : null}
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <StatTile variant="soft" onClick={showHistory} icon={ArrowDownToLine} label={t('putIn')} value={formatCurrency(totals.deposited)} unit={currency} tone="success" />
-                <StatTile variant="soft" onClick={showHistory} icon={ArrowUpFromLine} label={t('returned')} value={formatCurrency(totals.returned)} unit={currency} />
-                <StatTile variant="soft" onClick={showHistory} icon={ShoppingCart} label={t('spent')} value={formatCurrency(totals.spent)} unit={currency} />
+                <StatTile variant="soft" onClick={() => { setHistoryFilter('deposit'); showHistory(); }} icon={ArrowDownToLine} label={t('putIn')} value={formatCurrency(totals.deposited)} unit={currency} tone="success" />
+                <StatTile variant="soft" onClick={() => { setHistoryFilter('return'); showHistory(); }} icon={ArrowUpFromLine} label={t('returned')} value={formatCurrency(totals.returned)} unit={currency} />
+                <StatTile variant="soft" onClick={() => { setHistoryFilter('purchase'); showHistory(); }} icon={ShoppingCart} label={t('spent')} value={formatCurrency(totals.spent)} unit={currency} />
               </div>
               {flowWhole > 0 ? (
                 <div className="mt-4">
@@ -353,12 +382,24 @@ export default function ReservePage() {
               </ChartCard>
             </div>
             <ChartCard title={t('flowTitle')} description={t('flowDescription')}>
-              {series.length === 0 ? <ChartEmpty title={tr('empty')} /> : <ReserveFlowChart rows={series} locale={locale} currency={currency} />}
+              {series.length === 0 ? <ChartEmpty title={tr('empty')} /> : (
+                <div className="mt-4">
+                  <DailyInOutChart
+                    data={flowSeries}
+                    incomeLabel={t('putIn')}
+                    expensesLabel={t('takenOut')}
+                    legendLabel={t('flowTitle')}
+                    currency={currency}
+                    locale={locale}
+                    height={256}
+                  />
+                </div>
+              )}
             </ChartCard>
           </>
         )
       ) : query.loading ? (
-        <TableSkeleton rows={6} columns={3} />
+        <SkeletonStatus><ReserveHistorySkeleton /></SkeletonStatus>
       ) : (
         <div className="max-w-4xl space-y-3">
           {filterOptions.length > 1 ? (
@@ -405,6 +446,36 @@ export default function ReservePage() {
           }}
         />
       ) : null}
+      {returnOpen ? (
+        <ReserveReturnModal
+          balances={balances}
+          currentMonth={currentMonth}
+          methodLabel={methodLabel}
+          currentLoad={currentLoad}
+          onClose={() => setReturnOpen(false)}
+          onSaved={async () => {
+            setReturnOpen(false);
+            showToast(tr('returnedToast'), 'success');
+            await query.reload({ silent: true });
+          }}
+        />
+      ) : null}
+      <Modal
+        open={reservePayOpen}
+        onClose={() => setReservePayOpen(false)}
+        title={tr('payTitle')}
+        description={tr('payDescription')}
+        size="xl"
+      >
+        <ExpenseRegistrationForm
+          defaultFromReserve
+          onSaved={async () => {
+            setReservePayOpen(false);
+            showToast(tr('paidToast'), 'success');
+            await query.reload({ silent: true });
+          }}
+        />
+      </Modal>
       {confirmDialog}
     </div>
   );

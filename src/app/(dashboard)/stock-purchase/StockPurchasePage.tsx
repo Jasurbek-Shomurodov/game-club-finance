@@ -21,6 +21,7 @@ import {
   CurrencyInput,
   DataTable,
   DatePicker,
+  Disclosure,
   EmptyState,
   Field,
   IconButton,
@@ -76,12 +77,10 @@ import {
 } from '@/lib/calculations/stock';
 import { classifyStockWriteError, type StockWriteErrorLike } from '@/lib/stockWriteErrors';
 import {
-  AlertTriangle,
   Check,
   ChevronLeft,
   ChevronRight,
   CreditCard,
-  HelpCircle,
   Package,
   ShoppingCart,
   Trash2,
@@ -105,6 +104,7 @@ import {
 import { PurchaseHistoryFilterBar } from '@/components/stock-purchase/PurchaseHistoryFilters';
 import { PurchaseSpendingSummary } from '@/components/stock-purchase/PurchaseSpendingSummary';
 import { PAYMENT_METHODS, type EntryPaymentMethod, type Product, type StockPurchase } from '@/types';
+import { scrollBehavior } from '@/lib/scroll';
 
 const PURCHASES_PAGE_SIZE = 10;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -473,6 +473,7 @@ export default function StockPurchasePage() {
     ? stockLevel(selectedProduct.current_stock, selectedProduct.low_stock_threshold)
     : null;
   const formDisabled = !canWrite;
+  const noTrackedProducts = !productsLoading && !productsError && products.length === 0;
 
   const purchasePageCount = Math.max(1, Math.ceil(purchaseCount / PURCHASES_PAGE_SIZE));
   const purchaseRangeFrom = purchaseCount === 0 ? 0 : (purchasePage - 1) * PURCHASES_PAGE_SIZE + 1;
@@ -542,7 +543,7 @@ export default function StockPurchasePage() {
   function applySuggestion(item: PurchaseSuggestion) {
     selectProduct(item.id);
     setForm((prev) => ({ ...prev, quantity: String(item.shortfall) }));
-    document.getElementById('stock-purchase-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('stock-purchase-form')?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
   }
 
   useEffect(() => {
@@ -553,7 +554,7 @@ export default function StockPurchasePage() {
     if (/^\d+$/.test(linked.quantity) && Number(linked.quantity) > 0) {
       setForm((prev) => ({ ...prev, quantity: linked.quantity }));
     }
-    document.getElementById('stock-purchase-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('stock-purchase-form')?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
     // selectProduct reads the current products; it runs once, when they first arrive.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products, canWrite]);
@@ -681,7 +682,7 @@ export default function StockPurchasePage() {
         </LoadErrorAlert>
       )}
 
-      {!productsLoading && !productsError && products.length === 0 && (
+      {noTrackedProducts && (
         <Card>
           <EmptyState
             icon={Package}
@@ -692,6 +693,8 @@ export default function StockPurchasePage() {
         </Card>
       )}
 
+      {/* With no tracked product there is nothing to buy: the empty state above stands in for the form. */}
+      {!noTrackedProducts && (
       <div className={selectedProduct ? 'grid gap-5 2xl:grid-cols-[minmax(0,1fr)_480px]' : 'grid gap-5'}>
         <Card as="form" id="stock-purchase-form" onSubmit={handleSubmit}>
           <SectionHeading title={t('addStockPurchase')} className="mb-5" />
@@ -806,17 +809,13 @@ export default function StockPurchasePage() {
             </Button>
           </div>
 
-          <details className="group mt-4 text-sm">
-            <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-gray-500 hover:text-gray-900 [&::-webkit-details-marker]:hidden">
-              <HelpCircle size={15} aria-hidden="true" />
-              {t('howItWorks')}
-            </summary>
-            <ul className="mt-2 space-y-1 pl-5 text-gray-600">
+          <Disclosure summary={t('howItWorks')} className="-ml-3 mt-4 text-sm">
+            <ul className="mt-2 space-y-1 pl-8 text-gray-600">
               {[t('hintStock'), t('hintClosing'), t('hintProfit')].map((hint) => (
                 <li key={hint} className="list-disc">{hint}</li>
               ))}
             </ul>
-          </details>
+          </Disclosure>
         </Card>
 
         {selectedProduct && (
@@ -836,7 +835,7 @@ export default function StockPurchasePage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
               <Avatar name={selectedProduct.name} size="lg" tone="neutral" />
               <div className="min-w-0">
-                <h3 className="break-words text-xl font-bold tracking-tight text-gray-950">{selectedProduct.name}</h3>
+                <p className="break-words text-xl font-bold tracking-tight text-gray-950">{selectedProduct.name}</p>
                 <p className="mt-2 text-sm text-gray-600">
                   {t('salePriceLabel')} <span className="font-semibold tabular-nums text-gray-900">{formatCurrency(salePrice)} {currency}</span>
                 </p>
@@ -867,6 +866,7 @@ export default function StockPurchasePage() {
           </Card>
         )}
       </div>
+      )}
 
       {/* Below the form: it arrives after the sales load and must not push the form down. */}
       {suggestions.items.length > 0 && (
@@ -948,8 +948,8 @@ export default function StockPurchasePage() {
         )}
 
         {purchasesLoading && purchases.length === 0 ? (
-          <TableSkeleton rows={6} columns={8} className="rounded-none border-0 shadow-none" />
-        ) : (
+          <TableSkeleton bare rows={6} columns={8} />
+        ) : purchasesError && purchases.length === 0 ? null : (
           <DataTable
             mobileCards
             bare
@@ -958,10 +958,8 @@ export default function StockPurchasePage() {
             onRowClick={setSelectedPurchase}
             data={purchases}
             minWidth={980}
-            className={purchasesLoading ? 'opacity-60 transition-opacity' : 'transition-opacity'}
-            emptyState={purchasesError
-              ? <EmptyState compact icon={AlertTriangle} title={t('purchasesLoadFailed')} />
-              : <EmptyState compact icon={ShoppingCart} title={tc('noData')} />}
+            className={purchasesLoading ? 'opacity-60 transition-opacity motion-reduce:transition-none' : 'transition-opacity motion-reduce:transition-none'}
+            emptyState={<EmptyState compact icon={ShoppingCart} title={tc('noData')} />}
             columns={[
               { key: 'index', header: '#', className: 'w-12', mobile: 'hidden', render: (_row, index) => <span className="text-gray-500 tabular-nums">{(purchasePage - 1) * PURCHASES_PAGE_SIZE + index + 1}</span> },
               { key: 'date', header: t('date'), mobile: 'title', render: (row) => <span className="font-medium text-gray-900">{formatDateOnly(row.date, locale)}</span> },

@@ -33,8 +33,8 @@ export function LocalizedTextField({ id, label, value, onChange, multiline = fal
     <div className="min-w-0">
       <div className="mb-1.5 flex items-center justify-between gap-3">
         <label htmlFor={controlId} className={cn(labelClassName, 'mb-0')}>{label}</label>
-        {/* Negative margin keeps this row as tall as a plain field label, so inputs beside it line up. */}
-        <div role="group" aria-label={t('languageSwitch')} className="-my-1.5 inline-flex gap-0.5 rounded-lg bg-gray-100 p-0.5">
+        {/* Negative margin keeps this row as tall as a plain field label, so inputs beside it line up; phones get a taller tap target instead. */}
+        <div role="group" aria-label={t('languageSwitch')} className="inline-flex gap-0.5 rounded-lg bg-gray-100 p-0.5 sm:-my-1.5">
           {SHOWCASE_LANGUAGES.map((code) => {
             const selected = code === language;
             const empty = anyFilled && !value[code].trim();
@@ -46,7 +46,7 @@ export function LocalizedTextField({ id, label, value, onChange, multiline = fal
                 aria-label={empty ? t('languageMissing', { language: code.toUpperCase() }) : code.toUpperCase()}
                 onClick={() => setLanguage(code)}
                 className={cn(
-                  'relative min-h-7 min-w-9 rounded-md px-2 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+                  'relative min-h-9 min-w-10 rounded-md px-2 text-xs font-semibold transition-colors motion-reduce:transition-none sm:min-h-7 sm:min-w-9 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
                   selected ? 'bg-surface text-gray-950 shadow-sm' : 'text-gray-500 hover:text-gray-900',
                 )}
               >

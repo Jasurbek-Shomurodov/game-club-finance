@@ -43,6 +43,12 @@ export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
     showcase.opening_hours ? { value: showcase.opening_hours, label: t('statHours') } : null,
   ] as Array<Stat | null>).filter((stat): stat is Stat => stat !== null);
 
+  // The section a visitor is sent to must exist: a club with only consoles has no "#zones".
+  const secondaryCta = pcZones.length > 0
+    ? { href: '#zones', label: t('seePcs') }
+    : playstationZones.length > 0
+      ? { href: '#playstation', label: t('seeConsoles') }
+      : { href: '#contacts', label: t('howToFind') };
   const headline = showcase.headline ?? showcase.club_name;
   const sectionTiles = [
     showcase.games.length > 0 ? { href: '#games', label: t('navGames'), image: firstImage(showcase.games, []) } : null,
@@ -88,11 +94,11 @@ export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
               </a>
             )}
             <a
-              href={showcase.zones.length > 0 ? '#zones' : '#contacts'}
+              href={secondaryCta.href}
               className="sc-glass inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-base font-semibold text-white transition-colors hover:bg-white/10"
             >
               <MonitorPlay size={18} aria-hidden="true" />
-              {showcase.zones.length > 0 ? t('seePcs') : t('howToFind')}
+              {secondaryCta.label}
             </a>
           </div>
 

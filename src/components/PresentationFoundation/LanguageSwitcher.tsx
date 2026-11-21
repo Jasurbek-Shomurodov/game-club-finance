@@ -39,7 +39,7 @@ export function LanguageSwitcher({ variant = 'light', className }: LanguageSwitc
               if (isAppLocale(lang.code) && lang.code !== locale) setLocale(lang.code);
             }}
             className={cn(
-              'min-h-8 min-w-9 rounded-[7px] px-2 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
+              'min-h-8 min-w-9 rounded-[7px] px-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
               selected
                 ? dark ? 'bg-surface text-gray-950 shadow-sm' : 'bg-surface text-gray-950 shadow-sm'
                 : dark ? 'text-white/70 hover:text-white' : 'text-gray-500 hover:text-gray-900',

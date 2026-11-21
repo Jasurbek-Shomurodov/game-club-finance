@@ -31,7 +31,7 @@ describe('commandPages', () => {
     expect(hrefs(commandPages('owner', null))).toEqual([
       '/dashboard', '/financial-analysis', '/assistant', '/daily-cash', '/closing-stock', '/write-offs', '/stock-purchase',
       '/products', '/promotions', '/reports', '/daily-report', '/monthly-report', '/money-taken', '/reserve', '/debts', '/salaries',
-      '/showcase', '/team', '/history', '/settings',
+      '/showcase', '/team', '/history', '/test-checklist', '/settings',
     ]);
   });
 

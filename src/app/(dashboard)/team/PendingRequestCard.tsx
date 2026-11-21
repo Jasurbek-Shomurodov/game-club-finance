@@ -40,13 +40,13 @@ export function PendingRequestCard({ member, accessControls, rejecting, busy, on
         </div>
       </div>
       <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center lg:shrink-0">
-        <div className="min-w-0 lg:w-[460px]">
+        <div className="min-w-0 lg:w-96">
           {accessControls}
         </div>
         <Button
           variant="ghost"
           size="sm"
-          className="shrink-0 text-gray-500 hover:text-danger-600"
+          className="shrink-0"
           icon={<X size={15} aria-hidden="true" />}
           loading={rejecting}
           disabled={busy && !rejecting}

@@ -157,17 +157,18 @@ export function ChartLegendToggle({ items, hidden, onToggle, onFocus, label }: {
             onFocus={() => !off && onFocus(item.key)}
             onBlur={() => onFocus(null)}
             className={cn(
-              'group/pill inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium transition-all duration-200',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 active:scale-95',
+              // 40px tall on phones, where the pill is the only way to show or hide a series.
+              'group/pill inline-flex min-h-10 items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition-colors duration-200 motion-reduce:transition-none sm:min-h-9 sm:px-2.5',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
               off
-                ? 'border-dashed border-gray-300 text-gray-400 hover:text-gray-600'
+                ? 'border-dashed border-gray-300 text-gray-500 hover:text-gray-600'
                 : 'border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-300 hover:bg-gray-100',
             )}
           >
             {Icon ? (
               <span
                 aria-hidden="true"
-                className="flex h-5 w-5 items-center justify-center rounded-full transition-colors"
+                className="flex h-5 w-5 items-center justify-center rounded-full transition-colors motion-reduce:transition-none"
                 style={{ backgroundColor: off ? 'transparent' : colorWithAlpha(item.color, 0.16), color: off ? undefined : item.color }}
               >
                 <Icon size={12} strokeWidth={2.4} />

@@ -15,7 +15,7 @@ export function WriteOffsSkeleton() {
         <div className="border-b border-gray-100 px-4 py-4 sm:px-5">
           <HeadingSkeleton />
         </div>
-        <TableSkeleton rows={2} columns={5} className="rounded-none border-0 shadow-none" />
+        <TableSkeleton bare rows={2} columns={5} />
       </SkeletonCard>
 
       <HeadingSkeleton action />
@@ -36,7 +36,7 @@ export function WriteOffsSkeleton() {
         <div className="border-b border-gray-100 px-4 py-4 sm:px-5">
           <HeadingSkeleton />
         </div>
-        <TableSkeleton rows={6} columns={6} className="rounded-none border-0 shadow-none" />
+        <TableSkeleton bare rows={6} columns={6} />
       </SkeletonCard>
     </div>
   );

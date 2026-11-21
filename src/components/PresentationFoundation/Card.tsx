@@ -52,6 +52,7 @@ export function Card({
   children,
   href,
   onClick,
+  selected,
   label,
   chevron = true,
   ...rest
@@ -61,6 +62,7 @@ export function Card({
       <TappableSurface
         href={href}
         onClick={onClick}
+        selected={selected}
         label={label}
         chevron={chevron}
         className={cn('min-w-0 rounded-2xl border', toneClasses[tone], paddingClasses[padding], chevron && 'pr-8 sm:pr-9', className)}

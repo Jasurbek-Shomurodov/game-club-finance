@@ -78,8 +78,7 @@ export function MigrationHealthPanel({ clubId }: { clubId: string }) {
 
           {statuses.length > 0 && (
             <div>
-              <h3 className="text-sm font-semibold text-gray-950">{t('migrations')}</h3>
-              <p className="mt-1 text-xs leading-5 text-gray-500">{t('migrationsNote')}</p>
+              <SectionHeading as="h3" size="sm" title={t('migrations')} description={t('migrationsNote')} />
               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <StatTile variant="soft" size="sm" tone="success" label={t('appliedCount')} value={count('applied', 'likely')} />
                 <StatTile variant="soft" size="sm" tone={count('notApplied', 'partial') ? 'danger' : 'muted'} label={t('notAppliedCount')} value={count('notApplied', 'partial')} />
@@ -116,8 +115,7 @@ export function MigrationHealthPanel({ clubId }: { clubId: string }) {
 
           {data && (
             <div>
-              <h3 className="text-sm font-semibold text-gray-950">{t('featureChecks')}</h3>
-              <p className="mt-1 text-xs leading-5 text-gray-500">{t('checksNote')}</p>
+              <SectionHeading as="h3" size="sm" title={t('featureChecks')} description={t('checksNote')} />
               {allChecksPass && <InlineAlert variant="success" className="mt-2">{t('checksPassed')}</InlineAlert>}
               <ul className="mt-2 divide-y divide-gray-100 rounded-xl border border-gray-200">
                 {data.checks.map((check) => (

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   calculateRemainingDebt, canManageDebts, classifyDebtPaymentInsertError, debtAgeDays, debtPersonKey, getDebtStatus,
-  latestPaymentDateByDebt, openDebtsByPerson, sortOpenDebts,
+  latestPaymentDateByDebt, openDebtsByPerson, sortOpenDebts, summarizeDebts,
 } from './debt';
 
 describe('calculateRemainingDebt', () => {
@@ -152,5 +152,31 @@ describe('openDebtsByPerson', () => {
     expect(totals.get(debtPersonKey('Bek'))).toEqual({ remaining: 10, count: 1 });
     expect(totals.get('')).toEqual({ remaining: 5, count: 1 });
     expect(totals.size).toBe(3);
+  });
+});
+
+describe('summarizeDebts', () => {
+  const debts = [
+    { person_name: 'Ali', amount: 100_000, paid_amount: 30_000, status: 'partial' },
+    { person_name: ' ali ', amount: 50_000, paid_amount: 0, status: 'unpaid' },
+    { person_name: 'Bek', amount: '40000', paid_amount: '40000', status: 'paid' },
+    { person_name: 'Vali', amount: 20_000, paid_amount: 25_000, status: 'partial' },
+  ];
+
+  it('gives the totals the page computed inline', () => {
+    // The same expressions DebtsPage used before this function existed.
+    const unpaid = debts.filter((debt) => debt.status !== 'paid');
+    const outstanding = unpaid.reduce((sum, debt) => sum + calculateRemainingDebt(Number(debt.amount) || 0, Number(debt.paid_amount) || 0), 0);
+    const debtors = new Set(unpaid.map((debt) => debt.person_name.trim().toLocaleLowerCase())).size;
+    const paid = debts.reduce((sum, debt) => sum + (Number(debt.paid_amount) || 0), 0);
+    expect(summarizeDebts(debts)).toEqual({ outstandingTotal: outstanding, debtorCount: debtors, paidTotal: paid });
+  });
+
+  it('counts a person once, leaves paid debts out of what is owed and never owes a negative amount', () => {
+    expect(summarizeDebts(debts)).toEqual({ outstandingTotal: 120_000, debtorCount: 2, paidTotal: 95_000 });
+  });
+
+  it('is all zeros without debts', () => {
+    expect(summarizeDebts([])).toEqual({ outstandingTotal: 0, debtorCount: 0, paidTotal: 0 });
   });
 });

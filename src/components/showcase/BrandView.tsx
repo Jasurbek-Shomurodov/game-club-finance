@@ -65,7 +65,7 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
             <dl className="sc-rise -mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 lg:max-w-md lg:justify-end" style={riseDelay(0.3)}>
               {stats.map((stat) => (
                 <div key={stat.label} className="sc-glass flex shrink-0 flex-col rounded-2xl px-4 py-2.5">
-                  <dt className="order-2 text-[10px] font-semibold uppercase tracking-wider text-white/50">{stat.label}</dt>
+                  <dt className="order-2 text-xs font-semibold uppercase tracking-wider text-white/50">{stat.label}</dt>
                   <dd className="sc-display order-1 whitespace-nowrap text-lg font-bold text-white">{stat.value}</dd>
                 </div>
               ))}
@@ -90,6 +90,7 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
           <SectionTitle eyebrow={t('clubsEyebrow')} title={t('clubsTitle')} description={t('clubsDescription')} />
           <ClubTabs
             anchorId={CLUBS_ANCHOR}
+            label={t('navClubs')}
             tabs={brand.clubs.map((club) => ({
               id: club.slug,
               label: club.club_name,
@@ -229,7 +230,7 @@ function Insight({ icon, label, value }: { icon: React.ReactNode; label: string;
         {icon}
       </span>
       <span className="min-w-0">
-        <span className="block text-[11px] font-semibold uppercase tracking-wider text-white/45">{label}</span>
+        <span className="block text-xs font-semibold uppercase tracking-wider text-white/60">{label}</span>
         <span className="sc-display block truncate text-base font-bold text-white sm:text-lg">{value}</span>
       </span>
     </div>
@@ -296,7 +297,7 @@ async function ClubPanel({ club }: { club: PublicShowcase }) {
           <h4 className="sc-display mb-6 flex items-center gap-2 text-xl font-bold text-white">
             <BadgePercent size={18} className="text-lime-300" aria-hidden="true" /> {t('offersTitle')}
           </h4>
-          <OfferGrid offers={club.offers} />
+          <OfferGrid offers={club.offers} heading="h5" />
         </div>
       )}
 
@@ -305,7 +306,7 @@ async function ClubPanel({ club }: { club: PublicShowcase }) {
           <h4 className="sc-display mb-6 flex items-center gap-2 text-xl font-bold text-white">
             <Monitor size={18} className="text-cyan-300" aria-hidden="true" /> {t('zonesTitle')}
           </h4>
-          <ZoneGrid zones={club.zones.filter((zone) => zone.kind === 'pc')} />
+          <ZoneGrid zones={club.zones.filter((zone) => zone.kind === 'pc')} heading="h5" />
         </div>
       )}
 
@@ -314,7 +315,7 @@ async function ClubPanel({ club }: { club: PublicShowcase }) {
           <h4 className="sc-display mb-6 flex items-center gap-2 text-xl font-bold text-white">
             <Gamepad2 size={18} className="text-blue-300" aria-hidden="true" /> {t('playstationTitle')}
           </h4>
-          <ZoneGrid zones={club.zones.filter((zone) => zone.kind === 'playstation')} />
+          <ZoneGrid zones={club.zones.filter((zone) => zone.kind === 'playstation')} heading="h5" />
         </div>
       )}
 

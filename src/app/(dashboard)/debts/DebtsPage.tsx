@@ -64,13 +64,15 @@ import {
   openDebtsByPerson,
   OVERDUE_DEBT_DAYS,
   sortOpenDebts,
+  summarizeDebts,
   type OpenDebtSort,
 } from '@/lib/calculations/debt';
 import { getDebtDateIssue, validateDebtPayment } from '@/lib/validation';
-import { ChevronRight, Download, Plus, Users, Wallet } from 'lucide-react';
+import { ChevronRight, CircleCheck, Download, HandCoins, Plus, Users, Wallet } from 'lucide-react';
 import { csvFileName, csvSeparatorForLocale, downloadCsv, toCsv } from '@/lib/csv';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
 import type { NewDebt, DebtPayment, EntryPaymentMethod } from '@/types';
+import { scrollBehavior } from '@/lib/scroll';
 
 const DEBT_COLUMNS = 'id,club_id,person_name,date,amount,paid_amount,remaining_amount,category,comment,status,created_by,created_at,updated_at';
 const DEBT_PAYMENT_COLUMNS = 'id,club_id,debt_id,date,amount,payment_method,comment,created_at';
@@ -468,7 +470,7 @@ export default function DebtsPage() {
   ];
   const paidShown = useListPresence(paidMatching, debtKey);
   const scrollToSection = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById(id)?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
   };
   /** A summary card orders the outstanding list by what its figure is about (largest, or oldest and overdue first); a second tap restores the default order. */
   const showOutstanding = (order: OpenDebtSort) => {
@@ -484,9 +486,7 @@ export default function DebtsPage() {
     if (!showPaid) scrollToSection('debts-paid');
     setShowPaid((value) => !value);
   };
-  const outstandingTotal = unpaid.reduce((sum, debt) => sum + remainingFor(debt), 0);
-  const debtorCount = new Set(unpaid.map((debt) => debt.person_name.trim().toLocaleLowerCase())).size;
-  const paidTotal = debts.reduce((sum, debt) => sum + (Number(debt.paid_amount) || 0), 0);
+  const { outstandingTotal, debtorCount, paidTotal } = useMemo(() => summarizeDebts(debts), [debts]);
   /** Every debt, open ones first as on the page, with what is still owed. */
   function exportDebts() {
     const rows = [...unpaid, ...paid].map((debt) => [
@@ -552,14 +552,16 @@ export default function DebtsPage() {
               label={t('outstandingTotal')}
               value={<MetricMoney amount={outstandingTotal} />}
               tone={outstandingTotal > 0 ? 'danger' : 'default'}
+              icon={HandCoins}
               onClick={unpaid.length > 0 ? () => showOutstanding('largest') : undefined}
-              className={cn(unpaid.length > 0 && sort === 'largest' && 'ring-2 ring-danger-500')}
+              selected={unpaid.length > 0 && sort === 'largest'}
             />
             <MetricCard
               label={t('debtorsCount')}
               value={formatNumber(debtorCount)}
+              icon={Users}
               onClick={unpaid.length > 0 ? () => showOutstanding('oldest') : undefined}
-              className={cn(unpaid.length > 0 && sort === 'oldest' && 'ring-2 ring-primary-500')}
+              selected={unpaid.length > 0 && sort === 'oldest'}
               helper={oldestUnpaid ? (
                 <>
                   {t('oldestDebt', { count: debtAgeDays(oldestUnpaid.date, businessToday) })}
@@ -570,8 +572,9 @@ export default function DebtsPage() {
             <MetricCard
               label={t('paidTotal')}
               value={<MetricMoney amount={paidTotal} />}
+              icon={CircleCheck}
               onClick={paid.length > 0 ? togglePaidList : undefined}
-              className={cn(paid.length > 0 && showPaid && 'ring-2 ring-success-500')}
+              selected={paid.length > 0 && showPaid}
             />
           </section>
 
@@ -603,7 +606,7 @@ export default function DebtsPage() {
                 </div>
               )}
               {searchQuery && unpaidMatching.length === 0 && (
-                <p role="status" className="px-4 py-4 text-sm text-gray-500 sm:px-5">{t('searchNoMatches')}</p>
+                <div role="status"><EmptyState compact title={t('searchNoMatches')} /></div>
               )}
               <ul className="divide-y divide-gray-100">
                 {unpaidShown.map(({ key, item: debt, presence }) => {
@@ -613,7 +616,7 @@ export default function DebtsPage() {
                   const person = personTotals.get(debtPersonKey(debt.person_name));
                   return (
                     <PresenceItem key={key} presence={presence} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:px-5">
-                      <button type="button" onClick={() => openDetail(debt.id)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+                      <button type="button" onClick={() => openDetail(debt.id)} className="tappable group flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
                         <Avatar name={debt.person_name} />
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
@@ -632,7 +635,7 @@ export default function DebtsPage() {
                             </p>
                           )}
                         </div>
-                        <ChevronRight size={15} aria-hidden="true" className="shrink-0 text-gray-300 sm:hidden" />
+                        <ChevronRight size={15} aria-hidden="true" className="shrink-0 text-gray-300 group-hover:text-gray-500" />
                       </button>
                       <div className="flex items-center justify-between gap-3 sm:justify-end">
                         <div className="text-right">
@@ -685,18 +688,20 @@ export default function DebtsPage() {
                 <ul className="divide-y divide-gray-100">
                   {paidShown.map(({ key, item: debt, presence }) => (
                     <PresenceItem key={key} presence={presence} className="px-4 py-3 sm:px-5">
-                      <button type="button" onClick={() => openDetail(debt.id)} className="flex w-full items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
-                      <Avatar name={debt.person_name} size="sm" tone="neutral" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-gray-700">{debt.person_name}</p>
-                        <p className="text-xs text-gray-500">
-                          {t('writtenOn', { date: formatDate(debt.date, locale) })}
-                          {paidDates[debt.id] ? ` · ${t('paidOn', { date: formatDate(paidDates[debt.id], locale) })}` : ''}
-                        </p>
-                      </div>
-                      <span className="shrink-0 font-semibold tabular-nums text-gray-500"><Money amount={debt.amount} /></span>
-                      <Badge variant="success" size="sm">{t('paid')}</Badge>
-                      <ChevronRight size={15} aria-hidden="true" className="shrink-0 text-gray-300" />
+                      {/* The section is titled "Paid", so the row needs no badge: the name keeps the width on phones. */}
+                      <button type="button" onClick={() => openDetail(debt.id)} className="tappable group flex w-full items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+                        <Avatar name={debt.person_name} size="sm" tone="neutral" />
+                        <span className="flex min-w-0 flex-1 flex-col gap-x-3 gap-y-0.5 sm:flex-row sm:items-center sm:justify-between">
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium text-gray-700">{debt.person_name}</span>
+                            <span className="block text-xs text-gray-500">
+                              {t('writtenOn', { date: formatDate(debt.date, locale) })}
+                              {paidDates[debt.id] ? ` · ${t('paidOn', { date: formatDate(paidDates[debt.id], locale) })}` : ''}
+                            </span>
+                          </span>
+                          <span className="shrink-0 font-semibold tabular-nums text-gray-500"><Money amount={debt.amount} /></span>
+                        </span>
+                        <ChevronRight size={15} aria-hidden="true" className="shrink-0 text-gray-300 group-hover:text-gray-500" />
                       </button>
                     </PresenceItem>
                   ))}
@@ -784,7 +789,7 @@ export default function DebtsPage() {
                     {paymentsError}
                   </LoadErrorAlert>
                 ) : payments.length === 0 ? (
-                  <p className="text-sm text-gray-500">{t('detailsNoPayments')}</p>
+                  <EmptyState compact bordered title={t('detailsNoPayments')} />
                 ) : (
                   <ul className="divide-y divide-gray-100 rounded-lg border border-gray-100">
                     {payments.map((p) => (

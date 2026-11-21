@@ -29,15 +29,17 @@ import {
 
 interface IncomeTrendChartProps {
   /** Each side's money in per day; the game club and the bar are never summed. */
-  data: Array<{ date: string; gameClubIncome: number; barSales: number; gameClubAverage?: number | null; barAverage?: number | null }>;
+  data: Array<{ date: string; /** The day as an ISO date, for `onSelectDay`. */ iso?: string; gameClubIncome: number; barSales: number; gameClubAverage?: number | null; barAverage?: number | null }>;
   /** Optional header link, e.g. to the full financial analysis. */
   link?: ReactNode;
+  /** Opens the day behind a tapped bar (its daily report). */
+  onSelectDay?: (date: string) => void;
 }
 
 // Legend pills: each side hides its bars and its average line; "averages" hides both averages.
 const TOGGLE_KEYS = ['gameClub', 'bar', 'averages'] as const;
 
-export function IncomeTrendChart({ data, link }: IncomeTrendChartProps) {
+export function IncomeTrendChart({ data, link, onSelectDay }: IncomeTrendChartProps) {
   const t = useTranslations('dashboard');
   const tc = useTranslations('common');
   const { locale } = useAppLocale();
@@ -49,6 +51,13 @@ export function IncomeTrendChart({ data, link }: IncomeTrendChartProps) {
     gameClubAverage: t('gameClubDailyAverage'),
     barAverage: t('barDailyAverage'),
   };
+  const selectDay = onSelectDay
+    ? (_: unknown, index: number) => {
+      const iso = data[index]?.iso;
+      if (iso) onSelectDay(iso);
+    }
+    : undefined;
+  const barClassName = onSelectDay ? 'cursor-pointer' : undefined;
   const showGameClub = !hidden.has('gameClub');
   const showBar = !hidden.has('bar');
   const showAverages = !hidden.has('averages');
@@ -127,8 +136,8 @@ export function IncomeTrendChart({ data, link }: IncomeTrendChartProps) {
                 <ChartTooltipBody active={active} label={label} payload={payload} series={tooltipSeries} currency={currency} />
               )}
             />
-            <Bar dataKey="gameClubIncome" name="gameClubIncome" hide={!showGameClub} fill={chartColors.primary} fillOpacity={opacity('gameClub')} radius={[4, 4, 0, 0]} maxBarSize={28} animationDuration={500} />
-            <Bar dataKey="barSales" name="barSales" hide={!showBar} fill={chartColors.orange} fillOpacity={opacity('bar')} radius={[4, 4, 0, 0]} maxBarSize={28} animationDuration={500} />
+            <Bar dataKey="gameClubIncome" name="gameClubIncome" hide={!showGameClub} fill={chartColors.primary} fillOpacity={opacity('gameClub')} radius={[4, 4, 0, 0]} maxBarSize={28} animationDuration={500} onClick={selectDay} className={barClassName} />
+            <Bar dataKey="barSales" name="barSales" hide={!showBar} fill={chartColors.orange} fillOpacity={opacity('bar')} radius={[4, 4, 0, 0]} maxBarSize={28} animationDuration={500} onClick={selectDay} className={barClassName} />
             {/* Running averages through each day; they stop after a side's latest entry. */}
             <Line dataKey="gameClubAverage" name="gameClubAverage" hide={!showGameClub || !showAverages} type="monotone" stroke={chartColors.primary} strokeOpacity={opacity('gameClub', true)} strokeWidth={2} strokeDasharray="5 3" dot={false} activeDot={{ r: 3 }} isAnimationActive={false} />
             <Line dataKey="barAverage" name="barAverage" hide={!showBar || !showAverages} type="monotone" stroke={chartColors.orange} strokeOpacity={opacity('bar', true)} strokeWidth={2} strokeDasharray="5 3" dot={false} activeDot={{ r: 3 }} isAnimationActive={false} />

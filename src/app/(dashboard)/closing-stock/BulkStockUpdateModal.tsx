@@ -197,7 +197,7 @@ export function BulkStockUpdateModal({ open, rows, saving, onClose, onSave }: Bu
             return (
               <div
                 key={row.product.id}
-                className={`rounded-xl border p-3 transition ${quantity > 0 ? 'border-primary-200 bg-primary-50/30' : 'border-gray-100 bg-surface'}`}
+                className={`rounded-xl border p-3 transition motion-reduce:transition-none ${quantity > 0 ? 'border-primary-200 bg-primary-50/30' : 'border-gray-100 bg-surface'}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">

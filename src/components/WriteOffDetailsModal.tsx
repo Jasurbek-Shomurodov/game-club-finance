@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { Badge, ButtonLink, Modal, Money } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { formatDateOnly, formatNumber, formatUnitCurrency } from '@/lib/formatters';
+import { closingStockHref } from '@/lib/detailLinks';
 import { writeOffKindVariant, writeOffUnitCost, type StockAdjustmentReportKind, type StockWriteOffEntry } from '@/lib/stockWriteOffs';
 
 /** A write-off, or a correction (`sign` +1) that added units back. */
@@ -53,7 +54,7 @@ export function WriteOffDetailsModal({ entry, onClose, showCost = true }: { entr
             ))}
           </dl>
           <ButtonLink
-            href={`/closing-stock?date=${entry.date}`}
+            href={closingStockHref(entry.date)}
             variant="secondary"
             className="w-full"
             iconRight={<ArrowRight size={15} aria-hidden="true" />}

@@ -12,7 +12,7 @@ export function PromotionsSkeleton() {
         <div className="border-b border-gray-100 px-4 py-4 sm:px-5">
           <HeadingSkeleton />
         </div>
-        <TableSkeleton rows={4} columns={6} className="rounded-none border-0 shadow-none" />
+        <TableSkeleton bare rows={4} columns={6} />
       </SkeletonCard>
     </div>
   );

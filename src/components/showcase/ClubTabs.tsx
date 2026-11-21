@@ -2,6 +2,7 @@
 
 import { Children, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { scrollBehavior } from '@/lib/scroll';
 
 export interface ClubTab {
   id: string;
@@ -15,6 +16,8 @@ interface ClubTabsProps {
   children: ReactNode;
   /** Element id scrolled into view when a club is picked from elsewhere on the page. */
   anchorId: string;
+  /** Translated name of the tab list for screen readers. */
+  label: string;
 }
 
 const HASH_PREFIX = '#club-';
@@ -24,7 +27,7 @@ const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : us
  * Sticky pill tabs, one per club, with a glowing indicator that slides to the
  * active tab. "#club-<slug>" links anywhere on the page open that club.
  */
-export function ClubTabs({ tabs, children, anchorId }: ClubTabsProps) {
+export function ClubTabs({ tabs, children, anchorId, label }: ClubTabsProps) {
   const panels = Children.toArray(children);
   const [active, setActive] = useState(tabs[0]?.id ?? '');
   const listRef = useRef<HTMLDivElement>(null);
@@ -33,7 +36,7 @@ export function ClubTabs({ tabs, children, anchorId }: ClubTabsProps) {
   const open = useCallback((id: string, scroll: boolean) => {
     if (!tabs.some((tab) => tab.id === id)) return;
     setActive(id);
-    if (scroll) document.getElementById(anchorId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (scroll) document.getElementById(anchorId)?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
   }, [anchorId, tabs]);
 
   useEffect(() => {
@@ -71,7 +74,7 @@ export function ClubTabs({ tabs, children, anchorId }: ClubTabsProps) {
       // and cancel the smooth scroll to the clubs section.
       const list = listRef.current;
       if (list && (button.offsetLeft < list.scrollLeft || button.offsetLeft + button.offsetWidth > list.scrollLeft + list.clientWidth)) {
-        list.scrollTo({ left: button.offsetLeft - 8, behavior: 'smooth' });
+        list.scrollTo({ left: button.offsetLeft - 8, behavior: scrollBehavior() });
       }
     };
     measure();
@@ -84,13 +87,27 @@ export function ClubTabs({ tabs, children, anchorId }: ClubTabsProps) {
     window.history.replaceState(null, '', `${HASH_PREFIX}${id}`);
   }
 
+  // One Tab stop; arrows, Home and End move between clubs, as a tab list should.
+  function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    const index = tabs.findIndex((tab) => tab.id === active);
+    const next = event.key === 'ArrowRight' ? (index + 1) % tabs.length
+      : event.key === 'ArrowLeft' ? (index - 1 + tabs.length) % tabs.length
+        : event.key === 'Home' ? 0
+          : event.key === 'End' ? tabs.length - 1 : -1;
+    if (next < 0 || !tabs[next]) return;
+    event.preventDefault();
+    select(tabs[next].id);
+    listRef.current?.querySelector<HTMLElement>(`[data-tab="${CSS.escape(tabs[next].id)}"]`)?.focus();
+  }
+
   return (
     <div>
       <div className="sc-tabs sticky top-16 z-40 -mx-4 px-4 py-3 sm:mx-0 sm:px-0">
         <div
           ref={listRef}
           role="tablist"
-          aria-label="Clubs"
+          aria-label={label}
+          onKeyDown={onKeyDown}
           className="sc-glass relative mx-auto flex w-max max-w-full gap-1 overflow-x-auto rounded-2xl bg-[#0a0a14]/85 p-1.5 shadow-[0_12px_40px_-12px_rgba(0,0,0,0.8)] [scrollbar-width:none]"
         >
           {indicator && (
@@ -111,6 +128,7 @@ export function ClubTabs({ tabs, children, anchorId }: ClubTabsProps) {
                 data-tab={tab.id}
                 aria-selected={selected}
                 aria-controls={`panel-${tab.id}`}
+                tabIndex={selected ? 0 : -1}
                 onClick={() => select(tab.id)}
                 className={cn(
                   'relative z-[1] flex shrink-0 flex-col items-start rounded-xl px-4 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300',
@@ -118,7 +136,7 @@ export function ClubTabs({ tabs, children, anchorId }: ClubTabsProps) {
                 )}
               >
                 <span className="sc-display whitespace-nowrap text-sm font-bold">{tab.label}</span>
-                {tab.meta && <span className={cn('whitespace-nowrap text-[11px]', selected ? 'text-white/75' : 'text-white/40')}>{tab.meta}</span>}
+                {tab.meta && <span className={cn('whitespace-nowrap text-xs', selected ? 'text-white/75' : 'text-white/60')}>{tab.meta}</span>}
               </button>
             );
           })}

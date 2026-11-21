@@ -209,3 +209,37 @@ describe('planGameClubDepositAll', () => {
     expect(planGameClubDepositAll(methods, -5)).toEqual([]);
   });
 });
+
+describe('reserve overview figures', () => {
+  it('holds sums as one pot without the sums value of the dollars', async () => {
+    const { reserveSumsHeld } = await import('./ownerReserve');
+    const balances = reserveBalances(
+      [...entries, entry('usd', { payment_method: 'usd', amount: 1_250_000 })],
+      purchases,
+    );
+    expect(balances.game_club.byMethod.usd).toBe(1_250_000);
+    expect(reserveSumsHeld(balances)).toBe(balances.game_club.held + balances.bar.held - 1_250_000);
+    // Deposits 1 000 000 + 2 000 000 + 300 000, 200 000 returned, 2 500 000 spent.
+    expect(reserveSumsHeld(reserveBalances(entries, purchases))).toBe(600_000);
+  });
+
+  it('sums purchases per category and leaves other kinds out', async () => {
+    const { reserveSpendingByCategory } = await import('./ownerReserve');
+    const activity = reserveActivity(entries, [
+      purchase('pcs'),
+      purchase('chairs', { amount: 400_000 }),
+      purchase('rent', { category: 'rent', amount: 100_000 }),
+    ]);
+    expect(reserveSpendingByCategory(activity).sort((a, b) => a.category.localeCompare(b.category))).toEqual([
+      { category: 'equipment', amount: 2_900_000 },
+      { category: 'rent', amount: 100_000 },
+    ]);
+    expect(reserveSpendingByCategory(reserveActivity(entries, []))).toEqual([]);
+  });
+
+  it('splits what was put in into spent, returned and still held, never below zero', async () => {
+    const { reserveFlowSplit } = await import('./ownerReserve');
+    expect(reserveFlowSplit({ deposited: 3_300_000, returned: 200_000, spent: 2_500_000 })).toEqual({ spent: 2_500_000, returned: 200_000, held: 600_000 });
+    expect(reserveFlowSplit({ deposited: 100, returned: 80, spent: 50 }).held).toBe(0);
+  });
+});

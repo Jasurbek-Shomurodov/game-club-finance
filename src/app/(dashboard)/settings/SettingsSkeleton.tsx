@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Skeleton } from '@/components/PresentationFoundation';
 import { SkeletonCard } from '@/components/charts/ChartSkeletons';
+import { cn } from '@/lib/utils';
 
 /** A `SettingsSection`: its small heading above its card. */
 function SectionSkeleton({ children }: { children: ReactNode }) {
@@ -15,16 +16,16 @@ function SectionSkeleton({ children }: { children: ReactNode }) {
 }
 
 /** A divided settings card: a label on the left and its control on the right of each row. */
-function SettingRowsSkeleton({ rows }: { rows: number }) {
+function SettingRowsSkeleton({ rows, stacked = [] }: { rows: number; stacked?: number[] }) {
   return (
     <SkeletonCard padded={false} className="divide-y divide-gray-100 overflow-hidden">
       {Array.from({ length: rows }, (_, index) => (
-        <div key={index} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0 flex-1 space-y-2">
+        <div key={index} className={cn('flex flex-col gap-3 px-5 py-4', !stacked.includes(index) && 'sm:flex-row sm:items-center sm:justify-between')}>
+          <div className="min-w-0 space-y-2 sm:flex-1">
             <Skeleton className="h-4 w-40 max-w-full" />
             <Skeleton className="h-3 w-64 max-w-full bg-gray-100" />
           </div>
-          <Skeleton className="h-11 w-full rounded-lg bg-gray-100 sm:w-36" />
+          <Skeleton className={cn('h-11 w-full rounded-lg bg-gray-100', !stacked.includes(index) && 'sm:w-36')} />
         </div>
       ))}
     </SkeletonCard>
@@ -49,7 +50,8 @@ export function SettingsSkeleton() {
         </div>
         <Skeleton className="h-10 w-28 rounded-lg bg-gray-100" />
       </SkeletonCard>
-      <SectionSkeleton><SettingRowsSkeleton rows={4} /></SectionSkeleton>
+      {/* Club details and payment methods put their control under the label. */}
+      <SectionSkeleton><SettingRowsSkeleton rows={4} stacked={[0, 2]} /></SectionSkeleton>
       <SectionSkeleton>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[0, 1, 2].map((index) => (

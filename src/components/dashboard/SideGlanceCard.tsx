@@ -6,7 +6,7 @@ import { ChevronRight, TrendingDown, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Card, EmptyState, Skeleton } from '@/components/PresentationFoundation';
+import { Card, EmptyState, IconChip, Skeleton, TappableSurface, type Tone } from '@/components/PresentationFoundation';
 import { cn } from '@/lib/utils';
 import { formatCurrency, formatDateShort } from '@/lib/formatters';
 import { averageByWeekday, bestAndWorstDays, rankShares, safeRatio } from '@/lib/calculations/insights';
@@ -33,7 +33,7 @@ export interface SideGlanceSpending {
 export function SideGlanceCard({
   title,
   icon: Icon,
-  iconClassName,
+  accent = 'neutral',
   color,
   yearMonth,
   range,
@@ -50,7 +50,10 @@ export function SideGlanceCard({
 }: {
   title: string;
   icon: LucideIcon;
-  iconClassName: string;
+  /** Kept for call-site compatibility; the icon tile takes its colour from `accent`. */
+  iconClassName?: string;
+  /** Tone of the icon tile: the side's own (`primary` for the game club, `bar`). */
+  accent?: Tone;
   /** The side's own hue (teal for the game club, orange for the bar). */
   color: string;
   yearMonth: string;
@@ -111,9 +114,7 @@ export function SideGlanceCard({
   return (
     <Card as="section" aria-labelledby={headingId} className="flex flex-col gap-5">
       <header className="flex items-start gap-3">
-        <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100', iconClassName)} aria-hidden="true">
-          <Icon size={20} strokeWidth={2.2} />
-        </span>
+        <IconChip icon={Icon} tone={accent} />
         <div className="min-w-0 flex-1">
           <h2 id={headingId} className="text-sm font-semibold text-gray-950">
             {links.moneyDetails ? (
@@ -128,24 +129,28 @@ export function SideGlanceCard({
           </h2>
           <p className="mt-0.5 text-xs text-gray-500">{t('glanceDesc')}</p>
         </div>
-        <RadialMeter value={margin} color={margin !== null && margin < 0 ? chartColors.danger : color} size={56} stroke={6} label={`${t('glanceMargin')}: ${marginLabel}`}>
-          <span className="flex flex-col leading-none">
+        {/* The caption sits under the ring: at a readable size it does not fit inside it. */}
+        <div className="flex shrink-0 flex-col items-center gap-1">
+          <RadialMeter value={margin} color={margin !== null && margin < 0 ? chartColors.danger : color} size={56} stroke={6} label={`${t('glanceMargin')}: ${marginLabel}`}>
             <span className="text-xs font-bold tabular-nums text-gray-950">{marginLabel}</span>
-            <span className="mt-0.5 text-[9px] uppercase tracking-wide text-gray-500">{t('glanceMargin')}</span>
-          </span>
-        </RadialMeter>
+          </RadialMeter>
+          <span className="text-xs leading-none text-gray-500" aria-hidden="true">{t('glanceMargin')}</span>
+        </div>
       </header>
 
-      <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         <GlanceFact label={t('bestDay')} icon={TrendingUp} tone="success"
           value={extremes ? formatCurrency(extremes.best.value) : '—'}
-          note={extremes ? formatDateShort(extremes.best.date, locale) : undefined} currency={currency} />
+          note={extremes ? formatDateShort(extremes.best.date, locale) : undefined} currency={currency}
+          href={extremes && links.dailyReport ? dailyReportHref(extremes.best.date) : undefined} />
         <GlanceFact label={t('worstDay')} icon={TrendingDown} tone="muted"
           value={extremes ? formatCurrency(extremes.worst.value) : '—'}
-          note={extremes ? formatDateShort(extremes.worst.date, locale) : undefined} currency={currency} />
+          note={extremes ? formatDateShort(extremes.worst.date, locale) : undefined} currency={currency}
+          href={extremes && links.dailyReport ? dailyReportHref(extremes.worst.date) : undefined} />
         <GlanceFact label={t('glanceProfit')} tone={profit < 0 ? 'danger' : 'success'}
-          value={formatCurrency(profit)} currency={currency} className="max-sm:col-span-2" />
-      </dl>
+          value={formatCurrency(profit)} currency={currency} className="max-sm:col-span-2"
+          href={links.moneyDetails ? moneyDetailsHref(side, range) : undefined} />
+      </div>
 
       <div className="grid gap-5 sm:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
         <div className="min-w-0">
@@ -181,7 +186,8 @@ export function SideGlanceCard({
   );
 }
 
-function GlanceFact({ label, value, note, currency, icon: Icon, tone, className }: {
+/** One fact of the month; with `href` the whole tile opens the day or the records behind it. */
+function GlanceFact({ label, value, note, currency, icon: Icon, tone, className, href }: {
   label: string;
   value: string;
   note?: string;
@@ -189,19 +195,20 @@ function GlanceFact({ label, value, note, currency, icon: Icon, tone, className 
   icon?: LucideIcon;
   tone: 'success' | 'danger' | 'muted';
   className?: string;
+  href?: string;
 }) {
   return (
-    <div className={cn('min-w-0 rounded-xl bg-gray-50 px-3 py-2.5', className)}>
-      <dt className="flex items-center gap-1 text-[11px] font-medium text-gray-500">
+    <TappableSurface href={href} chevron={false} className={cn('min-w-0 rounded-xl bg-gray-50 px-3 py-2.5', href && 'hover:bg-gray-100', className)}>
+      <p className="flex items-center gap-1 text-xs font-medium text-gray-500">
         {Icon && <Icon size={12} aria-hidden="true" className={tone === 'success' ? 'text-success-600' : 'text-gray-400'} />}
         <span className="truncate">{label}</span>
-      </dt>
-      <dd className="mt-1">
-        <span className={cn('text-sm font-bold tabular-nums tracking-tight', tone === 'danger' ? 'text-danger-600' : 'text-gray-950')}>{value}</span>
-        <span className="ml-1 text-[11px] text-gray-500">{currency}</span>
-        {note && <span className="block text-[11px] text-gray-500">{note}</span>}
-      </dd>
-    </div>
+      </p>
+      <p className="mt-1">
+        <span className={cn('whitespace-nowrap text-sm font-bold tabular-nums tracking-tight', tone === 'danger' ? 'text-danger-600' : 'text-gray-950')}>{value}</span>{' '}
+        <span className="text-xs text-gray-500">{currency}</span>
+        {note && <span className="block text-xs text-gray-500">{note}</span>}
+      </p>
+    </TappableSurface>
   );
 }
 
@@ -210,12 +217,15 @@ export function SideGlanceCardSkeleton() {
   return (
     <div aria-hidden="true" className="flex flex-col gap-5 rounded-2xl border border-gray-200 bg-surface p-4 shadow-card sm:p-5">
       <div className="flex items-start gap-3">
-        <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
+        <Skeleton className="h-9 w-9 shrink-0 rounded-xl" />
         <div className="min-w-0 flex-1 space-y-2">
           <Skeleton className="h-4 w-28" />
           <Skeleton className="h-3 w-3/4 bg-gray-100" />
         </div>
-        <Skeleton className="h-14 w-14 shrink-0 rounded-full" />
+        <div className="flex shrink-0 flex-col items-center gap-1">
+          <Skeleton className="h-14 w-14 rounded-full" />
+          <Skeleton className="h-3 w-10 bg-gray-100" />
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {[0, 1, 2].map((index) => (

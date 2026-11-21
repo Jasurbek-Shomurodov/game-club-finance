@@ -1,9 +1,8 @@
 'use client';
 
-import { cn } from '@/lib/utils';
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
-import { Banknote, Building2, CalendarCheck, Gift, Percent, ShieldAlert, Users, Wallet } from 'lucide-react';
+import { Banknote, Building2, CalendarCheck, Gift, ShieldAlert, Users, Wallet } from 'lucide-react';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
   Badge,
@@ -23,9 +22,9 @@ import {
   Textarea,
   useToast,
   type SegmentedOption,
-  metricGridClassName,
 } from '@/components/PresentationFoundation';
-import { SalariesSkeleton } from './SalariesSkeleton';
+import { SalariesSkeleton, salaryHistoryMetricGridClassName, salaryMetricGridClassName } from './SalariesSkeleton';
+import { scrollBehavior } from '@/lib/scroll';
 import { loadSalaries, loadSalaryEntries } from '@/lib/supabase/salaries';
 import {
   applySalaryPaymentChanges,
@@ -66,6 +65,7 @@ import {
   type DeletionTarget,
   type EmployeeRateSummary,
   type EntryKind,
+  type HistoryKindFilter,
   type SalaryView,
   type SavingTarget,
   type SetupMode,
@@ -79,7 +79,7 @@ export default function SalariesPage({ view = 'employees', employeeId }: { view?
   const t = useTranslations('salaries');
   const { selectedClubId, loading: clubLoading } = useClub();
   if (!selectedClubId) {
-    if (clubLoading) return <SkeletonStatus><SalariesSkeleton /></SkeletonStatus>;
+    if (clubLoading) return <SkeletonStatus><SalariesSkeleton view={view} /></SkeletonStatus>;
     return <Card><EmptyState icon={Building2} title={t('noClubTitle')} description={t('noClubDescription')} /></Card>;
   }
   // Each /salaries route is its own page, so switching views remounts anyway;
@@ -102,6 +102,12 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   const isOwner = role === 'owner';
   const today = useBusinessToday(businessDayStartHour);
   const [deletion, setDeletion] = useState<DeletionTarget | null>(null);
+  // A headline card on the history tab narrows the transactions to its kind; tapping it again clears it.
+  const [historyKind, setHistoryKind] = useState<HistoryKindFilter | null>(null);
+  const showTransactions = (kind: HistoryKindFilter | null) => {
+    setHistoryKind((current) => (kind !== null && current === kind ? null : kind));
+    document.getElementById('salary-transactions')?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
+  };
   const [employeeEdit, setEmployeeEdit] = useState<EmployeeEditState | null>(null);
   const [deactivation, setDeactivation] = useState<{ employee: SalaryEmployee; date: string; earliest: string } | null>(null);
   const [deactivationError, setDeactivationError] = useState('');
@@ -464,7 +470,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
   const historyStatus = historySummary?.status;
   const historyDeactivation = historySummary?.deactivatedFrom ? `${t('deactivatedFrom')} ${formatDateOnly(historySummary.deactivatedFrom, locale)}`
     : historySummary?.deactivatesOn ? `${t('deactivatesOn')} ${formatDateOnly(historySummary.deactivatesOn, locale)}` : '';
-  const pageTitle = employeeId ? historyEmployee?.name ?? t('history') : t(view === 'employees' ? 'employees' : view === 'history' ? 'history' : 'title');
+  const pageTitle = employeeId ? historyEmployee?.name ?? t('history') : t(view === 'employees' ? 'employees' : view === 'history' ? 'history' : 'dailyOperations');
   // Club-wide due keeps one employee's overpayment from hiding what another is owed.
   // One employee's negative balance is an advance, shown like on their card.
   const dueValue = view === 'history' && employeeId ? salaryBalance(historyMonths) : due;
@@ -503,27 +509,32 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
 
       {/* After a failed load the totals are unknown, not zero. */}
       {!loadError && view === 'history' && (
-        // Tinted tiles, one per part of the balance, the way the calendar chips colour them.
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        // One card per part of the balance; the recorded kinds narrow the transactions below to themselves.
+        <div className={salaryHistoryMetricGridClassName}>
           <MetricCard
             label={t(isAdvance ? 'advance' : 'totalDue')}
             value={<MetricMoney amount={Math.abs(dueValue)} />}
             icon={Wallet}
-            iconClassName="text-warning-600"
             tone={dueValue > 0 ? 'warning' : 'default'}
-            className="border-warning-100 bg-warning-50"
             loading={loading}
           />
-          <MetricCard label={t('earnedTotal')} value={<MetricMoney amount={historyTotals.earned} />} icon={CalendarCheck} iconClassName="text-success-600" tone="success" className="border-success-100 bg-success-50" loading={loading} />
-          <MetricCard label={t('totalPaid')} value={<MetricMoney amount={historyTotals.paid} />} icon={Banknote} iconClassName="text-primary-600" tone="primary" className="border-primary-100 bg-primary-50" loading={loading} />
-          <MetricCard label={t('bonusTotal')} value={<MetricMoney amount={historyTotals.bonus} />} icon={Gift} iconClassName="text-purple-600" className="border-purple-100 bg-purple-50" loading={loading} />
-          <MetricCard label={t('kpiTotal')} value={<MetricMoney amount={historyTotals.kpi} />} icon={Percent} iconClassName="text-success-600" tone="success" className="border-success-100 bg-success-50" loading={loading} />
-          <MetricCard label={t('fineTotal')} value={<MetricMoney amount={historyTotals.fine} />} icon={ShieldAlert} iconClassName="text-danger-600" tone="danger" className="border-danger-100 bg-danger-50" loading={loading} />
+          <MetricCard
+            onClick={() => showTransactions(null)}
+            label={t('earnedTotal')}
+            value={<MetricMoney amount={historyTotals.earned} />}
+            trendLabel={`${t('kpiTotal')}: ${formatCurrency(historyTotals.kpi)} ${tc('currency')}`}
+            icon={CalendarCheck}
+            tone="success"
+            loading={loading}
+          />
+          <MetricCard onClick={() => showTransactions('payment')} selected={historyKind === 'payment'} label={t('totalPaid')} value={<MetricMoney amount={historyTotals.paid} />} icon={Banknote} tone="primary" loading={loading} />
+          <MetricCard onClick={() => showTransactions('bonus')} selected={historyKind === 'bonus'} label={t('bonusTotal')} value={<MetricMoney amount={historyTotals.bonus} />} icon={Gift} accent="reserve" loading={loading} />
+          <MetricCard onClick={() => showTransactions('fine')} selected={historyKind === 'fine'} label={t('fineTotal')} value={<MetricMoney amount={historyTotals.fine} />} icon={ShieldAlert} tone="danger" loading={loading} />
         </div>
       )}
 
       {!loadError && view !== 'history' && (
-        <div className={cn(metricGridClassName, 'sm:grid-cols-3 sm:gap-4')}>
+        <div className={salaryMetricGridClassName}>
           <MetricCard
             href={view === 'employees' ? undefined : '/salaries/employees'}
             label={t('activeEmployees')}
@@ -625,6 +636,7 @@ function SalaryManager({ clubId, view: initialView, employeeId }: { clubId: stri
           isOwner={isOwner}
           saving={saving}
           today={today}
+          kindFilter={historyKind}
           onDelete={requestDeletion}
         />
       )}

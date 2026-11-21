@@ -110,7 +110,9 @@ configuration, cron, cross-route, or shared-type changes.
 ## Manual checks
 
 `TESTING_CHECKLIST.md` contains the 15-minute core workflow. The authenticated
-`/test-checklist` page performs data sanity checks for owner/admin users.
+`/test-checklist` page performs data sanity checks for the selected club's
+current business day. It is owner only and opens from the command palette
+("System checks").
 
 Choose manual checks that match the change:
 

@@ -1,15 +1,16 @@
-import { MetricGridSkeleton, Skeleton, TableSkeleton, metricGridClassName } from '@/components/PresentationFoundation';
+import { Skeleton, TableSkeleton } from '@/components/PresentationFoundation';
+import { ReportTotalsSkeleton } from '../reports/ReportTotals';
 import { SkeletonCard } from '@/components/charts/ChartSkeletons';
-import { cn } from '@/lib/utils';
 
 /**
- * The daily report while it loads: ten figures, the cash entry tiles, the
+ * The daily report while it loads: the game club's four and the bar's six
+ * figures (ReportTotals), the cash entry tiles, the
  * stock table and the expenses list. Keep it in step with DailyReportPage.
  */
 export function DailyReportSkeleton() {
   return (
     <div className="space-y-6" aria-hidden="true">
-      <MetricGridSkeleton count={10} className={cn(metricGridClassName, 'sm:grid-cols-2 sm:gap-4 lg:grid-cols-4 xl:grid-cols-4')} />
+      <ReportTotalsSkeleton gameClubCount={4} />
       <SkeletonCard>
         <Skeleton className="h-4 w-32" />
         <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -17,10 +18,10 @@ export function DailyReportSkeleton() {
         </div>
       </SkeletonCard>
       <SkeletonCard padded={false} className="overflow-hidden">
-        <div className="border-b border-gray-100 px-4 py-4 sm:px-5">
+        <div className="px-4 pt-4 sm:px-5 sm:pt-5">
           <Skeleton className="h-4 w-36" />
         </div>
-        <TableSkeleton rows={4} columns={5} className="rounded-none border-0 shadow-none" />
+        <TableSkeleton bare rows={4} columns={5} className="mt-3" />
       </SkeletonCard>
       <SkeletonCard>
         <Skeleton className="h-4 w-28" />

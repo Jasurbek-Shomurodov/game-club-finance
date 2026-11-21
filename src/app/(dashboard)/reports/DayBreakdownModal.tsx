@@ -95,7 +95,7 @@ function DayBreakdown({
         <dd className="flex shrink-0 items-baseline gap-2 tabular-nums">
           {changed && (
             <>
-              <Money amount={before} currency={null} className="text-xs text-gray-400 line-through" />
+              <Money amount={before} currency={null} className="text-xs text-gray-500 line-through" />
               <ArrowRight size={12} className="self-center text-gray-400" aria-hidden="true" />
             </>
           )}

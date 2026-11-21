@@ -14,6 +14,7 @@ import { fetchMoneyExchanges } from '@/lib/supabase/moneyExchanges';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessRollover } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
+import { canAccessPath } from '@/lib/permissions';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { useClub } from '@/components/layout/DashboardShell';
 import { cn, monthRange } from '@/lib/utils';
@@ -24,6 +25,7 @@ import {
   MonthPicker,
   PageHeader,
   SegmentedControl,
+  TappableSurface,
 } from '@/components/PresentationFoundation';
 import { ChartCard, ChartEmpty, chartColors } from '@/components/dashboard/ChartCard';
 import {
@@ -56,9 +58,10 @@ import {
 import { CategoryDrawer } from '@/components/financial-analysis/CategoryDrawer';
 import { Section, SideScorecard } from '@/components/financial-analysis/AnalysisSections';
 import { OverallAnalysis } from '@/components/financial-analysis/OverallAnalysis';
-import { categoryColors, formatShare, SIDE_ICON_CLASS } from '@/components/financial-analysis/analysisFormat';
+import { categoryColors, formatShare } from '@/components/financial-analysis/analysisFormat';
 import { moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
 import { AnalysisBodySkeleton } from './FinancialAnalysisSkeleton';
+import { scrollBehavior } from '@/lib/scroll';
 
 function ChartLoading() {
   return <ChartSkeleton />;
@@ -179,7 +182,7 @@ export default function FinancialAnalysisPage() {
             onOpenMonth={(nextMonth) => {
               setMonth(nextMonth);
               setView('monthly');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
+              window.scrollTo({ top: 0, behavior: scrollBehavior() });
             }}
           />
         )}
@@ -188,7 +191,7 @@ export default function FinancialAnalysisPage() {
 }
 
 function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday: string }) {
-  const { selectedClubId, enabledPaymentMethods } = useClub();
+  const { selectedClubId, enabledPaymentMethods, role, featureAccess } = useClub();
   const { locale } = useAppLocale();
   const t = useTranslations('financialAnalysis');
   const td = useTranslations('dashboard');
@@ -353,7 +356,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
               detailsHref={moneyDetailsHref('game_club', range)}
               spentHref={reportsHref(range, { category: 'expense', source: 'game_club' })}
               icon={SIDE_ICONS.gameClub}
-              iconClassName={SIDE_ICON_CLASS.gameClub}
+              accent="primary"
               color={chartColors.primary}
               incomeLabel={t('moneyIn')}
               now={indicators.gameClub}
@@ -369,7 +372,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
               detailsHref={moneyDetailsHref('bar', range)}
               spentHref={reportsHref(range, { category: 'expense', source: 'bar' })}
               icon={SIDE_ICONS.bar}
-              iconClassName={SIDE_ICON_CLASS.bar}
+              accent="bar"
               color={chartColors.orange}
               incomeLabel={t('barSalesIn')}
               now={indicators.bar}
@@ -387,7 +390,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
               <AnalysisBodySkeleton />
             </div>
           ) : (
-            <div className={cn('space-y-6 transition-opacity', loading && 'pointer-events-none opacity-60')} aria-busy={loading || undefined}>
+            <div className={cn('space-y-6 transition-opacity motion-reduce:transition-none', loading && 'pointer-events-none opacity-60')} aria-busy={loading || undefined}>
               {planQuery.error ? (
                 <Section title={t('planSection')}>
                   <LoadErrorAlert retrying={planQuery.loading} onRetry={() => void planQuery.reload()}>
@@ -401,7 +404,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
                       <ExpensePlanPanel
                         title={td('gameClub')}
                         icon={SIDE_ICONS.gameClub}
-                        iconClassName={SIDE_ICON_CLASS.gameClub}
+                        accent="primary"
                         side={plans.gameClub}
                         rowHref={(row) => reportsHref(range, { category: `expense:${row.preset.category}`, source: row.preset.payment_source })}
                         currency={currency}
@@ -412,7 +415,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
                       <ExpensePlanPanel
                         title={td('bar')}
                         icon={SIDE_ICONS.bar}
-                        iconClassName={SIDE_ICON_CLASS.bar}
+                        accent="bar"
                         side={plans.bar}
                         rowHref={(row) => reportsHref(range, { category: `expense:${row.preset.category}`, source: row.preset.payment_source })}
                         currency={currency}
@@ -474,6 +477,8 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
                     previous={previousAnalysis.totals.playstationIncome}
                     gameClubIncome={analysis.totals.gameClubIncome}
                     days={playstationDays}
+                    // PlayStation money is entered with each day's cash: its records are the period's income in Reports.
+                    totalHref={canAccessPath(role, featureAccess, '/reports') ? reportsHref(range, { category: 'income' }) : undefined}
                     locale={locale}
                     currency={currency}
                   />
@@ -532,11 +537,13 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
 }
 
 /** The period's PlayStation money, its change, its daily average over the days with money, and its share of Game Club income. */
-function PlaystationFigures({ total, previous, gameClubIncome, days, locale, currency }: {
+function PlaystationFigures({ total, previous, gameClubIncome, days, totalHref, locale, currency }: {
   total: number;
   previous: number;
   gameClubIncome: number;
   days: PlaystationDayRow[];
+  /** The records behind the total. */
+  totalHref?: string;
   locale: string;
   currency: string;
 }) {
@@ -547,6 +554,7 @@ function PlaystationFigures({ total, previous, gameClubIncome, days, locale, cur
   const items = [
     {
       label: t('playstationTotal'),
+      href: totalHref,
       value: `${formatCurrency(total)} ${currency}`,
       helper: change === null ? t('playstationNoComparison') : t('playstationVsPrevious', { change: `${change > 0 ? '+' : ''}${formatShare(change, locale)}` }),
       tone: change === null ? 'text-gray-500' : change < 0 ? 'text-danger-600' : 'text-success-600',
@@ -565,14 +573,14 @@ function PlaystationFigures({ total, previous, gameClubIncome, days, locale, cur
     },
   ];
   return (
-    <dl className="mt-3 grid gap-3 sm:grid-cols-3">
+    <div className="mt-3 grid gap-3 sm:grid-cols-3">
       {items.map((item) => (
-        <div key={item.label}>
-          <dt className="text-xs text-gray-500">{item.label}</dt>
-          <dd className="mt-0.5 text-base font-semibold tabular-nums text-gray-950">{item.value}</dd>
-          <dd className={cn('text-xs', item.tone)}>{item.helper}</dd>
-        </div>
+        <TappableSurface key={item.label} href={item.href} chevron={false} className={cn('min-w-0', item.href && '-m-2 rounded-lg p-2 hover:bg-gray-50')}>
+          <p className="text-xs text-gray-500">{item.label}</p>
+          <p className="mt-0.5 whitespace-nowrap text-base font-semibold tabular-nums text-gray-950">{item.value}</p>
+          <p className={cn('text-xs', item.tone)}>{item.helper}</p>
+        </TappableSurface>
       ))}
-    </dl>
+    </div>
   );
 }

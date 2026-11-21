@@ -4,7 +4,7 @@ import { useId, useState } from 'react';
 import { CalendarArrowUp, CalendarDays, ChevronDown, ChevronRight, Clock, History, Layers, MessageSquareText, PiggyBank, Sprout, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { Badge, Button, EmptyState, IconButton, Modal, SectionHeading, SegmentedControl } from '@/components/PresentationFoundation';
+import { Badge, Button, EmptyState, IconButton, IconChip, Modal, SectionHeading, SegmentedControl, TappableSurface, toneClasses } from '@/components/PresentationFoundation';
 import { reserveForMonth, reservedNet } from '@/lib/calculations/ownerReserve';
 import { investedBySourceForMonth, withdrawnBySourceForMonth, type InvestmentRow } from '@/lib/calculations/ownerProfitSnapshot';
 import { capitalizeFirst, formatCurrency, formatDateTime, formatYearMonth } from '@/lib/formatters';
@@ -17,7 +17,8 @@ import {
   type OwnerWithdrawalPaymentMethod,
   type OwnerWithdrawalSource,
 } from '@/types';
-import { METHOD_ICONS, SOURCE_ICONS, SOURCE_TINTS } from './profitIcons';
+import { METHOD_ICONS, SOURCE_ICONS, SOURCE_TINTS, SOURCE_TONES } from './profitIcons';
+import { scrollBehavior } from '@/lib/scroll';
 
 export type HistoryRow =
   | { kind: 'withdrawal'; id: string; month: string; withdrawal: OwnerWithdrawal }
@@ -102,7 +103,7 @@ export function WithdrawalHistory({
     : month === lastMonth ? t('summaryLastMonth') : capitalizeFirst(formatYearMonth(month, locale), locale));
   function showMonth(month: string) {
     setToggled((current) => ({ ...current, [month]: true }));
-    requestAnimationFrame(() => document.getElementById(`${baseId}-section-${month}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    requestAnimationFrame(() => document.getElementById(`${baseId}-section-${month}`)?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' }));
   }
 
   const filterOptions = (['all', ...OWNER_WITHDRAWAL_SOURCES] as const).map((source) => {
@@ -114,9 +115,7 @@ export function WithdrawalHistory({
     <>
       <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 sm:px-5">
         <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600">
-            <History size={20} aria-hidden="true" />
-          </span>
+          <IconChip icon={History} />
           <SectionHeading title={t('historyTitle')} description={t('historyDescription')} />
         </div>
         {rows.length > 0 ? (
@@ -136,33 +135,32 @@ export function WithdrawalHistory({
               const hasRows = months.some((group) => group.month === month);
               return (
                 <li key={month} className="shrink-0">
-                  <button
-                    type="button"
-                    disabled={!hasRows}
-                    onClick={() => showMonth(month)}
+                  {/* A month with entries opens them below; a month without stays a plain figure. */}
+                  <TappableSurface
+                    onClick={hasRows ? () => showMonth(month) : undefined}
+                    chevron={false}
                     className={cn(
-                      'h-full min-w-[10.5rem] rounded-xl border px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
-                      month === currentMonth ? 'border-primary-200 bg-primary-50/60' : 'border-gray-100 bg-gray-50/60',
-                      hasRows ? 'hover:bg-gray-100/70' : 'cursor-default',
+                      'h-full min-w-44 rounded-xl border px-3 py-2',
+                      month === currentMonth ? toneClasses.primary.surface : toneClasses.neutral.surface,
                     )}
                   >
                     <span className="block text-xs text-gray-500">{monthLabel(month)}</span>
                     <span className="mt-0.5 block whitespace-nowrap font-bold tabular-nums text-gray-900">
                       {formatCurrency(amount)}
-                      <span className="ml-1 text-[11px] font-medium text-gray-500">{tc('currency')}</span>
+                      <span className="ml-1 text-xs font-medium text-gray-500">{tc('currency')}</span>
                     </span>
                     {/* Always shown, even at 0, so every month card has the same height. */}
-                    <span className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-[11px] text-gray-500">
+                    <span className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-xs text-gray-500">
                       <Sprout size={11} aria-hidden="true" />
                       {t('historyMonthInvested')}
                       <span className="font-semibold tabular-nums text-gray-700">{formatCurrency(invested)}</span>
                     </span>
-                    <span className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-[11px] text-gray-500">
+                    <span className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-xs text-gray-500">
                       <PiggyBank size={11} aria-hidden="true" />
                       {t('historyMonthReserved')}
                       <span className="font-semibold tabular-nums text-gray-700">{formatCurrency(reserved)}</span>
                     </span>
-                  </button>
+                  </TappableSurface>
                 </li>
               );
             })}
@@ -196,18 +194,16 @@ export function WithdrawalHistory({
                   aria-expanded={open}
                   aria-controls={panelId}
                   onClick={() => setToggled((current) => ({ ...current, [month]: !open }))}
-                  className="flex w-full flex-col gap-3 bg-gray-50/60 px-4 py-3 text-left transition hover:bg-gray-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 sm:px-5"
+                  className="flex w-full flex-col gap-3 bg-gray-50/60 px-4 py-3 text-left transition-colors hover:bg-gray-100/70 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 sm:px-5"
                 >
                   <span className="flex w-full items-center gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface text-gray-600 shadow-sm">
-                      <CalendarDays size={18} aria-hidden="true" />
-                    </span>
+                    <IconChip icon={CalendarDays} />
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold text-gray-900">{capitalizeFirst(formatYearMonth(month, locale), locale)}</span>
                       <span className="block text-xs text-gray-500">{t('historyEntries', { count: monthRows.length })}</span>
                     </span>
-                    <span className="hidden text-right sm:block sm:min-w-[9rem]">
-                      <span className="flex items-center justify-end gap-1 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                    <span className="hidden text-right sm:block sm:min-w-36">
+                      <span className="flex items-center justify-end gap-1 text-xs font-medium uppercase tracking-wide text-gray-500">
                         <PiggyBank size={12} aria-hidden="true" />
                         {t('historyMonthReserved')}
                       </span>
@@ -216,8 +212,8 @@ export function WithdrawalHistory({
                         <span className="ml-1 text-xs font-medium text-gray-500">{tc('currency')}</span>
                       </span>
                     </span>
-                    <span className="text-right sm:min-w-[9rem]">
-                        <span className="flex items-center justify-end gap-1 text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                    <span className="text-right sm:min-w-36">
+                        <span className="flex items-center justify-end gap-1 text-xs font-medium uppercase tracking-wide text-gray-500">
                           <Sprout size={12} aria-hidden="true" />
                           {t('historyMonthInvested')}
                         </span>
@@ -227,9 +223,9 @@ export function WithdrawalHistory({
                         </span>
                       </span>
                     {/* Always shown, so a month with only moves or investments still reads "nothing withdrawn". */}
-                    <span className="text-right sm:min-w-[9rem]">
-                      <span className="block text-[11px] font-medium uppercase tracking-wide text-gray-500">{t('historyMonthTotal')}</span>
-                      <span className={cn('block text-lg font-bold leading-tight tabular-nums', total > 0 ? 'text-gray-900' : 'text-gray-400')}>
+                    <span className="text-right sm:min-w-36">
+                      <span className="block text-xs font-medium uppercase tracking-wide text-gray-500">{t('historyMonthTotal')}</span>
+                      <span className={cn('block text-lg font-bold leading-tight tabular-nums', total > 0 ? 'text-gray-900' : 'text-gray-500')}>
                         {formatCurrency(total)}
                         <span className="ml-1 text-xs font-medium text-gray-500">{tc('currency')}</span>
                       </span>
@@ -239,12 +235,12 @@ export function WithdrawalHistory({
                       <ChevronDown
                         size={18}
                         aria-hidden="true"
-                        className={cn('text-gray-400 transition-transform duration-200', open && 'rotate-180')}
+                        className={cn('text-gray-500 transition-transform duration-200 motion-reduce:transition-none', open && 'rotate-180')}
                       />
                     </span>
                   </span>
 
-                  <span className="flex w-full flex-col gap-2 pl-12">
+                  <span className="flex w-full flex-col gap-2 sm:pl-12">
                     <span className="flex h-2 w-full overflow-hidden rounded-full bg-gray-200" aria-hidden="true">
                       {sides.map((source) => (
                         <span
@@ -256,16 +252,18 @@ export function WithdrawalHistory({
                     </span>
                     <span className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-600">
                       {legend.map((source) => (
-                        <span key={source} className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                        <span key={source} className="inline-flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
                           <span className={cn('h-2 w-2 rounded-full', SOURCE_TINTS[source].dot)} aria-hidden="true" />
-                          {t(`sources.${source}`)}
-                          <span className="font-semibold tabular-nums text-gray-900">{formatCurrency(totals[source])}</span>
-                          <span className="ml-1 inline-flex items-center gap-1 text-gray-500">
+                          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                            {t(`sources.${source}`)}
+                            <span className="font-semibold tabular-nums text-gray-900">{formatCurrency(totals[source])}</span>
+                          </span>
+                          <span className="inline-flex items-center gap-1 whitespace-nowrap text-gray-500">
                             <Sprout size={11} aria-hidden="true" />
                             {t('historyMonthInvested')}
                             <span className="font-semibold tabular-nums text-gray-700">{formatCurrency(investedTotals[source])}</span>
                           </span>
-                          <span className="ml-1 inline-flex items-center gap-1 text-gray-500">
+                          <span className="inline-flex items-center gap-1 whitespace-nowrap text-gray-500">
                             <PiggyBank size={11} aria-hidden="true" />
                             {t('historyMonthReserved')}
                             <span className="font-semibold tabular-nums text-gray-700">{formatCurrency(reservedTotals[source])}</span>
@@ -283,21 +281,15 @@ export function WithdrawalHistory({
                       const SourceIcon = row.kind === 'carryover' ? CalendarArrowUp : SOURCE_ICONS[item.source];
                       const MethodIcon = item.payment_method ? METHOD_ICONS[item.payment_method] : null;
                       return (
-                        <li key={`${row.kind}:${row.id}`} className="group flex items-start gap-3 px-4 py-3.5 transition hover:bg-gray-50/70 sm:px-5">
-                          <button
-                            type="button"
+                        <li key={`${row.kind}:${row.id}`} className="flex items-start gap-3 px-4 py-3.5 sm:px-5">
+                          <TappableSurface
                             onClick={() => setSelected(row)}
-                            aria-label={`${t('entryDetails')}: ${deleteLabel(row)}`}
-                            className="flex min-w-0 flex-1 items-start gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                            chevron={false}
+                            label={`${t('entryDetails')}: ${deleteLabel(row)}`}
+                            className="min-w-0 flex-1 rounded-lg"
                           >
-                          <span
-                            className={cn(
-                              'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
-                              row.kind === 'carryover' ? 'bg-gray-100 text-gray-600' : SOURCE_TINTS[item.source].bubble,
-                            )}
-                          >
-                            <SourceIcon size={18} aria-hidden="true" />
-                          </span>
+                          <span className="flex items-start gap-3">
+                          <IconChip icon={SourceIcon} tone={row.kind === 'carryover' ? 'neutral' : SOURCE_TONES[item.source]} />
 
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-1.5">
@@ -319,7 +311,7 @@ export function WithdrawalHistory({
                                 <span className="min-w-0 break-words">{item.comment}</span>
                               </p>
                             ) : null}
-                            <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-400">
+                            <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
                               <Clock size={12} aria-hidden="true" />
                               {formatDateTime(item.created_at, locale)}
                             </p>
@@ -334,22 +326,20 @@ export function WithdrawalHistory({
                               {formatCurrency(item.amount)}
                               <span className="ml-1 text-xs font-medium text-gray-500">{tc('currency')}</span>
                             </p>
-                            <ChevronRight size={15} aria-hidden="true" className="mt-2 shrink-0 text-gray-300" />
-                          </button>
+                            <ChevronRight size={15} aria-hidden="true" className="mt-2 shrink-0 text-gray-400" />
+                          </span>
+                          </TappableSurface>
                           <div className="flex shrink-0 items-start gap-3">
                             {isOwner ? (
                               <IconButton
                                 variant="danger"
                                 size="sm"
                                 label={`${tc('delete')}: ${deleteLabel(row)}`}
-                                icon={<Trash2 size={16} />}
+                                icon={<Trash2 size={16} aria-hidden="true" />}
                                 loading={deletingId === row.id}
                                 disabled={deleteDisabled}
                                 onClick={() => onDelete(row)}
-                                className={cn(
-                                  'mt-0.5 transition-opacity',
-                                  deletingId !== row.id && 'sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100',
-                                )}
+                                className="mt-0.5"
                               />
                             ) : <span aria-hidden="true" className="w-8 shrink-0" />}
                           </div>
@@ -395,7 +385,7 @@ export function WithdrawalHistory({
                 {isOwner ? (
                   <Button
                     variant="danger"
-                    icon={<Trash2 size={16} />}
+                    icon={<Trash2 size={16} aria-hidden="true" />}
                     loading={deletingId === selected.id}
                     disabled={deleteDisabled}
                     onClick={() => {

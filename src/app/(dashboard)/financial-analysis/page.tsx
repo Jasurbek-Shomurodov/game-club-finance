@@ -3,9 +3,11 @@ import { Suspense } from 'react';
 import { FinancialAnalysisSkeleton } from './FinancialAnalysisSkeleton';
 import FinancialAnalysisPage from './FinancialAnalysisPage';
 
-export default function Page() {
+export default async function Page({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
+  // The placeholder takes the shape of the view the link asks for.
+  const { view } = await searchParams;
   return (
-    <Suspense fallback={<SkeletonStatus><FinancialAnalysisSkeleton /></SkeletonStatus>}>
+    <Suspense fallback={<SkeletonStatus><FinancialAnalysisSkeleton view={view === 'overall' ? 'overall' : 'monthly'} /></SkeletonStatus>}>
       <FinancialAnalysisPage />
     </Suspense>
   );

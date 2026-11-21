@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { formatNumber } from '@/lib/formatters';
 
 const DURATION_MS = 1400;
 
@@ -35,6 +36,6 @@ export function CountUp({ value, format }: { value: number; format?: 'plain' | '
     };
   }, [value]);
 
-  const text = format === 'grouped' ? shown.toLocaleString('ru-RU').replace(/ /g, ' ') : String(shown);
+  const text = format === 'grouped' ? formatNumber(shown) : String(shown);
   return <span ref={ref} className="tabular-nums">{text}</span>;
 }

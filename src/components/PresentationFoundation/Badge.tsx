@@ -36,7 +36,7 @@ export function Badge({ variant = 'neutral', size = 'md', icon, className, child
     <span
       className={cn(
         'inline-flex items-center gap-1 whitespace-nowrap rounded-full font-semibold',
-        size === 'sm' ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-xs',
+        size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-2.5 py-1 text-xs',
         variantClasses[variant],
         className,
       )}

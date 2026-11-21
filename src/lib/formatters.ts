@@ -263,11 +263,12 @@ export function formatNumber(value: number, locale = 'ru-UZ'): string {
   // NaN/Infinity would print as localized words ("не число"), and amounts that
   // round to zero would keep their sign ("-0"); show a plain 0 for both.
   // Round half away from zero, matching Intl's default, before the sign check.
+  // A negative amount carries a real minus sign (U+2212), never a hyphen.
   const rounded = Number.isFinite(value) ? Math.sign(value) * Math.round(Math.abs(value)) : 0;
   return numberFormat(locale, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(rounded === 0 ? 0 : rounded).replace(/[\u00a0\u202f]/g, ' ');
+  }).format(rounded === 0 ? 0 : rounded).replace(/[\u00a0\u202f]/g, ' ').replace('-', '\u2212');
 }
 
 export function formatCurrency(amount: number, locale = 'ru-UZ'): string {

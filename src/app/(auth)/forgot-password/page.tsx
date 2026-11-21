@@ -62,13 +62,13 @@ export default function ForgotPasswordPage() {
             />
           </Field>
           {error && <InlineAlert variant="danger">{error}</InlineAlert>}
-          <Button type="submit" fullWidth size="lg" className="text-sm" loading={loading} loadingLabel={tc('loading')}>
+          <Button type="submit" fullWidth size="lg" loading={loading} loadingLabel={tc('loading')}>
             {t('sendResetLink')}
           </Button>
         </form>
       )}
 
-      <ButtonLink href="/login" variant="ghost" className="mt-4" icon={<ArrowLeft size={16} />}>
+      <ButtonLink href="/login" variant="ghost" className="mt-4" icon={<ArrowLeft size={16} aria-hidden="true" />}>
         {t('backToLogin')}
       </ButtonLink>
     </AuthLayout>

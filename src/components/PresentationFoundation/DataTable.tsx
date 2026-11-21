@@ -79,7 +79,7 @@ function mobileCellClassName(mode: MobileMode, hasAction: boolean) {
 }
 
 const MOBILE_ROW = 'max-sm:relative max-sm:grid max-sm:grid-cols-2 max-sm:gap-x-4 max-sm:gap-y-2.5 max-sm:px-4 max-sm:py-3.5';
-const MOBILE_LABEL = 'mb-0.5 block text-[11px] font-medium leading-4 text-gray-500 sm:hidden';
+const MOBILE_LABEL = 'mb-0.5 block text-xs font-medium leading-4 text-gray-500 sm:hidden';
 
 /** Pairs each shown row with its index among the rows still in the data, so a row folding away does not shift numbering. */
 function withLiveIndex<E extends { presence?: Presence }>(entries: E[]) {

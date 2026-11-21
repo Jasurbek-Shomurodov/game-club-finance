@@ -24,7 +24,8 @@ export function Money({ amount, currency, signed = false, showPlus = false, clas
     <span className={cn('tabular-nums', signed && amount < 0 && 'text-danger-600', className)}>
       {/* The thousands separators are spaces: the number itself never breaks across lines. */}
       <span className="whitespace-nowrap">{showPlus && amount > 0 ? '+' : ''}{formatCurrency(amount)}</span>
-      {unit ? <span className={cn('ml-1 font-medium', currencyClassName)}>{unit}</span> : null}
+      {/* A real space before the unit, so a narrow card wraps the unit whole instead of splitting it. */}
+      {unit ? <>{' '}<span className={cn('whitespace-nowrap font-medium', currencyClassName)}>{unit}</span></> : null}
     </span>
   );
 }

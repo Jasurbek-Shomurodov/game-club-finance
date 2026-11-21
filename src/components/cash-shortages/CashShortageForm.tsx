@@ -226,7 +226,7 @@ export function CashShortageForm({ clubId, defaultMonth, today, enabledPaymentMe
                     <Icon size={15} aria-hidden="true" />
                     {tc(`paymentMethods.${value}`)}
                   </span>
-                  <span className="mt-0.5 text-[11px] font-normal tabular-nums opacity-80">{formatCurrency(held)}</span>
+                  <span className="mt-0.5 text-xs font-normal tabular-nums opacity-80">{formatCurrency(held)}</span>
                 </span>
               ),
             };
@@ -343,7 +343,7 @@ export function CashShortageForm({ clubId, defaultMonth, today, enabledPaymentMe
       {error ? <InlineAlert variant="danger">{t(`errors.${error}`)}</InlineAlert> : null}
 
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        {onCancel ? <Button type="button" variant="ghost" disabled={saving} onClick={onCancel}>{tc('cancel')}</Button> : null}
+        {onCancel ? <Button type="button" variant="secondary" disabled={saving} onClick={onCancel}>{tc('cancel')}</Button> : null}
         <Button
           type="submit"
           variant="danger"

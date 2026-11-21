@@ -468,3 +468,26 @@ export function reserveDollarRates(
     averageRate: dollarsHeld > 0 && dollarsSumsValue > 0 ? Math.round((dollarsSumsValue / dollarsHeld) * 100) / 100 : null,
   };
 }
+
+/** The sums the reserve holds as one pot (155): both sides, without the sums value of its dollars. */
+export function reserveSumsHeld(balances: Record<OwnerWithdrawalSource, ReserveBalance>): number {
+  return balances.game_club.held + balances.bar.held - balances.game_club.byMethod.usd;
+}
+
+/** What the reserve paid for, summed per expense category, in the order the categories first appear. */
+export function reserveSpendingByCategory(activity: readonly ReserveActivity[]): Array<{ category: string; amount: number }> {
+  const byCategory = new Map<string, number>();
+  for (const row of activity) {
+    if (row.kind === 'purchase') byCategory.set(row.category, (byCategory.get(row.category) ?? 0) + row.amount);
+  }
+  return [...byCategory.entries()].map(([category, amount]) => ({ category, amount }));
+}
+
+/** Everything put in, as what was spent, sent back to profit and is still held (never below zero). */
+export function reserveFlowSplit(totals: ReserveFlow): { spent: number; returned: number; held: number } {
+  return {
+    spent: totals.spent,
+    returned: totals.returned,
+    held: Math.max(0, totals.deposited - totals.spent - totals.returned),
+  };
+}

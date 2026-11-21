@@ -2,7 +2,6 @@
 
 // Route: /daily-report
 
-import { cn } from '@/lib/utils';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -14,20 +13,16 @@ import {
   DataTable,
   DatePicker,
   EmptyState,
-  Field,
   CategoryIcon,
   LoadErrorAlert,
-  MetricCard,
   Modal,
   Money,
   PageHeader,
   SectionHeading,
   SkeletonStatus,
   StatTile,
-  toneForAmount,
-  MetricMoney,
-  metricGridClassName,
 } from '@/components/PresentationFoundation';
+import { ReportTotals } from '../reports/ReportTotals';
 import { DailyReportSkeleton } from './DailyReportSkeleton';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
@@ -36,9 +31,10 @@ import { formatCurrency, formatNumber } from '@/lib/formatters';
 import { isoDateParam } from '@/lib/utils';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { PaymentDetails } from '@/components/financial-analysis/PaymentDetails';
-import { calculateFinancialReportTotals, calculateManualIncome } from '@/lib/calculations/dailyReport';
+import { calculateFinancialReportTotals, calculateManualIncome, sumDebtIncome } from '@/lib/calculations/dailyReport';
+import { canAccessPath } from '@/lib/permissions';
 import { loadFinanceReportRows, type FinanceStockCountRow } from '@/lib/supabase/financeReportSnapshot';
-import { ChevronRight, FileText, TrendingUp, TrendingDown, DollarSign, Users } from 'lucide-react';
+import { ChevronRight, FileText } from 'lucide-react';
 import type { DailyCashEntry, Expense, StockPurchase } from '@/types';
 import { closingStockHref, dayRange, moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
 
@@ -56,7 +52,9 @@ export default function DailyReportPage() {
   const t = useTranslations('dailyReport');
   const tc = useTranslations('common');
   const te = useTranslations('expenses');
-  const { selectedClubId, businessDayStartHour } = useClub();
+  const { selectedClubId, businessDayStartHour, role, featureAccess } = useClub();
+  /** A figure opens its records only on a page this member may open. */
+  const linkIfAllowed = (href: string) => (role && canAccessPath(role, featureAccess, href.split('?')[0]) ? href : undefined);
 
   const businessToday = useBusinessToday(businessDayStartHour);
   const [date, setDate] = useBusinessPeriod(businessToday, selectedClubId);
@@ -81,7 +79,7 @@ export default function DailyReportPage() {
       stockCounts: result.data.stockCountRows,
       stockPurchases: result.data.purchaseRows,
       expenses: result.data.expenseRows,
-      debtIncome: result.data.debtRows.reduce((sum, debt) => sum + Number(debt.amount ?? 0), 0),
+      debtIncome: sumDebtIncome(result.data.debtRows),
     };
   }, [date, selectedClubId]);
   const report = useClubQuery<DailyReportData>(loadReport, EMPTY_REPORT);
@@ -105,20 +103,22 @@ export default function DailyReportPage() {
 
   // The game club and the bar are separate businesses: one row each, never added together.
   const day = dayRange(date);
-  const gameClubHref = moneyDetailsHref('game_club', day);
-  const barHref = moneyDetailsHref('bar', day);
-  const kpis = [
-    { href: reportsHref(day, { category: 'income' }), label: t('manualIncome'), amount: manualIncome, icon: TrendingUp, tone: 'success' as const },
-    { href: reportsHref(day, { category: 'debt_payment' }), label: t('debtIncome'), amount: debtIncome, icon: Users, tone: 'warning' as const },
-    { href: reportsHref(day, { category: 'expense', source: 'game_club' }), label: t('gameClubExpenses'), amount: reportTotals.gameClubExpenses, icon: TrendingDown, tone: 'danger' as const },
-    { href: gameClubHref, label: t('gameClubProfit'), amount: reportTotals.gameClubProfit, icon: DollarSign, tone: toneForAmount(reportTotals.gameClubProfit) },
-    { href: closingStockHref(date), label: t('barSales'), amount: reportTotals.barSales, icon: TrendingUp, tone: 'success' as const },
-    { href: closingStockHref(date), label: t('costOfGoodsSold'), amount: reportTotals.barCost, icon: TrendingDown, tone: 'danger' as const },
-    { href: reportsHref(day, { category: 'expense', source: 'bar' }), label: t('barExpenses'), amount: reportTotals.barExpenses, icon: TrendingDown, tone: 'danger' as const },
-    { href: barHref, label: t('barProfit'), amount: reportTotals.barProfit, icon: DollarSign, tone: toneForAmount(reportTotals.barProfit) },
-    { href: barHref, label: t('inventoryPurchases'), amount: reportTotals.stockPurchaseCost, icon: TrendingDown, tone: 'danger' as const },
-    { href: barHref, label: t('barCashLeft'), amount: reportTotals.barCashLeft, icon: DollarSign, tone: toneForAmount(reportTotals.barCashLeft) },
-  ];
+  const gameClubHref = linkIfAllowed(moneyDetailsHref('game_club', day));
+  const barHref = linkIfAllowed(moneyDetailsHref('bar', day));
+  const stockHref = linkIfAllowed(closingStockHref(date));
+  const incomeHref = linkIfAllowed(reportsHref(day, { category: 'income' }));
+  const totalFigures = {
+    manualIncome: { href: incomeHref, label: t('manualIncome'), amount: manualIncome },
+    debtIncome: { href: linkIfAllowed(reportsHref(day, { category: 'debt_payment' })), label: t('debtIncome'), amount: debtIncome },
+    gameClubExpenses: { href: linkIfAllowed(reportsHref(day, { category: 'expense', source: 'game_club' })), label: t('gameClubExpenses'), amount: reportTotals.gameClubExpenses },
+    gameClubProfit: { href: gameClubHref, label: t('gameClubProfit'), amount: reportTotals.gameClubProfit },
+    barSales: { href: stockHref, label: t('barSales'), amount: reportTotals.barSales },
+    costOfGoodsSold: { href: stockHref, label: t('costOfGoodsSold'), amount: reportTotals.barCost },
+    barExpenses: { href: linkIfAllowed(reportsHref(day, { category: 'expense', source: 'bar' })), label: t('barExpenses'), amount: reportTotals.barExpenses },
+    barProfit: { href: barHref, label: t('barProfit'), amount: reportTotals.barProfit },
+    inventoryPurchases: { href: barHref, label: t('inventoryPurchases'), amount: reportTotals.stockPurchaseCost },
+    barCashLeft: { href: barHref, label: t('barCashLeft'), amount: reportTotals.barCashLeft },
+  };
 
   const cashBreakdown = cashEntry
     ? [
@@ -134,11 +134,7 @@ export default function DailyReportPage() {
       <PageHeader
         title={t('title')}
         tabs={<ReportsTabs value="day" />}
-        action={(
-          <Field label={t('date')} className="sm:w-64">
-            <DatePicker ariaLabel={t('date')} value={date} max={businessToday} onChange={setDate} />
-          </Field>
-        )}
+        action={<DatePicker ariaLabel={t('date')} value={date} max={businessToday} onChange={setDate} className="sm:w-64" />}
       />
 
       {loadError && (
@@ -153,19 +149,14 @@ export default function DailyReportPage() {
         <Card><EmptyState icon={FileText} title={t('noData')} /></Card>
       ) : (
         <div className="space-y-6">
-          <div className={cn(metricGridClassName, 'sm:grid-cols-2 sm:gap-4 lg:grid-cols-4')}>
-            {kpis.map((kpi) => (
-              <MetricCard key={kpi.label} href={kpi.href} label={kpi.label} value={<MetricMoney amount={kpi.amount} currency={currency} />} icon={kpi.icon} tone={kpi.tone} />
-            ))}
-          </div>
-          <p className="text-xs text-gray-500">{t('barCashFormula')}</p>
+          <ReportTotals figures={totalFigures} currency={currency} barNote={t('barCashFormula')} />
 
           {cashEntry && (
             <Card>
               <SectionHeading size="sm" title={t('cashEntry')} />
               <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
                 {cashBreakdown.map((item) => (
-                  <StatTile key={item.label} href={reportsHref(day, { category: 'income' })} label={item.label} value={formatCurrency(item.amount)} unit={currency} variant="soft" size="sm" />
+                  <StatTile key={item.label} href={incomeHref} label={item.label} value={formatCurrency(item.amount)} unit={currency} variant="soft" size="sm" />
                 ))}
               </div>
               {cashEntry.comment && <p className="mt-3 text-sm text-gray-500">{cashEntry.comment}</p>}
@@ -184,7 +175,7 @@ export default function DailyReportPage() {
                 label={t('stockSummary')}
                 minWidth={680}
                 keyExtractor={(row) => row.id}
-                onRowClick={() => router.push(closingStockHref(date))}
+                onRowClick={stockHref ? () => router.push(stockHref) : undefined}
                 data={stockCounts}
                 columns={[
                   { key: 'product', header: t('product'), className: 'sticky left-0 z-10 bg-gray-50', cellClassName: 'bg-surface', render: (row) => <span className="font-medium text-gray-900">{row.product_name ?? row.product_id}</span> },
@@ -195,10 +186,10 @@ export default function DailyReportPage() {
                 ]}
                 footer={{
                   product: tc('total'),
-                  sold: formatNumber(stockCounts.reduce((sum, row) => sum + row.sold_quantity, 0)),
+                  sold: formatNumber(reportTotals.barUnitsSold),
                   income: <span className="text-success-600">{formatCurrency(reportTotals.barSales)}</span>,
                   cost: <span className="text-danger-600">{formatCurrency(reportTotals.barCost)}</span>,
-                  profit: formatCurrency(stockCounts.reduce((s, r) => s + r.bar_profit, 0)),
+                  profit: <Money amount={reportTotals.barGrossProfit} currency={null} signed className={reportTotals.barGrossProfit >= 0 ? 'text-success-600' : undefined} />,
                 }}
               />
             </Card>
@@ -209,11 +200,11 @@ export default function DailyReportPage() {
               <SectionHeading size="sm" title={t('expensesList')} />
               <ul className="mt-3 divide-y divide-gray-100">
                 {expenses.map((e) => (
-                  <li key={e.id}>
+                  <li key={e.id} className="-mx-2">
                     <button
                       type="button"
                       onClick={() => setSelectedExpense(e)}
-                      className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-2 text-left text-sm transition-colors hover:bg-gray-50 focus-visible:bg-primary-50 focus-visible:outline-none"
+                      className="tappable group flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
                     >
                       <CategoryIcon category={e.category} tone={e.payment_source === 'bar' ? 'bar' : 'expense'} size="sm" />
                       <span className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:justify-between">

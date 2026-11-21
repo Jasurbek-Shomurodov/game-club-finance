@@ -12,7 +12,7 @@ import { DASHBOARD_PATH } from '@/lib/routes';
 
 function GoogleIcon() {
   return (
-    <svg className="h-[18px] w-[18px]" viewBox="0 0 24 24" aria-hidden="true">
+    <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
       <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
       <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
@@ -95,7 +95,7 @@ function LoginForm() {
         variant="outline"
         fullWidth
         size="lg"
-        className="mt-7 text-sm"
+        className="mt-7"
         onClick={handleGoogleLogin}
         loading={googleLoading}
         loadingLabel={tc('loading')}
@@ -107,7 +107,7 @@ function LoginForm() {
 
       <div className="my-5 flex items-center gap-3" aria-hidden="true">
         <div className="h-px flex-1 bg-gray-200" />
-        <span className="text-xs text-gray-400">{t('orWithEmail')}</span>
+        <span className="text-xs text-gray-500">{t('orWithEmail')}</span>
         <div className="h-px flex-1 bg-gray-200" />
       </div>
 
@@ -120,14 +120,14 @@ function LoginForm() {
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
-            placeholder="you@club.uz"
+            placeholder={t('emailPlaceholder')}
           />
         </Field>
         <Field
           label={t('password')}
           htmlFor="login-password"
           labelAddon={(
-            <Link href="/forgot-password" className="-my-2 ml-auto inline-flex min-h-9 items-center rounded-lg text-[13px] font-medium text-primary-600 hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+            <Link href="/forgot-password" className="-my-2 ml-auto inline-flex min-h-9 items-center rounded-lg text-sm font-medium text-primary-600 hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
               {t('forgotPassword')}
             </Link>
           )}
@@ -144,12 +144,12 @@ function LoginForm() {
 
         {error && <InlineAlert variant="danger">{error}</InlineAlert>}
 
-        <Button type="submit" fullWidth size="lg" className="text-sm" loading={loading} loadingLabel={tc('loading')} disabled={googleLoading}>
+        <Button type="submit" fullWidth size="lg" loading={loading} loadingLabel={tc('loading')} disabled={googleLoading}>
           {t('login')}
         </Button>
       </form>
 
-      <div className="mt-6 rounded-xl bg-primary-50 px-4 py-3 text-[13px] leading-5">
+      <div className="mt-6 rounded-xl bg-primary-50 px-4 py-3 text-sm leading-5">
         <p className="font-semibold text-primary-700">{t('noAccessTitle')}</p>
         <p className="mt-0.5 text-gray-600">{t('noAccessHelp')}</p>
       </div>

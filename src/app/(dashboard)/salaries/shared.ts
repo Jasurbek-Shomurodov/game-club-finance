@@ -25,6 +25,9 @@ export function knownEmployeeRole(value: string) {
 }
 
 export type SetupMode = 'new' | 'salary' | 'kpi' | 'profile';
+/** A kind of recorded entry the history list can be narrowed to. */
+export type HistoryKindFilter = 'payment' | 'bonus' | 'fine';
+
 export type SalaryView = 'operations' | 'employees' | 'history';
 export type EntryKind = SalaryEntry['kind'];
 export type SavingTarget = 'entry' | 'employee' | 'deactivate' | 'delete';

@@ -57,7 +57,7 @@ export function MemberAccessPanel({
         className="mb-5"
         title={t('accessSettings')}
         description={canManage ? t('autoSave') : t('notClubOwner')}
-        action={<IconButton variant="ghost" size="sm" label={t('hideAccess')} icon={<X size={17} />} onClick={onClose} />}
+        action={<IconButton variant="ghost" size="sm" label={t('hideAccess')} icon={<X size={16} aria-hidden="true" />} onClick={onClose} />}
       />
       <div className="mb-5 max-w-sm">
         <Field
@@ -67,7 +67,6 @@ export function MemberAccessPanel({
         >
           <Select
             id={`member-role-${member.id}`}
-            className="font-medium"
             value={membership.role}
             disabled={saving || protectedOwner || !canManage}
             onChange={(event) => onRoleChange(event.target.value as UserRole)}
@@ -98,7 +97,7 @@ export function MemberAccessPanel({
                 <Checkbox
                   key={feature.key}
                   variant="card"
-                  className="min-h-[76px]"
+                  className="min-h-20"
                   checked={checked}
                   disabled={disabled}
                   onChange={(event) => onFeatureChange(feature.key, event.target.checked)}

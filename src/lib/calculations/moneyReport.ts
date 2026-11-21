@@ -127,6 +127,8 @@ export interface MoneyReportBarSalesRow extends BarSalesRow {
 
 export type MoneyReportCategoryFilter =
   | 'all'
+  /** Everything the game club took in: daily income and debt payments (the "total collected" figure). */
+  | 'money_in'
   | 'income'
   | 'debt_payment'
   | 'expense'
@@ -431,6 +433,9 @@ export function buildFilteredMoneyReport(
 ): MoneyReport {
   if (categoryFilter === 'exchange') {
     return buildMoneyReport([], [], [], [], [], exchangeRows);
+  }
+  if (categoryFilter === 'money_in') {
+    return buildMoneyReport(cashRows, [], debtPaymentRows);
   }
   if (categoryFilter === 'income') {
     return buildMoneyReport(cashRows, [], []);

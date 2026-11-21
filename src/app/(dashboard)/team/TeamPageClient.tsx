@@ -352,7 +352,7 @@ export default function TeamPageClient() {
         {shown.length > 0 && !access.all && (
           <p className="mt-1 truncate text-xs text-gray-500">
             {shown.join(' · ')}
-            {hidden > 0 && <span className="text-gray-400"> · {t('morePages', { count: hidden })}</span>}
+            {hidden > 0 && <span className="text-gray-500"> · {t('morePages', { count: hidden })}</span>}
           </p>
         )}
       </div>
@@ -361,9 +361,12 @@ export default function TeamPageClient() {
 
   if (!clubLoading && currentClubRole !== 'owner') {
     return (
-      <Card>
-        <EmptyState icon={Lock} title={tc('accessDeniedTitle')} description={tc('accessDeniedDescription')} />
-      </Card>
+      <div>
+        <PageHeader title={t('title')} tabs={sectionTabs} />
+        <Card>
+          <EmptyState icon={Lock} title={tc('accessDeniedTitle')} description={tc('accessDeniedDescription')} />
+        </Card>
+      </div>
     );
   }
 
@@ -409,7 +412,8 @@ export default function TeamPageClient() {
           )}
 
           {clubMembers.length === 0 ? (
-            <Card><EmptyState icon={Users} title={tc('noData')} /></Card>
+            // A failed load already shows its own alert; "no data" would contradict it.
+            team.loadFailed ? null : <Card><EmptyState icon={Users} title={tc('noData')} /></Card>
           ) : (
             <Card as="section" padding="none" className="overflow-hidden">
               <CardHeader className="space-y-4">
@@ -454,7 +458,7 @@ export default function TeamPageClient() {
                 />
               ) : (
                 <>
-                  <div className={cn(MEMBER_GRID, 'hidden border-b border-gray-100 bg-gray-50/60 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400 lg:grid')}>
+                  <div className={cn(MEMBER_GRID, 'hidden border-b border-gray-100 bg-gray-50/60 py-2 text-xs font-semibold uppercase tracking-wider text-gray-500 lg:grid')}>
                     <span>{t('member')}</span>
                     <span>{t('role')}</span>
                     <span>{t('pageAccess')}</span>
@@ -467,12 +471,12 @@ export default function TeamPageClient() {
 
                       return (
                         <article key={profile.id} className={cn(expanded && 'bg-gray-50/40')}>
-                          <div className={cn(MEMBER_GRID, 'grid-cols-[minmax(0,1fr)_auto] gap-y-3 py-3.5 transition-colors', !expanded && 'hover:bg-gray-50/60')}>
+                          <div className={cn(MEMBER_GRID, 'grid-cols-[minmax(0,1fr)_auto] gap-y-3 py-3.5 transition-colors motion-reduce:transition-none', !expanded && 'hover:bg-gray-50/60')}>
                             <div className="flex min-w-0 items-center gap-3">
                               <Avatar name={profile.full_name} tone={membership.role === 'viewer' ? 'neutral' : 'primary'} />
                               <div className="min-w-0">
                                 <div className="flex min-w-0 items-center gap-2">
-                                  <h3 className="truncate text-sm font-semibold text-gray-950" title={profile.full_name}>{profile.full_name}</h3>
+                                  <p className="truncate text-sm font-semibold text-gray-950" title={profile.full_name}>{profile.full_name}</p>
                                   {profile.id === currentUserId && <Badge variant="outline" size="sm">{t('you')}</Badge>}
                                 </div>
                                 {profile.email && profile.email !== profile.full_name && (
@@ -501,7 +505,7 @@ export default function TeamPageClient() {
                               aria-expanded={expanded}
                               aria-controls={`member-access-${profile.id}`}
                               icon={<Settings2 size={15} aria-hidden="true" />}
-                              iconRight={<ChevronDown size={14} className={cn('shrink-0 transition-transform', expanded && 'rotate-180')} aria-hidden="true" />}
+                              iconRight={<ChevronDown size={14} className={cn('shrink-0 transition-transform motion-reduce:transition-none', expanded && 'rotate-180')} aria-hidden="true" />}
                             >
                               <span className="hidden sm:inline">{t('manageAccess')}</span>
                             </Button>
@@ -550,7 +554,7 @@ export default function TeamPageClient() {
                     <div className="flex min-w-0 items-center gap-3">
                       <Avatar name={profile.full_name} tone="neutral" />
                       <div className="min-w-0">
-                        <h3 className="break-words text-sm font-semibold text-gray-950">{profile.full_name}</h3>
+                        <p className="break-words text-sm font-semibold text-gray-950">{profile.full_name}</p>
                         {profile.email && <p className="mt-0.5 truncate text-xs text-gray-500" title={profile.email}>{profile.email}</p>}
                       </div>
                     </div>
@@ -561,7 +565,7 @@ export default function TeamPageClient() {
                         </Badge>
                       ))}
                     </div>
-                    <div className="min-w-0 lg:w-[280px]">
+                    <div className="min-w-0 lg:w-72">
                       {renderAccessControls(profile, t('addToClub'), 'outline')}
                     </div>
                   </article>
@@ -581,7 +585,7 @@ export default function TeamPageClient() {
         <p className="text-sm leading-6 text-gray-600">{t('inviteHelp')}</p>
         <Field label={t('loginLink')} htmlFor="team-login-link" className="mt-4">
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Input id="team-login-link" readOnly value={loginUrl} onFocus={(event) => event.currentTarget.select()} className="font-mono sm:text-[13px]" />
+            <Input id="team-login-link" readOnly value={loginUrl} onFocus={(event) => event.currentTarget.select()} className="font-mono" />
             <Button variant="outline" className="shrink-0" onClick={() => void copyLoginLink()} icon={<Copy size={16} aria-hidden="true" />}>
               {t('copyLink')}
             </Button>

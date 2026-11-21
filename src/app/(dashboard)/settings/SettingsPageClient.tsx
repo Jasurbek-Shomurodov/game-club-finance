@@ -12,6 +12,7 @@ import {
   Badge,
   Button,
   Card,
+  Checkbox,
   ClubLogo,
   Field,
   InlineAlert,
@@ -57,8 +58,8 @@ function SettingRow({ id, title, help, stacked = false, children }: {
   return (
     <div className={cn('flex flex-col gap-3 px-5 py-4', !stacked && 'sm:flex-row sm:items-center sm:justify-between sm:gap-8')}>
       <div className="min-w-0">
-        <h3 id={id} className="text-sm font-semibold text-gray-950">{title}</h3>
-        {help && <p className="mt-0.5 max-w-md text-[13px] leading-5 text-gray-500">{help}</p>}
+        <p id={id} className="text-sm font-semibold text-gray-950">{title}</p>
+        {help && <p className="mt-0.5 max-w-md text-xs leading-5 text-gray-500">{help}</p>}
       </div>
       <div className={stacked ? 'min-w-0' : 'shrink-0'}>{children}</div>
     </div>
@@ -460,29 +461,18 @@ export function SettingsPageClient() {
             )}
           </SettingRow>
 
-          <SettingRow id="setting-payment-methods" title={t('paymentMethods')} help={t('paymentMethodsHelp')}>
-            <div className="flex flex-wrap gap-2" role="group" aria-labelledby="setting-payment-methods">
-              {PAYMENT_METHODS.map((method) => {
-                const enabled = paymentMethods.includes(method);
-                return (
-                  <Button
-                    key={method}
-                    variant="outline"
-                    aria-pressed={enabled}
-                    disabled={clubSettingsDisabled}
-                    onClick={() => togglePaymentMethod(method)}
-                    icon={enabled ? <Check size={15} aria-hidden="true" /> : undefined}
-                    className={cn(
-                      'min-h-10 gap-1.5 rounded-full px-3.5 font-medium shadow-none disabled:opacity-60',
-                      enabled
-                        ? 'border-primary-600 bg-primary-50 text-primary-700 hover:border-primary-600 hover:bg-primary-50 disabled:border-primary-600 disabled:bg-primary-50 disabled:text-primary-700'
-                        : 'text-gray-500 hover:text-gray-900 disabled:bg-surface disabled:text-gray-500',
-                    )}
-                  >
-                    {tc(`paymentMethods.${method}`)}
-                  </Button>
-                );
-              })}
+          <SettingRow id="setting-payment-methods" title={t('paymentMethods')} help={t('paymentMethodsHelp')} stacked>
+            <div className="grid gap-2 sm:grid-cols-3" role="group" aria-labelledby="setting-payment-methods">
+              {PAYMENT_METHODS.map((method) => (
+                <Checkbox
+                  key={method}
+                  variant="card"
+                  checked={paymentMethods.includes(method)}
+                  disabled={clubSettingsDisabled}
+                  onChange={() => togglePaymentMethod(method)}
+                  label={tc(`paymentMethods.${method}`)}
+                />
+              ))}
             </div>
           </SettingRow>
 
@@ -512,32 +502,30 @@ export function SettingsPageClient() {
 
           {(detailsError || businessDayError || paymentMethodsError || internetPaymentDayError || !isOwner) && (
             <div className="space-y-2 bg-gray-50/60 px-5 py-3">
-              {detailsError && <InlineAlert variant="danger" hideIcon className="py-2">{detailsError}</InlineAlert>}
-              {businessDayError && <InlineAlert variant="danger" hideIcon className="py-2">{businessDayError}</InlineAlert>}
-              {paymentMethodsError && <InlineAlert variant="danger" hideIcon className="py-2">{paymentMethodsError}</InlineAlert>}
-              {internetPaymentDayError && <InlineAlert variant="danger" hideIcon className="py-2">{internetPaymentDayError}</InlineAlert>}
+              {detailsError && <InlineAlert variant="danger" hideIcon>{detailsError}</InlineAlert>}
+              {businessDayError && <InlineAlert variant="danger" hideIcon>{businessDayError}</InlineAlert>}
+              {paymentMethodsError && <InlineAlert variant="danger" hideIcon>{paymentMethodsError}</InlineAlert>}
+              {internetPaymentDayError && <InlineAlert variant="danger" hideIcon>{internetPaymentDayError}</InlineAlert>}
               {!isOwner && <p className="text-xs text-gray-500">{t('businessDayOwnerOnly')} {t('paymentMethodsOwnerOnly')}</p>}
             </div>
           )}
         </Card>
       </SettingsSection>
 
-      <SettingsSection title={<>{t('clubs')} <span className="font-normal text-gray-400">{memberships.length}</span></>}>
+      <SettingsSection title={<>{t('clubs')} <span className="font-normal text-gray-500">{memberships.length}</span></>}>
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label={t('clubs')}>
           {memberships.map((membership) => {
             const selected = selectedClub?.id === membership.club.id;
             return (
               <li key={membership.club.id}>
                 <Card
-                  as="button"
-                  padding="none"
-                  aria-current={selected ? 'true' : undefined}
+                  padding="sm"
+                  chevron={false}
                   onClick={() => setSelectedClubId(membership.club.id)}
-                  className={cn(
-                    'flex h-full min-h-24 w-full items-start gap-3 p-4 text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
-                    selected ? 'border-primary-600 ring-1 ring-primary-600' : 'hover:border-gray-300',
-                  )}
+                  // Card has no `selected` prop yet; the ring marks the club in use, and the row below says so in words.
+                  className={cn('h-full min-h-24', selected && 'border-primary-600 ring-1 ring-primary-600')}
                 >
+                  <span className="flex items-start gap-3">
                   <ClubLogo src={membership.club.logo_url} size={36} className="shrink-0 rounded-lg" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold text-gray-950">{membership.club.name}</span>
@@ -554,6 +542,7 @@ export function SettingsPageClient() {
                       )}
                     </span>
                   </span>
+                  </span>
                 </Card>
               </li>
             );
@@ -561,14 +550,16 @@ export function SettingsPageClient() {
           {isOwner && (
             <li>
               <Card
-                as="button"
-                padding="none"
-                dashed
+                padding="sm"
+                chevron={false}
                 onClick={() => setCreateClubOpen(true)}
-                className="flex h-full min-h-24 w-full items-center justify-center gap-2 border-gray-300 bg-transparent p-4 text-sm font-medium text-gray-500 transition hover:border-primary-500 hover:text-primary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                // A tappable Card ignores `dashed`, so the placeholder look is set here.
+                className="h-full min-h-24 border-dashed border-gray-300 bg-transparent shadow-none"
               >
-                <Plus size={16} aria-hidden="true" />
-                {t('addClub')}
+                <span className="flex h-full min-h-16 items-center justify-center gap-2 text-sm font-medium text-gray-600">
+                  <Plus size={16} aria-hidden="true" />
+                  {t('addClub')}
+                </span>
               </Card>
             </li>
           )}

@@ -21,6 +21,7 @@ import {
   Spinner,
   Textarea,
 } from '@/components/PresentationFoundation';
+import { scrollBehavior } from '@/lib/scroll';
 
 const SUGGESTIONS = ['profit', 'compare', 'products', 'excel', 'stock', 'debts'] as const;
 const MAX_MESSAGE_CHARS = DEFAULT_LIMITS.maxMessageChars;
@@ -51,7 +52,7 @@ export default function AssistantPage() {
   useEffect(() => newChat(), [selectedClubId, newChat]);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+    endRef.current?.scrollIntoView({ block: 'end', behavior: scrollBehavior() });
   }, [entries]);
 
   // Multi-line question box: fit the text, capped so long drafts scroll.
@@ -185,9 +186,9 @@ export default function AssistantPage() {
                       key={file.url}
                       href={file.url}
                       download={file.fileName}
-                      className="inline-flex max-w-full items-center gap-2 rounded-xl border border-gray-200 bg-surface px-3 py-2 text-sm font-medium text-gray-800 transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                      className="inline-flex min-h-10 max-w-full items-center gap-2 rounded-xl border border-gray-200 bg-surface px-3 py-2 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 motion-reduce:transition-none"
                     >
-                      <FileSpreadsheet size={18} className="shrink-0 text-emerald-600" aria-hidden="true" />
+                      <FileSpreadsheet size={18} className="shrink-0 text-success-600" aria-hidden="true" />
                       <span className="truncate">{file.fileName}</span>
                       <Download size={15} className="shrink-0 text-gray-500" aria-hidden="true" />
                       <span className="sr-only">{t('download')}</span>

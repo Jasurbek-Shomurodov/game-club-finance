@@ -18,15 +18,15 @@ import {
   CurrencyInput,
   EmptyState,
   Field,
-  IconButton,
   InlineAlert,
   Input,
   LoadErrorAlert,
   Modal,
   PageHeader,
-  PageSkeleton,
   SectionHeading,
   SegmentedControl,
+  SkeletonStatus,
+  TappableSurface,
   Textarea,
   buttonClassName,
   useConfirm,
@@ -65,6 +65,7 @@ import { useClubQuery } from '@/lib/useClubQuery';
 import type { ShowcaseGame, ShowcaseOffer, ShowcasePcZone, ShowcaseZoneKind } from '@/types';
 import { LocalizedTextField } from './LocalizedTextField';
 import { ShowcaseImageField } from './ShowcaseImageField';
+import { ShowcaseSkeleton } from './ShowcaseSkeletons';
 import { ShowcaseTabs } from './ShowcaseTabs';
 
 const EMPTY: ShowcaseAdminData & { missing: boolean } = { showcase: null, games: [], zones: [], offers: [], offersMissing: false, missing: false };
@@ -228,9 +229,12 @@ export default function ShowcasePage() {
 
   if (!canEdit) {
     return (
-      <Card>
-        <EmptyState icon={Gamepad2} title={t('ownerOnly')} />
-      </Card>
+      <div className="w-full space-y-5">
+        <PageHeader title={t('title')} tabs={<ShowcaseTabs current="/showcase" />} />
+        <Card>
+          <EmptyState icon={Gamepad2} title={t('ownerOnly')} />
+        </Card>
+      </div>
     );
   }
 
@@ -246,7 +250,7 @@ export default function ShowcasePage() {
       <PageHeader title={t('title')} tabs={<ShowcaseTabs current="/showcase" />} action={openPublicLink} />
 
       {query.loading ? (
-        <PageSkeleton />
+        <SkeletonStatus><ShowcaseSkeleton /></SkeletonStatus>
       ) : query.error ? (
         <LoadErrorAlert retrying={query.loading} onRetry={() => void query.reload()}>{t('loadFailed')}</LoadErrorAlert>
       ) : missing ? (
@@ -366,19 +370,21 @@ export default function ShowcasePage() {
                   ) : (
                     <ul className="divide-y divide-gray-100">
                       {zones.map((zone) => (
-                        <li key={zone.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                        <li key={zone.id} className="py-1.5 first:pt-0 last:pb-0">
+                          <TappableSurface onClick={() => openZone(zone)} chevron={false} label={`${tc('edit')}: ${zone.name}`} className="rounded-xl border border-transparent p-1.5">
+                            <span className="flex items-start gap-3">
                           <span className="relative aspect-video w-24 shrink-0 overflow-hidden rounded-lg bg-gray-100">
                             {zone.image_url ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img src={zone.image_url} alt="" className="h-full w-full object-cover" />
                             ) : (
-                              <span className="flex h-full items-center justify-center text-gray-400">
+                              <span className="flex h-full items-center justify-center text-gray-500">
                                 {zone.kind === 'playstation' ? <Gamepad2 size={20} aria-hidden="true" /> : <Monitor size={20} aria-hidden="true" />}
                               </span>
                             )}
                           </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-gray-900">
+                          <span className="block min-w-0 flex-1">
+                            <span className="flex flex-wrap items-center gap-2 text-sm font-semibold text-gray-900">
                               {zone.name}
                               <Badge variant="neutral">
                                 {zone.kind === 'playstation' ? t('consoleCountValue', { count: zone.pc_count }) : t('pcCountValue', { count: zone.pc_count })}
@@ -388,20 +394,16 @@ export default function ShowcasePage() {
                                   {t('pricePerHourValue', { price: formatCurrency(zone.price_per_hour), currency: tc('currency') })}
                                 </span>
                               )}
-                            </p>
-                            <p className="mt-0.5 text-xs leading-5 text-gray-500">
+                            </span>
+                            <span className="mt-0.5 block text-xs leading-5 text-gray-500">
                               {(zone.kind === 'playstation'
                                 ? [zone.console, zone.controllers ? t('controllersValue', { count: zone.controllers }) : null, monitorSummary(zone)]
                                 : [zone.gpu, zone.cpu, zone.ram, monitorSummary(zone)]).filter(Boolean).join(' · ') || t('noSpecs')}
-                            </p>
-                          </div>
-                          <IconButton
-                            variant="ghost"
-                            size="sm"
-                            label={`${tc('edit')}: ${zone.name}`}
-                            icon={<Pencil size={15} aria-hidden="true" />}
-                            onClick={() => openZone(zone)}
-                          />
+                            </span>
+                          </span>
+                            <Pencil size={15} className="mt-1 shrink-0 text-gray-500 transition-colors group-hover:text-primary-600" aria-hidden="true" />
+                            </span>
+                          </TappableSurface>
                         </li>
                       ))}
                     </ul>
@@ -426,29 +428,27 @@ export default function ShowcasePage() {
                   ) : (
                     <ul className="divide-y divide-gray-100">
                       {offers.map((offer) => (
-                        <li key={offer.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                        <li key={offer.id} className="py-1.5 first:pt-0 last:pb-0">
+                          <TappableSurface onClick={() => openOffer(offer)} chevron={false} label={`${tc('edit')}: ${offer.title}`} className="rounded-xl border border-transparent p-1.5">
+                            <span className="flex items-start gap-3">
                           <span className="flex h-11 min-w-11 shrink-0 items-center justify-center rounded-xl bg-primary-50 px-2 text-sm font-bold text-primary-700">
                             {offer.badge || <BadgePercent size={18} aria-hidden="true" />}
                           </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-gray-900">
+                          <span className="block min-w-0 flex-1">
+                            <span className="flex flex-wrap items-center gap-2 text-sm font-semibold text-gray-900">
                               {offer.title}
                               {!offer.is_active && <Badge variant="neutral">{t('offerHidden')}</Badge>}
                               {offer.price !== null && (
                                 <span className="text-xs font-medium text-gray-500">{formatCurrency(offer.price)} {tc('currency')}</span>
                               )}
-                            </p>
-                            <p className="mt-0.5 text-xs leading-5 text-gray-500">
+                            </span>
+                            <span className="mt-0.5 block text-xs leading-5 text-gray-500">
                               {[offer.time_window, offer.description].filter(Boolean).join(' · ')}
-                            </p>
-                          </div>
-                          <IconButton
-                            variant="ghost"
-                            size="sm"
-                            label={`${tc('edit')}: ${offer.title}`}
-                            icon={<Pencil size={15} aria-hidden="true" />}
-                            onClick={() => openOffer(offer)}
-                          />
+                            </span>
+                          </span>
+                            <Pencil size={15} className="mt-1 shrink-0 text-gray-500 transition-colors group-hover:text-primary-600" aria-hidden="true" />
+                            </span>
+                          </TappableSurface>
                         </li>
                       ))}
                     </ul>
@@ -472,15 +472,11 @@ export default function ShowcasePage() {
                     <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10">
                       {games.map((game) => (
                         <li key={game.id}>
-                          <button
-                            type="button"
-                            onClick={() => openGame(game)}
-                            className="group block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-xl"
-                          >
+                          <TappableSurface onClick={() => openGame(game)} chevron={false} label={`${tc('edit')}: ${game.title}`} className="rounded-xl border border-transparent">
                             <span className="relative block aspect-[3/4] overflow-hidden rounded-xl bg-gray-100">
                               {game.image_url ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={game.image_url} alt="" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                                <img src={game.image_url} alt="" className="h-full w-full object-cover" />
                               ) : (
                                 <span className="flex h-full items-center justify-center text-gray-400"><Gamepad2 size={26} aria-hidden="true" /></span>
                               )}
@@ -490,7 +486,7 @@ export default function ShowcasePage() {
                             </span>
                             <span className="mt-1.5 block truncate text-sm font-semibold text-gray-900">{game.title}</span>
                             {game.genre && <span className="block truncate text-xs text-gray-500">{game.genre}</span>}
-                          </button>
+                          </TappableSurface>
                         </li>
                       ))}
                     </ul>

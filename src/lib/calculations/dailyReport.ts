@@ -11,6 +11,10 @@ export interface DailyCashEntry {
 
 export interface FinancialReportStockRow extends BarSalesRow {
   bar_cost: number;
+  /** Units sold; only the per-product rows of a day carry it. */
+  sold_quantity?: number | null;
+  /** Sales minus cost of the units sold; only the per-product rows of a day carry it. */
+  bar_profit?: number | null;
 }
 
 export interface FinancialReportExpenseRow {
@@ -29,6 +33,12 @@ export interface FinancialReportInput {
 export interface FinancialReportTotals {
   manualIncome: number;
   debtIncome: number;
+  /** Everything the game club took in: the day's entered income plus debt income. */
+  gameClubIncome: number;
+  /** Units the bar sold, summed over the stock rows that carry a quantity. */
+  barUnitsSold: number;
+  /** Bar sales minus cost of goods, summed from the stock rows' own profit (before bar expenses). */
+  barGrossProfit: number;
   /** Gross bar revenue recorded by closing stock. */
   barSales: number;
   /** Cost of the products sold during the report period. */
@@ -47,6 +57,11 @@ export interface FinancialReportTotals {
   gameClubProfit: number;
   /** Bar: sales minus cost of goods sold and expenses paid by the bar. */
   barProfit: number;
+}
+
+/** Debt income of a period: the amounts of its debt rows, with a missing amount read as zero. */
+export function sumDebtIncome(rows: ReadonlyArray<{ amount?: number | string | null }>): number {
+  return rows.reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
 }
 
 export function calculateManualIncome(entry: DailyCashEntry): number {
@@ -82,6 +97,9 @@ export function calculateFinancialReportTotals({
   return {
     manualIncome,
     debtIncome,
+    gameClubIncome: manualIncome + debtIncome,
+    barUnitsSold: stockRows.reduce((sum, row) => sum + Number(row.sold_quantity ?? 0), 0),
+    barGrossProfit: stockRows.reduce((sum, row) => sum + Number(row.bar_profit ?? 0), 0),
     barSales,
     barCost,
     stockPurchaseCost,

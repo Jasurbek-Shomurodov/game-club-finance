@@ -111,3 +111,28 @@ export function openDebtsByPerson(
   }
   return byPerson;
 }
+
+export interface DebtsSummary {
+  /** What is still owed across every debt that is not paid off. */
+  outstandingTotal: number;
+  /** Distinct people (by trimmed, case-insensitive name) with a debt that is not paid off. */
+  debtorCount: number;
+  /** Everything paid back so far, across open and paid debts. */
+  paidTotal: number;
+}
+
+/** The Debts page's headline totals. A debt is open until its status is `paid`. */
+export function summarizeDebts(
+  debts: ReadonlyArray<{ amount: number | string; paid_amount: number | string; person_name: string; status?: string | null }>,
+): DebtsSummary {
+  const debtors = new Set<string>();
+  let outstandingTotal = 0;
+  let paidTotal = 0;
+  for (const debt of debts) {
+    paidTotal += Number(debt.paid_amount) || 0;
+    if (debt.status === 'paid') continue;
+    outstandingTotal += calculateRemainingDebt(Number(debt.amount) || 0, Number(debt.paid_amount) || 0);
+    debtors.add(debt.person_name.trim().toLocaleLowerCase());
+  }
+  return { outstandingTotal, debtorCount: debtors.size, paidTotal };
+}

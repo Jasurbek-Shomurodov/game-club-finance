@@ -32,6 +32,7 @@ import {
   StatTile,
   Stepper,
   TableSkeleton,
+  TappableSurface,
   stickyOffsetBelow,
   useElementHeight,
   useConfirm,
@@ -42,7 +43,7 @@ import { BulkStockUpdateModal } from './BulkStockUpdateModal';
 import { StockWriteOffModal, type StockWriteOffInput } from './StockWriteOffModal';
 import { groupByCategory } from '@/lib/productSections';
 import { calendarTodayIso, isoDateParam, todayIso } from '@/lib/utils';
-import { dayRange, moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
+import { dayRange, moneyDetailsHref, purchaseHistoryHref, reportsHref } from '@/lib/detailLinks';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { formatCurrency, formatDateOnly, formatNumber, formatUnitCurrency } from '@/lib/formatters';
@@ -147,12 +148,12 @@ function productCategory(value: string | null | undefined): string {
   return String(value ?? '').trim();
 }
 
-const stickyHeaderCellClass = 'sticky top-0 z-20 border-b border-gray-100 bg-gray-50 px-4 py-3 align-bottom';
+const stickyHeaderCellClass = 'sticky top-0 z-30 border-b border-gray-100 bg-gray-50 px-4 py-3 align-bottom';
 // The row number stays visible next to the product while the wide table scrolls horizontally.
-const stickyIndexHeaderCellClass = 'sticky left-0 top-0 z-30 w-12 border-b border-gray-100 bg-gray-50 px-3 py-3 align-bottom';
+const stickyIndexHeaderCellClass = 'sticky left-0 top-0 z-40 w-12 border-b border-gray-100 bg-gray-50 px-3 py-3 align-bottom';
 const stickyIndexCellClass = 'sticky left-0 z-10 w-12 bg-surface px-3 py-4 group-hover:bg-gray-50';
 // The product column stays visible while the wide table scrolls horizontally.
-const stickyProductHeaderCellClass = 'sticky left-12 top-0 z-30 border-b border-gray-100 bg-gray-50 px-4 py-3 align-bottom shadow-[1px_0_0_0_rgb(var(--c-gray-200))]';
+const stickyProductHeaderCellClass = 'sticky left-12 top-0 z-40 border-b border-gray-100 bg-gray-50 px-4 py-3 align-bottom shadow-[1px_0_0_0_rgb(var(--c-gray-200))]';
 const stickyProductCellClass = 'sticky left-12 z-10 bg-surface px-4 py-4 shadow-[1px_0_0_0_rgb(var(--c-gray-200))] group-hover:bg-gray-50';
 const TABLE_COLUMN_COUNT = 11;
 const addedTodayHeaderCellClass = stickyHeaderCellClass;
@@ -587,7 +588,12 @@ export default function ClosingStockPage() {
 
   async function handleSubmitStockCounts() {
     const result = await persistStockCounts(rows, t('success'));
-    if (!result.ok) setError(result.message ?? tc('error'));
+    if (!result.ok) {
+      const message = result.message ?? tc('error');
+      setError(message);
+      // The alert sits near the top of a long list; the toast is seen from the phone's bottom Save bar too.
+      showToast(message, 'error');
+    }
   }
 
   async function handleBulkStockSave(
@@ -648,7 +654,7 @@ export default function ClosingStockPage() {
   const day = dayRange(date);
   const kpis: Array<{ label: string; value: string; unit?: string; tone?: 'default' | 'success' | 'danger'; href?: string }> = [
     { href: '/products', label: t('totalProducts'), value: formatNumber(rows.length) },
-    { href: '/stock-purchase', label: t('stockPurchased'), value: formatNumber(totals.added), unit: t('pcs') },
+    { href: purchaseHistoryHref(date), label: t('stockPurchased'), value: formatNumber(totals.added), unit: t('pcs') },
     { href: moneyDetailsHref('bar', day), label: t('totalSold'), value: formatNumber(totals.sold), unit: t('pcs') },
     { href: moneyDetailsHref('bar', day), label: t('barIncomeEst'), value: formatCurrency(totals.income), unit: tc('currency'), tone: 'success' },
     { href: moneyDetailsHref('bar', day), label: t('barProfitEst'), value: formatCurrency(totals.profit), unit: tc('currency'), tone: totals.profit < 0 ? 'danger' : 'success' },
@@ -702,7 +708,7 @@ export default function ClosingStockPage() {
                 value={date}
                 max={today}
                 disabled={saving}
-                className="w-full sm:w-[220px]"
+                className="w-full sm:w-56"
                 onChange={(value) => { void handleDateChange(value); }}
               />
               {!isReadOnly && (
@@ -746,16 +752,18 @@ export default function ClosingStockPage() {
                     {t('writeOffButton')}
                   </Button>
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSaveDraft}
-                  disabled={draftDisabled}
-                  title={hasSavedCounts && !isReadOnly ? t('draftDisabledSaved') : undefined}
-                  icon={<Save size={15} aria-hidden="true" />}
-                >
-                  {t('saveDraft')}
-                </Button>
+                {/* Once the day's counts are saved there is nothing left to draft. */}
+                {!hasSavedCounts && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSaveDraft}
+                    disabled={draftDisabled}
+                    icon={<Save size={15} aria-hidden="true" />}
+                  >
+                    {t('saveDraft')}
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -766,10 +774,6 @@ export default function ClosingStockPage() {
         <InlineAlert variant={isReadOnly && isHistoricalDate ? 'warning' : 'info'} title={bannerTitle}>
           {bannerBody}
         </InlineAlert>
-      )}
-
-      {hasSavedCounts && !isReadOnly && !loading && !loadError && (
-        <p className="text-sm text-gray-500">{t('draftDisabledSaved')}</p>
       )}
 
       {promotionsFailed && !loading && !loadError && (
@@ -868,7 +872,7 @@ export default function ClosingStockPage() {
             )}
 
             {loading ? (
-              <TableSkeleton rows={8} columns={10} className="rounded-none border-0 shadow-none" />
+              <TableSkeleton bare rows={8} columns={10} />
             ) : rows.length === 0 ? (
               showsSavedSnapshotOnly ? (
                 <EmptyState
@@ -898,9 +902,9 @@ export default function ClosingStockPage() {
                 ) : undefined}
               />
             ) : (
-              <div className="relative">
+              <div className="relative isolate">
                 <div
-                  className={`max-h-[calc(100vh-14rem)] overflow-auto scrollbar-thin transition-opacity max-sm:max-h-none max-sm:overflow-visible ${refreshing ? 'opacity-70' : ''}`}
+                  className={`max-h-[calc(100vh-14rem)] overflow-auto scrollbar-thin transition-opacity motion-reduce:transition-none max-sm:max-h-none max-sm:overflow-visible ${refreshing ? 'opacity-70' : ''}`}
                   aria-busy={refreshing || undefined}
                   aria-label={t('products')}
                   tabIndex={0}
@@ -910,14 +914,14 @@ export default function ClosingStockPage() {
                     <tr className="border-b border-gray-100 text-xs font-medium text-gray-500">
                       <th className={`${stickyIndexHeaderCellClass} text-left`}>#</th>
                       <th className={`${stickyProductHeaderCellClass} min-w-[180px] text-left sm:min-w-[240px]`}>{t('product')}</th>
-                      <th className={`${stickyHeaderCellClass} text-right`}>{t('salePrice')}<br /><span className="text-gray-400">({tc('currency')})</span></th>
-                      <th className={`${stickyHeaderCellClass} text-right`}>{t('costBasis')}<br /><span className="text-gray-400">({tc('currency')})</span></th>
-                      <th className={`${stickyHeaderCellClass} text-center`} title={t('openingStockHint')}>{t('previousStock')}<br /><span className="text-gray-400">({t('pcs')})</span></th>
-                      <th className={`${addedTodayHeaderCellClass} text-center`}>{t('addedToday')}<br /><span className="text-gray-400">({t('pcs')})</span></th>
+                      <th className={`${stickyHeaderCellClass} text-right`}>{t('salePrice')}<br /><span className="text-gray-500">({tc('currency')})</span></th>
+                      <th className={`${stickyHeaderCellClass} text-right`}>{t('costBasis')}<br /><span className="text-gray-500">({tc('currency')})</span></th>
+                      <th className={`${stickyHeaderCellClass} text-center`} title={t('openingStockHint')}>{t('previousStock')}<br /><span className="text-gray-500">({t('pcs')})</span></th>
+                      <th className={`${addedTodayHeaderCellClass} text-center`}>{t('addedToday')}<br /><span className="text-gray-500">({t('pcs')})</span></th>
                       <th className={`${stickyHeaderCellClass} min-w-[150px] text-center`} title={t('giveawayHint')}>
                         {t('giveaway')}
                         <br />
-                        <span className="text-gray-400">({t('pcs')})</span>
+                        <span className="text-gray-500">({t('pcs')})</span>
                       </th>
                       <th className={`${stickyHeaderCellClass} text-center`}>
                         {t('closingStock')}
@@ -929,7 +933,7 @@ export default function ClosingStockPage() {
                       <th className={`${stickyHeaderCellClass} text-center`}>
                         {t('soldQty')}
                         <br />
-                        <span className="text-gray-400">({t('pcs')})</span>
+                        <span className="text-gray-500">({t('pcs')})</span>
                         {canSave && (usesSoldEntry || filteredRows.some((row) => row.product.tracks_inventory === false)) && (
                           <>
                             <br />
@@ -937,8 +941,8 @@ export default function ClosingStockPage() {
                           </>
                         )}
                       </th>
-                      <th className={`${stickyHeaderCellClass} text-right`}>{t('barIncome')}<br /><span className="text-gray-400">({tc('currency')})</span></th>
-                      <th className={`${stickyHeaderCellClass} px-5 text-right`}>{t('barProfit')}<br /><span className="text-gray-400">({tc('currency')})</span></th>
+                      <th className={`${stickyHeaderCellClass} text-right`}>{t('barIncome')}<br /><span className="text-gray-500">({tc('currency')})</span></th>
+                      <th className={`${stickyHeaderCellClass} px-5 text-right`}>{t('barProfit')}<br /><span className="text-gray-500">({tc('currency')})</span></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -950,7 +954,7 @@ export default function ClosingStockPage() {
                             scope="colgroup"
                             colSpan={TABLE_COLUMN_COUNT}
                             style={{ top: stickyOffsetBelow(tableHeadHeight) }}
-                            className="sticky z-[15] bg-gray-50 p-0 text-left shadow-[inset_0_1px_0_rgb(var(--c-gray-200)),inset_0_-1px_0_rgb(var(--c-gray-200))]"
+                            className="sticky z-20 bg-gray-50 p-0 text-left shadow-[inset_0_1px_0_rgb(var(--c-gray-200)),inset_0_-1px_0_rgb(var(--c-gray-200))]"
                           >
                             <span className="sticky left-0 flex w-fit items-center gap-2 px-4 py-2.5 text-sm font-semibold text-gray-900">
                               {section.category || tc('uncategorized')}
@@ -1000,9 +1004,9 @@ export default function ClosingStockPage() {
                                   </Badge>
                                 )}
                                 {writeOff && writeOff.sign === -1 && (
-                                  <button
-                                    type="button"
-                                    className="mt-1 block rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                                  <TappableSurface
+                                    chevron={false}
+                                    className="mt-1 !w-fit rounded-full max-sm:py-2"
                                     onClick={() => setViewedWriteOff({
                                       date,
                                       productId: row.product.id,
@@ -1021,7 +1025,7 @@ export default function ClosingStockPage() {
                                     >
                                       {t(`writeOffKinds.${writeOff.kind}`)} −{formatNumber(writeOff.quantity)}
                                     </Badge>
-                                  </button>
+                                  </TappableSurface>
                                 )}
                                 <p className="mt-1 text-xs text-gray-500 max-sm:hidden">{t('costLabel')} {formatUnitCurrency(row.product.cost_price)} {tc('currency')}</p>
                               </div>
@@ -1061,7 +1065,7 @@ export default function ClosingStockPage() {
                           </td>
                           <td data-label={labels.giveaway} className="px-4 py-4">
                             {rowPromotions.length === 0 && giveawayQuantity === 0 && !promotionsFailed ? (
-                              <p className="text-center font-semibold text-gray-400">—</p>
+                              <p className="text-center font-semibold text-gray-500">—</p>
                             ) : !rowReadOnly ? (
                               <div className="mx-auto w-32 space-y-2">
                                 <Input
@@ -1095,7 +1099,7 @@ export default function ClosingStockPage() {
                               </div>
                             ) : (
                               <div className="text-center">
-                                <p className={`font-semibold ${giveawayQuantity > 0 ? 'text-gray-900' : 'text-gray-400'}`}>
+                                <p className={`font-semibold ${giveawayQuantity > 0 ? 'text-gray-900' : 'text-gray-500'}`}>
                                   {giveawayQuantity > 0 ? formatNumber(giveawayQuantity) : '—'}
                                 </p>
                                 {selectedPromotion && giveawayQuantity > 0 && (
@@ -1106,7 +1110,7 @@ export default function ClosingStockPage() {
                           </td>
                           <td data-stack={stepperCell} data-label={labels.closingStock} className="px-4 py-4">
                             {!tracksInventory ? (
-                              <p className="text-center font-semibold text-gray-400">—</p>
+                              <p className="text-center font-semibold text-gray-500">—</p>
                             ) : rowReadOnly || usesSoldEntry ? (
                               <p className="text-center font-semibold text-gray-900">{formatNumber(parseNum(row.closingStock))}</p>
                             ) : (
@@ -1141,7 +1145,7 @@ export default function ClosingStockPage() {
                             )}
                           </td>
                           <td data-label={labels.barIncome} className="whitespace-nowrap px-4 py-4 text-right font-medium tabular-nums text-success-600">{formatCurrency(summary.barIncome)}</td>
-                          <td data-label={labels.barProfit} className="whitespace-nowrap px-5 py-4 text-right font-medium tabular-nums text-success-600">{formatCurrency(summary.barProfit)}</td>
+                          <td data-label={labels.barProfit} className={`whitespace-nowrap px-5 py-4 text-right font-medium tabular-nums ${summary.barProfit < 0 ? 'text-danger-600' : 'text-success-600'}`}>{formatCurrency(summary.barProfit)}</td>
                         </tr>
                       );
                     })}
@@ -1161,7 +1165,7 @@ export default function ClosingStockPage() {
                       <td data-stack="hidden" className="px-4 py-4 text-center">—</td>
                       <td data-label={labels.soldQty} className="px-4 py-4 text-center">{formatNumber(filteredTotals.sold)}</td>
                       <td data-label={labels.barIncome} className="whitespace-nowrap px-4 py-4 text-right text-success-600">{formatCurrency(filteredTotals.income)}</td>
-                      <td data-label={labels.barProfit} className="whitespace-nowrap px-5 py-4 text-right text-success-600">{formatCurrency(filteredTotals.profit)}</td>
+                      <td data-label={labels.barProfit} className={`whitespace-nowrap px-5 py-4 text-right ${filteredTotals.profit < 0 ? 'text-danger-600' : 'text-success-600'}`}>{formatCurrency(filteredTotals.profit)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1172,7 +1176,7 @@ export default function ClosingStockPage() {
           </Card>
 
           {canSave && rows.length > 0 && (
-            <div className="sticky bottom-[var(--bottom-nav,0px)] z-30 -mx-4 border-t border-gray-200 bg-surface/95 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur sm:hidden">
+            <div className="sticky bottom-[var(--bottom-nav,0px)] z-30 -mx-4 border-t border-gray-200 bg-surface/95 px-4 py-3 backdrop-blur sm:hidden">
               <Button
                 fullWidth
                 onClick={handleSubmitStockCounts}

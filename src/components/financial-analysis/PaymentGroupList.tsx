@@ -35,7 +35,7 @@ export function PaymentGroupList({ groups, locale, currency, onOpen }: PaymentGr
             >
               <div className="min-w-0">
                 <p className="break-words text-sm font-medium text-gray-900">
-                  {group.key.startsWith(NOTE_PREFIX) ? group.key.slice(NOTE_PREFIX.length) : <span className="font-normal text-gray-400">{t('drawerNoComment')}</span>}
+                  {group.key.startsWith(NOTE_PREFIX) ? group.key.slice(NOTE_PREFIX.length) : <span className="font-normal text-gray-500">{t('drawerNoComment')}</span>}
                 </p>
                 <p className="mt-0.5 text-xs text-gray-500">
                   {t('paymentCount', { count: group.payments.length })}

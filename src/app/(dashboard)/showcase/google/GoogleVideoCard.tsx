@@ -88,7 +88,7 @@ export function GoogleVideoCard({ clubId, onAdded }: { clubId: string; onAdded: 
               {videoUrl ? (
                 <video src={videoUrl} className="h-full w-full object-cover" muted playsInline controls preload="metadata" />
               ) : (
-                <span className="flex h-full w-full items-center justify-center text-gray-400">
+                <span className="flex h-full w-full items-center justify-center text-gray-500">
                   <Video size={22} aria-hidden="true" />
                 </span>
               )}

@@ -1,9 +1,8 @@
 'use client';
 
-import type { ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 import { ChevronLeft, ChevronRight, CircleCheck, Percent } from 'lucide-react';
-import { SectionHeading } from '@/components/PresentationFoundation';
+import { IconButton, SectionHeading, TappableSurface } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import type { SalaryCalendarDay, SalaryEntryKind } from '@/lib/calculations/salaryCalendar';
 import { formatCurrency, formatDateOnly, formatYearMonth } from '@/lib/formatters';
@@ -23,12 +22,14 @@ export interface SalaryCalendarProps {
   month: string;
   days: SalaryCalendarDay[];
   selectedDate: string;
+  /** The last month the calendar may show (the club's business month). */
+  maxMonth?: string;
   onMonthChange: (delta: number) => void;
   onSelectDate: (date: string) => void;
 }
 
 /** A month of payments, bonuses and fines; selecting a day narrows the list below it. */
-export function SalaryCalendar({ month, days, selectedDate, onMonthChange, onSelectDate }: SalaryCalendarProps) {
+export function SalaryCalendar({ month, days, selectedDate, maxMonth, onMonthChange, onSelectDate }: SalaryCalendarProps) {
   const t = useTranslations('salaries');
   const tc = useTranslations('calendar');
   const { locale } = useAppLocale();
@@ -38,74 +39,81 @@ export function SalaryCalendar({ month, days, selectedDate, onMonthChange, onSel
   return (
     <div>
       <SectionHeading size="sm" title={t('calendarTitle')} description={t('calendarHelp')} className="mb-3" />
-      <div className="mb-3 grid grid-cols-[40px_minmax(0,1fr)_40px] items-center gap-2">
-        <MonthButton label={tc('previousMonth')} onClick={() => onMonthChange(-1)}><ChevronLeft size={18} /></MonthButton>
-        <p className="text-center text-sm font-extrabold capitalize text-gray-950">{monthLabel}</p>
-        <MonthButton label={tc('nextMonth')} onClick={() => onMonthChange(1)}><ChevronRight size={18} /></MonthButton>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <IconButton label={tc('previousMonth')} title={tc('previousMonth')} icon={<ChevronLeft size={18} aria-hidden="true" />} onClick={() => onMonthChange(-1)} />
+        <p className="min-w-0 text-center text-sm font-extrabold capitalize text-gray-950">{monthLabel}</p>
+        <IconButton
+          label={tc('nextMonth')}
+          title={tc('nextMonth')}
+          icon={<ChevronRight size={18} aria-hidden="true" />}
+          disabled={maxMonth !== undefined && month >= maxMonth}
+          onClick={() => onMonthChange(1)}
+        />
       </div>
-      <div className="overflow-x-auto pb-1">
-        <div className="grid grid-cols-7 gap-1 sm:min-w-[640px] sm:gap-1.5" role="group" aria-label={`${t('calendarTitle')}: ${monthLabel}`}>
+      {/* Amounts show from `md` up, where the page always leaves the seven columns room; phones get marks. */}
+      <div>
+        <div className="grid grid-cols-7 gap-1 md:gap-1.5" role="group" aria-label={`${t('calendarTitle')}: ${monthLabel}`}>
           {WEEKDAYS.map((key) => (
-            <div key={key} aria-hidden="true" className="truncate pb-1 text-center text-[10px] font-bold uppercase text-gray-400 sm:text-[11px]">{tc(`weekdays.${key}`)}</div>
+            <div key={key} aria-hidden="true" className="truncate pb-1 text-center text-xs font-bold uppercase text-gray-500">{tc(`weekdays.${key}`)}</div>
           ))}
           {days.map((day) => {
             const selected = day.date === selectedDate;
             return (
-              <button
+              <TappableSurface
                 key={day.date}
-                type="button"
-                aria-pressed={selected}
-                aria-current={day.isToday ? 'date' : undefined}
-                aria-label={`${formatDateOnly(day.date, locale)} · ${day.earned !== undefined ? `${t('calendarEarned')} ${formatCurrency(day.earned)} · ` : ''}${day.kpi !== undefined ? `${t('kpi')} ${formatCurrency(day.kpi)} · ` : ''}${t('calendarRecords', { count: day.count })}`}
+                chevron={false}
+                selected={selected}
+                label={`${formatDateOnly(day.date, locale)} · ${day.earned !== undefined ? `${t('calendarEarned')} ${formatCurrency(day.earned)} · ` : ''}${day.kpi !== undefined ? `${t('kpi')} ${formatCurrency(day.kpi)} · ` : ''}${t('calendarRecords', { count: day.count })}`}
                 onClick={() => onSelectDate(selected ? '' : day.date)}
                 className={cn(
-                  'relative flex min-h-14 min-w-0 flex-col items-stretch gap-1 rounded-lg border p-1.5 text-left sm:min-h-[112px] sm:rounded-xl sm:p-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1',
+                  'min-w-0 rounded-lg border p-1.5 md:rounded-xl md:p-2',
                   !day.inMonth
                     ? 'border-transparent bg-transparent'
                     : day.totals.fine !== undefined
-                      ? 'border-danger-100 bg-danger-50/60 hover:border-danger-400'
-                      : 'border-gray-200 bg-surface hover:border-primary-300',
+                      ? 'border-danger-100 bg-danger-50/60'
+                      : 'border-gray-200 bg-surface',
                   day.isToday && day.inMonth && 'border-warning-500 bg-warning-50/50',
-                  selected && 'border-primary-500 ring-1 ring-primary-500',
                 )}
               >
+              <span className="flex min-h-10 flex-col items-stretch gap-1 md:min-h-24">
                 <span className="flex items-start justify-between gap-1">
                   <span className={cn('text-sm font-bold', day.inMonth ? 'text-gray-900' : 'text-gray-300', day.totals.fine !== undefined && day.inMonth && 'text-danger-700', day.isToday && 'text-warning-700')}>{day.day}</span>
-                  {day.count > 1 && <span aria-hidden="true" className="hidden rounded-full sm:inline bg-gray-100 px-1.5 text-[10px] font-bold leading-4 text-gray-500">{day.count}</span>}
+                  {day.count > 1 && <span aria-hidden="true" className="hidden rounded-full bg-gray-100 px-1.5 text-xs font-bold leading-4 text-gray-500 md:inline">{day.count}</span>}
                 </span>
                 {day.earned !== undefined && (
-                  <span className={cn('hidden items-center gap-1 text-[11px] font-semibold leading-tight text-success-700 sm:flex', !day.inMonth && 'opacity-60')}>
+                  <span className={cn('hidden items-center gap-1 text-xs font-semibold leading-tight text-success-700 md:flex', !day.inMonth && 'opacity-60')}>
                     <CircleCheck size={12} aria-hidden="true" className="shrink-0" />
                     <span className="min-w-0 break-words tabular-nums">+{formatCurrency(day.earned)}</span>
                   </span>
                 )}
                 {day.kpi !== undefined && (
-                  <span className={cn('hidden items-center gap-1 text-[11px] font-semibold leading-tight text-success-600 sm:flex', !day.inMonth && 'opacity-60')}>
+                  <span className={cn('hidden items-center gap-1 text-xs font-semibold leading-tight text-success-600 md:flex', !day.inMonth && 'opacity-60')}>
                     <Percent size={12} aria-hidden="true" className="shrink-0" />
                     <span className="min-w-0 break-words tabular-nums">+{formatCurrency(day.kpi)}</span>
                   </span>
                 )}
                 {KINDS.map(({ kind, sign, chip }) => day.totals[kind] !== undefined && (
-                  <span key={kind} className={cn('hidden rounded-lg border px-1.5 py-1 text-[11px] leading-tight sm:block', chip, !day.inMonth && 'opacity-60')}>
+                  <span key={kind} className={cn('hidden rounded-lg border px-1.5 py-1 text-xs leading-tight md:block', chip, !day.inMonth && 'opacity-60')}>
                     <span className="block font-medium">{t(kind)}</span>
                     {kind !== 'absence' && <span className="block break-words font-bold tabular-nums">{sign}{formatCurrency(day.totals[kind]!)}</span>}
                   </span>
                 ))}
                 {/* Phones: seven columns leave no room for amounts, so a day shows the legend's marks
                     and its amounts are in the list below once it is selected. */}
-                <span aria-hidden="true" className={cn('mt-auto flex flex-wrap items-center gap-1 sm:hidden', !day.inMonth && 'opacity-60')}>
+                <span aria-hidden="true" className={cn('mt-auto flex flex-wrap items-center gap-1 md:hidden', !day.inMonth && 'opacity-60')}>
                   {day.earned !== undefined && <CircleCheck size={10} className="text-success-600" />}
                   {day.kpi !== undefined && <Percent size={10} className="text-success-600" />}
                   {KINDS.map(({ kind, dot }) => day.totals[kind] !== undefined && <span key={kind} className={cn('h-1.5 w-1.5 rounded-full', dot)} />)}
                 </span>
-              </button>
+              </span>
+              </TappableSurface>
             );
           })}
         </div>
       </div>
       {selectedDay && (
         // Phones only: the amounts the compact day cell has no room for.
-        <dl className="mt-2 rounded-xl border border-primary-100 bg-primary-50/60 px-3 py-2.5 text-sm sm:hidden">
+        <dl className="mt-2 rounded-xl border border-primary-100 bg-primary-50/60 px-3 py-2.5 text-sm md:hidden">
           <dt className="font-semibold text-gray-900">{formatDateOnly(selectedDay.date, locale)}</dt>
           <dd className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
             {selectedDay.earned !== undefined && <span>{t('calendarEarned')}: <strong className="tabular-nums text-success-700">+{formatCurrency(selectedDay.earned)}</strong></span>}
@@ -131,19 +139,5 @@ export function SalaryCalendar({ month, days, selectedDate, onMonthChange, onSel
         ))}
       </div>
     </div>
-  );
-}
-
-function MonthButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className="flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-surface text-gray-500 transition hover:border-primary-200 hover:text-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-    >
-      {children}
-    </button>
   );
 }

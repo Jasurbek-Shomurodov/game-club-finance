@@ -4,15 +4,21 @@ import type { ReactNode } from 'react';
 import { ArrowDownRight, ArrowUpRight, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
+  Card,
   HelpButton,
+  IconChip,
+  SectionHeading,
   Skeleton,
   metricToneClassName,
   toneForAmount,
   type MetricTone,
+  type Tone,
   TappableSurface,
 } from '@/components/PresentationFoundation';
 import type { SourceIndicators } from '@/lib/calculations/financialAnalysis';
 import { formatCurrency } from '@/lib/formatters';
+import { SkeletonCard } from '@/components/charts/ChartSkeletons';
+import { chartColors } from '@/components/dashboard/ChartCard';
 import { RadialMeter } from '@/components/charts/RadialMeter';
 import { formatPercentShare } from '@/components/charts/chartFormat';
 
@@ -31,23 +37,22 @@ export function Section({ id, title, description, icon: Icon, iconClassName, act
 }) {
   return (
     <section id={id} className="scroll-mt-28 space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
-        <div className="min-w-0 flex-1 basis-64">
-          <div className="flex items-center gap-1">
-            <h2 className="flex items-center gap-2 text-base font-semibold text-gray-950">
-              {Icon && <Icon size={18} className={cn('shrink-0', iconClassName)} aria-hidden="true" />}
-              {title}
-            </h2>
-            {help && <HelpButton title={title} body={help} className="-my-1.5" />}
-          </div>
-          {description && <p className="mt-0.5 text-sm text-gray-500">{description}</p>}
-        </div>
-        {action}
-      </div>
+      <SectionHeading
+        title={title}
+        description={description}
+        icon={Icon ? <Icon size={18} aria-hidden="true" /> : undefined}
+        iconClassName={iconClassName}
+        badge={help ? <HelpButton title={title} body={help} className="-my-1.5" /> : undefined}
+        action={action}
+      />
       {children}
     </section>
   );
 }
+
+// A figure tile is a row (label left, amount right) in a narrow card and a column where three fit side by side.
+const FIGURE_GRID = 'mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3';
+const FIGURE_TILE = 'min-w-0 rounded-xl bg-gray-50 px-3 py-2.5 max-sm:flex max-sm:items-center max-sm:justify-between max-sm:gap-3 lg:max-xl:flex lg:max-xl:items-center lg:max-xl:justify-between lg:max-xl:gap-3';
 
 /**
  * One side's month on one card: money in, spent and profit with their change,
@@ -55,10 +60,13 @@ export function Section({ id, title, description, icon: Icon, iconClassName, act
  * margin ring and the daily average. The game club and the bar each get one;
  * the two are never added together.
  */
-export function SideScorecard({ title, icon: Icon, iconClassName, color, incomeLabel, now, before, compare, loading, currency, locale, detailsHref, spentHref, labels }: {
+export function SideScorecard({ title, icon: Icon, accent = 'neutral', color, incomeLabel, now, before, compare, loading, currency, locale, detailsHref, spentHref, labels }: {
   title: string;
   icon: LucideIcon;
-  iconClassName: string;
+  /** Kept for call-site compatibility; the icon tile takes its colour from `accent`. */
+  iconClassName?: string;
+  /** Tone of the icon tile: the side's own (`primary` for the game club, `bar`). */
+  accent?: Tone;
   color: string;
   incomeLabel: string;
   now: SourceIndicators;
@@ -86,18 +94,17 @@ export function SideScorecard({ title, icon: Icon, iconClassName, color, incomeL
     { key: 'profit', label: labels.profit, amount: now.left, tone: toneForAmount(now.left), href: detailsHref, goodWhen: 'up', previous: before?.left },
   ];
   return (
-    <section aria-label={title} className="min-w-0 rounded-2xl border border-gray-200 bg-surface p-4 shadow-card sm:p-5">
+    <Card as="section" aria-label={title}>
       <header className="flex items-center gap-3">
-        <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gray-100', iconClassName)} aria-hidden="true">
-          <Icon size={18} strokeWidth={2.2} />
-        </span>
+        <IconChip icon={Icon} tone={accent} />
         <h2 className="min-w-0 flex-1 text-base font-semibold tracking-tight text-gray-950">{title}</h2>
-        <RadialMeter value={margin} color={margin !== null && margin < 0 ? 'rgb(var(--c-danger-500))' : color} size={52} stroke={6} label={`${labels.margin}: ${marginText}`}>
-          <span className="text-[11px] font-bold tabular-nums text-gray-950">{marginText}</span>
+        <RadialMeter value={margin} color={margin !== null && margin < 0 ? chartColors.danger : color} size={56} stroke={6} label={`${labels.margin}: ${marginText}`}>
+          <span className="text-xs font-bold tabular-nums text-gray-950">{marginText}</span>
         </RadialMeter>
       </header>
 
-      <div className="mt-4 grid grid-cols-3 gap-2">
+      {/* Three across only where each figure has room for a whole amount; otherwise one row per figure. */}
+      <div className={FIGURE_GRID}>
         {figures.map((figure) => {
           const change = compare && figure.previous !== undefined ? compare(figure.amount, figure.previous) : null;
           const good = change?.value !== null && change?.value !== undefined
@@ -105,30 +112,32 @@ export function SideScorecard({ title, icon: Icon, iconClassName, color, incomeL
             : null;
           const body = (
             <>
-              <span className="block truncate text-[11px] font-medium text-gray-500">{figure.label}</span>
-              <span className={cn('mt-1 block truncate text-base font-bold tabular-nums tracking-tight sm:text-lg', metricToneClassName[figure.tone])}>
-                {formatCurrency(figure.amount)}
-              </span>
-              {change && (
-                <span className={cn('mt-0.5 flex items-center gap-0.5 text-[11px] font-semibold tabular-nums', good === null ? 'text-gray-400' : good ? 'text-success-600' : 'text-danger-600')} title={change.label}>
-                  {change.value === null ? '—' : (
-                    <>
-                      {change.value >= 0 ? <ArrowUpRight size={12} aria-hidden="true" /> : <ArrowDownRight size={12} aria-hidden="true" />}
-                      {/* The sign is text, so the direction does not rest on the arrow and colour alone. */}
-                      {change.value >= 0 ? '+' : '−'}{formatPercentShare(Math.abs(change.value) / 100, locale)}
-                    </>
-                  )}
+              <span className="block min-w-0 text-xs font-medium text-gray-500">{figure.label}</span>
+              <span className="block min-w-0 max-sm:text-right lg:max-xl:text-right">
+                <span className={cn('mt-1 block text-base font-bold tabular-nums tracking-tight max-sm:mt-0 lg:max-xl:mt-0', metricToneClassName[figure.tone])}>
+                  <span className="whitespace-nowrap">{formatCurrency(figure.amount)}</span>{' '}
+                  <span className="text-xs font-medium tracking-normal text-gray-500">{currency}</span>
                 </span>
-              )}
+                {change && (
+                  <span className={cn('mt-0.5 flex items-center gap-0.5 text-xs font-semibold tabular-nums max-sm:justify-end lg:max-xl:justify-end', good === null ? 'text-gray-500' : good ? 'text-success-600' : 'text-danger-600')} title={change.label}>
+                    {change.value === null ? '—' : (
+                      <>
+                        {change.value >= 0 ? <ArrowUpRight size={12} aria-hidden="true" /> : <ArrowDownRight size={12} aria-hidden="true" />}
+                        {/* The sign is text, so the direction does not rest on the arrow and colour alone. */}
+                        {change.value >= 0 ? '+' : '−'}{formatPercentShare(Math.abs(change.value) / 100, locale)}
+                      </>
+                    )}
+                  </span>
+                )}
+              </span>
             </>
           );
-          const className = 'min-w-0 rounded-xl bg-gray-50 px-3 py-2.5';
           return figure.href ? (
-            <TappableSurface key={figure.key} href={figure.href} chevron={false} className={cn(className, 'hover:bg-gray-100')}>
+            <TappableSurface key={figure.key} href={figure.href} chevron={false} className={cn(FIGURE_TILE, 'hover:bg-gray-100')}>
               {body}
             </TappableSurface>
           ) : (
-            <div key={figure.key} className={className}>{body}</div>
+            <div key={figure.key} className={FIGURE_TILE}>{body}</div>
           );
         })}
       </div>
@@ -138,40 +147,42 @@ export function SideScorecard({ title, icon: Icon, iconClassName, color, incomeL
           {hasIncome && <span className="grow-x h-full bg-danger-500/80 transition-[width] duration-700 motion-reduce:transition-none" style={{ width: `${spentShare * 100}%` }} />}
           {keptShare > 0 && <span className="grow-x ml-0.5 h-full rounded-r-full transition-[width] duration-700 motion-reduce:transition-none" style={{ width: `${keptShare * 100}%`, backgroundColor: color }} />}
         </div>
-        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] text-gray-500">
+        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-gray-500">
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-danger-500/80" aria-hidden="true" />{labels.spent} · {spentText}</span>
           <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm" style={{ backgroundColor: color }} aria-hidden="true" />{labels.kept} · {keptText}</span>
           <span className="ml-auto tabular-nums">{labels.perDay}: <span className="font-semibold text-gray-950">{formatCurrency(now.averageDailyIncome)}</span> {currency}</span>
         </div>
       </div>
-    </section>
+    </Card>
   );
 }
 
 /** Placeholder in the scorecard's shape: header and ring, three figures, the spent/kept bar and its legend. */
 export function SideScorecardSkeleton() {
   return (
-    <div aria-hidden="true" className="min-w-0 rounded-2xl border border-gray-200 bg-surface p-4 shadow-card sm:p-5">
+    <SkeletonCard>
       <div className="flex items-center gap-3">
         <Skeleton className="h-9 w-9 shrink-0 rounded-xl" />
         <Skeleton className="h-5 w-28" />
-        <Skeleton className="ml-auto h-[52px] w-[52px] shrink-0 rounded-full" />
+        <Skeleton className="ml-auto h-14 w-14 shrink-0 rounded-full" />
       </div>
-      <div className="mt-4 grid grid-cols-3 gap-2">
+      <div className={FIGURE_GRID}>
         {[0, 1, 2].map((index) => (
-          <div key={index} className="space-y-2 rounded-xl bg-gray-50 px-3 py-2.5">
+          <div key={index} className={FIGURE_TILE}>
             <Skeleton className="h-3 w-14" />
-            <Skeleton className="h-5 w-4/5" />
-            <Skeleton className="h-3 w-8 bg-gray-100" />
+            <div className="space-y-2 max-sm:flex max-sm:flex-col max-sm:items-end lg:max-xl:flex lg:max-xl:flex-col lg:max-xl:items-end sm:max-lg:mt-2 xl:mt-2">
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-3 w-8 bg-gray-100" />
+            </div>
           </div>
         ))}
       </div>
       <Skeleton className="mt-4 h-2.5 w-full rounded-full bg-gray-100" />
-      <div className="mt-2 flex justify-between gap-3">
+      <div className="mt-2 flex flex-wrap justify-between gap-3">
         <Skeleton className="h-3 w-20 bg-gray-100" />
         <Skeleton className="h-3 w-24 bg-gray-100" />
         <Skeleton className="h-3 w-28 bg-gray-100" />
       </div>
-    </div>
+    </SkeletonCard>
   );
 }

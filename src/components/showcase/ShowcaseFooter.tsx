@@ -167,7 +167,7 @@ export async function ShowcaseFooter({ name, logoUrl, description, hours, phone,
                 const links = mapLinks({ club_name: location.clubName, address: location.address, yandex_maps_url: location.yandexMapsUrl });
                 return (
                   <ContactItem key={`${location.clubName}-${location.address}`} icon={<MapPin size={16} aria-hidden="true" />}>
-                    {location.label && <span className="block text-xs font-semibold uppercase tracking-wider text-white/40">{location.label}</span>}
+                    {location.label && <span className="block text-xs font-semibold uppercase tracking-wider text-white/60">{location.label}</span>}
                     {links ? <MapChooser address={location.address} links={links} labels={mapLabels} /> : location.address}
                     <LocationDetails phone={location.phone ?? null} hours={location.hours ?? null} />
                   </ContactItem>
@@ -188,9 +188,9 @@ export async function ShowcaseFooter({ name, logoUrl, description, hours, phone,
           </div>
         )}
       </div>
-      <div className="border-t border-white/5 px-4 py-6 text-center text-xs text-white/35">
+      <div className="border-t border-white/5 px-4 py-6 text-center text-xs text-white/60">
         © {new Date().getFullYear()} {name}. {t('footerRights')}{' '}
-        <a href="/privacy" className="underline-offset-4 transition-colors hover:text-white hover:underline">{t('footerPrivacy')}</a>
+        <a href="/privacy" className="underline underline-offset-4 transition-colors hover:text-white">{t('footerPrivacy')}</a>
       </div>
     </footer>
   );

@@ -43,7 +43,7 @@ export function useTypingInField(): boolean {
   return typing;
 }
 
-const ITEM_CLASS = 'flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-[11px] leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500';
+const ITEM_CLASS = 'flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-xs leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500';
 
 interface BottomNavProps {
   role: UserRole;
@@ -83,7 +83,7 @@ export function BottomNav({ role, featureAccess, activePathname, menuOpen, onOpe
       aria-haspopup="dialog"
       className="flex min-h-14 w-16 shrink-0 items-center justify-center focus-visible:outline-none [&:focus-visible>span]:ring-2 [&:focus-visible>span]:ring-primary-500 [&:focus-visible>span]:ring-offset-2"
     >
-      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-600 text-on-accent shadow-pop transition active:scale-95">
+      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-600 text-on-accent shadow-pop transition-transform active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100">
         <Plus size={22} strokeWidth={2.5} aria-hidden="true" />
       </span>
     </button>
@@ -125,7 +125,7 @@ export function BottomNav({ role, featureAccess, activePathname, menuOpen, onOpe
         <span className="relative">
           <Menu size={20} aria-hidden="true" />
           {menuBadge > 0 && (
-            <span className="absolute -right-3 -top-1.5 min-w-4 rounded-full bg-warning-50 px-1 text-center text-[10px] font-semibold leading-4 text-warning-700 ring-1 ring-surface">
+            <span className="absolute -right-3 -top-1.5 min-w-4 rounded-full bg-warning-50 px-1 text-center text-xs font-semibold leading-4 text-warning-700 ring-1 ring-surface">
               {menuBadge}
             </span>
           )}

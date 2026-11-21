@@ -28,7 +28,8 @@ import {
   metricGridClassName,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { formatPercentShare } from '@/components/charts/chartFormat';
+import { ShareBar } from '@/components/charts/ShareBar';
+import { chartColors } from '@/components/dashboard/ChartCard';
 import {
   COLLECTED_METHODS,
   buildCollectedLedger,
@@ -45,11 +46,12 @@ import { csvFileName, csvSeparatorForLocale, downloadCsv, toCsv } from '@/lib/cs
 import { formatCurrency, formatCurrencyInput, formatDateOnly, formatDateTime, parseCurrencyInput } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { CollectedGlance, CollectedGlanceSkeleton, CollectedSplitSkeleton } from './CollectedGlance';
+import { scrollBehavior } from '@/lib/scroll';
 
 type CollectedView = 'collections' | 'ledger';
 type LedgerKindFilter = 'all' | CollectedMoneyMove['kind'];
 
-const KIND_BADGE: Record<CollectedMoneyMove['kind'], BadgeVariant> = { collect: 'success', expense: 'danger', reserve: 'warning' };
+const KIND_BADGE: Record<CollectedMoneyMove['kind'], BadgeVariant> = { collect: 'success', expense: 'danger', reserve: 'purple' };
 
 /**
  * Reports' Collected tab (migration 169): money collectors took out of the
@@ -142,7 +144,7 @@ export default function CollectedTab({
         strong ? 'font-semibold' : 'text-gray-700',
         amount < 0 && 'text-danger-600',
         signed && amount > 0 && 'text-success-700',
-        amount === 0 && !strong && 'text-gray-400',
+        amount === 0 && !strong && 'text-gray-500',
       )}>
         {signed && amount > 0 ? '+' : ''}
         <Money amount={amount} currency={null} />
@@ -210,7 +212,7 @@ export default function CollectedTab({
         </span>
       ),
     },
-    { key: 'collector', header: t('collectedByColumn'), className: 'min-w-[200px]', render: personCell },
+    { key: 'collector', header: t('collectedByColumn'), className: 'min-w-52', render: personCell },
     ...methodColumns<CollectionGroup>(false),
     {
       key: 'total',
@@ -249,7 +251,7 @@ export default function CollectedTab({
       className: 'w-36 whitespace-nowrap',
       render: (row) => <Badge size="sm" variant={KIND_BADGE[row.kind]}>{kindLabel(row.kind)}</Badge>,
     },
-    { key: 'person', header: tv('byColumn'), className: 'min-w-[200px]', render: personCell },
+    { key: 'person', header: tv('byColumn'), className: 'min-w-52', render: personCell },
     ...methodColumns<CollectedLedgerEntry>(true),
     {
       key: 'total',
@@ -318,7 +320,7 @@ export default function CollectedTab({
   const showList = (next: CollectedView, kind: LedgerKindFilter) => {
     setView(next);
     setKindFilter(kindSelected(kind) ? 'all' : kind);
-    document.getElementById('collected-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('collected-list')?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
   };
   const valueClass = 'text-sm font-medium tracking-normal text-gray-500';
 
@@ -341,7 +343,7 @@ export default function CollectedTab({
           helper={byMethodHelper(summary.spent)}
           icon={ReceiptText}
           onClick={kindCounts.expense > 0 ? () => showList('ledger', 'expense') : undefined}
-          className={cn(kindSelected('expense') && 'ring-2 ring-primary-500')}
+          selected={kindSelected('expense')}
         />
         <MetricCard
           loading={loading}
@@ -349,8 +351,9 @@ export default function CollectedTab({
           value={<Money amount={summary.toReserve.total} currencyClassName={valueClass} />}
           helper={byMethodHelper(summary.toReserve)}
           icon={PiggyBank}
+          accent="reserve"
           onClick={kindCounts.reserve > 0 ? () => showList('ledger', 'reserve') : undefined}
-          className={cn(kindSelected('reserve') && 'ring-2 ring-primary-500')}
+          selected={kindSelected('reserve')}
         />
         <MetricCard
           loading={loading}
@@ -364,33 +367,19 @@ export default function CollectedTab({
       </section>
 
       {/* Everything taken, as paid out, moved to the reserve and still with the collector. */}
-      {!loading && summary.collected.total > 0 && (() => {
-        const parts = [
-          { key: 'spent', label: tm('paidFromCollected'), value: summary.spent.total, className: 'bg-danger-500' },
-          { key: 'reserve', label: tm('movedToReserve'), value: summary.toReserve.total, className: 'bg-purple-500' },
-          { key: 'held', label: tv('stillHeld'), value: Math.max(0, summary.held.total), className: 'bg-warning-500' },
-        ].filter((part) => part.value > 0);
-        const whole = parts.reduce((sum, part) => sum + part.value, 0);
-        if (!whole) return null;
-        return (
-          <div className="rounded-2xl border border-gray-200 bg-surface px-4 py-3 shadow-card">
-            <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
-              {parts.map((part) => (
-                <span key={part.key} className={cn('h-full first:rounded-l-full last:rounded-r-full', part.className)} style={{ width: `${(part.value / whole) * 100}%` }} />
-              ))}
-            </div>
-            <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-500">
-              {parts.map((part) => (
-                <li key={part.key} className="flex items-center gap-1.5">
-                  <span aria-hidden="true" className={cn('h-2 w-2 rounded-sm', part.className)} />
-                  {part.label}
-                  <span className="font-medium tabular-nums text-gray-700">{formatPercentShare(part.value / whole, locale)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        );
-      })()}
+      {!loading && summary.collected.total > 0 && (
+        <Card padding="sm">
+          <ShareBar
+            label={t('collectedTakenTotal')}
+            locale={locale}
+            parts={[
+              { key: 'spent', label: tm('paidFromCollected'), value: summary.spent.total, color: chartColors.danger },
+              { key: 'reserve', label: tm('movedToReserve'), value: summary.toReserve.total, color: chartColors.purple },
+              { key: 'held', label: tv('stillHeld'), value: summary.held.total, color: chartColors.warning },
+            ]}
+          />
+        </Card>
+      )}
 
       {loading && (
         <>
@@ -424,7 +413,7 @@ export default function CollectedTab({
                     aria-pressed={selected}
                     onClick={() => setCollectorFilter(selected ? null : key)}
                     className={cn(
-                      'flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500',
+                      'flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 motion-reduce:transition-none',
                       selected && 'bg-primary-50 hover:bg-primary-50',
                     )}
                   >
@@ -521,7 +510,7 @@ export default function CollectedTab({
           )}
         </CardHeader>
         {loading ? (
-          <TableSkeleton rows={6} columns={methods.length + 3} className="rounded-none border-0 shadow-none" />
+          <TableSkeleton bare rows={6} columns={methods.length + 3} />
         ) : view === 'collections' ? (
           <DataTable
             key="collections"

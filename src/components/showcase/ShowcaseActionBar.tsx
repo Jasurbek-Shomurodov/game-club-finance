@@ -14,6 +14,8 @@ interface ShowcaseActionBarProps {
  * the lowest price (jumps to the price list), and quick contact buttons.
  */
 export async function ShowcaseActionBar({ fromPriceLabel, directionsHref, phoneHref, telegramHref }: ShowcaseActionBarProps) {
+  // Nothing to offer: no empty bar over the page.
+  if (!fromPriceLabel && !directionsHref && !phoneHref && !telegramHref) return null;
   const t = await getTranslations('publicShowcase');
   const barButton =
     'inline-flex h-12 items-center justify-center rounded-2xl text-white transition-colors hover:bg-white/15';

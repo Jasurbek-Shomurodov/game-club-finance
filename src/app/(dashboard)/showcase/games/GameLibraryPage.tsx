@@ -13,9 +13,10 @@ import {
   InlineAlert,
   LoadErrorAlert,
   PageHeader,
-  PageSkeleton,
   SearchInput,
   SegmentedControl,
+  SkeletonStatus,
+  TappableSurface,
   useConfirm,
   useToast,
 } from '@/components/PresentationFoundation';
@@ -28,6 +29,7 @@ import { fetchShowcaseGamesForClubs } from '@/lib/supabase/showcase';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { cn } from '@/lib/utils';
 import type { ShowcaseGame } from '@/types';
+import { GameLibrarySkeleton } from '../ShowcaseSkeletons';
 import { ShowcaseTabs } from '../ShowcaseTabs';
 import { NewGameModal } from './NewGameModal';
 
@@ -166,9 +168,12 @@ export default function GameLibraryPage() {
 
   if (!canEdit) {
     return (
-      <Card>
-        <EmptyState icon={Gamepad2} title={t('ownerOnly')} />
-      </Card>
+      <div className="w-full space-y-5">
+        <PageHeader title={t('title')} tabs={<ShowcaseTabs current="/showcase/games" />} />
+        <Card>
+          <EmptyState icon={Gamepad2} title={t('ownerOnly')} />
+        </Card>
+      </div>
     );
   }
 
@@ -181,7 +186,7 @@ export default function GameLibraryPage() {
       />
 
       {query.loading ? (
-        <PageSkeleton />
+        <SkeletonStatus><GameLibrarySkeleton /></SkeletonStatus>
       ) : query.error ? (
         <LoadErrorAlert retrying={query.loading} onRetry={() => void query.reload()}>{t('loadFailed')}</LoadErrorAlert>
       ) : library.length === 0 ? (
@@ -240,18 +245,8 @@ export default function GameLibraryPage() {
                   const change = isSelected !== savedKeys.has(game.key);
                   return (
                     <li key={game.key}>
-                      <button
-                        type="button"
-                        aria-pressed={isSelected}
-                        onClick={() => toggle(game)}
-                        className="group block w-full rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                      >
-                        <span
-                          className={cn(
-                            'relative block aspect-[3/4] overflow-hidden rounded-xl bg-gray-100 ring-2 transition-[box-shadow,opacity]',
-                            isSelected ? 'ring-primary-600' : 'ring-transparent',
-                          )}
-                        >
+                      <TappableSurface onClick={() => toggle(game)} selected={isSelected} chevron={false} className="rounded-xl border border-transparent">
+                        <span className="relative block aspect-[3/4] overflow-hidden rounded-xl bg-gray-100">
                           {game.image_url ? (
                             // Owner-supplied links may point at any host, so next/image's allow-list does not fit.
                             // eslint-disable-next-line @next/next/no-img-element
@@ -259,7 +254,7 @@ export default function GameLibraryPage() {
                               src={game.image_url}
                               alt=""
                               loading="lazy"
-                              className={cn('h-full w-full object-cover transition-[opacity,transform] duration-300 group-hover:scale-105', !isSelected && 'opacity-45 grayscale-[60%]')}
+                              className={cn('h-full w-full object-cover transition-opacity motion-reduce:transition-none', !isSelected && 'opacity-45 grayscale')}
                             />
                           ) : (
                             <span className="flex h-full items-center justify-center text-gray-400"><Gamepad2 size={24} aria-hidden="true" /></span>
@@ -267,14 +262,14 @@ export default function GameLibraryPage() {
                           <span
                             className={cn(
                               'absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border-2 shadow-sm transition-colors',
-                              isSelected ? 'border-primary-600 bg-primary-600 text-on-accent' : 'border-white bg-surface/80 text-transparent',
+                              isSelected ? 'border-primary-600 bg-primary-600 text-on-accent' : 'border-surface bg-surface/80 text-transparent',
                             )}
                             aria-hidden="true"
                           >
                             <Check size={14} strokeWidth={3} />
                           </span>
                           {change && (
-                            <span className="absolute bottom-2 left-2 rounded-md bg-surface/90 px-1.5 py-0.5 text-[10px] font-semibold text-gray-900 shadow-sm">
+                            <span className="absolute bottom-2 left-2 rounded-md bg-surface/90 px-1.5 py-0.5 text-xs font-semibold text-gray-900 shadow-sm">
                               {isSelected ? t('libraryWillAdd') : t('libraryWillRemove')}
                             </span>
                           )}
@@ -283,7 +278,7 @@ export default function GameLibraryPage() {
                         <span className="block truncate text-xs text-gray-500">
                           {[game.genre, t('libraryClubCount', { count: game.clubCount })].filter(Boolean).join(' · ')}
                         </span>
-                      </button>
+                      </TappableSurface>
                     </li>
                   );
                 })}

@@ -24,10 +24,12 @@ export default function DashboardLayout({
 function ShellSkeleton() {
   return (
     <div className="min-h-dvh bg-gray-50" aria-busy="true">
-      <div className="fixed inset-y-0 left-0 hidden w-64 bg-sidebar lg:block" />
+      <div className="fixed inset-y-0 left-0 hidden w-64 border-r border-gray-200 bg-sidebar lg:block" />
       <div className="fixed inset-x-0 top-0 h-14 border-b border-gray-200 bg-surface lg:hidden" />
       <main className="lg:pl-64">
-        <div className="w-full px-3 pb-5 pt-16 sm:px-5 md:px-6 lg:py-6 xl:px-8 2xl:px-10">
+        {/* The desktop top bar is in the flow (sticky), so it takes its 3.5rem here too. */}
+        <div className="hidden h-14 lg:block" />
+        <div className="w-full px-4 pb-6 pt-[4.5rem] sm:px-6 lg:px-8 lg:pb-8 lg:pt-2">
           <PageSkeleton />
         </div>
       </main>

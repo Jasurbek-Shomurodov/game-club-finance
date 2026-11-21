@@ -34,11 +34,17 @@ export function MetricGridSkeleton({ count = 4, className }: { count?: number; c
   );
 }
 
-export function TableSkeleton({ rows = 6, columns = 4, className }: { rows?: number; columns?: number; className?: string }) {
+export function TableSkeleton({ rows = 6, columns = 4, bare = false, className }: {
+  rows?: number;
+  columns?: number;
+  /** No border, radius or shadow: for a table that sits inside a card, like `DataTable bare`. */
+  bare?: boolean;
+  className?: string;
+}) {
   const statusProps = useLoadingStatus();
   const template = { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` };
   return (
-    <div className={cn('overflow-hidden rounded-2xl border border-gray-200 bg-surface shadow-card', className)} {...statusProps}>
+    <div className={cn('overflow-hidden', !bare && 'rounded-2xl border border-gray-200 bg-surface shadow-card', className)} {...statusProps}>
       <div className="grid gap-4 border-b border-gray-100 bg-gray-50 px-4 py-4" style={template}>
         {Array.from({ length: columns }).map((_, index) => <Skeleton key={index} className="h-3 w-2/3" />)}
       </div>

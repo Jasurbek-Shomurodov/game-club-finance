@@ -22,7 +22,6 @@ import {
   ChartSkeleton,
   DataTable,
   LoadErrorAlert,
-  MetricGridSkeleton,
   SegmentedControl,
   metricToneClassName,
   toneForAmount,
@@ -60,6 +59,7 @@ import { MoneyFlowSankeys } from './MoneyFlowSankeys';
 import { CategoryDonut, LargestPayments } from './AnalysisPanels';
 import { CategoryDrawer } from './CategoryDrawer';
 import { Section } from './AnalysisSections';
+import { OverallBodySkeleton } from './OverallSkeleton';
 import { OwnerBalanceCard, SectionNav, SideSummaryCard } from './OverallSummary';
 import { categoryColors, formatShare } from './analysisFormat';
 
@@ -95,14 +95,15 @@ interface MonthTableRow extends MonthlyAnalysisRow {
 /** Compact figures above a side's profit-by-month chart. */
 function ProfitStats({ items }: { items: Array<{ label: string; value: string; helper?: string; tone?: ReturnType<typeof toneForAmount> }> }) {
   return (
-    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
+    // Four across only where a whole amount fits in a quarter of the card; a figure is never cut short.
+    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:max-xl:grid-cols-4 2xl:grid-cols-4">
       {items.map((item) => (
         <div key={item.label} className="min-w-0">
-          <dt className="truncate text-xs text-gray-500">{item.label}</dt>
-          <dd className={cn('truncate text-sm font-semibold tabular-nums', item.tone ? metricToneClassName[item.tone] : 'text-gray-950')}>
+          <dt className="text-xs text-gray-500">{item.label}</dt>
+          <dd className={cn('whitespace-nowrap text-sm font-semibold tabular-nums', item.tone ? metricToneClassName[item.tone] : 'text-gray-950')}>
             {item.value}
           </dd>
-          {item.helper && <dd className="truncate text-xs text-gray-500">{item.helper}</dd>}
+          {item.helper && <dd className="text-xs text-gray-500">{item.helper}</dd>}
         </div>
       ))}
     </dl>
@@ -418,9 +419,8 @@ export function OverallAnalysis({ businessToday, onOpenMonth }: { businessToday:
       )}
 
       {loading ? (
-        <div className="space-y-4" role="status" aria-label={tc('loading')}>
-          <ChartSkeleton />
-          <MetricGridSkeleton />
+        <div role="status" aria-label={tc('loading')}>
+          <OverallBodySkeleton />
         </div>
       ) : (
         <div className="space-y-6">

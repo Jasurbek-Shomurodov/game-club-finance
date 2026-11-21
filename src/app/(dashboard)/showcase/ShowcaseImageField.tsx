@@ -63,7 +63,7 @@ export function ShowcaseImageField({ label, clubId, kind, value, onChange, onUpl
             // eslint-disable-next-line @next/next/no-img-element
             <img src={value} alt="" className="h-full w-full object-cover" />
           ) : (
-            <span className="flex h-full w-full items-center justify-center text-gray-400">
+            <span className="flex h-full w-full items-center justify-center text-gray-500">
               <ImagePlus size={22} aria-hidden="true" />
             </span>
           )}

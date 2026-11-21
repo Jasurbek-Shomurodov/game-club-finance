@@ -35,7 +35,7 @@ export function PaymentList({ rows, showCategory = false, labelFor, locale, curr
             <div className="min-w-0 flex-1">
               <p className="break-words text-sm text-gray-900">
                 {showCategory && <span className="font-medium">{labelFor(row.category)} · </span>}
-                {row.comment || <span className="text-gray-400">{t('drawerNoComment')}</span>}
+                {row.comment || <span className="text-gray-500">{t('drawerNoComment')}</span>}
               </p>
               <p className="mt-0.5 text-xs text-gray-500">
                 {formatDateShort(row.date, locale)}

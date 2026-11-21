@@ -256,7 +256,7 @@ export function StockWriteOffModal({ open, rows, saving, canChangeRecorded, show
 
         {recorded.length > 0 && (
           <div className="border-t border-gray-100 pt-4">
-            <p className="mb-2 text-[13px] font-medium text-gray-700">{t('writeOffRecorded')}</p>
+            <p className="mb-2 text-sm font-medium text-gray-700">{t('writeOffRecorded')}</p>
             <ul className="space-y-2">
               {recorded.map(({ row, writeOff }) => (
                 <li key={row.product.id} className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 p-3">

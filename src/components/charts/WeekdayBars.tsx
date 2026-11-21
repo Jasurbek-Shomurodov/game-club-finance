@@ -32,16 +32,16 @@ export function WeekdayBars({ data, color, currency, locale, averageLabel, class
         const label = `${averageLabel} · ${names[slot.weekday]}: ${formatCurrency(Math.round(slot.average))} ${currency}`;
         return (
           <div key={slot.weekday} className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1" title={label}>
-            <span className={cn('text-[10px] font-semibold tabular-nums text-gray-950 transition-opacity', best ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}>
+            <span className={cn('whitespace-nowrap text-xs font-semibold tabular-nums text-gray-950 transition-opacity motion-reduce:transition-none', best ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}>
               {formatAxis(slot.average, locale)}
             </span>
             <span
               role="img"
               aria-label={label}
-              className="w-full max-w-7 rounded-t-[4px] rounded-b-sm transition-[height] duration-500 motion-reduce:transition-none"
+              className="w-full max-w-7 rounded-b-sm rounded-t transition-[height] duration-500 motion-reduce:transition-none"
               style={{ height: `${height}%`, backgroundColor: best ? color : colorWithAlpha(color, 0.38) }}
             />
-            <span className={cn('text-[10px] font-medium', best ? 'text-gray-950' : 'text-gray-400')}>{names[slot.weekday]}</span>
+            <span className={cn('text-xs font-medium', best ? 'text-gray-950' : 'text-gray-500')}>{names[slot.weekday]}</span>
           </div>
         );
       })}

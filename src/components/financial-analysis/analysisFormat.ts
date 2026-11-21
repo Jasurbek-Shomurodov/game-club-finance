@@ -1,4 +1,4 @@
-import { chartColors, formatAxis } from '@/components/dashboard/ChartCard';
+import { categoricalColors, chartColors, formatAxis } from '@/components/dashboard/ChartCard';
 import { intlLocaleFor } from '@/lib/formatters';
 import {
   BAR_COST_TARGET,
@@ -48,7 +48,8 @@ export const SPENDING_GROUP_COLORS: Record<SpendingGroupKey, string> = {
   barExpenses: chartColors.purple,
 };
 
-const CATEGORY_PALETTE = [chartColors.danger, chartColors.primary, chartColors.purple, '#0e9fb3', chartColors.warning, '#d6408f', chartColors.axis];
+// Seven named categories need seven hues; all are theme tokens (the blue and pink are the chart palette's viz-3 and viz-5).
+const CATEGORY_PALETTE = [chartColors.danger, chartColors.primary, chartColors.purple, categoricalColors[2], chartColors.warning, categoricalColors[4], chartColors.axis];
 
 /** One colour per expense category, shared by the sankeys, donut and comparison bars. */
 export function categoryColors(topCategories: CategoryAmount[]): Record<string, string> {

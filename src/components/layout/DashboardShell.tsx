@@ -182,6 +182,17 @@ function useOnline() {
   return useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
 }
 
+const subscribeNever = () => () => {};
+
+/** The palette's shortcut as this keyboard writes it: ⌘K on Apple devices, Ctrl K elsewhere. */
+function useShortcutHint() {
+  return useSyncExternalStore(
+    subscribeNever,
+    () => (/Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent) ? '⌘K' : 'Ctrl K'),
+    () => '⌘K',
+  );
+}
+
 function subscribeDesktop(change: () => void) {
   const query = window.matchMedia(DESKTOP_QUERY);
   query.addEventListener('change', change);
@@ -270,6 +281,7 @@ export function DashboardShell({
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const topBarRef = useRef<HTMLDivElement>(null);
   const isDesktop = useIsDesktop();
+  const shortcutHint = useShortcutHint();
   const topBarCrowded = useTopBarCrowded(topBarRef, isDesktop, pathname);
   const [profileRole, setProfileRole] = useState<UserRole>(initialProfileRole);
   const [fullName, setFullName] = useState(initialFullName || initialEmail);
@@ -526,7 +538,7 @@ export function DashboardShell({
             role="status"
             aria-label={tc('loading')}
           >
-            <div className="h-full w-full origin-left animate-pulse bg-primary-600" />
+            <div className="fade-in h-full w-full bg-primary-600" />
           </div>
         )}
         <Sidebar
@@ -545,7 +557,7 @@ export function DashboardShell({
           pendingCount={pendingTeamCount}
         />
 
-        <div className={cn('flex min-w-0 flex-1 flex-col transition-[padding] duration-200 ease-linear', sidebarCollapsed ? 'lg:pl-0' : 'lg:pl-64')}>
+        <div className={cn('flex min-w-0 flex-1 flex-col transition-[padding] duration-200 ease-linear motion-reduce:transition-none', sidebarCollapsed ? 'lg:pl-0' : 'lg:pl-64')}>
           {/* Top bar: the drawer button, the open page's title (the club name on phones until a page sets one), and the light/dark toggle. */}
           <div ref={topBarRef} className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-3 border-b border-gray-200 bg-surface/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur lg:sticky lg:border-b-0 lg:bg-gray-50/90 lg:px-8">
             {/* On desktop the toggle only appears once the sidebar is collapsed. */}
@@ -568,18 +580,29 @@ export function DashboardShell({
             </div>
             {isDesktop && !topBarCrowded && <TopBarActionsSlot />}
             {shellReady && (
-              <button
-                type="button"
-                onClick={() => setPaletteOpen(true)}
-                aria-label={tn('openSearch')}
-                aria-haspopup="dialog"
-                title={tn('openSearch')}
-                className="ml-auto flex h-10 shrink-0 items-center gap-2 rounded-xl border border-gray-200 bg-surface px-2.5 text-sm text-gray-500 transition hover:border-gray-300 hover:text-gray-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 max-lg:w-10 max-lg:justify-center max-lg:border-0 max-lg:bg-transparent max-lg:px-0"
-              >
-                <Search size={17} aria-hidden="true" />
-                <span className="max-lg:hidden">{tn('search')}</span>
-                <kbd className="rounded-md border border-gray-200 px-1.5 py-0.5 text-[11px] font-medium text-gray-400 max-lg:hidden">⌘K</kbd>
-              </button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto shrink-0 max-lg:hidden"
+                  onClick={() => setPaletteOpen(true)}
+                  aria-label={tn('openSearch')}
+                  aria-haspopup="dialog"
+                  title={tn('openSearch')}
+                  icon={<Search size={17} aria-hidden="true" />}
+                >
+                  <span className="font-normal text-gray-500">{tn('search')}</span>
+                  <kbd className="rounded-md border border-gray-200 px-1.5 py-0.5 text-xs font-medium text-gray-500">{shortcutHint}</kbd>
+                </Button>
+                <IconButton
+                  variant="ghost"
+                  className="ml-auto lg:hidden"
+                  label={tn('openSearch')}
+                  icon={<Search size={20} />}
+                  onClick={() => setPaletteOpen(true)}
+                  aria-haspopup="dialog"
+                />
+              </>
             )}
             <ThemeToggle className={cn('shrink-0', !shellReady && 'ml-auto')} />
           </div>

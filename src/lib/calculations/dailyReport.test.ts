@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   calculateManualIncome,
   calculateFinancialReportTotals,
+  sumDebtIncome,
 } from './dailyReport';
 import { calculateDashboardTotals } from './dashboardMetrics';
 
@@ -46,6 +47,9 @@ describe('calculateFinancialReportTotals', () => {
     })).toEqual({
       manualIncome: 415000,
       debtIncome: 120000,
+      gameClubIncome: 535000,
+      barUnitsSold: 0,
+      barGrossProfit: 0,
       barSales: 100000,
       barCost: 37500,
       stockPurchaseCost: 40000,
@@ -172,6 +176,9 @@ describe('report totals with incomplete rows', () => {
     expect(totals).toEqual({
       manualIncome: 500_000,
       debtIncome: 0,
+      gameClubIncome: 500_000,
+      barUnitsSold: 0,
+      barGrossProfit: 0,
       barSales: 120_000,
       barCost: 40_000,
       stockPurchaseCost: 30_000,
@@ -181,5 +188,53 @@ describe('report totals with incomplete rows', () => {
       gameClubProfit: 425_000, // 500 000 − 75 000
       barProfit: 10_000, // 120 000 − 40 000 cost of goods − 70 000
     });
+  });
+});
+
+describe('sumDebtIncome', () => {
+  it('adds the debt rows the way the report pages did inline', () => {
+    const rows = [{ amount: 120_000 }, { amount: '30000' }, { amount: null }, {}];
+    expect(sumDebtIncome(rows)).toBe(150_000);
+    expect(sumDebtIncome(rows)).toBe(rows.reduce((sum, debt) => sum + Number(debt.amount ?? 0), 0));
+    expect(sumDebtIncome([])).toBe(0);
+  });
+});
+
+describe('report totals: game club income, bar units sold and bar gross profit', () => {
+  const stockRows = [
+    { bar_income: 80_000, bar_cost: 30_000, sold_quantity: 8, bar_profit: 50_000 },
+    { bar_income: 20_000, bar_cost: 27_500, sold_quantity: 2.5, bar_profit: -7_500 },
+  ];
+  const totals = calculateFinancialReportTotals({
+    manualIncome: 415_000,
+    debtIncome: 120_000,
+    stockRows,
+    purchaseRows: [],
+    expenseRows: [{ amount: 10_000, payment_source: 'bar' }],
+  });
+
+  it('match the sums the daily report used to compute inline', () => {
+    expect(totals.gameClubIncome).toBe(415_000 + 120_000);
+    expect(totals.barUnitsSold).toBe(stockRows.reduce((sum, row) => sum + row.sold_quantity, 0));
+    expect(totals.barGrossProfit).toBe(stockRows.reduce((sum, row) => sum + row.bar_profit, 0));
+    expect(totals.barUnitsSold).toBe(10.5);
+    expect(totals.barGrossProfit).toBe(42_500);
+  });
+
+  it('leave the existing figures untouched', () => {
+    expect(totals).toMatchObject({ barSales: 100_000, barCost: 57_500, barExpenses: 10_000, barProfit: 32_500, gameClubProfit: 535_000 });
+  });
+
+  it('add up over days to the month figure the monthly report showed', () => {
+    const days = [{ manualIncome: 100_000, debtIncome: 20_000 }, { manualIncome: 250_000, debtIncome: 0 }]
+      .map((day) => calculateFinancialReportTotals({ ...day, stockRows: [], purchaseRows: [], expenseRows: [] }));
+    const month = days.reduce((sum, day) => sum + day.gameClubIncome, 0);
+    expect(month).toBe(days.reduce((sum, day) => sum + day.manualIncome, 0) + days.reduce((sum, day) => sum + day.debtIncome, 0));
+  });
+
+  it('read rows without a quantity or profit (month totals) as zero', () => {
+    const month = calculateFinancialReportTotals({ manualIncome: 0, stockRows: [{ bar_income: 5, bar_cost: 2 }], purchaseRows: [], expenseRows: [] });
+    expect(month.barUnitsSold).toBe(0);
+    expect(month.barGrossProfit).toBe(0);
   });
 });

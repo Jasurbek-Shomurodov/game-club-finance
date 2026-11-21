@@ -1,7 +1,7 @@
-// Route: /test-checklist (owner diagnostic; not linked from navigation)
+// Route: /test-checklist (owner-only diagnostic; opened from the command palette)
 
 import { redirect } from 'next/navigation';
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getDashboardBootstrap } from '@/lib/supabase/dashboardBootstrap';
@@ -11,7 +11,7 @@ import { fetchAllRows } from '@/lib/supabase/pagination';
 import { Badge, ButtonLink, Card, EmptyState, InlineAlert, PageHeader } from '@/components/PresentationFoundation';
 import { calculateFinancialReportTotals, calculateManualIncome, type DailyCashEntry } from '@/lib/calculations/dailyReport';
 import { normalizeBusinessDayStartHour, serverTodayIso } from '@/lib/utils';
-import { formatNumber } from '@/lib/formatters';
+import { formatDateOnly, formatNumber } from '@/lib/formatters';
 import { DASHBOARD_PATH } from '@/lib/routes';
 
 interface CheckResult {
@@ -37,6 +37,8 @@ export default async function TestChecklistPage() {
   const bootstrap = await getDashboardBootstrap();
   if (!bootstrap) redirect('/login');
   const t = await getTranslations('testChecklist');
+  const tc = await getTranslations('common');
+  const locale = await getLocale();
 
   const ownerMemberships = bootstrap.initialMemberships.filter((membership) => (
     membership.role === 'owner' && relatedClub(membership.clubs)?.is_active !== false
@@ -52,6 +54,9 @@ export default async function TestChecklistPage() {
   const businessDayStartHour = normalizeBusinessDayStartHour(relatedClub(membership.clubs)?.business_day_start_hour);
   const today = serverTodayIso(new Date(), businessDayStartHour);
   const supabase = await createClient();
+  // Which club and business day the checks ran for: the selected club, or the first one this person owns.
+  const checkedFor = t('checkedFor', { club: relatedClub(membership.clubs)?.name ?? '', date: formatDateOnly(today, locale) });
+  const currency = tc('currency');
 
   const [cashRes, stockRes, purchaseRes, expenseRes, todayDebtRes, debtRes, reportRes] = await Promise.all([
     supabase
@@ -101,6 +106,7 @@ export default async function TestChecklistPage() {
     return (
       <div className="mx-auto w-full max-w-3xl space-y-6">
         <PageHeader title={t('title')} className="mb-0" />
+        <p className="text-sm text-gray-600">{checkedFor}</p>
         <Card>
           <EmptyState
             icon={AlertTriangle}
@@ -137,6 +143,7 @@ export default async function TestChecklistPage() {
         card: n(cashEntry.card_income ?? 0),
         playstation: n(cashEntry.playstation_income ?? 0),
         total: n(total),
+        currency,
       }),
       link: '/daily-cash',
     });
@@ -195,6 +202,7 @@ export default async function TestChecklistPage() {
       gameClubReport: n(reportTotals.gameClubProfit),
       bar: n(directTotals.barProfit),
       barReport: n(reportTotals.barProfit),
+      currency,
     }),
     link: '/daily-report',
   });
@@ -221,6 +229,7 @@ export default async function TestChecklistPage() {
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <PageHeader title={t('title')} className="mb-0" />
+      <p className="text-sm text-gray-600">{checkedFor}</p>
 
       <InlineAlert variant={allPass ? 'success' : 'warning'}>
         {allPass ? t('allPassed', { count: checks.length }) : t('somePassed', { passed: passCount, count: checks.length })}
@@ -239,7 +248,7 @@ export default async function TestChecklistPage() {
                   <Badge variant={check.pass ? 'success' : 'danger'} size="sm">{check.pass ? t('passed') : t('failed')}</Badge>
                 </div>
                 <p className="mt-1 text-sm text-gray-600">{check.explanation}</p>
-                <ButtonLink href={check.link} variant="ghost" size="sm" className="mt-2 -ml-3 text-primary-700">{t('goToPage')}</ButtonLink>
+                <ButtonLink href={check.link} variant="ghost" size="sm" className="-ml-3 mt-2">{t('goToPage')}</ButtonLink>
               </div>
             </div>
           </Card>

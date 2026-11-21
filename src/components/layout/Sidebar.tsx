@@ -118,7 +118,7 @@ function NavLink({
       <Icon size={17} strokeWidth={active ? 2.25 : 2} className={active ? 'text-primary-600' : 'text-gray-400'} aria-hidden="true" />
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {badge ? (
-        <span className="rounded-full bg-warning-50 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-warning-700">
+        <span className="rounded-full bg-warning-50 px-1.5 py-0.5 text-xs font-semibold leading-none text-warning-700">
           {badge}
         </span>
       ) : null}
@@ -255,7 +255,7 @@ export function Sidebar({
       <Avatar name={fullName} size="sm" />
       <span className="min-w-0 flex-1 text-left leading-tight">
         <span className="block truncate text-[13px] font-semibold text-gray-950">{fullName}</span>
-        <span className="block truncate text-[11px] text-gray-500">{tTeam(`roles.${role}`)}</span>
+        <span className="block truncate text-xs text-gray-500">{tTeam(`roles.${role}`)}</span>
       </span>
     </>
   );
@@ -268,7 +268,7 @@ export function Sidebar({
             <ClubLogo src={selectedClub?.logo_url} />
             <span className="min-w-0 flex-1 leading-tight">
               <span className="block truncate text-sm font-semibold text-gray-950">{selectedClub?.name ?? t('appName')}</span>
-              <span className="block truncate text-[11px] text-gray-500">{tTeam(`roles.${role}`)}</span>
+              <span className="block truncate text-xs text-gray-500">{tTeam(`roles.${role}`)}</span>
             </span>
             <select
               className="absolute inset-0 h-full w-full cursor-pointer appearance-none text-base opacity-0"
@@ -315,7 +315,7 @@ export function Sidebar({
         {groups.map((group, index) => (
           <div key={group.label ?? index} className="space-y-0.5">
             {group.label && (
-              <p className="px-2.5 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{group.label}</p>
+              <p className="px-2.5 pb-1 pt-1 text-xs font-semibold uppercase tracking-wider text-gray-500">{group.label}</p>
             )}
             {group.items.map((item) => (
               <NavLink
@@ -375,7 +375,7 @@ export function Sidebar({
     <>
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 hidden overflow-hidden border-gray-200 transition-[width] duration-200 ease-linear lg:flex',
+          'fixed inset-y-0 left-0 z-40 hidden overflow-hidden border-gray-200 transition-[width] duration-200 ease-linear motion-reduce:transition-none lg:flex',
           collapsed ? 'w-0 border-r-0' : 'w-64 border-r',
         )}
         inert={collapsed}

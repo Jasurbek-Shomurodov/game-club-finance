@@ -18,7 +18,7 @@ import {
 } from 'recharts';
 import type { ReactElement, ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
-import { chartColors, chartTooltipStyle, formatAxis } from '@/components/dashboard/ChartCard';
+import { CHART_Y_AXIS_WIDTH, chartColors, chartTooltipStyle, formatAxis } from '@/components/dashboard/ChartCard';
 import {
   capitalizeFirst,
   formatCurrency,
@@ -102,7 +102,7 @@ export function SideFlowChart({ rows, side, granularity, locale, currency }: {
         <ComposedChart accessibilityLayer data={rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barGap={2} barCategoryGap="22%">
           <CartesianGrid stroke={chartColors.grid} vertical={false} />
           <XAxis dataKey="period" {...axisProps} axisLine={{ stroke: chartColors.grid }} minTickGap={12} tickFormatter={labels.tick} />
-          <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
+          <YAxis {...axisProps} axisLine={false} width={CHART_Y_AXIS_WIDTH} tickFormatter={(value: number) => formatAxis(value, locale)} />
           <ReferenceLine y={0} stroke={chartColors.axis} strokeOpacity={0.4} />
           <Tooltip
             {...chartTooltipStyle}
@@ -151,7 +151,7 @@ export function CumulativeProfitChart({ rows, granularity, locale, currency }: {
           </defs>
           <CartesianGrid stroke={chartColors.grid} vertical={false} />
           <XAxis dataKey="period" {...axisProps} axisLine={{ stroke: chartColors.grid }} minTickGap={12} tickFormatter={labels.tick} />
-          <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
+          <YAxis {...axisProps} axisLine={false} width={CHART_Y_AXIS_WIDTH} tickFormatter={(value: number) => formatAxis(value, locale)} />
           <ReferenceLine y={0} stroke={chartColors.axis} strokeOpacity={0.4} />
           <Tooltip
             {...chartTooltipStyle}
@@ -188,7 +188,7 @@ export function IncomeMixChart({ rows, granularity, locale, currency }: {
         <BarChart accessibilityLayer data={rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barCategoryGap="22%">
           <CartesianGrid stroke={chartColors.grid} vertical={false} />
           <XAxis dataKey="period" {...axisProps} axisLine={{ stroke: chartColors.grid }} minTickGap={12} tickFormatter={labels.tick} />
-          <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
+          <YAxis {...axisProps} axisLine={false} width={CHART_Y_AXIS_WIDTH} tickFormatter={(value: number) => formatAxis(value, locale)} />
           <Tooltip
             {...chartTooltipStyle}
             cursor={{ fill: chartColors.cursor }}
@@ -228,7 +228,7 @@ export function CategoryTrendChart({ rows, categories, colors, labelFor, granula
         <BarChart accessibilityLayer data={rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barCategoryGap="22%">
           <CartesianGrid stroke={chartColors.grid} vertical={false} />
           <XAxis dataKey="period" {...axisProps} axisLine={{ stroke: chartColors.grid }} minTickGap={12} tickFormatter={labels.tick} />
-          <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
+          <YAxis {...axisProps} axisLine={false} width={CHART_Y_AXIS_WIDTH} tickFormatter={(value: number) => formatAxis(value, locale)} />
           <Tooltip
             {...chartTooltipStyle}
             cursor={{ fill: chartColors.cursor }}
@@ -271,7 +271,7 @@ export function WeeklyAverageChart({ rows, side, average, locale, currency }: {
         <ComposedChart accessibilityLayer data={rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barCategoryGap="22%">
           <CartesianGrid stroke={chartColors.grid} vertical={false} />
           <XAxis dataKey="period" {...axisProps} axisLine={{ stroke: chartColors.grid }} minTickGap={12} tickFormatter={labels.tick} />
-          <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={(amount: number) => formatAxis(amount, locale)} />
+          <YAxis {...axisProps} axisLine={false} width={CHART_Y_AXIS_WIDTH} tickFormatter={(amount: number) => formatAxis(amount, locale)} />
           <ReferenceLine y={average} stroke={chartColors.axis} strokeDasharray="5 4" />
           <Tooltip
             {...chartTooltipStyle}
@@ -315,7 +315,7 @@ export function WeekdayChart({ rows, locale, currency }: { rows: WeekdayPatternR
         <BarChart accessibilityLayer data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barGap={3} barCategoryGap="24%">
           <CartesianGrid stroke={chartColors.grid} vertical={false} />
           <XAxis dataKey="label" {...axisProps} axisLine={{ stroke: chartColors.grid }} interval={0} />
-          <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
+          <YAxis {...axisProps} axisLine={false} width={CHART_Y_AXIS_WIDTH} tickFormatter={(value: number) => formatAxis(value, locale)} />
           <Tooltip {...chartTooltipStyle} cursor={{ fill: chartColors.cursor }} formatter={moneyFormatter(currency, names)} />
           <Bar dataKey="gameClubAverage" fill={chartColors.primary} radius={[3, 3, 0, 0]} maxBarSize={32} />
           <Bar dataKey="barAverage" fill={chartColors.orange} radius={[3, 3, 0, 0]} maxBarSize={32} />
@@ -357,7 +357,7 @@ export function ProfitMonthsChart({ rows, average, locale, currency }: {
             interval={rows.length > 12 ? 'preserveStartEnd' : 0}
             tickFormatter={(month: string) => formatMonthShort(month, locale)}
           />
-          <YAxis yAxisId="money" {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
+          <YAxis yAxisId="money" {...axisProps} axisLine={false} width={CHART_Y_AXIS_WIDTH} tickFormatter={(value: number) => formatAxis(value, locale)} />
           <YAxis yAxisId="pct" orientation="right" {...axisProps} axisLine={false} width={36} tickFormatter={(value: number) => `${value}%`} />
           <ReferenceLine yAxisId="money" y={0} stroke={chartColors.axis} strokeOpacity={0.4} />
           <ReferenceLine yAxisId="money" y={average} stroke={chartColors.axis} strokeDasharray="5 4" />
@@ -408,7 +408,7 @@ export function OwnerMonthsChart({ rows, locale, currency }: { rows: OwnerMonthR
             interval={rows.length > 12 ? 'preserveStartEnd' : 0}
             tickFormatter={(month: string) => formatMonthShort(month, locale)}
           />
-          <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
+          <YAxis {...axisProps} axisLine={false} width={CHART_Y_AXIS_WIDTH} tickFormatter={(value: number) => formatAxis(value, locale)} />
           <ReferenceLine y={0} stroke={chartColors.axis} strokeOpacity={0.4} />
           <Tooltip
             {...chartTooltipStyle}
@@ -456,7 +456,7 @@ export function ForecastChart({ forecast, side, locale, currency }: {
         <LineChart accessibilityLayer data={forecast.days} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
           <CartesianGrid stroke={chartColors.grid} vertical={false} />
           <XAxis dataKey="day" {...axisProps} axisLine={{ stroke: chartColors.grid }} minTickGap={12} />
-          <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
+          <YAxis {...axisProps} axisLine={false} width={CHART_Y_AXIS_WIDTH} tickFormatter={(value: number) => formatAxis(value, locale)} />
           <Tooltip
             {...chartTooltipStyle}
             labelFormatter={(day) => dayTitle(Number(day))}
@@ -489,7 +489,7 @@ export function YearOverYearChart({ data, locale, currency }: { data: YearOverYe
         <BarChart accessibilityLayer data={data.rows} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barGap={2} barCategoryGap="20%">
           <CartesianGrid stroke={chartColors.grid} vertical={false} />
           <XAxis dataKey="month" {...axisProps} axisLine={{ stroke: chartColors.grid }} interval={0} tickFormatter={monthLabel} />
-          <YAxis {...axisProps} axisLine={false} width={44} tickFormatter={(value: number) => formatAxis(value, locale)} />
+          <YAxis {...axisProps} axisLine={false} width={CHART_Y_AXIS_WIDTH} tickFormatter={(value: number) => formatAxis(value, locale)} />
           <Tooltip
             {...chartTooltipStyle}
             cursor={{ fill: chartColors.cursor }}
@@ -528,7 +528,7 @@ export function CalendarHeatmap({ weeks, side, locale, currency }: {
   return (
     <div className="mt-4">
       <div className="flex gap-1">
-        <div className="grid shrink-0 grid-rows-7 gap-1 pr-1 pt-5 text-[10px] leading-none text-gray-500" aria-hidden="true">
+        <div className="grid shrink-0 grid-rows-7 gap-1 pr-1 pt-5 text-xs leading-none text-gray-500" aria-hidden="true">
           {WEEKDAY_KEYS.map((key, index) => (
             <span key={key} className="flex items-center">{index % 2 === 0 ? t(`weekdays.${key}`) : ''}</span>
           ))}
@@ -539,7 +539,7 @@ export function CalendarHeatmap({ weeks, side, locale, currency }: {
             const showMonth = index === 0 || weeks[index - 1].start.slice(0, 7) !== month;
             return (
               <div key={week.start} className="grid min-w-0 grid-rows-[1rem_repeat(7,minmax(0,1fr))] gap-1">
-                <span className="truncate text-[10px] leading-4 text-gray-500" aria-hidden="true">
+                <span className="whitespace-nowrap text-xs leading-4 text-gray-500" aria-hidden="true">
                   {showMonth ? formatMonthShort(month, locale) : ''}
                 </span>
                 {week.days.map((cell) => (
@@ -557,7 +557,7 @@ export function CalendarHeatmap({ weeks, side, locale, currency }: {
           })}
         </div>
       </div>
-      <div className="mt-3 flex items-center justify-end gap-1.5 text-[11px] text-gray-500" aria-hidden="true">
+      <div className="mt-3 flex items-center justify-end gap-1.5 text-xs text-gray-500" aria-hidden="true">
         {t('heatmapLess')}
         {HEAT_OPACITY.map((opacity, level) => (
           <span

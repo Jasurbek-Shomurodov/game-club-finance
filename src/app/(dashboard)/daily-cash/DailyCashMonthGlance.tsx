@@ -4,7 +4,7 @@ import { useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
 import { CalendarCheck, CalendarX2 } from 'lucide-react';
-import { Card, LoadErrorAlert, SectionHeading, Skeleton } from '@/components/PresentationFoundation';
+import { Card, EmptyState, LoadErrorAlert, SectionHeading, Skeleton } from '@/components/PresentationFoundation';
 import { CalendarHeatmap } from '@/components/charts/CalendarHeatmap';
 import { WeekdayBars } from '@/components/charts/WeekdayBars';
 import { ChangeHint, GlanceStat } from '@/components/charts/GlanceStat';
@@ -168,7 +168,7 @@ export function DailyCashMonthGlance({ clubId, date, today, enabledPaymentMethod
                   type="button"
                   onClick={() => onSelectDate(day)}
                   className={cn(
-                    'rounded-full border border-warning-200 bg-warning-50 px-2.5 py-1 font-medium tabular-nums text-warning-700 transition-colors',
+                    'inline-flex min-h-9 items-center rounded-full border border-warning-100 bg-warning-50 px-3 font-medium tabular-nums text-warning-700 transition-colors motion-reduce:transition-none',
                     'hover:bg-warning-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
                     day === date && 'ring-2 ring-warning-500',
                   )}
@@ -187,7 +187,7 @@ export function DailyCashMonthGlance({ clubId, date, today, enabledPaymentMethod
 
           <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
             <div className="min-w-0">
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">{t('dailyCash.calendar')}</h3>
+              <SectionHeading as="h3" size="sm" title={t('dailyCash.calendar')} className="mb-2" />
               <CalendarHeatmap
                 yearMonth={yearMonth}
                 values={glance.values}
@@ -204,16 +204,16 @@ export function DailyCashMonthGlance({ clubId, date, today, enabledPaymentMethod
             </div>
             <div className="min-w-0 space-y-5">
               <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">{t('dailyCash.byMethod')}</h3>
+                <SectionHeading as="h3" size="sm" title={t('dailyCash.byMethod')} className="mb-2" />
                 {slices.length ? (
                   <DonutBreakdown size="sm" slices={slices} total={glance.total} totalLabel={t('dailyCash.monthToDate')} currency={currency} locale={locale} />
                 ) : (
-                  <p className="text-sm text-gray-500">{t('dailyCash.noEntries')}</p>
+                  <EmptyState compact bordered title={t('dailyCash.noEntries')} />
                 )}
               </div>
               {glance.enteredDays > 1 && (
                 <div>
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">{t('weekdayTitle')}</h3>
+                  <SectionHeading as="h3" size="sm" title={t('weekdayTitle')} className="mb-2" />
                   <WeekdayBars data={weekdays} color={chartColors.primary} currency={currency} locale={locale} averageLabel={t('weekdayAverage')} />
                 </div>
               )}
@@ -232,19 +232,19 @@ function DailyCashMonthGlanceBodySkeleton() {
       <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-5 rounded-xl bg-gray-50 p-4 lg:grid-cols-4">
         {Array.from({ length: 4 }, (_, index) => <GlanceStatSkeleton key={index} />)}
       </div>
-      <Skeleton className="mt-4 h-6 w-72 max-w-full rounded-full bg-gray-100" />
+      <Skeleton className="mt-4 h-9 w-72 max-w-full rounded-full bg-gray-100" />
       <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-2">
-          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-4 w-24" />
           <CalendarSkeleton />
         </div>
         <div className="min-w-0 space-y-5">
           <div className="space-y-2">
-            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-4 w-28" />
             <DonutSkeleton />
           </div>
           <div className="space-y-2">
-            <Skeleton className="h-3 w-32" />
+            <Skeleton className="h-4 w-32" />
             <div className="flex h-28 items-end gap-1.5">
               {[55, 70, 45, 80, 60, 95, 75].map((height, index) => (
                 <Skeleton key={index} className="flex-1 rounded-b-sm rounded-t bg-gray-100" style={{ height: `${height}%` }} />

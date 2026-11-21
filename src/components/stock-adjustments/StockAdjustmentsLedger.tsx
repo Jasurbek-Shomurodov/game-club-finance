@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { CalendarX, PackageMinus, PackagePlus, PackageX, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import {
@@ -23,6 +23,7 @@ import {
 } from '@/components/PresentationFoundation';
 import { ChartCard, ChartEmpty, chartColors } from '@/components/dashboard/ChartCard';
 import { DailyInOutChart } from '@/components/charts/DailyInOutChart';
+import { InOutChartSkeleton } from '@/components/charts/ChartSkeletons';
 import { WriteOffDetailsModal } from '@/components/WriteOffDetailsModal';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { createClient } from '@/lib/supabase/client';
@@ -43,6 +44,24 @@ import {
 const EMPTY: StockWriteOffCountRow[] = [];
 type GroupFilter = StockAdjustmentGroup | 'all';
 const TOP_PRODUCTS = 6;
+
+/** An adjustment's units in a table cell: added stock reads green with a plus, removed stock plain with a minus. */
+export function AdjustmentQuantity({ sign, children }: { sign: 1 | -1; children: ReactNode }) {
+  return (
+    <span className={cn('font-semibold tabular-nums', sign === 1 ? 'text-success-600' : 'text-gray-900')}>
+      {sign === 1 ? '+' : '−'}{children}
+    </span>
+  );
+}
+
+/** An adjustment's value at cost in a table cell: a loss in the danger tone, stock added back in success. */
+export function AdjustmentCost({ sign, amount }: { sign: 1 | -1; amount: number }) {
+  return (
+    <span className={cn('font-semibold tabular-nums', sign === 1 ? 'text-success-600' : 'text-danger-600')}>
+      {sign === 1 ? '+' : '−'}<Money amount={amount} currency={null} />
+    </span>
+  );
+}
 
 /** Stable key of a ledger row: a product can carry one adjustment per day. */
 const entryKey = (entry: StockAdjustmentEntry) => writeOffEntryKey(entry);
@@ -149,22 +168,14 @@ export function StockAdjustmentsLedger({ clubId, from, to, showCost, refreshKey 
       header: t('quantity'),
       align: 'right',
       className: 'w-28 whitespace-nowrap',
-      render: (row) => (
-        <span className={cn('font-semibold tabular-nums', row.sign === 1 ? 'text-success-600' : 'text-gray-900')}>
-          {row.sign === 1 ? '+' : '−'}{units(row.quantity)}
-        </span>
-      ),
+      render: (row) => <AdjustmentQuantity sign={row.sign}>{units(row.quantity)}</AdjustmentQuantity>,
     },
     ...(showCost ? [{
       key: 'cost',
       header: t('valueAtCost'),
       align: 'right' as const,
       className: 'w-40 whitespace-nowrap',
-      render: (row: StockAdjustmentEntry) => (
-        <span className={cn('font-semibold tabular-nums', row.sign === 1 ? 'text-success-600' : 'text-danger-600')}>
-          {row.sign === 1 ? '+' : '−'}<Money amount={row.cost} currency={null} />
-        </span>
-      ),
+      render: (row: StockAdjustmentEntry) => <AdjustmentCost sign={row.sign} amount={row.cost} />,
     }] : []),
     {
       key: 'note',
@@ -210,7 +221,7 @@ export function StockAdjustmentsLedger({ clubId, from, to, showCost, refreshKey 
           helper={cardHelper(summary.byGroup.shortage)}
           accent="danger"
           icon={PackageX}
-          className={group === 'shortage' ? 'border-danger-400 ring-1 ring-danger-400/40' : undefined}
+          selected={group === 'shortage'}
           onClick={() => toggleGroup('shortage')}
         />
         <MetricCard
@@ -220,7 +231,7 @@ export function StockAdjustmentsLedger({ clubId, from, to, showCost, refreshKey 
           helper={cardHelper(summary.byGroup.expired)}
           accent="warning"
           icon={CalendarX}
-          className={group === 'expired' ? 'border-warning-500 ring-1 ring-warning-500/40' : undefined}
+          selected={group === 'expired'}
           onClick={() => toggleGroup('expired')}
         />
         <MetricCard
@@ -231,7 +242,7 @@ export function StockAdjustmentsLedger({ clubId, from, to, showCost, refreshKey 
           tone={summary.additions.quantity > 0 ? 'success' : 'default'}
           accent="success"
           icon={PackagePlus}
-          className={group === 'correction' ? 'border-success-500 ring-1 ring-success-500/40' : undefined}
+          selected={group === 'correction'}
           onClick={() => toggleGroup('correction')}
         />
       </section>
@@ -239,7 +250,7 @@ export function StockAdjustmentsLedger({ clubId, from, to, showCost, refreshKey 
       <div className="grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         <ChartCard title={t('chartTitle')} description={showCost ? t('chartDescription') : t('chartDescriptionUnits')}>
           {query.loading ? (
-            <Skeleton className="mt-3 h-[316px] w-full rounded-xl bg-gray-100" />
+            <InOutChartSkeleton height={280} className="mt-3" />
           ) : chartRows.length === 0 ? (
             <ChartEmpty title={t('ledgerEmpty')} className="mt-3" />
           ) : (
@@ -299,7 +310,7 @@ export function StockAdjustmentsLedger({ clubId, from, to, showCost, refreshKey 
                         {lost > 0 && <span className="grow-x h-full rounded-full bg-danger-500" style={{ width: `${(lost / topScale) * 100}%` }} />}
                         {added > 0 && <span className="grow-x h-full rounded-full bg-success-500" style={{ width: `${(added / topScale) * 100}%` }} />}
                       </span>
-                      <span className="mt-1 block text-[11px] text-gray-500">{t('productDays', { count: product.days })}</span>
+                      <span className="mt-1 block text-xs text-gray-500">{t('productDays', { count: product.days })}</span>
                     </button>
                   </li>
                 );
@@ -324,7 +335,7 @@ export function StockAdjustmentsLedger({ clubId, from, to, showCost, refreshKey 
           )}
         </CardHeader>
         {query.loading ? (
-          <TableSkeleton rows={5} columns={columns.length} className="rounded-none border-0 shadow-none" />
+          <TableSkeleton bare rows={5} columns={columns.length} />
         ) : (
           <DataTable
             mobileCards

@@ -17,7 +17,6 @@ import {
   EmptyState,
   InlineAlert,
   LoadErrorAlert,
-  Money,
   MonthPicker,
   PageHeader,
   SectionHeading,
@@ -47,7 +46,8 @@ import { formatDateOnly, formatNumber } from '@/lib/formatters';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
 import { monthRange } from '@/lib/utils';
-import { StockAdjustmentsLedger } from '@/components/stock-adjustments/StockAdjustmentsLedger';
+import { AdjustmentCost, AdjustmentQuantity, StockAdjustmentsLedger } from '@/components/stock-adjustments/StockAdjustmentsLedger';
+import { WriteOffDetailsModal } from '@/components/WriteOffDetailsModal';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { useLatestRef } from '@/components/i18n/useLatestRef';
 import { StockWriteOffModal, type StockWriteOffInput } from '../closing-stock/StockWriteOffModal';
@@ -79,6 +79,7 @@ export default function WriteOffsPage() {
   const isOwner = role === 'owner';
   const canRecord = role === 'owner' || role === 'admin';
   const [open, setOpen] = useState(false);
+  const [viewed, setViewed] = useState<RecordedWriteOff | null>(null);
   const [saving, setSaving] = useState(false);
   const { showToast, toastElement } = useToast();
   const businessMonth = today.slice(0, 7);
@@ -184,9 +185,7 @@ export default function WriteOffsPage() {
       align: 'right',
       className: 'w-28 whitespace-nowrap',
       render: ({ writeOff }) => (
-        <span className={`tabular-nums ${writeOff.sign === 1 ? 'text-success-700' : ''}`}>
-          {writeOff.sign === 1 ? '+' : '−'}{formatNumber(writeOff.quantity)} {tcs('pcs')}
-        </span>
+        <AdjustmentQuantity sign={writeOff.sign}>{t('units', { count: formatNumber(writeOff.quantity) })}</AdjustmentQuantity>
       ),
     },
     ...(isOwner ? [{
@@ -195,10 +194,8 @@ export default function WriteOffsPage() {
       align: 'right' as const,
       className: 'w-40 whitespace-nowrap',
       // A correction adds stock and costs nothing, so it shows no loss.
-      render: ({ row, writeOff }: RecordedWriteOff) => (writeOff.sign === 1 ? <span className="text-gray-400">—</span> : (
-        <span className="font-semibold tabular-nums text-danger-600">
-          <Money amount={writeOff.quantity * Number(row.product.cost_price ?? 0)} currency={null} />
-        </span>
+      render: ({ row, writeOff }: RecordedWriteOff) => (writeOff.sign === 1 ? <span className="text-gray-500">—</span> : (
+        <AdjustmentCost sign={-1} amount={writeOff.quantity * Number(row.product.cost_price ?? 0)} />
       )),
     }] : []),
     {
@@ -241,7 +238,7 @@ export default function WriteOffsPage() {
             />
           </CardHeader>
           {query.loading ? (
-            <TableSkeleton rows={4} columns={columns.length} className="rounded-none border-0 shadow-none" />
+            <TableSkeleton bare rows={4} columns={columns.length} />
           ) : (
             <DataTable
               mobileCards
@@ -251,6 +248,7 @@ export default function WriteOffsPage() {
               columns={columns}
               data={recorded}
               keyExtractor={({ row }) => row.product.id}
+              onRowClick={setViewed}
               emptyState={<EmptyState compact icon={PackageMinus} title={t('empty')} />}
             />
           )}
@@ -272,6 +270,21 @@ export default function WriteOffsPage() {
           refreshKey={savedCount}
         />
       </section>
+
+      <WriteOffDetailsModal
+        entry={viewed ? {
+          date: today,
+          productId: viewed.row.product.id,
+          productName: viewed.row.product.name,
+          kind: viewed.writeOff.kind,
+          sign: viewed.writeOff.sign,
+          note: viewed.writeOff.note,
+          quantity: viewed.writeOff.quantity,
+          cost: viewed.writeOff.quantity * Number(viewed.row.product.cost_price ?? 0),
+        } : null}
+        showCost={isOwner}
+        onClose={() => setViewed(null)}
+      />
 
       {canRecord && (
         <StockWriteOffModal

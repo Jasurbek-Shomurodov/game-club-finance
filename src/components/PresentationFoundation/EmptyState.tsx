@@ -25,7 +25,7 @@ export function EmptyState({ icon: Icon, title, description, action, compact = f
       )}
     >
       {Icon && (
-        <div className={cn('mb-3 rounded-2xl bg-gray-100 text-gray-400', compact ? 'p-3' : 'p-4')}>
+        <div className={cn('mb-3 rounded-2xl bg-gray-100 text-gray-500', compact ? 'p-3' : 'p-4')}>
           <Icon size={compact ? 22 : 30} />
         </div>
       )}

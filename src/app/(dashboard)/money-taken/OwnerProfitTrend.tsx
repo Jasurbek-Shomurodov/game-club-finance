@@ -10,7 +10,8 @@ import { GlanceStatSkeleton, HeadingSkeleton, InOutChartSkeleton, SkeletonCard }
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { changeRatio, monthlyPairs, recentYearMonths } from '@/lib/calculations/pageGlance';
 import { formatCurrency, formatMonthShort, formatYearMonth } from '@/lib/formatters';
-import { cn, previousYearMonth } from '@/lib/utils';
+import { formatPercentShare } from '@/components/charts/chartFormat';
+import { previousYearMonth } from '@/lib/utils';
 
 const DailyInOutChart = dynamic(() => import('@/components/charts/DailyInOutChart').then((module) => module.DailyInOutChart), {
   ssr: false,
@@ -92,7 +93,7 @@ export function OwnerProfitTrend({ balancesByMonth, month, currentMonth, onSelec
           label={t('withdrawnPeriod', { count: MONTHS_SHOWN })}
           value={formatCurrency(withdrawnTotal)}
           unit={currency}
-          hint={earnedTotal > 0 ? t('withdrawnShare', { percent: Math.round((withdrawnTotal / earnedTotal) * 100) }) : undefined}
+          hint={earnedTotal > 0 ? t('withdrawnShare', { share: formatPercentShare(withdrawnTotal / earnedTotal, locale) }) : undefined}
         />
         <GlanceStat label={t('bestMonth')} value={best ? formatYearMonth(best.month, locale) : '—'} hint={best ? `${formatCurrency(best.first)} ${currency}` : undefined} />
       </div>
@@ -109,22 +110,15 @@ export function OwnerProfitTrend({ balancesByMonth, month, currentMonth, onSelec
           height={200}
         />
       </div>
-      <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label={t('openMonth')}>
-        {pairs.map((row) => (
-          <button
-            key={row.month}
-            type="button"
-            aria-pressed={row.month === month}
-            onClick={() => onSelectMonth(row.month)}
-            className={cn(
-              'rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
-              row.month === month ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50',
-            )}
-          >
-            {formatMonthShort(row.month, locale)}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        className="mt-3"
+        label={t('openMonth')}
+        variant="chips"
+        size="sm"
+        value={month}
+        onChange={onSelectMonth}
+        options={pairs.map((row) => ({ value: row.month, label: formatMonthShort(row.month, locale) }))}
+      />
     </ChartCard>
   );
 }
@@ -139,7 +133,7 @@ export function OwnerProfitTrendSkeleton() {
       </div>
       <InOutChartSkeleton className="mt-4" height={200} bars={MONTHS_SHOWN} />
       <div className="mt-3 flex flex-wrap gap-1.5">
-        {Array.from({ length: MONTHS_SHOWN }, (_, index) => <Skeleton key={index} className="h-6 w-12 rounded-full bg-gray-100" />)}
+        {Array.from({ length: MONTHS_SHOWN }, (_, index) => <Skeleton key={index} className="h-9 w-14 rounded-full bg-gray-100" />)}
       </div>
     </SkeletonCard>
   );

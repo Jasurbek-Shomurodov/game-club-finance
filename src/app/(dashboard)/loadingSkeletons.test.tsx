@@ -26,6 +26,7 @@ describe('route loading placeholders', () => {
       'dashboard', 'financial-analysis', 'daily-cash', 'closing-stock', 'write-offs', 'stock-purchase', 'products',
       'promotions', 'reports', 'daily-report', 'monthly-report', 'money-taken', 'reserve', 'debts', 'salaries',
       'team', 'history', 'settings', 'game-club-money-details', 'bar-money-details',
+      'showcase', 'test-checklist', 'assistant',
     ]));
   });
 

@@ -85,7 +85,7 @@ export default function UpdatePasswordPage() {
             />
           </Field>
           {error && <InlineAlert variant="danger">{error}</InlineAlert>}
-          <Button type="submit" fullWidth size="lg" className="text-sm" loading={loading} loadingLabel={tc('saving')}>
+          <Button type="submit" fullWidth size="lg" loading={loading} loadingLabel={tc('saving')}>
             {t('savePassword')}
           </Button>
         </form>

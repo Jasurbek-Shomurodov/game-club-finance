@@ -160,7 +160,7 @@ describe('formatNumber', () => {
 
   it('rounds halves away from zero', () => {
     expect(formatNumber(2.5)).toBe('3');
-    expect(formatNumber(-2.5)).toBe('-3');
+    expect(formatNumber(-2.5)).toBe('−3');
   });
 });
 

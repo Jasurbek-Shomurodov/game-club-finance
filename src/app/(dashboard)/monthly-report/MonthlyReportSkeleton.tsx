@@ -1,14 +1,14 @@
-import { MetricGridSkeleton, TableSkeleton, metricGridClassName } from '@/components/PresentationFoundation';
-import { cn } from '@/lib/utils';
+import { TableSkeleton } from '@/components/PresentationFoundation';
+import { ReportTotalsSkeleton } from '../reports/ReportTotals';
 
 /**
- * The monthly report while it loads: nine month totals over the day-by-day
- * table. Keep it in step with MonthlyReportPage.
+ * The monthly report while it loads: the game club's three and the bar's six
+ * month totals over the day-by-day table. Keep it in step with MonthlyReportPage.
  */
 export function MonthlyReportSkeleton() {
   return (
     <div className="space-y-4" aria-hidden="true">
-      <MetricGridSkeleton count={9} className={cn(metricGridClassName, 'sm:grid-cols-2 sm:gap-4 lg:grid-cols-4 xl:grid-cols-4')} />
+      <ReportTotalsSkeleton gameClubCount={3} />
       <TableSkeleton rows={8} columns={11} />
     </div>
   );

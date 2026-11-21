@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { Users } from 'lucide-react';
+import { Trash2, Users } from 'lucide-react';
 import {
   Badge,
   type BadgeVariant,
@@ -11,18 +11,21 @@ import {
   Card,
   DataTable,
   EmptyState,
+  IconButton,
   Money,
   SectionHeading,
-  TableSkeleton,
 } from '@/components/PresentationFoundation';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { buildSalaryCalendar, shiftYearMonth } from '@/lib/calculations/salaryCalendar';
 import { absentDates, canDeleteSalaryRate, dailyBasePay, rateInForce, type SalaryEmployee, type SalaryEntry, type SalaryMonth, type SalaryRate } from '@/lib/calculations/salaries';
 import { formatCurrency, formatDateOnly, formatDateTime, formatYearMonth } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
-import { dayRange, reportsHref } from '@/lib/detailLinks';
+import { dayRange, employeeSalaryHref, reportsHref } from '@/lib/detailLinks';
+import { formatPercentShare } from '@/components/charts/chartFormat';
 import { SalaryCalendar } from './SalaryCalendar';
-import { useSalaryText, type DeletionTarget } from './shared';
+import { SalaryHistoryBodySkeleton } from './SalariesSkeleton';
+import { useSalaryText, type DeletionTarget, type HistoryKindFilter } from './shared';
+import { scrollBehavior } from '@/lib/scroll';
 
 const ENTRY_BADGE: Record<SalaryEntry['kind'], BadgeVariant> = { payment: 'warning', bonus: 'info', fine: 'danger', absence: 'neutral' };
 
@@ -44,12 +47,14 @@ export interface HistoryViewProps {
   saving: boolean;
   /** The club's business date; the calendar opens on its month. */
   today: string;
+  /** Narrows the transactions to one kind of entry (a headline card that is switched on). */
+  kindFilter?: HistoryKindFilter | null;
   onDelete: (target: DeletionTarget) => void;
 }
 
 /** Monthly breakdown, transactions and rate history for one employee or the whole club. */
 export function HistoryView({
-  employeeId, historyEmployee, employees, rates, entries, deleterNames, months, balances, loading, loadError, isOwner, saving, today, onDelete,
+  employeeId, historyEmployee, employees, rates, entries, deleterNames, months, balances, loading, loadError, isOwner, saving, today, kindFilter = null, onDelete,
 }: HistoryViewProps) {
   const t = useTranslations('salaries');
   const tc = useTranslations('common');
@@ -69,12 +74,15 @@ export function HistoryView({
     return buildSalaryCalendar(calendarMonth, historyEntries, today, earnedOn, kpiByDay);
   }, [calendarMonth, historyEntries, entries, today, staff, rates, months]);
 
-  if (loading) return <TableSkeleton rows={6} columns={7} />;
+  if (loading) return <SalaryHistoryBodySkeleton />;
   if (employeeId && !loadError && !historyEmployee) return <Card><EmptyState icon={Users} title={t('employeeNotFound')} /></Card>;
   if (!historyEmployee && (employeeId || loadError)) return null;
 
-  const visibleEntries = historyEntries.filter((e) => (selectedDate ? e.date === selectedDate : e.date.startsWith(calendarMonth)));
-  const kpiRows = staff.flatMap((employee) => {
+  const visibleEntries = historyEntries.filter((e) => (selectedDate ? e.date === selectedDate : e.date.startsWith(calendarMonth)) && (!kindFilter || e.kind === kindFilter));
+  /** A KPI rate as a percentage, keeping its fraction (2.5%). */
+  const percent = (value: number | string) => formatPercentShare(Number(value) / 100, locale, 2);
+  // KPI is earned, not recorded: it has no rows once the list is narrowed to a kind of entry.
+  const kpiRows = kindFilter ? [] : staff.flatMap((employee) => {
     const month = balances[employee.id]?.find((row) => row.month === calendarMonth);
     const amount = selectedDate ? month?.kpiByDay[selectedDate] : month?.kpi;
     return amount ? [{ employeeId: employee.id, amount, rate: selectedDate ? rateInForce(rates, employee.id, selectedDate) : undefined }] : [];
@@ -86,7 +94,7 @@ export function HistoryView({
   /** On the all-staff history the name opens that employee's own history. */
   const employeeLink = (id: string) => (historyEmployee ? null : (
     <>
-      <Link href={`/salaries/employees/${id}`} className="hover:underline">{employees.find((e) => e.id === id)?.name ?? ''}</Link>
+      <Link href={employeeSalaryHref(id)} className="hover:underline">{employees.find((e) => e.id === id)?.name ?? ''}</Link>
       {' · '}
     </>
   ));
@@ -96,17 +104,18 @@ export function HistoryView({
     <Card as="section" padding="lg">
       <div className="space-y-6">
         {/* The calendar with the rate changes beside it on wide screens, below it on narrow ones. */}
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_20rem]">
           <div className="min-w-0">
             <SalaryCalendar
               month={calendarMonth}
               days={calendarDays}
               selectedDate={selectedDate}
+              maxMonth={today.slice(0, 7)}
               onMonthChange={(delta) => { setCalendarMonth((month) => shiftYearMonth(month, delta)); setSelectedDate(''); }}
               onSelectDate={setSelectedDate}
             />
           </div>
-          <aside className="min-w-0 xl:border-l xl:border-gray-200 xl:pl-6">
+          <aside className="min-w-0 2xl:border-l 2xl:border-gray-200 2xl:pl-6">
             <SectionHeading size="sm" title={t('rateHistory')} className="mb-3" />
             {historyRates.length === 0 && <EmptyState compact bordered title={t('noRates')} />}
             <div className="space-y-2">
@@ -122,23 +131,23 @@ export function HistoryView({
                       <p className="mt-1 text-gray-600">
                         {t(rate.salary_type)} · <span className="tabular-nums">{currency(Number(rate.amount))}</span>
                       </p>
-                      <p className="mt-0.5 text-xs text-gray-500">{t('kpi')}: {Number(rate.kpi_percent)}% ({kpiSummary(rate)})</p>
+                      <p className="mt-0.5 text-xs text-gray-500">{t('kpi')}: {percent(rate.kpi_percent)} ({kpiSummary(rate)})</p>
                       {rate.delete_reason && <p className="mt-1 break-words text-xs text-gray-500">{t('deleteReason')}: {rate.delete_reason}</p>}
                       {deleterName(rate.deleted_by) && <p className="mt-0.5 break-words text-xs text-gray-500">{t('deletedBy')}: {deleterName(rate.deleted_by)}</p>}
-                      {!rate.deleted_at && isOwner && !deletable && <p className="mt-1.5 text-xs text-gray-400">{t('lastRateHelp')}</p>}
+                      {!rate.deleted_at && isOwner && !deletable && <p className="mt-1.5 text-xs text-gray-500">{t('lastRateHelp')}</p>}
                     </div>
                     {rate.deleted_at ? (
                       <Badge variant="neutral" size="sm" className="shrink-0">{t('deleted')} · {formatDateTime(rate.deleted_at, locale)}</Badge>
                     ) : isOwner && deletable && (
-                      <Button
-                        variant="dangerOutline"
+                      <IconButton
+                        variant="danger"
                         size="sm"
                         className="shrink-0"
+                        label={`${t('delete')}: ${employeePrefix(rate.employee_id)}${formatDateOnly(rate.effective_date, locale)}`}
+                        icon={<Trash2 size={16} aria-hidden="true" />}
                         disabled={saving}
-                        onClick={() => onDelete({ id: rate.id, employeeId: rate.employee_id, kind: 'rate', label: `${employeePrefix(rate.employee_id)}${formatDateOnly(rate.effective_date, locale)} · ${currency(Number(rate.amount))} · ${Number(rate.kpi_percent)}%` })}
-                      >
-                        {t('delete')}
-                      </Button>
+                        onClick={() => onDelete({ id: rate.id, employeeId: rate.employee_id, kind: 'rate', label: `${employeePrefix(rate.employee_id)}${formatDateOnly(rate.effective_date, locale)} · ${currency(Number(rate.amount))} · ${percent(rate.kpi_percent)}` })}
+                      />
                     )}
                   </div>
                 );
@@ -151,6 +160,7 @@ export function HistoryView({
             size="sm"
             title={t('transactions')}
             description={selectedDate ? formatDateOnly(selectedDate, locale) : formatYearMonth(calendarMonth, locale)}
+            badge={kindFilter ? <Badge variant={ENTRY_BADGE[kindFilter]} size="sm">{t(kindFilter)}</Badge> : undefined}
             action={selectedDate ? <Button variant="secondary" size="sm" onClick={() => setSelectedDate('')}>{t('calendarWholeMonth')}</Button> : undefined}
             className="mb-3"
           />
@@ -162,7 +172,7 @@ export function HistoryView({
                     <Badge variant="success" size="sm">{t('kpi')}</Badge>
                     <span className="font-semibold text-gray-900">{employeeLink(id)}{selectedDate ? formatDateOnly(selectedDate, locale) : formatYearMonth(calendarMonth, locale)}</span>
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">{t(selectedDate ? 'calendarKpiDay' : 'calendarKpiMonth')}{rate ? ` · ${Number(rate.kpi_percent)}% (${kpiSummary(rate)})` : ''}</p>
+                  <p className="mt-1 text-xs text-gray-500">{t(selectedDate ? 'calendarKpiDay' : 'calendarKpiMonth')}{rate ? ` · ${percent(rate.kpi_percent)} (${kpiSummary(rate)})` : ''}</p>
                 </div>
                 <strong className="shrink-0 whitespace-nowrap tabular-nums text-success-700">+{currency(amount)}</strong>
               </div>
@@ -199,9 +209,14 @@ export function HistoryView({
                   {entry.deleted_at ? (
                     <Badge variant="neutral" size="sm">{t('deleted')} · {formatDateTime(entry.deleted_at, locale)}</Badge>
                   ) : isOwner && (
-                    <Button variant="dangerOutline" size="sm" disabled={saving} onClick={() => onDelete({ id: entry.id, employeeId: entry.employee_id, kind: 'entry', label: `${employeePrefix(entry.employee_id)}${t(entry.kind)} · ${formatDateOnly(entry.date, locale)}${entry.kind === 'absence' ? '' : ` · ${currency(Number(entry.amount))}`}` })}>
-                      {t('delete')}
-                    </Button>
+                    <IconButton
+                      variant="danger"
+                      size="sm"
+                      label={`${t('delete')}: ${employeePrefix(entry.employee_id)}${t(entry.kind)} · ${formatDateOnly(entry.date, locale)}`}
+                      icon={<Trash2 size={16} aria-hidden="true" />}
+                      disabled={saving}
+                      onClick={() => onDelete({ id: entry.id, employeeId: entry.employee_id, kind: 'entry', label: `${employeePrefix(entry.employee_id)}${t(entry.kind)} · ${formatDateOnly(entry.date, locale)}${entry.kind === 'absence' ? '' : ` · ${currency(Number(entry.amount))}`}` })}
+                    />
                   )}
                 </div>
               </div>
@@ -215,12 +230,13 @@ export function HistoryView({
             mobileCards
             bare
             dense
+            label={t('monthlyBreakdown')}
             minWidth={640}
             keyExtractor={(month) => month.month}
             onRowClick={(month) => {
               setCalendarMonth(month.month);
               setSelectedDate('');
-              document.getElementById('salary-transactions')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              document.getElementById('salary-transactions')?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
             }}
             data={[...months].reverse()}
             columns={[

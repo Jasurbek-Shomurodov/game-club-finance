@@ -6,15 +6,22 @@ import { HeadingSkeleton, SkeletonCard } from '@/components/charts/ChartSkeleton
  * list card with its actions, search, filter chips and table. Keep it in step
  * with the products page.
  */
+/** The recent-sales card: its heading over four tiles. Also stands in while the sales read is still on its way. */
+export function ProductSalesSkeleton() {
+  return (
+    <SkeletonCard>
+      <HeadingSkeleton />
+      <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((index) => <Skeleton key={index} className="h-16 rounded-xl bg-gray-100" />)}
+      </div>
+    </SkeletonCard>
+  );
+}
+
 export function ProductsSkeleton({ columns = 7 }: { columns?: number }) {
   return (
-    <div className="space-y-3" aria-hidden="true">
-      <SkeletonCard>
-        <HeadingSkeleton />
-        <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
-          {[0, 1, 2, 3].map((index) => <Skeleton key={index} className="h-16 rounded-xl bg-gray-100" />)}
-        </div>
-      </SkeletonCard>
+    <div className="space-y-5" aria-hidden="true">
+      <ProductSalesSkeleton />
       <SkeletonCard padded={false} className="overflow-hidden">
         <div className="space-y-4 border-b border-gray-100 px-4 py-4 sm:px-5">
           <HeadingSkeleton action />
@@ -25,7 +32,7 @@ export function ProductsSkeleton({ columns = 7 }: { columns?: number }) {
             </div>
           ))}
         </div>
-        <TableSkeleton rows={8} columns={columns} className="rounded-none border-0 shadow-none" />
+        <TableSkeleton bare rows={8} columns={columns} />
       </SkeletonCard>
     </div>
   );
