@@ -7,22 +7,16 @@ import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { BrandView } from '@/components/showcase/BrandView';
+import { BrandJsonLd } from '@/components/showcase/BrandJsonLd';
 import { landingBrandSlug, readPublicSiteConfig } from '@/lib/publicSite';
-import { brandLogoUrl, logoIcons } from '@/lib/showcase';
+import { brandMetadata } from '@/lib/seoServer';
 import { fetchPublicBrand } from '@/lib/supabase/publicShowcase';
 
 const loadLandingBrand = cache(async () => fetchPublicBrand(landingBrandSlug(readPublicSiteConfig(process.env)), await getLocale()));
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = await loadLandingBrand();
-  if (!brand) return {};
-  const image = brand.hero_image_url ?? brand.clubs.find((club) => club.hero_image_url)?.hero_image_url ?? undefined;
-  return {
-    title: brand.name,
-    description: brand.tagline ?? undefined,
-    openGraph: { title: brand.name, description: brand.tagline ?? undefined, images: image ? [image] : undefined, type: 'website' },
-    icons: logoIcons(brandLogoUrl(brand)),
-  };
+  return brand ? brandMetadata(brand) : {};
 }
 
 export default async function LandingPage() {
@@ -30,5 +24,10 @@ export default async function LandingPage() {
   // Until the brand page is published there is nothing public to show; keep
   // the previous behaviour of opening the sign-in flow.
   if (!brand) redirect('/login');
-  return <BrandView brand={brand} />;
+  return (
+    <>
+      <BrandJsonLd brand={brand} />
+      <BrandView brand={brand} />
+    </>
+  );
 }

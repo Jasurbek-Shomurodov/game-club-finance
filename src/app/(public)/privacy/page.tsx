@@ -7,6 +7,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { ArrowLeft } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/PresentationFoundation';
 import { formatDateOnly } from '@/lib/formatters';
+import { plainPublicMetadata } from '@/lib/seoServer';
 
 /** Bump when the policy text changes. */
 const UPDATED_ON = '2026-10-29';
@@ -14,7 +15,7 @@ const SECTIONS = ['visitors', 'admin', 'google', 'storage', 'removal', 'contact'
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('privacy');
-  return { title: t('metaTitle'), description: t('intro') };
+  return plainPublicMetadata(t('metaTitle'), t('intro'), '/privacy');
 }
 
 export default async function PrivacyPage() {

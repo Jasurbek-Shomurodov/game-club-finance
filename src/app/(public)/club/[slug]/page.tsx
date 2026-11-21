@@ -5,7 +5,9 @@ import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { ShowcaseView } from '@/components/showcase/ShowcaseView';
-import { logoIcons } from '@/lib/showcase';
+import { JsonLd } from '@/components/showcase/JsonLd';
+import { clubPageJsonLd } from '@/lib/seo';
+import { clubMetadata, clubPath, siteOrigin } from '@/lib/seoServer';
 import { fetchPublicShowcase } from '@/lib/supabase/publicShowcase';
 
 // The visitor's language picks the headline and description; cached per request.
@@ -18,18 +20,17 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const showcase = await loadShowcase((await params).slug);
   if (!showcase) return { title: 'Game Club', robots: { index: false } };
-  const title = showcase.headline ? `${showcase.club_name} — ${showcase.headline}` : showcase.club_name;
-  const image = showcase.hero_image_url ?? showcase.games.find((game) => game.image_url)?.image_url ?? undefined;
-  return {
-    title,
-    description: showcase.tagline ?? undefined,
-    openGraph: { title, description: showcase.tagline ?? undefined, images: image ? [image] : undefined, type: 'website' },
-    icons: logoIcons(showcase.logo_url),
-  };
+  return clubMetadata(showcase);
 }
 
 export default async function PublicClubPage({ params }: PageProps) {
   const showcase = await loadShowcase((await params).slug);
   if (!showcase) notFound();
-  return <ShowcaseView showcase={showcase} />;
+  const url = new URL(clubPath(showcase.slug), await siteOrigin()).toString();
+  return (
+    <>
+      <JsonLd data={clubPageJsonLd(showcase, url)} />
+      <ShowcaseView showcase={showcase} />
+    </>
+  );
 }

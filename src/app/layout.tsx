@@ -7,9 +7,11 @@ import { cookies } from 'next/headers';
 import { AppIntlProvider } from '@/components/i18n/AppIntlProvider';
 import { AppThemeProvider } from '@/components/theme/AppThemeContext';
 import { THEME_COOKIE, parseAppTheme, themeAttribute } from '@/lib/theme';
+import { publicSiteOrigin, readPublicSiteConfig } from '@/lib/publicSite';
 
 // Cyrillic-first geometric sans; the variable font covers every weight used.
 const onest = Onest({ subsets: ['latin', 'cyrillic'], variable: '--font-sans', display: 'swap' });
+const siteOrigin = publicSiteOrigin(readPublicSiteConfig(process.env));
 const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL
   ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin
   : null;
@@ -19,6 +21,10 @@ export const metadata: Metadata = {
   description: 'Finance & Accounting for Game Club',
   // Public pages replace this with the club's own logo.
   icons: { icon: '/default-club.svg' },
+  // Canonical and Open Graph addresses resolve against the public site.
+  metadataBase: siteOrigin ? new URL(siteOrigin) : undefined,
+  // The admin app, sign-in and error pages stay out of search; public pages opt in.
+  robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = {

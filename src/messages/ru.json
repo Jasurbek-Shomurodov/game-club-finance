@@ -2440,7 +2440,10 @@
     "closedNow": "Сейчас закрыто",
     "route": "Маршрут",
     "details": "Подробнее",
-    "bookTelegramClub": "Забронировать: {club}"
+    "bookTelegramClub": "Забронировать: {club}",
+    "seo": {
+      "title": "{name} — компьютерный клуб в Ташкенте"
+    }
   },
   "history": {
     "title": "История правок",

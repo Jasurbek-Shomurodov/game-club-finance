@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeHost, readPublicSiteConfig, routePublicSite } from './publicSite';
+import { isPublicHost, normalizeHost, publicSiteOrigin, readPublicSiteConfig, routePublicSite } from './publicSite';
 
 const config = readPublicSiteConfig({
   PUBLIC_SITE_HOSTS: 'pixelgaming.uz, WWW.pixelgaming.uz',
@@ -23,6 +23,19 @@ describe('public site routing', () => {
     expect(routePublicSite('pixelgaming.uz', '/brand/pixel-gaming', '', config)).toEqual({ kind: 'pass' });
     expect(routePublicSite('pixelgaming.uz', '/privacy', '', config)).toEqual({ kind: 'pass' });
     expect(routePublicSite('pixelgaming.uz', '/privacy-admin', '', config)).toMatchObject({ kind: 'redirect' });
+  });
+
+  it('serves robots.txt and the sitemap on the public host', () => {
+    expect(routePublicSite('www.pixelgaming.uz', '/robots.txt', '', config)).toEqual({ kind: 'pass' });
+    expect(routePublicSite('www.pixelgaming.uz', '/sitemap.xml', '', config)).toEqual({ kind: 'pass' });
+  });
+
+  it('indexes the www host and tells public hosts apart', () => {
+    expect(publicSiteOrigin(config)).toBe('https://www.pixelgaming.uz');
+    expect(publicSiteOrigin({ ...config, hosts: ['pixelgaming.uz'] })).toBe('https://pixelgaming.uz');
+    expect(publicSiteOrigin({ ...config, hosts: [] })).toBeNull();
+    expect(isPublicHost('PixelGaming.uz:443', config)).toBe(true);
+    expect(isPublicHost('admin.pixelgaming.uz', config)).toBe(false);
   });
 
   it('sends admin paths on the public host to the admin host', () => {

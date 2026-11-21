@@ -2440,7 +2440,10 @@
     "closedNow": "Closed now",
     "route": "Route",
     "details": "Details",
-    "bookTelegramClub": "Book at {club}"
+    "bookTelegramClub": "Book at {club}",
+    "seo": {
+      "title": "{name} — gaming club in Tashkent"
+    }
   },
   "history": {
     "title": "Edit history",

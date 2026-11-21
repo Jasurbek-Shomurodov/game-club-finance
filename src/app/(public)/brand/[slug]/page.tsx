@@ -5,7 +5,8 @@ import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
 import { BrandView } from '@/components/showcase/BrandView';
-import { brandLogoUrl, logoIcons } from '@/lib/showcase';
+import { BrandJsonLd } from '@/components/showcase/BrandJsonLd';
+import { brandMetadata } from '@/lib/seoServer';
 import { fetchPublicBrand } from '@/lib/supabase/publicShowcase';
 
 // The visitor's language picks the headline and description; cached per request.
@@ -18,17 +19,16 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const brand = await loadBrand((await params).slug);
   if (!brand) return { title: 'Game Club', robots: { index: false } };
-  const image = brand.hero_image_url ?? brand.clubs.find((club) => club.hero_image_url)?.hero_image_url ?? undefined;
-  return {
-    title: brand.name,
-    description: brand.tagline ?? undefined,
-    openGraph: { title: brand.name, description: brand.tagline ?? undefined, images: image ? [image] : undefined, type: 'website' },
-    icons: logoIcons(brandLogoUrl(brand)),
-  };
+  return brandMetadata(brand);
 }
 
 export default async function PublicBrandPage({ params }: PageProps) {
   const brand = await loadBrand((await params).slug);
   if (!brand) notFound();
-  return <BrandView brand={brand} />;
+  return (
+    <>
+      <BrandJsonLd brand={brand} />
+      <BrandView brand={brand} />
+    </>
+  );
 }

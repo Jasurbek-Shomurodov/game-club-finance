@@ -2440,7 +2440,10 @@
     "closedNow": "Hozir yopiq",
     "route": "Yo‘nalish",
     "details": "Batafsil",
-    "bookTelegramClub": "Band qilish: {club}"
+    "bookTelegramClub": "Band qilish: {club}",
+    "seo": {
+      "title": "{name} — Toshkentdagi kompyuter klubi"
+    }
   },
   "history": {
     "title": "Tahrirlar tarixi",

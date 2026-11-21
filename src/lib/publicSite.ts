@@ -51,8 +51,22 @@ export function normalizeHost(host: string | null | undefined): string {
 }
 
 const PUBLIC_PREFIXES = ['/club/', '/brand/'];
-/** Standalone public pages, matched exactly. */
-export const PUBLIC_PAGES = ['/privacy'];
+/** Standalone public pages and the search-engine files, matched exactly. */
+export const PUBLIC_PAGES = ['/privacy', '/robots.txt', '/sitemap.xml'];
+
+/** Whether a request host is one of the public site hosts. */
+export function isPublicHost(host: string | null | undefined, config: PublicSiteConfig): boolean {
+  return config.hosts.includes(normalizeHost(host));
+}
+
+/**
+ * The one address search engines should index: the www host when it is
+ * configured (the bare domain redirects there), otherwise the first host.
+ */
+export function publicSiteOrigin(config: PublicSiteConfig): string | null {
+  const host = config.hosts.find((candidate) => candidate.startsWith('www.')) ?? config.hosts[0];
+  return host ? `https://${host}` : null;
+}
 
 /**
  * What a public host does with a path: the root shows the brand page, club and
@@ -62,7 +76,7 @@ export const PUBLIC_PAGES = ['/privacy'];
  * any other host and path.
  */
 export function routePublicSite(host: string, pathname: string, search: string, config: PublicSiteConfig): PublicSiteRoute | null {
-  if (!config.hosts.includes(normalizeHost(host))) {
+  if (!isPublicHost(host, config)) {
     const isAdminHost = config.adminUrl !== null && normalizeHost(host) === normalizeHost(new URL(config.adminUrl).host);
     return isAdminHost && pathname === '/' ? { kind: 'redirect', url: DASHBOARD_PATH } : null;
   }

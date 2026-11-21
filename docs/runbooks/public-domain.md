@@ -50,3 +50,20 @@ detached; nothing calls it any more.
 
 Migration 110 moved the daily-report cron off `game-club-finance.vercel.app`.
 Apply it before detaching that address, or the 08:00 report stops.
+
+## Search engines
+
+- `/robots.txt` and `/sitemap.xml` (`src/app/robots.ts`, `src/app/sitemap.ts`)
+  answer per host: the public host allows crawling and lists `/`, each
+  published club and `/privacy`; the admin host disallows everything.
+- Every page is `noindex` by default (root layout); the public pages opt in
+  with a canonical address on the www host (`src/lib/seoServer.ts`), so
+  `/brand/<landing slug>` and the bare domain fold into `https://www.pixelgaming.uz/`.
+- The brand and club pages carry schema.org JSON-LD built in `src/lib/seo.ts`
+  (organization, website, and each club as a local business with address,
+  phone, hours and prices). Check it with Google's Rich Results Test.
+- Titles come from `publicShowcase.seo.title`; descriptions from the brand and
+  club taglines saved on the admin Public page, so write those in the page's
+  language.
+- After a domain change, resubmit the sitemap in Google Search Console and
+  Yandex Webmaster.
