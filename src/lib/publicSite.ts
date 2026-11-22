@@ -52,7 +52,7 @@ export function normalizeHost(host: string | null | undefined): string {
 
 const PUBLIC_PREFIXES = ['/club/', '/brand/'];
 /** Standalone public pages and the search-engine files, matched exactly. */
-export const PUBLIC_PAGES = ['/privacy', '/robots.txt', '/sitemap.xml', '/indexnow-key.txt'];
+export const PUBLIC_PAGES = ['/privacy', '/robots.txt', '/sitemap.xml', '/sitemap.xsl', '/indexnow-key.txt'];
 
 /** Whether a request host is one of the public site hosts. */
 export function isPublicHost(host: string | null | undefined, config: PublicSiteConfig): boolean {
