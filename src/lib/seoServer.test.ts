@@ -37,6 +37,13 @@ describe('public page metadata', () => {
     expect(await (await load({ PUBLIC_SITE_HOSTS: '' })).siteOrigin()).toBe('http://localhost:3000');
   });
 
+  it('keeps only an address language in internal links', async () => {
+    const seo = await load({});
+    expect(await seo.localizedHref('/club/a')).toBe('/club/a');
+    requestHeaders.set('x-app-locale', 'uz');
+    expect(await seo.localizedHref('/club/a')).toBe('/club/a?lang=uz');
+  });
+
   it('makes brand, club and plain pages indexable with a canonical address', async () => {
     const seo = await load({ PUBLIC_SITE_BRAND_SLUG: 'pixel-gaming' });
     const brandMeta = await seo.brandMetadata(brand);

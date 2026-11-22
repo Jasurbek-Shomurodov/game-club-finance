@@ -2465,7 +2465,13 @@
       "addressQuestion": "Where is {club}?",
       "addressAnswer": "{address}, Tashkent. Directions in Yandex Maps and Google Maps are in the Contacts section.",
       "gamesQuestion": "Which games are installed?",
-      "gamesAnswer": "{games}, including {list} and more."
+      "gamesAnswer": "{games}, including {list} and more.",
+      "clubPricesQuestion": "How much is an hour of gaming at {brand}?",
+      "clubPrices": "By club: {clubs}.",
+      "locationsQuestion": "Where are the {brand} clubs?",
+      "locationsAnswer": "{clubs}. Directions to each are in the Locations section.",
+      "bookingClub": "Pick a club and press “{button}”: the admin replies on Telegram.",
+      "consolesAnswerBrand": "Yes, the clubs have {consoles} between them: {names}."
     }
   },
   "history": {

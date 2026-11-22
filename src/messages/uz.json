@@ -2465,7 +2465,13 @@
       "addressQuestion": "{club} qayerda joylashgan?",
       "addressAnswer": "{address}, Toshkent. Yandex Xaritalar va Google Xaritalardagi yo‘nalish — «Kontaktlar» bo‘limida.",
       "gamesQuestion": "Qaysi o‘yinlar o‘rnatilgan?",
-      "gamesAnswer": "{games}, jumladan {list} va boshqalar."
+      "gamesAnswer": "{games}, jumladan {list} va boshqalar.",
+      "clubPricesQuestion": "{brand} klublarida bir soat o‘yin qancha turadi?",
+      "clubPrices": "Klublar bo‘yicha: {clubs}.",
+      "locationsQuestion": "{brand} klublari qayerda joylashgan?",
+      "locationsAnswer": "{clubs}. Har biriga yo‘nalish — «Manzillar» bo‘limida.",
+      "bookingClub": "Klubni tanlang va «{button}» tugmasini bosing — administrator Telegram’da javob beradi.",
+      "consolesAnswerBrand": "Ha, barcha klublarda jami {consoles} bor: {names}."
     }
   },
   "history": {

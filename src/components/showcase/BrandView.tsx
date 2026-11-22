@@ -3,6 +3,8 @@ import { ArrowUpRight, BadgePercent, Clock, Cpu, Gamepad2, Layers, MapPin, Monit
 import { formatCurrency, formatPhone } from '@/lib/formatters';
 import { brandInsights, brandLogoUrl, clubInsights, mapLinks, openStatus, telHref, type PublicBrand, type PublicShowcase } from '@/lib/showcase';
 import { localizedHref } from '@/lib/seoServer';
+import { brandFaqFacts } from '@/lib/showcaseFaq';
+import { ShowcaseFaq } from './ShowcaseFaq';
 import { ClubTabs } from './ClubTabs';
 import { CountUp } from './CountUp';
 import { MapChooser } from './MapChooser';
@@ -103,6 +105,8 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
         </div>
       </section>
 
+      <ShowcaseFaq brand={brand} id="faq" />
+
       <ShowcaseFooter
         name={brand.name}
         logoUrl={brandLogoUrl(brand)}
@@ -124,6 +128,7 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
         ]}
         help={[
           { href: '#locations', label: t('howToFind') },
+          ...(brandFaqFacts(brand).length > 0 ? [{ href: '#faq', label: t('faq.nav') }] : []),
           ...bookable.map((club) => ({ href: club.telegram_url as string, label: t('bookTelegramClub', { club: club.club_name }), external: true })),
         ]}
         locations={brand.clubs.flatMap((club) => (club.address

@@ -6,7 +6,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { landingBrandSlug, publicSiteOrigin, readPublicSiteConfig } from '@/lib/publicSite';
 import { brandLogoUrl, logoIcons, type PublicBrand, type PublicShowcase } from '@/lib/showcase';
 import { languageAlternates, localizedPath, openGraphLocale, snippetText } from '@/lib/seo';
-import { isSupportedLocale, DEFAULT_LOCALE } from '@/lib/locale';
+import { isSupportedLocale, DEFAULT_LOCALE, LOCALE_HEADER } from '@/lib/locale';
 
 const publicSite = readPublicSiteConfig(process.env);
 
@@ -35,10 +35,14 @@ export function brandPath(slug: string): string {
 
 export const clubPath = (slug: string) => `/club/${slug}`;
 
-/** An internal public link in the language being shown, so a visitor (or crawler) on "?lang=uz" stays in Uzbek. */
+/**
+ * An internal public link that keeps a ?lang= address's language, so a
+ * visitor (or crawler) on "?lang=uz" stays in Uzbek. A language that came from
+ * the cookie or the browser needs nothing in the link.
+ */
 export async function localizedHref(path: string): Promise<string> {
-  const locale = await getLocale();
-  return localizedPath(path, isSupportedLocale(locale) ? locale : DEFAULT_LOCALE);
+  const addressLocale = (await headers()).get(LOCALE_HEADER);
+  return isSupportedLocale(addressLocale) ? localizedPath(path, addressLocale) : path;
 }
 
 /** What public pages share: indexable, a canonical address and the visitor's Open Graph locale. */

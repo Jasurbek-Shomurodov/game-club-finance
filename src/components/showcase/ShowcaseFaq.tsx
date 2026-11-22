@@ -2,20 +2,22 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { ChevronDown } from 'lucide-react';
 import { formatCurrency, formatPhone } from '@/lib/formatters';
 import { faqPageJsonLd } from '@/lib/seo';
-import type { PublicShowcase } from '@/lib/showcase';
-import { clubFaqFacts, type ClubFaqFact } from '@/lib/showcaseFaq';
+import type { PublicBrand, PublicShowcase } from '@/lib/showcase';
+import { brandFaqFacts, clubFaqFacts, type ClubFaqFact } from '@/lib/showcaseFaq';
 import { JsonLd } from './JsonLd';
 import { SectionTitle } from './ShowcaseParts';
 
 /**
- * "Questions and answers" on a club page: prices, consoles, hours, booking,
- * address and games, answered from the club's own data. The same text goes
- * into FAQPage structured data, which search engines can show as answers.
+ * "Questions and answers" on a club page (from the club's data) or the brand
+ * page (comparing its clubs): prices, consoles, hours, booking, addresses and
+ * games. The same text goes into FAQPage structured data, which search
+ * engines can show as answers.
  */
-export async function ShowcaseFaq({ club, id }: { club: PublicShowcase; id?: string }) {
+export async function ShowcaseFaq({ club, brand, id }: { club?: PublicShowcase; brand?: PublicBrand; id?: string }) {
   const [t, tc, locale] = await Promise.all([getTranslations('publicShowcase'), getTranslations('common'), getLocale()]);
   const money = (amount: number) => `${formatCurrency(amount, locale)} ${tc('currency')}`;
-  const name = { club: club.club_name };
+  const name = { club: club?.club_name ?? brand?.name ?? '' };
+  const brandName = { brand: brand?.name ?? '' };
 
   const answer = (fact: ClubFaqFact): { question: string; answer: string } => {
     switch (fact.kind) {
@@ -31,7 +33,7 @@ export async function ShowcaseFaq({ club, id }: { club: PublicShowcase; id?: str
         return {
           question: t('faq.consolesQuestion'),
           answer: [
-            t('faq.consolesAnswer', { consoles: t('consoleCount', { count: fact.count }), names: fact.names.join(', ') }),
+            t(club ? 'faq.consolesAnswer' : 'faq.consolesAnswerBrand', { consoles: t('consoleCount', { count: fact.count }), names: fact.names.join(', ') }),
             fact.from !== null ? t('faq.consolesPrice', { price: money(fact.from) }) : null,
           ].filter(Boolean).join(' '),
         };
@@ -46,12 +48,28 @@ export async function ShowcaseFaq({ club, id }: { club: PublicShowcase; id?: str
       }
       case 'address':
         return { question: t('faq.addressQuestion', name), answer: t('faq.addressAnswer', { address: fact.address }) };
+      case 'clubPrices':
+        return {
+          question: t('faq.clubPricesQuestion', brandName),
+          answer: [
+            t('faq.priceAnswer', { price: money(fact.from) }),
+            fact.clubs.length > 1 ? t('faq.clubPrices', { clubs: fact.clubs.map((entry) => `${entry.name} — ${money(entry.from)}`).join(', ') }) : null,
+          ].filter(Boolean).join(' '),
+        };
+      case 'locations':
+        return {
+          question: t('faq.locationsQuestion', brandName),
+          answer: t('faq.locationsAnswer', { clubs: fact.clubs.map((entry) => `${entry.name}: ${entry.address}`).join('; ') }),
+        };
+      case 'clubBooking':
+        return { question: t('faq.bookingQuestion'), answer: t('faq.bookingClub', { button: t('bookTelegram') }) };
       case 'games':
         return { question: t('faq.gamesQuestion'), answer: t('faq.gamesAnswer', { games: t('gameCount', { count: fact.count }), list: fact.sample.join(', ') }) };
     }
   };
 
-  const items = clubFaqFacts(club).map(answer);
+  const facts = club ? clubFaqFacts(club) : brand ? brandFaqFacts(brand) : [];
+  const items = facts.map(answer);
   if (items.length === 0) return null;
 
   return (

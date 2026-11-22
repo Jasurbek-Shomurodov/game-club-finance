@@ -2465,7 +2465,13 @@
       "addressQuestion": "Где находится {club}?",
       "addressAnswer": "{address}, Ташкент. Маршрут в Яндекс Картах и Google Картах — в разделе «Контакты».",
       "gamesQuestion": "Какие игры установлены?",
-      "gamesAnswer": "{games}, среди них {list} и другие."
+      "gamesAnswer": "{games}, среди них {list} и другие.",
+      "clubPricesQuestion": "Сколько стоит час игры в {brand}?",
+      "clubPrices": "По клубам: {clubs}.",
+      "locationsQuestion": "Где находятся клубы {brand}?",
+      "locationsAnswer": "{clubs}. Маршрут к каждому — в разделе «Адреса».",
+      "bookingClub": "Выберите клуб и нажмите «{button}» — администратор ответит в Telegram.",
+      "consolesAnswerBrand": "Да, во всех клубах вместе {consoles}: {names}."
     }
   },
   "history": {

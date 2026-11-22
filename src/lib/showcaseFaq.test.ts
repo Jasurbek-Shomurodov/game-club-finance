@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PublicShowcase } from '@/lib/showcase';
-import { clubFaqFacts } from './showcaseFaq';
+import { brandFaqFacts, clubFaqFacts } from './showcaseFaq';
 
 const zone = (kind: 'pc' | 'playstation', name: string, count: number, price: number | null) =>
   ({ id: name, kind, name, pc_count: count, price_per_hour: price }) as PublicShowcase['zones'][number];
@@ -31,5 +31,21 @@ describe('clubFaqFacts', () => {
   it('leaves out questions the club has no answer for', () => {
     const bare = { ...club, opening_hours: '10:00 – 02:00', telegram_url: null, phone: null, address: '  ', games: [], zones: [zone('pc', 'Standard', 10, null)] } as unknown as PublicShowcase;
     expect(clubFaqFacts(bare)).toEqual([{ kind: 'hours', roundTheClock: false, text: '10:00 – 02:00' }]);
+  });
+});
+
+describe('brandFaqFacts', () => {
+  it('compares clubs and keeps hours only when every club shares them', () => {
+    const other = { ...club, club_name: 'Pixel Gaming 2', address: 'Matbuotchilar 17', zones: [zone('pc', 'Standard', 33, 15000), zone('playstation', 'PlayStation 5', 2, 50000)], games: [] } as unknown as PublicShowcase;
+    expect(brandFaqFacts({ clubs: [club, other] })).toEqual([
+      { kind: 'clubPrices', from: 10000, clubs: [{ name: 'Pixel Gaming', from: 10000 }, { name: 'Pixel Gaming 2', from: 15000 }] },
+      { kind: 'consoles', count: 4, names: ['PlayStation 5'], from: 40000 },
+      { kind: 'hours', roundTheClock: true, text: '24/7' },
+      { kind: 'locations', clubs: [{ name: 'Pixel Gaming', address: 'Zargarlik 30A' }, { name: 'Pixel Gaming 2', address: 'Matbuotchilar 17' }] },
+      { kind: 'clubBooking' },
+      { kind: 'games', count: 8, sample: ['Game 1', 'Game 2', 'Game 3', 'Game 4', 'Game 5', 'Game 6'] },
+    ]);
+    const differentHours = { ...other, opening_hours: '10:00 – 02:00' } as unknown as PublicShowcase;
+    expect(brandFaqFacts({ clubs: [club, differentHours] }).some((fact) => fact.kind === 'hours')).toBe(false);
   });
 });
