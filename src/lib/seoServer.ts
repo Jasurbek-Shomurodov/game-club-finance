@@ -5,7 +5,8 @@ import { headers } from 'next/headers';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { landingBrandSlug, publicSiteOrigin, readPublicSiteConfig } from '@/lib/publicSite';
 import { brandLogoUrl, logoIcons, type PublicBrand, type PublicShowcase } from '@/lib/showcase';
-import { openGraphLocale, snippetText } from '@/lib/seo';
+import { languageAlternates, localizedPath, openGraphLocale, snippetText } from '@/lib/seo';
+import { isSupportedLocale, DEFAULT_LOCALE } from '@/lib/locale';
 
 const publicSite = readPublicSiteConfig(process.env);
 
@@ -34,18 +35,21 @@ export const clubPath = (slug: string) => `/club/${slug}`;
 
 /** What public pages share: indexable, a canonical address and the visitor's Open Graph locale. */
 async function publicMetadata(input: { title: string; description: string | null; path: string; image?: string; icons?: Metadata['icons'] }): Promise<Metadata> {
-  const locale = await getLocale();
+  const appLocale = await getLocale();
+  const locale = isSupportedLocale(appLocale) ? appLocale : DEFAULT_LOCALE;
   const description = input.description ?? undefined;
+  const url = localizedPath(input.path, locale);
   return {
     title: input.title,
     description,
     robots: { index: true, follow: true },
-    alternates: { canonical: input.path },
+    // Each language is its own indexable address, linked with hreflang.
+    alternates: { canonical: url, languages: languageAlternates(input.path) },
     verification: { google: GOOGLE_SITE_VERIFICATION },
     openGraph: {
       title: input.title,
       description,
-      url: input.path,
+      url,
       siteName: 'Pixel Gaming',
       locale: openGraphLocale(locale),
       images: input.image ? [input.image] : undefined,

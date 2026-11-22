@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PublicBrand, PublicShowcase } from '@/lib/showcase';
-import { brandPageJsonLd, clubPageJsonLd, openGraphLocale, openingHoursSpecification, serializeJsonLd, snippetText } from './seo';
+import { brandPageJsonLd, languageAlternates, localizedPath, clubPageJsonLd, openGraphLocale, openingHoursSpecification, serializeJsonLd, snippetText } from './seo';
 
 const club: PublicShowcase = {
   club_name: 'Pixel Gaming',
@@ -81,5 +81,13 @@ describe('serializeJsonLd', () => {
 describe('openGraphLocale', () => {
   it('maps app languages', () => {
     expect([openGraphLocale('ru'), openGraphLocale('uz'), openGraphLocale('en')]).toEqual(['ru_RU', 'uz_UZ', 'en_US']);
+  });
+});
+
+describe('language addresses', () => {
+  it('keeps Russian at the plain address and puts other languages in ?lang=', () => {
+    expect(localizedPath('/', 'ru')).toBe('/');
+    expect(localizedPath('/club/a', 'uz')).toBe('/club/a?lang=uz');
+    expect(languageAlternates('/club/a')).toEqual({ ru: '/club/a', uz: '/club/a?lang=uz', en: '/club/a?lang=en', 'x-default': '/club/a' });
   });
 });

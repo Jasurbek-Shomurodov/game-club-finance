@@ -62,6 +62,11 @@ Apply it before detaching that address, or the 08:00 report stops.
 - The brand and club pages carry schema.org JSON-LD built in `src/lib/seo.ts`
   (organization, website, and each club as a local business with address,
   phone, hours and prices). Check it with Google's Rich Results Test.
+- Each language has its own address: Russian at the plain path, Uzbek and
+  English at `?lang=uz` / `?lang=en`. The proxy copies `lang` into the
+  `x-app-locale` header that `src/i18n.ts` reads before the cookie; pages and
+  the sitemap link the three versions with hreflang. Switching language on a
+  `?lang=` page moves to the new language's address.
 - Titles come from `publicShowcase.seo.title`; descriptions from the brand and
   club taglines saved on the admin Public page, so write those in the page's
   language.

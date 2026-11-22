@@ -3,6 +3,7 @@
  * schema.org JSON-LD for the brand and its clubs. Pure, so the pages only
  * pass in what they already loaded.
  */
+import { DEFAULT_LOCALE, LOCALE_PARAM, SUPPORTED_LOCALES, type SupportedLocale } from '@/lib/locale';
 import { lowestHourlyPrice, type PublicBrand, type PublicShowcase } from '@/lib/showcase';
 
 /** Google shows about this many characters of a description. */
@@ -130,4 +131,17 @@ export function serializeJsonLd(data: JsonLd): string {
 /** Open Graph locale for the app language. */
 export function openGraphLocale(locale: string): string {
   return locale === 'uz' ? 'uz_UZ' : locale === 'en' ? 'en_US' : 'ru_RU';
+}
+
+/** A public page in one language: Russian (the default) has the plain address, the others "?lang=". */
+export function localizedPath(path: string, locale: SupportedLocale): string {
+  return locale === DEFAULT_LOCALE ? path : `${path}?${LOCALE_PARAM}=${locale}`;
+}
+
+/** hreflang alternates for a public page: every language plus x-default (Russian). */
+export function languageAlternates(path: string): Record<string, string> {
+  return {
+    ...Object.fromEntries(SUPPORTED_LOCALES.map((locale) => [locale, localizedPath(path, locale)])),
+    'x-default': path,
+  };
 }

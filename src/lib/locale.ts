@@ -29,7 +29,23 @@ export function localeFromAcceptLanguage(header: string | null | undefined): Sup
   return ranked.map((entry) => entry.base).find(isSupportedLocale) ?? FOREIGN_FALLBACK_LOCALE;
 }
 
-/** A saved choice (the locale cookie) wins; otherwise the device language. */
-export function resolveRequestLocale(cookieLocale: string | null | undefined, acceptLanguage: string | null | undefined): SupportedLocale {
+/**
+ * Public pages take the language from the address too ("/?lang=uz"), so
+ * search engines can index each language: the proxy copies a valid `lang`
+ * parameter into this request header.
+ */
+export const LOCALE_PARAM = 'lang';
+export const LOCALE_HEADER = 'x-app-locale';
+
+/**
+ * The language in the address wins, then a saved choice (the locale cookie),
+ * then the device language.
+ */
+export function resolveRequestLocale(
+  cookieLocale: string | null | undefined,
+  acceptLanguage: string | null | undefined,
+  addressLocale?: string | null,
+): SupportedLocale {
+  if (isSupportedLocale(addressLocale)) return addressLocale;
   return isSupportedLocale(cookieLocale) ? cookieLocale : localeFromAcceptLanguage(acceptLanguage);
 }

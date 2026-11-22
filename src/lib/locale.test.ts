@@ -20,6 +20,9 @@ describe('request locale', () => {
   it('lets a saved choice win over the device language', () => {
     expect(resolveRequestLocale('en', 'ru-RU')).toBe('en');
     expect(resolveRequestLocale('xx', 'uz')).toBe('uz');
+    // A public page's ?lang= address outranks the cookie; an invalid one is ignored.
+    expect(resolveRequestLocale('ru', 'ru', 'uz')).toBe('uz');
+    expect(resolveRequestLocale('en', 'ru', 'xx')).toBe('en');
     expect(resolveRequestLocale(undefined, 'ru')).toBe('ru');
   });
 });
