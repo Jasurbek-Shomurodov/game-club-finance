@@ -516,6 +516,18 @@ export class TelegramSendError extends Error {
   }
 }
 
+/**
+ * Telegram refused to process the uploaded image (`IMAGE_PROCESS_FAILED`,
+ * 400). The rejection is definite: no message was created, so sending the
+ * same report again, or as text, cannot duplicate it.
+ */
+export function isTelegramImageRejection(error: unknown): error is TelegramSendError {
+  if (!(error instanceof TelegramSendError) || error.requiresManualReview) return false;
+  const last = error.attempts.at(-1);
+  return last?.outcome === 'client_error'
+    && /IMAGE_PROCESS_FAILED|PHOTO_INVALID_DIMENSIONS/i.test(last.description ?? '');
+}
+
 function boundedDescription(value: unknown, botToken: string): string {
   const raw = value instanceof Error ? value.message : String(value ?? 'Unknown Telegram error');
   return raw.replaceAll(botToken, '[REDACTED]').slice(0, 500);

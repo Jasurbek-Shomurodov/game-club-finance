@@ -546,6 +546,73 @@ describe('daily finance report cron route', () => {
     expect(payload.sent[0]).toMatchObject({ status: 'sent', writeOffsImageSent: false });
   });
 
+  it('tries the photo again when Telegram fails to process the image once', async () => {
+    const rejected = [{
+      ...sentAttempt(),
+      outcome: 'client_error' as const,
+      httpStatus: 400,
+      telegramErrorCode: 400,
+      description: 'Bad Request: IMAGE_PROCESS_FAILED',
+    }];
+    mocks.sendTelegramPhoto.mockRejectedValueOnce(new TelegramSendError('rejected', rejected, false));
+
+    const response = await GET(cronRequest('?date=2026-08-26&target=pixel'));
+
+    expect(response.status).toBe(200);
+    expect(mocks.sendTelegramPhoto).toHaveBeenCalledTimes(2);
+    expect(mocks.sendTelegramMessage).not.toHaveBeenCalled();
+    expect(mocks.completeDelivery).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        outcome: 'sent',
+        telegramAttemptCount: 2,
+        telegramResult: expect.objectContaining({ deliveryType: 'photo' }),
+      }),
+    );
+  });
+
+  it('sends the report as text when Telegram keeps failing to process the image', async () => {
+    const rejected = [{
+      ...sentAttempt(),
+      outcome: 'client_error' as const,
+      httpStatus: 400,
+      telegramErrorCode: 400,
+      description: 'Bad Request: IMAGE_PROCESS_FAILED',
+    }];
+    mocks.sendTelegramPhoto.mockRejectedValue(new TelegramSendError('rejected', rejected, false));
+
+    const response = await GET(cronRequest('?date=2026-08-26&target=pixel'));
+
+    expect(response.status).toBe(200);
+    expect(mocks.sendTelegramPhoto).toHaveBeenCalledTimes(2);
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({ text: 'report' }));
+    expect(mocks.completeDelivery).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        outcome: 'sent',
+        telegramAttemptCount: 3,
+        telegramResult: expect.objectContaining({ deliveryType: 'text' }),
+      }),
+    );
+  });
+
+  it('does not switch to text for other Telegram client errors', async () => {
+    const rejected = [{
+      ...sentAttempt(),
+      outcome: 'client_error' as const,
+      httpStatus: 403,
+      telegramErrorCode: 403,
+      description: 'Forbidden: bot was kicked from the group chat',
+    }];
+    mocks.sendTelegramPhoto.mockRejectedValue(new TelegramSendError('kicked', rejected, false));
+
+    const response = await GET(cronRequest('?date=2026-08-26&target=pixel'));
+
+    expect(response.status).toBe(500);
+    expect(mocks.sendTelegramPhoto).toHaveBeenCalledOnce();
+    expect(mocks.sendTelegramMessage).not.toHaveBeenCalled();
+  });
+
   it('sends the text report when PNG rendering is unavailable', async () => {
     mocks.buildReport.mockResolvedValue({
       clubId: CLUB_ID,

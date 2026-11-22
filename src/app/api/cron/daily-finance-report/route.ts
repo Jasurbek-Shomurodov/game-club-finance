@@ -11,11 +11,14 @@ import {
   buildDailyFinanceTelegramReport,
   getClubBusinessDayStartHour,
   isIsoDate,
+  isTelegramImageRejection,
   previousClubBusinessDateIso,
   sendTelegramMessage,
   sendTelegramPhoto,
   sendTelegramPhotoAlbum,
   TelegramSendError,
+  type TelegramSendAttempt,
+  type TelegramSendResult,
 } from '@/lib/telegram/sendDailyFinanceReport';
 import { loadAwaitingReviewDigestPhoto, type ReviewDigestPhoto } from '@/lib/googleBusiness/reviewDigestPhoto';
 import { completeReviewDigest } from '@/lib/googleBusiness/reviewDigestRows';
@@ -553,7 +556,6 @@ export async function GET(request: NextRequest) {
       }
 
       try {
-        const deliveryType = report.imagePng ? 'photo' : 'text';
         // The report, the write-offs/corrections image and the AI bot image
         // go out together as one album whenever there is more than the report.
         const albumPhotos = report.imagePng
@@ -563,31 +565,75 @@ export async function GET(request: NextRequest) {
               ...(reviewDigest ? [{ png: reviewDigest.png, fileName: reviewDigest.fileName }] : []),
             ]
           : [];
-        const album = albumPhotos.length >= 2;
+        const wantsAlbum = albumPhotos.length >= 2;
         const albumCaption = reviewDigest ? `${report.caption}\n${reviewDigest.reportLine}` : report.caption;
-        const telegram = album
-          ? await sendTelegramPhotoAlbum({
+        const sendImages = () => wantsAlbum
+          ? sendTelegramPhotoAlbum({
               botToken,
               chatId: report.chatId,
               photos: albumPhotos,
               caption: albumCaption,
               deadlineAt,
             })
-          : report.imagePng
-          ? await sendTelegramPhoto({
+          : sendTelegramPhoto({
               botToken,
               chatId: report.chatId,
-              imagePng: report.imagePng,
+              imagePng: report.imagePng!,
               imageFileName: report.imageFileName,
               caption: report.caption,
               deadlineAt,
-            })
-          : await sendTelegramMessage({
-              botToken,
-              chatId: report.chatId,
-              text: report.message,
-              deadlineAt,
             });
+        const sendText = () => sendTelegramMessage({
+          botToken,
+          chatId: report.chatId,
+          text: report.message,
+          deadlineAt,
+        });
+        // Telegram sometimes refuses to process an uploaded image
+        // (IMAGE_PROCESS_FAILED). That rejection posts nothing, so the images
+        // are tried once more and then the same report goes out as text
+        // rather than the club getting no report that day.
+        let deliveryType: 'photo' | 'text' = report.imagePng ? 'photo' : 'text';
+        let rejectedAttempts: TelegramSendAttempt[] = [];
+        let telegram: TelegramSendResult;
+        if (!report.imagePng) {
+          telegram = await sendText();
+        } else {
+          try {
+            telegram = await sendImages();
+          } catch (error) {
+            if (!isTelegramImageRejection(error)) throw error;
+            rejectedAttempts = error.attempts;
+            logDeliveryEvent('error', 'telegram_report_image_rejected', {
+              businessDate,
+              target: target.key,
+              deliveryId: claim.deliveryId,
+              error: error.message,
+            });
+            try {
+              telegram = await sendImages();
+            } catch (retryError) {
+              if (!isTelegramImageRejection(retryError)) {
+                if (retryError instanceof TelegramSendError) {
+                  throw new TelegramSendError(retryError.message, [...rejectedAttempts, ...retryError.attempts], retryError.retryable, retryError.requiresManualReview);
+                }
+                throw retryError;
+              }
+              rejectedAttempts = [...rejectedAttempts, ...retryError.attempts];
+              deliveryType = 'text';
+              try {
+                telegram = await sendText();
+              } catch (textError) {
+                if (textError instanceof TelegramSendError) {
+                  throw new TelegramSendError(textError.message, [...rejectedAttempts, ...textError.attempts], textError.retryable, textError.requiresManualReview);
+                }
+                throw textError;
+              }
+            }
+          }
+          telegram = { ...telegram, attempts: [...rejectedAttempts, ...telegram.attempts] };
+        }
+        const album = wantsAlbum && deliveryType === 'photo';
         const telegramResult = {
           deliveryType,
           ...(album ? { photoCount: albumPhotos.length } : {}),

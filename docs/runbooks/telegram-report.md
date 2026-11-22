@@ -157,7 +157,12 @@ If image generation fails before dispatch, the route logs the rendering error
 and sends the same finance report as Telegram text, truncated at a line break to
 Telegram's 4096-character limit if necessary. Once dispatch begins, a
 transport problem follows delivery-ledger recovery rules; it does not switch
-format and risk a duplicate.
+format and risk a duplicate. The one exception is Telegram refusing the image
+itself (`400 IMAGE_PROCESS_FAILED` or `PHOTO_INVALID_DIMENSIONS`,
+`isTelegramImageRejection`): that rejection posts nothing, so the route tries
+the photo (or album) once more and then sends the same report as text in the
+same run, logging `telegram_report_image_rejected`. Before this, such a
+rejection failed the day with no report (22 Nov 2026, both Pixel clubs).
 
 Generate a local PNG preview from a real club/date without sending Telegram:
 
