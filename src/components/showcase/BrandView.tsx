@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server';
 import { ArrowUpRight, BadgePercent, Clock, Cpu, Gamepad2, Layers, MapPin, Monitor, MonitorPlay, Navigation, Phone, Send, Wallet, Zap } from 'lucide-react';
 import { formatCurrency, formatPhone } from '@/lib/formatters';
 import { brandInsights, brandLogoUrl, clubInsights, mapLinks, openStatus, telHref, type PublicBrand, type PublicShowcase } from '@/lib/showcase';
+import { localizedHref } from '@/lib/seoServer';
 import { ClubTabs } from './ClubTabs';
 import { CountUp } from './CountUp';
 import { MapChooser } from './MapChooser';
@@ -238,6 +239,7 @@ function Insight({ icon, label, value }: { icon: React.ReactNode; label: string;
 }
 
 async function ClubPanel({ club }: { club: PublicShowcase }) {
+  const clubHref = await localizedHref(`/club/${club.slug}`);
   const t = await getTranslations('publicShowcase');
   const tc = await getTranslations('common');
   const insights = clubInsights(club);
@@ -265,7 +267,7 @@ async function ClubPanel({ club }: { club: PublicShowcase }) {
             <p className="mt-4 max-w-xl text-base leading-7 text-white/70">{club.tagline ?? t('defaultTagline')}</p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <ContactButtons club={club} compact />
-              <a href={`/club/${club.slug}`} className="inline-flex items-center gap-1 rounded-xl px-3 py-2.5 text-sm font-semibold text-white/70 transition-colors hover:text-white">
+              <a href={clubHref} className="inline-flex items-center gap-1 rounded-xl px-3 py-2.5 text-sm font-semibold text-white/70 transition-colors hover:text-white">
                 {t('fullPage')} <ArrowUpRight size={16} aria-hidden="true" />
               </a>
             </div>

@@ -35,6 +35,12 @@ export function brandPath(slug: string): string {
 
 export const clubPath = (slug: string) => `/club/${slug}`;
 
+/** An internal public link in the language being shown, so a visitor (or crawler) on "?lang=uz" stays in Uzbek. */
+export async function localizedHref(path: string): Promise<string> {
+  const locale = await getLocale();
+  return localizedPath(path, isSupportedLocale(locale) ? locale : DEFAULT_LOCALE);
+}
+
 /** What public pages share: indexable, a canonical address and the visitor's Open Graph locale. */
 async function publicMetadata(input: { title: string; description: string | null; path: string; image?: string; icons?: Metadata['icons'] }): Promise<Metadata> {
   const appLocale = await getLocale();

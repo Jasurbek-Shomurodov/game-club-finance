@@ -7,7 +7,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { ArrowLeft } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/PresentationFoundation';
 import { formatDateOnly } from '@/lib/formatters';
-import { plainPublicMetadata } from '@/lib/seoServer';
+import { localizedHref, plainPublicMetadata } from '@/lib/seoServer';
 
 /** Bump when the policy text changes. */
 const UPDATED_ON = '2026-10-29';
@@ -19,12 +19,12 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function PrivacyPage() {
-  const [t, locale] = await Promise.all([getTranslations('privacy'), getLocale()]);
+  const [t, locale, homeHref] = await Promise.all([getTranslations('privacy'), getLocale(), localizedHref('/')]);
   return (
     <main className="sc-root min-h-screen">
       <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16">
         <div className="flex items-center justify-between gap-4">
-          <Link href="/" className="inline-flex min-h-10 items-center gap-2 text-sm text-white/70 transition-colors hover:text-white">
+          <Link href={homeHref} className="inline-flex min-h-10 items-center gap-2 text-sm text-white/70 transition-colors hover:text-white">
             <ArrowLeft size={16} aria-hidden="true" />
             {t('back')}
           </Link>

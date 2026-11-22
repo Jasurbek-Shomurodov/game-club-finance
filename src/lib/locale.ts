@@ -37,6 +37,22 @@ export function localeFromAcceptLanguage(header: string | null | undefined): Sup
 export const LOCALE_PARAM = 'lang';
 export const LOCALE_HEADER = 'x-app-locale';
 
+/** Set by the proxy on public pages, so the layout ships them only their own translations. */
+export const SITE_SECTION_HEADER = 'x-site-section';
+export const PUBLIC_SITE_SECTION = 'public';
+
+/**
+ * The translation namespaces the public pages' browser code reads. Server
+ * components still see every message; this only trims what is sent to the
+ * visitor (about 10 KB instead of the admin app's 230 KB).
+ */
+export const PUBLIC_MESSAGE_NAMESPACES = ['common', 'publicShowcase', 'privacy'] as const;
+
+/** Only the named top-level namespaces of a message catalog. */
+export function pickNamespaces<T extends Record<string, unknown>>(messages: T, namespaces: readonly string[]): Partial<T> {
+  return Object.fromEntries(namespaces.filter((name) => name in messages).map((name) => [name, messages[name]])) as Partial<T>;
+}
+
 /**
  * The language in the address wins, then a saved choice (the locale cookie),
  * then the device language.

@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { Clock, Gamepad2, Instagram, Mail, MapPin, Phone, Send, Users, Youtube } from 'lucide-react';
 import { formatPhone } from '@/lib/formatters';
 import { mapLinks, telHref } from '@/lib/showcase';
+import { localizedHref } from '@/lib/seoServer';
 import { MapChooser } from './MapChooser';
 
 export interface FooterLink {
@@ -133,6 +134,7 @@ function LocationDetails({ phone, hours }: { phone: string | null; hours: string
 /** Four-column site footer: brand and socials, pages, help, and contact details. */
 export async function ShowcaseFooter({ name, logoUrl, description, hours, phone, email, socials, pages, help, locations }: ShowcaseFooterProps) {
   const t = await getTranslations('publicShowcase');
+  const privacyHref = await localizedHref('/privacy');
   const phoneLink = telHref(phone);
   const mapLabels = { title: t('mapChooserTitle'), yandex: t('mapYandex'), google: t('mapGoogle') };
   const hasContacts = locations.length > 0 || phone || email || hours;
@@ -190,7 +192,7 @@ export async function ShowcaseFooter({ name, logoUrl, description, hours, phone,
       </div>
       <div className="border-t border-white/5 px-4 py-6 text-center text-xs text-white/60">
         © {new Date().getFullYear()} {name}. {t('footerRights')}{' '}
-        <a href="/privacy" className="underline underline-offset-4 transition-colors hover:text-white">{t('footerPrivacy')}</a>
+        <a href={privacyHref} className="underline underline-offset-4 transition-colors hover:text-white">{t('footerPrivacy')}</a>
       </div>
     </footer>
   );

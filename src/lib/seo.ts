@@ -4,7 +4,7 @@
  * pass in what they already loaded.
  */
 import { DEFAULT_LOCALE, LOCALE_PARAM, SUPPORTED_LOCALES, type SupportedLocale } from '@/lib/locale';
-import { lowestHourlyPrice, type PublicBrand, type PublicShowcase } from '@/lib/showcase';
+import { isRoundTheClock, lowestHourlyPrice, type PublicBrand, type PublicShowcase } from '@/lib/showcase';
 
 /** Google shows about this many characters of a description. */
 const DESCRIPTION_LIMIT = 160;
@@ -34,7 +34,7 @@ export function snippetText(value: string | null | undefined, limit = DESCRIPTIO
 export function openingHoursSpecification(hours: string | null | undefined): JsonLd[] | undefined {
   const text = hours?.trim();
   if (!text) return undefined;
-  if (/24\s*\/\s*7|круглосуточно|kun-u tun|24 soat|24 hours/i.test(text)) {
+  if (isRoundTheClock(text)) {
     return [{ '@type': 'OpeningHoursSpecification', dayOfWeek: ALL_DAYS, opens: '00:00', closes: '23:59' }];
   }
   const match = HOURS_RANGE.exec(text);
@@ -143,5 +143,18 @@ export function languageAlternates(path: string): Record<string, string> {
   return {
     ...Object.fromEntries(SUPPORTED_LOCALES.map((locale) => [locale, localizedPath(path, locale)])),
     'x-default': path,
+  };
+}
+
+/** schema.org FAQPage for questions shown on the page; answers must match the visible text. */
+export function faqPageJsonLd(items: Array<{ question: string; answer: string }>): JsonLd {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: items.map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: { '@type': 'Answer', text: item.answer },
+    })),
   };
 }

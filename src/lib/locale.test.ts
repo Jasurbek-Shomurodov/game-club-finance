@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { localeFromAcceptLanguage, resolveRequestLocale } from './locale';
+import { PUBLIC_MESSAGE_NAMESPACES, localeFromAcceptLanguage, pickNamespaces, resolveRequestLocale } from './locale';
 
 describe('request locale', () => {
   it('follows the device language, best match first', () => {
@@ -24,5 +24,12 @@ describe('request locale', () => {
     expect(resolveRequestLocale('ru', 'ru', 'uz')).toBe('uz');
     expect(resolveRequestLocale('en', 'ru', 'xx')).toBe('en');
     expect(resolveRequestLocale(undefined, 'ru')).toBe('ru');
+  });
+});
+
+describe('pickNamespaces', () => {
+  it('keeps only the named namespaces that exist', () => {
+    expect(pickNamespaces({ common: { a: 1 }, dashboard: { b: 2 }, publicShowcase: { c: 3 } }, PUBLIC_MESSAGE_NAMESPACES))
+      .toEqual({ common: { a: 1 }, publicShowcase: { c: 3 } });
   });
 });

@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { safeRedirectPath } from './lib/validation';
 import { PUBLIC_PAGES, readPublicSiteConfig, routePublicSite } from './lib/publicSite';
 import { DASHBOARD_PATH } from '@/lib/routes';
-import { LOCALE_HEADER, LOCALE_PARAM, isSupportedLocale } from '@/lib/locale';
+import { LOCALE_HEADER, LOCALE_PARAM, PUBLIC_SITE_SECTION, SITE_SECTION_HEADER, isSupportedLocale } from '@/lib/locale';
 
 const publicSite = readPublicSiteConfig(process.env);
 
@@ -23,12 +23,14 @@ function redirectToLogin(request: NextRequest) {
 
 /**
  * Request headers for a public page: the ?lang= language, when valid, goes to
- * src/i18n.ts so each language has its own indexable address. A client-sent
- * copy of the header is always dropped.
+ * src/i18n.ts so each language has its own indexable address, and the
+ * section marker lets the root layout send only the public translations.
+ * Client-sent copies of both headers are always dropped.
  */
 function publicRequestHeaders(request: NextRequest) {
   const headers = new Headers(request.headers);
   headers.delete(LOCALE_HEADER);
+  headers.set(SITE_SECTION_HEADER, PUBLIC_SITE_SECTION);
   const lang = request.nextUrl.searchParams.get(LOCALE_PARAM);
   if (isSupportedLocale(lang)) headers.set(LOCALE_HEADER, lang);
   return headers;

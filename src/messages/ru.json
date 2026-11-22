@@ -2443,6 +2443,29 @@
     "bookTelegramClub": "Забронировать: {club}",
     "seo": {
       "title": "{name} — компьютерный клуб в Ташкенте"
+    },
+    "faq": {
+      "nav": "Вопросы и ответы",
+      "eyebrow": "FAQ",
+      "title": "Вопросы и ответы",
+      "description": "Коротко о ценах, времени работы и бронировании.",
+      "priceQuestion": "Сколько стоит час игры в {club}?",
+      "priceAnswer": "Час на ПК — от {price}.",
+      "priceZones": "По зонам: {zones}.",
+      "consolesQuestion": "Можно ли поиграть на PlayStation?",
+      "consolesAnswer": "Да, в клубе {consoles}: {names}.",
+      "consolesPrice": "Час — от {price}.",
+      "hoursQuestion": "Когда открыт {club}?",
+      "hoursRoundTheClock": "Круглосуточно, без выходных — можно прийти и ночью.",
+      "hoursAnswer": "Каждый день: {hours}.",
+      "bookingQuestion": "Как забронировать место?",
+      "bookingBoth": "Напишите администратору в Telegram или позвоните: {phone}.",
+      "bookingTelegram": "Напишите администратору в Telegram — кнопка «{button}» на этой странице.",
+      "bookingPhone": "Позвоните администратору: {phone}.",
+      "addressQuestion": "Где находится {club}?",
+      "addressAnswer": "{address}, Ташкент. Маршрут в Яндекс Картах и Google Картах — в разделе «Контакты».",
+      "gamesQuestion": "Какие игры установлены?",
+      "gamesAnswer": "{games}, среди них {list} и другие."
     }
   },
   "history": {

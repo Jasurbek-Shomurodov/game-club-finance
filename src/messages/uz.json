@@ -2443,6 +2443,29 @@
     "bookTelegramClub": "Band qilish: {club}",
     "seo": {
       "title": "{name} — Toshkentdagi kompyuter klubi"
+    },
+    "faq": {
+      "nav": "Savol-javoblar",
+      "eyebrow": "FAQ",
+      "title": "Savol-javoblar",
+      "description": "Narxlar, ish vaqti va bron qilish haqida qisqacha.",
+      "priceQuestion": "{club} klubida bir soat o‘yin qancha turadi?",
+      "priceAnswer": "Kompyuterda bir soat — {price}dan.",
+      "priceZones": "Zonalar bo‘yicha: {zones}.",
+      "consolesQuestion": "PlayStation’da o‘ynasa bo‘ladimi?",
+      "consolesAnswer": "Ha, klubda {consoles} bor: {names}.",
+      "consolesPrice": "Bir soat — {price}dan.",
+      "hoursQuestion": "{club} qachon ishlaydi?",
+      "hoursRoundTheClock": "Kun-u tun, dam olish kunlarisiz — kechasi ham kelishingiz mumkin.",
+      "hoursAnswer": "Har kuni: {hours}.",
+      "bookingQuestion": "Joyni qanday bron qilish mumkin?",
+      "bookingBoth": "Administratorga Telegram’da yozing yoki qo‘ng‘iroq qiling: {phone}.",
+      "bookingTelegram": "Administratorga Telegram’da yozing — shu sahifadagi «{button}» tugmasi.",
+      "bookingPhone": "Administratorga qo‘ng‘iroq qiling: {phone}.",
+      "addressQuestion": "{club} qayerda joylashgan?",
+      "addressAnswer": "{address}, Toshkent. Yandex Xaritalar va Google Xaritalardagi yo‘nalish — «Kontaktlar» bo‘limida.",
+      "gamesQuestion": "Qaysi o‘yinlar o‘rnatilgan?",
+      "gamesAnswer": "{games}, jumladan {list} va boshqalar."
     }
   },
   "history": {

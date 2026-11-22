@@ -943,6 +943,11 @@ export function mapLinks(club: Pick<PublicShowcase, 'club_name' | 'address'> & {
 
 export type OpenStatus = 'open' | 'closed';
 
+/** Whether free-text hours mean open round the clock: "24/7", "круглосуточно", "kun-u tun". */
+export function isRoundTheClock(hours: string | null | undefined): boolean {
+  return /24\s*\/\s*7|круглосуточно|kun-u tun|24 soat|24 hours/i.test(hours ?? '');
+}
+
 const HOURS_RANGE = /(\d{1,2})[:.](\d{2})\s*[-–—]\s*(\d{1,2})[:.](\d{2})/;
 
 /** Minutes since midnight in the club's time zone. */
@@ -960,7 +965,7 @@ function minutesInTashkent(now: Date): number {
 export function openStatus(hours: string | null | undefined, now: Date): OpenStatus | null {
   const text = hours?.trim();
   if (!text) return null;
-  if (/24\s*\/\s*7|круглосуточно|kun-u tun|24 soat|24 hours/i.test(text)) return 'open';
+  if (isRoundTheClock(text)) return 'open';
   const match = HOURS_RANGE.exec(text);
   if (!match) return null;
   const [opensH, opensM, closesH, closesM] = match.slice(1).map(Number);

@@ -7,13 +7,17 @@ import { ContactPanel, GameGrid, HeroBackdrop, Marquee, OfferGrid, SectionTitle,
 import { ShowcaseFooter } from './ShowcaseFooter';
 import { ShowcaseNav } from './ShowcaseNav';
 import { ShowcaseActionBar } from './ShowcaseActionBar';
+import { ShowcaseFaq } from './ShowcaseFaq';
+import { clubFaqFacts } from '@/lib/showcaseFaq';
 import { PriceList, SectionTiles, firstImage } from './ShowcaseSections';
+import { localizedHref } from '@/lib/seoServer';
 
 /** The public page of one club: /club/<slug>. */
 export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
   const t = await getTranslations('publicShowcase');
   const tc = await getTranslations('common');
   const locale = await getLocale();
+  const allClubsHref = await localizedHref('/');
   const pcCount = totalPcCount(showcase.zones);
   const consoleCount = totalConsoleCount(showcase.zones);
   const pcZones = showcase.zones.filter((zone) => zone.kind === 'pc');
@@ -159,6 +163,8 @@ export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
 
       <PriceList zones={showcase.zones} offers={showcase.offers} />
 
+      <ShowcaseFaq club={showcase} id="faq" />
+
       <ContactPanel club={showcase} id="contacts" />
 
       <ShowcaseActionBar
@@ -176,9 +182,10 @@ export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
         phone={showcase.phone}
         email={showcase.email}
         socials={{ telegram: showcase.telegram_url, instagram: showcase.instagram_url, youtube: showcase.youtube_url }}
-        pages={[{ href: '#top', label: t('footerHome') }, ...navLinks.filter((link) => link.href !== '#contacts'), { href: '/', label: t('footerAllClubs') }]}
+        pages={[{ href: '#top', label: t('footerHome') }, ...navLinks.filter((link) => link.href !== '#contacts'), { href: allClubsHref, label: t('footerAllClubs') }]}
         help={[
           { href: '#contacts', label: t('howToFind') },
+          ...(clubFaqFacts(showcase).length > 0 ? [{ href: '#faq', label: t('faq.nav') }] : []),
           ...(showcase.telegram_url ? [{ href: showcase.telegram_url, label: t('bookTelegram'), external: true }] : []),
         ]}
         locations={showcase.address ? [{ label: null, clubName: showcase.club_name, address: showcase.address, yandexMapsUrl: showcase.yandex_maps_url }] : []}

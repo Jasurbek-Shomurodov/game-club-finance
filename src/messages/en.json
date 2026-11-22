@@ -2443,6 +2443,29 @@
     "bookTelegramClub": "Book at {club}",
     "seo": {
       "title": "{name} — gaming club in Tashkent"
+    },
+    "faq": {
+      "nav": "FAQ",
+      "eyebrow": "FAQ",
+      "title": "Questions and answers",
+      "description": "Prices, opening hours and booking in short.",
+      "priceQuestion": "How much is an hour of gaming at {club}?",
+      "priceAnswer": "An hour on a PC is from {price}.",
+      "priceZones": "By zone: {zones}.",
+      "consolesQuestion": "Can I play on PlayStation?",
+      "consolesAnswer": "Yes, the club has {consoles}: {names}.",
+      "consolesPrice": "An hour is from {price}.",
+      "hoursQuestion": "When is {club} open?",
+      "hoursRoundTheClock": "Round the clock, every day — you can come at night too.",
+      "hoursAnswer": "Every day: {hours}.",
+      "bookingQuestion": "How do I book a seat?",
+      "bookingBoth": "Message the admin on Telegram or call {phone}.",
+      "bookingTelegram": "Message the admin on Telegram with the “{button}” button on this page.",
+      "bookingPhone": "Call the admin: {phone}.",
+      "addressQuestion": "Where is {club}?",
+      "addressAnswer": "{address}, Tashkent. Directions in Yandex Maps and Google Maps are in the Contacts section.",
+      "gamesQuestion": "Which games are installed?",
+      "gamesAnswer": "{games}, including {list} and more."
     }
   },
   "history": {

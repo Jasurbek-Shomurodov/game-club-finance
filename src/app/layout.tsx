@@ -3,11 +3,12 @@ import { Onest } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 import { getLocale, getMessages } from 'next-intl/server';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { AppIntlProvider } from '@/components/i18n/AppIntlProvider';
 import { AppThemeProvider } from '@/components/theme/AppThemeContext';
 import { THEME_COOKIE, parseAppTheme, themeAttribute } from '@/lib/theme';
 import { publicSiteOrigin, readPublicSiteConfig } from '@/lib/publicSite';
+import { PUBLIC_MESSAGE_NAMESPACES, PUBLIC_SITE_SECTION, SITE_SECTION_HEADER, pickNamespaces } from '@/lib/locale';
 
 // Cyrillic-first geometric sans; the variable font covers every weight used.
 const onest = Onest({ subsets: ['latin', 'cyrillic'], variable: '--font-sans', display: 'swap' });
@@ -40,8 +41,11 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [locale, messages, cookieStore] = await Promise.all([getLocale(), getMessages(), cookies()]);
+  const [locale, allMessages, cookieStore, headerStore] = await Promise.all([getLocale(), getMessages(), cookies(), headers()]);
   const theme = parseAppTheme(cookieStore.get(THEME_COOKIE)?.value);
+  // Public pages (marked by the proxy) ship only their own translations, not the admin app's.
+  const isPublicPage = headerStore.get(SITE_SECTION_HEADER) === PUBLIC_SITE_SECTION;
+  const messages = isPublicPage ? pickNamespaces(allMessages, PUBLIC_MESSAGE_NAMESPACES) : allMessages;
 
   return (
     <html lang={locale} data-theme={themeAttribute(theme)}>
@@ -53,7 +57,7 @@ export default async function RootLayout({
       ) : null}
       <body className={`${onest.variable} font-sans`}>
         <AppThemeProvider initialTheme={theme}>
-          <AppIntlProvider initialLocale={locale} initialMessages={messages}>
+          <AppIntlProvider initialLocale={locale} initialMessages={messages} prefetchOtherLocales={!isPublicPage}>
             {children}
           </AppIntlProvider>
         </AppThemeProvider>

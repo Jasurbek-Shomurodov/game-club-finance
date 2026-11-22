@@ -21,10 +21,13 @@ const loadMessages: Record<AppLocale, () => Promise<AbstractIntlMessages>> = {
 export function AppIntlProvider({
   initialLocale,
   initialMessages,
+  prefetchOtherLocales = true,
   children,
 }: {
   initialLocale: string;
   initialMessages: AbstractIntlMessages;
+  /** Off on public pages: visitors rarely switch, and phones shouldn't download two more catalogs. */
+  prefetchOtherLocales?: boolean;
   children: React.ReactNode;
 }) {
   // The server falls back to Russian for an unknown locale, so its messages are Russian then.
@@ -41,6 +44,7 @@ export function AppIntlProvider({
   // Once the page is idle, fetch the other languages in the background so the
   // first switch doesn't wait on a download.
   useEffect(() => {
+    if (!prefetchOtherLocales) return undefined;
     const prefetch = () => {
       for (const other of Object.keys(loadMessages) as AppLocale[]) {
         if (loadedMessages.current[other]) continue;
@@ -58,7 +62,7 @@ export function AppIntlProvider({
     }
     const handle = window.setTimeout(prefetch, 2000);
     return () => window.clearTimeout(handle);
-  }, []);
+  }, [prefetchOtherLocales]);
 
   const setLocale = useCallback((nextLocale: AppLocale) => {
     const request = ++latestRequest.current;

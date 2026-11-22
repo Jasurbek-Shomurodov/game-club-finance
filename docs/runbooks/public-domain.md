@@ -67,6 +67,14 @@ Apply it before detaching that address, or the 08:00 report stops.
   `x-app-locale` header that `src/i18n.ts` reads before the cookie; pages and
   the sitemap link the three versions with hreflang. Switching language on a
   `?lang=` page moves to the new language's address.
+- Public pages ship only the `common`, `publicShowcase` and `privacy`
+  translations (`PUBLIC_MESSAGE_NAMESPACES`); the proxy marks them with the
+  `x-site-section` header the root layout reads. A public client component
+  that needs another namespace must be added to that list.
+- Club pages end with a "Questions and answers" section built from the club's
+  data (`src/lib/showcaseFaq.ts`) and marked up as FAQPage.
+- Saving on the admin Public page pings IndexNow (Bing, Yandex) with every
+  public URL; the key is `public/indexnow-key.txt`, served on the public host.
 - Titles come from `publicShowcase.seo.title`; descriptions from the brand and
   club taglines saved on the admin Public page, so write those in the page's
   language.

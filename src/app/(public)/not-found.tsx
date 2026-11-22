@@ -4,9 +4,10 @@
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import { ArrowLeft, Compass } from 'lucide-react';
+import { localizedHref } from '@/lib/seoServer';
 
 export default async function PublicNotFound() {
-  const t = await getTranslations('publicShowcase');
+  const [t, homeHref] = await Promise.all([getTranslations('publicShowcase'), localizedHref('/')]);
   return (
     <main className="sc-root flex min-h-screen items-center justify-center px-4 py-16">
       <div className="sc-glass w-full max-w-md rounded-3xl px-6 py-10 text-center">
@@ -15,7 +16,7 @@ export default async function PublicNotFound() {
         </span>
         <h1 className="sc-display mt-6 text-2xl font-bold text-white">{t('notFoundTitle')}</h1>
         <p className="mt-3 text-sm leading-6 text-white/70">{t('notFoundDescription')}</p>
-        <Link href="/" className="sc-cta mt-8 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white">
+        <Link href={homeHref} className="sc-cta mt-8 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white">
           <ArrowLeft size={16} aria-hidden="true" />
           {t('backHome')}
         </Link>
