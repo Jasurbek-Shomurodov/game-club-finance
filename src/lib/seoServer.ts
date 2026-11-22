@@ -15,6 +15,8 @@ const publicSite = readPublicSiteConfig(process.env);
  * Google account). It is public by design; removing it un-verifies the site.
  */
 const GOOGLE_SITE_VERIFICATION = 'h4RpBKMnoAxCba40mZP8PTUdNHT_6pnkdnFcUO2nSRQ';
+/** Yandex Webmaster ownership proof for the same site; also keep it. */
+const YANDEX_SITE_VERIFICATION = 'ed33edbd477588db';
 
 /** The indexed site address: the configured public host, else the host this request came in on. */
 export async function siteOrigin(): Promise<string> {
@@ -45,7 +47,7 @@ async function publicMetadata(input: { title: string; description: string | null
     robots: { index: true, follow: true },
     // Each language is its own indexable address, linked with hreflang.
     alternates: { canonical: url, languages: languageAlternates(input.path) },
-    verification: { google: GOOGLE_SITE_VERIFICATION },
+    verification: { google: GOOGLE_SITE_VERIFICATION, yandex: YANDEX_SITE_VERIFICATION },
     openGraph: {
       title: input.title,
       description,

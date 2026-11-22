@@ -40,7 +40,7 @@ describe('public page metadata', () => {
   it('makes brand, club and plain pages indexable with a canonical address', async () => {
     const seo = await load({ PUBLIC_SITE_BRAND_SLUG: 'pixel-gaming' });
     const brandMeta = await seo.brandMetadata(brand);
-    expect(brandMeta).toMatchObject({ title: 'Pixel Gaming — Toshkentdagi kompyuter klubi', description: 'Default tagline', robots: { index: true }, alternates: { canonical: '/?lang=uz', languages: { ru: '/', uz: '/?lang=uz', en: '/?lang=en', 'x-default': '/' } }, verification: { google: expect.any(String) }, openGraph: { locale: 'uz_UZ' } });
+    expect(brandMeta).toMatchObject({ title: 'Pixel Gaming — Toshkentdagi kompyuter klubi', description: 'Default tagline', robots: { index: true }, alternates: { canonical: '/?lang=uz', languages: { ru: '/', uz: '/?lang=uz', en: '/?lang=en', 'x-default': '/' } }, verification: { google: expect.any(String), yandex: expect.any(String) }, openGraph: { locale: 'uz_UZ' } });
     const clubMeta = await seo.clubMetadata(club);
     expect(clubMeta).toMatchObject({ description: 'Play', alternates: { canonical: '/club/pixel-game-club?lang=uz' }, openGraph: { images: ['https://cdn.example/game.jpg'] } });
     expect(await seo.plainPublicMetadata('Privacy', 'Intro', '/privacy')).toMatchObject({ alternates: { canonical: '/privacy?lang=uz' }, robots: { index: true } });

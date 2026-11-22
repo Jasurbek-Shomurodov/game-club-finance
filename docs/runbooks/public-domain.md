@@ -72,4 +72,6 @@ Apply it before detaching that address, or the 08:00 report stops.
   language.
 - After a domain change, resubmit the sitemap in Google Search Console and
   Yandex Webmaster. The Search Console property is `https://www.pixelgaming.uz/`,
-  verified by the meta tag in `src/lib/seoServer.ts`; keep that tag.
+  verified by the meta tag in `src/lib/seoServer.ts`; keep that tag. Bing
+  Webmaster imports the site from Search Console; Yandex Webmaster is verified
+  by the Yandex meta tag in the same file.
