@@ -35,6 +35,7 @@ export async function BrandView({ brand }: { brand: PublicBrand }) {
   const navLinks = [
     { href: '#locations', label: t('navLocations') },
     { href: `#${CLUBS_ANCHOR}`, label: t('navClubs') },
+    ...(brandFaqFacts(brand).length > 0 ? [{ href: '#faq', label: t('faq.nav') }] : []),
   ];
   // Each club books through its own Telegram, so the brand's button leads to the club cards.
   const bookable = brand.clubs.filter((club) => club.telegram_url);

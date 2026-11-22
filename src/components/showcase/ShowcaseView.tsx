@@ -34,6 +34,7 @@ export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
     playstationZones.length > 0 ? { href: '#playstation', label: t('navPlaystation') } : null,
     showcase.zones.some((zone) => zone.price_per_hour !== null) || showcase.offers.length > 0 ? { href: '#prices', label: t('navPrices') } : null,
     showcase.offers.length > 0 ? { href: '#offers', label: t('navOffers') } : null,
+    clubFaqFacts(showcase).length > 0 ? { href: '#faq', label: t('faq.nav') } : null,
     { href: '#contacts', label: t('navContacts') },
   ].filter((link): link is { href: string; label: string } => link !== null);
 
@@ -185,7 +186,6 @@ export async function ShowcaseView({ showcase }: { showcase: PublicShowcase }) {
         pages={[{ href: '#top', label: t('footerHome') }, ...navLinks.filter((link) => link.href !== '#contacts'), { href: allClubsHref, label: t('footerAllClubs') }]}
         help={[
           { href: '#contacts', label: t('howToFind') },
-          ...(clubFaqFacts(showcase).length > 0 ? [{ href: '#faq', label: t('faq.nav') }] : []),
           ...(showcase.telegram_url ? [{ href: showcase.telegram_url, label: t('bookTelegram'), external: true }] : []),
         ]}
         locations={showcase.address ? [{ label: null, clubName: showcase.club_name, address: showcase.address, yandexMapsUrl: showcase.yandex_maps_url }] : []}

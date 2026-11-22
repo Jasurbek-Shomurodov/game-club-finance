@@ -47,6 +47,9 @@ There is no admin subdomain locally:
   Open this, not `http://localhost:3000/`, which is the public site.
 - Fetching: send local page and API requests (curl, fetch, browser checks) to
   `http://localhost:3000/...`, not `admin.pixelgaming.uz`, which is production.
+- Browser: always use Google Chrome (Claude in Chrome, `mcp__claude-in-chrome__*`)
+  for every browser check, local or live. Never use the Claude app's built-in
+  side browser (`mcp__Claude_Browser__*` / preview pane).
 
 ## Non-negotiable invariants
 
