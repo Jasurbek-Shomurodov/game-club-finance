@@ -207,10 +207,10 @@ export function Modal({
         )}
       >
         {(content.title || content.description) && (
-          <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 sm:px-6">
+          <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 short:py-2 sm:px-6">
             <div className="min-w-0">
               {content.title && <h2 id={titleId} className="break-words text-lg font-bold tracking-tight text-gray-950">{content.title}</h2>}
-              {content.description && <p id={descriptionId} className="mt-1 text-sm text-gray-500">{content.description}</p>}
+              {content.description && <p id={descriptionId} className="mt-1 text-sm text-gray-500 short:sr-only">{content.description}</p>}
             </div>
             <button
               type="button"
@@ -224,9 +224,9 @@ export function Modal({
             </button>
           </div>
         )}
-        <div className={cn('min-h-0 flex-1 overflow-y-auto', padding === 'md' && 'px-5 py-5 sm:px-6', padding === 'md' && !content.footer && 'pb-[max(1.25rem,env(safe-area-inset-bottom))]', bodyClassName)}>{content.children}</div>
+        <div className={cn('min-h-0 flex-1 overflow-y-auto', padding === 'md' && 'px-5 py-5 short:py-3 sm:px-6', padding === 'md' && !content.footer && 'pb-[max(1.25rem,env(safe-area-inset-bottom))]', bodyClassName)}>{content.children}</div>
         {content.footer && (
-          <div className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-gray-50/80 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:px-6">
+          <div className="flex flex-col-reverse gap-2 border-t border-gray-100 bg-gray-50/80 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] short:flex-row short:justify-end short:py-2 short:[&>*]:flex-1 sm:flex-row sm:justify-end sm:px-6 sm:short:[&>*]:flex-none">
             {content.footer}
           </div>
         )}

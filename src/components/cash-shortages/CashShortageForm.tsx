@@ -187,7 +187,7 @@ function ShortageForm({ clubId, defaultMonth, today, enabledPaymentMethods, empl
   const reasonIcons: Record<CashShortageReason, LucideIcon> = { stolen: TriangleAlert, short_handover: HandCoins, unknown: CircleHelp };
 
   const actions = (
-    <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+    <div className="flex w-full flex-col-reverse gap-2 short:flex-row short:justify-end short:[&>*]:flex-1 sm:flex-row sm:justify-end sm:short:[&>*]:flex-none">
       {onCancel ? <Button type="button" variant="secondary" disabled={saving} onClick={onCancel}>{tc('cancel')}</Button> : null}
       <Button
         type="submit"

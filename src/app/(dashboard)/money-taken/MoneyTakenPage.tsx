@@ -1188,7 +1188,7 @@ export default function MoneyTakenPage() {
                               <IconChip icon={SIDE_ICONS.playstation} tone="reserve" size="sm" />
                               <div className="min-w-0">
                                 <p className="text-sm font-semibold text-gray-900">{t('playstation')}</p>
-                                <p className="break-words text-xs text-gray-500">
+                                <p className="hyphens-auto break-words text-xs text-gray-500">
                                   {t('hero.playstationTaken', {
                                     withdrawn: formatCurrency(playstationProfit.withdrawn),
                                     earned: formatCurrency(playstationProfit.earned),
@@ -1511,7 +1511,7 @@ export default function MoneyTakenPage() {
           : undefined}
         size="md"
         footer={(
-          <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <div className="flex w-full flex-col-reverse gap-2 short:flex-row short:justify-end short:[&>*]:flex-1 sm:flex-row sm:justify-end sm:short:[&>*]:flex-none">
             <Button type="button" variant="secondary" disabled={shortageBusy !== null} onClick={() => setRecoverTarget(null)}>{tc('cancel')}</Button>
             <Button type="submit" form="shortage-recover-form" disabled={!recoverValid} loading={shortageBusy !== null} loadingLabel={tc('saving')} icon={<Undo2 size={17} aria-hidden="true" />}>
               {tsh('recoverSave')}

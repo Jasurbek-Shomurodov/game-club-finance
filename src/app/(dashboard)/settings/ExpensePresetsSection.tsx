@@ -200,9 +200,9 @@ function PresetList({ clubId, isOwner }: { clubId: string; isOwner: boolean }) {
         ) : (
           <ul aria-label={t('title')} className="divide-y divide-gray-100">
             {live.map((preset) => (
-              <li key={preset.id} className="flex items-center gap-3 px-5 py-3">
+              <li key={preset.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3">
                 <CategoryIcon category={preset.category} tone={preset.payment_source === 'bar' ? 'bar' : 'expense'} />
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 basis-40">
                   <p className="truncate text-sm font-semibold text-gray-950">{preset.name}</p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
                     <span>{tExpenses(`categories.${preset.category}` as Parameters<typeof tExpenses>[0])}</span>

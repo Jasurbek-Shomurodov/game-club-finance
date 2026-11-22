@@ -29,6 +29,10 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      screens: {
+        // Little height: a phone with the keyboard up, or a phone on its side.
+        short: { raw: '(max-height: 480px)' },
+      },
       fontFamily: {
         sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
       },

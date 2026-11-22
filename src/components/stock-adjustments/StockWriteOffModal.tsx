@@ -160,7 +160,7 @@ export function StockWriteOffModal({ open, rows, saving, canChangeRecorded, show
       description={t('writeOffDescription')}
       size="xl"
       footer={(
-        <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div className="flex w-full flex-col-reverse gap-2 short:flex-row short:justify-end short:[&>*]:flex-1 sm:flex-row sm:justify-end sm:short:[&>*]:flex-none">
           <Button variant="outline" disabled={saving} onClick={onClose}>{tc('cancel')}</Button>
           <Button
             type="submit"

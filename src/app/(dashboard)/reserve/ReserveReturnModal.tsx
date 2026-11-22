@@ -99,7 +99,7 @@ export function ReserveReturnModal({ balances, currentMonth, methodLabel, curren
       description={tr('returnDescription', { month: formatYearMonth(month, locale) })}
       size="md"
       footer={(
-        <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div className="flex w-full flex-col-reverse gap-2 short:flex-row short:justify-end short:[&>*]:flex-1 sm:flex-row sm:justify-end sm:short:[&>*]:flex-none">
           <Button type="button" variant="secondary" disabled={reserveBusy !== null} onClick={onClose}>{tc('cancel')}</Button>
           <Button type="submit" form="reserve-return-form" disabled={!returnValid} loading={reserveBusy === 'return'} loadingLabel={tc('saving')} icon={<Undo2 size={17} aria-hidden="true" />}>
             {tr('returnSave')}

@@ -155,6 +155,8 @@ toasts. Components own their z-index; pages do not write `z-*`.
   auto-fit grids) over more breakpoints.
 - Above 1536px the page content and top bar are capped (`max-w-screen-2xl`) and
   centred; cards and text lines do not stretch on very wide screens.
+- `short:` is the variant for little height (keyboard up, phone on its side):
+  `Modal` hides its description and puts footer buttons in one row there.
 - `Modal` is a bottom sheet on phones; its title and footer stay in view.
 - Tables become cards (`mobileCards`) or scroll inside their own card.
 

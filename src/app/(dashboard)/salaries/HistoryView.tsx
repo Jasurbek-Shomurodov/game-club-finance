@@ -201,7 +201,7 @@ export function HistoryView({
                           {tc(`paymentMethods.${entry.payment_method}`)} · {tp(`paymentSources.${entry.payment_source}`)}
                         </span>
                       )}
-                      {entry.comment && <span className="mt-1.5 block whitespace-pre-line break-words text-gray-600">{entry.comment}</span>}
+                      {entry.comment && <span className="mt-1.5 block hyphens-auto whitespace-pre-line break-words text-gray-600">{entry.comment}</span>}
                     </span>
                     <span className="flex shrink-0 flex-col items-end gap-1">
                       <strong className={cn('whitespace-nowrap tabular-nums', entry.kind === 'bonus' ? 'text-primary-700' : entry.kind === 'fine' ? 'text-danger-600' : 'text-gray-900')}>{entryAmount(entry)}</strong>
