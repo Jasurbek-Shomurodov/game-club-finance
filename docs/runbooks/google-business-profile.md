@@ -72,8 +72,12 @@ cron -> /api/cron/google-review-replies (CRON_SECRET)
   The JSON's `digest` per club is `sent`, `queued` (left for the report
   album), `held` (already handled today), `skipped` (no group) or `failed`.
 - The image rides in the daily report album when that club's scheduled report
-  for its last closed business day is not yet `sent`, `dispatching` or
-  `manual_review` in `telegram_report_deliveries`. The report run adds the
+  for the business date that report will carry is not yet `sent`,
+  `dispatching` or `manual_review` in `telegram_report_deliveries`. That date
+  is judged at the 08:00 report time (`nextDailyReportBusinessDateIso`), not
+  at 07:50: both Pixel clubs start their day at 08:00, so at 07:50 they are
+  still on the previous business day, and judging then sent the image on its
+  own every morning until 22 Nov 2026. The report run adds the
   newest `awaiting_report` digest as the album's last photo, adds an
   `🤖 ИИ-бот` line to the caption, and then records the digest as sent
   (`reviewDigestSent` in its JSON). After a text-only report the image follows

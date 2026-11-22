@@ -15,7 +15,7 @@ import {
   summarizeStockCorrectionsForReport,
   summarizeStockWriteOffsForReport,
 } from './dailyFinanceReport';
-import { isIsoDate, previousClubBusinessDateIso } from './sendDailyFinanceReport';
+import { isIsoDate, nextDailyReportBusinessDateIso, previousClubBusinessDateIso } from './sendDailyFinanceReport';
 
 describe('formatRussianDailyFinanceReport', () => {
   it('formats the two-line photo caption without duplicating the club name', () => {
@@ -741,5 +741,19 @@ describe('stock corrections in the daily report', () => {
       'Списано: 2 шт., убыток 10 000 UZS',
       'Корректировки: +3 шт. (больше ожидаемого)',
     ]);
+  });
+});
+
+describe('nextDailyReportBusinessDateIso', () => {
+  it('judges a 07:50 Tashkent run at the 08:00 report for a club whose day starts at 08:00', () => {
+    // 02:50 UTC = 07:50 Tashkent: the business day is still the 21st, but the
+    // 08:00 report will carry the 21st.
+    expect(nextDailyReportBusinessDateIso(new Date('2026-11-22T02:50:00.000Z'), 8)).toBe('2026-11-21');
+    expect(previousClubBusinessDateIso(new Date('2026-11-22T02:50:00.000Z'), 8)).toBe('2026-11-20');
+  });
+
+  it('matches the last closed day once the report time has passed', () => {
+    expect(nextDailyReportBusinessDateIso(new Date('2026-11-22T09:00:00.000Z'), 8)).toBe('2026-11-21');
+    expect(nextDailyReportBusinessDateIso(new Date('2026-11-22T02:50:00.000Z'), 6)).toBe('2026-11-21');
   });
 });

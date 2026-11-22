@@ -8,7 +8,7 @@ import { connectedAccessToken, googleConfig, locationPath, type GoogleConnection
 import { cronAuthorizationStatus } from '@/lib/cronAuth';
 import { createServiceClient } from '@/lib/supabase/service';
 import { targetChatId } from '@/lib/telegram/clubChat';
-import { getClubBusinessDayStartHour, previousClubBusinessDateIso, sendTelegramPhoto } from '@/lib/telegram/sendDailyFinanceReport';
+import { getClubBusinessDayStartHour, nextDailyReportBusinessDateIso, sendTelegramPhoto } from '@/lib/telegram/sendDailyFinanceReport';
 import { serverTodayIso } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -116,13 +116,13 @@ function telegramDigestDeps(supabase: ReturnType<typeof createServiceClient>): R
   return {
     chatId: (clubId) => targetChatId(clubId)?.trim() || null,
     async reportPending(clubId) {
-      // The report sent next carries the club's last closed business day.
+      // Wait for the report that goes out next, judged at its run time.
       const startHour = await getClubBusinessDayStartHour(supabase, clubId);
       const { data, error } = await supabase
         .from('telegram_report_deliveries')
         .select('id')
         .eq('club_id', clubId)
-        .eq('business_date', previousClubBusinessDateIso(new Date(), startHour))
+        .eq('business_date', nextDailyReportBusinessDateIso(new Date(), startHour))
         .eq('delivery_key', 'scheduled')
         .in('status', ['sent', 'dispatching', 'manual_review'])
         .limit(1);

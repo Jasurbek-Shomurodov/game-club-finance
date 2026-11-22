@@ -79,6 +79,22 @@ export function previousClubBusinessDateIso(now: Date, businessDayStartHour: num
   return addDaysIso(serverTodayIso(now, businessDayStartHour), -1);
 }
 
+/** UTC hour the scheduled daily report runs (08:00 Tashkent, migration 073). */
+export const DAILY_REPORT_UTC_HOUR = 3;
+
+/**
+ * The business date the next scheduled daily report will carry. Before
+ * today's report time this is judged at that time, not now: a club whose day
+ * starts at 08:00 is still on yesterday's business day at 07:50, yet the 08:00
+ * report covers the day that is just closing.
+ */
+export function nextDailyReportBusinessDateIso(now: Date, businessDayStartHour: number): string {
+  const reportAt = new Date(Date.UTC(
+    now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), DAILY_REPORT_UTC_HOUR,
+  ));
+  return previousClubBusinessDateIso(reportAt > now ? reportAt : now, businessDayStartHour);
+}
+
 /** The club's configured business-day start hour (0 on pre-019 databases). */
 export async function getClubBusinessDayStartHour(
   supabase: SupabaseClient,
