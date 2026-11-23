@@ -5365,5 +5365,9 @@
   {
     "file": "174_showcase_search_taglines.sql",
     "probes": []
+  },
+  {
+    "file": "175_pixel_full_tier_price_list.sql",
+    "probes": []
   }
 ]
