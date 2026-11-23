@@ -3,6 +3,7 @@ import { formatCurrency, formatDateOnly } from '../formatters';
 import {
   calculateAverageDailyIncome,
   calculateDashboardTotals,
+  calculateGameClubMoneyLeftByPaymentMethod,
   calculateInventoryValueFromLatestStockCounts,
   getAverageIncomeDayCounts,
   percentChange,
@@ -18,7 +19,10 @@ import type {
 } from '../calculations/dashboardMetrics';
 import { listLowStockProducts, STOCK_CORRECTION_REASON_PATTERN, STOCK_WRITE_OFF_REASON_PATTERN, stockWriteOffQuantity } from '../calculations/stock';
 import type { AnalysisLedgers } from '../calculations/financialAnalysis';
+import type { MoneyExchangeRow } from '../calculations/moneyExchanges';
+import type { MoneyLeftByPaymentMethod } from '../calculations/dashboardMetrics';
 import { buildDrillSankey, type DrillSankey } from '../calculations/sankeyDrill';
+import { buildMonthForecast, type ForecastDayRow, type SideForecast } from '../calculations/analysisSeries';
 import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
 import type { LowStockProduct, LowStockProductInput } from '../calculations/stock';
 
@@ -84,6 +88,47 @@ export interface DailyFinanceReportInput {
   stockCorrections?: DailyFinanceStockCorrection[];
   /** Internet due date when this report is sent the day before it; otherwise absent. */
   internetPaymentDueDate?: string | null;
+  /** Where the month's money is and where it went: methods, investments, reserve, owners, salaries. */
+  monthMoney?: DailyFinanceMonthMoney;
+  /** Month-end figures at this month's daily pace, beside last month's totals. */
+  monthForecast?: DailyFinanceMonthForecast;
+}
+
+export interface DailyFinanceMonthForecast {
+  daysInMonth: number;
+  /** Calendar days after the report date until the month ends. */
+  daysLeft: number;
+  gameClub: SideForecast;
+  bar: SideForecast;
+  playstation: SideForecast;
+  /** Running money in per day of the month: actual, projected and last month. */
+  days: ForecastDayRow[];
+}
+
+/** Per-business split: the game club and the bar are separate money. */
+export interface DailyFinanceBySource {
+  gameClub: number;
+  bar: number;
+}
+
+export interface DailyFinanceMonthMoney {
+  /** Game Club money left this month per payment method (exchanges and reserve moves applied). */
+  byMethod: MoneyLeftByPaymentMethod;
+  /** `investments` expenses this month. */
+  invested: DailyFinanceBySource;
+  /** Money put into the owner reserve this month, money returned from it, and the net. */
+  reserve: { deposited: number; returned: number; net: number };
+  /** Owner withdrawals for this month; absent when they could not be read. */
+  withdrawn?: DailyFinanceBySource;
+  /** `salary` expenses this month, both businesses. */
+  salaries: number;
+}
+
+/** An owner withdrawal as the report reads it. */
+export interface DailyFinanceWithdrawalRow {
+  period_month: string;
+  source: string;
+  amount: number | string;
 }
 
 export interface DailyFinancePromoGiveaway {
@@ -208,6 +253,91 @@ export interface DailyFinanceReportRows {
   reserveMoves?: ReserveMove[];
   /** Calendar date the report is sent on; the reminder fires when the next day is the payment date. */
   sendDate?: string;
+  /** Money exchanges between methods dated this month; omitted means none. */
+  monthExchangeRows?: MoneyExchangeRow[];
+  /** Owner withdrawals; omitted when they could not be read. */
+  withdrawalRows?: DailyFinanceWithdrawalRow[];
+  /**
+   * Every ledger from the previous month's start through the report date, for
+   * the month-end forecast and last month's full totals; omitted means no forecast.
+   */
+  forecastLedgers?: AnalysisLedgers;
+}
+
+/** The month-end forecast as the report shows it (the same projection as Financial analysis). */
+export function buildReportMonthForecast(businessDate: string, ledgers: AnalysisLedgers): DailyFinanceMonthForecast {
+  const forecast = buildMonthForecast(businessDate, ledgers);
+  return {
+    daysInMonth: forecast.daysInMonth,
+    daysLeft: forecast.daysInMonth - Number(businessDate.slice(8, 10)),
+    gameClub: forecast.gameClub,
+    bar: forecast.bar,
+    playstation: forecast.playstation,
+    days: forecast.days,
+  };
+}
+
+function bySource<T extends { payment_source?: string | null; amount: number | string }>(rows: readonly T[]): DailyFinanceBySource {
+  return rows.reduce((totals, row) => {
+    if (row.payment_source === 'bar') totals.bar += Number(row.amount ?? 0);
+    else totals.gameClub += Number(row.amount ?? 0);
+    return totals;
+  }, { gameClub: 0, bar: 0 });
+}
+
+/**
+ * The month's money at a glance: what each Game Club method holds, and what
+ * left the businesses on purpose (investments, the owner reserve, owner
+ * withdrawals, salaries). Every figure is month to date through the report day.
+ */
+export function summarizeMonthMoney(input: {
+  month: string;
+  cashRows: DailyCashRow[];
+  expenseRows: ExpenseRow[];
+  debtPaymentRows: DailyFinanceReportDebtPaymentRow[];
+  exchangeRows?: MoneyExchangeRow[];
+  reserveMoves?: readonly ReserveMove[];
+  withdrawalRows?: DailyFinanceWithdrawalRow[];
+}): DailyFinanceMonthMoney {
+  const moves = input.reserveMoves ?? [];
+  const deposited = moves.reduce((sum, move) => (move.amount > 0 ? sum + move.amount : sum), 0);
+  const returned = moves.reduce((sum, move) => (move.amount < 0 ? sum - move.amount : sum), 0);
+  return {
+    byMethod: calculateGameClubMoneyLeftByPaymentMethod(
+      input.cashRows,
+      input.expenseRows,
+      input.debtPaymentRows,
+      input.exchangeRows ?? [],
+      moves,
+    ),
+    invested: bySource(input.expenseRows.filter((row) => row.category === 'investments')),
+    reserve: { deposited, returned, net: deposited - returned },
+    withdrawn: input.withdrawalRows === undefined
+      ? undefined
+      : bySource(input.withdrawalRows
+        .filter((row) => row.period_month.slice(0, 7) === input.month)
+        .map((row) => ({ payment_source: row.source, amount: row.amount }))),
+    salaries: input.expenseRows
+      .filter((row) => row.category === 'salary')
+      .reduce((sum, row) => sum + Number(row.amount ?? 0), 0),
+  };
+}
+
+function monthMoneyLines(value: DailyFinanceMonthMoney | undefined): string[] {
+  if (!value) return [];
+  const methods = value.byMethod;
+  return [
+    '',
+    '💵 Деньги клуба по способам оплаты (за месяц):',
+    `  • Наличные: ${money(methods.cash)}`,
+    `  • Терминал: ${money(methods.terminal)}`,
+    `  • Карта: ${money(methods.card)}`,
+    ...(methods.playstation ? [`  • PlayStation: ${money(methods.playstation)}`] : []),
+    `📈 Инвестировано за месяц: ${money(value.invested.gameClub + value.invested.bar)}`,
+    `🏦 В резерв за месяц: ${money(value.reserve.net)} (внесено ${money(value.reserve.deposited)}, возвращено ${money(value.reserve.returned)})`,
+    ...(value.withdrawn ? [`👤 Выведено владельцами: ${money(value.withdrawn.gameClub + value.withdrawn.bar)}`] : []),
+    `👥 Зарплаты за месяц: ${money(value.salaries)}`,
+  ];
 }
 
 function addDaysIso(date: string, days: number): string {
@@ -674,6 +804,18 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
     internetPaymentDueDate: rows.sendDate
       ? internetPaymentDueDate(rows.sendDate, rows.internetPaymentDay)
       : null,
+    monthMoney: summarizeMonthMoney({
+      month: monthRange.from.slice(0, 7),
+      cashRows: rows.monthCashRows ?? rows.cashRows,
+      expenseRows: rows.monthExpenseRows ?? rows.expenseRows,
+      debtPaymentRows: monthDebtPaymentRows,
+      exchangeRows: rows.monthExchangeRows,
+      reserveMoves: movesIn(monthRange),
+      withdrawalRows: rows.withdrawalRows,
+    }),
+    monthForecast: rows.forecastLedgers
+      ? buildReportMonthForecast(rows.businessDate, rows.forecastLedgers)
+      : undefined,
   };
 }
 
@@ -715,6 +857,7 @@ export function formatRussianDailyFinanceReport(input: DailyFinanceReportInput):
     '',
     `📦 Стоимость склада: ${money(input.inventoryValue)}`,
     `🤝 Активные долги: ${money(input.activeDebts)}`,
+    ...monthMoneyLines(input.monthMoney),
     ...promoGiveawayLines(input.promoGiveaways),
     ...stockWriteOffLines(input.stockWriteOffs),
     ...stockCorrectionLines(input.stockCorrections),

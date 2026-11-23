@@ -12,6 +12,7 @@ import {
   monthStartIso,
   previousComparableMonthRangeIso,
   runningDailyAverage,
+  summarizeMonthMoney,
   summarizeStockCorrectionsForReport,
   summarizeStockWriteOffsForReport,
 } from './dailyFinanceReport';
@@ -755,5 +756,46 @@ describe('nextDailyReportBusinessDateIso', () => {
   it('matches the last closed day once the report time has passed', () => {
     expect(nextDailyReportBusinessDateIso(new Date('2026-11-22T09:00:00.000Z'), 8)).toBe('2026-11-21');
     expect(nextDailyReportBusinessDateIso(new Date('2026-11-22T02:50:00.000Z'), 6)).toBe('2026-11-21');
+  });
+});
+
+describe('summarizeMonthMoney', () => {
+  const expense = (id: string, category: string, amount: number, extra: Record<string, unknown> = {}) => ({
+    id, date: '2026-11-10', amount, category, comment: null, created_at: '2026-11-10T10:00:00Z', ...extra,
+  });
+
+  it('splits club money by method and totals investments, reserve, withdrawals and salaries', () => {
+    const result = summarizeMonthMoney({
+      month: '2026-11',
+      cashRows: [{ date: '2026-11-10', cash_income: 1_000_000, terminal_income: 3_000_000, card_income: 0, playstation_income: 200_000 }],
+      expenseRows: [
+        expense('a', 'investments', 500_000, { payment_method: 'cash' }),
+        expense('b', 'investments', 100_000, { payment_source: 'bar' }),
+        expense('c', 'salary', 400_000, { payment_method: 'terminal' }),
+      ],
+      debtPaymentRows: [{ date: '2026-11-11', amount: 50_000, payment_method: 'cash' }],
+      exchangeRows: [{ id: 'x', date: '2026-11-12', from_method: 'terminal', to_method: 'cash', from_amount: 300_000, to_amount: 300_000 } as never],
+      reserveMoves: [
+        { date: '2026-11-12', source: 'game_club', method: 'terminal', amount: 1_000_000 },
+        { date: '2026-11-15', source: 'game_club', method: 'terminal', amount: -200_000 },
+      ],
+      withdrawalRows: [
+        { period_month: '2026-11-01', source: 'game_club', amount: 700_000 },
+        { period_month: '2026-11-01', source: 'bar', amount: '50000' },
+        { period_month: '2026-10-01', source: 'game_club', amount: 999_999 },
+      ],
+    });
+
+    expect(result.byMethod).toEqual({ cash: 850_000, terminal: 1_500_000, card: 0, playstation: 200_000 });
+    expect(result.invested).toEqual({ gameClub: 500_000, bar: 100_000 });
+    expect(result.reserve).toEqual({ deposited: 1_000_000, returned: 200_000, net: 800_000 });
+    expect(result.withdrawn).toEqual({ gameClub: 700_000, bar: 50_000 });
+    expect(result.salaries).toBe(400_000);
+  });
+
+  it('leaves withdrawals out when they could not be read', () => {
+    const result = summarizeMonthMoney({ month: '2026-11', cashRows: [], expenseRows: [], debtPaymentRows: [] });
+    expect(result.withdrawn).toBeUndefined();
+    expect(result.reserve.net).toBe(0);
   });
 });

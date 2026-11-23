@@ -292,6 +292,12 @@ export async function GET(request: NextRequest) {
               fileName: report.imagePng ? report.imageFileName : null,
               bytes: report.imagePng?.byteLength ?? 0,
             },
+            monthImage: report.monthImage
+              ? { fileName: report.monthImage.fileName, bytes: report.monthImage.png.byteLength }
+              : null,
+            forecastImage: report.forecastImage
+              ? { fileName: report.forecastImage.fileName, bytes: report.forecastImage.png.byteLength }
+              : null,
             writeOffsImage: report.adjustmentsImage
               ? { fileName: report.adjustmentsImage.fileName, bytes: report.adjustmentsImage.png.byteLength, caption: report.adjustmentsImage.caption }
               : null,
@@ -556,11 +562,14 @@ export async function GET(request: NextRequest) {
       }
 
       try {
-        // The report, the write-offs/corrections image and the AI bot image
-        // go out together as one album whenever there is more than the report.
+        // The day image, the month image, the forecast image, the
+        // write-offs/corrections image and the AI bot image go out together as
+        // one album whenever there is more than the day image.
         const albumPhotos = report.imagePng
           ? [
               { png: report.imagePng, fileName: report.imageFileName },
+              ...(report.monthImage ? [{ png: report.monthImage.png, fileName: report.monthImage.fileName }] : []),
+              ...(report.forecastImage ? [{ png: report.forecastImage.png, fileName: report.forecastImage.fileName }] : []),
               ...(report.adjustmentsImage ? [{ png: report.adjustmentsImage.png, fileName: report.adjustmentsImage.fileName }] : []),
               ...(reviewDigest ? [{ png: reviewDigest.png, fileName: reviewDigest.fileName }] : []),
             ]

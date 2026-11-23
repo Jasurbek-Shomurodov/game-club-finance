@@ -14,6 +14,8 @@ import {
 
 vi.mock('./dailyFinanceReportImage', () => ({
   renderDailyFinanceReportPng: vi.fn().mockResolvedValue(null),
+  renderMonthlyFinanceReportPng: vi.fn().mockResolvedValue(null),
+  renderForecastReportPng: vi.fn().mockResolvedValue(null),
 }));
 
 type RecordedQuery = { table: string; select?: string; filters: string[] };

@@ -19,7 +19,7 @@ const vercelConfig = JSON.parse(readFileSync(resolve(process.cwd(), 'vercel.json
 describe('daily finance image deployment configuration', () => {
   it('statically imports the renderer so Vercel traces sharp', () => {
     expect(senderSource).toMatch(
-      /import \{ renderDailyFinanceReportPng, renderStockAdjustmentsReportPng \} from '\.\/dailyFinanceReportImage';/,
+      /import \{ renderDailyFinanceReportPng, renderForecastReportPng, renderMonthlyFinanceReportPng, renderStockAdjustmentsReportPng \} from '\.\/dailyFinanceReportImage';/,
     );
     expect(senderSource).not.toMatch(/await import\('\.\/dailyFinanceReportImage'\)/);
   });

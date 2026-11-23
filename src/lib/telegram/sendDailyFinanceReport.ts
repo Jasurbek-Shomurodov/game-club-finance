@@ -1,4 +1,5 @@
 import { fetchReserveMoves } from '@/lib/supabase/reserveMoves';
+import { fetchMoneyExchanges } from '@/lib/supabase/moneyExchanges';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatDateOnly } from '../formatters';
 import { isMissingDatabaseColumn } from '../supabase/errors';
@@ -12,7 +13,7 @@ import {
   monthStartIso,
   previousComparableMonthRangeIso,
 } from './dailyFinanceReport';
-import { renderDailyFinanceReportPng, renderStockAdjustmentsReportPng } from './dailyFinanceReportImage';
+import { renderDailyFinanceReportPng, renderForecastReportPng, renderMonthlyFinanceReportPng, renderStockAdjustmentsReportPng } from './dailyFinanceReportImage';
 import type {
   DailyCashRow,
   ExpenseRow,
@@ -27,6 +28,7 @@ import type {
   DailyFinanceGiveawayRow,
   DailyFinanceWriteOffRow,
   DailyFinanceReportLaterDebtPaymentRow,
+  DailyFinanceWithdrawalRow,
 } from './dailyFinanceReport';
 
 const TELEGRAM_API_BASE = 'https://api.telegram.org';
@@ -53,6 +55,14 @@ export interface DailyFinanceReportBuildResult {
    * after the report; null when there were none (or it could not be drawn).
    */
   adjustmentsImage: { png: Buffer; fileName: string; caption: string } | null;
+  /**
+   * The month so far (money by method, reserve, investments, forecast, flows,
+   * trends) on its own image, sent right after the day image; null when it
+   * could not be drawn.
+   */
+  monthImage: { png: Buffer; fileName: string } | null;
+  /** The month-end forecast with its running-total charts, sent after the month image; null when absent. */
+  forecastImage: { png: Buffer; fileName: string } | null;
 }
 
 /** Strict YYYY-MM-DD that names a real calendar date (rejects 2026-02-31). */
@@ -233,6 +243,25 @@ export async function getStockWriteOffRows(
   }
 }
 
+/** This month's owner withdrawals, or undefined when they cannot be read (the report still goes out). */
+async function getMonthWithdrawalRows(
+  supabase: SupabaseClient,
+  clubId: string,
+  monthStart: string,
+): Promise<DailyFinanceWithdrawalRow[] | undefined> {
+  const { data, error } = await fetchAllRows<DailyFinanceWithdrawalRow>(() => supabase
+    .from('owner_withdrawals')
+    .select('id,period_month,source,amount')
+    .eq('club_id', clubId)
+    .eq('period_month', monthStart)
+    .order('id', { ascending: true }));
+  if (error) {
+    console.error('[telegram/daily-finance] owner withdrawals unavailable:', error.message);
+    return undefined;
+  }
+  return data ?? [];
+}
+
 async function getClub(supabase: SupabaseClient, clubId: string): Promise<ClubRow> {
   const { data, error } = await supabase
     .from('clubs')
@@ -328,7 +357,7 @@ export async function buildDailyFinanceTelegramReport(
       .order('date', { ascending: true })
       .order('id', { ascending: true }),
   );
-  const [clubRes, cashRes, stockRes, purchaseRes, expenseRes, debtPaymentRes, laterDebtPaymentRes, debtRes, lowStockProductRows, giveawayRows, writeOffRows, internetPaymentDay, reserveMoves] = await Promise.all([
+  const [clubRes, cashRes, stockRes, purchaseRes, expenseRes, debtPaymentRes, laterDebtPaymentRes, debtRes, lowStockProductRows, giveawayRows, writeOffRows, internetPaymentDay, reserveMoves, monthExchangeRows, withdrawalRows] = await Promise.all([
     getClub(supabase, clubId),
     windowed<DailyCashRow>('daily_cash_entries', 'date,cash_income,terminal_income,card_income,playstation_income', ['date']),
     // (club_id, date, product_id) is unique, so the ordering pages stably.
@@ -356,6 +385,8 @@ export async function buildDailyFinanceTelegramReport(
     getStockWriteOffRows(supabase, clubId, businessDate),
     getInternetPaymentDay(supabase, clubId),
     fetchReserveMoves(supabase, clubId, windowFrom, businessDate),
+    fetchMoneyExchanges(supabase, clubId, monthStart, businessDate),
+    getMonthWithdrawalRows(supabase, clubId, monthStart),
   ]);
 
   const firstError = [
@@ -406,6 +437,18 @@ export async function buildDailyFinanceTelegramReport(
     writeOffRows,
     internetPaymentDay,
     reserveMoves,
+    monthExchangeRows,
+    withdrawalRows,
+    // The window already spans all of last month, so its full totals are known.
+    forecastLedgers: {
+      cashRows,
+      stockRows,
+      purchaseRows,
+      expenseRows,
+      debtRows: (debtRes.data ?? []) as DailyFinanceReportDebtRow[],
+      debtPaymentRows,
+      reserveMoves,
+    },
     // Calendar date in the club's time zone, independent of its business-day start.
     sendDate: serverTodayIso(now, 0),
   });
@@ -414,6 +457,18 @@ export async function buildDailyFinanceTelegramReport(
     imagePng = await renderDailyFinanceReportPng(input);
   } catch (error) {
     console.error('[telegram/daily-finance] report image unavailable; using text fallback:', error);
+  }
+  let monthPng: Buffer | null = null;
+  try {
+    monthPng = await renderMonthlyFinanceReportPng(input);
+  } catch (error) {
+    console.error('[telegram/daily-finance] month image unavailable; omitting it:', error);
+  }
+  let forecastPng: Buffer | null = null;
+  try {
+    forecastPng = await renderForecastReportPng(input);
+  } catch (error) {
+    console.error('[telegram/daily-finance] forecast image unavailable; omitting it:', error);
   }
   let adjustmentsPng: Buffer | null = null;
   try {
@@ -430,6 +485,12 @@ export async function buildDailyFinanceTelegramReport(
     caption: formatRussianDailyFinanceReportCaption(input),
     imagePng,
     imageFileName: `daily-finance-${clubId}-${businessDate}.png`,
+    monthImage: monthPng
+      ? { png: monthPng, fileName: `month-finance-${clubId}-${businessDate}.png` }
+      : null,
+    forecastImage: forecastPng
+      ? { png: forecastPng, fileName: `forecast-finance-${clubId}-${businessDate}.png` }
+      : null,
     adjustmentsImage: adjustmentsPng
       ? {
           png: adjustmentsPng,

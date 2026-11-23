@@ -8,7 +8,7 @@ import { BAR_COST_TARGET, OTHER_CATEGORY } from '../calculations/financialAnalys
 import { BAR_LEFT, GAME_CLUB_LEFT, type DrillSankey } from '../calculations/sankeyDrill';
 import { layoutSankey } from '../sankeyLayout';
 import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
-import { hasStockAdjustments, runningDailyAverage, stockCorrectionItemLabel, stockWriteOffItemLabel, type DailyFinanceIncomePoint, type DailyFinancePromoGiveaway, type DailyFinanceReportInput, type DailyFinanceStockCorrection, type DailyFinanceStockWriteOff } from './dailyFinanceReport';
+import { hasStockAdjustments, runningDailyAverage, type DailyFinanceMonthForecast, type DailyFinanceMonthMoney, stockCorrectionItemLabel, stockWriteOffItemLabel, type DailyFinanceIncomePoint, type DailyFinancePromoGiveaway, type DailyFinanceReportInput, type DailyFinanceStockCorrection, type DailyFinanceStockWriteOff } from './dailyFinanceReport';
 import { REPORT_FONT_DIRECTORY, REPORT_FONT_FILES } from './reportFontConfig';
 
 const WIDTH = 1600;
@@ -91,6 +91,12 @@ function changeBadge(x: number, y: number, change: number | null | undefined, si
     <text x="${x + half * 2 + 6}" y="${y}" font-size="${size}" font-weight="800" fill="${color}">${Math.abs(change)}%</text>`;
 }
 
+/** Roughly how wide changeBadge draws, so text can follow it. */
+function changeBadgeWidth(change: number | null | undefined, size: number): number {
+  if (change === null || change === undefined || change === 0) return size * 1.6;
+  return size * 0.72 + 6 + `${Math.abs(change)}%`.length * size * 0.62;
+}
+
 function card(x: number, y: number, width: number, height: number, fill = '#FFFFFF', stroke = BORDER): string {
   return `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="24" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
 }
@@ -115,6 +121,117 @@ const GLYPH_WALLET = '<rect x="-14" y="-10" width="28" height="22" rx="4"/><path
 const GLYPH_BARS = '<line x1="-10" y1="12" x2="-10" y2="2"/><line x1="0" y1="12" x2="0" y2="-5"/><line x1="10" y1="12" x2="10" y2="-12"/>';
 const GLYPH_BOX = '<path d="M0,-15 L14,-7 V9 L0,17 L-14,9 V-7 Z"/><polyline points="-14,-7 0,1 14,-7"/><line x1="0" y1="1" x2="0" y2="17"/>';
 const GLYPH_ALERT = '<circle cx="0" cy="0" r="14"/><line x1="0" y1="-7" x2="0" y2="2"/><circle cx="0" cy="8" r="1" fill="#FFFFFF"/>';
+
+const PINK = '#D6408F';
+const TEAL = '#0E9FB3';
+const GLYPH_TERMINAL = '<rect x="-11" y="-16" width="22" height="32" rx="4"/><rect x="-6" y="-11" width="12" height="8" rx="1"/><line x1="-5" y1="4" x2="-3" y2="4"/><line x1="3" y1="4" x2="5" y2="4"/><line x1="-5" y1="10" x2="-3" y2="10"/><line x1="3" y1="10" x2="5" y2="10"/>';
+const GLYPH_CARD = '<rect x="-16" y="-11" width="32" height="22" rx="4"/><line x1="-16" y1="-4" x2="16" y2="-4"/><line x1="-10" y1="5" x2="-2" y2="5"/>';
+const GLYPH_SAFE = '<rect x="-15" y="-14" width="30" height="28" rx="4"/><circle cx="0" cy="0" r="6"/><line x1="0" y1="-6" x2="0" y2="-3"/><line x1="-10" y1="14" x2="-10" y2="17"/><line x1="10" y1="14" x2="10" y2="17"/>';
+const GLYPH_USER = '<circle cx="0" cy="-7" r="7"/><path d="M-13,15 C-13,5 -7,1 0,1 C7,1 13,5 13,15"/>';
+const GLYPH_PEOPLE = '<circle cx="-6" cy="-6" r="6"/><path d="M-17,14 C-17,5 -12,1 -6,1 C0,1 5,5 5,14"/><circle cx="9" cy="-8" r="5"/><path d="M8,0 C14,0 18,4 18,12"/>';
+
+function compactMoney(value: number): string {
+  return compactMoneyFormatter.format(Math.round(value));
+}
+
+/** One figure of the month's money: icon, label, the amount and a short line under it. */
+function monthMoneyTile(
+  x: number,
+  y: number,
+  width: number,
+  color: string,
+  fill: string,
+  glyph: string,
+  label: string,
+  value: number,
+  footer: string,
+): string {
+  return `${card(x, y, width, MONTH_MONEY_TILE_HEIGHT, fill, `${color}55`)}
+    ${iconTile(x + 18, y + 18, 44, color, glyph)}
+    <text x="${x + 74}" y="${y + 47}" font-size="16" font-weight="800" fill="${color}">${escapeXml(label)}</text>
+    ${moneyText(x + 20, y + 104, value, 30, value < 0 ? RED : color)}
+    <text x="${x + 20}" y="${y + 134}" font-size="15" fill="${MUTED}">${escapeXml(footer)}</text>`;
+}
+
+const MONTH_MONEY_TILE_HEIGHT = 152;
+
+/**
+ * Where the month's money is (Game Club money per payment method) and what was
+ * deliberately moved out of the businesses (investments, the owner reserve,
+ * owner withdrawals, salaries).
+ */
+function monthMoneySection(value: DailyFinanceMonthMoney, y: number): { svg: string; height: number } {
+  const innerX = PAGE_X + 28;
+  const innerWidth = PAGE_WIDTH - 56;
+  const gap = 16;
+  const methods = [
+    { key: 'cash', label: 'НАЛИЧНЫЕ', color: GREEN, fill: '#F0FAF3', glyph: GLYPH_WALLET, amount: value.byMethod.cash },
+    { key: 'terminal', label: 'ТЕРМИНАЛ', color: BLUE, fill: '#EEF4FF', glyph: GLYPH_TERMINAL, amount: value.byMethod.terminal },
+    { key: 'card', label: 'КАРТА', color: PINK, fill: '#FDF0F7', glyph: GLYPH_CARD, amount: value.byMethod.card },
+    { key: 'playstation', label: 'PLAYSTATION', color: PURPLE, fill: '#F7F3FF', glyph: GLYPH_GAMEPAD, amount: value.byMethod.playstation },
+  ].filter((method) => method.key === 'cash' || method.amount !== 0);
+  const total = methods.reduce((sum, method) => sum + method.amount, 0);
+  const positiveTotal = methods.reduce((sum, method) => sum + Math.max(0, method.amount), 0);
+
+  // Share bar: each method's part of the money the club holds.
+  const barY = y + 108;
+  let barX = innerX;
+  const segments = positiveTotal > 0
+    ? methods.filter((method) => method.amount > 0).map((method) => {
+      const width = (method.amount / positiveTotal) * innerWidth;
+      const segment = `<rect x="${barX}" y="${barY}" width="${Math.max(0, width - 3)}" height="14" fill="${method.color}"/>`;
+      barX += width;
+      return segment;
+    }).join('')
+    : '';
+  const share = (amount: number) => (positiveTotal > 0 && amount > 0
+    ? `${Math.round((amount / positiveTotal) * 100)}% денег клуба`
+    : 'за месяц');
+
+  const methodWidth = (innerWidth - gap * (methods.length - 1)) / methods.length;
+  const methodY = y + 144;
+  const methodTiles = methods.map((method, index) => monthMoneyTile(
+    innerX + index * (methodWidth + gap), methodY, methodWidth, method.color, method.fill, method.glyph,
+    method.label, method.amount, share(method.amount),
+  )).join('\n    ');
+
+  const flowHeadingY = methodY + MONTH_MONEY_TILE_HEIGHT + 48;
+  const flowY = flowHeadingY + 20;
+  const invested = value.invested.gameClub + value.invested.bar;
+  const flows = [
+    { label: 'ИНВЕСТИРОВАНО', color: AMBER, fill: '#FFF8EB', glyph: GLYPH_TREND_UP, amount: invested,
+      footer: `клуб ${compactMoney(value.invested.gameClub)} · бар ${compactMoney(value.invested.bar)}` },
+    { label: 'В РЕЗЕРВ', color: TEAL, fill: '#EEFAFC', glyph: GLYPH_SAFE, amount: value.reserve.net,
+      footer: `внесено ${compactMoney(value.reserve.deposited)} · возврат ${compactMoney(value.reserve.returned)}` },
+    ...(value.withdrawn ? [{
+      label: 'ВЫВЕДЕНО ВЛАДЕЛЬЦАМИ', color: SLATE, fill: '#F8FAFC', glyph: GLYPH_USER,
+      amount: value.withdrawn.gameClub + value.withdrawn.bar,
+      footer: `клуб ${compactMoney(value.withdrawn.gameClub)} · бар ${compactMoney(value.withdrawn.bar)}`,
+    }] : []),
+    { label: 'ЗАРПЛАТЫ', color: BLUE, fill: '#F5F8FF', glyph: GLYPH_PEOPLE, amount: value.salaries, footer: 'выплачено за месяц' },
+  ];
+  const flowWidth = (innerWidth - gap * (flows.length - 1)) / flows.length;
+  const flowTiles = flows.map((flow, index) => monthMoneyTile(
+    innerX + index * (flowWidth + gap), flowY, flowWidth, flow.color, flow.fill, flow.glyph,
+    flow.label, flow.amount, flow.footer,
+  )).join('\n    ');
+  const height = flowY + MONTH_MONEY_TILE_HEIGHT + 28 - y;
+
+  return {
+    height,
+    svg: `${card(PAGE_X, y, PAGE_WIDTH, height)}
+    <text x="${innerX}" y="${y + 44}" font-size="19" font-weight="800" fill="${INK}">ДЕНЬГИ ЗА МЕСЯЦ</text>
+    <text x="${PAGE_X + PAGE_WIDTH - 28}" y="${y + 44}" text-anchor="end" font-size="16" fill="${MUTED}">с 1-го числа</text>
+    <text x="${innerX}" y="${y + 90}" font-size="16" font-weight="800" fill="${MUTED}">ГДЕ ДЕНЬГИ КЛУБА</text>
+    <text x="${PAGE_X + PAGE_WIDTH - 28}" y="${y + 90}" text-anchor="end" font-size="18" font-weight="800" fill="${total < 0 ? RED : INK}">Всего: ${escapeXml(money(total))}</text>
+    <rect x="${innerX}" y="${barY}" width="${innerWidth}" height="14" rx="7" fill="${BORDER}"/>
+    <clipPath id="methodShare"><rect x="${innerX}" y="${barY}" width="${innerWidth}" height="14" rx="7"/></clipPath>
+    <g clip-path="url(#methodShare)">${segments}</g>
+    ${methodTiles}
+    <text x="${innerX}" y="${flowHeadingY}" font-size="16" font-weight="800" fill="${MUTED}">КУДА НАПРАВЛЕНЫ ДЕНЬГИ</text>
+    ${flowTiles}`,
+  };
+}
 
 function leaderRow(
   x: number,
@@ -645,26 +762,49 @@ function sankeySection(
   };
 }
 
+function svgDocument(height: number, body: string): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${height}" viewBox="0 0 ${WIDTH} ${height}">
+  <defs>
+    <linearGradient id="incomeArea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${BLUE}" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="${BLUE}" stop-opacity="0.02"/>
+    </linearGradient>
+  </defs>
+  <rect width="${WIDTH}" height="${height}" fill="#F4F7FB"/>
+  <g font-family="Noto Sans">
+    ${body}
+  </g>
+</svg>`;
+}
+
+const HEADER_Y = 40;
+/** Where the first section starts under the header. */
+const CONTENT_Y = 176;
+
+function reportHeader(title: string, subtitle: string, glyph: string): string {
+  return `${iconTile(PAGE_X, HEADER_Y, 96, INK, glyph)}
+    <text x="${PAGE_X + 124}" y="${HEADER_Y + 50}" font-size="46" font-weight="800" fill="${INK}">${escapeXml(title)}</text>
+    <text x="${PAGE_X + 124}" y="${HEADER_Y + 88}" font-size="22" fill="${TEXT}">${escapeXml(subtitle)}</text>`;
+}
+
+function reportFooter(y: number, text: string): string {
+  return `<circle cx="${PAGE_X + 18}" cy="${y + 18}" r="11" fill="${MUTED}"/>
+    <text x="${PAGE_X + 18}" y="${y + 24}" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF">i</text>
+    <text x="${PAGE_X + 40}" y="${y + 24}" font-size="17" fill="${MUTED}">${escapeXml(text)}</text>`;
+}
+
+/** The day: each business's money today, its breakdown, giveaways and what is running out. */
 export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): string {
-  const dailyPoints = input.monthDailyGameClubIncome ?? [];
   const clubNetProfit = input.gameClubIncome - input.gameClubExpenses;
   const barNetProfit = input.barSales - input.barCost - input.barExpenses;
 
-  // Header and the month's money flow, one card per business.
-  const headerY = 40;
-  const clubFlow = sankeySection(input.monthGameClubSankey, 'КУДА УХОДЯТ ДЕНЬГИ КЛУБА', 'Клуб', 176);
-  const barFlowY = 176 + clubFlow.height + 24;
-  const barFlow = sankeySection(input.monthBarSankey, 'КУДА УХОДЯТ ДЕНЬГИ БАРА', 'Бар', barFlowY);
-
-  // Daily income per business and monthly trend.
-  const chartsY = barFlowY + barFlow.height + 24;
-  // Three tiles (club, PlayStation, bar), each with its day and its average per day.
-  const chartsHeight = 560;
-
-  // PlayStation, part of club income, tracked on its own: daily sales and their running average.
-  const playstationY = chartsY + chartsHeight + 24;
-  const showPlaystation = input.monthDailyPlaystationIncome !== undefined;
-  const playstationHeight = showPlaystation ? 360 : 0;
+  // Today's money: club, PlayStation and bar side by side, each with its average per day.
+  const todayY = CONTENT_Y;
+  const todayHeight = 236;
+  const tileGap = 20;
+  const tileWidth = (PAGE_WIDTH - 56 - tileGap * 2) / 3;
+  const tileX = (index: number) => PAGE_X + 28 + index * (tileWidth + tileGap);
 
   // Club and bar breakdown cards.
   const clubExpenseRows = limitCategories(input.gameClubExpenseCategories, 5);
@@ -672,26 +812,22 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
     ? clubExpenseRows
     : [{ name: 'Нет расходов', amount: 0 }];
   const barExpenseRows = limitCategories(input.barExpenseCategories, 3);
-  const detailY = playstationY + (showPlaystation ? playstationHeight + 24 : 0);
+  const detailY = todayY + todayHeight + 24;
   const clubContentHeight = 350 + visibleClubExpenseRows.length * 38;
   const barContentHeight = 190 + 3 * 42 + barExpenseRows.length * 34;
   const detailHeight = Math.max(clubContentHeight, barContentHeight) + 112;
   const detailWidth = (PAGE_WIDTH - 24) / 2;
   const barX = PAGE_X + detailWidth + 24;
 
-  // Key indicators and footer.
-  const kpiY = detailY + detailHeight + 24;
-  const kpiHeight = 300;
   const promo = input.promoGiveaways?.length
-    ? promoGiveawaySection(input.promoGiveaways, kpiY + kpiHeight + 24)
+    ? promoGiveawaySection(input.promoGiveaways, detailY + detailHeight + 24)
     : null;
   // Write-offs and corrections have an image of their own (buildStockAdjustmentsReportSvg).
-  const lowStockY = kpiY + kpiHeight + 24 + (promo ? promo.height + 24 : 0);
+  const lowStockY = detailY + detailHeight + 24 + (promo ? promo.height + 24 : 0);
   const lowStock = input.lowStockProducts?.length
     ? lowStockSection(input.lowStockProducts, lowStockY)
     : null;
-  const footerY = kpiY + kpiHeight + (promo ? 24 + promo.height : 0)
-    + (lowStock ? 24 + lowStock.height : 0) + 20;
+  const footerY = lowStockY + (lowStock ? lowStock.height + 24 : 0) - 4;
   const height = footerY + 60;
 
   const clubRows = [
@@ -738,43 +874,14 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
   ));
 
   const netBoxY = detailY + detailHeight - 112;
-  const kpiWidth = (PAGE_WIDTH - 4 * 16) / 5;
-  const kpiX = (index: number) => PAGE_X + index * (kpiWidth + 16);
 
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${height}" viewBox="0 0 ${WIDTH} ${height}">
-  <defs>
-    <linearGradient id="incomeArea" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="${BLUE}" stop-opacity="0.28"/>
-      <stop offset="1" stop-color="${BLUE}" stop-opacity="0.02"/>
-    </linearGradient>
-  </defs>
-  <rect width="${WIDTH}" height="${height}" fill="#F4F7FB"/>
-  <g font-family="Noto Sans">
-    ${iconTile(PAGE_X, headerY, 96, INK, GLYPH_MONITOR)}
-    <text x="${PAGE_X + 124}" y="${headerY + 50}" font-size="46" font-weight="800" fill="${INK}">ФИНАНСЫ КЛУБА</text>
-    <text x="${PAGE_X + 124}" y="${headerY + 88}" font-size="22" fill="${TEXT}">${escapeXml(input.clubName)} · Рабочий день: ${escapeXml(input.businessDateLabel)}</text>
+  return svgDocument(height, `${reportHeader('ФИНАНСЫ ДНЯ', `${input.clubName} · Рабочий день: ${input.businessDateLabel}`, GLYPH_MONITOR)}
 
-    ${clubFlow.svg}
-
-    ${barFlow.svg}
-
-    ${card(PAGE_X, chartsY, 440, chartsHeight)}
-    <text x="${PAGE_X + 28}" y="${chartsY + 50}" font-size="19" font-weight="800" fill="${INK}">ДОХОД ЗА ДЕНЬ</text>
-    ${incomeTile(PAGE_X + 20, chartsY + 72, 'КЛУБ', BLUE, '#EEF4FF', '#C7D7FB', GLYPH_MONITOR, input.gameClubIncome, input.averageDailyGameClubIncome, input.averageDailyGameClubIncomeChange)}
-    ${incomeTile(PAGE_X + 20, chartsY + 232, 'PLAYSTATION', PURPLE, '#F7F3FF', '#DDD0FB', GLYPH_GAMEPAD, input.playstationIncome, input.averageDailyPlaystationIncome, input.averageDailyPlaystationIncomeChange)}
-    ${incomeTile(PAGE_X + 20, chartsY + 392, 'БАР', ORANGE, '#FFF3E8', '#FBD5B5', GLYPH_BAG, input.barSales, input.averageDailyBarSales, input.averageDailyBarSalesChange)}
-
-    ${card(PAGE_X + 464, chartsY, PAGE_WIDTH - 464, chartsHeight)}
-    <text x="${PAGE_X + 492}" y="${chartsY + 50}" font-size="19" font-weight="800" fill="${INK}">ДИНАМИКА ДОХОДА КЛУБА ЗА МЕСЯЦ</text>
-    ${incomeChart(dailyPoints, PAGE_X + 580, chartsY + 84, PAGE_WIDTH - 464 - 146, 330)}
-    ${card(PAGE_X + 488, chartsY + 466, PAGE_WIDTH - 512, 76, '#F8FAFC')}
-    <text x="${PAGE_X + 512}" y="${chartsY + 498}" font-size="17" fill="${TEXT}">Средний доход клуба / день</text>
-    ${moneyText(PAGE_X + 512, chartsY + 530, input.averageDailyGameClubIncome, 26, PURPLE)}
-    ${changeBadge(WIDTH - PAGE_X - 196, chartsY + 500, input.averageDailyGameClubIncomeChange, 20)}
-    <text x="${WIDTH - PAGE_X - 196}" y="${chartsY + 526}" font-size="16" fill="${MUTED}">к прошлому месяцу</text>
-
-    ${showPlaystation ? playstationSection(input, playstationY, playstationHeight) : ''}
+    ${card(PAGE_X, todayY, PAGE_WIDTH, todayHeight)}
+    <text x="${PAGE_X + 28}" y="${todayY + 50}" font-size="19" font-weight="800" fill="${INK}">ДОХОД ЗА ДЕНЬ</text>
+    ${incomeTile(tileX(0), todayY + 72, 'КЛУБ', BLUE, '#EEF4FF', '#C7D7FB', GLYPH_MONITOR, input.gameClubIncome, input.averageDailyGameClubIncome, input.averageDailyGameClubIncomeChange, tileWidth)}
+    ${incomeTile(tileX(1), todayY + 72, 'PLAYSTATION', PURPLE, '#F7F3FF', '#DDD0FB', GLYPH_GAMEPAD, input.playstationIncome, input.averageDailyPlaystationIncome, input.averageDailyPlaystationIncomeChange, tileWidth)}
+    ${incomeTile(tileX(2), todayY + 72, 'БАР', ORANGE, '#FFF3E8', '#FBD5B5', GLYPH_BAG, input.barSales, input.averageDailyBarSales, input.averageDailyBarSalesChange, tileWidth)}
 
     ${card(PAGE_X, detailY, detailWidth, detailHeight, '#FAFCFF', '#C7D7FB')}
     ${iconTile(PAGE_X + 28, detailY + 28, 80, BLUE, GLYPH_MONITOR)}
@@ -802,6 +909,225 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
     ${moneyText(barX + 44, netBoxY + 70, barNetProfit, 28, barNetProfit < 0 ? RED : ORANGE)}
     ${iconTile(barX + detailWidth - 100, netBoxY + 16, 56, ORANGE, GLYPH_BARS)}
 
+    ${promo?.svg ?? ''}
+    ${lowStock?.svg ?? ''}
+
+    ${reportFooter(footerY, `Все суммы указаны в UZS, за ${input.businessDateLabel}. Итоги месяца и прогноз — на следующих изображениях.`)}`);
+}
+
+const FORECAST_TILE_HEIGHT = 176;
+
+/** One month-end projection: the figure, where the month is now and last month's total. */
+function forecastTile(
+  x: number,
+  y: number,
+  width: number,
+  color: string,
+  fill: string,
+  glyph: string,
+  label: string,
+  projected: number | null,
+  toDate: number,
+  lastMonth: number,
+): string {
+  const change = projected === null ? null : percentChangeOf(projected, lastMonth);
+  return `${card(x, y, width, FORECAST_TILE_HEIGHT, fill, `${color}55`)}
+    ${iconTile(x + 18, y + 18, 44, color, glyph)}
+    <text x="${x + 74}" y="${y + 47}" font-size="16" font-weight="800" fill="${color}">${escapeXml(label)}</text>
+    ${projected === null
+    ? `<text x="${x + 20}" y="${y + 104}" font-size="26" font-weight="800" fill="${MUTED}">нет данных</text>`
+    : moneyText(x + 20, y + 104, projected, 30, projected < 0 ? RED : color)}
+    <text x="${x + 20}" y="${y + 134}" font-size="15" fill="${MUTED}">${escapeXml(`сейчас ${compactMoney(toDate)} · прошлый ${compactMoney(lastMonth)}`)}</text>
+    ${changeBadge(x + 20, y + 160, change, 16)}
+    <text x="${x + 20 + changeBadgeWidth(change, 16) + 14}" y="${y + 160}" font-size="15" fill="${MUTED}">к прошлому месяцу</text>`;
+}
+
+function percentChangeOf(current: number, previous: number): number | null {
+  if (!previous) return null;
+  return Math.round(((current - previous) / Math.abs(previous)) * 100);
+}
+
+/** Where the month ends if the rest of it keeps this month's daily pace. */
+function forecastSection(forecast: DailyFinanceMonthForecast, y: number): { svg: string; height: number } {
+  const innerX = PAGE_X + 28;
+  const gap = 16;
+  const tiles = [
+    { label: 'ДОХОД КЛУБА', color: BLUE, fill: '#EEF4FF', glyph: GLYPH_MONITOR, side: forecast.gameClub, profit: false },
+    { label: 'ПРИБЫЛЬ КЛУБА', color: GREEN, fill: '#F0FAF3', glyph: GLYPH_TREND_UP, side: forecast.gameClub, profit: true },
+    { label: 'PLAYSTATION', color: PURPLE, fill: '#F7F3FF', glyph: GLYPH_GAMEPAD, side: forecast.playstation, profit: false },
+    { label: 'ПРОДАЖИ БАРА', color: ORANGE, fill: '#FFF3E8', glyph: GLYPH_BAG, side: forecast.bar, profit: false },
+  ];
+  const width = (PAGE_WIDTH - 56 - gap * (tiles.length - 1)) / tiles.length;
+  const tilesSvg = tiles.map((tile, index) => forecastTile(
+    innerX + index * (width + gap), y + 72, width, tile.color, tile.fill, tile.glyph, tile.label,
+    tile.profit ? tile.side.projectedProfit : tile.side.projectedIncome,
+    tile.profit ? tile.side.profitToDate : tile.side.incomeToDate,
+    tile.profit ? tile.side.lastMonthProfit : tile.side.lastMonthIncome,
+  )).join('\n    ');
+  const height = 72 + FORECAST_TILE_HEIGHT + 28;
+  return {
+    height,
+    svg: `${card(PAGE_X, y, PAGE_WIDTH, height)}
+    <text x="${innerX}" y="${y + 44}" font-size="19" font-weight="800" fill="${INK}">ПРОГНОЗ НА КОНЕЦ МЕСЯЦА</text>
+    <text x="${PAGE_X + PAGE_WIDTH - 28}" y="${y + 44}" text-anchor="end" font-size="16" fill="${MUTED}">${escapeXml(`при текущем темпе · осталось ${forecast.daysLeft} дн.`)}</text>
+    ${tilesSvg}`,
+  };
+}
+
+const FORECAST_CHART_HEIGHT = 300;
+type ForecastChartSide = 'gameClub' | 'bar' | 'playstation';
+
+/**
+ * Money in, added up day by day: this month so far (solid), where it goes at
+ * this pace (dashed) and last month (grey), on one axis.
+ */
+function forecastChart(
+  days: DailyFinanceMonthForecast['days'],
+  side: ForecastChartSide,
+  color: string,
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+): string {
+  const actual = days.map((row) => row[`${side}Actual`]);
+  const projected = days.map((row) => row[`${side}Projected`]);
+  const lastMonth = days.map((row) => row[`${side}LastMonth`]);
+  const values = [...actual, ...projected, ...lastMonth].filter((value): value is number => value !== null);
+  const axisMax = niceAxisMax(Math.max(0, ...values));
+  const grid = [0, 1, 2, 3, 4].map((step) => {
+    const y = top + height - (height / 4) * step;
+    return `<line x1="${left}" y1="${y}" x2="${left + width}" y2="${y}" stroke="${BORDER}" stroke-width="1.5"/>
+    <text x="${left - 12}" y="${y + 6}" text-anchor="end" font-size="16" fill="${MUTED}">${escapeXml(compactAxisValue((axisMax / 4) * step))}</text>`;
+  }).join('\n    ');
+  if (values.length === 0) {
+    return `${grid}
+    <text x="${left + width / 2}" y="${top + height / 2}" text-anchor="middle" font-size="20" fill="${MUTED}">Нет данных за месяц</text>`;
+  }
+  const stepX = days.length > 1 ? width / (days.length - 1) : 0;
+  const point = (index: number, value: number) => `${(left + index * stepX).toFixed(1)},${(top + height - (Math.max(0, value) / axisMax) * height).toFixed(1)}`;
+  const polyline = (series: Array<number | null>, style: string) => {
+    const points = series.flatMap((value, index) => (value === null ? [] : [point(index, value)]));
+    return points.length > 1 ? `<polyline points="${points.join(' ')}" fill="none" ${style} stroke-linejoin="round" stroke-linecap="round"/>` : '';
+  };
+  const lastActual = actual.reduce<number>((found, value, index) => (value === null ? found : index), -1);
+  const lastProjected = projected.length - 1;
+  const endValue = projected[lastProjected];
+  const marker = (index: number, value: number | null, fill: string) => (value === null || index < 0 ? '' : (() => {
+    const [cx, cy] = point(index, value).split(',');
+    return `<circle cx="${cx}" cy="${cy}" r="7" fill="${fill}" stroke="${color}" stroke-width="4"/>`;
+  })());
+  const labelDays = Array.from(new Set([1, 7, 14, 21, days.length].filter((day) => day <= days.length)));
+  const xLabels = labelDays.map((day) =>
+    `<text x="${(left + (day - 1) * stepX).toFixed(1)}" y="${top + height + 30}" text-anchor="middle" font-size="16" fill="${MUTED}">${day}</text>`,
+  ).join('\n    ');
+  return `${grid}
+    ${polyline(lastMonth, `stroke="#94A3B8" stroke-width="3"`)}
+    ${polyline(projected, `stroke="${color}" stroke-width="4" stroke-dasharray="10 8"`)}
+    ${polyline(actual, `stroke="${color}" stroke-width="5"`)}
+    ${marker(lastActual, lastActual >= 0 ? actual[lastActual] : null, '#FFFFFF')}
+    ${marker(lastProjected, endValue, color)}
+    ${xLabels}`;
+}
+
+function forecastChartCard(
+  forecast: DailyFinanceMonthForecast,
+  side: ForecastChartSide,
+  title: string,
+  color: string,
+  glyph: string,
+  x: number,
+  y: number,
+  width: number,
+): string {
+  const height = FORECAST_CHART_HEIGHT + 150;
+  const legendX = x + width - 560;
+  return `${card(x, y, width, height)}
+    ${iconTile(x + 28, y + 24, 44, color, glyph)}
+    <text x="${x + 88}" y="${y + 54}" font-size="19" font-weight="800" fill="${INK}">${escapeXml(title)}</text>
+    <line x1="${legendX}" y1="${y + 48}" x2="${legendX + 28}" y2="${y + 48}" stroke="${color}" stroke-width="5" stroke-linecap="round"/>
+    <text x="${legendX + 38}" y="${y + 54}" font-size="16" fill="${MUTED}">этот месяц</text>
+    <line x1="${legendX + 150}" y1="${y + 48}" x2="${legendX + 178}" y2="${y + 48}" stroke="${color}" stroke-width="4" stroke-dasharray="8 6"/>
+    <text x="${legendX + 188}" y="${y + 54}" font-size="16" fill="${MUTED}">прогноз</text>
+    <line x1="${legendX + 280}" y1="${y + 48}" x2="${legendX + 308}" y2="${y + 48}" stroke="#94A3B8" stroke-width="3" stroke-linecap="round"/>
+    <text x="${legendX + 318}" y="${y + 54}" font-size="16" fill="${MUTED}">прошлый месяц</text>
+    ${forecastChart(forecast.days, side, color, x + 116, y + 92, width - 116 - 40, FORECAST_CHART_HEIGHT)}`;
+}
+
+/** The forecast image: month-end figures at this pace, then each side's running total against last month. */
+export function buildForecastReportSvg(input: DailyFinanceReportInput): string | null {
+  const forecast = input.monthForecast;
+  if (!forecast) return null;
+  const tiles = forecastSection(forecast, CONTENT_Y);
+  const chartHeight = FORECAST_CHART_HEIGHT + 150;
+  const clubY = CONTENT_Y + tiles.height + 24;
+  const barY = clubY + chartHeight + 24;
+  const showPlaystation = forecast.playstation.incomeToDate > 0 || forecast.playstation.lastMonthIncome > 0;
+  const playstationY = barY + chartHeight + 24;
+  const footerY = (showPlaystation ? playstationY + chartHeight : barY + chartHeight) + 20;
+  const height = footerY + 60;
+  return svgDocument(height, `${reportHeader('ПРОГНОЗ МЕСЯЦА', `${input.clubName} · с 1-го числа по ${input.businessDateLabel}`, GLYPH_TREND_UP)}
+
+    ${tiles.svg}
+
+    ${forecastChartCard(forecast, 'gameClub', 'ДОХОД КЛУБА С НАЧАЛА МЕСЯЦА', BLUE, GLYPH_MONITOR, PAGE_X, clubY, PAGE_WIDTH)}
+
+    ${forecastChartCard(forecast, 'bar', 'ПРОДАЖИ БАРА С НАЧАЛА МЕСЯЦА', ORANGE, GLYPH_BAG, PAGE_X, barY, PAGE_WIDTH)}
+
+    ${showPlaystation ? forecastChartCard(forecast, 'playstation', 'PLAYSTATION С НАЧАЛА МЕСЯЦА', PURPLE, GLYPH_GAMEPAD, PAGE_X, playstationY, PAGE_WIDTH) : ''}
+
+    ${reportFooter(footerY, 'Прогноз — если остаток месяца пройдёт в текущем среднем темпе в день. Суммы в UZS.')}`);
+}
+
+/** The month so far: where its money is, the forecast, money flows, trends and key indicators. */
+export function buildMonthlyFinanceReportSvg(input: DailyFinanceReportInput): string {
+  const dailyPoints = input.monthDailyGameClubIncome ?? [];
+  let y = CONTENT_Y;
+  const next = (height: number) => {
+    const top = y;
+    y += height + 24;
+    return top;
+  };
+
+  const monthMoney = input.monthMoney ? monthMoneySection(input.monthMoney, y) : null;
+  if (monthMoney) next(monthMoney.height);
+  const clubFlow = sankeySection(input.monthGameClubSankey, 'КУДА УХОДЯТ ДЕНЬГИ КЛУБА', 'Клуб', y);
+  next(clubFlow.height);
+  const barFlow = sankeySection(input.monthBarSankey, 'КУДА УХОДЯТ ДЕНЬГИ БАРА', 'Бар', y);
+  next(barFlow.height);
+
+  const trendHeight = 520;
+  const trendY = next(trendHeight);
+  const showPlaystation = input.monthDailyPlaystationIncome !== undefined;
+  const playstationHeight = 360;
+  const playstationY = showPlaystation ? next(playstationHeight) : 0;
+  const kpiHeight = 300;
+  const kpiY = next(kpiHeight);
+  const footerY = y - 4;
+  const height = footerY + 60;
+
+  const kpiWidth = (PAGE_WIDTH - 4 * 16) / 5;
+  const kpiX = (index: number) => PAGE_X + index * (kpiWidth + 16);
+
+  return svgDocument(height, `${reportHeader('ИТОГИ МЕСЯЦА', `${input.clubName} · с 1-го числа по ${input.businessDateLabel}`, GLYPH_BARS)}
+
+    ${monthMoney?.svg ?? ''}
+
+    ${clubFlow.svg}
+
+    ${barFlow.svg}
+
+    ${card(PAGE_X, trendY, PAGE_WIDTH, trendHeight)}
+    <text x="${PAGE_X + 28}" y="${trendY + 50}" font-size="19" font-weight="800" fill="${INK}">ДИНАМИКА ДОХОДА КЛУБА ЗА МЕСЯЦ</text>
+    ${incomeChart(dailyPoints, PAGE_X + 116, trendY + 84, PAGE_WIDTH - 116 - 40, 300)}
+    ${card(PAGE_X + 24, trendY + trendHeight - 100, PAGE_WIDTH - 48, 76, '#F8FAFC')}
+    <text x="${PAGE_X + 48}" y="${trendY + trendHeight - 68}" font-size="17" fill="${TEXT}">Средний доход клуба / день</text>
+    ${moneyText(PAGE_X + 48, trendY + trendHeight - 36, input.averageDailyGameClubIncome, 26, PURPLE)}
+    ${changeBadge(WIDTH - PAGE_X - 196, trendY + trendHeight - 66, input.averageDailyGameClubIncomeChange, 20)}
+    <text x="${WIDTH - PAGE_X - 196}" y="${trendY + trendHeight - 40}" font-size="16" fill="${MUTED}">к прошлому месяцу</text>
+
+    ${showPlaystation ? playstationSection(input, playstationY, playstationHeight) : ''}
+
     ${card(PAGE_X, kpiY, PAGE_WIDTH, kpiHeight, '#FFFFFF')}
     <text x="${PAGE_X + 28}" y="${kpiY + 44}" font-size="20" font-weight="800" fill="${INK}">КЛЮЧЕВЫЕ ПОКАЗАТЕЛИ</text>
     ${kpiTile(kpiX(0) + 12, kpiY + 62, kpiWidth - 12, GREEN, GLYPH_WALLET, ['ОСТАТОК', 'КЛУБА'], input.gameClubMoneyLeft, 'за месяц')}
@@ -809,14 +1135,8 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
     ${kpiTile(kpiX(2) + 3, kpiY + 62, kpiWidth - 12, ORANGE, GLYPH_BAG, ['ДОХОД БАРА', 'ЗА МЕСЯЦ'], input.barMoneyLeft, 'к прошлому месяцу', input.barMoneyLeftChange)}
     ${kpiTile(kpiX(3), kpiY + 62, kpiWidth - 12, SLATE, GLYPH_BOX, ['СТОИМОСТЬ', 'СКЛАДА'], input.inventoryValue, 'к прошлому месяцу', input.inventoryValueChange)}
     ${kpiTile(kpiX(4) - 6, kpiY + 62, kpiWidth - 6, RED, GLYPH_ALERT, ['АКТИВНЫЕ', 'ДОЛГИ'], input.activeDebts, 'долги клиентов')}
-    ${promo?.svg ?? ''}
-    ${lowStock?.svg ?? ''}
 
-    <circle cx="${PAGE_X + 18}" cy="${footerY + 18}" r="11" fill="${MUTED}"/>
-    <text x="${PAGE_X + 18}" y="${footerY + 24}" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF">i</text>
-    <text x="${PAGE_X + 40}" y="${footerY + 24}" font-size="17" fill="${MUTED}">Все суммы указаны в UZS. Дневные показатели — за ${escapeXml(input.businessDateLabel)}, месячные — с 1-го числа.</text>
-  </g>
-</svg>`;
+    ${reportFooter(footerY, `Все суммы указаны в UZS, с 1-го числа по ${input.businessDateLabel}. Прогноз — на третьем изображении.`)}`);
 }
 
 /** One business's (or PlayStation's) money today, with its average per day this month and the change. */
@@ -831,14 +1151,15 @@ function incomeTile(
   today: number,
   averagePerDay: number | undefined,
   change: number | null | undefined,
+  width = 400,
 ): string {
-  return `${card(x, y, 400, 144, fill, border)}
+  return `${card(x, y, width, 144, fill, border)}
     ${iconTile(x + 20, y + 22, 56, color, glyph)}
     <text x="${x + 96}" y="${y + 44}" font-size="18" font-weight="800" fill="${color}">${escapeXml(label)}</text>
     ${moneyText(x + 96, y + 82, today, 28, color)}
     <text x="${x + 96}" y="${y + 114}" font-size="15" fill="${MUTED}">в среднем / день</text>
     <text x="${x + 96}" y="${y + 134}" font-size="17" font-weight="800" fill="${INK}">${escapeXml(averagePerDay === undefined ? '—' : `${amount(averagePerDay)} UZS`)}</text>
-    ${changeBadge(x + 300, y + 134, change, 17)}`;
+    ${changeBadge(x + width - 100, y + 134, change, 17)}`;
 }
 
 /** PlayStation money each day this month, with the running average per day. */
@@ -866,5 +1187,20 @@ export async function renderStockAdjustmentsReportPng(input: DailyFinanceReportI
 export async function renderDailyFinanceReportPng(input: DailyFinanceReportInput): Promise<Buffer> {
   assertReportFontsAvailable();
   const svg = buildDailyFinanceReportSvg(input);
+  return sharp(Buffer.from(svg)).png({ compressionLevel: 9, adaptiveFiltering: true }).toBuffer();
+}
+
+/** The forecast image, or null when the report has no forecast. */
+export async function renderForecastReportPng(input: DailyFinanceReportInput): Promise<Buffer | null> {
+  const svg = buildForecastReportSvg(input);
+  if (!svg) return null;
+  assertReportFontsAvailable();
+  return sharp(Buffer.from(svg)).png({ compressionLevel: 9, adaptiveFiltering: true }).toBuffer();
+}
+
+/** The month image: sent beside the day image in the same album. */
+export async function renderMonthlyFinanceReportPng(input: DailyFinanceReportInput): Promise<Buffer> {
+  assertReportFontsAvailable();
+  const svg = buildMonthlyFinanceReportSvg(input);
   return sharp(Buffer.from(svg)).png({ compressionLevel: 9, adaptiveFiltering: true }).toBuffer();
 }

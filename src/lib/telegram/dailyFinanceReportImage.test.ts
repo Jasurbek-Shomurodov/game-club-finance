@@ -5,8 +5,11 @@ import { describe, expect, it } from 'vitest';
 import type { DailyFinanceReportInput } from './dailyFinanceReport';
 import {
   buildDailyFinanceReportSvg,
+  buildForecastReportSvg,
+  buildMonthlyFinanceReportSvg,
   buildStockAdjustmentsReportSvg,
   renderDailyFinanceReportPng,
+  renderMonthlyFinanceReportPng,
   renderStockAdjustmentsReportPng,
 } from './dailyFinanceReportImage';
 
@@ -97,13 +100,40 @@ function fontHasCodePoint(font: Buffer, codePoint: number): boolean {
 }
 
 describe('daily finance report image', () => {
-  it('builds deterministic SVG with escaped labels and exact calculated values', () => {
+  it('builds the day image: today per business, its breakdown and nothing monthly', () => {
     const svg = buildDailyFinanceReportSvg(reportInput());
 
     expect(svg).toContain('width="1600"');
-    expect(svg).toContain('height="2550"');
-    expect(svg).toContain('ФИНАНСЫ КЛУБА');
+    expect(svg).toContain('height="1054"');
+    expect(svg).toContain('ФИНАНСЫ ДНЯ');
     expect(svg).toContain('Main Game Club · Рабочий день: 27 августа 2026');
+    expect(svg).toContain('ДОХОД ЗА ДЕНЬ');
+    expect(svg.match(/в среднем \/ день/g)).toHaveLength(3);
+    expect(svg).toContain('РАСХОДЫ КЛУБА');
+    expect(svg).toContain('526 000 UZS');
+    expect(svg).toContain('161 000 UZS');
+    expect(svg).toContain('SKIDKA &amp; bonus');
+    expect(svg).toContain('Чистая прибыль клуба');
+    expect(svg).toContain('905 000<tspan');
+    expect(svg).toContain('Чистая прибыль бара');
+    expect(svg).toContain('4 500<tspan');
+    expect(svg).toContain('>12%</text>');
+    // The month lives on its own image.
+    expect(svg).not.toContain('КУДА УХОДЯТ ДЕНЬГИ КЛУБА');
+    expect(svg).not.toContain('ДИНАМИКА ДОХОДА КЛУБА ЗА МЕСЯЦ');
+    expect(svg).not.toContain('КЛЮЧЕВЫЕ ПОКАЗАТЕЛИ');
+    expect(svg).not.toContain('▲');
+    expect(svg).toContain('font-family="Noto Sans"');
+    expect(buildDailyFinanceReportSvg(reportInput())).toBe(svg);
+  });
+
+  it('builds the month image with escaped labels and exact calculated values', () => {
+    const svg = buildMonthlyFinanceReportSvg(reportInput());
+
+    expect(svg).toContain('width="1600"');
+    expect(svg).toContain('height="1948"');
+    expect(svg).toContain('ИТОГИ МЕСЯЦА');
+    expect(svg).toContain('Main Game Club · с 1-го числа по 27 августа 2026');
     expect(svg).toContain('КУДА УХОДЯТ ДЕНЬГИ КЛУБА');
     expect(svg).toContain('КУДА УХОДЯТ ДЕНЬГИ БАРА');
     expect(svg).toContain('Клуб · <tspan font-weight="800" fill="#0F1E4A">58,2\u00a0млн</tspan>');
@@ -115,21 +145,11 @@ describe('daily finance report image', () => {
     expect(svg).not.toContain('Доход · ');
     expect(svg).not.toContain('Прибыль · ');
     expect(svg).not.toContain('ПО НАПРАВЛЕНИЯМ');
-    expect(svg).not.toContain('UZS · за день');
     expect(svg).toContain('Компьютеры · <tspan font-weight="800" fill="#0F1E4A">58,2\u00a0млн</tspan>');
     expect(svg).toContain('Продажи бара · ');
     expect(svg).toContain('Себестоимость бара · ');
     expect(svg).toContain('Зарплата · <tspan font-weight="800" fill="#0F1E4A">9,6\u00a0млн</tspan>');
     expect(svg).toContain('mystery fee · <tspan font-weight="800" fill="#0F1E4A">520\u00a0тыс.</tspan>');
-    expect(svg).not.toContain('ДОХОД КЛУБА ЗА МЕСЯЦ');
-    expect(svg).toContain('РАСХОДЫ КЛУБА');
-    expect(svg).toContain('526 000 UZS');
-    expect(svg).toContain('161 000 UZS');
-    expect(svg).toContain('SKIDKA &amp; bonus');
-    expect(svg).toContain('Чистая прибыль клуба');
-    expect(svg).toContain('905 000<tspan');
-    expect(svg).toContain('Чистая прибыль бара');
-    expect(svg).toContain('4 500<tspan');
     expect(svg).toContain('ДИНАМИКА ДОХОДА КЛУБА ЗА МЕСЯЦ');
     expect(svg).toContain('КЛЮЧЕВЫЕ ПОКАЗАТЕЛИ');
     expect(svg).toContain('37 830 000');
@@ -137,13 +157,14 @@ describe('daily finance report image', () => {
     expect(svg).toContain('474 000');
     expect(svg).toContain('>12%</text>');
     expect(svg).toContain('>5%</text>');
-    expect(svg).not.toContain('▲');
-    expect(svg).toContain('font-family="Noto Sans"');
-    expect(buildDailyFinanceReportSvg(reportInput())).toBe(svg);
+    // Today's breakdown lives on the day image.
+    expect(svg).not.toContain('РАСХОДЫ КЛУБА');
+    expect(svg).not.toContain('ДОХОД ЗА ДЕНЬ');
+    expect(buildMonthlyFinanceReportSvg(reportInput())).toBe(svg);
   });
 
   it('tracks PlayStation on its own card: day, month, average per day and daily sales with their running average', () => {
-    const svg = buildDailyFinanceReportSvg({
+    const input: DailyFinanceReportInput = {
       ...reportInput(),
       playstationIncome: 70_000,
       monthPlaystationIncome: 160_000,
@@ -154,29 +175,29 @@ describe('daily finance report image', () => {
         { date: '2026-08-02', amount: 0 },
         { date: '2026-08-03', amount: 130_000 },
       ],
-    });
-    expect(svg).toContain('PLAYSTATION');
-    expect(svg).toContain('ПРОДАЖИ PLAYSTATION ЗА МЕСЯЦ');
+    };
+    const day = buildDailyFinanceReportSvg(input);
+    const svg = buildMonthlyFinanceReportSvg(input);
     // PlayStation is a tile beside the club and the bar, each with its average per day.
-    expect(svg).toContain('>PLAYSTATION</text>');
-    expect(svg).toContain('>53 333 UZS</text>');
-    expect(svg.match(/в среднем \/ день/g)).toHaveLength(3);
-    expect(svg).toContain('>18%</text>');
+    expect(day).toContain('>PLAYSTATION</text>');
+    expect(day).toContain('>53 333 UZS</text>');
+    expect(day).toContain('>18%</text>');
+    expect(svg).toContain('ПРОДАЖИ PLAYSTATION ЗА МЕСЯЦ');
     // Two days with sales draw two bars; the day without sales draws none.
     expect(svg.match(/fill="#7C3AED" fill-opacity="0.8"\/>/g)).toHaveLength(3);
-    // The card pushes the rest of the report down.
-    expect(svg).toContain('height="2934"');
+    // The card pushes the rest of the month image down.
+    expect(svg).toContain('height="2332"');
     expect(svg).not.toContain('Нет продаж PlayStation за месяц');
   });
 
   it('says so when the month has no PlayStation sales, and leaves the card out without the series', () => {
-    const empty = buildDailyFinanceReportSvg({ ...reportInput(), monthPlaystationIncome: 0, averageDailyPlaystationIncome: 0, monthDailyPlaystationIncome: [{ date: '2026-08-01', amount: 0 }] });
+    const empty = buildMonthlyFinanceReportSvg({ ...reportInput(), monthPlaystationIncome: 0, averageDailyPlaystationIncome: 0, monthDailyPlaystationIncome: [{ date: '2026-08-01', amount: 0 }] });
     expect(empty).toContain('Нет продаж PlayStation за месяц');
-    expect(buildDailyFinanceReportSvg(reportInput())).not.toContain('ПРОДАЖИ PLAYSTATION ЗА МЕСЯЦ');
+    expect(buildMonthlyFinanceReportSvg(reportInput())).not.toContain('ПРОДАЖИ PLAYSTATION ЗА МЕСЯЦ');
   });
 
   it('plots the month daily income trend with day labels', () => {
-    const svg = buildDailyFinanceReportSvg({
+    const svg = buildMonthlyFinanceReportSvg({
       ...reportInput(),
       monthDailyGameClubIncome: [
         { date: '2026-08-01', amount: 1_000_000 },
@@ -189,17 +210,17 @@ describe('daily finance report image', () => {
     expect(svg).toContain('>1 авг</text>');
     expect(svg).toContain('>3 авг</text>');
     expect(svg).toContain('2 млн');
-    expect(buildDailyFinanceReportSvg(reportInput())).toContain('Нет данных за месяц');
+    expect(buildMonthlyFinanceReportSvg(reportInput())).toContain('Нет данных за месяц');
   });
 
   it('shows an empty money flow when the month has no income or spending', () => {
-    const svg = buildDailyFinanceReportSvg({
+    const svg = buildMonthlyFinanceReportSvg({
       ...reportInput(),
       monthGameClubSankey: undefined,
       monthBarSankey: undefined,
     });
     const nothing = { sources: [], targets: [], total: 0, income: 0 };
-    const empty = buildDailyFinanceReportSvg({
+    const empty = buildMonthlyFinanceReportSvg({
       ...reportInput(),
       monthGameClubSankey: nothing,
       monthBarSankey: nothing,
@@ -226,7 +247,9 @@ describe('daily finance report image', () => {
       width: 1600,
       channels: 4,
     });
-    expect(metadata.height).toBe(2550);
+    expect(metadata.height).toBe(1054);
+    const month = await sharp(await renderMonthlyFinanceReportPng(reportInput())).metadata();
+    expect(month).toMatchObject({ format: 'png', width: 1600, height: 1948 });
   });
 
   it('grows the report when the club has more expense rows', () => {
@@ -242,8 +265,8 @@ describe('daily finance report image', () => {
       ],
     });
 
-    expect(compact).toContain('height="2550"');
-    expect(expanded).toContain('height="2664"');
+    expect(compact).toContain('height="1054"');
+    expect(expanded).toContain('height="1168"');
   });
 
   it('adds a low-stock card only when products are running out', () => {
@@ -256,7 +279,7 @@ describe('daily finance report image', () => {
     const empty = buildDailyFinanceReportSvg({ ...reportInput(), lowStockProducts: [] });
     const withAlerts = buildDailyFinanceReportSvg({ ...reportInput(), lowStockProducts });
 
-    expect(empty).toContain('height="2550"');
+    expect(empty).toContain('height="1054"');
     expect(empty).not.toContain('ЗАКАНЧИВАЕТСЯ НА СКЛАДЕ');
     expect(withAlerts).toContain('ЗАКАНЧИВАЕТСЯ НА СКЛАДЕ · 14');
     expect(withAlerts).toContain('нет в наличии');
@@ -265,7 +288,7 @@ describe('daily finance report image', () => {
     expect(withAlerts).toContain('Товар 11');
     expect(withAlerts).not.toContain('Товар 12');
     expect(withAlerts).toContain('и ещё 2');
-    expect(withAlerts).toContain('height="2962"');
+    expect(withAlerts).toContain('height="1466"');
   });
 
   it('configures application-owned Noto Sans before the static Sharp import', () => {
@@ -339,7 +362,7 @@ describe('daily finance report image', () => {
     const empty = buildDailyFinanceReportSvg({ ...reportInput(), promoGiveaways: [] });
     const withPromo = buildDailyFinanceReportSvg({ ...reportInput(), promoGiveaways });
 
-    expect(empty).toContain('height="2550"');
+    expect(empty).toContain('height="1054"');
     expect(empty).not.toContain('БОНУСЫ ПО АКЦИЯМ');
     expect(withPromo).toContain('БОНУСЫ ПО АКЦИЯМ · 55 шт.');
     expect(withPromo).toContain('Напиток 0 — Cola for 50k');
@@ -347,5 +370,92 @@ describe('daily finance report image', () => {
     expect(withPromo).not.toContain('Напиток 8');
     expect(withPromo).toContain('и ещё 2');
     expect(withPromo).toContain('себестоимость 165 000 UZS');
+  });
+});
+
+describe('month money section', () => {
+  it('shows each method the club holds and where the month money went', () => {
+    const svg = buildMonthlyFinanceReportSvg({
+      ...reportInput(),
+      monthMoney: {
+        byMethod: { cash: 5_226_000, terminal: 32_013_000, card: 0, playstation: 1_690_000 },
+        invested: { gameClub: 9_950_000, bar: 0 },
+        reserve: { deposited: 7_200_000, returned: 0, net: 7_200_000 },
+        withdrawn: { gameClub: 0, bar: 0 },
+        salaries: 9_120_000,
+      },
+    });
+
+    expect(svg).toContain('ДЕНЬГИ ЗА МЕСЯЦ');
+    expect(svg).toContain('НАЛИЧНЫЕ');
+    expect(svg).toContain('ТЕРМИНАЛ');
+    expect(svg).not.toContain('>КАРТА<');
+    expect(svg).toContain('Всего: 38 929 000 UZS');
+    expect(svg).toContain('ИНВЕСТИРОВАНО');
+    expect(svg).toContain('В РЕЗЕРВ');
+    expect(svg).toContain('ВЫВЕДЕНО ВЛАДЕЛЬЦАМИ');
+    expect(svg).toContain('ЗАРПЛАТЫ');
+  });
+
+  it('is absent when the report has no month money', () => {
+    expect(buildMonthlyFinanceReportSvg(reportInput())).not.toContain('ДЕНЬГИ ЗА МЕСЯЦ');
+    expect(buildDailyFinanceReportSvg(reportInput())).not.toContain('ДЕНЬГИ ЗА МЕСЯЦ');
+  });
+});
+
+describe('month-end forecast', () => {
+  const side = (incomeToDate: number, projectedIncome: number | null, lastMonthIncome: number) => ({
+    daysCounted: projectedIncome === null ? 0 : 20,
+    incomeToDate,
+    profitToDate: incomeToDate / 2,
+    projectedIncome,
+    projectedProfit: projectedIncome === null ? null : projectedIncome / 2,
+    lastMonthIncome,
+    lastMonthProfit: lastMonthIncome / 2,
+  });
+
+  const days = [1, 2, 3].map((day) => ({
+    day,
+    gameClubActual: day <= 2 ? day * 3_000_000 : null,
+    gameClubProjected: day >= 2 ? day * 3_000_000 : null,
+    gameClubLastMonth: day * 2_500_000,
+    barActual: null,
+    barProjected: null,
+    barLastMonth: null,
+    playstationActual: day <= 2 ? day * 50_000 : null,
+    playstationProjected: day >= 2 ? day * 50_000 : null,
+    playstationLastMonth: null,
+  }));
+  const forecast = {
+    daysInMonth: 30,
+    daysLeft: 8,
+    gameClub: side(60_000_000, 90_000_000, 80_000_000),
+    playstation: side(1_000_000, 1_500_000, 0),
+    bar: side(0, null, 0),
+    days,
+  };
+
+  it('draws its own image: month-end figures beside last month and running totals', () => {
+    const svg = buildForecastReportSvg({ ...reportInput(), monthForecast: forecast })!;
+
+    expect(svg).toContain('ПРОГНОЗ МЕСЯЦА');
+    expect(svg).toContain('Main Game Club · с 1-го числа по 27 августа 2026');
+    expect(svg).toContain('ПРОГНОЗ НА КОНЕЦ МЕСЯЦА');
+    expect(svg).toContain('90 000 000<tspan');
+    expect(svg).toContain('45 000 000<tspan');
+    expect(svg).toContain('>13%</text>');
+    expect(svg).toContain('нет данных');
+    expect(svg).toContain('ДОХОД КЛУБА С НАЧАЛА МЕСЯЦА');
+    expect(svg).toContain('PLAYSTATION С НАЧАЛА МЕСЯЦА');
+    expect(svg).toContain('stroke-dasharray="10 8"');
+    // The bar has nothing this month or last: its chart says so.
+    expect(svg).toContain('Нет данных за месяц');
+  });
+
+  it('stays off the day and month images, and is absent without a forecast', () => {
+    const input = { ...reportInput(), monthForecast: forecast };
+    expect(buildDailyFinanceReportSvg(input)).not.toContain('ПРОГНОЗ');
+    expect(buildMonthlyFinanceReportSvg(input)).not.toContain('ПРОГНОЗ НА КОНЕЦ МЕСЯЦА');
+    expect(buildForecastReportSvg(reportInput())).toBeNull();
   });
 });

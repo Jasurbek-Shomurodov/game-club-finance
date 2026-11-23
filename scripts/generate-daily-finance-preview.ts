@@ -47,6 +47,16 @@ async function main() {
   mkdirSync(outputDirectory, { recursive: true });
   writeFileSync(outputPath, report.imagePng);
   console.log(outputPath);
+  if (report.monthImage) {
+    const monthPath = resolve(outputDirectory, `game-club-finance-month-${businessDate}.png`);
+    writeFileSync(monthPath, report.monthImage.png);
+    console.log(monthPath);
+  }
+  if (report.forecastImage) {
+    const forecastPath = resolve(outputDirectory, `game-club-finance-forecast-${businessDate}.png`);
+    writeFileSync(forecastPath, report.forecastImage.png);
+    console.log(forecastPath);
+  }
 }
 
 main().catch((error) => {
