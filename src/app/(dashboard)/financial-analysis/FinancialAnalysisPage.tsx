@@ -26,6 +26,7 @@ import {
   PageHeader,
   SegmentedControl,
   TappableSurface,
+  useToast,
 } from '@/components/PresentationFoundation';
 import { ChartCard, ChartEmpty, chartColors } from '@/components/dashboard/ChartCard';
 import {
@@ -45,10 +46,19 @@ import {
   type PaymentMethodFlowRow,
   type PlaystationDayRow,
 } from '@/lib/calculations/financialAnalysis';
-import { buildExpensePlanSummary, type ExpensePreset, type ExpensePlanSummary } from '@/lib/calculations/expensePlans';
+import { buildExpensePlanSummary, type ExpensePreset, type ExpensePlanSummary, type PresetExpenseRow } from '@/lib/calculations/expensePlans';
 import { buildMoneyChecks, moneyCheckHistoryStart } from '@/lib/calculations/moneyChecks';
+import {
+  buildUpcomingPayments,
+  planSuggestionHistoryStart,
+  planSuggestionRange,
+  suggestExpensePlans,
+  usualDayHistoryStart,
+  type PlanSuggestion,
+} from '@/lib/calculations/upcomingPayments';
 import type { MoneyExchangeRow } from '@/lib/calculations/moneyExchanges';
 import { ExpensePlanPanel } from '@/components/financial-analysis/ExpensePlanPanel';
+import { useExpensePresetForm } from '@/components/expense-presets/useExpensePresetForm';
 import { MoneyChecksPanel, MoneyChecksPanelSkeleton } from '@/components/financial-analysis/MoneyChecksPanel';
 import { MoneyFlowSankeys } from '@/components/financial-analysis/MoneyFlowSankeys';
 import {
@@ -199,7 +209,10 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
   const td = useTranslations('dashboard');
   const tc = useTranslations('common');
   const tCategories = useTranslations('expenses.categories');
+  const tPresets = useTranslations('settings.expensePresets');
+  const { showToast, toastElement } = useToast();
   const currency = tc('currency');
+  const isCurrentMonth = range.from.slice(0, 7) === businessToday.slice(0, 7);
   // The current month is compared with the same days of last month; a past month with all of the month before.
   const previousRange = useMemo(
     () => getDashboardComparisonRange(range.from.slice(0, 7) === businessToday.slice(0, 7) ? 'month' : 'lastMonth', range, businessToday),
@@ -236,12 +249,12 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
   }, [monthlyWindow]);
 
   // One read covers the selected and comparison periods and the history the
-  // money checks compare with; they are split in memory. When all of it falls
-  // inside the 12-month window, that read is reused.
+  // money checks and plan suggestions compare with; they are split in memory.
+  // When all of it falls inside the 12-month window, that read is reused.
   const loadLedgers = useCallback(async () => {
     if (!selectedClubId) return null;
     const fetchRange = {
-      from: [previousRange.from, range.from, moneyCheckHistoryStart(range)].sort()[0],
+      from: [previousRange.from, range.from, moneyCheckHistoryStart(range), planSuggestionHistoryStart(range)].sort()[0],
       to: previousRange.to > range.to ? previousRange.to : range.to,
     };
     const [rows, exchangeRows] = await Promise.all([
@@ -271,19 +284,61 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
 
   // Planned expenses (091) for the selected range; absent until a club sets some up.
   // The presets also tell the money checks which categories the plans cover.
+  // In the current month the linked payments reach back far enough to find
+  // each plan's usual pay day.
   const loadPlans = useCallback(async () => {
     if (!selectedClubId) return null;
     const supabase = createClient();
-    const [{ presets, available }, expenses] = await Promise.all([
+    const linkedRange = isCurrentMonth ? { from: usualDayHistoryStart(range), to: range.to } : range;
+    const [{ presets, available }, linked] = await Promise.all([
       fetchExpensePresets(supabase, selectedClubId),
-      fetchPresetExpenses(supabase, selectedClubId, range),
+      fetchPresetExpenses(supabase, selectedClubId, linkedRange),
     ]);
-    if (!available || presets.length === 0) return { clubId: selectedClubId, presets: [], summary: null };
-    return { clubId: selectedClubId, presets, summary: buildExpensePlanSummary(presets, expenses, range) };
-  }, [range, selectedClubId]);
-  const planQuery = useClubQuery<{ clubId: string; presets: ExpensePreset[]; summary: ExpensePlanSummary | null } | null>(loadPlans, null);
-  const loadedPlans = planQuery.data && planQuery.data.clubId === selectedClubId ? planQuery.data : null;
+    if (!available) return { clubId: selectedClubId, rangeFrom: range.from, available, presets: [], linked: [], summary: null };
+    if (presets.length === 0) return { clubId: selectedClubId, rangeFrom: range.from, available, presets, linked: [], summary: null };
+    return { clubId: selectedClubId, rangeFrom: range.from, available, presets, linked, summary: buildExpensePlanSummary(presets, linked, range) };
+  }, [isCurrentMonth, range, selectedClubId]);
+  const planQuery = useClubQuery<{
+    clubId: string;
+    /** The month the plans were read for: a reload keeps the previous month's data until it lands. */
+    rangeFrom: string;
+    available: boolean;
+    presets: ExpensePreset[];
+    linked: PresetExpenseRow[];
+    summary: ExpensePlanSummary | null;
+  } | null>(loadPlans, null);
+  // Plans read for another club or month never render as the current ones.
+  const loadedPlans = planQuery.data && planQuery.data.clubId === selectedClubId && planQuery.data.rangeFrom === range.from
+    ? planQuery.data
+    : null;
   const plans = loadedPlans?.summary ?? null;
+  // What is still due: only the current business month has anything upcoming.
+  const upcoming = useMemo(
+    () => (plans && isCurrentMonth && loadedPlans
+      ? buildUpcomingPayments({ summary: plans, linkedExpenses: loadedPlans.linked, range, today: businessToday })
+      : null),
+    [businessToday, isCurrentMonth, loadedPlans, plans, range],
+  );
+  // Regular expenses with no plan, offered to the owner (the only member who may add plans)
+  // in the current month, once both the plans and the history are in.
+  const isOwner = role === 'owner';
+  const livePresets = useMemo(() => (loadedPlans?.presets ?? []).filter((preset) => !preset.archived_at), [loadedPlans]);
+  const suggestions = useMemo(
+    () => (isOwner && isCurrentMonth && loadedPlans?.available && loadedLedgers && !ledgerQuery.loading
+      ? suggestExpensePlans({ range, expenseRows: loadedLedgers.ledgers.expenseRows, presets: loadedPlans.presets })
+      : []),
+    [isCurrentMonth, isOwner, ledgerQuery.loading, loadedLedgers, loadedPlans, range],
+  );
+  const suggestionsFor = (side: PlanSuggestion['side']) => suggestions.filter((suggestion) => suggestion.side === side);
+  const { openPresetForm, presetFormDialog } = useExpensePresetForm({
+    clubId: selectedClubId ?? '',
+    presets: livePresets,
+    enabled: isOwner && !!selectedClubId,
+    onSaved: async () => {
+      showToast(tPresets('saved'));
+      await planQuery.reload({ silent: true });
+    },
+  });
 
   // A failed window read is evicted above, so a retry reads it afresh while a
   // successful one is shared; the page-level retry covers both queries.
@@ -350,6 +405,18 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
       ? tCategories(category as Parameters<typeof tCategories>[0])
       : category.replace(/_/g, ' ');
   }, [t, tCategories]);
+  const suggestionProps = {
+    suggestionLabel: (suggestion: PlanSuggestion) => categoryName(suggestion.category),
+    suggestionHref: (suggestion: PlanSuggestion) => (canAccessPath(role, featureAccess, '/reports')
+      ? reportsHref(planSuggestionRange(range), { category: `expense:${suggestion.category}`, source: suggestion.side })
+      : undefined),
+    onSuggest: (suggestion: PlanSuggestion) => openPresetForm(null, {
+      name: categoryName(suggestion.category),
+      category: suggestion.category,
+      payment_source: suggestion.side,
+      monthly_amount: suggestion.typicalAmount,
+    }),
+  };
   const periodLabel = `${formatDateShort(range.from, locale)} – ${formatDateShort(range.to, locale)}`;
   const methodName = (method: PaymentMethodFlowRow['method']) => td(method);
 
@@ -435,26 +502,32 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
                     {t('planLoadError')}
                   </LoadErrorAlert>
                 </Section>
-              ) : plans && (plans.gameClub.rows.length > 0 || plans.bar.rows.length > 0) && (
+              ) : ((plans && (plans.gameClub.rows.length > 0 || plans.bar.rows.length > 0)) || suggestions.length > 0) && (
                 <Section title={t('planSection')} description={t('planSectionDesc')}>
                   <div className="grid gap-4 lg:grid-cols-2">
-                    {plans.gameClub.rows.length > 0 && (
+                    {((plans?.gameClub.rows.length ?? 0) > 0 || suggestionsFor('game_club').length > 0) && (
                       <ExpensePlanPanel
                         title={td('gameClub')}
                         icon={SIDE_ICONS.gameClub}
                         accent="primary"
-                        side={plans.gameClub}
+                        side={plans?.gameClub ?? { rows: [], planned: 0, actual: 0, difference: 0 }}
+                        upcoming={upcoming?.gameClub}
+                        suggestions={suggestionsFor('game_club')}
+                        {...suggestionProps}
                         rowHref={(row) => reportsHref(range, { category: `expense:${row.preset.category}`, source: row.preset.payment_source })}
                         currency={currency}
                         locale={locale}
                       />
                     )}
-                    {plans.bar.rows.length > 0 && (
+                    {((plans?.bar.rows.length ?? 0) > 0 || suggestionsFor('bar').length > 0) && (
                       <ExpensePlanPanel
                         title={td('bar')}
                         icon={SIDE_ICONS.bar}
                         accent="bar"
-                        side={plans.bar}
+                        side={plans?.bar ?? { rows: [], planned: 0, actual: 0, difference: 0 }}
+                        upcoming={upcoming?.bar}
+                        suggestions={suggestionsFor('bar')}
+                        {...suggestionProps}
                         rowHref={(row) => reportsHref(range, { category: `expense:${row.preset.category}`, source: row.preset.payment_source })}
                         currency={currency}
                         locale={locale}
@@ -570,6 +643,8 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
         locale={locale}
         currency={currency}
       />
+      {presetFormDialog}
+      {toastElement}
     </>
   );
 }
