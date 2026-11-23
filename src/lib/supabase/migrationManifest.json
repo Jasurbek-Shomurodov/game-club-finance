@@ -5369,5 +5369,13 @@
   {
     "file": "175_pixel_full_tier_price_list.sql",
     "probes": []
+  },
+  {
+    "file": "176_algoritm_tier_price_list.sql",
+    "probes": []
+  },
+  {
+    "file": "177_pixel_playstation_hourly_price.sql",
+    "probes": []
   }
 ]

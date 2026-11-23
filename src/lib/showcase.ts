@@ -516,7 +516,8 @@ function splitOfferTitle(title: string): { zone: string | null; length: string }
 /**
  * Lays out a club's offers for comparison: single-hour rates in their own row,
  * packages of the same kind (same badge, like "2+1") merged into one card that
- * lists every zone's price, and everything else (combos) as it is. Display
+ * lists every zone's price (a word badge like "DAY" also needs the same
+ * package name), and everything else (combos) as it is. Display
  * order follows the first offer of each kind.
  */
 export function groupShowcaseOffers(offers: PublicShowcaseOffer[]): GroupedShowcaseOffers {
@@ -533,11 +534,13 @@ export function groupShowcaseOffers(offers: PublicShowcaseOffer[]): GroupedShowc
       continue;
     }
     const badge = offer.badge?.trim();
-    if (!zone || !badge || !/\d/.test(badge)) {
+    if (!zone || !badge) {
       others.push(offer);
       continue;
     }
-    const key = badge.toLocaleUpperCase();
+    // A length badge ("2+1") names the package on its own; a word badge
+    // ("DAY") only does together with the same package name after the zone.
+    const key = /\d/.test(badge) ? badge.toLocaleUpperCase() : `${badge.toLocaleUpperCase()}|${length.toLocaleLowerCase()}`;
     const group = byBadge.get(key);
     if (group) {
       group.options.push(option);

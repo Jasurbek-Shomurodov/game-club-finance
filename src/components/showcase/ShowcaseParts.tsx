@@ -379,6 +379,7 @@ export async function OfferGrid({ offers, heading: Heading = 'h3' }: { offers: P
                 <div className="sc-glass flex items-center gap-4 rounded-2xl px-5 py-3">
                   <span className="inline-flex items-center gap-2 text-sm font-semibold text-white/80">
                     <Clock size={14} className="text-lime-300" aria-hidden="true" /> {option.zone}
+                    {option.time_window && <span className="text-xs font-normal text-white/60">{option.time_window}</span>}
                   </span>
                   {option.price !== null && <span className="sc-display text-lg font-bold text-white">{price(option.price)}</span>}
                 </div>

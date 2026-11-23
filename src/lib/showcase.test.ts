@@ -485,6 +485,17 @@ describe('groupShowcaseOffers', () => {
     expect(groupShowcaseOffers(offers).others.map((item) => item.id)).toEqual(['vn', 'combo']);
   });
 
+  it('merges a word-badge package across zones only when its name matches', () => {
+    const { packages, others } = groupShowcaseOffers([
+      offer('sd', 'Standard · Day package', 'DAY', 40000),
+      offer('vd', 'VIP · Day package', 'DAY', 65000),
+      offer('sn', 'Standard · Night package', 'HIT', 50000),
+      offer('vn', 'VIP · Night pass', 'HIT', 75000),
+    ]);
+    expect(packages.map((group) => [group.title, group.options.map((option) => option.id)])).toEqual([['Day package', ['sd', 'vd']]]);
+    expect(others.map((item) => item.id)).toEqual(['sn', 'vn']);
+  });
+
   it('shows a package offered in one zone only as a plain offer', () => {
     const { packages, others } = groupShowcaseOffers([offer('a', 'VIP · 2+1 hours', '2+1', 1), offer('b', 'Pro · 3+2 hours', '3+2', 2)]);
     expect(packages).toEqual([]);
