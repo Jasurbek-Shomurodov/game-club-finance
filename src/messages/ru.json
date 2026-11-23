@@ -1691,6 +1691,10 @@
   },
   "common": {
     "export": "Экспорт",
+    "exporting": "Готовим файл…",
+    "exportFailed": "Не удалось подготовить файл. Попробуйте ещё раз.",
+    "status": "Статус",
+    "exportNote": "Экспортировано {date} · {count, plural, one {# строка} few {# строки} many {# строк} other {# строки}}",
     "paymentMethod": "Способ оплаты",
     "recordedBy": "Кто записал",
     "uncategorized": "Без категории",

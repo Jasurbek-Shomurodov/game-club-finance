@@ -12,7 +12,6 @@ import {
   Card,
   DataTable,
   EmptyState,
-  Button,
   LoadErrorAlert,
   MonthPicker,
   PageHeader,
@@ -25,12 +24,13 @@ import { monthRange } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
-import { formatCurrency, formatDate } from '@/lib/formatters';
+import { capitalizeFirst, formatCurrency, formatDate, formatYearMonth } from '@/lib/formatters';
 import { calculateFinancialReportTotals, calculateManualIncome, sumDebtIncome } from '@/lib/calculations/dailyReport';
 import { canAccessPath } from '@/lib/permissions';
 import { loadFinanceReportRows, type FinanceReportRows } from '@/lib/supabase/financeReportSnapshot';
-import { BarChart2, Download } from 'lucide-react';
-import { csvFileName, csvSeparatorForLocale, downloadCsv, toCsv } from '@/lib/csv';
+import { BarChart2 } from 'lucide-react';
+import { ExportButton, type ExportFile } from '@/components/ExportButton';
+import { sheetFileName } from '@/lib/sheetExport';
 import { dailyReportHref, moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
 
 interface DayRow {
@@ -122,6 +122,7 @@ function buildDayRows(data: FinanceReportRows): DayRow[] {
 export default function MonthlyReportPage() {
   const t = useTranslations('monthlyReport');
   const tc = useTranslations('common');
+  const ts = useTranslations('moneyTaken.sources');
   const { selectedClubId, businessDayStartHour, role, featureAccess } = useClub();
   /** A figure or a day opens its records only on a page this member may open. */
   const linkIfAllowed = (href: string) => (role && canAccessPath(role, featureAccess, href.split('?')[0]) ? href : undefined);
@@ -162,19 +163,38 @@ export default function MonthlyReportPage() {
   const currency = tc('currency');
 
   /** The table as shown: one row per day, then the totals row. */
-  function exportMonth() {
+  function exportMonth(): ExportFile {
     // Bar costs are weighted averages with long fractions: two decimals are plenty in a file.
     const cells = (row: DayTotals) => [
       row.manualIncome, row.debtIncome, row.gameClubExpenses, row.gameClubProfit, row.barSales,
       row.barCost, row.barExpenses, row.barProfit, row.stockPurchaseCost, row.barCashLeft,
     ].map((amount) => Math.round(amount * 100) / 100);
-    const headers = [
-      t('date'), t('manualIncome'), t('debtIncome'), t('gameClubExpenses'), t('gameClubProfit'), t('barSales'),
-      t('costOfGoodsSold'), t('barExpenses'), t('barProfit'), t('inventoryPurchases'), t('barCashLeft'),
-    ];
-    const body = [...rows.map((row) => [row.date, ...cells(row)]), [t('totals'), ...cells(totals)]];
+    // The game club and the bar are separate businesses: one band of columns each.
+    const gameClub = { type: 'money', total: true, group: ts('game_club') } as const;
+    const bar = { type: 'money', total: true, group: ts('bar') } as const;
     const { from, to } = monthRange(month);
-    downloadCsv(csvFileName('monthly-report', from, to), toCsv(headers, body, csvSeparatorForLocale(locale)));
+    return {
+      fileName: sheetFileName('monthly-report', from, to),
+      sheets: [{
+        name: t('title'),
+        period: `${capitalizeFirst(formatYearMonth(month, locale), locale)} · ${tc('currency')}`,
+        totalLabel: t('totals'),
+        columns: [
+          { header: t('date'), type: 'date' },
+          { header: t('manualIncome'), ...gameClub },
+          { header: t('debtIncome'), ...gameClub },
+          { header: t('gameClubExpenses'), ...gameClub },
+          { header: t('gameClubProfit'), ...gameClub, signed: true },
+          { header: t('barSales'), ...bar },
+          { header: t('costOfGoodsSold'), ...bar },
+          { header: t('barExpenses'), ...bar },
+          { header: t('barProfit'), ...bar, signed: true },
+          { header: t('inventoryPurchases'), ...bar },
+          { header: t('barCashLeft'), ...bar, signed: true },
+        ],
+        rows: rows.map((row) => [row.date, ...cells(row)]),
+      }],
+    };
   }
   const signed = (amount: number) => (
     <span className={amount >= 0 ? 'font-semibold text-success-600' : 'font-semibold text-danger-600'}>{formatCurrency(amount)}</span>
@@ -204,9 +224,7 @@ export default function MonthlyReportPage() {
         tabs={<ReportsTabs value="month" />}
         action={(
           <>
-            <Button variant="outline" onClick={exportMonth} disabled={loading || rows.length === 0} icon={<Download size={16} aria-hidden="true" />}>
-              {tc('export')}
-            </Button>
+            <ExportButton build={exportMonth} disabled={loading || rows.length === 0} />
             <MonthPicker value={month} max={businessYearMonth} onChange={setMonth} className="sm:w-64" />
           </>
         )}

@@ -72,8 +72,9 @@ import {
   type OpenDebtSort,
 } from '@/lib/calculations/debt';
 import { getDebtDateIssue, validateDebtPayment } from '@/lib/validation';
-import { ChevronRight, CircleCheck, Download, HandCoins, Plus, Users, Wallet } from 'lucide-react';
-import { csvFileName, csvSeparatorForLocale, downloadCsv, toCsv } from '@/lib/csv';
+import { ChevronRight, CircleCheck, HandCoins, Plus, Users, Wallet } from 'lucide-react';
+import { ExportButton, type ExportFile } from '@/components/ExportButton';
+import { sheetFileName } from '@/lib/sheetExport';
 import { defaultPaymentMethod } from '@/lib/paymentMethods';
 import type { NewDebt, DebtPayment, EntryPaymentMethod } from '@/types';
 import { scrollBehavior } from '@/lib/scroll';
@@ -492,18 +493,37 @@ export default function DebtsPage() {
   };
   const { outstandingTotal, debtorCount, paidTotal } = useMemo(() => summarizeDebts(debts), [debts]);
   /** Every debt, open ones first as on the page, with what is still owed. */
-  function exportDebts() {
-    const rows = [...unpaid, ...paid].map((debt) => [
-      debt.person_name,
-      debt.date,
-      Number(debt.amount) || 0,
-      Number(debt.paid_amount) || 0,
-      remainingFor(debt),
-      t(getDebtStatus(debt.amount, debt.paid_amount)),
-      debt.comment ?? '',
-    ]);
-    const headers = [t('personName'), t('date'), t('amount'), t('paidAmount'), t('remaining'), t('status'), t('comment')];
-    downloadCsv(csvFileName('debts', businessToday), toCsv(headers, rows, csvSeparatorForLocale(locale)));
+  function exportDebts(): ExportFile {
+    const statusTone = { unpaid: 'danger', partial: 'warning', paid: 'success' } as const;
+    const rows = [...unpaid, ...paid].map((debt) => {
+      const status = getDebtStatus(debt.amount, debt.paid_amount);
+      return [
+        debt.person_name,
+        debt.date,
+        Number(debt.amount) || 0,
+        Number(debt.paid_amount) || 0,
+        remainingFor(debt),
+        { value: t(status), tone: statusTone[status] },
+        debt.comment ?? '',
+      ];
+    });
+    return {
+      fileName: sheetFileName('debts', businessToday),
+      sheets: [{
+        name: t('title'),
+        period: formatDate(businessToday, locale),
+        columns: [
+          { header: t('personName') },
+          { header: t('date'), type: 'date' },
+          { header: `${t('amount')} (${tc('currency')})`, type: 'money', total: true },
+          { header: `${t('paidAmount')} (${tc('currency')})`, type: 'money', total: true },
+          { header: `${t('remaining')} (${tc('currency')})`, type: 'money', total: true },
+          { header: t('status') },
+          { header: t('comment'), type: 'longText' },
+        ],
+        rows,
+      }],
+    };
   }
 
   const activePayments = payDebtId ? payments : [];
@@ -520,9 +540,7 @@ export default function DebtsPage() {
         action={(
           <>
             {debts.length > 0 && (
-              <Button variant="outline" onClick={exportDebts} icon={<Download size={16} aria-hidden="true" />}>
-                {tc('export')}
-              </Button>
+              <ExportButton build={exportDebts} />
             )}
             {canManage && (
               <Button onClick={() => openAddDebtModal()} icon={<Plus size={16} aria-hidden="true" />}>

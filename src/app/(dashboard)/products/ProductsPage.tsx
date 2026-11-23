@@ -39,7 +39,7 @@ import {
   type SegmentedOption,
 } from '@/components/PresentationFoundation';
 import { ProductSalesSkeleton, ProductsSkeleton } from './ProductsSkeleton';
-import { cleanQuantityInput, formatCurrency, formatNumber, formatUnitCurrency } from '@/lib/formatters';
+import { cleanQuantityInput, formatCurrency, formatDate, formatNumber, formatUnitCurrency } from '@/lib/formatters';
 import { fetchProductsOrdered, isMissingSortOrder, updateProductSortOrders } from '@/lib/supabase/products';
 import {
   buildProductInsertPayload,
@@ -59,9 +59,10 @@ import { fetchBarProductSales } from '@/lib/supabase/barProductSales';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { cn } from '@/lib/utils';
 import { useClubQuery } from '@/lib/useClubQuery';
-import { ArrowDown, ArrowUp, Banknote, Check, ChevronRight, Download, ListOrdered, Lock, Package, Pencil, Plus, ShoppingCart, Trash2, TrendingUp, Trophy } from 'lucide-react';
+import { ArrowDown, ArrowUp, Banknote, Check, ChevronRight, ListOrdered, Lock, Package, Pencil, Plus, ShoppingCart, Trash2, TrendingUp, Trophy } from 'lucide-react';
 import { usePageSearch } from '@/lib/quickActions';
-import { csvFileName, csvSeparatorForLocale, downloadCsv, toCsv } from '@/lib/csv';
+import { ExportButton, type ExportFile } from '@/components/ExportButton';
+import { sheetFileName } from '@/lib/sheetExport';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import type { Product } from '@/types';
 
@@ -192,7 +193,7 @@ export default function ProductsPage() {
   }, [products, selectedCategory, search, stockFilter, reordering, sort, sales]);
   // With every category in view, the catalog reads as one section per category.
   /** The catalog as filtered and sorted on screen, with the 30-day sales beside each product. */
-  function exportProducts() {
+  function exportProducts(): ExportFile {
     const rows = filteredProducts.map((product) => {
       const insight = sales.byProduct.get(product.id);
       return [
@@ -200,14 +201,31 @@ export default function ProductsPage() {
         product.category ?? '',
         product.sale_price,
         product.cost_price,
-        product.tracks_inventory === false ? '' : product.current_stock,
+        product.tracks_inventory === false ? null : product.current_stock,
         insight?.sold ?? 0,
         insight?.income ?? 0,
-        product.is_active ? t('active') : t('inactive'),
+        product.is_active ? { value: t('active'), tone: 'success' as const } : { value: t('inactive'), tone: 'muted' as const },
       ];
     });
-    const headers = [t('name'), t('category'), t('salePrice'), t('costPrice'), t('currentStock'), t('soldColumn'), t('salesIncome'), t('active')];
-    downloadCsv(csvFileName('products', businessToday), toCsv(headers, rows, csvSeparatorForLocale(locale)));
+    const currency = tc('currency');
+    return {
+      fileName: sheetFileName('products', businessToday),
+      sheets: [{
+        name: t('catalog'),
+        period: formatDate(businessToday, locale),
+        columns: [
+          { header: t('name') },
+          { header: t('category') },
+          { header: `${t('salePrice')} (${currency})`, type: 'money' },
+          { header: `${t('costPrice')} (${currency})`, type: 'money' },
+          { header: t('currentStock'), type: 'number' },
+          { header: t('soldColumn', { days: SALES_PERIOD_DAYS }), type: 'number', total: true },
+          { header: `${t('salesIncome')} (${currency})`, type: 'money', total: true },
+          { header: tc('status') },
+        ],
+        rows,
+      }],
+    };
   }
 
   const showSections = !reordering && sort === 'catalog' && !selectedCategory && categoryOptions.length > 0;
@@ -493,9 +511,7 @@ export default function ProductsPage() {
                 description={<span role="status">{t('resultCount', { count: filteredProducts.length, total: products.length })}</span>}
                 action={(
                   <div className="flex flex-wrap items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={exportProducts} disabled={filteredProducts.length === 0} icon={<Download size={16} aria-hidden="true" />}>
-                    {tc('export')}
-                  </Button>
+                  <ExportButton size="sm" build={exportProducts} disabled={filteredProducts.length === 0} />
                   {canManageInventory && (
                   <Button
                     variant={reordering ? 'primary' : 'outline'}

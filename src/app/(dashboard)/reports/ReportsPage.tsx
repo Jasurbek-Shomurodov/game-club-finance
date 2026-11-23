@@ -11,7 +11,6 @@ import {
   CircleCheck,
   CircleDollarSign,
   CreditCard,
-  Download,
   Gamepad2,
   HandCoins,
   Landmark,
@@ -78,7 +77,8 @@ import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { useQuickAction } from '@/lib/quickActions';
-import { csvFileName, csvSeparatorForLocale, downloadCsv, toCsv } from '@/lib/csv';
+import { ExportButton, type ExportFile } from '@/components/ExportButton';
+import { sheetFileName } from '@/lib/sheetExport';
 import { canAccessFeature } from '@/lib/permissions';
 import { expensePaymentMethods } from '@/lib/paymentMethods';
 import ExpenseRegistrationForm from '@/components/expenses/ExpenseRegistrationForm';
@@ -963,18 +963,34 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   const closeoutRows = closeoutDays.flatMap(({ rows }) => rows);
 
   /** The entries of the closeout as filtered on screen, one row each; exchanges show what was given. */
-  function exportCloseout() {
+  function exportCloseout(): ExportFile {
+    const typeTone = { income: 'success', debt_payment: 'warning', expense: 'danger', exchange: 'muted' } as const;
     const rows = closeoutRows.map((row) => [
       row.date,
-      activityTypeLabel(row.activity),
+      { value: activityTypeLabel(row.activity), tone: typeTone[row.activity.kind] },
       categoryLabel(row.activity),
       row.activity.exchange ? row.activity.exchange.fromAmount : row.activity.amount,
       row.activity.exchange ? exchangeMethodLabel(row.activity.exchange.from) : paymentLabel(row.activity.paymentMethod),
       row.activity.comment ?? '',
       row.activity.createdByName ?? '',
     ]);
-    const headers = [t('date'), t('type'), t('category'), `${t('amount')} (${tc('currency')})`, tc('paymentMethod'), t('descriptionLabel'), tc('recordedBy')];
-    downloadCsv(csvFileName('reports', range.from, range.to), toCsv(headers, rows, csvSeparatorForLocale(locale)));
+    return {
+      fileName: sheetFileName('reports', range.from, range.to),
+      sheets: [{
+        name: t('dailyCloseout'),
+        period: range.from === range.to ? formatDateOnly(range.from, locale) : `${formatDateOnly(range.from, locale)} – ${formatDateOnly(range.to, locale)}`,
+        columns: [
+          { header: t('date'), type: 'date' },
+          { header: t('type') },
+          { header: t('category') },
+          { header: `${t('amount')} (${tc('currency')})`, type: 'money' },
+          { header: tc('paymentMethod') },
+          { header: t('descriptionLabel'), type: 'longText' },
+          { header: tc('recordedBy') },
+        ],
+        rows,
+      }],
+    };
   }
 
   // Owners delete entries and undo ticks; collectors tick dates.
@@ -1328,9 +1344,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                 title={t('dailyCloseout')}
                 description={t('dailyCloseoutDescription')}
                 action={(
-                  <Button variant="outline" size="sm" onClick={exportCloseout} disabled={loading || closeoutRows.length === 0} icon={<Download size={16} aria-hidden="true" />}>
-                    {tc('export')}
-                  </Button>
+                  <ExportButton size="sm" build={exportCloseout} disabled={loading || closeoutRows.length === 0} />
                 )}
               />
               <div className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-center">

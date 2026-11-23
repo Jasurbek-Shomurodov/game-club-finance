@@ -2,6 +2,7 @@
 // against the app's own schema, RLS and RPCs in PGlite (e2e/fake-supabase.mjs). Each test names its catalog cases.
 // Expected figures are worked out from the fixture, never read off the screen.
 import { readFile } from 'node:fs/promises';
+import ExcelJS from 'exceljs';
 import { test, expect } from '@playwright/test';
 import { englishCookie, expectDashboardAmount, expectGameClubExpenses, open, openCommandPalette, pageText, resetDatabase, restAs, signIn, uzs, openTab } from './helpers.mjs';
 import { clubs, dailyCash, debts, expected, expenses, products, purchase, today } from './fixture.mjs';
@@ -977,14 +978,20 @@ test('EXP-001 Debts export downloads the list as a spreadsheet file', async ({ p
     page.waitForEvent('download'),
     page.getByRole('button', { name: 'Export', exact: true }).click(),
   ]);
-  expect(download.suggestedFilename()).toBe(`debts-${today}.csv`);
-  const lines = (await readFile(await download.path(), 'utf8')).split('\r\n');
-  // A byte-order mark so Excel reads the text, then the header and one row per debt.
-  expect(lines[0]).toBe('\uFEFFPerson Name,Date,Amount,Paid Amount,Remaining,Status,Comment');
-  expect(lines).toHaveLength(debts.length + 1);
-  expect(lines.slice(1).join('\n')).toContain('E2E Alibek');
-  // Amounts are bare numbers a spreadsheet can add up.
-  expect(lines[1].split(',')[2]).toMatch(/^\d+$/);
+  expect(download.suggestedFilename()).toBe(`debts-${today}.xlsx`);
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(await download.path());
+  const sheet = workbook.worksheets[0];
+  const row = number => sheet.getRow(number).values.slice(1);
+  // A title block (title, club and date, export note, a gap), the header, one row per debt, then the totals.
+  expect(sheet.getCell('A1').value).toBe('Debts');
+  expect(row(5)).toEqual(['Person Name', 'Date', 'Amount (UZS)', 'Paid Amount (UZS)', 'Remaining (UZS)', 'Status', 'Comment']);
+  expect(sheet.rowCount).toBe(5 + debts.length + 1);
+  const people = Array.from({ length: debts.length }, (_, index) => sheet.getCell(6 + index, 1).value);
+  expect(people).toContain('E2E Alibek');
+  // Amounts are real numbers a spreadsheet can add up.
+  expect(typeof sheet.getCell(6, 3).value).toBe('number');
+  expect(sheet.getCell(6 + debts.length, 1).value).toBe('Total');
 });
 
 test('CMD-001 the command palette finds pages and actions from the keyboard', async ({ page }) => {

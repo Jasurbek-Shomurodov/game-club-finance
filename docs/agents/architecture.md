@@ -102,12 +102,17 @@ for lists the member can open). Picking one opens the list narrowed to it
 through `requestPageSearch` / `usePageSearch`, the same in-memory handoff.
 
 Lists that an accountant may want elsewhere have an **Export** button
-(Reports closeout, Monthly Report, Debts, Products). `src/lib/csv.ts` writes the file in the
-browser from the rows already on screen, as filtered: no request, no server
-route. Amounts are bare numbers; the separator follows the app language
-(";" for Russian and Uzbek, where Excel expects it); text typed by people is
-escaped so it can never run as a spreadsheet formula. Use `toCsv` and
-`downloadCsv` for any further export rather than a new dependency (EXP-001).
+(Reports closeout, Collected, Monthly Report, Debts, Products). The button is
+`ExportButton` (`src/components/ExportButton.tsx`); `src/lib/sheetExport.ts`
+writes a formatted `.xlsx` in the browser from the rows already on screen, as
+filtered: no request, no server route, and `exceljs` is loaded only when the
+button is pressed. Every sheet has the same shape: a title block (title, club
+and period, export time and row count), a frozen coloured header with filters,
+amounts as real numbers and dates as real dates, a totals row that follows the
+filter, and a print setup that fits the page width. A page describes its
+columns (`type`, `total`, `signed`, `group`) and rows; it never styles cells.
+Use `ExportButton` for any further export rather than a new file writer
+(EXP-001).
 
 The admin app installs on a phone's home screen: `public/admin.webmanifest`,
 the icons in `public/icons` (drawn by `scripts/generate-app-icons.mjs`) and

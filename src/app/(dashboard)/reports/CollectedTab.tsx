@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
-import { ArrowDownLeft, ArrowUpRight, CircleCheck, Download, HandCoins, PiggyBank, ReceiptText, Trash2, UserRound, WalletCards } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, CircleCheck, HandCoins, PiggyBank, ReceiptText, Trash2, UserRound, WalletCards } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import {
   Badge,
@@ -43,7 +43,8 @@ import {
   type CollectedMoneyMove,
   type CollectionGroup,
 } from '@/lib/calculations/collectedMoney';
-import { csvFileName, csvSeparatorForLocale, downloadCsv, toCsv } from '@/lib/csv';
+import { ExportButton, type ExportFile, type ExportSheet } from '@/components/ExportButton';
+import { sheetFileName } from '@/lib/sheetExport';
 import { formatCurrency, formatCurrencyInput, formatDateOnly, formatDateTime, parseCurrencyInput } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import { CollectedGlance, CollectedGlanceSkeleton, CollectedSplitSkeleton } from './CollectedGlance';
@@ -295,24 +296,54 @@ export default function CollectedTab({
   };
   for (const method of methods) ledgerFooter[method] = amountCell(ledgerTotals[method], true, true);
 
-  function exportCsv() {
-    const separator = csvSeparatorForLocale(locale);
-    const methodHeaders = methods.map(methodLabel);
-    if (view === 'collections') {
-      const rows = shownCollections.map((row) => [
+  /** Both lists as filtered on screen, one sheet each, the open view first. */
+  function exportLists(): ExportFile {
+    const currency = tc('currency');
+    const period = (rows: Array<{ date: string }>) => {
+      const from = rows.at(-1)?.date;
+      const to = rows[0]?.date;
+      if (!from || !to) return currency;
+      return `${from === to ? formatDateOnly(from, locale) : `${formatDateOnly(from, locale)} – ${formatDateOnly(to, locale)}`} · ${currency}`;
+    };
+    const collections: ExportSheet = {
+      name: t('collectedTitle'),
+      period: period(shownCollections),
+      columns: [
+        { header: t('date'), type: 'date' },
+        { header: t('collectedByColumn') },
+        { header: tv('savedAtColumn') },
+        ...methods.map((method) => ({ header: methodLabel(method), type: 'money', total: true } as const)),
+        { header: t('collectedTotal'), type: 'money', total: true },
+        { header: tm('comment'), type: 'longText' },
+      ],
+      rows: shownCollections.map((row) => [
         row.date, personName(row.createdBy), row.createdAt ? formatDateTime(row.createdAt, locale) : '',
         ...methods.map((method) => row[method]), row.total, row.comment ?? '',
-      ]);
-      const headers = [t('date'), t('collectedByColumn'), tv('savedAtColumn'), ...methodHeaders, t('collectedTotal'), tm('comment')];
-      downloadCsv(csvFileName('collected', shownCollections.at(-1)?.date ?? businessToday, shownCollections[0]?.date), toCsv(headers, rows, separator));
-      return;
-    }
-    const rows = shownLedger.map((row) => [
-      row.date, kindLabel(row.kind), personName(row.createdBy), row.createdAt ? formatDateTime(row.createdAt, locale) : '',
-      ...methods.map((method) => row[method]), row.total, row.heldAfter, row.comment ?? '',
-    ]);
-    const headers = [t('date'), tv('typeColumn'), tv('byColumn'), tv('savedAtColumn'), ...methodHeaders, tv('changeColumn'), tv('heldAfterColumn'), tm('comment')];
-    downloadCsv(csvFileName('collected-ledger', shownLedger.at(-1)?.date ?? businessToday, shownLedger[0]?.date), toCsv(headers, rows, separator));
+      ]),
+    };
+    const kindTone = { collect: 'success', expense: 'danger', reserve: 'warning' } as const;
+    const ledger: ExportSheet = {
+      name: tv('ledgerTitle'),
+      period: period(shownLedger),
+      totalLabel: tv('netChange'),
+      columns: [
+        { header: t('date'), type: 'date' },
+        { header: tv('typeColumn') },
+        { header: tv('byColumn') },
+        { header: tv('savedAtColumn') },
+        ...methods.map((method) => ({ header: methodLabel(method), type: 'money', total: true, signed: true } as const)),
+        { header: tv('changeColumn'), type: 'money', total: true, signed: true },
+        { header: tv('heldAfterColumn'), type: 'money' },
+        { header: tm('comment'), type: 'longText' },
+      ],
+      rows: shownLedger.map((row) => [
+        row.date, { value: kindLabel(row.kind), tone: kindTone[row.kind] }, personName(row.createdBy), row.createdAt ? formatDateTime(row.createdAt, locale) : '',
+        ...methods.map((method) => row[method]), row.total, row.heldAfter, row.comment ?? '',
+      ]),
+    };
+    const sheets = (view === 'collections' ? [collections, ledger] : [ledger, collections]).filter((sheet) => sheet.rows.length > 0);
+    const dates = [...shownCollections, ...shownLedger].map((row) => row.date).sort();
+    return { fileName: sheetFileName('collected', dates[0] ?? businessToday, dates.at(-1)), sheets };
   }
 
   const shownCount = view === 'collections' ? shownCollections.length : shownLedger.length;
@@ -456,14 +487,7 @@ export default function CollectedTab({
               description={view === 'collections' ? t('collectedDescription') : tv('ledgerDescription')}
             />
             <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                icon={<Download size={16} aria-hidden="true" />}
-                disabled={loading || shownCount === 0}
-                onClick={exportCsv}
-              >
-                {tc('export')}
-              </Button>
+              <ExportButton build={exportLists} disabled={loading || shownCount === 0} />
               {isOwner && (
                 <Button
                   variant="secondary"

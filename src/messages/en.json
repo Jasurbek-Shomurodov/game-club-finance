@@ -1691,6 +1691,10 @@
   },
   "common": {
     "export": "Export",
+    "exporting": "Preparing file…",
+    "exportFailed": "The file could not be prepared. Try again.",
+    "status": "Status",
+    "exportNote": "Exported {date} · {count, plural, one {# row} other {# rows}}",
     "paymentMethod": "Payment method",
     "recordedBy": "Recorded by",
     "uncategorized": "Uncategorized",
