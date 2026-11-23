@@ -60,8 +60,8 @@ export function GameCoverGridSkeleton({ count = 12, className }: { count?: numbe
   );
 }
 
-/** A settings form: text fields, an image picker and the save button. */
-export function ShowcaseFormSkeleton({ fields = 6 }: { fields?: number }) {
+/** A settings form: text fields, an image picker and the save button; `extras` adds the club page's branch, amenities and photos. */
+export function ShowcaseFormSkeleton({ fields = 6, extras = false }: { fields?: number; extras?: boolean }) {
   return (
     <div className="space-y-4" aria-hidden="true">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -69,6 +69,15 @@ export function ShowcaseFormSkeleton({ fields = 6 }: { fields?: number }) {
         <FieldSkeleton />
       </div>
       <FieldSkeleton tall />
+      {extras && (
+        <>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <FieldSkeleton />
+            <FieldSkeleton />
+          </div>
+          <FieldSkeleton />
+        </>
+      )}
       <div className="flex gap-3">
         <Skeleton className="aspect-video w-44 shrink-0 rounded-xl" />
         <div className="min-w-0 flex-1 space-y-2">
@@ -79,6 +88,25 @@ export function ShowcaseFormSkeleton({ fields = 6 }: { fields?: number }) {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: fields }, (_, index) => <FieldSkeleton key={index} />)}
       </div>
+      {extras && (
+        <>
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-32 bg-gray-100" />
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 12 }, (_, index) => <Skeleton key={index} className="h-11 w-full rounded-xl bg-gray-100" />)}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <Skeleton className="h-3 w-28 bg-gray-100" />
+              <Skeleton className="h-9 w-32 rounded-lg" />
+            </div>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+              {Array.from({ length: 6 }, (_, index) => <Skeleton key={index} className="aspect-[4/3] w-full rounded-xl" />)}
+            </div>
+          </div>
+        </>
+      )}
       <Skeleton className="h-16 w-full rounded-xl bg-gray-100" />
       <div className="flex justify-end">
         <Skeleton className="h-11 w-28 rounded-lg" />
@@ -93,7 +121,7 @@ export function ShowcaseSkeleton() {
     <div className="space-y-5" aria-hidden="true">
       <SkeletonCard padded={false}>
         <CardHeadSkeleton />
-        <div className="p-4 sm:p-5"><ShowcaseFormSkeleton fields={8} /></div>
+        <div className="p-4 sm:p-5"><ShowcaseFormSkeleton fields={9} extras /></div>
       </SkeletonCard>
       {[true, false].map((thumbnail, index) => (
         <SkeletonCard key={index} padded={false}>

@@ -53,7 +53,7 @@ function Wordmark({ name, logoUrl }: { name: string; logoUrl?: string | null }) 
         // eslint-disable-next-line @next/next/no-img-element
         <img src={logoUrl} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-white/15" />
       ) : (
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 shadow-[0_8px_24px_-8px_rgba(192,38,211,0.8)]">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-violet-500 shadow-[0_8px_24px_-8px_rgba(124,58,237,0.8)]">
           <Gamepad2 size={20} aria-hidden="true" />
         </span>
       )}
@@ -73,7 +73,7 @@ function SocialLink({ href, label, children }: { href: string; label: string; ch
       rel="noopener noreferrer"
       aria-label={label}
       title={label}
-      className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.07] text-white/80 ring-1 ring-white/10 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300"
+      className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.07] text-white/80 ring-1 ring-white/10 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
     >
       {children}
     </a>
@@ -91,7 +91,7 @@ function LinkColumn({ title, links }: { title: string; links: FooterLink[] }) {
             <a
               href={link.href}
               {...(link.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-              className="text-sm text-white/60 transition-colors hover:text-white"
+              className="text-sm text-white/70 transition-colors hover:text-white"
             >
               {link.label}
             </a>
@@ -115,7 +115,7 @@ function LocationDetails({ phone, hours }: { phone: string | null; hours: string
   const phoneLink = telHref(phone);
   if (!phone && !hours) return null;
   return (
-    <span className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-white/55">
+    <span className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-white/65">
       {phone && (
         <span className="inline-flex items-center gap-1.5">
           <Phone size={13} aria-hidden="true" />
@@ -145,8 +145,8 @@ export async function ShowcaseFooter({ name, logoUrl, description, hours, phone,
       <div className="mx-auto grid max-w-7xl gap-12 px-4 py-14 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.4fr] lg:px-8">
         <div>
           <Wordmark name={name} logoUrl={logoUrl} />
-          {description && <p className="mt-5 max-w-sm text-sm leading-6 text-white/60">{description}</p>}
-          {hours && <p className="mt-2 text-sm text-white/60">{t('footerOpen', { hours })}</p>}
+          {description && <p className="mt-5 max-w-sm text-sm leading-6 text-white/70">{description}</p>}
+          {hours && <p className="mt-2 text-sm text-white/70">{t('footerOpen', { hours })}</p>}
           {Object.values(socials).some(Boolean) && (
             <div className="mt-6 flex flex-wrap gap-3">
               {socials.telegram && <SocialLink href={socials.telegram} label="Telegram"><Send size={17} aria-hidden="true" /></SocialLink>}
@@ -169,7 +169,7 @@ export async function ShowcaseFooter({ name, logoUrl, description, hours, phone,
                 const links = mapLinks({ club_name: location.clubName, address: location.address, yandex_maps_url: location.yandexMapsUrl });
                 return (
                   <ContactItem key={`${location.clubName}-${location.address}`} icon={<MapPin size={16} aria-hidden="true" />}>
-                    {location.label && <span className="block text-xs font-semibold uppercase tracking-wider text-white/60">{location.label}</span>}
+                    {location.label && <span className="block text-xs font-semibold uppercase tracking-wider text-white/70">{location.label}</span>}
                     {links ? <MapChooser address={location.address} links={links} labels={mapLabels} /> : location.address}
                     <LocationDetails phone={location.phone ?? null} hours={location.hours ?? null} />
                   </ContactItem>
@@ -190,7 +190,7 @@ export async function ShowcaseFooter({ name, logoUrl, description, hours, phone,
           </div>
         )}
       </div>
-      <div className="border-t border-white/5 px-4 py-6 text-center text-xs text-white/60">
+      <div className="border-t border-white/5 px-4 py-6 text-center text-xs text-white/70">
         © {new Date().getFullYear()} {name}. {t('footerRights')}{' '}
         <a href={privacyHref} className="underline underline-offset-4 transition-colors hover:text-white">{t('footerPrivacy')}</a>
       </div>

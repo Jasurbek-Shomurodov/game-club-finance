@@ -82,7 +82,7 @@ export async function ShowcaseFaq({ club, brand, id }: { club?: PublicShowcase; 
             <details key={item.question} className="sc-glass group rounded-2xl px-5 py-4 open:bg-white/[0.07]">
               <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 text-left font-semibold text-white [&::-webkit-details-marker]:hidden">
                 <h3 className="text-base sm:text-lg">{item.question}</h3>
-                <ChevronDown size={18} aria-hidden="true" className="shrink-0 text-white/50 transition-transform group-open:rotate-180" />
+                <ChevronDown size={18} aria-hidden="true" className="shrink-0 text-white/60 transition-transform group-open:rotate-180" />
               </summary>
               <p className="mt-3 leading-7 text-white/70">{item.answer}</p>
             </details>

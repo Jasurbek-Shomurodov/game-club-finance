@@ -1,6 +1,8 @@
 /*
- * Public club showcase (/club/<slug>). A self-contained dark "neon" look that
- * does not follow the dashboard theme: visitors always see the same page.
+ * Public site (/, /club/<slug>). A self-contained dark look that does not
+ * follow the dashboard theme: visitors always see the same page.
+ * One accent (violet) for actions and one signal colour (lime) for "open now",
+ * prices and savings; photos carry the rest of the colour.
  * Every class is prefixed `sc-` so nothing leaks into the dashboard.
  */
 
@@ -16,10 +18,10 @@
 .sc-root {
   --sc-bg: #05050b;
   --sc-violet: #8b5cf6;
-  --sc-fuchsia: #e879f9;
-  --sc-cyan: #22d3ee;
   --sc-lime: #a3e635;
-  --sc-gradient: linear-gradient(100deg, #a78bfa 0%, #f0abfc 30%, #67e8f9 60%, #a78bfa 100%);
+  --sc-surface: #0e0e19;
+  --sc-line: rgba(255, 255, 255, 0.09);
+  --sc-gradient: linear-gradient(100deg, #ffffff 0%, #ddd6fe 45%, #a78bfa 100%);
   background: var(--sc-bg);
   color: #f5f5fa;
   font-family: var(--font-display-body, var(--font-sans)), ui-sans-serif, system-ui, sans-serif;
@@ -45,7 +47,7 @@
   position: absolute;
   border-radius: 9999px;
   filter: blur(90px);
-  opacity: 0.55;
+  opacity: 0.4;
   mix-blend-mode: screen;
   will-change: transform;
 }
@@ -64,7 +66,7 @@
   height: 38rem;
   right: -12rem;
   top: 4rem;
-  background: radial-gradient(circle, #db2777 0%, transparent 65%);
+  background: radial-gradient(circle, #4f46e5 0%, transparent 65%);
   animation: sc-drift-2 22s ease-in-out infinite alternate;
 }
 
@@ -73,7 +75,7 @@
   height: 40rem;
   left: 30%;
   bottom: -22rem;
-  background: radial-gradient(circle, #0891b2 0%, transparent 65%);
+  background: radial-gradient(circle, #6d28d9 0%, transparent 65%);
   animation: sc-drift-3 26s ease-in-out infinite alternate;
 }
 
@@ -103,7 +105,7 @@
   mask-image: linear-gradient(to bottom, transparent 0%, black 35%, black 60%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 35%, black 60%, transparent 100%);
   animation: sc-grid-move 3.5s linear infinite;
-  opacity: 0.55;
+  opacity: 0.3;
 }
 
 @keyframes sc-grid-move {
@@ -125,7 +127,7 @@
   height: 3px;
   border-radius: 9999px;
   background: #fff;
-  box-shadow: 0 0 10px 2px rgba(240, 171, 252, 0.8);
+  box-shadow: 0 0 10px 2px rgba(196, 181, 253, 0.8);
   opacity: 0;
   animation: sc-spark var(--d, 9s) linear var(--delay, 0s) infinite;
 }
@@ -141,16 +143,9 @@
 
 .sc-gradient-text {
   background: var(--sc-gradient);
-  background-size: 250% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: sc-gradient-pan 7s ease-in-out infinite alternate;
-}
-
-@keyframes sc-gradient-pan {
-  from { background-position: 0% 50%; }
-  to { background-position: 100% 50%; }
 }
 
 /* A light sweep that passes over text every few seconds. */
@@ -235,34 +230,32 @@
   opacity: 1;
 }
 
-/* Primary call to action: gradient fill with a periodic shimmer sweep. */
+/* Primary call to action: the one solid violet thing on a screen. */
 .sc-cta {
   position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  background: linear-gradient(100deg, #7c3aed, #c026d3 55%, #0891b2);
-  background-size: 200% 100%;
-  box-shadow: 0 10px 40px -10px rgba(192, 38, 211, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  transition: transform 0.2s, box-shadow 0.3s, background-position 0.6s;
+  background: linear-gradient(180deg, #8b5cf6, #7c3aed);
+  box-shadow: 0 10px 30px -12px rgba(124, 58, 237, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transition: transform 0.2s, box-shadow 0.3s, filter 0.2s;
 }
 .sc-cta:hover {
-  transform: translateY(-2px);
-  background-position: 100% 0;
-  box-shadow: 0 16px 50px -10px rgba(34, 211, 238, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+  box-shadow: 0 14px 36px -12px rgba(139, 92, 246, 1), inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
-.sc-cta::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.45) 50%, transparent 70%);
-  transform: translateX(-120%);
-  animation: sc-sweep 3.6s ease-in-out 1.2s infinite;
+.sc-cta:focus-visible {
+  outline: 2px solid #ddd6fe;
+  outline-offset: 2px;
 }
 
-@keyframes sc-sweep {
-  0% { transform: translateX(-120%); }
-  40%, 100% { transform: translateX(120%); }
+/* A plain card: quiet surface, hairline border. */
+.sc-card {
+  background: var(--sc-surface);
+  border: 1px solid var(--sc-line);
+}
+
+/* Prices line up digit under digit. */
+.sc-num {
+  font-variant-numeric: tabular-nums;
 }
 
 .sc-pulse-dot {
@@ -311,7 +304,7 @@
   transition: transform 0.25s ease-out, box-shadow 0.4s;
 }
 .sc-game:hover {
-  box-shadow: 0 30px 60px -20px rgba(139, 92, 246, 0.55), 0 0 0 1px rgba(240, 171, 252, 0.35);
+  box-shadow: 0 24px 50px -22px rgba(139, 92, 246, 0.55), 0 0 0 1px rgba(196, 181, 253, 0.35);
 }
 .sc-game .sc-game-media {
   transition: transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
@@ -349,13 +342,7 @@
   transform: translateX(60%);
 }
 
-/* ---------- Zone cards: rotating conic border ---------- */
-
-@property --sc-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
+/* ---------- Zone cards: a hairline that catches light at one corner ---------- */
 
 .sc-zone {
   position: relative;
@@ -368,11 +355,10 @@
   z-index: -1;
   border-radius: inherit;
   padding: 1px;
-  background: conic-gradient(from var(--sc-angle), rgba(139, 92, 246, 0.15), #a78bfa, #f0abfc, #67e8f9, rgba(139, 92, 246, 0.15) 40%, rgba(139, 92, 246, 0.15));
+  background: linear-gradient(150deg, rgba(167, 139, 250, 0.55), rgba(255, 255, 255, 0.09) 35%, rgba(255, 255, 255, 0.06));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  animation: sc-spin 6s linear infinite;
 }
 .sc-zone::after {
   content: '';
@@ -387,10 +373,6 @@
 }
 .sc-zone:hover::after {
   opacity: 1;
-}
-
-@keyframes sc-spin {
-  to { --sc-angle: 360deg; }
 }
 
 /* ---------- Marquee ---------- */
@@ -414,7 +396,7 @@
   width: 18px;
   height: 18px;
   margin-left: 3rem;
-  background: rgba(232, 121, 249, 0.4);
+  background: rgba(167, 139, 250, 0.45);
   -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z'/></svg>") center / contain no-repeat;
   mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z'/></svg>") center / contain no-repeat;
 }
@@ -447,9 +429,7 @@
     animation: none;
     will-change: auto;
   }
-  .sc-grid,
-  .sc-gradient-text,
-  .sc-zone::before {
+  .sc-grid {
     animation: none;
   }
   .sc-noise,
@@ -504,20 +484,18 @@
   }
 }
 
-/* ---------- Brand page: club tabs ---------- */
+/* ---------- Brand page: club switch ----------
+   A solid full-width bar under the top bar, so it reads as part of the page
+   chrome and never floats over the cards it scrolls past. */
 
-.sc-tabs::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(to bottom, rgba(5, 5, 11, 0.85), rgba(5, 5, 11, 0));
-  pointer-events: none;
+.sc-tabs {
+  background: rgba(5, 5, 11, 0.94);
+  border-bottom: 1px solid var(--sc-line);
 }
 
 .sc-tab-indicator {
-  background: linear-gradient(100deg, #7c3aed, #c026d3 55%, #0891b2);
-  box-shadow: 0 8px 30px -8px rgba(192, 38, 211, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  background: linear-gradient(180deg, #8b5cf6, #7c3aed);
+  box-shadow: 0 8px 24px -10px rgba(124, 58, 237, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   transition: left 0.45s cubic-bezier(0.3, 1.3, 0.4, 1), width 0.45s cubic-bezier(0.3, 1.3, 0.4, 1);
 }
 
@@ -535,8 +513,8 @@
   transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.35s;
 }
 .sc-location:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 30px 60px -25px rgba(139, 92, 246, 0.6), 0 0 0 1px rgba(240, 171, 252, 0.3);
+  transform: translateY(-4px);
+  box-shadow: 0 30px 60px -28px rgba(139, 92, 246, 0.6), 0 0 0 1px rgba(196, 181, 253, 0.3);
 }
 .sc-location .sc-location-media {
   transition: transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
@@ -548,23 +526,12 @@
 /* ---------- Offer tickets ---------- */
 
 .sc-offer {
-  background: linear-gradient(140deg, rgba(167, 139, 250, 0.7), rgba(240, 171, 252, 0.35) 40%, rgba(103, 232, 249, 0.6));
+  background: linear-gradient(150deg, rgba(167, 139, 250, 0.5), rgba(255, 255, 255, 0.09) 40%, rgba(255, 255, 255, 0.06));
   transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.35s;
 }
 .sc-offer:hover {
-  transform: translateY(-6px) rotate(-0.4deg);
-  box-shadow: 0 30px 60px -25px rgba(192, 38, 211, 0.6);
-}
-/* A light sweep that crosses the ticket every few seconds. */
-.sc-offer::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.12) 50%, transparent 65%);
-  transform: translateX(-120%);
-  animation: sc-sweep 4.5s ease-in-out 1.5s infinite;
-  pointer-events: none;
+  transform: translateY(-4px);
+  box-shadow: 0 30px 60px -28px rgba(124, 58, 237, 0.6);
 }
 
 /* Perforated tear line with half-circle notches on both edges. */
@@ -588,3 +555,59 @@
 }
 .sc-offer-cut::before { left: -10px; }
 .sc-offer-cut::after { right: -10px; }
+
+/* ---------- Price table ---------- */
+
+.sc-price-table th,
+.sc-price-table td {
+  padding: 0.9rem 1rem;
+  text-align: right;
+  vertical-align: top;
+  border-top: 1px solid var(--sc-line);
+}
+.sc-price-table thead th {
+  border-top: 0;
+}
+.sc-price-table th:first-child,
+.sc-price-table td:first-child {
+  text-align: left;
+}
+
+/* ---------- Dialogs (booking, photo viewer) ---------- */
+
+.sc-dialog-backdrop {
+  background: rgba(3, 3, 8, 0.78);
+  animation: sc-fade 0.2s ease-out;
+}
+.sc-sheet {
+  animation: sc-sheet-in 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@keyframes sc-fade {
+  from { opacity: 0; }
+}
+@keyframes sc-sheet-in {
+  from { opacity: 0; transform: translate3d(0, 24px, 0); }
+}
+
+/* A choice chip: quiet until picked. */
+.sc-chip {
+  border: 1px solid var(--sc-line);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.8);
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.sc-chip:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: #fff;
+}
+.sc-chip[aria-pressed='true'],
+.sc-chip[aria-checked='true'] {
+  background: rgba(139, 92, 246, 0.22);
+  border-color: rgba(167, 139, 250, 0.7);
+  color: #fff;
+}
+.sc-chip:focus-visible {
+  outline: 2px solid #c4b5fd;
+  outline-offset: 2px;
+}

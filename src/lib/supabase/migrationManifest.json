@@ -4580,11 +4580,6 @@
         "kind": "column",
         "table": "public.club_showcases",
         "column": "yandex_maps_url"
-      },
-      {
-        "kind": "functionBody",
-        "signature": "public.public_showcase_payload(uuid)",
-        "md5": "cfdc0eeec8fd1dc8ba361be747acd6e7"
       }
     ]
   },
@@ -5377,5 +5372,30 @@
   {
     "file": "177_pixel_playstation_hourly_price.sql",
     "probes": []
+  },
+  {
+    "file": "178_showcase_gallery_amenities_rating.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.club_showcases",
+        "column": "amenities"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_showcases",
+        "column": "gallery"
+      },
+      {
+        "kind": "column",
+        "table": "public.club_showcases",
+        "column": "google_maps_url"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.public_showcase_payload(uuid)",
+        "md5": "cde07e9871813b3306c8b87750022c35"
+      }
+    ]
   }
 ]

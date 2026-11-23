@@ -17,6 +17,12 @@ const club: PublicShowcase = {
   instagram_url: 'https://instagram.com/pixel',
   youtube_url: null,
   yandex_maps_url: 'https://yandex.uz/maps/org/pixel/1/',
+  google_maps_url: null,
+  branch_name: null,
+  landmark: null,
+  amenities: [],
+  gallery: [],
+  rating: null,
   games: [],
   zones: [
     { id: 'a', kind: 'pc', name: 'Standard', pc_count: 33, price_per_hour: 10000, image_url: null } as PublicShowcase['zones'][number],

@@ -21,11 +21,15 @@ interface ClubTabsProps {
 }
 
 const HASH_PREFIX = '#club-';
+/** "#sec-prices" links (the top bar, the footer) lead to that section of the club now shown. */
+const SECTION_PREFIX = '#sec-';
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 /**
- * Sticky pill tabs, one per club, with a glowing indicator that slides to the
- * active tab. "#club-<slug>" links anywhere on the page open that club.
+ * The club switch: a solid bar that sticks under the top bar, one tab per
+ * club, with an indicator that slides to the active tab. Everything below it
+ * belongs to the chosen club. "#club-<slug>" links anywhere on the page open
+ * that club; "#sec-<name>" links scroll to that section of the open club.
  */
 export function ClubTabs({ tabs, children, anchorId, label }: ClubTabsProps) {
   const panels = Children.toArray(children);
@@ -49,6 +53,16 @@ export function ClubTabs({ tabs, children, anchorId, label }: ClubTabsProps) {
     // hashchange, so handle the click itself: open and scroll every time.
     const onClick = (event: MouseEvent) => {
       if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const section = (event.target as Element | null)?.closest?.('a[href^="#sec-"]');
+      if (section) {
+        const name = section.getAttribute('href')!.slice(SECTION_PREFIX.length);
+        // The open club's panel is the only one not hidden.
+        const target = document.querySelector(`[role="tabpanel"]:not([hidden]) [data-section="${CSS.escape(name)}"]`);
+        if (!target) return;
+        event.preventDefault();
+        target.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
+        return;
+      }
       const link = (event.target as Element | null)?.closest?.('a[href^="#club-"]');
       if (!link) return;
       const id = link.getAttribute('href')!.slice(HASH_PREFIX.length);
@@ -102,44 +116,49 @@ export function ClubTabs({ tabs, children, anchorId, label }: ClubTabsProps) {
 
   return (
     <div>
-      <div className="sc-tabs sticky top-16 z-40 -mx-4 px-4 py-3 sm:mx-0 sm:px-0">
-        <div
-          ref={listRef}
-          role="tablist"
-          aria-label={label}
-          onKeyDown={onKeyDown}
-          className="sc-glass relative mx-auto flex w-max max-w-full gap-1 overflow-x-auto rounded-2xl bg-[#0a0a14]/85 p-1.5 shadow-[0_12px_40px_-12px_rgba(0,0,0,0.8)] [scrollbar-width:none]"
-        >
-          {indicator && (
-            <span
-              aria-hidden="true"
-              className="sc-tab-indicator absolute bottom-1.5 top-1.5 rounded-xl"
-              style={{ left: indicator.left, width: indicator.width }}
-            />
-          )}
-          {tabs.map((tab) => {
-            const selected = tab.id === active;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                id={`tab-${tab.id}`}
-                data-tab={tab.id}
-                aria-selected={selected}
-                aria-controls={`panel-${tab.id}`}
-                tabIndex={selected ? 0 : -1}
-                onClick={() => select(tab.id)}
-                className={cn(
-                  'relative z-[1] flex shrink-0 flex-col items-start rounded-xl px-4 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300',
-                  selected ? 'text-white' : 'text-white/55 hover:text-white',
-                )}
-              >
-                <span className="sc-display whitespace-nowrap text-sm font-bold">{tab.label}</span>
-                {tab.meta && <span className={cn('whitespace-nowrap text-xs', selected ? 'text-white/75' : 'text-white/60')}>{tab.meta}</span>}
-              </button>
-            );
-          })}
+      <div className="sc-tabs sticky top-16 z-40">
+        <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-2 sm:px-6 lg:px-8">
+          <span className="hidden text-xs font-semibold uppercase tracking-wider text-white/60 sm:block" aria-hidden="true">{label}</span>
+          <div
+            ref={listRef}
+            role="tablist"
+            aria-label={label}
+            onKeyDown={onKeyDown}
+            className="relative flex min-w-0 flex-1 gap-1 overflow-x-auto rounded-xl bg-white/[0.06] p-1 [scrollbar-width:none] sm:flex-none"
+          >
+            {indicator && (
+              <span
+                aria-hidden="true"
+                className="sc-tab-indicator absolute bottom-1 top-1 rounded-lg"
+                style={{ left: indicator.left, width: indicator.width }}
+              />
+            )}
+            {tabs.map((tab) => {
+              const selected = tab.id === active;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  id={`tab-${tab.id}`}
+                  data-tab={tab.id}
+                  aria-selected={selected}
+                  aria-controls={`panel-${tab.id}`}
+                  tabIndex={selected ? 0 : -1}
+                  onClick={() => select(tab.id)}
+                  className={cn(
+                    'relative z-[1] min-h-11 flex-1 whitespace-nowrap rounded-lg px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 sm:flex-none sm:px-5',
+                    selected ? 'text-white' : 'text-white/65 hover:text-white',
+                  )}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+          {tabs.map((tab) => (tab.id === active && tab.meta ? (
+            <span key={tab.id} className="hidden min-w-0 truncate text-sm text-white/65 lg:block">{tab.meta}</span>
+          ) : null))}
         </div>
       </div>
       {panels.map((panel, index) => {

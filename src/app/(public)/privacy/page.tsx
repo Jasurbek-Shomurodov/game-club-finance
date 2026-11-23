@@ -31,7 +31,7 @@ export default async function PrivacyPage() {
           <LanguageSwitcher variant="dark" className="bg-white/10" />
         </div>
         <h1 className="sc-display mt-8 text-3xl font-black uppercase tracking-tight sm:text-4xl">{t('title')}</h1>
-        <p className="mt-3 text-sm text-white/60">{t('updated', { date: formatDateOnly(UPDATED_ON, locale) })}</p>
+        <p className="mt-3 text-sm text-white/70">{t('updated', { date: formatDateOnly(UPDATED_ON, locale) })}</p>
         <p className="mt-8 leading-7 text-white/75">{t('intro')}</p>
         {SECTIONS.map((section) => (
           <section key={section} className="mt-10">

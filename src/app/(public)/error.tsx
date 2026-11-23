@@ -25,7 +25,7 @@ export default function PublicError({ error, reset }: { error: Error & { digest?
         <button
           type="button"
           onClick={reset}
-          className="sc-cta mt-8 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300"
+          className="sc-cta mt-8 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
         >
           <RotateCw size={16} aria-hidden="true" />
           {t('errorRetry')}

@@ -81,7 +81,7 @@ export function MapChooser({ address, trigger, triggerClassName, links, labels }
         aria-controls={open ? menuId : undefined}
         onClick={(event) => setPosition(open ? null : menuPosition(event.currentTarget))}
         aria-label={trigger ? `${labels.title}: ${address}` : undefined}
-        className={triggerClassName ?? 'text-left underline decoration-white/20 underline-offset-4 transition-colors hover:decoration-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300'}
+        className={triggerClassName ?? 'text-left underline decoration-white/20 underline-offset-4 transition-colors hover:decoration-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300'}
       >
         {trigger ?? address}
       </button>
@@ -93,7 +93,7 @@ export function MapChooser({ address, trigger, triggerClassName, links, labels }
           style={position}
           className="sc-panel-in z-[60] rounded-2xl border border-white/10 bg-[#0d0d1a]/95 p-1.5 font-sans shadow-[0_20px_50px_-15px_rgba(0,0,0,0.9)] backdrop-blur-xl"
         >
-          <span className="flex items-center gap-2 px-3 pb-1.5 pt-2 text-xs font-semibold uppercase tracking-wider text-white/60">
+          <span className="flex items-center gap-2 px-3 pb-1.5 pt-2 text-xs font-semibold uppercase tracking-wider text-white/70">
             <MapPinned size={13} aria-hidden="true" /> {labels.title}
           </span>
           {options.map((option) => (
@@ -108,7 +108,7 @@ export function MapChooser({ address, trigger, triggerClassName, links, labels }
             >
               <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${option.dot}`} aria-hidden="true" />
               <span className="flex-1">{option.label}</span>
-              <ExternalLink size={14} className="text-white/60" aria-hidden="true" />
+              <ExternalLink size={14} className="text-white/70" aria-hidden="true" />
             </a>
           ))}
         </div>,

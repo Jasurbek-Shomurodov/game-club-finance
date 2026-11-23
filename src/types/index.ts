@@ -316,7 +316,7 @@ export interface EntryAuditLog {
 }
 
 /** Per-language texts of a public page (101) or offer (102). */
-export type ShowcaseTranslations = Partial<Record<'headline' | 'tagline' | 'title' | 'description' | 'name', Partial<Record<'ru' | 'uz' | 'en', string>>>>;
+export type ShowcaseTranslations = Partial<Record<'headline' | 'tagline' | 'title' | 'description' | 'name' | 'branch' | 'landmark' | 'address', Partial<Record<'ru' | 'uz' | 'en', string>>>>;
 
 export interface ClubShowcase {
   club_id: string;
@@ -335,6 +335,12 @@ export interface ClubShowcase {
   youtube_url?: string | null;
   /** The club's Yandex Maps place link (140). */
   yandex_maps_url?: string | null;
+  /** The club's Google Maps place link (178). */
+  google_maps_url?: string | null;
+  /** Keys of what the club offers, from SHOWCASE_AMENITIES (178). */
+  amenities?: string[];
+  /** Photo links of the club, in display order (178). */
+  gallery?: string[];
   /** Position among the owner's clubs on the brand page, lowest first (105). */
   sort_order?: number;
   updated_at: string;

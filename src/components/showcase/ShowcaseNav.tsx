@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 import { Menu, X } from 'lucide-react';
 import { LanguageSwitcher } from '@/components/PresentationFoundation';
@@ -9,6 +9,8 @@ interface ShowcaseNavProps {
   clubName: string;
   links: Array<{ href: string; label: string }>;
   cta?: { href: string; label: string } | null;
+  /** A ready-made action (the booking button) shown in place of the `cta` link. */
+  action?: ReactNode;
 }
 
 /**
@@ -19,7 +21,7 @@ interface ShowcaseNavProps {
  * and the heroes start at `pt-24`/`pt-28`. On phones the section links live in
  * a menu that drops over the page, so the bar never grows.
  */
-export function ShowcaseNav({ clubName, links, cta }: ShowcaseNavProps) {
+export function ShowcaseNav({ clubName, links, cta, action }: ShowcaseNavProps) {
   const t = useTranslations('publicShowcase');
   const menuId = useId();
   const [scrolled, setScrolled] = useState(false);
@@ -48,7 +50,7 @@ export function ShowcaseNav({ clubName, links, cta }: ShowcaseNavProps) {
     };
   }, [menuOpen]);
 
-  const hasMenu = links.length > 0 || Boolean(cta);
+  const hasMenu = links.length > 0 || Boolean(cta) || Boolean(action);
 
   return (
     <header data-scrolled={scrolled || menuOpen} className="sc-nav fixed inset-x-0 top-0 z-50 pt-[env(safe-area-inset-top)]">
@@ -64,7 +66,9 @@ export function ShowcaseNav({ clubName, links, cta }: ShowcaseNavProps) {
           ))}
         </div>
         <LanguageSwitcher variant="dark" className="ml-auto bg-white/10 md:ml-2" />
-        {cta && (
+        {action ? (
+          <span className="hidden sm:inline-flex">{action}</span>
+        ) : cta && (
           <a href={cta.href} target="_blank" rel="noopener noreferrer" className="sc-cta hidden rounded-xl px-4 py-2 text-sm font-semibold text-white sm:inline-flex">
             {cta.label}
           </a>
@@ -76,7 +80,7 @@ export function ShowcaseNav({ clubName, links, cta }: ShowcaseNavProps) {
             aria-expanded={menuOpen}
             aria-controls={menuId}
             onClick={() => setMenuOpen((open) => !open)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300 md:hidden"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 md:hidden"
           >
             {menuOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
           </button>
@@ -97,7 +101,7 @@ export function ShowcaseNav({ clubName, links, cta }: ShowcaseNavProps) {
               </li>
             ))}
           </ul>
-          {cta && (
+          {!action && cta && (
             <a
               href={cta.href}
               target="_blank"

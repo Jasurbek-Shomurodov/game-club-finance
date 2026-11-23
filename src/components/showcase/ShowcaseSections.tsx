@@ -1,6 +1,4 @@
-import { getLocale, getTranslations } from 'next-intl/server';
-import { formatCurrency } from '@/lib/formatters';
-import type { PublicShowcaseGame, PublicShowcaseOffer, PublicShowcaseZone } from '@/lib/showcase';
+import type { PublicShowcaseGame, PublicShowcaseZone } from '@/lib/showcase';
 
 export interface SectionTile {
   href: string;
@@ -30,65 +28,6 @@ export async function SectionTiles({ tiles, label }: { tiles: SectionTile[]; lab
         ))}
       </ul>
     </nav>
-  );
-}
-
-/** "Goods and services": every zone with its hourly rate, plus the club's offers. */
-export async function PriceList({ zones, offers }: { zones: PublicShowcaseZone[]; offers: PublicShowcaseOffer[] }) {
-  const t = await getTranslations('publicShowcase');
-  const tc = await getTranslations('common');
-  const locale = await getLocale();
-  const priced = zones.filter((zone) => zone.price_per_hour !== null);
-  if (priced.length === 0 && offers.length === 0) return null;
-
-  return (
-    <section id="prices" className="relative scroll-mt-16 px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
-      <div className="relative mx-auto max-w-3xl">
-        <h2 className="sc-display text-3xl font-black text-white sm:text-4xl">{t('pricesTitle')}</h2>
-        <p className="mt-2 text-sm text-white/60">{t('pricesDescription')}</p>
-
-        {priced.length > 0 && (
-          <ul className="sc-glass mt-8 divide-y divide-white/10 overflow-hidden rounded-3xl">
-            {priced.map((zone) => (
-              <li key={zone.id} className="flex items-center gap-4 px-5 py-4">
-                {zone.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={zone.image_url} alt="" loading="lazy" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
-                ) : (
-                  <span className="h-14 w-14 shrink-0 rounded-xl bg-white/10" aria-hidden="true" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-white">{zone.name}</p>
-                  <p className="truncate text-xs text-white/50">
-                    {zone.kind === 'playstation' ? t('priceConsoles', { count: zone.pc_count }) : t('pricePcs', { count: zone.pc_count })}
-                  </p>
-                </div>
-                <p className="shrink-0 text-right">
-                  <span className="block font-bold text-white">{formatCurrency(zone.price_per_hour ?? 0, locale)} {tc('currency')}</span>
-                  <span className="block text-xs text-white/50">{t('rateHourly')}</span>
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {offers.length > 0 && (
-          <ul className="mt-6 space-y-3">
-            {offers.map((offer) => (
-              <li key={offer.id} className="sc-glass flex items-start justify-between gap-4 rounded-2xl px-5 py-4">
-                <div className="min-w-0">
-                  <p className="font-semibold text-white">{offer.title}</p>
-                  {offer.time_window && <p className="text-xs text-white/50">{offer.time_window}</p>}
-                </div>
-                {offer.price !== null && (
-                  <p className="shrink-0 font-bold text-lime-400">{formatCurrency(offer.price, locale)} {tc('currency')}</p>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </section>
   );
 }
 

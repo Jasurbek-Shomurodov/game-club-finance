@@ -1557,5 +1557,52 @@ test.describe('a visitor of the public site', () => {
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
       expect(errors).toEqual([]);
     });
+
+    test('PUB-003 a club page lists prices by zone, what the club offers, and writes the booking request for Telegram', async ({ page }) => {
+      const errors = [];
+      page.on('pageerror', error => errors.push(error.message));
+      // A fresh slug reads past the minute-long public cache. The club's page exists already when PUB-002 ran first.
+      const slug = `e2e-prices-${Date.now().toString(36)}`;
+      const settings = {
+        slug, is_published: true, telegram_url: 'https://t.me/e2e_arcade', address: 'E2E street 1', amenities: ['wifi', 'parking'],
+        translations: { branch: { en: 'Centre' }, landmark: { en: 'Next to the fountain' } },
+      };
+      const updated = await restAs(accounts.owner, 'PATCH', `club_showcases?club_id=eq.${clubs.arcade.id}`, settings);
+      expect(updated.status).toBe(200);
+      if ((await updated.json()).length === 0) {
+        expect((await restAs(accounts.owner, 'POST', 'club_showcases', { club_id: clubs.arcade.id, ...settings })).status).toBe(201);
+      }
+      for (const offer of [
+        { title: 'VIP · 1 hour', price: 20000, sort_order: 1 },
+        { title: 'VIP · 2+1 hours', badge: '2+1', price: 40000, sort_order: 2 },
+        { title: 'Combo: pizza night', badge: 'COMBO', price: 90000, sort_order: 3 },
+      ]) expect((await restAs(accounts.owner, 'POST', 'showcase_offers', { club_id: clubs.arcade.id, ...offer })).status).toBe(201);
+
+      expect((await page.goto(`/club/${slug}`)).status()).toBe(200);
+      const prices = page.locator('#prices');
+      // On a phone the price list is one card per zone: the hour rate, then each package with what it saves.
+      // (The same figures are also a table, shown from tablet width up.)
+      await expect(prices.getByText('VIP', { exact: true }).locator('visible=true')).toBeVisible();
+      await expect(prices.getByText('save 20 000').locator('visible=true')).toBeVisible();
+      await expect(prices.getByRole('heading', { name: 'Combo: pizza night' })).toBeVisible();
+      await expect(page.locator('#amenities').getByText('Free Wi-Fi')).toBeVisible();
+      await expect(page.locator('#contacts').getByText('Next to the fountain')).toBeVisible();
+
+      // The bottom bar's booking button opens the form; the link carries the request as a Telegram draft.
+      await page.getByRole('navigation', { name: 'Quick actions' }).getByRole('button', { name: 'Book a seat' }).click();
+      const form = page.getByRole('dialog', { name: 'Book a seat' });
+      await form.getByRole('radio', { name: 'VIP' }).click();
+      await form.getByRole('radio', { name: 'Tomorrow' }).click();
+      await form.getByRole('button', { name: 'More people' }).click();
+      await expect(form.getByText('Zone: VIP')).toBeVisible();
+      await expect(form.getByText('People: 2')).toBeVisible();
+      const send = form.getByRole('link', { name: 'Send in Telegram' });
+      const href = await send.getAttribute('href');
+      expect(href.startsWith('https://t.me/e2e_arcade?text=')).toBe(true);
+      expect(decodeURIComponent(href)).toContain('Zone: VIP');
+      await page.keyboard.press('Escape');
+      await expect(form).toHaveCount(0);
+      expect(errors).toEqual([]);
+    });
   });
 });

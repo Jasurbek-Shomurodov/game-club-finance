@@ -24,8 +24,10 @@ cramped, and the same in three languages and two themes.
   with a blue accent. Dark is a green-tinted near-black with one teal accent.
   Components never branch on the theme.
 - The public site (`src/app/(public)`, `src/components/showcase`) is a separate,
-  always-dark marketing look with its own stylesheet. These rules are for the
-  admin app.
+  always-dark marketing look with its own stylesheet (`showcase.css`): one
+  accent (violet) for actions, lime only for "open now", prices and savings,
+  white headings, and photos for the rest of the colour. These rules are for
+  the admin app.
 
 ## 2. Colour palette and roles
 

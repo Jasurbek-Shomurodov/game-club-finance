@@ -125,6 +125,41 @@ export function normalizeYandexMapsUrl(value: string | null | undefined): string
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 /** A trimmed, lower-cased email address, or null when blank or malformed. */
+/**
+ * A Google Maps place link ("maps.app.goo.gl/…", "google.com/maps/place/…"),
+ * or null. Kept in step with the club_showcases_google_maps_url constraint.
+ */
+export function normalizeGoogleMapsUrl(value: string | null | undefined): string | null {
+  const url = normalizeExternalUrl(value);
+  if (!url || !url.startsWith('https://')) return null;
+  return /^https:\/\/(maps\.app\.goo\.gl\/|goo\.gl\/maps\/|g\.page\/|(maps\.|www\.)?google\.(com|[a-z]{2}|com?\.[a-z]{2})\/)/.test(url) ? url : null;
+}
+
+/** Everything a club can tick as "we have this"; the site translates and draws each key. */
+export const SHOWCASE_AMENITIES = [
+  'open_24_7', 'playstation', 'vip_zone', 'night_packages', 'food', 'drinks',
+  'card_payment', 'wifi', 'air_conditioning', 'parking', 'tournaments', 'smoking_area',
+] as const;
+export type ShowcaseAmenity = (typeof SHOWCASE_AMENITIES)[number];
+
+/** Known keys only, without repeats, in the catalogue's order. */
+export function normalizeAmenities(value: unknown): ShowcaseAmenity[] {
+  const chosen = new Set(Array.isArray(value) ? value : []);
+  return SHOWCASE_AMENITIES.filter((amenity) => chosen.has(amenity));
+}
+
+/** Photos a club page can show; the database refuses more. */
+export const SHOWCASE_GALLERY_LIMIT = 12;
+
+/** Safe, distinct photo links, at most the gallery limit. */
+export function normalizeGallery(value: unknown): string[] {
+  const links = (Array.isArray(value) ? value : []).flatMap((item) => {
+    const url = typeof item === 'string' ? normalizeExternalUrl(item) : null;
+    return url ? [url] : [];
+  });
+  return [...new Set(links)].slice(0, SHOWCASE_GALLERY_LIMIT);
+}
+
 export function normalizeEmail(value: string | null | undefined): string | null {
   const trimmed = value?.trim().toLowerCase();
   return trimmed && EMAIL_PATTERN.test(trimmed) ? trimmed : null;
@@ -150,11 +185,20 @@ export interface ShowcaseSettingsForm {
   instagram_url: string;
   youtube_url: string;
   yandex_maps_url: string;
+  google_maps_url: string;
+  /** A short name that tells the owner's clubs apart on the brand page. */
+  branch: LocalizedText;
+  landmark: LocalizedText;
+  /** The address per language; `address` stays the single-language fallback. */
+  address_localized: LocalizedText;
+  amenities: ShowcaseAmenity[];
+  gallery: string[];
   sort_order: string;
 }
 
 export type ShowcaseSettingsError =
   | 'slug_invalid'
+  | 'google_maps_invalid'
   | 'sort_order_invalid'
   | 'telegram_invalid'
   | 'instagram_invalid'
@@ -188,6 +232,12 @@ export function showcaseSettingsForm(showcase: ClubShowcase | null, clubName: st
     instagram_url: showcase?.instagram_url ?? '',
     youtube_url: showcase?.youtube_url ?? '',
     yandex_maps_url: showcase?.yandex_maps_url ?? '',
+    google_maps_url: showcase?.google_maps_url ?? '',
+    branch: localizedFromRow(showcase?.translations, 'branch', null),
+    landmark: localizedFromRow(showcase?.translations, 'landmark', null),
+    address_localized: localizedFromRow(showcase?.translations, 'address', null),
+    amenities: normalizeAmenities(showcase?.amenities),
+    gallery: normalizeGallery(showcase?.gallery),
     sort_order: String(showcase?.sort_order ?? 0),
   };
 }
@@ -196,6 +246,7 @@ export function validateShowcaseSettings(form: ShowcaseSettingsForm): ShowcaseSe
   if (!SHOWCASE_SLUG_PATTERN.test(form.slug)) return 'slug_invalid';
   if (!isSortOrder(form.sort_order)) return 'sort_order_invalid';
   if (form.yandex_maps_url.trim() && !normalizeYandexMapsUrl(form.yandex_maps_url)) return 'yandex_maps_invalid';
+  if (form.google_maps_url.trim() && !normalizeGoogleMapsUrl(form.google_maps_url)) return 'google_maps_invalid';
   return validateContactLinks(form);
 }
 
@@ -206,7 +257,13 @@ export function buildShowcaseSettingsPayload(form: ShowcaseSettingsForm) {
     is_published: form.is_published,
     headline: primaryText(form.headline),
     tagline: primaryText(form.tagline),
-    translations: { headline: localizedPayload(form.headline), tagline: localizedPayload(form.tagline) },
+    translations: {
+      headline: localizedPayload(form.headline),
+      tagline: localizedPayload(form.tagline),
+      branch: localizedPayload(form.branch),
+      landmark: localizedPayload(form.landmark),
+      address: localizedPayload(form.address_localized),
+    },
     hero_image_url: normalizeExternalUrl(form.hero_image_url),
     address: optionalText(form.address),
     phone: normalizePhone(form.phone),
@@ -216,6 +273,9 @@ export function buildShowcaseSettingsPayload(form: ShowcaseSettingsForm) {
     instagram_url: normalizeInstagramUrl(form.instagram_url),
     youtube_url: normalizeYoutubeUrl(form.youtube_url),
     yandex_maps_url: normalizeYandexMapsUrl(form.yandex_maps_url),
+    google_maps_url: normalizeGoogleMapsUrl(form.google_maps_url),
+    amenities: normalizeAmenities(form.amenities),
+    gallery: normalizeGallery(form.gallery),
     sort_order: Number(form.sort_order.trim()),
   };
 }
@@ -480,89 +540,12 @@ export interface PublicShowcaseOffer {
   time_window: string | null;
 }
 
-/** One zone's price inside a package type, e.g. "Pro" in the 2+1 package. */
-export interface ShowcaseOfferOption {
-  id: string;
-  zone: string | null;
-  price: number | null;
-  time_window: string | null;
-}
-
-/** Offers of one package type (same badge) across zones, so prices sit side by side. */
-export interface ShowcaseOfferGroup {
-  key: string;
-  badge: string;
-  title: string;
-  description: string | null;
-  options: ShowcaseOfferOption[];
-}
-
-export interface GroupedShowcaseOffers {
-  /** Single-hour rates ("Pro · 1 hour"), kept apart from the packages. */
-  hourly: ShowcaseOfferOption[];
-  packages: ShowcaseOfferGroup[];
-  /** Combos and anything that is not a "Zone · length" package. */
-  others: PublicShowcaseOffer[];
-}
-
 const TITLE_SEPARATOR = /\s+[·•|—–-]\s+/;
 
 function splitOfferTitle(title: string): { zone: string | null; length: string } {
   const parts = title.split(TITLE_SEPARATOR);
   if (parts.length < 2) return { zone: null, length: title };
   return { zone: parts[0], length: parts.slice(1).join(' · ') };
-}
-
-/**
- * Lays out a club's offers for comparison: single-hour rates in their own row,
- * packages of the same kind (same badge, like "2+1") merged into one card that
- * lists every zone's price (a word badge like "DAY" also needs the same
- * package name), and everything else (combos) as it is. Display
- * order follows the first offer of each kind.
- */
-export function groupShowcaseOffers(offers: PublicShowcaseOffer[]): GroupedShowcaseOffers {
-  const hourly: ShowcaseOfferOption[] = [];
-  const packages: ShowcaseOfferGroup[] = [];
-  const others: PublicShowcaseOffer[] = [];
-  const byBadge = new Map<string, ShowcaseOfferGroup>();
-
-  for (const offer of offers) {
-    const { zone, length } = splitOfferTitle(offer.title);
-    const option = { id: offer.id, zone, price: offer.price, time_window: offer.time_window };
-    if (zone && /^1(?!\d|[.,+])/.test(length)) {
-      hourly.push(option);
-      continue;
-    }
-    const badge = offer.badge?.trim();
-    if (!zone || !badge) {
-      others.push(offer);
-      continue;
-    }
-    // A length badge ("2+1") names the package on its own; a word badge
-    // ("DAY") only does together with the same package name after the zone.
-    const key = /\d/.test(badge) ? badge.toLocaleUpperCase() : `${badge.toLocaleUpperCase()}|${length.toLocaleLowerCase()}`;
-    const group = byBadge.get(key);
-    if (group) {
-      group.options.push(option);
-      // The zone-free wording ("Pay for 2 hours, play 3.") is the shortest one.
-      if (offer.description && (!group.description || offer.description.length < group.description.length)) {
-        group.description = offer.description;
-      }
-    } else {
-      const created = { key, badge, title: length, description: offer.description, options: [option] };
-      byBadge.set(key, created);
-      packages.push(created);
-    }
-  }
-
-  // A kind offered in one zone only has nothing to compare: show it as a plain card.
-  const compared = packages.filter((group) => group.options.length > 1);
-  const single = new Set(packages.filter((group) => group.options.length === 1).map((group) => group.options[0].id));
-  return {
-    hourly,
-    packages: compared,
-    others: offers.filter((offer) => single.has(offer.id) || others.includes(offer)),
-  };
 }
 
 export interface PublicShowcase {
@@ -581,6 +564,15 @@ export interface PublicShowcase {
   youtube_url: string | null;
   /** The club's own Yandex Maps place; the map menu searches the address without it. */
   yandex_maps_url: string | null;
+  /** The club's own Google Maps place; the map link searches the address without it. */
+  google_maps_url: string | null;
+  /** A short name that tells the brand's clubs apart ("Chilanzar"). */
+  branch_name: string | null;
+  landmark: string | null;
+  amenities: ShowcaseAmenity[];
+  gallery: string[];
+  /** The latest Google Maps rating the review digest recorded. */
+  rating: { value: number; count: number } | null;
   games: PublicShowcaseGame[];
   zones: PublicShowcaseZone[];
   offers: PublicShowcaseOffer[];
@@ -592,7 +584,10 @@ const translationsOf = (data: Record<string, unknown>) => {
   const value = data.translations;
   const record = value && typeof value === 'object' ? value as Record<string, unknown> : {};
   const field = (name: string) => (record[name] && typeof record[name] === 'object' ? record[name] as Record<string, unknown> : {});
-  return { headline: field('headline'), tagline: field('tagline'), title: field('title'), description: field('description'), name: field('name') };
+  return {
+    headline: field('headline'), tagline: field('tagline'), title: field('title'), description: field('description'), name: field('name'),
+    branch: field('branch'), landmark: field('landmark'), address: field('address'),
+  };
 };
 const positive = (value: number | null) => (value !== null && value > 0 ? value : null);
 const finiteNumber = (value: unknown) => {
@@ -612,6 +607,9 @@ export function parsePublicShowcase(raw: unknown, locale = 'ru'): PublicShowcase
   const slug = text(data.slug);
   if (!clubName || !slug) return null;
   const list = (value: unknown) => (Array.isArray(value) ? value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object') : []);
+  const translations = translationsOf(data);
+  const ratingValue = finiteNumber(data.google_rating);
+  const ratingCount = finiteNumber(data.google_review_count);
 
   return {
     club_name: clubName,
@@ -620,7 +618,7 @@ export function parsePublicShowcase(raw: unknown, locale = 'ru'): PublicShowcase
     headline: pickLocalized(translationsOf(data).headline, locale, text(data.headline)),
     tagline: pickLocalized(translationsOf(data).tagline, locale, text(data.tagline)),
     hero_image_url: safeUrl(data.hero_image_url),
-    address: text(data.address),
+    address: pickLocalized(translations.address, locale, text(data.address)),
     phone: text(data.phone),
     email: typeof data.email === 'string' ? normalizeEmail(data.email) : null,
     opening_hours: text(data.opening_hours),
@@ -628,6 +626,14 @@ export function parsePublicShowcase(raw: unknown, locale = 'ru'): PublicShowcase
     instagram_url: safeUrl(data.instagram_url),
     youtube_url: safeUrl(data.youtube_url),
     yandex_maps_url: typeof data.yandex_maps_url === 'string' ? normalizeYandexMapsUrl(data.yandex_maps_url) : null,
+    google_maps_url: typeof data.google_maps_url === 'string' ? normalizeGoogleMapsUrl(data.google_maps_url) : null,
+    branch_name: pickLocalized(translations.branch, locale, null),
+    landmark: pickLocalized(translations.landmark, locale, null),
+    amenities: normalizeAmenities(data.amenities),
+    gallery: normalizeGallery(data.gallery),
+    rating: ratingValue !== null && ratingValue > 0 && ratingValue <= 5 && ratingCount !== null && ratingCount > 0
+      ? { value: ratingValue, count: Math.round(ratingCount) }
+      : null,
     games: list(data.games).flatMap((game) => {
       const title = text(game.title);
       const id = text(game.id);
@@ -701,7 +707,7 @@ export function lowestHourlyPrice(zones: Array<{ price_per_hour: number | null }
 
 /** Storage object path for an uploaded image: "<club_id>/<kind>-<random>.<ext>". */
 /** `google` images are Business Profile posts and photos; Google downloads them from the public bucket. */
-export type ShowcaseImageKind = 'game' | 'zone' | 'hero' | 'logo' | 'google';
+export type ShowcaseImageKind = 'game' | 'zone' | 'hero' | 'logo' | 'google' | 'gallery';
 
 export function showcaseImagePath(clubId: string, kind: ShowcaseImageKind, fileName: string, random: string): string {
   const extension = /\.([a-z0-9]{2,5})$/i.exec(fileName)?.[1]?.toLowerCase() ?? 'jpg';
@@ -934,13 +940,13 @@ export interface MapLinks {
  * address. Yandex opens the club's saved place when there is one: its text
  * search guesses, landing on the building, another club or a "typo fixed" list.
  */
-export function mapLinks(club: Pick<PublicShowcase, 'club_name' | 'address'> & { yandex_maps_url?: string | null }): MapLinks | null {
+export function mapLinks(club: Pick<PublicShowcase, 'club_name' | 'address'> & { yandex_maps_url?: string | null; google_maps_url?: string | null }): MapLinks | null {
   const address = club.address?.trim();
   if (!address) return null;
   const query = encodeURIComponent(`${club.club_name}, ${address}`);
   return {
     yandex: normalizeYandexMapsUrl(club.yandex_maps_url) ?? `https://yandex.uz/maps/?text=${query}`,
-    google: `https://www.google.com/maps/search/?api=1&query=${query}`,
+    google: normalizeGoogleMapsUrl(club.google_maps_url) ?? `https://www.google.com/maps/search/?api=1&query=${query}`,
   };
 }
 
@@ -979,4 +985,127 @@ export function openStatus(hours: string | null | undefined, now: Date): OpenSta
   const current = minutesInTashkent(now);
   const open = opens < closes ? current >= opens && current < closes : current >= opens || current < closes;
   return open ? 'open' : 'closed';
+}
+
+/** How a club is told apart from the brand's other clubs: its branch name, else the club name. */
+export function clubLabel(club: Pick<PublicShowcase, 'club_name' | 'branch_name'>): string {
+  return club.branch_name ?? club.club_name;
+}
+
+/** One price of a zone for a package; a zone can charge differently by time of day. */
+export interface PriceCell {
+  price: number;
+  time_window: string | null;
+  /** What the package saves against paying each of its hours singly; null when unknown or nothing. */
+  saving: number | null;
+}
+
+export interface PriceColumn {
+  key: string;
+  /** The package name ("2+1 hours"); null for the single-hour column. */
+  label: string | null;
+}
+
+export interface PriceRow {
+  zone: string;
+  cells: Record<string, PriceCell[]>;
+}
+
+/** A club's price list as a zones × packages table, with offers that fit no zone listed apart. */
+export interface PriceMatrix {
+  columns: PriceColumn[];
+  rows: PriceRow[];
+  specials: PublicShowcaseOffer[];
+}
+
+export const HOURLY_COLUMN = 'hour';
+
+/** Hours of play a package name promises: "2+1 hours" → 3, "7 hours" → 7, "Night package" → null. */
+export function packageHours(label: string): number | null {
+  const bonus = /^(\d+)\s*\+\s*(\d+)/.exec(label.trim());
+  if (bonus) return Number(bonus[1]) + Number(bonus[2]);
+  const plain = /^(\d+)(?![\d.,:])/.exec(label.trim());
+  return plain ? Number(plain[1]) : null;
+}
+
+/**
+ * Lays a club's offers out for comparison: one row per zone, one column per
+ * package ("Zone · package" titles, the single hour first). A zone that only
+ * has an hourly rate on its card (a PlayStation zone) still gets a row. Offers
+ * without a zone in the title (combos) are returned as specials.
+ */
+export function buildPriceMatrix(offers: PublicShowcaseOffer[], zones: Array<Pick<PublicShowcaseZone, 'name' | 'price_per_hour'>>): PriceMatrix {
+  const columns: PriceColumn[] = [];
+  const rows: PriceRow[] = [];
+  const specials: PublicShowcaseOffer[] = [];
+  const rowOf = (zone: string) => {
+    const found = rows.find((row) => row.zone.toLocaleLowerCase() === zone.toLocaleLowerCase());
+    if (found) return found;
+    const created: PriceRow = { zone, cells: {} };
+    rows.push(created);
+    return created;
+  };
+
+  for (const offer of offers) {
+    const { zone, length } = splitOfferTitle(offer.title);
+    if (!zone || offer.price === null) {
+      specials.push(offer);
+      continue;
+    }
+    const hourly = /^1(?!\d|[.,+])/.test(length);
+    const key = hourly ? HOURLY_COLUMN : length.toLocaleLowerCase();
+    if (!columns.some((column) => column.key === key)) columns.push({ key, label: hourly ? null : length });
+    const row = rowOf(zone);
+    (row.cells[key] ??= []).push({ price: offer.price, time_window: offer.time_window, saving: null });
+  }
+
+  for (const zone of zones) {
+    if (zone.price_per_hour === null) continue;
+    const row = rowOf(zone.name);
+    if (!row.cells[HOURLY_COLUMN]?.length) row.cells[HOURLY_COLUMN] = [{ price: zone.price_per_hour, time_window: null, saving: null }];
+  }
+  if (rows.some((row) => row.cells[HOURLY_COLUMN]) && !columns.some((column) => column.key === HOURLY_COLUMN)) {
+    columns.push({ key: HOURLY_COLUMN, label: null });
+  }
+  columns.sort((a, b) => Number(b.key === HOURLY_COLUMN) - Number(a.key === HOURLY_COLUMN));
+
+  for (const row of rows) {
+    const hourly = row.cells[HOURLY_COLUMN] ?? [];
+    for (const column of columns) {
+      const hours = column.label ? packageHours(column.label) : null;
+      if (!hours) continue;
+      for (const cell of row.cells[column.key] ?? []) {
+        // The hour rate of the same time of day, or the zone's only hour rate.
+        const rate = hourly.find((hour) => hour.time_window === cell.time_window) ?? (hourly.length === 1 ? hourly[0] : null);
+        const saving = rate ? rate.price * hours - cell.price : 0;
+        cell.saving = saving > 0 ? saving : null;
+      }
+    }
+  }
+  return { columns, rows, specials };
+}
+
+/**
+ * The embeddable Yandex map of a club's own place, from its "…/maps/org/<name>/<id>/"
+ * link; null for any other link, where there is no place to show.
+ */
+export function yandexMapWidgetUrl(yandexMapsUrl: string | null | undefined): string | null {
+  const id = /\/maps\/org\/[^/]+\/(\d+)/.exec(normalizeYandexMapsUrl(yandexMapsUrl) ?? '')?.[1];
+  return id ? `https://yandex.uz/map-widget/v1/?oid=${id}&ol=biz&z=16` : null;
+}
+
+/**
+ * A Telegram link that opens the chat with the message already typed. Only a
+ * plain "t.me/<username>" link takes a draft; any other link is returned as it is.
+ */
+export function telegramDraftUrl(telegramUrl: string, message: string): string {
+  return /^https:\/\/t\.me\/[A-Za-z][A-Za-z0-9_]{3,}$/.test(telegramUrl)
+    ? `${telegramUrl}?text=${encodeURIComponent(message)}`
+    : telegramUrl;
+}
+
+/** Start times a visitor can ask for: every hour left today (from the next full hour), or all of tomorrow. */
+export function bookingTimeSlots(now: Date, day: 'today' | 'tomorrow'): string[] {
+  const first = day === 'today' ? Math.floor(minutesInTashkent(now) / 60) + 1 : 0;
+  return Array.from({ length: Math.max(0, 24 - first) }, (_, index) => `${String(first + index).padStart(2, '0')}:00`);
 }

@@ -36,6 +36,7 @@ import {
   buildShowcaseOfferPayload,
   buildShowcasePcZonePayload,
   buildShowcaseSettingsPayload,
+  SHOWCASE_AMENITIES,
   nextSortOrder,
   normalizeSlugInput,
   showcaseGameForm,
@@ -54,6 +55,7 @@ import {
 import { refreshPublicShowcase } from '@/lib/showcaseRefresh';
 import { useClubQuery } from '@/lib/useClubQuery';
 import type { ShowcaseGame, ShowcaseOffer, ShowcasePcZone, ShowcaseZoneKind } from '@/types';
+import { GalleryField } from './GalleryField';
 import { GameEditor } from './GameEditor';
 import { LocalizedTextField } from './LocalizedTextField';
 import { OfferEditor } from './OfferEditor';
@@ -76,6 +78,7 @@ const EDIT_TITLE = { game: ['addGame', 'editGame'], zone: ['addZone', 'editZone'
 export default function ShowcasePage() {
   const t = useTranslations('showcase');
   const tc = useTranslations('common');
+  const ta = useTranslations('publicShowcase.amenities');
   const { selectedClubId, selectedClub, role, featureAccess } = useClub();
   const { showToast, toastElement } = useToast();
   const { confirm, confirmDialog } = useConfirm();
@@ -284,6 +287,32 @@ export default function ShowcasePage() {
                   value={settings.tagline}
                   onChange={(value) => setField('tagline', value)}
                 />
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  <LocalizedTextField
+                    id="showcase-branch"
+                    label={t('branchName')}
+                    hint={t('branchNameHint')}
+                    maxLength={40}
+                    value={settings.branch}
+                    onChange={(value) => setField('branch', value)}
+                  />
+                  <LocalizedTextField
+                    id="showcase-landmark"
+                    label={t('landmark')}
+                    hint={t('landmarkHint')}
+                    maxLength={120}
+                    value={settings.landmark}
+                    onChange={(value) => setField('landmark', value)}
+                  />
+                </div>
+                <LocalizedTextField
+                  id="showcase-address-localized"
+                  label={t('addressLocalized')}
+                  hint={t('addressLocalizedHint')}
+                  maxLength={160}
+                  value={settings.address_localized}
+                  onChange={(value) => setField('address_localized', value)}
+                />
                 <ShowcaseImageField
                   label={t('heroImage')}
                   clubId={selectedClubId}
@@ -299,6 +328,9 @@ export default function ShowcasePage() {
                   </Field>
                   <Field label={t('yandexMaps')} htmlFor="showcase-yandex-maps" hint={t('yandexMapsHint')}>
                     <Input id="showcase-yandex-maps" type="url" inputMode="url" value={settings.yandex_maps_url} maxLength={300} placeholder="yandex.uz/maps/org/…" onChange={(e) => setField('yandex_maps_url', e.target.value)} />
+                  </Field>
+                  <Field label={t('googleMaps')} htmlFor="showcase-google-maps" hint={t('googleMapsHint')}>
+                    <Input id="showcase-google-maps" type="url" inputMode="url" value={settings.google_maps_url} maxLength={300} placeholder="maps.app.goo.gl/…" onChange={(e) => setField('google_maps_url', e.target.value)} />
                   </Field>
                   <Field label={t('openingHours')} htmlFor="showcase-hours">
                     <Input id="showcase-hours" value={settings.opening_hours} maxLength={80} placeholder={t('openingHoursPlaceholder')} onChange={(e) => setField('opening_hours', e.target.value)} />
@@ -319,6 +351,23 @@ export default function ShowcasePage() {
                     <Input id="showcase-email" type="email" inputMode="email" value={settings.email} maxLength={120} placeholder="info@gameclub.uz" onChange={(e) => setField('email', e.target.value)} />
                   </Field>
                 </div>
+                <fieldset className="min-w-0">
+                  <legend className="mb-1.5 text-sm font-medium text-gray-700">{t('amenities')}</legend>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {SHOWCASE_AMENITIES.map((amenity) => (
+                      <Checkbox
+                        key={amenity}
+                        id={`showcase-amenity-${amenity}`}
+                        variant="card"
+                        checked={settings.amenities.includes(amenity)}
+                        onChange={(e) => setField('amenities', e.target.checked ? [...settings.amenities, amenity] : settings.amenities.filter((entry) => entry !== amenity))}
+                        label={ta(amenity)}
+                      />
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-xs text-gray-500">{t('amenitiesHint')}</p>
+                </fieldset>
+                <GalleryField clubId={selectedClubId} value={settings.gallery} onChange={(photos) => setField('gallery', photos)} onUploadingChange={setUploading} />
                 <Checkbox
                   id="showcase-published"
                   variant="card"
