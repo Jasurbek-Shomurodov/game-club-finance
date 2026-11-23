@@ -12,7 +12,7 @@ const stockTable: DataTable = {
 };
 
 function setup(datasets: Parameters<typeof assistantTools>[0]['datasets'] = ['summary', 'stock']) {
-  const load = vi.fn().mockResolvedValue({ table: stockTable });
+  const load = vi.fn().mockResolvedValue({ table: stockTable, links: [{ label: 'Products and stock', href: '/products' }] });
   const tools = assistantTools({ datasets, loader: { load }, translate: createTranslator('en'), locale: 'en' });
   const attachFile = vi.fn();
   const options = { signal: new AbortController().signal, toolCallId: 'call-1', attachFile };
@@ -49,7 +49,13 @@ describe('assistantTools', () => {
     expect(load).toHaveBeenCalledWith(expect.objectContaining({
       dataset: 'stock', from: '2026-10-01', to: '2026-10-15', debtStatus: 'all',
     }));
-    expect(result).toMatchObject({ dataset: 'stock', rowCount: 1, truncated: false, rows: [{ product: 'Cola' }] });
+    expect(result).toMatchObject({
+      dataset: 'stock',
+      rowCount: 1,
+      truncated: false,
+      rows: [{ product: 'Cola' }],
+      links: [{ label: 'Products and stock', href: '/products' }],
+    });
   });
 
   it('turns bad periods into a ToolError the model can act on', async () => {

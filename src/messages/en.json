@@ -2007,7 +2007,10 @@
       "products": "Which bar products sold best this month?",
       "excel": "Export this month's expenses to Excel",
       "stock": "Which products are running low?",
-      "debts": "Who owes us the most?"
+      "debts": "Who owes us the most?",
+      "checks": "Does anything look off this month?",
+      "upcoming": "What is still due this month?",
+      "review": "Give me a month-end review"
     },
     "placeholder": "Ask a question…",
     "send": "Send",
@@ -2041,7 +2044,9 @@
       "expenses": "Expenses",
       "product_sales": "Product sales",
       "stock": "Stock",
-      "debts": "Debts"
+      "debts": "Debts",
+      "checks": "Worth a look",
+      "upcoming": "Still due this month"
     },
     "columns": {
       "metric": "Metric",
@@ -2084,7 +2089,17 @@
       "gameClubIncome": "Game club income",
       "playstation": "PlayStation",
       "gameClubLeft": "Game club profit",
-      "barLeft": "Bar profit"
+      "barLeft": "Bar profit",
+      "checkKind": "What",
+      "severity": "Severity",
+      "side": "Side",
+      "periodFrom": "From",
+      "periodTo": "To",
+      "usual": "Usual",
+      "plan": "Plan",
+      "dueDate": "Due date",
+      "usualDay": "Usual pay day",
+      "dueStatus": "Status"
     },
     "metrics": {
       "income": "Income",
@@ -2142,7 +2157,23 @@
     },
     "model": "Model: {model}",
     "context": "{percent}% of context used · ≈{count} more messages fit",
-    "contextUnknown": "{tokens} tokens of context used"
+    "contextUnknown": "{tokens} tokens of context used",
+    "checkKinds": {
+      "duplicate_expense": "Duplicate expense",
+      "category_spike": "Category far above usual",
+      "low_income_day": "Low income day",
+      "repeated_shortage": "Repeated shortages"
+    },
+    "severities": {
+      "danger": "Serious",
+      "warning": "Worth a look"
+    },
+    "dueStatuses": {
+      "paid": "Paid",
+      "overdue": "Overdue",
+      "due": "Still due",
+      "total": "Total still due"
+    }
   },
   "exchanges": {
     "from": "From",

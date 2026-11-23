@@ -68,6 +68,16 @@ export function reserveHistoryHref(): string {
   return '/reserve?view=history';
 }
 
+/** The product list with each product's stock. */
+export function productsHref(): string {
+  return '/products';
+}
+
+/** Customer debts. */
+export function debtsHref(): string {
+  return '/debts';
+}
+
 /** Cash shortages live on Owner Profit, beside the money they were taken from. */
 export function cashShortagesHref(): string {
   return '/money-taken';

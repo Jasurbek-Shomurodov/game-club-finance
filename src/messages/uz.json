@@ -2007,7 +2007,10 @@
       "products": "Bu oy bardagi qaysi mahsulotlar eng ko'p sotildi?",
       "excel": "Bu oydagi xarajatlarni Excelga chiqar",
       "stock": "Qaysi mahsulotlar tugab bormoqda?",
-      "debts": "Kim bizga eng ko'p qarzdor?"
+      "debts": "Kim bizga eng ko'p qarzdor?",
+      "checks": "Bu oy biror narsa g'alati ko'rinyaptimi?",
+      "upcoming": "Bu oy yana nimalarni to'lashimiz kerak?",
+      "review": "Oy yakuni bo'yicha sharh ber"
     },
     "placeholder": "Savol bering…",
     "send": "Yuborish",
@@ -2041,7 +2044,9 @@
       "expenses": "Xarajatlar",
       "product_sales": "Mahsulot savdosi",
       "stock": "Qoldiqlar",
-      "debts": "Qarzlar"
+      "debts": "Qarzlar",
+      "checks": "Tekshirib ko'rish kerak",
+      "upcoming": "Bu oy hali to'lanadigan"
     },
     "columns": {
       "metric": "Ko'rsatkich",
@@ -2084,7 +2089,17 @@
       "gameClubIncome": "O'yin klubi daromadi",
       "playstation": "PlayStation",
       "gameClubLeft": "O'yin klubi foydasi",
-      "barLeft": "Bar foydasi"
+      "barLeft": "Bar foydasi",
+      "checkKind": "Nima",
+      "severity": "Muhimlik",
+      "side": "Tomon",
+      "periodFrom": "Dan",
+      "periodTo": "Gacha",
+      "usual": "Odatda",
+      "plan": "Reja",
+      "dueDate": "To'lov sanasi",
+      "usualDay": "Odatiy to'lov kuni",
+      "dueStatus": "Holat"
     },
     "metrics": {
       "income": "Daromad",
@@ -2142,7 +2157,23 @@
     },
     "model": "Model: {model}",
     "context": "Kontekstning {percent}% ishlatildi · yana ≈{count} ta xabar sig'adi",
-    "contextUnknown": "Kontekstdan {tokens} token ishlatildi"
+    "contextUnknown": "Kontekstdan {tokens} token ishlatildi",
+    "checkKinds": {
+      "duplicate_expense": "Takroriy xarajat",
+      "category_spike": "Toifa odatdagidan ancha yuqori",
+      "low_income_day": "Daromadi past kun",
+      "repeated_shortage": "Takroriy kamomadlar"
+    },
+    "severities": {
+      "danger": "Jiddiy",
+      "warning": "Tekshirib ko'rish kerak"
+    },
+    "dueStatuses": {
+      "paid": "To'langan",
+      "overdue": "Muddati o'tgan",
+      "due": "Hali to'lanmagan",
+      "total": "Jami hali to'lanadigan"
+    }
   },
   "exchanges": {
     "from": "Qayerdan",

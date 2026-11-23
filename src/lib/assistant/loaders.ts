@@ -1,4 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { UserRole } from '@/types';
+import { buildExpensePlanSummary } from '@/lib/calculations/expensePlans';
+import { buildMoneyChecks, moneyCheckHistoryStart } from '@/lib/calculations/moneyChecks';
+import { buildUpcomingPayments, usualDayHistoryStart } from '@/lib/calculations/upcomingPayments';
+import { fetchExpensePresets, fetchPresetExpenses } from '@/lib/supabase/expensePresets';
+import { monthRange } from '@/lib/utils';
 import type { StockPurchaseCostRow } from '@/lib/calculations/barMoney';
 import type { ExpenseRow } from '@/lib/calculations/dashboardMetrics';
 import { buildFinancialAnalysis, buildMonthlyAnalysis, type AnalysisLedgers } from '@/lib/calculations/financialAnalysis';
@@ -16,6 +22,8 @@ import { fetchMoneyExchanges } from '@/lib/supabase/moneyExchanges';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import {
   categoriesTable,
+  checksTable,
+  upcomingTable,
   dailyTable,
   debtsTable,
   expensesTable,
@@ -30,13 +38,24 @@ import {
   type DebtInputRow,
   type StockInputRow,
 } from './datasets';
-import { clampMonths, resolveRange, trendWindow } from './ranges';
+import { datasetLinks, moneyCheckLinks, upcomingLinks, type AssistantLink, type LinkAccess } from './links';
+import { clampMonths, resolveMonth, resolveRange, trendWindow } from './ranges';
 
 export interface AssistantDataContext {
   /** The member's own server client: RLS authorizes every read. */
   supabase: SupabaseClient;
   clubId: string;
   businessToday: string;
+  /** The member's access: record links are offered only for pages they may open. */
+  role: UserRole;
+  featureAccess: unknown;
+}
+
+export interface LoadedDataset {
+  table: DataTable;
+  period?: { from: string; to: string };
+  /** Pages listing the records behind the figures, for the model to link to. */
+  links: AssistantLink[];
 }
 
 export interface DatasetQuery {
@@ -161,7 +180,76 @@ export function createDatasetLoader(context: AssistantDataContext) {
     return range;
   }
 
-  async function load(query: DatasetQuery): Promise<{ table: DataTable; period?: { from: string; to: string } }> {
+  const linkAccess: LinkAccess = {
+    role: context.role,
+    featureAccess: context.featureAccess,
+    businessToday: context.businessToday,
+  };
+
+  /**
+   * A month dataset covers the whole calendar month its period starts in, as
+   * Financial Analysis does; its period is reported through the business date.
+   */
+  function monthFor(query: DatasetQuery) {
+    // `to` is ignored: the month is the one `from` falls in, however far back.
+    const resolved = resolveMonth(query.from, context.businessToday);
+    if ('error' in resolved) throw new DatasetQueryError(resolved.error);
+    const month = monthRange(resolved.month);
+    return { month, period: { from: month.from, to: month.to < context.businessToday ? month.to : context.businessToday } };
+  }
+
+  async function loadChecks(query: DatasetQuery): Promise<LoadedDataset> {
+    const { month, period } = monthFor(query);
+    // One read covers the month and the history its checks compare with.
+    const [rows, plans] = await Promise.all([
+      ledgers({ from: moneyCheckHistoryStart(month), to: month.to }),
+      // As on Financial Analysis, a failed plan read leaves every category to the checks.
+      fetchExpensePresets(context.supabase, context.clubId).catch((error: unknown) => {
+        console.error('[assistant] expense plan read failed', { message: error instanceof Error ? error.message : String((error as { message?: unknown })?.message ?? error) });
+        return { presets: [], available: false };
+      }),
+    ]);
+    const checks = buildMoneyChecks({
+      range: month,
+      today: context.businessToday,
+      expenseRows: rows.expenseRows,
+      cashRows: rows.cashRows,
+      stockRows: rows.stockRows,
+      presets: plans.presets,
+    });
+    return { table: checksTable(checks), period, links: moneyCheckLinks(checks, month.from.slice(0, 7), linkAccess) };
+  }
+
+  async function loadUpcoming(query: DatasetQuery): Promise<LoadedDataset> {
+    const { month, period } = monthFor(query);
+    // Only the current business month has anything still to pay.
+    if (month.from.slice(0, 7) !== context.businessToday.slice(0, 7)) {
+      return { table: upcomingTable(null), period, links: upcomingLinks(null, month, linkAccess) };
+    }
+    const [{ presets, available }, linked] = await Promise.all([
+      fetchExpensePresets(context.supabase, context.clubId),
+      // Far enough back to find each plan's usual pay day.
+      fetchPresetExpenses(context.supabase, context.clubId, { from: usualDayHistoryStart(month), to: month.to }),
+    ]);
+    const upcoming = available && presets.length
+      ? buildUpcomingPayments({
+        summary: buildExpensePlanSummary(presets, linked, month),
+        linkedExpenses: linked,
+        range: month,
+        today: context.businessToday,
+      })
+      : null;
+    return { table: upcomingTable(upcoming), period, links: upcomingLinks(upcoming, month, linkAccess) };
+  }
+
+  async function load(query: DatasetQuery): Promise<LoadedDataset> {
+    if (query.dataset === 'checks') return loadChecks(query);
+    if (query.dataset === 'upcoming') return loadUpcoming(query);
+    const { table, period } = await loadTable(query);
+    return { table, period, links: datasetLinks({ dataset: query.dataset, table, period, category: query.category }, linkAccess) };
+  }
+
+  async function loadTable(query: DatasetQuery): Promise<{ table: DataTable; period?: { from: string; to: string } }> {
     const range = RANGED_DATASETS.has(query.dataset) ? rangeFor(query) : undefined;
 
     switch (query.dataset) {
@@ -220,6 +308,9 @@ export function createDatasetLoader(context: AssistantDataContext) {
         if (result.error) throw new Error(result.error.message);
         return { table: debtsTable(result.data ?? []) };
       }
+      case 'checks':
+      case 'upcoming':
+        throw new Error(`${query.dataset} is a month dataset`);
     }
   }
 

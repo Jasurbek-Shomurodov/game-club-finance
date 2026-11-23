@@ -1,11 +1,11 @@
 import { Skeleton } from '@/components/PresentationFoundation';
 import { SkeletonCard } from '@/components/charts/ChartSkeletons';
 
-const SUGGESTION_WIDTHS = ['w-44', 'w-56', 'w-40', 'w-52', 'w-36', 'w-48'];
+const SUGGESTION_WIDTHS = ['w-44', 'w-56', 'w-40', 'w-52', 'w-36', 'w-48', 'w-56', 'w-44', 'w-48'];
 
 /**
  * The assistant before it arrives: the empty-chat card (icon, title, a line of
- * explanation, six suggested questions) over the question box and its send
+ * explanation, the suggested questions an owner sees) over the question box and its send
  * button. Keep it in step with AssistantPage.
  */
 export function AssistantSkeleton() {

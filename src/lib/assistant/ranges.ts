@@ -35,6 +35,18 @@ export function resolveRange(from: string | undefined, to: string | undefined, b
 }
 
 /** First day of the month `count - 1` months before the business month, through today. */
+/**
+ * The calendar month (`YYYY-MM`) a month dataset covers: the month `from`
+ * falls in (default: the business date). Only `from` is checked, so a month
+ * any distance back can be read; it must not be after the business date.
+ */
+export function resolveMonth(from: string | undefined, businessToday: string): { month: string } | { error: string } {
+  const day = from ?? businessToday;
+  if (!isRealIsoDate(day)) return { error: 'Dates must be real YYYY-MM-DD dates.' };
+  if (day > businessToday) return { error: `The period starts after its end (business today is ${businessToday}).` };
+  return { month: day.slice(0, 7) };
+}
+
 export function trendWindow(businessToday: string, count: number): { from: string; to: string } {
   const [year, month] = businessToday.split('-').map(Number);
   const absolute = year * 12 + month - 1 - (count - 1);

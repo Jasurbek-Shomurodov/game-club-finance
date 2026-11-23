@@ -4,6 +4,8 @@ import type { DailyAnalysisRow, FinancialAnalysis, MonthlyAnalysisRow } from '@/
 import type { MoneyReport } from '@/lib/calculations/moneyReport';
 import { listLowStockProducts, stockLevel, resolveLowStockThreshold } from '@/lib/calculations/stock';
 import { calculateRemainingDebt } from '@/lib/calculations/debt';
+import type { MoneyCheck } from '@/lib/calculations/moneyChecks';
+import type { UpcomingPayments, UpcomingSide } from '@/lib/calculations/upcomingPayments';
 import { canAccessFeature } from '@/lib/permissions';
 
 /**
@@ -19,6 +21,8 @@ export const ASSISTANT_DATASETS = [
   'categories',
   'expenses',
   'product_sales',
+  'checks',
+  'upcoming',
   'stock',
   'debts',
 ] as const;
@@ -27,7 +31,7 @@ export type AssistantDataset = (typeof ASSISTANT_DATASETS)[number];
 
 /** Datasets whose rows depend on a from/to date range. */
 export const RANGED_DATASETS: ReadonlySet<AssistantDataset> = new Set([
-  'summary', 'money', 'daily', 'categories', 'expenses', 'product_sales',
+  'summary', 'money', 'daily', 'categories', 'expenses', 'product_sales', 'checks', 'upcoming',
 ]);
 
 export type ColumnType = 'text' | 'number' | 'money' | 'date' | 'month' | 'percent';
@@ -64,6 +68,9 @@ export function allowedDatasets(role: UserRole, featureAccess: unknown): Assista
     categories: financeSnapshot,
     expenses: financeSnapshot,
     product_sales: financeSnapshot,
+    // Built from the same ledgers as the snapshot datasets, plus the club's expense plans.
+    checks: financeSnapshot,
+    upcoming: financeSnapshot,
     stock: can('inventory') || can('closing_stock') || can('stock_purchase'),
     debts: can('debts'),
   };
@@ -290,6 +297,78 @@ export function productSalesTable(rows: ProductSalesInputRow[]): DataTable {
         barCost: row.cost,
         barProfit: row.sales - row.cost,
       })),
+  };
+}
+
+/**
+ * The month's money checks (buildMoneyChecks), worst and newest first. `side`
+ * is the game club or the bar, never both; `usual` is what the figure is
+ * compared with.
+ */
+export function checksTable(checks: readonly MoneyCheck[]): DataTable {
+  return {
+    dataset: 'checks',
+    columns: [
+      { key: 'checkKind', type: 'text' },
+      { key: 'severity', type: 'text' },
+      { key: 'side', type: 'text' },
+      { key: 'date', type: 'date' },
+      { key: 'periodFrom', type: 'date' },
+      { key: 'periodTo', type: 'date' },
+      { key: 'category', type: 'text' },
+      { key: 'amount', type: 'money' },
+      { key: 'usual', type: 'money' },
+      { key: 'count', type: 'number' },
+    ],
+    rows: checks.map((check) => ({
+      checkKind: check.kind,
+      severity: check.severity,
+      side: check.side,
+      date: check.date,
+      periodFrom: check.range.from,
+      periodTo: check.range.to,
+      category: check.category ?? null,
+      amount: check.amount,
+      usual: check.usual ?? null,
+      count: check.count ?? null,
+    })),
+  };
+}
+
+export type DueStatus = 'paid' | 'overdue' | 'due' | 'total';
+
+/**
+ * What is still due on each live plan this month (buildUpcomingPayments),
+ * then one total row per side. The game club and the bar are never added
+ * together. Empty for any month but the current business month.
+ */
+export function upcomingTable(upcoming: UpcomingPayments | null): DataTable {
+  const sideRows = (side: 'game_club' | 'bar', data: UpcomingSide) => [
+    ...data.rows.map((row) => ({
+      side,
+      plan: row.preset.name,
+      category: row.preset.category,
+      remainingAmount: row.remaining,
+      dueDate: row.dueDate,
+      usualDay: row.usualDay,
+      dueStatus: (row.remaining <= 0 ? 'paid' : row.overdue ? 'overdue' : 'due') as DueStatus,
+    })),
+    ...(data.rows.length
+      ? [{ side, plan: null, category: null, remainingAmount: data.remaining, dueDate: null, usualDay: null, dueStatus: 'total' as DueStatus }]
+      : []),
+  ];
+  return {
+    dataset: 'upcoming',
+    columns: [
+      { key: 'side', type: 'text' },
+      { key: 'plan', type: 'text' },
+      { key: 'category', type: 'text' },
+      { key: 'remainingAmount', type: 'money' },
+      { key: 'dueDate', type: 'date' },
+      { key: 'usualDay', type: 'number' },
+      { key: 'dueStatus', type: 'text' },
+    ],
+    rows: upcoming ? [...sideRows('game_club', upcoming.gameClub), ...sideRows('bar', upcoming.bar)] : [],
   };
 }
 

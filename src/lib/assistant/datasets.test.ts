@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { buildMoneyReport } from '@/lib/calculations/moneyReport';
+import type { MoneyCheck } from '@/lib/calculations/moneyChecks';
+import type { UpcomingPayments } from '@/lib/calculations/upcomingPayments';
 import {
   allowedDatasets,
+  checksTable,
+  upcomingTable,
   debtsTable,
   expensesTable,
   MODEL_ROW_LIMIT,
@@ -14,7 +18,7 @@ import {
 describe('allowedDatasets', () => {
   it('gives owners every dataset', () => {
     expect(allowedDatasets('owner', null)).toEqual([
-      'summary', 'money', 'daily', 'monthly', 'categories', 'expenses', 'product_sales', 'stock', 'debts',
+      'summary', 'money', 'daily', 'monthly', 'categories', 'expenses', 'product_sales', 'checks', 'upcoming', 'stock', 'debts',
     ]);
   });
 
@@ -22,7 +26,7 @@ describe('allowedDatasets', () => {
     expect(allowedDatasets('admin', ['assistant', 'debts'])).toEqual(['debts']);
     expect(allowedDatasets('viewer', ['assistant', 'closing_stock'])).toEqual(['stock']);
     expect(allowedDatasets('admin', ['assistant', 'reports'])).toEqual([
-      'summary', 'money', 'daily', 'monthly', 'categories', 'expenses', 'product_sales',
+      'summary', 'money', 'daily', 'monthly', 'categories', 'expenses', 'product_sales', 'checks', 'upcoming',
     ]);
     expect(allowedDatasets('admin', ['assistant'])).toEqual([]);
   });
@@ -33,7 +37,7 @@ describe('allowedDatasets', () => {
     expect(allowedDatasets('admin', ['assistant', 'owner_profit'])).toEqual([]);
     // get_money_report_snapshot needs reports itself.
     expect(allowedDatasets('admin', ['assistant', 'dashboard'])).toEqual([
-      'summary', 'daily', 'monthly', 'categories', 'expenses', 'product_sales',
+      'summary', 'daily', 'monthly', 'categories', 'expenses', 'product_sales', 'checks', 'upcoming',
     ]);
   });
 });
@@ -181,5 +185,52 @@ describe('PlayStation in the assistant datasets', () => {
     expect(daily.rows.map((row) => row.playstation)).toEqual([30_000, 0, 60_000]);
     const monthly = monthlyTable(buildMonthlyAnalysis('2026-11-03', ledgers, 2), cashRows);
     expect(monthly.rows.map((row) => [row.month, row.playstation])).toEqual([['2026-10', 0], ['2026-11', 90_000]]);
+  });
+});
+
+describe('checksTable', () => {
+  it('keeps every check on its own side, in the order given', () => {
+    const checks: MoneyCheck[] = [
+      { kind: 'duplicate_expense', severity: 'danger', side: 'bar', date: '2026-11-03', range: { from: '2026-11-03', to: '2026-11-03' }, category: 'rent', amount: 500_000, count: 2, recordIds: ['a', 'b'] },
+      { kind: 'low_income_day', severity: 'warning', side: 'game_club', date: '2026-11-02', range: { from: '2026-11-02', to: '2026-11-02' }, amount: 300_000, usual: 900_000 },
+    ];
+    expect(checksTable(checks).rows).toEqual([
+      { checkKind: 'duplicate_expense', severity: 'danger', side: 'bar', date: '2026-11-03', periodFrom: '2026-11-03', periodTo: '2026-11-03', category: 'rent', amount: 500_000, usual: null, count: 2 },
+      { checkKind: 'low_income_day', severity: 'warning', side: 'game_club', date: '2026-11-02', periodFrom: '2026-11-02', periodTo: '2026-11-02', category: null, amount: 300_000, usual: 900_000, count: null },
+    ]);
+  });
+
+  it('is empty when nothing looks off', () => {
+    expect(checksTable([]).rows).toEqual([]);
+  });
+});
+
+describe('upcomingTable', () => {
+  const preset = (id: string, name: string, category: string, source: 'game_club' | 'bar') => ({
+    id, name, category, payment_source: source, payment_method: null, monthly_amount: 1_000_000, sort_order: 0, archived_at: null,
+  });
+
+  it('lists each plan with its due state and one total per side, never both sides together', () => {
+    const upcoming: UpcomingPayments = {
+      gameClub: {
+        remaining: 1_500_000,
+        rows: [
+          { preset: preset('p1', 'Rent', 'rent', 'game_club'), remaining: 1_000_000, usualDay: 5, dueDate: '2026-11-05', overdue: true },
+          { preset: preset('p2', 'Internet', 'internet', 'game_club'), remaining: 500_000, usualDay: 28, dueDate: '2026-11-28', overdue: false },
+          { preset: preset('p3', 'Cleaning', 'cleaning', 'game_club'), remaining: 0, usualDay: 1, dueDate: '2026-11-01', overdue: false },
+        ],
+      },
+      bar: { remaining: 0, rows: [] },
+    };
+    expect(upcomingTable(upcoming).rows).toEqual([
+      { side: 'game_club', plan: 'Rent', category: 'rent', remainingAmount: 1_000_000, dueDate: '2026-11-05', usualDay: 5, dueStatus: 'overdue' },
+      { side: 'game_club', plan: 'Internet', category: 'internet', remainingAmount: 500_000, dueDate: '2026-11-28', usualDay: 28, dueStatus: 'due' },
+      { side: 'game_club', plan: 'Cleaning', category: 'cleaning', remainingAmount: 0, dueDate: '2026-11-01', usualDay: 1, dueStatus: 'paid' },
+      { side: 'game_club', plan: null, category: null, remainingAmount: 1_500_000, dueDate: null, usualDay: null, dueStatus: 'total' },
+    ]);
+  });
+
+  it('has no rows for a month without anything upcoming', () => {
+    expect(upcomingTable(null).rows).toEqual([]);
   });
 });

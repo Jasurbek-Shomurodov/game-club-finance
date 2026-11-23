@@ -65,7 +65,13 @@ export const assistant = createAssistantHandler<AssistantContext>({
   }),
   tools: (ctx) => assistantTools({
     datasets: ctx.datasets,
-    loader: createDatasetLoader({ supabase: ctx.supabase, clubId: ctx.clubId, businessToday: ctx.businessToday }),
+    loader: createDatasetLoader({
+      supabase: ctx.supabase,
+      clubId: ctx.clubId,
+      businessToday: ctx.businessToday,
+      role: ctx.membership.role,
+      featureAccess: ctx.membership.feature_access,
+    }),
     translate: createTranslator(ctx.locale),
     locale: ctx.locale,
   }),

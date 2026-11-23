@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clampMonths, MAX_RANGE_DAYS, resolveRange, trendWindow } from './ranges';
+import { clampMonths, MAX_RANGE_DAYS, resolveMonth, resolveRange, trendWindow } from './ranges';
 
 describe('resolveRange', () => {
   it('defaults to the current business month through today', () => {
@@ -34,5 +34,17 @@ describe('clampMonths', () => {
     expect(clampMonths(undefined)).toBe(12);
     expect(clampMonths(0)).toBe(1);
     expect(clampMonths(99)).toBe(24);
+  });
+});
+
+describe('resolveMonth', () => {
+  it('uses the month `from` falls in, however far back', () => {
+    expect(resolveMonth('2023-02-14', '2026-11-24')).toEqual({ month: '2023-02' });
+    expect(resolveMonth(undefined, '2026-11-24')).toEqual({ month: '2026-11' });
+  });
+
+  it('rejects unreal dates and days after the business date', () => {
+    expect(resolveMonth('2026-02-30', '2026-11-24')).toHaveProperty('error');
+    expect(resolveMonth('2026-11-25', '2026-11-24')).toHaveProperty('error');
   });
 });

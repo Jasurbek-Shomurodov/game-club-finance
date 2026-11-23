@@ -13,6 +13,10 @@ const VALUE_LABELS: Record<string, (value: string) => string> = {
   stockLevel: (value) => `assistant.stockLevels.${value}`,
   metric: (value) => `assistant.metrics.${value}`,
   line: (value) => `assistant.moneyLines.${value}`,
+  side: (value) => `assistant.paymentSources.${value}`,
+  checkKind: (value) => `assistant.checkKinds.${value}`,
+  severity: (value) => `assistant.severities.${value}`,
+  dueStatus: (value) => `assistant.dueStatuses.${value}`,
 };
 
 /**

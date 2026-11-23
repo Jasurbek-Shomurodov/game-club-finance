@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import { Download, FileSpreadsheet, MessageSquarePlus, SendHorizontal, Sparkles, Square } from 'lucide-react';
 import { DEFAULT_LIMITS } from 'hoggish-assistant';
@@ -8,7 +8,9 @@ import { useAssistantChat, type ChatEntry } from 'hoggish-assistant/react';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { useClub } from '@/components/layout/DashboardShell';
 import { AssistantMarkdown } from '@/components/assistant/AssistantMarkdown';
+import { allowedDatasets, type AssistantDataset } from '@/lib/assistant/datasets';
 import { formatNumber, intlLocaleFor } from '@/lib/formatters';
+import { canAccessPath } from '@/lib/permissions';
 import {
   Badge,
   Button,
@@ -24,7 +26,13 @@ import {
 } from '@/components/PresentationFoundation';
 import { scrollBehavior } from '@/lib/scroll';
 
-const SUGGESTIONS = ['profit', 'compare', 'products', 'excel', 'stock', 'debts'] as const;
+const SUGGESTIONS = ['profit', 'compare', 'products', 'excel', 'stock', 'debts', 'checks', 'upcoming', 'review'] as const;
+/** Starters shown only to members who can read every dataset they need. */
+const SUGGESTION_DATASETS: Partial<Record<(typeof SUGGESTIONS)[number], readonly AssistantDataset[]>> = {
+  checks: ['checks'],
+  upcoming: ['upcoming'],
+  review: ['summary', 'categories', 'checks', 'upcoming'],
+};
 const MAX_MESSAGE_CHARS = DEFAULT_LIMITS.maxMessageChars;
 /** The question box grows with its text up to this height, then scrolls. */
 const INPUT_MAX_HEIGHT_PX = 240;
@@ -38,7 +46,14 @@ export default function AssistantPage() {
   const t = useTranslations('assistant');
   const tc = useTranslations('common');
   const { locale } = useAppLocale();
-  const { selectedClubId } = useClub();
+  const { selectedClubId, role, featureAccess } = useClub();
+  // The same rule the server uses to offer datasets: a starter needs its data.
+  const suggestions = useMemo(() => {
+    const readable = new Set(allowedDatasets(role, featureAccess));
+    return SUGGESTIONS.filter((key) => (SUGGESTION_DATASETS[key] ?? []).every((dataset) => readable.has(dataset)));
+  }, [featureAccess, role]);
+  // Links in answers open only pages this member may open; the rest stay plain text.
+  const canOpen = useCallback((path: string) => canAccessPath(role, featureAccess, path), [featureAccess, role]);
   const [draft, setDraft] = useState('');
   const endRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -158,7 +173,7 @@ export default function AssistantPage() {
               compact
               action={(
                 <div className="mt-2 flex max-w-2xl flex-wrap justify-center gap-2">
-                  {SUGGESTIONS.map((key) => (
+                  {suggestions.map((key) => (
                     <Button key={key} variant="secondary" size="sm" className="whitespace-normal text-left" onClick={() => void ask(t(`suggestions.${key}`))}>
                       {t(`suggestions.${key}`)}
                     </Button>
@@ -184,7 +199,7 @@ export default function AssistantPage() {
               aria-live={index === entries.length - 1 ? 'polite' : undefined}
               aria-busy={index === entries.length - 1 && entry.pending ? true : undefined}
             >
-              {entry.content && <AssistantMarkdown source={entry.content} />}
+              {entry.content && <AssistantMarkdown source={entry.content} canOpen={canOpen} />}
               {entry.pending && (
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <Spinner size={14} />

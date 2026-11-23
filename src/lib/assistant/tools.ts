@@ -17,13 +17,15 @@ const DATASET_HELP: Record<AssistantDataset, string> = {
   categories: 'expenses grouped by category with share of all expenses',
   expenses: 'every expense row (date, category, amount, payment method, paid from game club or bar, comment); optional `category` filter',
   product_sales: 'bar sales per product: sold quantity, promo giveaways, sales, cost, profit; best sellers first',
+  checks: 'money checks for the calendar month that `from` falls in (default: the current month): things that look off and are worth a second look, worst and newest first. checkKind is duplicate_expense (count rows with the same date, category, amount, side and method; amount is the repeated amount), category_spike (amount is the category spent so far this month, usual is what the three earlier months had spent by the same day), low_income_day (amount is that day\'s game-club income or bar sales by side, usual is the average of the same weekday over the previous eight weeks) or repeated_shortage (count cash shortages in periodFrom..periodTo, amount their total). severity danger or warning; side game_club or bar, never added together',
+  upcoming: 'what is still due on each expense plan this month: side, plan name, category, remainingAmount (planned minus paid, never below 0), dueDate (the plan\'s usual pay day), dueStatus paid, overdue or due, and one dueStatus total row per side. Only the current business month has rows; any other month returns none',
   stock: 'current stock of every active product with low-stock level; ignores dates',
   debts: 'customer debts with paid and remaining amounts; `debt_status` open (default), paid or all; ignores dates',
 };
 
 const queryShape = {
   from: z.string().optional()
-    .describe('Period start, YYYY-MM-DD. Defaults to the first day of the current business month.'),
+    .describe('Period start, YYYY-MM-DD. Defaults to the first day of the current business month. For checks and upcoming, any day of the month wanted.'),
   to: z.string().optional()
     .describe('Period end, YYYY-MM-DD, inclusive. Defaults to the current business date.'),
   months: z.number().int().min(1).max(24).optional()
@@ -89,8 +91,8 @@ export function assistantTools({
       ].join('\n'),
       inputSchema: z.object({ dataset: datasetSchema, ...queryShape }),
       execute: (input) => guard(async () => {
-        const { table, period } = await loader.load(toQuery(input.dataset, input));
-        return { period: period ?? null, ...tableForModel(table) };
+        const { table, period, links } = await loader.load(toQuery(input.dataset, input));
+        return { period: period ?? null, ...tableForModel(table), links };
       }),
     }),
     export_excel: defineTool({
