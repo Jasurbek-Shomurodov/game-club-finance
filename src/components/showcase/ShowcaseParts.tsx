@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { getTranslations } from 'next-intl/server';
-import { Armchair, Gamepad, Tv, Cpu, Gamepad2, Headphones, Keyboard, MemoryStick, Monitor, MonitorPlay, Mouse, NotebookPen, Sparkles, Zap } from 'lucide-react';
+import { Armchair, Gamepad, Tv, Cpu, Gamepad2, Headphones, Keyboard, MemoryStick, Monitor, MonitorPlay, Mouse, Sparkles, Zap } from 'lucide-react';
 import { formatCurrency } from '@/lib/formatters';
 import type { PublicShowcaseZone } from '@/lib/showcase';
 import { Reveal } from './Reveal';
@@ -184,6 +184,7 @@ export async function ZoneGrid({ zones, heading: Heading = 'h3' }: { zones: Publ
                     </p>
                   )}
                 </div>
+                {zone.peripherals && <p className="mt-2 text-sm leading-6 text-white/75">{zone.peripherals}</p>}
                 {zone.kind === 'playstation' ? (
                   <ul className="mt-6 grid gap-4 sm:grid-cols-2">
                     <Spec icon={<Gamepad2 size={16} aria-hidden="true" />} label={t('console')} value={zone.console} />
@@ -209,12 +210,6 @@ export async function ZoneGrid({ zones, heading: Heading = 'h3' }: { zones: Publ
                     <Spec icon={<Headphones size={16} aria-hidden="true" />} label={t('headset')} value={zone.headset} />
                     <Spec icon={<Armchair size={16} aria-hidden="true" />} label={t('chair')} value={zone.chair} />
                   </ul>
-                )}
-                {zone.kind !== 'playstation' && zone.peripherals && (
-                  <p className="mt-5 flex items-start gap-2 border-t border-white/5 pt-5 text-sm leading-6 text-white/70">
-                    <NotebookPen size={16} className="mt-1 shrink-0 text-violet-300" aria-hidden="true" />
-                    {zone.peripherals}
-                  </p>
                 )}
               </div>
             </div>

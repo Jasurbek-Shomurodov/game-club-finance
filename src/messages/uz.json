@@ -2201,6 +2201,7 @@
     "noZones": "Hali kompyuter zonalari yo‘q",
     "zoneName": "Zona nomi",
     "zoneNamePlaceholder": "Standart, VIP, Butkemp…",
+    "zoneNameHint": "Qisqa va narxlar ro‘yxatidagidek yozing: VIP, Pro, Standart. Tafsilotlar tavsifda.",
     "pcCount": "Kompyuterlar soni",
     "pcCountValue": "{count, plural, other {# ta PK}}",
     "cpu": "Protsessor",
@@ -2208,8 +2209,9 @@
     "ram": "Xotira",
     "monitor": "Monitor",
     "monitorPlaceholder": "27\" 240 Gs",
-    "peripherals": "Boshqa jihozlar va izohlar",
-    "peripheralsPlaceholder": "Gilamcha, veb-kamera, dam olish zonasida PS5…",
+    "zoneDescription": "Tavsif va izohlar",
+    "zoneDescriptionHint": "Zona nimasi bilan ajralib turadi va yana nimani bilish kerak. Saytda zona nomi ostida ko‘rsatiladi.",
+    "zoneDescriptionPlaceholder": "5 ta kompyuterli 2 ta kabina, gilamchalar, veb-kameralar…",
     "pricePerHour": "Soatlik narx",
     "pricePerHourValue": "{price} {currency} / soat",
     "zoneImage": "Zona surati",
@@ -2346,7 +2348,8 @@
     "galleryHint": "{limit} tadan {count} ta. Birinchi surat kattaroq ko‘rsatiladi.",
     "galleryAdd": "Surat qo‘shish",
     "galleryRemove": "{number}-suratni o‘chirish",
-    "galleryEmpty": "Hozircha suratlar yo‘q. Mehmonlar kelishdan oldin zalni ko‘rishni xohlaydi."
+    "galleryEmpty": "Hozircha suratlar yo‘q. Mehmonlar kelishdan oldin zalni ko‘rishni xohlaydi.",
+    "copyToLanguages": "{languages} tiliga nusxalash"
   },
   "publicShowcase": {
     "navGames": "O‘yinlar",

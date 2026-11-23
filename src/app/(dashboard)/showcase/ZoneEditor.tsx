@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 import { Cpu, Gamepad2, Monitor, Mouse } from 'lucide-react';
-import { Card, CurrencyInput, Field, Input, SectionHeading, SegmentedControl, Textarea } from '@/components/PresentationFoundation';
+import { Card, CurrencyInput, Field, Input, SectionHeading, SegmentedControl } from '@/components/PresentationFoundation';
 import { PLAYSTATION_MODELS, applyPlaystationModel, playstationModel, switchZoneKind, type PlaystationModel, type ShowcasePcZoneForm } from '@/lib/showcase';
 import type { ShowcaseZoneKind } from '@/types';
 import { LocalizedTextField } from './LocalizedTextField';
@@ -42,6 +42,7 @@ export function ZoneEditor({ form, onChange, clubId, onUploadingChange }: ZoneEd
             label={t('zoneName')}
             maxLength={60}
             placeholder={form.kind === 'playstation' ? t('playstationZoneNamePlaceholder') : t('zoneNamePlaceholder')}
+            hint={t('zoneNameHint')}
             value={form.name}
             onChange={(value) => set('name', value)}
           />
@@ -56,6 +57,17 @@ export function ZoneEditor({ form, onChange, clubId, onUploadingChange }: ZoneEd
           <Input id="zone-sort" inputMode="numeric" value={form.sort_order} onChange={(e) => set('sort_order', e.target.value.replace(/[^\d-]/g, ''))} />
         </Field>
       </div>
+      <LocalizedTextField
+        id="zone-description"
+        label={t('zoneDescription')}
+        hint={t('zoneDescriptionHint')}
+        multiline
+        rows={2}
+        maxLength={240}
+        placeholder={t('zoneDescriptionPlaceholder')}
+        value={form.peripherals}
+        onChange={(value) => set('peripherals', value)}
+      />
       {form.kind === 'playstation' ? (
         <Card tone="muted" padding="sm" className="space-y-3">
           <SectionHeading as="h3" size="sm" title={t('specsConsole')} icon={<Gamepad2 size={16} aria-hidden="true" />} />
@@ -121,9 +133,6 @@ export function ZoneEditor({ form, onChange, clubId, onUploadingChange }: ZoneEd
               <Input id="zone-chair" value={form.chair} maxLength={80} placeholder="DXRacer" onChange={(e) => set('chair', e.target.value)} />
             </Field>
           </div>
-          <Field label={t('peripherals')} htmlFor="zone-peripherals">
-            <Textarea id="zone-peripherals" rows={2} maxLength={240} value={form.peripherals} placeholder={t('peripheralsPlaceholder')} onChange={(e) => set('peripherals', e.target.value)} />
-          </Field>
         </Card>
       )}
       <ShowcaseImageField

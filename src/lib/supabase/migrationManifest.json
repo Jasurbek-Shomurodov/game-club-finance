@@ -5397,5 +5397,9 @@
         "md5": "cde07e9871813b3306c8b87750022c35"
       }
     ]
+  },
+  {
+    "file": "179_pixel_vip_cabins_zone.sql",
+    "probes": []
   }
 ]

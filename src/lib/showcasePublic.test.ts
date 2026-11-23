@@ -4,6 +4,7 @@ import {
   SHOWCASE_GALLERY_LIMIT,
   bookingTimeSlots,
   buildPriceMatrix,
+  buildShowcasePcZonePayload,
   buildShowcaseSettingsPayload,
   clubLabel,
   mapLinks,
@@ -12,6 +13,7 @@ import {
   normalizeGoogleMapsUrl,
   packageHours,
   parsePublicShowcase,
+  showcasePcZoneForm,
   showcaseSettingsForm,
   telegramDraftUrl,
   validateShowcaseSettings,
@@ -224,5 +226,35 @@ describe('booking request', () => {
     expect(bookingTimeSlots(evening, 'tomorrow')[0]).toBe('00:00');
     // 18:30 UTC is 23:30: no full hour is left today.
     expect(bookingTimeSlots(new Date('2026-11-23T18:30:00Z'), 'today')).toEqual([]);
+  });
+});
+
+describe('zone description per language', () => {
+  const zone = {
+    id: 'z', club_id: 'c', kind: 'pc' as const, name: 'VIP', pc_count: 10, cpu: null, gpu: null, ram: null, storage: null, monitor: null,
+    monitor_size_inches: null, monitor_refresh_hz: null, mouse: null, keyboard: null, headset: null, chair: null,
+    peripherals: 'Two rooms of five', price_per_hour: 30000, image_url: null, sort_order: 20, created_at: '2026-11-23T00:00:00Z',
+  };
+
+  it('shows a note saved before translations under the default language', () => {
+    expect(showcasePcZoneForm(zone, 10).peripherals).toEqual({ ru: 'Two rooms of five', uz: '', en: '' });
+  });
+
+  it('saves every filled language and keeps the first as the fallback column', () => {
+    const form = { ...showcasePcZoneForm(zone, 10), peripherals: { ru: '', uz: ' Ikki xona ', en: 'Two rooms' } };
+    const payload = buildShowcasePcZonePayload(form);
+    expect(payload.translations.description).toEqual({ uz: 'Ikki xona', en: 'Two rooms' });
+    expect(payload.peripherals).toBe('Ikki xona');
+  });
+
+  it('gives a visitor the description in their language', () => {
+    const page = (locale: string) => parsePublicShowcase({
+      club_name: 'Neon', slug: 'neon',
+      zones: [{ id: 'z', name: 'VIP', pc_count: 10, peripherals: 'Fallback', translations: { description: { en: 'Two rooms', uz: 'Ikki xona' } } }],
+    }, locale)!.zones[0].peripherals;
+    expect(page('en')).toBe('Two rooms');
+    // Russian is empty: the next language in the default order stands in.
+    expect(page('ru')).toBe('Ikki xona');
+    expect(parsePublicShowcase({ club_name: 'N', slug: 'n', zones: [{ id: 'z', name: 'VIP', peripherals: 'Fallback' }] }, 'en')!.zones[0].peripherals).toBe('Fallback');
   });
 });

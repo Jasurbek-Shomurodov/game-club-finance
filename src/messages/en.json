@@ -2201,6 +2201,7 @@
     "noZones": "No computer zones yet",
     "zoneName": "Zone name",
     "zoneNamePlaceholder": "Standard, VIP, Bootcamp…",
+    "zoneNameHint": "Keep it short and the same as in the price list: VIP, Pro, Standard. Details go in the description.",
     "pcCount": "Number of PCs",
     "pcCountValue": "{count, plural, one {# PC} other {# PCs}}",
     "cpu": "Processor",
@@ -2208,8 +2209,9 @@
     "ram": "Memory",
     "monitor": "Monitor",
     "monitorPlaceholder": "27\" 240 Hz",
-    "peripherals": "Other equipment and notes",
-    "peripheralsPlaceholder": "Mouse pad, webcam, PS5 in the lounge…",
+    "zoneDescription": "Description and notes",
+    "zoneDescriptionHint": "What sets the zone apart and anything else worth knowing. Shown under the zone name on the site.",
+    "zoneDescriptionPlaceholder": "2 private rooms of 5 PCs, mouse pads, webcams…",
     "pricePerHour": "Price per hour",
     "pricePerHourValue": "{price} {currency} / hour",
     "zoneImage": "Zone photo",
@@ -2346,7 +2348,8 @@
     "galleryHint": "{count} of {limit}. The first photo is shown largest.",
     "galleryAdd": "Add photos",
     "galleryRemove": "Remove photo {number}",
-    "galleryEmpty": "No photos yet. Visitors want to see the hall before they come."
+    "galleryEmpty": "No photos yet. Visitors want to see the hall before they come.",
+    "copyToLanguages": "Copy to {languages}"
   },
   "publicShowcase": {
     "navGames": "Games",

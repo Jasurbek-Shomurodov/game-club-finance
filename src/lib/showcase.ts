@@ -341,7 +341,8 @@ export interface ShowcasePcZoneForm {
   keyboard: string;
   headset: string;
   chair: string;
-  peripherals: string;
+  /** What sets the zone apart ("2 private rooms of 5") and other equipment, per language. */
+  peripherals: LocalizedText;
   price_per_hour: string;
   image_url: string;
   sort_order: string;
@@ -429,7 +430,7 @@ function emptyOrSavedZoneForm(zone: ShowcasePcZone | null, nextSortOrder: number
     keyboard: zone?.keyboard ?? '',
     headset: zone?.headset ?? '',
     chair: zone?.chair ?? '',
-    peripherals: zone?.peripherals ?? '',
+    peripherals: localizedFromRow(zone?.translations, 'description', zone?.peripherals),
     price_per_hour: zone?.price_per_hour == null ? '' : formatCurrencyInput(zone.price_per_hour),
     image_url: zone?.image_url ?? '',
     sort_order: String(zone?.sort_order ?? nextSortOrder),
@@ -468,7 +469,7 @@ export function buildShowcasePcZonePayload(form: ShowcasePcZoneForm) {
   return {
     kind: form.kind,
     name: primaryText(form.name) ?? '',
-    translations: { name: localizedPayload(form.name) },
+    translations: { name: localizedPayload(form.name), description: localizedPayload(form.peripherals) },
     pc_count: Number(form.pc_count),
     console: pc ? null : optionalText(form.console),
     controllers: !pc && form.controllers.trim() ? Number(form.controllers.trim()) : null,
@@ -482,7 +483,7 @@ export function buildShowcasePcZonePayload(form: ShowcasePcZoneForm) {
     keyboard: pcOnly(form.keyboard),
     headset: pcOnly(form.headset),
     chair: pcOnly(form.chair),
-    peripherals: pcOnly(form.peripherals),
+    peripherals: primaryText(form.peripherals),
     price_per_hour: form.price_per_hour.trim() ? parseCurrencyInput(form.price_per_hour) : null,
     image_url: zoneImageUrl(form.image_url),
     sort_order: Number(form.sort_order.trim()),
@@ -663,7 +664,7 @@ export function parsePublicShowcase(raw: unknown, locale = 'ru'): PublicShowcase
         keyboard: text(zone.keyboard),
         headset: text(zone.headset),
         chair: text(zone.chair),
-        peripherals: text(zone.peripherals),
+        peripherals: pickLocalized(translationsOf(zone).description, locale, text(zone.peripherals)),
         price_per_hour: price !== null && price >= 0 ? price : null,
         // Built-in console pictures are site paths, not external links.
         image_url: typeof zone.image_url === 'string' ? zoneImageUrl(zone.image_url) : null,

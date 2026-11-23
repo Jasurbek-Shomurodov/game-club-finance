@@ -2201,6 +2201,7 @@
     "noZones": "Зон с компьютерами пока нет",
     "zoneName": "Название зоны",
     "zoneNamePlaceholder": "Стандарт, VIP, Буткемп…",
+    "zoneNameHint": "Коротко и так же, как в прайсе: VIP, Pro, Стандарт. Подробности — в описании.",
     "pcCount": "Количество ПК",
     "pcCountValue": "{count, plural, one {# ПК} few {# ПК} many {# ПК} other {# ПК}}",
     "cpu": "Процессор",
@@ -2208,8 +2209,9 @@
     "ram": "Память",
     "monitor": "Монитор",
     "monitorPlaceholder": "27\" 240 Гц",
-    "peripherals": "Другое оборудование и заметки",
-    "peripheralsPlaceholder": "Коврик, веб-камера, PS5 в зоне отдыха…",
+    "zoneDescription": "Описание и заметки",
+    "zoneDescriptionHint": "Чем зона отличается и что ещё важно знать. На сайте показывается под названием зоны.",
+    "zoneDescriptionPlaceholder": "2 кабинки по 5 ПК, коврики, веб-камеры…",
     "pricePerHour": "Цена за час",
     "pricePerHourValue": "{price} {currency} / час",
     "zoneImage": "Фото зоны",
@@ -2346,7 +2348,8 @@
     "galleryHint": "{count} из {limit}. Первое фото показывается крупнее.",
     "galleryAdd": "Добавить фото",
     "galleryRemove": "Удалить фото {number}",
-    "galleryEmpty": "Фотографий пока нет. Гости хотят увидеть зал до визита."
+    "galleryEmpty": "Фотографий пока нет. Гости хотят увидеть зал до визита.",
+    "copyToLanguages": "Скопировать в {languages}"
   },
   "publicShowcase": {
     "navGames": "Игры",
