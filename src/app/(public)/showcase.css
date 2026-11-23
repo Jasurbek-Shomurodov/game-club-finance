@@ -573,6 +573,27 @@
   text-align: left;
 }
 
+/* A zone's prices on a phone: package names down the left, a column per time of day. */
+.sc-zone-prices th,
+.sc-zone-prices td {
+  padding: 0.7rem 0 0.7rem 0.75rem;
+  text-align: right;
+  vertical-align: top;
+}
+.sc-zone-prices th:first-child,
+.sc-zone-prices td:first-child {
+  padding-left: 0;
+  text-align: left;
+}
+.sc-zone-prices thead th,
+.sc-zone-prices thead td {
+  padding-block: 0.35rem 0.5rem;
+}
+.sc-zone-prices tbody tr + tr > *,
+.sc-zone-prices thead + tbody tr > * {
+  border-top: 1px solid var(--sc-line);
+}
+
 /* ---------- Dialogs (booking, photo viewer) ---------- */
 
 .sc-dialog-backdrop {

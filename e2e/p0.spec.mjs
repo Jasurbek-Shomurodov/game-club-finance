@@ -1576,14 +1576,25 @@ test.describe('a visitor of the public site', () => {
         { title: 'VIP · 1 hour', price: 20000, sort_order: 1 },
         { title: 'VIP · 2+1 hours', badge: '2+1', price: 40000, sort_order: 2 },
         { title: 'Combo: pizza night', badge: 'COMBO', price: 90000, sort_order: 3 },
+        { title: 'Standard · 1 hour', price: 10000, time_window: '06:00 – 18:00', sort_order: 4 },
+        { title: 'Standard · 1 hour', price: 15000, time_window: '18:00 – 06:00', sort_order: 5 },
+        { title: 'Standard · Night package', price: 50000, time_window: '23:00 – 06:00', sort_order: 6 },
       ]) expect((await restAs(accounts.owner, 'POST', 'showcase_offers', { club_id: clubs.arcade.id, ...offer })).status).toBe(201);
 
       expect((await page.goto(`/club/${slug}`)).status()).toBe(200);
       const prices = page.locator('#prices');
-      // On a phone the price list is one card per zone: the hour rate, then each package with what it saves.
-      // (The same figures are also a table, shown from tablet width up.)
+      // On a phone the price list is one small table per zone: the hour rate, then each package with what it saves.
+      // (The same figures are also one table for the whole club, shown from tablet width up.)
       await expect(prices.getByText('VIP', { exact: true }).locator('visible=true')).toBeVisible();
       await expect(prices.getByText('save 20 000').locator('visible=true')).toBeVisible();
+      // A zone with a day and a night rate reads across: a column per time of day, a package sold at
+      // other hours keeping its own time.
+      const standard = prices.getByRole('table', { name: 'Standard' });
+      await expect(standard.getByRole('columnheader', { name: '18:00 – 06:00' })).toBeVisible();
+      const hour = standard.getByRole('row').filter({ hasText: 'One hour' });
+      await expect(hour.getByRole('cell')).toHaveText([/10 000/, /15 000/]);
+      await expect(standard.getByRole('row').filter({ hasText: 'Night package' })).toContainText('23:00 – 06:00');
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0);
       await expect(prices.getByRole('heading', { name: 'Combo: pizza night' })).toBeVisible();
       await expect(page.locator('#amenities').getByText('Free Wi-Fi')).toBeVisible();
       await expect(page.locator('#contacts').getByText('Next to the fountain')).toBeVisible();

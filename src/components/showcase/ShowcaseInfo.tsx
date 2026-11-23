@@ -7,7 +7,7 @@ import {
 import { formatCurrency, formatPhone, intlLocaleFor } from '@/lib/formatters';
 import {
   buildPriceMatrix, clubLabel, mapLinks, telHref, yandexMapWidgetUrl,
-  type PriceCell, type PublicShowcase, type ShowcaseAmenity,
+  zonePriceCard, type PriceCell, type PublicShowcase, type ShowcaseAmenity,
 } from '@/lib/showcase';
 import { BookingButton, type BookingClub } from './BookingButton';
 
@@ -56,7 +56,8 @@ export async function RatingBadge({ club, className }: { club: PublicShowcase; c
 /**
  * A club's whole price list as one table: a row per zone, a column per
  * package, the saving against single hours under each package price. Phones
- * get the same figures as one card per zone. Combos follow as cards.
+ * get the same figures as one small table per zone, day and night rates side
+ * by side. Combos follow as cards.
  */
 export async function PriceTable({ club, heading: Heading = 'h4' }: { club: PublicShowcase; heading?: InfoHeading }) {
   const t = await getTranslations('publicShowcase');
@@ -105,19 +106,45 @@ export async function PriceTable({ club, heading: Heading = 'h4' }: { club: Publ
           </div>
 
           <ul className="space-y-3 sm:hidden">
-            {rows.map((row) => (
-              <li key={row.zone} className="sc-card rounded-2xl p-4">
-                <p className="sc-display text-base font-bold text-white">{row.zone}</p>
-                <dl className="mt-2 divide-y divide-white/10">
-                  {columns.flatMap((column) => (row.cells[column.key]?.length ? [(
-                    <div key={column.key} className="flex items-start justify-between gap-4 py-2.5">
-                      <dt className="text-sm text-white/75">{columnLabel(column.label)}</dt>
-                      <dd className="text-right">{cells(row.cells[column.key])}</dd>
-                    </div>
-                  )] : []))}
-                </dl>
-              </li>
-            ))}
+            {rows.map((row) => {
+              const card = zonePriceCard(row, columns);
+              const span = Math.max(card.windows.length, 1);
+              return (
+                <li key={row.zone} className="sc-card rounded-2xl px-4 pb-1.5 pt-4">
+                  <table className="sc-zone-prices w-full border-collapse">
+                    <caption className="sc-display pb-1 text-left text-lg font-bold text-white">{row.zone}</caption>
+                    {card.windows.length > 0 && (
+                      <thead>
+                        <tr>
+                          <td />
+                          {card.windows.map((time) => (
+                            <th key={time} scope="col" className="sc-num whitespace-nowrap text-xs font-semibold text-violet-200">{time}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                    )}
+                    <tbody>
+                      {card.lines.map((line) => (
+                        <tr key={line.key}>
+                          <th scope="row" className="text-sm font-medium text-white/75">{columnLabel(line.label)}</th>
+                          {line.slots
+                            ? line.slots.map((slot, index) => (
+                              <td key={card.windows[index]}>
+                                {slot ? cell({ ...slot, time_window: null }, index) : <span className="text-white/40" aria-label={t('priceNone')}>—</span>}
+                              </td>
+                            ))
+                            : (
+                              <td colSpan={span}>
+                                <span className="inline-flex gap-4">{line.cells.map(cell)}</span>
+                              </td>
+                            )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </li>
+              );
+            })}
           </ul>
         </>
       )}

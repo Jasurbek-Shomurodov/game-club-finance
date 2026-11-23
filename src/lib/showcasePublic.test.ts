@@ -18,6 +18,7 @@ import {
   telegramDraftUrl,
   validateShowcaseSettings,
   yandexMapWidgetUrl,
+  zonePriceCard,
 } from './showcase';
 
 const offer = (id: string, title: string, price: number | null, time_window: string | null = null, badge: string | null = null) =>
@@ -88,6 +89,51 @@ describe('buildPriceMatrix', () => {
 
   it('is empty for a club with no prices', () => {
     expect(buildPriceMatrix([], [{ name: 'Standard', price_per_hour: null }])).toEqual({ columns: [], rows: [], specials: [] });
+  });
+});
+
+describe('zonePriceCard', () => {
+  it('turns a day and a night hour rate into columns and lines each package up under them', () => {
+    const { columns, rows } = buildPriceMatrix([
+      offer('d1', 'Standard · 1 hour', 10000, '06:00 – 18:00'),
+      offer('n1', 'Standard · 1 hour', 15000, '18:00 – 06:00'),
+      offer('d3', 'Standard · 3 hours', 25000, '06:00 – 18:00'),
+      offer('n3', 'Standard · 3 hours', 40000, '18:00 – 06:00'),
+      offer('dp', 'Standard · Day package', 40000, '06:00 – 18:00'),
+      offer('np', 'Standard · Night package', 50000, '23:00 – 06:00'),
+    ], []);
+    const card = zonePriceCard(rows[0], columns);
+    expect(card.windows).toEqual(['06:00 – 18:00', '18:00 – 06:00']);
+    expect(card.lines.map((line) => line.slots?.map((cell) => cell?.price ?? null) ?? null)).toEqual([
+      [10000, 15000],
+      [25000, 40000],
+      // Sold by day only: nothing under the night column.
+      [40000, null],
+      // Its own hours fit neither column, so the line keeps its time.
+      null,
+    ]);
+    expect(card.lines[3].cells[0].time_window).toBe('23:00 – 06:00');
+  });
+
+  it('has no columns for a zone with one rate, and skips packages the zone does not sell', () => {
+    const { columns, rows } = buildPriceMatrix([
+      offer('v1', 'VIP · 1 hour', 30000),
+      offer('p1', 'Pro · 1 hour', 20000),
+      offer('p7', 'Pro · 7 hours', 100000),
+    ], []);
+    const card = zonePriceCard(rows[0], columns);
+    expect(card.windows).toEqual([]);
+    expect(card.lines.map((line) => [line.label, line.slots])).toEqual([[null, null]]);
+  });
+
+  it('keeps one line per package when only the packages carry a time', () => {
+    const { columns, rows } = buildPriceMatrix([
+      offer('v1', 'VIP · 1 hour', 30000),
+      offer('vn', 'VIP · Night package', 90000, '23:00 – 06:00'),
+    ], []);
+    const card = zonePriceCard(rows[0], columns);
+    expect(card.windows).toEqual([]);
+    expect(card.lines.every((line) => line.slots === null)).toBe(true);
   });
 });
 

@@ -1086,6 +1086,48 @@ export function buildPriceMatrix(offers: PublicShowcaseOffer[], zones: Array<Pic
   return { columns, rows, specials };
 }
 
+/** One package of a zone on a phone card. */
+export interface ZonePriceLine {
+  key: string;
+  /** The package name; null for the single hour. */
+  label: string | null;
+  /** The line's prices under the card's time-of-day columns, null where it has none; null when it does not fit them. */
+  slots: Array<PriceCell | null> | null;
+  cells: PriceCell[];
+}
+
+/** A zone's prices laid out for a narrow screen. */
+export interface ZonePriceCard {
+  /** Times of day the zone charges differently by, as column heads; empty when it has one rate. */
+  windows: string[];
+  lines: ZonePriceLine[];
+}
+
+/**
+ * A zone's row of the price table as a phone card. A zone with a day and a
+ * night hour rate gets those times as columns, so each package reads across
+ * instead of stacking; a package sold at some other time keeps its own time.
+ */
+export function zonePriceCard(row: PriceRow, columns: PriceColumn[]): ZonePriceCard {
+  const hourly = (row.cells[HOURLY_COLUMN] ?? []).flatMap((cell) => (cell.time_window ? [cell.time_window] : []));
+  const windows = hourly.length > 1 && hourly.length === row.cells[HOURLY_COLUMN].length && new Set(hourly).size === hourly.length
+    ? hourly
+    : [];
+  const lines = columns.flatMap((column): ZonePriceLine[] => {
+    const cells = row.cells[column.key] ?? [];
+    if (cells.length === 0) return [];
+    const times = cells.map((cell) => cell.time_window);
+    const fits = windows.length > 0 && new Set(times).size === times.length && times.every((time) => time !== null && windows.includes(time));
+    return [{
+      key: column.key,
+      label: column.label,
+      slots: fits ? windows.map((time) => cells.find((cell) => cell.time_window === time) ?? null) : null,
+      cells,
+    }];
+  });
+  return { windows, lines };
+}
+
 /**
  * The embeddable Yandex map of a club's own place, from its "…/maps/org/<name>/<id>/"
  * link; null for any other link, where there is no place to show.
