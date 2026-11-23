@@ -2,8 +2,23 @@
 
 import { cloneElement, Fragment, isValidElement, useMemo, type ReactElement, type ReactNode } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { AssistantMarkdown as SafeMarkdown, type MarkdownComponents } from 'hoggish-assistant/react';
+import { Skeleton } from '@/components/PresentationFoundation';
+import { isChartLanguage, parseChartSpec, withoutOpenChartFence } from '@/lib/assistant/chartSpec';
 import { splitMarkdownLinks, type CanOpenPath } from '@/lib/assistant/markdownLinks';
+
+// Recharts loads only when an answer has a chart; the placeholder keeps the chart's footprint.
+const AssistantChart = dynamic(() => import('./AssistantChart'), {
+  ssr: false,
+  loading: () => <Skeleton className="h-48 w-full rounded-xl sm:h-56" />,
+});
+
+/** A ```chart block: drawn when its spec is valid, otherwise nothing (never raw JSON or an error). */
+function ChartBlock({ text }: { text: string }) {
+  const spec = useMemo(() => parseChartSpec(text), [text]);
+  return spec ? <AssistantChart spec={spec} /> : null;
+}
 
 /** Text with its `[label](/path)` links to pages the member may open made clickable; see splitMarkdownLinks. */
 function linkText(text: string, canOpen: CanOpenPath): ReactNode {
@@ -60,7 +75,7 @@ function markdownComponents(canOpen: CanOpenPath): MarkdownComponents {
         </table>
       </div>
     ),
-    code: ({ text }) => <pre className="overflow-x-auto rounded-xl bg-gray-100 p-3 text-[13px]"><code>{text}</code></pre>,
+    code: ({ language, text }) => (isChartLanguage(language) ? <ChartBlock text={text} /> : <pre className="overflow-x-auto rounded-xl bg-gray-100 p-3 text-[13px]"><code>{text}</code></pre>),
     bold: ({ children }) => <strong className="font-semibold text-gray-950">{linked(children)}</strong>,
     inlineCode: ({ children }) => <code className="rounded bg-gray-100 px-1 py-0.5 text-[0.9em]">{children}</code>,
   };
@@ -69,13 +84,15 @@ function markdownComponents(canOpen: CanOpenPath): MarkdownComponents {
 /**
  * Renders an assistant reply with the app's styles. Text is never injected as
  * HTML, and only links to the assistant's listed pages that the member may
- * open (`canOpen`, the member's own canAccessPath) become clickable.
+ * open (`canOpen`, the member's own canAccessPath) become clickable. A valid
+ * ```chart block is drawn as a chart; one still streaming is held back.
  */
 export function AssistantMarkdown({ source, canOpen }: { source: string; canOpen: CanOpenPath }) {
   const components = useMemo(() => markdownComponents(canOpen), [canOpen]);
+  const text = useMemo(() => withoutOpenChartFence(source), [source]);
   return (
     <div className="space-y-3 text-sm leading-relaxed text-gray-800">
-      <SafeMarkdown text={source} components={components} />
+      <SafeMarkdown text={text} components={components} />
     </div>
   );
 }

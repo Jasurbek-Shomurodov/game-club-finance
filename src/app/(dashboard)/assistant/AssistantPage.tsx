@@ -26,12 +26,14 @@ import {
 } from '@/components/PresentationFoundation';
 import { scrollBehavior } from '@/lib/scroll';
 
-const SUGGESTIONS = ['profit', 'compare', 'products', 'excel', 'stock', 'debts', 'checks', 'upcoming', 'review'] as const;
+const SUGGESTIONS = ['profit', 'compare', 'products', 'excel', 'stock', 'debts', 'checks', 'upcoming', 'review', 'afford'] as const;
 /** Starters shown only to members who can read every dataset they need. */
 const SUGGESTION_DATASETS: Partial<Record<(typeof SUGGESTIONS)[number], readonly AssistantDataset[]>> = {
   checks: ['checks'],
   upcoming: ['upcoming'],
   review: ['summary', 'categories', 'checks', 'upcoming'],
+  // Affordability needs money left, which only members who can read the money dataset get.
+  afford: ['outlook', 'money'],
 };
 const MAX_MESSAGE_CHARS = DEFAULT_LIMITS.maxMessageChars;
 /** The question box grows with its text up to this height, then scrolls. */

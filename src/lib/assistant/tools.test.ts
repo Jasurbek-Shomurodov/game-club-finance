@@ -58,6 +58,22 @@ describe('assistantTools', () => {
     });
   });
 
+  it('tells the model which parts of a dataset were left out and why', async () => {
+    const { tools, load, options } = setup();
+    const unavailable = [{ part: 'ownerWithdrawals', reason: 'read_failed' }, { part: 'reserve', reason: 'no_access' }];
+    load.mockResolvedValueOnce({ table: stockTable, links: [], unavailable });
+    expect(await tools.get_data.execute({ dataset: 'stock' }, options)).toMatchObject({ unavailable });
+    expect(await tools.get_data.execute({ dataset: 'stock' }, options)).not.toHaveProperty('unavailable');
+  });
+
+  it('marks an exported sheet with missing parts as incomplete', async () => {
+    const { tools, load, options } = setup();
+    const unavailable = [{ part: 'forecast', reason: 'read_failed' }];
+    load.mockResolvedValueOnce({ table: { ...stockTable, dataset: 'outlook' }, links: [], unavailable });
+    const result = await tools.export_excel.execute({ datasets: ['stock'] }, options);
+    expect(result).toMatchObject({ sheets: [{ dataset: 'outlook', rows: 1, period: null, unavailable }] });
+  });
+
   it('turns bad periods into a ToolError the model can act on', async () => {
     const { tools, load, options } = setup();
     load.mockRejectedValueOnce(new DatasetQueryError('The period starts after its end.'));

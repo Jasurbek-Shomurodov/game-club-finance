@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { MoneyCheck } from '@/lib/calculations/moneyChecks';
 import type { UpcomingPayments } from '@/lib/calculations/upcomingPayments';
 import type { DataTable } from './datasets';
-import { datasetLinks, MAX_LINKS, moneyCheckLinks, upcomingLinks, type LinkAccess } from './links';
+import { datasetLinks, MAX_LINKS, moneyCheckLinks, outlookLinks, upcomingLinks, type LinkAccess } from './links';
 import { internalHref } from './markdownLinks';
 
 const owner: LinkAccess = { role: 'owner', featureAccess: null, businessToday: '2026-11-24' };
@@ -91,5 +91,31 @@ describe('upcomingLinks', () => {
       '/reports?from=2026-11-01&to=2026-11-30&category=expense%3Arent&source=game_club',
     ]);
     expect(upcomingLinks(null, range, owner)).toHaveLength(1);
+  });
+});
+
+describe('outlookLinks', () => {
+  it('links the forecast, money and, with the reserve row, the reserve ledger', () => {
+    expect(outlookLinks(period, owner, { ownerProfit: true, reserve: true }).map((link) => link.href)).toEqual([
+      '/financial-analysis?month=2026-11',
+      '/reports?from=2026-11-01&to=2026-11-24&category=money_in',
+      '/reports?from=2026-11-01&to=2026-11-24&category=expense',
+      '/game-club-money-details?from=2026-11-01&to=2026-11-24',
+      '/bar-money-details?from=2026-11-01&to=2026-11-24',
+      '/money-taken',
+      '/reserve?view=history',
+    ]);
+    const without = outlookLinks(period, owner, { ownerProfit: false, reserve: false }).map((link) => link.href);
+    expect(without).not.toContain('/reserve?view=history');
+    expect(without).not.toContain('/money-taken');
+  });
+
+  it('never offers the reserve to a member who may not open it', () => {
+    const admin: LinkAccess = { role: 'admin', featureAccess: ['assistant', 'dashboard'], businessToday: '2026-11-24' };
+    const hrefs = outlookLinks(period, admin, { ownerProfit: true, reserve: true }).map((link) => link.href);
+    expect(hrefs).not.toContain('/money-taken');
+    expect(hrefs).toContain('/financial-analysis?month=2026-11');
+    expect(hrefs).not.toContain('/reserve?view=history');
+    expect(hrefs.some((href) => href.startsWith('/reports'))).toBe(false);
   });
 });

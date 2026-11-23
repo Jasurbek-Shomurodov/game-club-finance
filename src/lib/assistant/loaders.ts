@@ -4,12 +4,18 @@ import { buildExpensePlanSummary } from '@/lib/calculations/expensePlans';
 import { buildMoneyChecks, moneyCheckHistoryStart } from '@/lib/calculations/moneyChecks';
 import { buildUpcomingPayments, usualDayHistoryStart } from '@/lib/calculations/upcomingPayments';
 import { fetchExpensePresets, fetchPresetExpenses } from '@/lib/supabase/expensePresets';
-import { monthRange } from '@/lib/utils';
+import { monthRange, previousYearMonth } from '@/lib/utils';
+import { buildMonthForecast } from '@/lib/calculations/analysisSeries';
+import { reserveBalances, reserveSumsHeld } from '@/lib/calculations/ownerReserve';
+import { fetchOwnerMoney, fetchOwnerReserve } from '@/lib/supabase/ownerMoney';
+import { sumAvailableMoneyResults } from '@/lib/calculations/availableMoney';
+import { canAccessFeature, canAccessPath } from '@/lib/permissions';
 import type { StockPurchaseCostRow } from '@/lib/calculations/barMoney';
 import type { ExpenseRow } from '@/lib/calculations/dashboardMetrics';
 import { buildFinancialAnalysis, buildMonthlyAnalysis, type AnalysisLedgers } from '@/lib/calculations/financialAnalysis';
 import {
   buildMoneyReport,
+  type MoneyReport,
   type MoneyReportBarSalesRow,
   type MoneyReportCashRow,
   type MoneyReportDebtPaymentRow,
@@ -29,6 +35,9 @@ import {
   expensesTable,
   moneyTable,
   monthlyTable,
+  outlookTable,
+  type OutlookGap,
+  type OutlookPart,
   productSalesTable,
   stockTable,
   summaryTable,
@@ -38,7 +47,7 @@ import {
   type DebtInputRow,
   type StockInputRow,
 } from './datasets';
-import { datasetLinks, moneyCheckLinks, upcomingLinks, type AssistantLink, type LinkAccess } from './links';
+import { datasetLinks, moneyCheckLinks, outlookLinks, upcomingLinks, type AssistantLink, type LinkAccess } from './links';
 import { clampMonths, resolveMonth, resolveRange, trendWindow } from './ranges';
 
 export interface AssistantDataContext {
@@ -56,7 +65,12 @@ export interface LoadedDataset {
   period?: { from: string; to: string };
   /** Pages listing the records behind the figures, for the model to link to. */
   links: AssistantLink[];
+  /** Parts of the dataset that are left out, and why (only the outlook has any). */
+  unavailable?: OutlookGap[];
 }
+
+/** A part read before its feature's migration: nothing to show, and not an error. */
+const NOT_SET_UP = Symbol('not set up');
 
 export interface DatasetQuery {
   dataset: AssistantDataset;
@@ -220,12 +234,11 @@ export function createDatasetLoader(context: AssistantDataContext) {
     return { table: checksTable(checks), period, links: moneyCheckLinks(checks, month.from.slice(0, 7), linkAccess) };
   }
 
-  async function loadUpcoming(query: DatasetQuery): Promise<LoadedDataset> {
-    const { month, period } = monthFor(query);
-    // Only the current business month has anything still to pay.
-    if (month.from.slice(0, 7) !== context.businessToday.slice(0, 7)) {
-      return { table: upcomingTable(null), period, links: upcomingLinks(null, month, linkAccess) };
-    }
+  /**
+   * What is still due on the current business month's plans; null without
+   * plans. `available` is false where the plans table does not exist yet.
+   */
+  async function upcomingFor(month: { from: string; to: string }) {
     const [{ presets, available }, linked] = await Promise.all([
       fetchExpensePresets(context.supabase, context.clubId),
       // Far enough back to find each plan's usual pay day.
@@ -239,12 +252,116 @@ export function createDatasetLoader(context: AssistantDataContext) {
         today: context.businessToday,
       })
       : null;
+    return { upcoming, available };
+  }
+
+  async function loadUpcoming(query: DatasetQuery): Promise<LoadedDataset> {
+    const { month, period } = monthFor(query);
+    // Only the current business month has anything still to pay.
+    if (month.from.slice(0, 7) !== context.businessToday.slice(0, 7)) {
+      return { table: upcomingTable(null), period, links: upcomingLinks(null, month, linkAccess) };
+    }
+    const { upcoming } = await upcomingFor(month);
     return { table: upcomingTable(upcoming), period, links: upcomingLinks(upcoming, month, linkAccess) };
+  }
+
+  /** The Reports page's money for a range, reserve moves kept out as the page does. */
+  async function moneyReportFor(range: { from: string; to: string }): Promise<MoneyReport> {
+    const [rows, exchanges, reserveMoves] = await Promise.all([
+      fetchMoneyReportRows(context.supabase, context.clubId, range),
+      fetchMoneyExchanges(context.supabase, context.clubId, range.from, range.to),
+      fetchReserveMoves(context.supabase, context.clubId, range.from, range.to),
+    ]);
+    return buildMoneyReport(rows.cash, rows.expenses, rows.debtPayments, rows.barSales, rows.stockPurchases, exchanges, reserveMoves);
+  }
+
+  /**
+   * One part of the outlook: its value, or why it is left out. A member
+   * without access is never read for it; a failed read leaves only that part
+   * out, and the model is told which reason applies.
+   */
+  async function outlookPart<T>(
+    name: OutlookPart,
+    allowed: boolean,
+    work: () => Promise<T | typeof NOT_SET_UP>,
+  ): Promise<{ value: T } | { gap: OutlookGap }> {
+    if (!allowed) return { gap: { part: name, reason: 'no_access' } };
+    try {
+      const value = await work();
+      return value === NOT_SET_UP ? { gap: { part: name, reason: 'not_set_up' } } : { value };
+    } catch (error) {
+      console.error(`[assistant] outlook ${name} read failed`, { message: error instanceof Error ? error.message : String((error as { message?: unknown })?.message ?? error) });
+      return { gap: { part: name, reason: 'read_failed' } };
+    }
+  }
+
+  /**
+   * The current business month's outlook, whatever period is asked for. Each
+   * part follows the access of the page it comes from: the forecast and what
+   * is still due need the finance snapshot (as the dataset itself); money left
+   * needs reports (as the money dataset); owner withdrawals need Owner Profit
+   * (/money-taken, read with fetchOwnerMoney as that page does); the reserve
+   * needs an owner who may open /reserve (read as the reserve page does).
+   */
+  async function loadOutlook(): Promise<LoadedDataset> {
+    const yearMonth = context.businessToday.slice(0, 7);
+    const month = monthRange(yearMonth);
+    const period = { from: month.from, to: context.businessToday };
+    const canOpen = (path: string) => canAccessPath(context.role, context.featureAccess, path);
+    // Owner Profit's read also carries the reserve ledgers, so the reserve reuses it when it succeeds.
+    const ownerMoneyRead = canOpen('/money-taken') ? fetchOwnerMoney(context.supabase, context.clubId, context.businessToday) : null;
+    // Its failure is reported by the parts that await it; this only keeps it from going unhandled.
+    ownerMoneyRead?.catch(() => {});
+    // Only an owner can ever see the reserve: for anyone else it is not a gap worth mentioning.
+    const canReadReserve = context.role === 'owner' && canOpen('/reserve');
+    const [forecast, plans, money, ownerMonth, reserve] = await Promise.all([
+      outlookPart('forecast', true, async () => buildMonthForecast(
+        context.businessToday,
+        // The forecast compares with last month, so it reads from last month's start.
+        await ledgers({ from: monthRange(previousYearMonth(yearMonth)).from, to: context.businessToday }),
+      )),
+      outlookPart('stillDue', true, async () => {
+        const { upcoming, available } = await upcomingFor(month);
+        if (!available) return NOT_SET_UP;
+        return { gameClub: upcoming?.gameClub.remaining ?? 0, bar: upcoming?.bar.remaining ?? 0 };
+      }),
+      outlookPart('moneyLeft', canAccessFeature(context.role, context.featureAccess, 'reports'), () => moneyReportFor(period)),
+      outlookPart('ownerWithdrawals', ownerMoneyRead !== null, async () => {
+        const owner = await ownerMoneyRead!;
+        // A month without any owner-money activity has nothing earned or withdrawn yet.
+        return owner.balancesByMonth[yearMonth] ?? sumAvailableMoneyResults([]);
+      }),
+      canReadReserve
+        ? outlookPart('reserve', true, async () => {
+          const owner = ownerMoneyRead ? await ownerMoneyRead.catch(() => null) : null;
+          const data = owner ?? await fetchOwnerReserve(context.supabase, context.clubId, context.businessToday);
+          return data.reserveSupported ? reserveSumsHeld(reserveBalances(data.reserveEntries, data.reserveExpenses)) : NOT_SET_UP;
+        })
+        : null,
+    ]);
+    const valueOf = <T,>(result: { value: T } | { gap: OutlookGap } | null): T | null => (result && 'value' in result ? result.value : null);
+    const table = outlookTable({
+      forecast: valueOf(forecast),
+      // Calendar days after the business date; it does not depend on any read.
+      daysLeft: Number(month.to.slice(8, 10)) - Number(context.businessToday.slice(8, 10)),
+      stillDue: valueOf(plans),
+      money: valueOf(money),
+      ownerMonth: valueOf(ownerMonth),
+      reserveSums: valueOf(reserve),
+    });
+    const unavailable = [forecast, plans, money, ownerMonth, reserve].flatMap((result) => (result && 'gap' in result ? [result.gap] : []));
+    return {
+      table,
+      period,
+      links: outlookLinks(period, linkAccess, { ownerProfit: 'value' in ownerMonth, reserve: reserve !== null && 'value' in reserve }),
+      unavailable,
+    };
   }
 
   async function load(query: DatasetQuery): Promise<LoadedDataset> {
     if (query.dataset === 'checks') return loadChecks(query);
     if (query.dataset === 'upcoming') return loadUpcoming(query);
+    if (query.dataset === 'outlook') return loadOutlook();
     const { table, period } = await loadTable(query);
     return { table, period, links: datasetLinks({ dataset: query.dataset, table, period, category: query.category }, linkAccess) };
   }
@@ -264,15 +381,8 @@ export function createDatasetLoader(context: AssistantDataContext) {
         if (query.dataset === 'daily') return { table: dailyTable(analysis.daily, rows.cashRows), period: range };
         return { table: categoriesTable(analysis), period: range };
       }
-      case 'money': {
-        const [rows, exchanges, reserveMoves] = await Promise.all([
-          fetchMoneyReportRows(context.supabase, context.clubId, range!),
-          fetchMoneyExchanges(context.supabase, context.clubId, range!.from, range!.to),
-          fetchReserveMoves(context.supabase, context.clubId, range!.from, range!.to),
-        ]);
-        const report = buildMoneyReport(rows.cash, rows.expenses, rows.debtPayments, rows.barSales, rows.stockPurchases, exchanges, reserveMoves);
-        return { table: moneyTable(report), period: range };
-      }
+      case 'money':
+        return { table: moneyTable(await moneyReportFor(range!)), period: range };
       case 'monthly': {
         const months = clampMonths(query.months);
         const window = trendWindow(context.businessToday, months);
@@ -310,6 +420,7 @@ export function createDatasetLoader(context: AssistantDataContext) {
       }
       case 'checks':
       case 'upcoming':
+      case 'outlook':
         throw new Error(`${query.dataset} is a month dataset`);
     }
   }

@@ -1,9 +1,8 @@
 {
-  "lines": 45,
-  "branches": 42,
-  "functions": 41,
+  "lines": 47,
+  "branches": 43,
+  "functions": 44,
   "untested": [
-    "src/lib/assistant/loaders.ts",
     "src/lib/supabase/server.ts",
     "src/lib/supabase/showcase.ts",
     "src/lib/useBusinessPeriod.ts",

@@ -20,18 +20,32 @@ const VALUE_LABELS: Record<string, (value: string) => string> = {
 };
 
 /**
- * Excel needs one number format per column, so the summary's mixed value
- * column is split into a money column and a percent column.
+ * Excel needs one number format per column, so a metric table's mixed value
+ * column (summary, outlook) is split into a money column, a percent column
+ * and, when a row counts something else (days), a plain number column.
  */
 function excelTable(table: DataTable): Pick<ExcelSheet, 'columns' | 'rows'> {
-  if (table.dataset !== 'summary') {
+  if (table.dataset !== 'summary' && table.dataset !== 'outlook') {
     return { columns: table.columns.map(({ key, type }) => ({ key, type })), rows: table.rows };
   }
+  const kind = (unit: unknown) => (unit === '%' ? 'percent' : unit === 'UZS' || unit === undefined ? 'money' : 'number');
+  const hasNumbers = table.rows.some((row) => kind(row.unit) === 'number');
   return {
-    columns: [{ key: 'metric', type: 'text' }, { key: 'value', type: 'money' }, { key: 'percentValue', type: 'percent' }],
-    rows: table.rows.map((row) => (row.unit === '%'
-      ? { metric: row.metric, value: null, percentValue: row.value }
-      : { metric: row.metric, value: row.value, percentValue: null })),
+    columns: [
+      { key: 'metric', type: 'text' },
+      { key: 'value', type: 'money' },
+      { key: 'percentValue', type: 'percent' },
+      ...(hasNumbers ? [{ key: 'numberValue', type: 'number' as const }] : []),
+    ],
+    rows: table.rows.map((row) => {
+      const unit = kind(row.unit);
+      return {
+        metric: row.metric,
+        value: unit === 'money' ? row.value : null,
+        percentValue: unit === 'percent' ? row.value : null,
+        ...(hasNumbers ? { numberValue: unit === 'number' ? row.value : null } : {}),
+      };
+    }),
   };
 }
 

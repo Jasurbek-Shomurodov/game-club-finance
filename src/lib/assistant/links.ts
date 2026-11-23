@@ -7,8 +7,10 @@ import {
   financialAnalysisHref,
   moneyCheckHref,
   moneyDetailsHref,
+  ownerProfitHref,
   productsHref,
   reportsHref,
+  reserveHistoryHref,
   type DateRange,
 } from '@/lib/detailLinks';
 import { canAccessPath } from '@/lib/permissions';
@@ -65,7 +67,7 @@ function textCells(table: DataTable, key: string): string[] {
   return [...new Set(table.rows.map((row) => row[key]).filter((value): value is string => typeof value === 'string' && value !== ''))];
 }
 
-/** Links for the datasets read straight from the ledgers; `checks` and `upcoming` have their own builders. */
+/** Links for the datasets read straight from the ledgers; `checks`, `upcoming` and `outlook` have their own builders. */
 export function datasetLinks(
   input: { dataset: AssistantDataset; table: DataTable; period?: DateRange; category?: string },
   access: LinkAccess,
@@ -132,6 +134,7 @@ export function datasetLinks(
       break;
     case 'checks':
     case 'upcoming':
+    case 'outlook':
       break;
   }
   return allowed(access, links);
@@ -165,4 +168,22 @@ export function upcomingLinks(upcoming: UpcomingPayments | null, range: DateRang
     });
   }
   return allowed(access, links);
+}
+
+/**
+ * The pages behind the month outlook: the forecast and the plans on Financial
+ * Analysis, money in and expenses in Reports, each side's money details, and
+ * Owner Profit and the reserve's ledger when the outlook has their rows.
+ */
+export function outlookLinks(period: DateRange, access: LinkAccess, options: { ownerProfit: boolean; reserve: boolean }): AssistantLink[] {
+  const month = period.from.slice(0, 7);
+  return allowed(access, [
+    { label: `Financial analysis (month-end forecast and expense plans), ${month}`, href: financialAnalysisHref(month) },
+    { label: `Reports: money in, ${periodText(period)}`, href: reportsHref(period, { category: 'money_in' }) },
+    { label: `Reports: expenses, ${periodText(period)}`, href: reportsHref(period, { category: 'expense' }) },
+    { label: `Game club money details (money left), ${periodText(period)}`, href: moneyDetailsHref('game_club', period) },
+    { label: `Bar money details (money left), ${periodText(period)}`, href: moneyDetailsHref('bar', period) },
+    ...(options.ownerProfit ? [{ label: `Owner profit: withdrawals and what is left after them, ${month}`, href: ownerProfitHref() }] : []),
+    ...(options.reserve ? [{ label: 'Owner reserve ledger', href: reserveHistoryHref() }] : []),
+  ]);
 }

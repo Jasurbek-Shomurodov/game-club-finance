@@ -19,6 +19,7 @@ const DATASET_HELP: Record<AssistantDataset, string> = {
   product_sales: 'bar sales per product: sold quantity, promo giveaways, sales, cost, profit; best sellers first',
   checks: 'money checks for the calendar month that `from` falls in (default: the current month): things that look off and are worth a second look, worst and newest first. checkKind is duplicate_expense (count rows with the same date, category, amount, side and method; amount is the repeated amount), category_spike (amount is the category spent so far this month, usual is what the three earlier months had spent by the same day), low_income_day (amount is that day\'s game-club income or bar sales by side, usual is the average of the same weekday over the previous eight weeks) or repeated_shortage (count cash shortages in periodFrom..periodTo, amount their total). severity danger or warning; side game_club or bar, never added together',
   upcoming: 'what is still due on each expense plan this month: side, plan name, category, remainingAmount (planned minus paid, never below 0), dueDate (the plan\'s usual pay day), dueStatus paid, overdue or due, and one dueStatus total row per side. Only the current business month has rows; any other month returns none',
+  outlook: 'the current business month at a glance, for "can we afford it" questions; ignores dates and always covers the current month. One metric row each, per side (game club and bar never added together): income or bar sales and profit so far, the month-end profit forecast (Projected…) and the forecast profit for the rest of the month (ProjectedProfitRest), an accounting-profit projection from this month\'s pace, null until the side has an entry this month; what is still due on expense plans (StillDue); money left this month (gameClubMoneyLeftCash, gameClubMoneyLeftTerminal, gameClubMoneyLeftCard, gameClubMoneyLeftPlaystation, gameClubMoneyLeft, barMoneyLeft), which is this month\'s money in minus money out as the money dataset shows it, before owner withdrawals and without money carried from earlier months, not cash on hand; the payment-method rows are the game club\'s only, the bar has only its side total; from Owner profit, what the owner withdrew this month (OwnerWithdrawn) and what Owner profit shows as left to take this month (LeftAfterWithdrawals), which already includes profit carried in from earlier months and is after reserve deposits and returns, so it is never adjusted again for either; daysLeft; and reserveSums (what the owner reserve holds, set aside, not part of money left). `unavailable` lists the parts left out of the rows (forecast, stillDue, moneyLeft, ownerWithdrawals, reserve), each with reason no_access (the member may not see it), read_failed (it could not be read just now) or not_set_up (the club does not have that feature yet)',
   stock: 'current stock of every active product with low-stock level; ignores dates',
   debts: 'customer debts with paid and remaining amounts; `debt_status` open (default), paid or all; ignores dates',
 };
@@ -91,8 +92,8 @@ export function assistantTools({
       ].join('\n'),
       inputSchema: z.object({ dataset: datasetSchema, ...queryShape }),
       execute: (input) => guard(async () => {
-        const { table, period, links } = await loader.load(toQuery(input.dataset, input));
-        return { period: period ?? null, ...tableForModel(table), links };
+        const { table, period, links, unavailable } = await loader.load(toQuery(input.dataset, input));
+        return { period: period ?? null, ...tableForModel(table), links, ...(unavailable ? { unavailable } : {}) };
       }),
     }),
     export_excel: defineTool({
@@ -118,7 +119,13 @@ export function assistantTools({
         ));
         return {
           fileName,
-          sheets: loaded.map(({ table, period }) => ({ dataset: table.dataset, rows: table.rows.length, period: period ?? null })),
+          // A sheet with `unavailable` parts is incomplete; the model is told to say so.
+          sheets: loaded.map(({ table, period, unavailable }) => ({
+            dataset: table.dataset,
+            rows: table.rows.length,
+            period: period ?? null,
+            ...(unavailable?.length ? { unavailable } : {}),
+          })),
         };
       }),
     }),

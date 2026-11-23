@@ -2,6 +2,8 @@ import type { UserRole } from '@/types';
 import type { DailyCashRow, ExpenseRow } from '@/lib/calculations/dashboardMetrics';
 import type { DailyAnalysisRow, FinancialAnalysis, MonthlyAnalysisRow } from '@/lib/calculations/financialAnalysis';
 import type { MoneyReport } from '@/lib/calculations/moneyReport';
+import type { SideForecast } from '@/lib/calculations/analysisSeries';
+import type { AvailableMoneyResult } from '@/lib/calculations/availableMoney';
 import { listLowStockProducts, stockLevel, resolveLowStockThreshold } from '@/lib/calculations/stock';
 import { calculateRemainingDebt } from '@/lib/calculations/debt';
 import type { MoneyCheck } from '@/lib/calculations/moneyChecks';
@@ -23,6 +25,7 @@ export const ASSISTANT_DATASETS = [
   'product_sales',
   'checks',
   'upcoming',
+  'outlook',
   'stock',
   'debts',
 ] as const;
@@ -71,6 +74,8 @@ export function allowedDatasets(role: UserRole, featureAccess: unknown): Assista
     // Built from the same ledgers as the snapshot datasets, plus the club's expense plans.
     checks: financeSnapshot,
     upcoming: financeSnapshot,
+    // The forecast and what is still due; its money-left and reserve rows are offered only where readable (loaders.ts).
+    outlook: financeSnapshot,
     stock: can('inventory') || can('closing_stock') || can('stock_purchase'),
     debts: can('debts'),
   };
@@ -369,6 +374,91 @@ export function upcomingTable(upcoming: UpcomingPayments | null): DataTable {
       { key: 'dueStatus', type: 'text' },
     ],
     rows: upcoming ? [...sideRows('game_club', upcoming.gameClub), ...sideRows('bar', upcoming.bar)] : [],
+  };
+}
+
+/** A part of the outlook that could not be included, and why. */
+export type OutlookPart = 'forecast' | 'stillDue' | 'moneyLeft' | 'ownerWithdrawals' | 'reserve';
+export type OutlookGapReason =
+  /** The member's access does not cover it. */
+  | 'no_access'
+  /** The read failed; the member may well have access. */
+  | 'read_failed'
+  /** The club's database does not have that feature yet. */
+  | 'not_set_up';
+export interface OutlookGap { part: OutlookPart; reason: OutlookGapReason }
+
+export interface OutlookInput {
+  /** The current business month's forecast per side (buildMonthForecast); null when it is not included. */
+  forecast: { gameClub: SideForecast; bar: SideForecast } | null;
+  /** Days of the month after the business date. */
+  daysLeft: number;
+  /** Still due on the month's plans per side; null when it is not included. */
+  stillDue: { gameClub: number; bar: number } | null;
+  /** The month's money report (the Reports page); null when it is not included. */
+  money: MoneyReport | null;
+  /**
+   * This month's balance on Owner Profit (fetchOwnerMoney): withdrawn, and left
+   * to take, which already includes profit carried in from earlier months and
+   * is after reserve deposits and returns. Null when it is not included.
+   */
+  ownerMonth: AvailableMoneyResult | null;
+  /** What the owner reserve holds in sums; null when it is not included. */
+  reserveSums: number | null;
+}
+
+type OutlookRow = [string, number | null, 'UZS' | 'days'];
+
+/**
+ * The current month at a glance for "can we afford it": per side, the month
+ * so far and its month-end forecast (an accounting-profit projection), what is
+ * still due on plans, this month's money left (money in minus money out, before
+ * owner withdrawals; not cash on hand) and, from Owner Profit, what the owner
+ * withdrew this month and what is left after it; then the owner reserve. Rows
+ * that are not included are left out, never shown as zero. Payment-method rows
+ * are the game club's; the bar has only its side total. The game club and the
+ * bar are never added together; a forecast is null until its side has an
+ * entry this month.
+ */
+export function outlookTable(input: OutlookInput): DataTable {
+  const { forecast, stillDue, money, ownerMonth } = input;
+  const rest = (side: SideForecast) => (side.projectedProfit === null ? null : side.projectedProfit - side.profitToDate);
+  const when = (included: boolean, rows: OutlookRow[]) => (included ? rows : []);
+  const forecastRows = (prefix: 'gameClub' | 'bar', side: SideForecast | undefined): OutlookRow[] => (side ? [
+    [prefix === 'gameClub' ? 'gameClubIncomeToDate' : 'barSalesToDate', side.incomeToDate, 'UZS'],
+    [`${prefix}ProfitToDate`, side.profitToDate, 'UZS'],
+    [prefix === 'gameClub' ? 'gameClubProjectedIncome' : 'barProjectedSales', side.projectedIncome, 'UZS'],
+    [`${prefix}ProjectedProfit`, side.projectedProfit, 'UZS'],
+    [`${prefix}ProjectedProfitRest`, rest(side), 'UZS'],
+  ] : []);
+  const metrics: OutlookRow[] = [
+    ['daysLeft', input.daysLeft, 'days'],
+    ...forecastRows('gameClub', forecast?.gameClub),
+    ...when(Boolean(stillDue), [['gameClubStillDue', stillDue?.gameClub ?? null, 'UZS']]),
+    ...when(Boolean(money), [
+      ['gameClubMoneyLeftCash', money?.paymentMethods.cash.left ?? null, 'UZS'],
+      ['gameClubMoneyLeftTerminal', money?.paymentMethods.terminal.left ?? null, 'UZS'],
+      ['gameClubMoneyLeftCard', money?.paymentMethods.card.left ?? null, 'UZS'],
+      ['gameClubMoneyLeftPlaystation', money?.paymentMethods.playstation.left ?? null, 'UZS'],
+      ['gameClubMoneyLeft', money?.gameClubLeft ?? null, 'UZS'],
+    ]),
+    ...when(Boolean(ownerMonth), [
+      ['gameClubOwnerWithdrawn', ownerMonth?.gameClub.withdrawn ?? null, 'UZS'],
+      ['gameClubLeftAfterWithdrawals', ownerMonth?.gameClub.available ?? null, 'UZS'],
+    ]),
+    ...forecastRows('bar', forecast?.bar),
+    ...when(Boolean(stillDue), [['barStillDue', stillDue?.bar ?? null, 'UZS']]),
+    ...when(Boolean(money), [['barMoneyLeft', money?.barLeft ?? null, 'UZS']]),
+    ...when(Boolean(ownerMonth), [
+      ['barOwnerWithdrawn', ownerMonth?.bar.withdrawn ?? null, 'UZS'],
+      ['barLeftAfterWithdrawals', ownerMonth?.bar.available ?? null, 'UZS'],
+    ]),
+    ...when(input.reserveSums !== null, [['reserveSums', input.reserveSums, 'UZS']]),
+  ];
+  return {
+    dataset: 'outlook',
+    columns: [{ key: 'metric', type: 'text' }, { key: 'value', type: 'number' }, { key: 'unit', type: 'text' }],
+    rows: metrics.map(([metric, value, unit]) => ({ metric, value, unit })),
   };
 }
 

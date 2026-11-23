@@ -36,3 +36,36 @@ describe('AssistantMarkdown links', () => {
     expect(html).toContain('href="/financial-analysis?month=2026-11"');
   });
 });
+
+describe('AssistantMarkdown charts', () => {
+  const spec = JSON.stringify({ type: 'line', unit: 'money', labels: ['01.11', '02.11'], series: [{ name: 'Game club', values: [1, 2] }] });
+
+  it('draws a valid chart block in place of its JSON', () => {
+    const html = render(`Income by day:\n\n\`\`\`chart\n${spec}\n\`\`\`\n\nIt rose.`);
+    // The chart loads in the browser; until then its placeholder holds the space.
+    expect(html).toContain('class="skeleton ');
+    expect(html).not.toContain('Game club');
+    expect(html).not.toContain('<pre');
+    expect(html).toContain('It rose.');
+  });
+
+  it('draws nothing for an invalid spec, bad JSON or a block still streaming', () => {
+    const invalid = JSON.stringify({ type: 'pie', unit: 'money', labels: ['a', 'b'], series: [{ name: 'A', values: [1, 2] }] });
+    for (const source of [
+      `Before\n\n\`\`\`chart\n${invalid}\n\`\`\`\n\nAfter`,
+      'Before\n\n```chart\n{"type": "line", oops}\n```\n\nAfter',
+      `Before\n\n\`\`\`chart\n${spec.slice(0, 30)}`,
+      `Before\n\n\`\`\`chart\n${spec}`,
+    ]) {
+      const html = render(source);
+      expect(html).toContain('Before');
+      expect(html).not.toContain('<pre');
+      expect(html).not.toContain('class="skeleton ');
+      expect(html).not.toContain('{');
+    }
+  });
+
+  it('still shows other code blocks as code', () => {
+    expect(render('```json\n{"a": 1}\n```')).toContain('<pre');
+  });
+});

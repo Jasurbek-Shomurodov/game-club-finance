@@ -78,9 +78,14 @@ export function debtsHref(): string {
   return '/debts';
 }
 
+/** Owner Profit: what the owner withdrew each month and what is left to take. */
+export function ownerProfitHref(): string {
+  return '/money-taken';
+}
+
 /** Cash shortages live on Owner Profit, beside the money they were taken from. */
 export function cashShortagesHref(): string {
-  return '/money-taken';
+  return ownerProfitHref();
 }
 
 /**

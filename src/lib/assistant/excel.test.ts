@@ -61,4 +61,27 @@ describe('datasetSheet', () => {
     ]);
     expect(sheet.columns[0].label?.('profitMarginPct')).toBe(translate('assistant.metrics.profitMarginPct'));
   });
+
+  it('writes the outlook as a translated metric sheet', () => {
+    const sheet = datasetSheet({
+      dataset: 'outlook',
+      columns: [{ key: 'metric', type: 'text' }, { key: 'value', type: 'number' }, { key: 'unit', type: 'text' }],
+      rows: [
+        { metric: 'daysLeft', value: 6, unit: 'days' },
+        { metric: 'gameClubProjectedProfitRest', value: 3_000_000, unit: 'UZS' },
+      ],
+    }, translate);
+
+    expect(sheet.name).toBe(translate('assistant.datasets.outlook'));
+    // Days are a plain number, never written in the money column.
+    expect(sheet.columns.map(({ key, type }) => [key, type])).toEqual([
+      ['metric', 'text'], ['value', 'money'], ['percentValue', 'percent'], ['numberValue', 'number'],
+    ]);
+    expect(sheet.rows).toEqual([
+      { metric: 'daysLeft', value: null, percentValue: null, numberValue: 6 },
+      { metric: 'gameClubProjectedProfitRest', value: 3_000_000, percentValue: null, numberValue: null },
+    ]);
+    expect(translate('assistant.columns.numberValue')).toBeTruthy();
+    expect(sheet.columns[0].label?.('reserveSums')).toBe('Резерв владельца (в сумах)');
+  });
 });

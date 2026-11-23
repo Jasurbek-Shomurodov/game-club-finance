@@ -10,6 +10,7 @@ import {
   expensesTable,
   MODEL_ROW_LIMIT,
   moneyTable,
+  outlookTable,
   productSalesTable,
   stockTable,
   tableForModel,
@@ -18,7 +19,7 @@ import {
 describe('allowedDatasets', () => {
   it('gives owners every dataset', () => {
     expect(allowedDatasets('owner', null)).toEqual([
-      'summary', 'money', 'daily', 'monthly', 'categories', 'expenses', 'product_sales', 'checks', 'upcoming', 'stock', 'debts',
+      'summary', 'money', 'daily', 'monthly', 'categories', 'expenses', 'product_sales', 'checks', 'upcoming', 'outlook', 'stock', 'debts',
     ]);
   });
 
@@ -26,7 +27,7 @@ describe('allowedDatasets', () => {
     expect(allowedDatasets('admin', ['assistant', 'debts'])).toEqual(['debts']);
     expect(allowedDatasets('viewer', ['assistant', 'closing_stock'])).toEqual(['stock']);
     expect(allowedDatasets('admin', ['assistant', 'reports'])).toEqual([
-      'summary', 'money', 'daily', 'monthly', 'categories', 'expenses', 'product_sales', 'checks', 'upcoming',
+      'summary', 'money', 'daily', 'monthly', 'categories', 'expenses', 'product_sales', 'checks', 'upcoming', 'outlook',
     ]);
     expect(allowedDatasets('admin', ['assistant'])).toEqual([]);
   });
@@ -37,7 +38,7 @@ describe('allowedDatasets', () => {
     expect(allowedDatasets('admin', ['assistant', 'owner_profit'])).toEqual([]);
     // get_money_report_snapshot needs reports itself.
     expect(allowedDatasets('admin', ['assistant', 'dashboard'])).toEqual([
-      'summary', 'daily', 'monthly', 'categories', 'expenses', 'product_sales', 'checks', 'upcoming',
+      'summary', 'daily', 'monthly', 'categories', 'expenses', 'product_sales', 'checks', 'upcoming', 'outlook',
     ]);
   });
 });
@@ -232,5 +233,69 @@ describe('upcomingTable', () => {
 
   it('has no rows for a month without anything upcoming', () => {
     expect(upcomingTable(null).rows).toEqual([]);
+  });
+});
+
+describe('outlookTable', () => {
+  const side = (incomeToDate: number, profitToDate: number, projected: boolean) => ({
+    daysCounted: projected ? 24 : 0,
+    incomeToDate,
+    profitToDate,
+    projectedIncome: projected ? Math.round(incomeToDate * 30 / 24) : null,
+    projectedProfit: projected ? Math.round(profitToDate * 30 / 24) : null,
+    lastMonthIncome: 0,
+    lastMonthProfit: 0,
+  });
+  const forecast = { gameClub: side(24_000_000, 12_000_000, true), bar: side(0, 0, false) };
+  const value = (table: ReturnType<typeof outlookTable>, metric: string) => table.rows.find((row) => row.metric === metric)?.value;
+
+  it('lists every side apart, with the rest-of-month forecast and money left as the money dataset has it', () => {
+    const money = buildMoneyReport(
+      [{ date: '2026-11-01', cash_income: 6_000_000, terminal_income: 2_000_000, card_income: 0, playstation_income: 500_000 }],
+      [{ id: 'e1', date: '2026-11-02', amount: 1_000_000, category: 'rent', payment_method: 'cash', payment_source: 'game_club', comment: null, created_at: '2026-11-02T00:00:00Z' }],
+      [],
+      [{ date: '2026-11-01', bar_income: 700_000 }],
+    );
+    const balance = (earned: number, withdrawn: number) => ({ earned, withdrawn, available: earned - withdrawn, overdrawnBy: 0 });
+    const ownerMonth = { gameClub: balance(7_000_000, 2_500_000), bar: balance(700_000, 0), hasOverWithdrawal: false, invalidWithdrawals: [] };
+    const table = outlookTable({ forecast, daysLeft: 6, stillDue: { gameClub: 3_000_000, bar: 0 }, money, ownerMonth, reserveSums: 4_000_000 });
+    expect(table.rows.map((row) => row.metric)).toEqual([
+      'daysLeft',
+      'gameClubIncomeToDate', 'gameClubProfitToDate', 'gameClubProjectedIncome', 'gameClubProjectedProfit', 'gameClubProjectedProfitRest',
+      'gameClubStillDue',
+      'gameClubMoneyLeftCash', 'gameClubMoneyLeftTerminal', 'gameClubMoneyLeftCard', 'gameClubMoneyLeftPlaystation', 'gameClubMoneyLeft',
+      'gameClubOwnerWithdrawn', 'gameClubLeftAfterWithdrawals',
+      'barSalesToDate', 'barProfitToDate', 'barProjectedSales', 'barProjectedProfit', 'barProjectedProfitRest',
+      'barStillDue', 'barMoneyLeft', 'barOwnerWithdrawn', 'barLeftAfterWithdrawals', 'reserveSums',
+    ]);
+    expect(value(table, 'gameClubOwnerWithdrawn')).toBe(2_500_000);
+    expect(value(table, 'gameClubLeftAfterWithdrawals')).toBe(4_500_000);
+    expect(value(table, 'daysLeft')).toBe(6);
+    expect(table.rows[0].unit).toBe('days');
+    expect(value(table, 'gameClubProjectedProfit')).toBe(15_000_000);
+    expect(value(table, 'gameClubProjectedProfitRest')).toBe(3_000_000);
+    expect(value(table, 'gameClubMoneyLeftCash')).toBe(money.paymentMethods.cash.left);
+    expect(value(table, 'gameClubMoneyLeft')).toBe(money.gameClubLeft);
+    expect(value(table, 'barMoneyLeft')).toBe(money.barLeft);
+    // A side without entries this month has no forecast yet.
+    expect(value(table, 'barProjectedSales')).toBeNull();
+    expect(value(table, 'barProjectedProfitRest')).toBeNull();
+  });
+
+  it('leaves out the rows the member cannot read instead of showing zero', () => {
+    const table = outlookTable({ forecast, daysLeft: 6, stillDue: null, money: null, ownerMonth: null, reserveSums: null });
+    const metrics = table.rows.map((row) => row.metric);
+    for (const missing of [
+      'gameClubStillDue', 'barStillDue', 'gameClubMoneyLeftCash', 'gameClubMoneyLeft', 'barMoneyLeft',
+      'gameClubOwnerWithdrawn', 'gameClubLeftAfterWithdrawals', 'barOwnerWithdrawn', 'barLeftAfterWithdrawals', 'reserveSums',
+    ]) {
+      expect(metrics).not.toContain(missing);
+    }
+    expect(metrics).toContain('gameClubProjectedProfit');
+  });
+
+  it('leaves out every forecast row when the forecast is not included, keeping daysLeft', () => {
+    const table = outlookTable({ forecast: null, daysLeft: 6, stillDue: { gameClub: 1, bar: 2 }, money: null, ownerMonth: null, reserveSums: null });
+    expect(table.rows.map((row) => row.metric)).toEqual(['daysLeft', 'gameClubStillDue', 'barStillDue']);
   });
 });

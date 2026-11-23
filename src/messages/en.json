@@ -2010,7 +2010,8 @@
       "debts": "Who owes us the most?",
       "checks": "Does anything look off this month?",
       "upcoming": "What is still due this month?",
-      "review": "Give me a month-end review"
+      "review": "Give me a month-end review",
+      "afford": "Can we afford a 5 000 000 so'm purchase this month?"
     },
     "placeholder": "Ask a question…",
     "send": "Send",
@@ -2046,12 +2047,14 @@
       "stock": "Stock",
       "debts": "Debts",
       "checks": "Worth a look",
-      "upcoming": "Still due this month"
+      "upcoming": "Still due this month",
+      "outlook": "Month outlook"
     },
     "columns": {
       "metric": "Metric",
       "value": "Value",
       "percentValue": "Value, %",
+      "numberValue": "Value, number",
       "unit": "Unit",
       "date": "Date",
       "month": "Month",
@@ -2127,7 +2130,31 @@
       "playstationSharePct": "PlayStation share of game club income, %",
       "barSpent": "Bar spent (cost of goods + expenses)",
       "barLeft": "Bar profit",
-      "barAverageDailySales": "Bar average daily sales"
+      "barAverageDailySales": "Bar average daily sales",
+      "daysLeft": "Days left in the month",
+      "gameClubIncomeToDate": "Game club income so far",
+      "gameClubProjectedIncome": "Game club income forecast for the month",
+      "gameClubProfitToDate": "Game club profit so far",
+      "gameClubProjectedProfit": "Game club profit forecast for the month",
+      "gameClubProjectedProfitRest": "Game club profit forecast for the rest of the month",
+      "gameClubStillDue": "Game club still due on plans",
+      "barSalesToDate": "Bar sales so far",
+      "barProjectedSales": "Bar sales forecast for the month",
+      "barProfitToDate": "Bar profit so far",
+      "barProjectedProfit": "Bar profit forecast for the month",
+      "barProjectedProfitRest": "Bar profit forecast for the rest of the month",
+      "barStillDue": "Bar still due on plans",
+      "reserveSums": "Owner reserve (sums held)",
+      "gameClubMoneyLeftCash": "Game club cash left this month (money in minus money out, before owner withdrawals)",
+      "gameClubMoneyLeftTerminal": "Game club terminal left this month (money in minus money out, before owner withdrawals)",
+      "gameClubMoneyLeftCard": "Game club card left this month (money in minus money out, before owner withdrawals)",
+      "gameClubMoneyLeftPlaystation": "Game club PlayStation money left this month (money in minus money out, before owner withdrawals)",
+      "gameClubMoneyLeft": "Game club money left this month (money in minus money out, before owner withdrawals)",
+      "gameClubOwnerWithdrawn": "Game club: owner withdrawals this month",
+      "gameClubLeftAfterWithdrawals": "Game club: left to take this month (Owner profit; includes profit carried in, after reserve moves)",
+      "barMoneyLeft": "Bar money left this month (money in minus money out, before owner withdrawals)",
+      "barOwnerWithdrawn": "Bar: owner withdrawals this month",
+      "barLeftAfterWithdrawals": "Bar: left to take this month (Owner profit; includes profit carried in, after reserve moves)"
     },
     "moneyLines": {
       "cash": "Cash",
@@ -2158,6 +2185,8 @@
     "model": "Model: {model}",
     "context": "{percent}% of context used · ≈{count} more messages fit",
     "contextUnknown": "{tokens} tokens of context used",
+    "chartLabel": "Chart",
+    "chartLegendLabel": "{title}: legend",
     "checkKinds": {
       "duplicate_expense": "Duplicate expense",
       "category_spike": "Category far above usual",

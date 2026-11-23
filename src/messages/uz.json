@@ -2010,7 +2010,8 @@
       "debts": "Kim bizga eng ko'p qarzdor?",
       "checks": "Bu oy biror narsa g'alati ko'rinyaptimi?",
       "upcoming": "Bu oy yana nimalarni to'lashimiz kerak?",
-      "review": "Oy yakuni bo'yicha sharh ber"
+      "review": "Oy yakuni bo'yicha sharh ber",
+      "afford": "Bu oy 5 000 000 so'mlik xaridga pulimiz yetadimi?"
     },
     "placeholder": "Savol bering…",
     "send": "Yuborish",
@@ -2046,12 +2047,14 @@
       "stock": "Qoldiqlar",
       "debts": "Qarzlar",
       "checks": "Tekshirib ko'rish kerak",
-      "upcoming": "Bu oy hali to'lanadigan"
+      "upcoming": "Bu oy hali to'lanadigan",
+      "outlook": "Oy prognozi"
     },
     "columns": {
       "metric": "Ko'rsatkich",
       "value": "Qiymat",
       "percentValue": "Qiymat, %",
+      "numberValue": "Qiymat, son",
       "unit": "Birlik",
       "date": "Sana",
       "month": "Oy",
@@ -2127,7 +2130,31 @@
       "playstationSharePct": "PlayStation'ning o'yin klubi daromadidagi ulushi, %",
       "barSpent": "Bar sarfi (tannarx + xarajatlar)",
       "barLeft": "Bar foydasi",
-      "barAverageDailySales": "Barning o'rtacha kunlik savdosi"
+      "barAverageDailySales": "Barning o'rtacha kunlik savdosi",
+      "daysLeft": "Oy oxirigacha qolgan kunlar",
+      "gameClubIncomeToDate": "Klubning hozirgacha daromadi",
+      "gameClubProjectedIncome": "Klubning oylik daromad prognozi",
+      "gameClubProfitToDate": "Klubning hozirgacha foydasi",
+      "gameClubProjectedProfit": "Klubning oylik foyda prognozi",
+      "gameClubProjectedProfitRest": "Klubning oy oxirigacha foyda prognozi",
+      "gameClubStillDue": "Klub rejalar bo'yicha hali to'laydigan",
+      "barSalesToDate": "Barning hozirgacha savdosi",
+      "barProjectedSales": "Barning oylik savdo prognozi",
+      "barProfitToDate": "Barning hozirgacha foydasi",
+      "barProjectedProfit": "Barning oylik foyda prognozi",
+      "barProjectedProfitRest": "Barning oy oxirigacha foyda prognozi",
+      "barStillDue": "Bar rejalar bo'yicha hali to'laydigan",
+      "reserveSums": "Egasining zaxirasi (so'mda)",
+      "gameClubMoneyLeftCash": "Klub: bu oy qolgan naqd pul (kirim minus chiqim, egasi olishidan oldin)",
+      "gameClubMoneyLeftTerminal": "Klub: bu oy terminalda qolgan (kirim minus chiqim, egasi olishidan oldin)",
+      "gameClubMoneyLeftCard": "Klub: bu oy kartada qolgan (kirim minus chiqim, egasi olishidan oldin)",
+      "gameClubMoneyLeftPlaystation": "Klub: bu oy qolgan PlayStation puli (kirim minus chiqim, egasi olishidan oldin)",
+      "gameClubMoneyLeft": "Bu oy klubda qolgan pul (kirim minus chiqim, egasi olishidan oldin)",
+      "gameClubOwnerWithdrawn": "Klub: bu oy egasi olgan pul",
+      "gameClubLeftAfterWithdrawals": "Klub: bu oy olish uchun qolgan (Egasining foydasi; o'tkazilgan foyda bilan, zaxira harakatlaridan keyin)",
+      "barMoneyLeft": "Bu oy barda qolgan pul (kirim minus chiqim, egasi olishidan oldin)",
+      "barOwnerWithdrawn": "Bar: bu oy egasi olgan pul",
+      "barLeftAfterWithdrawals": "Bar: bu oy olish uchun qolgan (Egasining foydasi; o'tkazilgan foyda bilan, zaxira harakatlaridan keyin)"
     },
     "moneyLines": {
       "cash": "Naqd pul",
@@ -2158,6 +2185,8 @@
     "model": "Model: {model}",
     "context": "Kontekstning {percent}% ishlatildi · yana ≈{count} ta xabar sig'adi",
     "contextUnknown": "Kontekstdan {tokens} token ishlatildi",
+    "chartLabel": "Grafik",
+    "chartLegendLabel": "{title}: shartli belgilar",
     "checkKinds": {
       "duplicate_expense": "Takroriy xarajat",
       "category_spike": "Toifa odatdagidan ancha yuqori",

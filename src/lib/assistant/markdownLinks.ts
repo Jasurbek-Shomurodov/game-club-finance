@@ -29,6 +29,7 @@ export const ASSISTANT_LINK_PATHS: ReadonlySet<string> = new Set([
   '/money-taken',
   '/products',
   '/debts',
+  '/reserve',
 ]);
 
 /** The path of an href, without its query and fragment. */
