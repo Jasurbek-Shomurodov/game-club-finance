@@ -171,6 +171,33 @@ describe('loadClosingStockDay: open business day', () => {
     expectClubScoped(queries, 'club-1');
   });
 
+  it('leaves out a deleted product whose count today recorded nothing', async () => {
+    const deleted = (id: string) => product({ id, name: id, is_active: false, is_deleted: true, current_stock: 0 });
+    const paused = product({ id: 'paused', name: 'Paused', is_active: false });
+    const idle = { sold_quantity: 0, giveaway_quantity: 0, adjustment_quantity: 0, closing_stock: 17 };
+    const counts = [
+      { product_id: 'untouched', ...idle },
+      { product_id: 'sold', ...idle, sold_quantity: 2 },
+      { product_id: 'given', ...idle, giveaway_quantity: 1 },
+      { product_id: 'written-off', ...idle, adjustment_quantity: -3 },
+      { product_id: 'paused', ...idle },
+    ];
+    const { supabase } = fakeClient({
+      catalog: ok([cola]),
+      counts: ok(counts),
+      purchases: ok([]),
+      openings: ok([]),
+      savedProducts: ok([deleted('untouched'), deleted('sold'), deleted('given'), deleted('written-off'), paused]),
+    });
+
+    const result = await loadClosingStockDay(supabase, input());
+
+    expect(result.data?.products.map((item) => item.id)).toEqual(['cola', 'sold', 'given', 'written-off', 'paused']);
+    // The saved rows themselves are untouched.
+    expect(result.data?.counts).toEqual(counts);
+    expect(result.data?.hasSavedCounts).toBe(true);
+  });
+
   it('keeps going when a saved count\'s product is not readable at all', async () => {
     const { supabase } = fakeClient({
       catalog: ok([cola]),

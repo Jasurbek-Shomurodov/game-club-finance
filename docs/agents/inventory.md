@@ -13,7 +13,9 @@ track inventory or be made to order:
 - Made-to-order products record direct sold quantity without a carried stock
   balance.
 - Soft-deleted products are inactive and must have `current_stock = 0`, while
-  their historical ledger rows remain unchanged.
+  their historical ledger rows remain unchanged. The open day's closing sheet
+  leaves a deleted product out unless today's saved count recorded a sale,
+  giveaway or write-off (`loadOpenDay`); past dates still show their snapshot.
 
 New stock purchase quantities must be positive whole units. Historical
 fractional rows remain readable for compatibility.

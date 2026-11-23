@@ -152,10 +152,19 @@ async function loadHistoricalDay(
   };
 }
 
+/** A saved count that moved units or money: a sale, a giveaway or a write-off. */
+function hasRecordedActivity(count: ClosingStockExistingCount | undefined): boolean {
+  if (!count) return false;
+  return Number(count.sold_quantity ?? 0) !== 0
+    || Number(count.giveaway_quantity ?? 0) !== 0
+    || Number(count.adjustment_quantity ?? 0) !== 0;
+}
+
 /**
  * The open business day: the active catalog plus any product that already has
- * a saved count today but is no longer active (inactive or archived), so its
- * recorded sales stay in the day's totals.
+ * a saved count today but is no longer active, so its recorded sales stay in
+ * the day's totals. A deleted product whose count recorded nothing is left
+ * out: it has no stock and nothing to show.
  */
 async function loadOpenDay(
   supabase: SupabaseClient,
@@ -180,7 +189,10 @@ async function loadOpenDay(
     const result = await supabase.from('products').select('*')
       .eq('club_id', clubId).in('id', missingIds).returns<Product[]>();
     if (result.error) return { data: null, error: result.error };
-    savedProducts = result.data ?? [];
+    const countByProduct = new Map(counts.map((count) => [count.product_id, count]));
+    savedProducts = (result.data ?? []).filter(
+      (product) => product.is_deleted !== true || hasRecordedActivity(countByProduct.get(product.id)),
+    );
   }
 
   return {
