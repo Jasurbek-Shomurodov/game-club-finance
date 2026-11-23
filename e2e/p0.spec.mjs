@@ -1565,6 +1565,7 @@ test.describe('a visitor of the public site', () => {
       const slug = `e2e-prices-${Date.now().toString(36)}`;
       const settings = {
         slug, is_published: true, telegram_url: 'https://t.me/e2e_arcade', address: 'E2E street 1', amenities: ['wifi', 'parking'],
+        yandex_maps_url: 'https://yandex.uz/maps/org/e2e_arcade/1234567890/',
         translations: { branch: { en: 'Centre' }, landmark: { en: 'Next to the fountain' } },
       };
       const updated = await restAs(accounts.owner, 'PATCH', `club_showcases?club_id=eq.${clubs.arcade.id}`, settings);
@@ -1598,6 +1599,8 @@ test.describe('a visitor of the public site', () => {
       await expect(prices.getByRole('heading', { name: 'Combo: pizza night' })).toBeVisible();
       await expect(page.locator('#amenities').getByText('Free Wi-Fi')).toBeVisible();
       await expect(page.locator('#contacts').getByText('Next to the fountain')).toBeVisible();
+      // The club's place on the map is framed once the page runs, behind a placeholder until the map has drawn.
+      await expect(page.locator('#contacts iframe')).toHaveAttribute('src', 'https://yandex.uz/map-widget/v1/?oid=1234567890&ol=biz&z=16');
 
       // The bottom bar's booking button opens the form; the link carries the request as a Telegram draft.
       await page.getByRole('navigation', { name: 'Quick actions' }).getByRole('button', { name: 'Book a seat' }).click();

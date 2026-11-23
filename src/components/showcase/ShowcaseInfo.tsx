@@ -10,6 +10,7 @@ import {
   zonePriceCard, type PriceCell, type PublicShowcase, type ShowcaseAmenity,
 } from '@/lib/showcase';
 import { BookingButton, type BookingClub } from './BookingButton';
+import { MapFrame } from './MapFrame';
 
 /** Heading level of a card title, by how deep the card sits on its page. */
 export type InfoHeading = 'h3' | 'h4';
@@ -273,13 +274,7 @@ export async function FindUs({ club, booking }: { club: PublicShowcase; booking:
       </div>
       {widget && (
         <div className="relative min-h-[18rem] border-t border-white/10 lg:min-h-[24rem] lg:border-l lg:border-t-0">
-          <iframe
-            src={widget}
-            title={t('mapTitle', { club: club.club_name })}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            className="absolute inset-0 h-full w-full border-0"
-          />
+          <MapFrame src={widget} title={t('mapTitle', { club: club.club_name })} />
         </div>
       )}
     </div>
