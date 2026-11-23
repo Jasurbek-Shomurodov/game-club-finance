@@ -14,17 +14,26 @@ import { REPORT_FONT_DIRECTORY, REPORT_FONT_FILES } from './reportFontConfig';
 const WIDTH = 1600;
 const PAGE_X = 40;
 const PAGE_WIDTH = WIDTH - PAGE_X * 2;
-const INK = '#0F1E4A';
-const TEXT = '#334155';
-const MUTED = '#64748B';
-const BORDER = '#E2E8F0';
-const BLUE = '#2563EB';
-const RED = '#DC2626';
-const GREEN = '#15803D';
-const ORANGE = '#F97316';
-const PURPLE = '#7C3AED';
-const SLATE = '#334155';
-const AMBER = '#D97706';
+// The admin app's dark theme (src/app/globals.css, DESIGN.md): green-tinted
+// near-black neutrals, one teal accent for the game club, green money in,
+// salmon money out. Accent fills are light, so glyphs on them use ON_ACCENT.
+const PAGE = '#101412';
+const SURFACE = '#181E1B';
+const INSET = '#222A25';
+const INK = '#F7FAF8';
+const TEXT = '#C1CDC4';
+const MUTED = '#8C9B91';
+const FAINT = '#68776D';
+const BORDER = '#303B33';
+const ON_ACCENT = '#052E2A';
+const HUB = FAINT;
+const BLUE = '#5CC8B9';
+const RED = '#F0A096';
+const GREEN = '#4CC38A';
+const ORANGE = '#F2A878';
+const PURPLE = '#B09FFA';
+const SLATE = '#C1CDC4';
+const AMBER = '#DFB883';
 
 const RUSSIAN_MONTHS_GENITIVE_SHORT = [
   'янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек',
@@ -97,33 +106,33 @@ function changeBadgeWidth(change: number | null | undefined, size: number): numb
   return size * 0.72 + 6 + `${Math.abs(change)}%`.length * size * 0.62;
 }
 
-function card(x: number, y: number, width: number, height: number, fill = '#FFFFFF', stroke = BORDER): string {
+function card(x: number, y: number, width: number, height: number, fill = SURFACE, stroke = BORDER): string {
   return `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="24" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
 }
 
 function iconBadge(cx: number, cy: number, radius: number, color: string, glyph: string): string {
   return `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="${color}"/>
-    <g transform="translate(${cx} ${cy}) scale(${radius / 26})" stroke="#FFFFFF" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round">${glyph}</g>`;
+    <g transform="translate(${cx} ${cy}) scale(${radius / 26})" stroke="${ON_ACCENT}" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round">${glyph}</g>`;
 }
 
 function iconTile(x: number, y: number, size: number, color: string, glyph: string): string {
   return `<rect x="${x}" y="${y}" width="${size}" height="${size}" rx="${size * 0.26}" fill="${color}"/>
-    <g transform="translate(${x + size / 2} ${y + size / 2}) scale(${size / 52})" stroke="#FFFFFF" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round">${glyph}</g>`;
+    <g transform="translate(${x + size / 2} ${y + size / 2}) scale(${size / 52})" stroke="${ON_ACCENT}" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round">${glyph}</g>`;
 }
 
 // Glyphs are drawn around (0, 0) inside a 52×52 box.
 const GLYPH_TREND_UP = '<polyline points="-13,9 -4,0 3,6 13,-6"/><polyline points="5,-6 13,-6 13,2"/>';
-const GLYPH_GAMEPAD = '<path d="M-10,-9 H10 C17,-9 20,-2 20,6 C20,13 15,15 11,11 L6,6 H-6 L-11,11 C-15,15 -20,13 -20,6 C-20,-2 -17,-9 -10,-9 Z"/><line x1="-11" y1="-2" x2="-11" y2="4"/><line x1="-14" y1="1" x2="-8" y2="1"/><circle cx="9" cy="-1" r="1.5" fill="#FFFFFF"/><circle cx="13" cy="3" r="1.5" fill="#FFFFFF"/>';
+const GLYPH_GAMEPAD = '<path d="M-10,-9 H10 C17,-9 20,-2 20,6 C20,13 15,15 11,11 L6,6 H-6 L-11,11 C-15,15 -20,13 -20,6 C-20,-2 -17,-9 -10,-9 Z"/><line x1="-11" y1="-2" x2="-11" y2="4"/><line x1="-14" y1="1" x2="-8" y2="1"/><circle cx="9" cy="-1" r="1.5" fill="' + ON_ACCENT + '"/><circle cx="13" cy="3" r="1.5" fill="' + ON_ACCENT + '"/>';
 // The same pictures as the app (src/components/sideIcons.ts): the club is a PC, PlayStation the gamepad, the bar a bag.
 const GLYPH_MONITOR = '<rect x="-16" y="-14" width="32" height="22" rx="3"/><line x1="0" y1="8" x2="0" y2="15"/><line x1="-8" y1="15" x2="8" y2="15"/>';
 const GLYPH_BAG = '<path d="M-12,-6 H12 L10,15 H-10 Z"/><path d="M-6,-6 V-9 A6,6 0 0 1 6,-9 V-6"/>';
 const GLYPH_WALLET = '<rect x="-14" y="-10" width="28" height="22" rx="4"/><path d="M4,-3 H14 V6 H4 Z"/><path d="M-10,-10 L6,-16 L8,-10"/>';
 const GLYPH_BARS = '<line x1="-10" y1="12" x2="-10" y2="2"/><line x1="0" y1="12" x2="0" y2="-5"/><line x1="10" y1="12" x2="10" y2="-12"/>';
 const GLYPH_BOX = '<path d="M0,-15 L14,-7 V9 L0,17 L-14,9 V-7 Z"/><polyline points="-14,-7 0,1 14,-7"/><line x1="0" y1="1" x2="0" y2="17"/>';
-const GLYPH_ALERT = '<circle cx="0" cy="0" r="14"/><line x1="0" y1="-7" x2="0" y2="2"/><circle cx="0" cy="8" r="1" fill="#FFFFFF"/>';
+const GLYPH_ALERT = '<circle cx="0" cy="0" r="14"/><line x1="0" y1="-7" x2="0" y2="2"/><circle cx="0" cy="8" r="1" fill="' + ON_ACCENT + '"/>';
 
-const PINK = '#D6408F';
-const TEAL = '#0E9FB3';
+const PINK = '#D9578F';
+const TEAL = '#30AABE';
 const GLYPH_TERMINAL = '<rect x="-11" y="-16" width="22" height="32" rx="4"/><rect x="-6" y="-11" width="12" height="8" rx="1"/><line x1="-5" y1="4" x2="-3" y2="4"/><line x1="3" y1="4" x2="5" y2="4"/><line x1="-5" y1="10" x2="-3" y2="10"/><line x1="3" y1="10" x2="5" y2="10"/>';
 const GLYPH_CARD = '<rect x="-16" y="-11" width="32" height="22" rx="4"/><line x1="-16" y1="-4" x2="16" y2="-4"/><line x1="-10" y1="5" x2="-2" y2="5"/>';
 const GLYPH_SAFE = '<rect x="-15" y="-14" width="30" height="28" rx="4"/><circle cx="0" cy="0" r="6"/><line x1="0" y1="-6" x2="0" y2="-3"/><line x1="-10" y1="14" x2="-10" y2="17"/><line x1="10" y1="14" x2="10" y2="17"/>';
@@ -165,10 +174,10 @@ function monthMoneySection(value: DailyFinanceMonthMoney, y: number): { svg: str
   const innerWidth = PAGE_WIDTH - 56;
   const gap = 16;
   const methods = [
-    { key: 'cash', label: 'НАЛИЧНЫЕ', color: GREEN, fill: '#F0FAF3', glyph: GLYPH_WALLET, amount: value.byMethod.cash },
-    { key: 'terminal', label: 'ТЕРМИНАЛ', color: BLUE, fill: '#EEF4FF', glyph: GLYPH_TERMINAL, amount: value.byMethod.terminal },
-    { key: 'card', label: 'КАРТА', color: PINK, fill: '#FDF0F7', glyph: GLYPH_CARD, amount: value.byMethod.card },
-    { key: 'playstation', label: 'PLAYSTATION', color: PURPLE, fill: '#F7F3FF', glyph: GLYPH_GAMEPAD, amount: value.byMethod.playstation },
+    { key: 'cash', label: 'НАЛИЧНЫЕ', color: GREEN, fill: '#142A20', glyph: GLYPH_WALLET, amount: value.byMethod.cash },
+    { key: 'terminal', label: 'ТЕРМИНАЛ', color: BLUE, fill: '#19302C', glyph: GLYPH_TERMINAL, amount: value.byMethod.terminal },
+    { key: 'card', label: 'КАРТА', color: PINK, fill: '#2E1A24', glyph: GLYPH_CARD, amount: value.byMethod.card },
+    { key: 'playstation', label: 'PLAYSTATION', color: PURPLE, fill: '#241F3A', glyph: GLYPH_GAMEPAD, amount: value.byMethod.playstation },
   ].filter((method) => method.key === 'cash' || method.amount !== 0);
   const total = methods.reduce((sum, method) => sum + method.amount, 0);
   const positiveTotal = methods.reduce((sum, method) => sum + Math.max(0, method.amount), 0);
@@ -199,16 +208,16 @@ function monthMoneySection(value: DailyFinanceMonthMoney, y: number): { svg: str
   const flowY = flowHeadingY + 20;
   const invested = value.invested.gameClub + value.invested.bar;
   const flows = [
-    { label: 'ИНВЕСТИРОВАНО', color: AMBER, fill: '#FFF8EB', glyph: GLYPH_TREND_UP, amount: invested,
+    { label: 'ИНВЕСТИРОВАНО', color: AMBER, fill: '#2D2518', glyph: GLYPH_TREND_UP, amount: invested,
       footer: `клуб ${compactMoney(value.invested.gameClub)} · бар ${compactMoney(value.invested.bar)}` },
-    { label: 'В РЕЗЕРВ', color: TEAL, fill: '#EEFAFC', glyph: GLYPH_SAFE, amount: value.reserve.net,
+    { label: 'В РЕЗЕРВ', color: TEAL, fill: '#132A2E', glyph: GLYPH_SAFE, amount: value.reserve.net,
       footer: `внесено ${compactMoney(value.reserve.deposited)} · возврат ${compactMoney(value.reserve.returned)}` },
     ...(value.withdrawn ? [{
-      label: 'ВЫВЕДЕНО ВЛАДЕЛЬЦАМИ', color: SLATE, fill: '#F8FAFC', glyph: GLYPH_USER,
+      label: 'ВЫВЕДЕНО ВЛАДЕЛЬЦАМИ', color: SLATE, fill: INSET, glyph: GLYPH_USER,
       amount: value.withdrawn.gameClub + value.withdrawn.bar,
       footer: `клуб ${compactMoney(value.withdrawn.gameClub)} · бар ${compactMoney(value.withdrawn.bar)}`,
     }] : []),
-    { label: 'ЗАРПЛАТЫ', color: BLUE, fill: '#F5F8FF', glyph: GLYPH_PEOPLE, amount: value.salaries, footer: 'выплачено за месяц' },
+    { label: 'ЗАРПЛАТЫ', color: BLUE, fill: '#19302C', glyph: GLYPH_PEOPLE, amount: value.salaries, footer: 'выплачено за месяц' },
   ];
   const flowWidth = (innerWidth - gap * (flows.length - 1)) / flows.length;
   const flowTiles = flows.map((flow, index) => monthMoneyTile(
@@ -244,7 +253,7 @@ function leaderRow(
   indent = 0,
 ): string {
   const dot = outlined
-    ? `<circle cx="${x + 7 + indent}" cy="${y - 7}" r="6" fill="#FFFFFF" stroke="${color}" stroke-width="3"/>`
+    ? `<circle cx="${x + 7 + indent}" cy="${y - 7}" r="6" fill="${SURFACE}" stroke="${color}" stroke-width="3"/>`
     : `<circle cx="${x + 7 + indent}" cy="${y - 7}" r="6" fill="${color}"/>`;
   const valueText = money(value);
   const labelEnd = x + 26 + indent + label.length * 12.5 + 12;
@@ -335,7 +344,7 @@ function incomeChart(
   return `${gridLines}
     ${points.length > 1 ? `<path d="${area}" fill="url(#incomeArea)"/>
     <polyline points="${line}" fill="none" stroke="${BLUE}" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>` : ''}
-    <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="7" fill="#FFFFFF" stroke="${BLUE}" stroke-width="4"/>
+    <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="7" fill="${SURFACE}" stroke="${BLUE}" stroke-width="4"/>
     ${xLabels}`;
 }
 
@@ -387,7 +396,7 @@ function playstationChart(
   return `${gridLines}
     ${bars}
     ${points.length > 1 ? `<polyline points="${line}" fill="none" stroke="${INK}" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>` : ''}
-    <circle cx="${centre(averages.length - 1).toFixed(1)}" cy="${yOf(last.amount).toFixed(1)}" r="7" fill="#FFFFFF" stroke="${INK}" stroke-width="4"/>
+    <circle cx="${centre(averages.length - 1).toFixed(1)}" cy="${yOf(last.amount).toFixed(1)}" r="7" fill="${SURFACE}" stroke="${INK}" stroke-width="4"/>
     ${xLabels}`;
 }
 
@@ -409,7 +418,7 @@ function kpiTile(
     ? ''
     : changeBadge(x + 20, y + 170, change, 17);
 
-  return `${card(x, y, width, 226, '#FFFFFF', `${color}55`)}
+  return `${card(x, y, width, 226, SURFACE, `${color}55`)}
     ${iconTile(x + 20, y + 22, 48, color, glyph)}
     ${label}
     <text x="${x + 20}" y="${y + 118}" font-size="26" font-weight="800" fill="${color}">${escapeXml(amount(value))}</text>
@@ -455,7 +464,7 @@ function lowStockSection(items: LowStockProduct[], y: number): { svg: string; he
 
   return {
     height,
-    svg: `${card(PAGE_X, y, PAGE_WIDTH, height, '#FFFBF5', '#FBD5B5')}
+    svg: `${card(PAGE_X, y, PAGE_WIDTH, height, '#241A13', '#442B1B')}
     ${iconBadge(PAGE_X + 46, y + 44, 18, ORANGE, GLYPH_ALERT)}
     <text x="${PAGE_X + 76}" y="${y + 51}" font-size="20" font-weight="800" fill="${INK}">ЗАКАНЧИВАЕТСЯ НА СКЛАДЕ · ${items.length}</text>
     <text x="${WIDTH - PAGE_X - 28}" y="${y + 51}" text-anchor="end" font-size="16" fill="${MUTED}">по текущим остаткам</text>
@@ -491,7 +500,7 @@ function promoGiveawaySection(items: DailyFinancePromoGiveaway[], y: number): { 
 
   return {
     height,
-    svg: `${card(PAGE_X, y, PAGE_WIDTH, height, '#F8F5FF', '#DDD2F7')}
+    svg: `${card(PAGE_X, y, PAGE_WIDTH, height, '#241F3A', '#312952')}
     ${iconBadge(PAGE_X + 46, y + 44, 18, PURPLE, GLYPH_GIFT)}
     <text x="${PAGE_X + 76}" y="${y + 51}" font-size="20" font-weight="800" fill="${INK}">БОНУСЫ ПО АКЦИЯМ · ${escapeXml(lowStockQuantity(units))} шт.</text>
     <text x="${right}" y="${y + 51}" text-anchor="end" font-size="16" fill="${MUTED}">себестоимость ${escapeXml(money(cost))} · не считается продажей</text>
@@ -527,7 +536,7 @@ function stockWriteOffSection(items: DailyFinanceStockWriteOff[], y: number): { 
 
   return {
     height,
-    svg: `${card(PAGE_X, y, PAGE_WIDTH, height, '#FEF2F2', '#FBD5D5')}
+    svg: `${card(PAGE_X, y, PAGE_WIDTH, height, '#321E1C', '#4A2925')}
     ${iconBadge(PAGE_X + 46, y + 44, 18, RED, GLYPH_TRASH)}
     <text x="${PAGE_X + 76}" y="${y + 51}" font-size="20" font-weight="800" fill="${INK}">СПИСАНИЯ БАРА · ${escapeXml(lowStockQuantity(units))} шт.</text>
     <text x="${right}" y="${y + 51}" text-anchor="end" font-size="16" fill="${MUTED}">убыток ${escapeXml(money(cost))} · вычтен из прибыли бара</text>
@@ -560,7 +569,7 @@ function stockCorrectionSection(items: DailyFinanceStockCorrection[], y: number)
 
   return {
     height,
-    svg: `${card(PAGE_X, y, PAGE_WIDTH, height, '#F0FDF4', '#BBE5C8')}
+    svg: `${card(PAGE_X, y, PAGE_WIDTH, height, '#142A20', '#1C4030')}
     ${iconBadge(PAGE_X + 46, y + 44, 18, GREEN, GLYPH_PLUS)}
     <text x="${PAGE_X + 76}" y="${y + 51}" font-size="20" font-weight="800" fill="${INK}">КОРРЕКТИРОВКИ · +${escapeXml(lowStockQuantity(units))} шт.</text>
     <text x="${right}" y="${y + 51}" text-anchor="end" font-size="16" fill="${MUTED}">больше ожидаемого · по себестоимости ${escapeXml(money(value))} · прибыль не меняется</text>
@@ -608,7 +617,7 @@ export function buildStockAdjustmentsReportSvg(input: DailyFinanceReportInput): 
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${height}" viewBox="0 0 ${WIDTH} ${height}">
-  <rect width="${WIDTH}" height="${height}" fill="#F4F7FB"/>
+  <rect width="${WIDTH}" height="${height}" fill="${PAGE}"/>
   <g font-family="Noto Sans">
     ${iconTile(PAGE_X, headerY, 96, RED, GLYPH_TRASH)}
     <text x="${PAGE_X + 124}" y="${headerY + 50}" font-size="46" font-weight="800" fill="${INK}">СПИСАНИЯ И КОРРЕКТИРОВКИ БАРА</text>
@@ -616,15 +625,15 @@ export function buildStockAdjustmentsReportSvg(input: DailyFinanceReportInput): 
     <text x="${WIDTH - PAGE_X}" y="${headerY + 50}" text-anchor="end" font-size="18" fill="${MUTED}">Убыток бара</text>
     ${moneyText(WIDTH - PAGE_X, headerY + 88, loss, 30, loss > 0 ? RED : MUTED, 'end')}
 
-    ${adjustmentTile(tileX(0), tilesY, tileWidth, 'НЕДОСТАЧА', RED, '#FEF2F2', '#FBD5D5', GLYPH_ALERT, `${lowStockQuantity(shortage.quantity)} шт.`, shortage.cost)}
-    ${adjustmentTile(tileX(1), tilesY, tileWidth, 'ПРОСРОЧКА', AMBER, '#FFFBEB', '#FDE3A7', GLYPH_TRASH, `${lowStockQuantity(expired.quantity)} шт.`, expired.cost)}
-    ${adjustmentTile(tileX(2), tilesY, tileWidth, 'КОРРЕКТИРОВКА', GREEN, '#F0FDF4', '#BBE5C8', GLYPH_PLUS, `+${lowStockQuantity(correctionUnits)} шт.`, correctionValue)}
+    ${adjustmentTile(tileX(0), tilesY, tileWidth, 'НЕДОСТАЧА', RED, '#321E1C', '#4A2925', GLYPH_ALERT, `${lowStockQuantity(shortage.quantity)} шт.`, shortage.cost)}
+    ${adjustmentTile(tileX(1), tilesY, tileWidth, 'ПРОСРОЧКА', AMBER, '#2D2518', '#403420', GLYPH_TRASH, `${lowStockQuantity(expired.quantity)} шт.`, expired.cost)}
+    ${adjustmentTile(tileX(2), tilesY, tileWidth, 'КОРРЕКТИРОВКА', GREEN, '#142A20', '#1C4030', GLYPH_PLUS, `+${lowStockQuantity(correctionUnits)} шт.`, correctionValue)}
 
     ${writeOffList?.svg ?? ''}
     ${correctionList?.svg ?? ''}
 
     <circle cx="${PAGE_X + 18}" cy="${footerY + 18}" r="11" fill="${MUTED}"/>
-    <text x="${PAGE_X + 18}" y="${footerY + 24}" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF">i</text>
+    <text x="${PAGE_X + 18}" y="${footerY + 24}" text-anchor="middle" font-size="16" font-weight="800" fill="${ON_ACCENT}">i</text>
     <text x="${PAGE_X + 40}" y="${footerY + 24}" font-size="17" fill="${MUTED}">Списания вычтены из прибыли бара по себестоимости; корректировки добавлены к остатку и прибыль не меняют.</text>
   </g>
 </svg>`;
@@ -645,7 +654,7 @@ const SANKEY_SOURCE_COLORS: Record<string, string> = {
   shortfall: RED,
 };
 // Same order as the analysis page's category palette.
-const SANKEY_CATEGORY_PALETTE = [RED, BLUE, PURPLE, '#0E9FB3', AMBER, '#D6408F', MUTED];
+const SANKEY_CATEGORY_PALETTE = [RED, BLUE, PURPLE, '#30AABE', AMBER, '#D9578F', MUTED];
 const SANKEY = { nodeWidth: 12, nodePadding: 16, perNode: 44, minHeight: 300, padY: 8, labelGap: 12, hubLabelSpace: 34, fontSize: 17 };
 
 const compactMoneyFormatter = new Intl.NumberFormat('ru-RU', { notation: 'compact', maximumFractionDigits: 1 });
@@ -661,7 +670,7 @@ function sankeyTargetColors(targets: DrillSankey['targets']): string[] {
   return targets.map(({ key }) => {
     if (key === BAR_COST_TARGET) return ORANGE;
     if (key === GAME_CLUB_LEFT || key === BAR_LEFT) return GREEN;
-    if (key === OTHER_CATEGORY) return '#94A3B8';
+    if (key === OTHER_CATEGORY) return '#68776D';
     return SANKEY_CATEGORY_PALETTE[categoryIndex++ % SANKEY_CATEGORY_PALETTE.length];
   });
 }
@@ -757,7 +766,7 @@ function sankeySection(
     svg: `${heading(height)}
     ${sourceSvg}
     ${targetSvg}
-    <rect x="${hubX}" y="${top(layout.hubTop).toFixed(1)}" width="${nodeWidth}" height="${layout.hubHeight.toFixed(1)}" rx="3" fill="${INK}"/>
+    <rect x="${hubX}" y="${top(layout.hubTop).toFixed(1)}" width="${nodeWidth}" height="${layout.hubHeight.toFixed(1)}" rx="3" fill="${HUB}"/>
     ${sankeyLabel(hubX + nodeWidth / 2, top(layout.hubTop) - 20, hubLabel, sankey.income, 'middle')}`,
   };
 }
@@ -771,7 +780,7 @@ function svgDocument(height: number, body: string): string {
       <stop offset="1" stop-color="${BLUE}" stop-opacity="0.02"/>
     </linearGradient>
   </defs>
-  <rect width="${WIDTH}" height="${height}" fill="#F4F7FB"/>
+  <rect width="${WIDTH}" height="${height}" fill="${PAGE}"/>
   <g font-family="Noto Sans">
     ${body}
   </g>
@@ -783,14 +792,14 @@ const HEADER_Y = 40;
 const CONTENT_Y = 176;
 
 function reportHeader(title: string, subtitle: string, glyph: string): string {
-  return `${iconTile(PAGE_X, HEADER_Y, 96, INK, glyph)}
+  return `${iconTile(PAGE_X, HEADER_Y, 96, BLUE, glyph)}
     <text x="${PAGE_X + 124}" y="${HEADER_Y + 50}" font-size="46" font-weight="800" fill="${INK}">${escapeXml(title)}</text>
     <text x="${PAGE_X + 124}" y="${HEADER_Y + 88}" font-size="22" fill="${TEXT}">${escapeXml(subtitle)}</text>`;
 }
 
 function reportFooter(y: number, text: string): string {
   return `<circle cx="${PAGE_X + 18}" cy="${y + 18}" r="11" fill="${MUTED}"/>
-    <text x="${PAGE_X + 18}" y="${y + 24}" text-anchor="middle" font-size="16" font-weight="800" fill="#FFFFFF">i</text>
+    <text x="${PAGE_X + 18}" y="${y + 24}" text-anchor="middle" font-size="16" font-weight="800" fill="${ON_ACCENT}">i</text>
     <text x="${PAGE_X + 40}" y="${y + 24}" font-size="17" fill="${MUTED}">${escapeXml(text)}</text>`;
 }
 
@@ -879,11 +888,11 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
 
     ${card(PAGE_X, todayY, PAGE_WIDTH, todayHeight)}
     <text x="${PAGE_X + 28}" y="${todayY + 50}" font-size="19" font-weight="800" fill="${INK}">ДОХОД ЗА ДЕНЬ</text>
-    ${incomeTile(tileX(0), todayY + 72, 'КЛУБ', BLUE, '#EEF4FF', '#C7D7FB', GLYPH_MONITOR, input.gameClubIncome, input.averageDailyGameClubIncome, input.averageDailyGameClubIncomeChange, tileWidth)}
-    ${incomeTile(tileX(1), todayY + 72, 'PLAYSTATION', PURPLE, '#F7F3FF', '#DDD0FB', GLYPH_GAMEPAD, input.playstationIncome, input.averageDailyPlaystationIncome, input.averageDailyPlaystationIncomeChange, tileWidth)}
-    ${incomeTile(tileX(2), todayY + 72, 'БАР', ORANGE, '#FFF3E8', '#FBD5B5', GLYPH_BAG, input.barSales, input.averageDailyBarSales, input.averageDailyBarSalesChange, tileWidth)}
+    ${incomeTile(tileX(0), todayY + 72, 'КЛУБ', BLUE, '#19302C', '#265C53', GLYPH_MONITOR, input.gameClubIncome, input.averageDailyGameClubIncome, input.averageDailyGameClubIncomeChange, tileWidth)}
+    ${incomeTile(tileX(1), todayY + 72, 'PLAYSTATION', PURPLE, '#241F3A', '#312952', GLYPH_GAMEPAD, input.playstationIncome, input.averageDailyPlaystationIncome, input.averageDailyPlaystationIncomeChange, tileWidth)}
+    ${incomeTile(tileX(2), todayY + 72, 'БАР', ORANGE, '#301F14', '#442B1B', GLYPH_BAG, input.barSales, input.averageDailyBarSales, input.averageDailyBarSalesChange, tileWidth)}
 
-    ${card(PAGE_X, detailY, detailWidth, detailHeight, '#FAFCFF', '#C7D7FB')}
+    ${card(PAGE_X, detailY, detailWidth, detailHeight, '#1A2521', '#265C53')}
     ${iconTile(PAGE_X + 28, detailY + 28, 80, BLUE, GLYPH_MONITOR)}
     <text x="${PAGE_X + 130}" y="${detailY + 58}" font-size="22" font-weight="800" fill="${BLUE}">КЛУБ</text>
     ${moneyText(PAGE_X + 130, detailY + 98, input.gameClubIncome, 32, BLUE)}
@@ -893,18 +902,18 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
     <text x="${PAGE_X + 28}" y="${clubExpenseHeadingY}" font-size="20" font-weight="800" fill="${RED}">РАСХОДЫ КЛУБА</text>
     <text x="${PAGE_X + detailWidth - 28}" y="${clubExpenseHeadingY}" text-anchor="end" font-size="20" font-weight="800" fill="${RED}">${escapeXml(money(input.gameClubExpenses))}</text>
     ${clubExpenseRowsSvg}
-    ${card(PAGE_X + 20, netBoxY, detailWidth - 40, 88, '#EEF4FF', '#C7D7FB')}
+    ${card(PAGE_X + 20, netBoxY, detailWidth - 40, 88, '#19302C', '#265C53')}
     <text x="${PAGE_X + 44}" y="${netBoxY + 34}" font-size="17" fill="${TEXT}">Чистая прибыль клуба</text>
     ${moneyText(PAGE_X + 44, netBoxY + 70, clubNetProfit, 28, clubNetProfit < 0 ? RED : BLUE)}
     ${iconTile(PAGE_X + detailWidth - 100, netBoxY + 16, 56, BLUE, GLYPH_TREND_UP)}
 
-    ${card(barX, detailY, detailWidth, detailHeight, '#FFFBF7', '#FBD5B5')}
+    ${card(barX, detailY, detailWidth, detailHeight, '#241A13', '#442B1B')}
     ${iconTile(barX + 28, detailY + 28, 80, ORANGE, GLYPH_BAG)}
     <text x="${barX + 130}" y="${detailY + 58}" font-size="22" font-weight="800" fill="${ORANGE}">БАР</text>
     ${moneyText(barX + 130, detailY + 98, input.barSales, 32, ORANGE)}
     <text x="${barX + 130}" y="${detailY + 126}" font-size="18" fill="${MUTED}">Продажи за день</text>
     ${barRowsSvg.join('\n    ')}
-    ${card(barX + 20, netBoxY, detailWidth - 40, 88, '#FFF3E8', '#FBD5B5')}
+    ${card(barX + 20, netBoxY, detailWidth - 40, 88, '#301F14', '#442B1B')}
     <text x="${barX + 44}" y="${netBoxY + 34}" font-size="17" fill="${TEXT}">Чистая прибыль бара</text>
     ${moneyText(barX + 44, netBoxY + 70, barNetProfit, 28, barNetProfit < 0 ? RED : ORANGE)}
     ${iconTile(barX + detailWidth - 100, netBoxY + 16, 56, ORANGE, GLYPH_BARS)}
@@ -952,10 +961,10 @@ function forecastSection(forecast: DailyFinanceMonthForecast, y: number): { svg:
   const innerX = PAGE_X + 28;
   const gap = 16;
   const tiles = [
-    { label: 'ДОХОД КЛУБА', color: BLUE, fill: '#EEF4FF', glyph: GLYPH_MONITOR, side: forecast.gameClub, profit: false },
-    { label: 'ПРИБЫЛЬ КЛУБА', color: GREEN, fill: '#F0FAF3', glyph: GLYPH_TREND_UP, side: forecast.gameClub, profit: true },
-    { label: 'PLAYSTATION', color: PURPLE, fill: '#F7F3FF', glyph: GLYPH_GAMEPAD, side: forecast.playstation, profit: false },
-    { label: 'ПРОДАЖИ БАРА', color: ORANGE, fill: '#FFF3E8', glyph: GLYPH_BAG, side: forecast.bar, profit: false },
+    { label: 'ДОХОД КЛУБА', color: BLUE, fill: '#19302C', glyph: GLYPH_MONITOR, side: forecast.gameClub, profit: false },
+    { label: 'ПРИБЫЛЬ КЛУБА', color: GREEN, fill: '#142A20', glyph: GLYPH_TREND_UP, side: forecast.gameClub, profit: true },
+    { label: 'PLAYSTATION', color: PURPLE, fill: '#241F3A', glyph: GLYPH_GAMEPAD, side: forecast.playstation, profit: false },
+    { label: 'ПРОДАЖИ БАРА', color: ORANGE, fill: '#301F14', glyph: GLYPH_BAG, side: forecast.bar, profit: false },
   ];
   const width = (PAGE_WIDTH - 56 - gap * (tiles.length - 1)) / tiles.length;
   const tilesSvg = tiles.map((tile, index) => forecastTile(
@@ -1022,10 +1031,10 @@ function forecastChart(
     `<text x="${(left + (day - 1) * stepX).toFixed(1)}" y="${top + height + 30}" text-anchor="middle" font-size="16" fill="${MUTED}">${day}</text>`,
   ).join('\n    ');
   return `${grid}
-    ${polyline(lastMonth, `stroke="#94A3B8" stroke-width="3"`)}
+    ${polyline(lastMonth, `stroke="#68776D" stroke-width="3"`)}
     ${polyline(projected, `stroke="${color}" stroke-width="4" stroke-dasharray="10 8"`)}
     ${polyline(actual, `stroke="${color}" stroke-width="5"`)}
-    ${marker(lastActual, lastActual >= 0 ? actual[lastActual] : null, '#FFFFFF')}
+    ${marker(lastActual, lastActual >= 0 ? actual[lastActual] : null, SURFACE)}
     ${marker(lastProjected, endValue, color)}
     ${xLabels}`;
 }
@@ -1049,7 +1058,7 @@ function forecastChartCard(
     <text x="${legendX + 38}" y="${y + 54}" font-size="16" fill="${MUTED}">этот месяц</text>
     <line x1="${legendX + 150}" y1="${y + 48}" x2="${legendX + 178}" y2="${y + 48}" stroke="${color}" stroke-width="4" stroke-dasharray="8 6"/>
     <text x="${legendX + 188}" y="${y + 54}" font-size="16" fill="${MUTED}">прогноз</text>
-    <line x1="${legendX + 280}" y1="${y + 48}" x2="${legendX + 308}" y2="${y + 48}" stroke="#94A3B8" stroke-width="3" stroke-linecap="round"/>
+    <line x1="${legendX + 280}" y1="${y + 48}" x2="${legendX + 308}" y2="${y + 48}" stroke="#68776D" stroke-width="3" stroke-linecap="round"/>
     <text x="${legendX + 318}" y="${y + 54}" font-size="16" fill="${MUTED}">прошлый месяц</text>
     ${forecastChart(forecast.days, side, color, x + 116, y + 92, width - 116 - 40, FORECAST_CHART_HEIGHT)}`;
 }
@@ -1120,7 +1129,7 @@ export function buildMonthlyFinanceReportSvg(input: DailyFinanceReportInput): st
     ${card(PAGE_X, trendY, PAGE_WIDTH, trendHeight)}
     <text x="${PAGE_X + 28}" y="${trendY + 50}" font-size="19" font-weight="800" fill="${INK}">ДИНАМИКА ДОХОДА КЛУБА ЗА МЕСЯЦ</text>
     ${incomeChart(dailyPoints, PAGE_X + 116, trendY + 84, PAGE_WIDTH - 116 - 40, 300)}
-    ${card(PAGE_X + 24, trendY + trendHeight - 100, PAGE_WIDTH - 48, 76, '#F8FAFC')}
+    ${card(PAGE_X + 24, trendY + trendHeight - 100, PAGE_WIDTH - 48, 76, INSET)}
     <text x="${PAGE_X + 48}" y="${trendY + trendHeight - 68}" font-size="17" fill="${TEXT}">Средний доход клуба / день</text>
     ${moneyText(PAGE_X + 48, trendY + trendHeight - 36, input.averageDailyGameClubIncome, 26, PURPLE)}
     ${changeBadge(WIDTH - PAGE_X - 196, trendY + trendHeight - 66, input.averageDailyGameClubIncomeChange, 20)}
@@ -1128,7 +1137,7 @@ export function buildMonthlyFinanceReportSvg(input: DailyFinanceReportInput): st
 
     ${showPlaystation ? playstationSection(input, playstationY, playstationHeight) : ''}
 
-    ${card(PAGE_X, kpiY, PAGE_WIDTH, kpiHeight, '#FFFFFF')}
+    ${card(PAGE_X, kpiY, PAGE_WIDTH, kpiHeight)}
     <text x="${PAGE_X + 28}" y="${kpiY + 44}" font-size="20" font-weight="800" fill="${INK}">КЛЮЧЕВЫЕ ПОКАЗАТЕЛИ</text>
     ${kpiTile(kpiX(0) + 12, kpiY + 62, kpiWidth - 12, GREEN, GLYPH_WALLET, ['ОСТАТОК', 'КЛУБА'], input.gameClubMoneyLeft, 'за месяц')}
     ${kpiTile(kpiX(1) + 6, kpiY + 62, kpiWidth - 12, PURPLE, GLYPH_BARS, ['СРЕДНИЙ', 'ДОХОД / ДЕНЬ'], input.averageDailyGameClubIncome, 'к прошлому месяцу', input.averageDailyGameClubIncomeChange)}

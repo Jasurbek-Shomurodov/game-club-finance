@@ -136,20 +136,20 @@ describe('daily finance report image', () => {
     expect(svg).toContain('Main Game Club · с 1-го числа по 27 августа 2026');
     expect(svg).toContain('КУДА УХОДЯТ ДЕНЬГИ КЛУБА');
     expect(svg).toContain('КУДА УХОДЯТ ДЕНЬГИ БАРА');
-    expect(svg).toContain('Клуб · <tspan font-weight="800" fill="#0F1E4A">58,2\u00a0млн</tspan>');
-    expect(svg).toContain('Бар · <tspan font-weight="800" fill="#0F1E4A">10,2\u00a0млн</tspan>');
-    expect(svg).toContain('Остаток · <tspan font-weight="800" fill="#0F1E4A">48,1\u00a0млн</tspan>');
+    expect(svg).toContain('Клуб · <tspan font-weight="800" fill="#F7FAF8">58,2\u00a0млн</tspan>');
+    expect(svg).toContain('Бар · <tspan font-weight="800" fill="#F7FAF8">10,2\u00a0млн</tspan>');
+    expect(svg).toContain('Остаток · <tspan font-weight="800" fill="#F7FAF8">48,1\u00a0млн</tspan>');
     expect(svg).toContain('Убыток (не покрыт) · ');
     expect(svg).toContain('Еда / Напитки · ');
     // Club and bar money are separate businesses: no pooled hub, profit or share of a combined total.
     expect(svg).not.toContain('Доход · ');
     expect(svg).not.toContain('Прибыль · ');
     expect(svg).not.toContain('ПО НАПРАВЛЕНИЯМ');
-    expect(svg).toContain('Компьютеры · <tspan font-weight="800" fill="#0F1E4A">58,2\u00a0млн</tspan>');
+    expect(svg).toContain('Компьютеры · <tspan font-weight="800" fill="#F7FAF8">58,2\u00a0млн</tspan>');
     expect(svg).toContain('Продажи бара · ');
     expect(svg).toContain('Себестоимость бара · ');
-    expect(svg).toContain('Зарплата · <tspan font-weight="800" fill="#0F1E4A">9,6\u00a0млн</tspan>');
-    expect(svg).toContain('mystery fee · <tspan font-weight="800" fill="#0F1E4A">520\u00a0тыс.</tspan>');
+    expect(svg).toContain('Зарплата · <tspan font-weight="800" fill="#F7FAF8">9,6\u00a0млн</tspan>');
+    expect(svg).toContain('mystery fee · <tspan font-weight="800" fill="#F7FAF8">520\u00a0тыс.</tspan>');
     expect(svg).toContain('ДИНАМИКА ДОХОДА КЛУБА ЗА МЕСЯЦ');
     expect(svg).toContain('КЛЮЧЕВЫЕ ПОКАЗАТЕЛИ');
     expect(svg).toContain('37 830 000');
@@ -184,7 +184,7 @@ describe('daily finance report image', () => {
     expect(day).toContain('>18%</text>');
     expect(svg).toContain('ПРОДАЖИ PLAYSTATION ЗА МЕСЯЦ');
     // Two days with sales draw two bars; the day without sales draws none.
-    expect(svg.match(/fill="#7C3AED" fill-opacity="0.8"\/>/g)).toHaveLength(3);
+    expect(svg.match(/fill="#B09FFA" fill-opacity="0.8"\/>/g)).toHaveLength(3);
     // The card pushes the rest of the month image down.
     expect(svg).toContain('height="2332"');
     expect(svg).not.toContain('Нет продаж PlayStation за месяц');
