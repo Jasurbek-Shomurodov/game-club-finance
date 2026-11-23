@@ -226,7 +226,7 @@ export function buildDashboardDataFromSnapshot({
   return {
     totals,
     previousTotals,
-    inventoryComparisonValue: calculateInventoryValueFromLatestStockCounts(inventoryComparisonRows),
+    inventoryComparisonValue: calculateInventoryValueFromLatestStockCounts(inventoryComparisonRows, inventoryComparisonRange.to),
     hasInventoryComparisonData: inventoryComparisonRows.length > 0,
     trend: buildPeriodTrend(range, cashRows, stockRows, rangeDebts),
     lowStockCount: payload.products.filter(

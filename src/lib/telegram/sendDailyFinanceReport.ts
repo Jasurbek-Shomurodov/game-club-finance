@@ -363,7 +363,7 @@ export async function buildDailyFinanceTelegramReport(
     // (club_id, date, product_id) is unique, so the ordering pages stably.
     windowed<StockWindowRow>(
       'daily_stock_counts',
-      'product_id,date,bar_income,bar_profit,bar_cost,sold_quantity,closing_stock,cost_price,products(tracks_inventory)',
+      'product_id,date,bar_income,bar_profit,bar_cost,sold_quantity,closing_stock,cost_price,products(tracks_inventory,deleted_at)',
       ['date', 'product_id'],
     ),
     windowed<StockPurchaseCostRow>('stock_purchases', 'id,date,quantity,cost_price', ['date', 'id']),

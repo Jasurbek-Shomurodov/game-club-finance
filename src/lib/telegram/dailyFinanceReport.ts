@@ -715,11 +715,13 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
   );
   const previousInventoryValue = calculateInventoryValueFromLatestStockCounts(
     rows.previousMonthInventoryRows ?? [],
+    previousMonthRange.to,
   );
   const inventoryValue = rows.inventoryRows === undefined
     ? dailyTotals.inventoryValue
     : calculateInventoryValueFromLatestStockCounts(
       rows.inventoryRows.filter((row) => row.date <= rows.businessDate),
+      rows.businessDate,
     );
   const averageDailyGameClubIncome = calculateAverageDailyIncome(
     monthTotals.gameClubIncome,

@@ -1,3 +1,4 @@
+import { serverTodayIso } from '@/lib/utils';
 import { calculateGameClubIncome } from './dailyCash';
 import { calculateBarMoney } from './barMoney';
 import type { StockPurchaseCostRow } from './barMoney';
@@ -66,7 +67,13 @@ export interface InventorySnapshotRow {
   date: string;
   closing_stock: number;
   cost_price: number;
-  products?: { tracks_inventory?: boolean } | { tracks_inventory?: boolean }[] | null;
+  products?: InventorySnapshotProduct | InventorySnapshotProduct[] | null;
+}
+
+export interface InventorySnapshotProduct {
+  tracks_inventory?: boolean;
+  /** When the product was deleted; its stock is zero from that business date on. */
+  deleted_at?: string | null;
 }
 
 export interface DebtValueRow {
@@ -574,7 +581,20 @@ export function calculateInventoryValue(products: ProductValueRow[]): number {
   );
 }
 
-export function calculateInventoryValueFromLatestStockCounts(rows: InventorySnapshotRow[]): number {
+/** Business date a product was deleted on, or null while it is not deleted. */
+function deletedOnBusinessDate(product: InventorySnapshotProduct | null | undefined): string | null {
+  if (!product?.deleted_at) return null;
+  const deletedAt = new Date(product.deleted_at);
+  return Number.isNaN(deletedAt.getTime()) ? null : serverTodayIso(deletedAt);
+}
+
+/**
+ * Stock value at cost as of `asOf`, from each product's latest saved count.
+ * Deleting a product zeroes its stock without a new count, so a product
+ * deleted on or before `asOf` is worth nothing; before that date its counts
+ * still stand.
+ */
+export function calculateInventoryValueFromLatestStockCounts(rows: InventorySnapshotRow[], asOf: string): number {
   const latestByProduct = rows.reduce((map, row) => {
     const existing = map.get(row.product_id);
 
@@ -588,9 +608,10 @@ export function calculateInventoryValueFromLatestStockCounts(rows: InventorySnap
   return Array.from(latestByProduct.values()).reduce(
     (sum, row) => {
       const product = Array.isArray(row.products) ? row.products[0] : row.products;
-      return product?.tracks_inventory === false
-        ? sum
-        : sum + Number(row.closing_stock ?? 0) * Number(row.cost_price ?? 0);
+      if (product?.tracks_inventory === false) return sum;
+      const deletedOn = deletedOnBusinessDate(product);
+      if (deletedOn !== null && deletedOn <= asOf) return sum;
+      return sum + Number(row.closing_stock ?? 0) * Number(row.cost_price ?? 0);
     },
     0,
   );
@@ -606,6 +627,7 @@ export function calculateDashboardInventoryValue(
 
   return calculateInventoryValueFromLatestStockCounts(
     rows.filter((row) => row.date >= range.from && row.date <= range.to),
+    range.to,
   );
 }
 

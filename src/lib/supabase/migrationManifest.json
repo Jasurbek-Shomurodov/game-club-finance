@@ -4907,11 +4907,6 @@
     "probes": [
       {
         "kind": "functionBody",
-        "signature": "public.get_dashboard_snapshot(uuid,date,date,date,date,date,date)",
-        "md5": "2ac2ded12f79c0ed28062643c77de288"
-      },
-      {
-        "kind": "functionBody",
         "signature": "public.get_money_report_snapshot(uuid,date,date)",
         "md5": "324302044d214da229b630347e1a5624"
       },
@@ -5401,5 +5396,15 @@
   {
     "file": "179_pixel_vip_cabins_zone.sql",
     "probes": []
+  },
+  {
+    "file": "180_deleted_products_leave_stock_value.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.get_dashboard_snapshot(uuid,date,date,date,date,date,date)",
+        "md5": "ef47392b816e76203fa86aa2fb80bed3"
+      }
+    ]
   }
 ]

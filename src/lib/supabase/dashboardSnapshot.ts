@@ -198,7 +198,7 @@ export async function fetchDashboardSnapshotFromTables(
     fetchAllRows<InventorySnapshotRow>(() =>
       supabase
         .from('daily_stock_counts')
-        .select('product_id,date,closing_stock,cost_price,products(tracks_inventory)')
+        .select('product_id,date,closing_stock,cost_price,products(tracks_inventory,deleted_at)')
         .eq('club_id', clubId)
         .gte('date', inventoryComparisonRange.from)
         .lte('date', inventoryTo)

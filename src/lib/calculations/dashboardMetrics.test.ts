@@ -222,8 +222,40 @@ describe('dashboard metrics', () => {
         { product_id: 'cola', date: '2026-06-01', closing_stock: 10, cost_price: 4_000 },
         { product_id: 'cola', date: '2026-06-30', closing_stock: 7, cost_price: 4_500 },
         { product_id: 'water', date: '2026-06-12', closing_stock: 12, cost_price: 2_000 },
-      ]),
+      ], '2026-06-30'),
     ).toBe(55_500);
+  });
+
+  it('drops a deleted product from stock value from the business date it was deleted', () => {
+    // Deleted 23 Nov, 18:43 Tashkent, after that day's count was saved.
+    const kurt = { tracks_inventory: true, deleted_at: '2026-11-23T13:43:30.38+00:00' };
+    const rows = [
+      { product_id: 'kurt', date: '2026-11-22', closing_stock: 17, cost_price: 8_000, products: kurt },
+      { product_id: 'kurt', date: '2026-11-23', closing_stock: 17, cost_price: 8_000, products: kurt },
+      { product_id: 'cola', date: '2026-11-23', closing_stock: 10, cost_price: 4_000, products: { tracks_inventory: true, deleted_at: null } },
+    ];
+    const upTo = (date: string) => rows.filter((row) => row.date <= date);
+
+    // The day before, the units were still on the shelf.
+    expect(calculateInventoryValueFromLatestStockCounts(upTo('2026-11-22'), '2026-11-22')).toBe(136_000);
+    expect(calculateInventoryValueFromLatestStockCounts(rows, '2026-11-23')).toBe(40_000);
+    expect(calculateInventoryValueFromLatestStockCounts(rows, '2026-11-30')).toBe(40_000);
+    expect(calculateDashboardInventoryValue('lastMonth', 0, rows, { from: '2026-11-01', to: '2026-11-30' })).toBe(40_000);
+  });
+
+  it('dates a deletion in Tashkent time, not UTC', () => {
+    // 20:30 UTC on 23 Nov is 01:30 on 24 Nov in Tashkent.
+    const rows = [{
+      product_id: 'kurt', date: '2026-11-23', closing_stock: 5, cost_price: 1_000,
+      products: [{ tracks_inventory: true, deleted_at: '2026-11-23T20:30:00+00:00' }],
+    }];
+    expect(calculateInventoryValueFromLatestStockCounts(rows, '2026-11-23')).toBe(5_000);
+    expect(calculateInventoryValueFromLatestStockCounts(rows, '2026-11-24')).toBe(0);
+  });
+
+  it('ignores an unreadable deletion time', () => {
+    const rows = [{ product_id: 'kurt', date: '2026-11-23', closing_stock: 5, cost_price: 1_000, products: { deleted_at: 'not a date' } }];
+    expect(calculateInventoryValueFromLatestStockCounts(rows, '2026-11-30')).toBe(5_000);
   });
 
   it('uses the selected month closing stock for the last-month dashboard', () => {
@@ -260,7 +292,7 @@ describe('dashboard metrics', () => {
         cost_price: 4_000,
         products: { tracks_inventory: true },
       },
-    ])).toBe(40_000);
+    ], '2026-07-22')).toBe(40_000);
   });
 
   it('subtracts expenses from the selected money source only', () => {

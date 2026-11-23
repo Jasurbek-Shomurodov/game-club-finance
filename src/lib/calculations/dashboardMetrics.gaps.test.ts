@@ -229,7 +229,7 @@ describe('inventory value', () => {
 
   it('values each tracked product at its latest count', () => {
     // p1: 5 x 10; p6: latest count is 1 x 7; the untracked and unpriced ones add nothing.
-    expect(calculateInventoryValueFromLatestStockCounts(rows)).toBe(57);
+    expect(calculateInventoryValueFromLatestStockCounts(rows, '2026-10-02')).toBe(57);
   });
 
   it('uses last month counts only for the last-month period', () => {

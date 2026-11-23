@@ -16,6 +16,11 @@ track inventory or be made to order:
   their historical ledger rows remain unchanged. The open day's closing sheet
   leaves a deleted product out unless today's saved count recorded a sale,
   giveaway or write-off (`loadOpenDay`); past dates still show their snapshot.
+  Stock value built from saved counts (dashboard month-end value and last-month
+  comparison, Telegram daily report) leaves a product out from the business
+  date it was deleted (`calculateInventoryValueFromLatestStockCounts`, `asOf`;
+  migration 180 returns `deleted_at` in the dashboard snapshot). Its sales, cost
+  and purchases stay in every total.
 
 New stock purchase quantities must be positive whole units. Historical
 fractional rows remain readable for compatibility.
