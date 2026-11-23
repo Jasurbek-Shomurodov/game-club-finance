@@ -135,6 +135,35 @@ date shows today's stock. The section and the caption count appear only when at
 least one product qualifies. If the products read fails, the section is omitted
 and the finance report is still sent.
 
+## "Стоит проверить" (worth checking) block
+
+The report adds a short "🔎 Стоит проверить" block (text, caption count and a
+card on the day image, above low stock) when the money checks from
+`src/lib/calculations/moneyChecks.ts` find something dated the report date:
+
+- a duplicate expense that day (same category, amount, side and method;
+  salaries, shortages and reserve-paid expenses are exempt), and
+- a low day: game-club income or bar sales under 60% of the same weekday over
+  the previous eight weeks (at least four samples).
+
+At most three lines, danger first. Category spikes and repeated shortages are
+month-level and are not shown (shortages have their own owners-only notice).
+No checks means no block, and the day image is laid out exactly as before.
+
+A low day is only judged once the day is closed and has a daily-cash entry:
+the day must be before the club's current business date when the report is
+built (`getReportMoneyChecks`). The scheduled run always reports a closed
+day; a dry run or forced resend for a day still in progress shows duplicates
+only. A day whose entries are still partial when the cron runs is judged on
+what the report itself shows.
+
+Daily cash and stock counts are read from eight weeks before the report date
+(or the comparison window, whichever is earlier) in the same single read; the
+rest of the report still uses the comparison window. If the club's business
+day cannot be read or the checks throw, the block is omitted
+(`money checks unavailable` / `business day unavailable` in the logs) and the
+report is sent as usual.
+
 ## Internet payment reminder
 
 Owners set each club's internet payment day (1-31, or none) in Settings; it is

@@ -22,6 +22,7 @@ import type {
   StockPurchaseCostRow,
 } from '../calculations/dashboardMetrics';
 import type { LowStockProductInput } from '../calculations/stock';
+import { buildMoneyChecks, LOW_INCOME_WEEKS, type MoneyCheck } from '../calculations/moneyChecks';
 import type {
   DailyFinanceReportDebtPaymentRow,
   DailyFinanceReportDebtRow,
@@ -262,6 +263,62 @@ async function getMonthWithdrawalRows(
   return data ?? [];
 }
 
+/** The club's current business date at `now`, or null when it cannot be read (the checks block is then omitted). */
+async function getCurrentBusinessDateOrNull(supabase: SupabaseClient, clubId: string, now: Date): Promise<string | null> {
+  try {
+    return serverTodayIso(now, await getClubBusinessDayStartHour(supabase, clubId));
+  } catch (error) {
+    console.error('[telegram/daily-finance] business day unavailable; omitting money checks:', error);
+    return null;
+  }
+}
+
+/**
+ * The money checks for the report date ("Worth checking"), from ledgers the
+ * report has already read. A low day is judged only once the day is closed
+ * (before the club's current business date at send time) and has a daily-cash
+ * entry, so its figures are the ones the report shows as final: a dry run or
+ * forced resend for a day still in progress gets no low-day check. Anything
+ * failing here only drops the block; it never fails the report.
+ */
+export function getReportMoneyChecks({
+  businessDate,
+  currentBusinessDate,
+  cashRows,
+  stockRows,
+  expenseRows,
+}: {
+  businessDate: string;
+  /** The club's business date when the report is built; null when unknown. */
+  currentBusinessDate: string | null;
+  /** Daily cash from LOW_INCOME_WEEKS before the report date through it. */
+  cashRows: readonly DailyCashRow[];
+  /** Bar sales per product and day over the same window. */
+  stockRows: readonly Pick<StockCountRow, 'date' | 'bar_income'>[];
+  /** Expenses on the report date (duplicates are same-day). */
+  expenseRows: readonly ExpenseRow[];
+}): MoneyCheck[] | undefined {
+  if (currentBusinessDate === null) return undefined;
+  try {
+    const closedWithEntry = businessDate < currentBusinessDate
+      && cashRows.some((row) => row.date === businessDate);
+    const checks = buildMoneyChecks({
+      // Only the report date: duplicates that day and that day's income.
+      range: { from: businessDate, to: businessDate },
+      today: currentBusinessDate,
+      expenseRows,
+      cashRows,
+      stockRows,
+      // Category spikes are not shown, so plans do not matter here.
+      presets: [],
+    });
+    return closedWithEntry ? checks : checks.filter((check) => check.kind !== 'low_income_day');
+  } catch (error) {
+    console.error('[telegram/daily-finance] money checks unavailable; omitting block:', error);
+    return undefined;
+  }
+}
+
 async function getClub(supabase: SupabaseClient, clubId: string): Promise<ClubRow> {
   const { data, error } = await supabase
     .from('clubs')
@@ -336,13 +393,17 @@ export async function buildDailyFinanceTelegramReport(
   // start of the comparable previous month through the report date) and
   // sliced in memory for the day, the month to date and the previous month.
   const windowFrom = previousMonthRange.from;
-  const windowed = <T extends { date: string }>(table: string, columns: string, orderBy: string[]) =>
+  // Daily cash and bar sales reach back far enough for the money checks' usual
+  // weekday level too; the rest of the report still slices from windowFrom.
+  const lowDayHistoryFrom = addDaysIso(businessDate, -LOW_INCOME_WEEKS * 7);
+  const incomeFrom = lowDayHistoryFrom < windowFrom ? lowDayHistoryFrom : windowFrom;
+  const windowed = <T extends { date: string }>(table: string, columns: string, orderBy: string[], from = windowFrom) =>
     fetchAllRows<T>(() => {
       let query = supabase
         .from(table)
         .select(columns)
         .eq('club_id', clubId)
-        .gte('date', windowFrom)
+        .gte('date', from)
         .lte('date', businessDate);
       for (const column of orderBy) query = query.order(column, { ascending: true });
       return query as never;
@@ -357,14 +418,15 @@ export async function buildDailyFinanceTelegramReport(
       .order('date', { ascending: true })
       .order('id', { ascending: true }),
   );
-  const [clubRes, cashRes, stockRes, purchaseRes, expenseRes, debtPaymentRes, laterDebtPaymentRes, debtRes, lowStockProductRows, giveawayRows, writeOffRows, internetPaymentDay, reserveMoves, monthExchangeRows, withdrawalRows] = await Promise.all([
+  const [clubRes, cashRes, stockRes, purchaseRes, expenseRes, debtPaymentRes, laterDebtPaymentRes, debtRes, lowStockProductRows, giveawayRows, writeOffRows, internetPaymentDay, reserveMoves, monthExchangeRows, withdrawalRows, currentBusinessDate] = await Promise.all([
     getClub(supabase, clubId),
-    windowed<DailyCashRow>('daily_cash_entries', 'date,cash_income,terminal_income,card_income,playstation_income', ['date']),
+    windowed<DailyCashRow>('daily_cash_entries', 'date,cash_income,terminal_income,card_income,playstation_income', ['date'], incomeFrom),
     // (club_id, date, product_id) is unique, so the ordering pages stably.
     windowed<StockWindowRow>(
       'daily_stock_counts',
       'product_id,date,bar_income,bar_profit,bar_cost,sold_quantity,closing_stock,cost_price,products(tracks_inventory,deleted_at)',
       ['date', 'product_id'],
+      incomeFrom,
     ),
     windowed<StockPurchaseCostRow>('stock_purchases', 'id,date,quantity,cost_price', ['date', 'id']),
     // The method and reserve flag keep reserve purchases out of money left (156).
@@ -387,6 +449,7 @@ export async function buildDailyFinanceTelegramReport(
     fetchReserveMoves(supabase, clubId, windowFrom, businessDate),
     fetchMoneyExchanges(supabase, clubId, monthStart, businessDate),
     getMonthWithdrawalRows(supabase, clubId, monthStart),
+    getCurrentBusinessDateOrNull(supabase, clubId, now),
   ]);
 
   const firstError = [
@@ -401,14 +464,24 @@ export async function buildDailyFinanceTelegramReport(
 
   if (firstError) throw firstError;
 
-  const cashRows = (cashRes.data ?? []) as DailyCashRow[];
-  const stockRows = (stockRes.data ?? []) as StockWindowRow[];
+  const incomeCashRows = (cashRes.data ?? []) as DailyCashRow[];
+  const incomeStockRows = (stockRes.data ?? []) as StockWindowRow[];
+  // Everything but the money checks keeps the comparison window it always had.
+  const cashRows = inRange(incomeCashRows, windowFrom, businessDate);
+  const stockRows = inRange(incomeStockRows, windowFrom, businessDate);
   const purchaseRows = (purchaseRes.data ?? []) as StockPurchaseCostRow[];
   const expenseRows = (expenseRes.data ?? []) as ExpenseRow[];
   const debtPaymentRows = (debtPaymentRes.data ?? []) as DailyFinanceReportDebtPaymentRow[];
   const day = <T extends { date: string }>(rows: T[]) => inRange(rows, businessDate, businessDate);
   const month = <T extends { date: string }>(rows: T[]) => inRange(rows, monthStart, businessDate);
   const previous = <T extends { date: string }>(rows: T[]) => inRange(rows, previousMonthRange.from, previousMonthRange.to);
+  const moneyChecks = getReportMoneyChecks({
+    businessDate,
+    currentBusinessDate,
+    cashRows: incomeCashRows,
+    stockRows: incomeStockRows,
+    expenseRows: day(expenseRows),
+  });
 
   const input = buildDailyFinanceReportInput({
     clubName: clubRes.name,
@@ -451,6 +524,7 @@ export async function buildDailyFinanceTelegramReport(
     },
     // Calendar date in the club's time zone, independent of its business-day start.
     sendDate: serverTodayIso(now, 0),
+    moneyChecks,
   });
   let imagePng: Buffer | null = null;
   try {

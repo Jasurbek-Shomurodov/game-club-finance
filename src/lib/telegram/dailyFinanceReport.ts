@@ -25,6 +25,7 @@ import { buildDrillSankey, type DrillSankey } from '../calculations/sankeyDrill'
 import { buildMonthForecast, type ForecastDayRow, type SideForecast } from '../calculations/analysisSeries';
 import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
 import type { LowStockProduct, LowStockProductInput } from '../calculations/stock';
+import { sortMoneyChecks, type MoneyCheck, type MoneyCheckKind } from '../calculations/moneyChecks';
 
 export interface DailyFinanceReportInput {
   clubName: string;
@@ -92,6 +93,12 @@ export interface DailyFinanceReportInput {
   monthMoney?: DailyFinanceMonthMoney;
   /** Month-end figures at this month's daily pace, beside last month's totals. */
   monthForecast?: DailyFinanceMonthForecast;
+  /**
+   * "Worth checking": money checks dated the report date (duplicate expenses,
+   * a low game-club or bar day), worst first, at most REPORT_MONEY_CHECK_MAX.
+   * Absent or empty means no block.
+   */
+  moneyChecks?: MoneyCheck[];
 }
 
 export interface DailyFinanceMonthForecast {
@@ -262,6 +269,12 @@ export interface DailyFinanceReportRows {
    * the month-end forecast and last month's full totals; omitted means no forecast.
    */
   forecastLedgers?: AnalysisLedgers;
+  /**
+   * Money checks from `buildMoneyChecks`; only those dated the report date and
+   * of a kind in REPORT_MONEY_CHECK_KINDS are shown. Omitted when they could
+   * not be built.
+   */
+  moneyChecks?: readonly MoneyCheck[];
 }
 
 /** The month-end forecast as the report shows it (the same projection as Financial analysis). */
@@ -533,6 +546,66 @@ export function lowStockItemLabel(item: LowStockProduct): string {
   return item.level === 'out'
     ? `${item.name}: нет в наличии`
     : `${item.name}: ${quantity(item.currentStock)} шт. (порог ${quantity(item.threshold)})`;
+}
+
+/**
+ * Check kinds the daily report shows. Category spikes and repeated shortages
+ * span the month, not the reported day, and shortages already have their own
+ * notification.
+ */
+export const REPORT_MONEY_CHECK_KINDS: readonly MoneyCheckKind[] = ['duplicate_expense', 'low_income_day'];
+/** Lines in the "Worth checking" block at most. */
+export const REPORT_MONEY_CHECK_MAX = 3;
+
+/** The checks the report for `businessDate` shows: that day only, danger first, at most three. */
+export function reportDayMoneyChecks(checks: readonly MoneyCheck[], businessDate: string): MoneyCheck[] {
+  return sortMoneyChecks(checks.filter((check) => (
+    check.date === businessDate && REPORT_MONEY_CHECK_KINDS.includes(check.kind)
+  ))).slice(0, REPORT_MONEY_CHECK_MAX);
+}
+
+export interface ReportMoneyCheckText {
+  /** What looks off, e.g. "Повтор расхода: Аренда". */
+  title: string;
+  /** Where it comes from and what it is compared with. */
+  detail: string;
+}
+
+/** "2 одинаковые записи", "5 одинаковых записей" (a duplicate has at least two rows). */
+function sameRecordsLabel(count: number): string {
+  const lastTwo = count % 100;
+  const last = count % 10;
+  if (last === 1 && lastTwo !== 11) return `${count} одинаковая запись`;
+  const few = last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14);
+  return `${count} ${few ? 'одинаковые записи' : 'одинаковых записей'}`;
+}
+
+/** Russian wording of one report check; the amount is shown beside it. */
+export function reportMoneyCheckText(check: MoneyCheck): ReportMoneyCheckText {
+  const side = check.side === 'bar' ? 'бара' : 'клуба';
+  if (check.kind === 'duplicate_expense') {
+    const category = check.category ? RUSSIAN_EXPENSE_CATEGORY_LABELS[check.category] ?? check.category : 'расход';
+    return {
+      title: `Повтор расхода: ${category}`,
+      detail: `${sameRecordsLabel(check.count ?? 2)} из денег ${side}`,
+    };
+  }
+  return {
+    title: check.side === 'bar' ? 'Низкие продажи бара' : 'Низкий доход клуба',
+    detail: `обычно ${money(check.usual ?? 0)} в этот день недели`,
+  };
+}
+
+function moneyCheckLines(checks: MoneyCheck[] | undefined): string[] {
+  if (!checks?.length) return [];
+  return [
+    '',
+    '🔎 Стоит проверить:',
+    ...checks.map((check) => {
+      const { title, detail } = reportMoneyCheckText(check);
+      return `  • ${check.severity === 'danger' ? '🔴' : '🟡'} ${title}: ${money(check.amount)} (${detail})`;
+    }),
+  ];
 }
 
 function lowStockLines(items: LowStockProduct[] | undefined): string[] {
@@ -818,6 +891,9 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
     monthForecast: rows.forecastLedgers
       ? buildReportMonthForecast(rows.businessDate, rows.forecastLedgers)
       : undefined,
+    moneyChecks: rows.moneyChecks === undefined
+      ? undefined
+      : reportDayMoneyChecks(rows.moneyChecks, rows.businessDate),
   };
 }
 
@@ -863,6 +939,7 @@ export function formatRussianDailyFinanceReport(input: DailyFinanceReportInput):
     ...promoGiveawayLines(input.promoGiveaways),
     ...stockWriteOffLines(input.stockWriteOffs),
     ...stockCorrectionLines(input.stockCorrections),
+    ...moneyCheckLines(input.moneyChecks),
     ...lowStockLines(input.lowStockProducts),
     ...(input.internetPaymentDueDate ? ['', internetPaymentLine(input.internetPaymentDueDate)] : []),
   ].join('\n');
@@ -881,6 +958,9 @@ export function formatRussianDailyFinanceReportCaption(input: DailyFinanceReport
       : []),
     ...(input.stockCorrections?.length
       ? [`➕ Корректировки остатка: +${quantityLabel(input.stockCorrections.reduce((sum, item) => sum + item.quantity, 0))}`]
+      : []),
+    ...(input.moneyChecks?.length
+      ? [`🔎 Стоит проверить: ${input.moneyChecks.length}`]
       : []),
     ...(input.lowStockProducts?.length
       ? [`⚠️ Заканчивается на складе: ${input.lowStockProducts.length}`]

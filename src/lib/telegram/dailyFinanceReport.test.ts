@@ -11,11 +11,15 @@ import {
   internetPaymentDueDate,
   monthStartIso,
   previousComparableMonthRangeIso,
+  REPORT_MONEY_CHECK_MAX,
+  reportDayMoneyChecks,
+  reportMoneyCheckText,
   runningDailyAverage,
   summarizeMonthMoney,
   summarizeStockCorrectionsForReport,
   summarizeStockWriteOffsForReport,
 } from './dailyFinanceReport';
+import type { MoneyCheck } from '../calculations/moneyChecks';
 import { isIsoDate, nextDailyReportBusinessDateIso, previousClubBusinessDateIso } from './sendDailyFinanceReport';
 
 describe('formatRussianDailyFinanceReport', () => {
@@ -626,6 +630,83 @@ describe('bar write-offs in the daily report', () => {
     const none = buildDailyFinanceReportInput({ ...baseRows, writeOffRows: [] });
     expect(formatRussianDailyFinanceReport(none)).not.toContain('Списания');
     expect(buildDailyFinanceReportInput(baseRows).stockWriteOffs).toBeUndefined();
+  });
+});
+
+describe('worth checking in the daily report', () => {
+  const baseRows = {
+    clubName: 'Pixel',
+    businessDate: '2026-11-20',
+    businessDateLabel: '20 ноября 2026',
+    cashRows: [],
+    stockRows: [],
+    stockPurchaseRows: [],
+    expenseRows: [],
+    debtRows: [],
+  };
+  const day = { from: '2026-11-20', to: '2026-11-20' };
+  const duplicate = (count: number, date = '2026-11-20'): MoneyCheck => ({
+    kind: 'duplicate_expense', severity: 'danger', side: 'game_club', date, range: { from: date, to: date },
+    category: 'supplies', amount: 150_000, count, recordIds: Array.from({ length: count }, (_, index) => `e${index}`),
+  });
+  const lowDay = (side: 'game_club' | 'bar', severity: 'warning' | 'danger', amount: number): MoneyCheck => ({
+    kind: 'low_income_day', severity, side, date: '2026-11-20', range: day, amount, usual: 1_000_000,
+  });
+  const spike: MoneyCheck = {
+    kind: 'category_spike', severity: 'danger', side: 'game_club', date: null, range: { from: '2026-11-01', to: '2026-11-20' },
+    category: 'repair', amount: 900_000, usual: 200_000,
+  };
+  const shortage: MoneyCheck = {
+    kind: 'repeated_shortage', severity: 'warning', side: 'bar', date: null, range: { from: '2026-11-01', to: '2026-11-20' },
+    category: 'shortage', amount: 90_000, count: 4,
+  };
+
+  it('keeps only the report date\'s duplicates and low days, danger first, at most three', () => {
+    const checks = reportDayMoneyChecks([
+      lowDay('game_club', 'warning', 550_000),
+      spike,
+      shortage,
+      duplicate(2, '2026-11-19'),
+      lowDay('bar', 'danger', 100_000),
+      duplicate(2),
+      { ...duplicate(3), category: 'cleaning', amount: 40_000, recordIds: ['x', 'y', 'z'] },
+    ], '2026-11-20');
+    expect(REPORT_MONEY_CHECK_MAX).toBe(3);
+    expect(checks.map((check) => [check.kind, check.side, check.amount])).toEqual([
+      ['duplicate_expense', 'game_club', 150_000],
+      ['low_income_day', 'bar', 100_000],
+      ['duplicate_expense', 'game_club', 40_000],
+    ]);
+  });
+
+  it('adds a "Стоит проверить" block and caption line only when something was found', () => {
+    const input = buildDailyFinanceReportInput({
+      ...baseRows,
+      moneyChecks: [duplicate(2), lowDay('game_club', 'warning', 550_000), spike],
+    });
+    const text = formatRussianDailyFinanceReport(input);
+    expect(text).toContain([
+      '🔎 Стоит проверить:',
+      '  • 🔴 Повтор расхода: Расходные материалы и хозтовары: 150 000 UZS (2 одинаковые записи из денег клуба)',
+      '  • 🟡 Низкий доход клуба: 550 000 UZS (обычно 1 000 000 UZS в этот день недели)',
+    ].join('\n'));
+    expect(text).not.toContain('Ремонт');
+    expect(formatRussianDailyFinanceReportCaption(input)).toContain('🔎 Стоит проверить: 2');
+
+    const bar = buildDailyFinanceReportInput({ ...baseRows, moneyChecks: [lowDay('bar', 'danger', 100_000), { ...duplicate(5), side: 'bar' }] });
+    expect(formatRussianDailyFinanceReport(bar)).toContain('🔴 Низкие продажи бара: 100 000 UZS');
+    expect(formatRussianDailyFinanceReport(bar)).toContain('(5 одинаковых записей из денег бара)');
+
+    for (const rows of [{ ...baseRows, moneyChecks: [] }, { ...baseRows, moneyChecks: [spike, shortage] }, baseRows]) {
+      const none = buildDailyFinanceReportInput(rows);
+      expect(formatRussianDailyFinanceReport(none)).not.toContain('Стоит проверить');
+      expect(formatRussianDailyFinanceReportCaption(none)).not.toContain('Стоит проверить');
+    }
+    expect(buildDailyFinanceReportInput(baseRows).moneyChecks).toBeUndefined();
+  });
+
+  it('falls back to the category key for a category without a Russian label', () => {
+    expect(reportMoneyCheckText({ ...duplicate(2), category: 'custom_thing' }).title).toBe('Повтор расхода: custom_thing');
   });
 });
 

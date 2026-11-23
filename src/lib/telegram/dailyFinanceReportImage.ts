@@ -8,7 +8,8 @@ import { BAR_COST_TARGET, OTHER_CATEGORY } from '../calculations/financialAnalys
 import { BAR_LEFT, GAME_CLUB_LEFT, type DrillSankey } from '../calculations/sankeyDrill';
 import { layoutSankey } from '../sankeyLayout';
 import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
-import { hasStockAdjustments, runningDailyAverage, type DailyFinanceMonthForecast, type DailyFinanceMonthMoney, stockCorrectionItemLabel, stockWriteOffItemLabel, type DailyFinanceIncomePoint, type DailyFinancePromoGiveaway, type DailyFinanceReportInput, type DailyFinanceStockCorrection, type DailyFinanceStockWriteOff } from './dailyFinanceReport';
+import type { MoneyCheck } from '../calculations/moneyChecks';
+import { hasStockAdjustments, reportMoneyCheckText, runningDailyAverage, type DailyFinanceMonthForecast, type DailyFinanceMonthMoney, stockCorrectionItemLabel, stockWriteOffItemLabel, type DailyFinanceIncomePoint, type DailyFinancePromoGiveaway, type DailyFinanceReportInput, type DailyFinanceStockCorrection, type DailyFinanceStockWriteOff } from './dailyFinanceReport';
 import { REPORT_FONT_DIRECTORY, REPORT_FONT_FILES } from './reportFontConfig';
 
 const WIDTH = 1600;
@@ -473,6 +474,32 @@ function lowStockSection(items: LowStockProduct[], y: number): { svg: string; he
   };
 }
 
+const MONEY_CHECK_ROW_HEIGHT = 40;
+
+/** "Worth checking": the report date's checks (at most three, already sorted), the amount on the right. */
+function moneyCheckSection(checks: MoneyCheck[], y: number): { svg: string; height: number } {
+  const height = 96 + checks.length * MONEY_CHECK_ROW_HEIGHT + 16;
+  const x = PAGE_X + 28;
+  const right = WIDTH - PAGE_X - 28;
+  const rowsSvg = checks.map((check, index) => {
+    const rowY = y + 100 + index * MONEY_CHECK_ROW_HEIGHT;
+    const color = check.severity === 'danger' ? RED : AMBER;
+    const { title, detail } = reportMoneyCheckText(check);
+    return `<circle cx="${x + 7}" cy="${rowY - 7}" r="6" fill="${color}"/>
+    <text x="${x + 26}" y="${rowY}" font-size="20" fill="${TEXT}">${escapeXml(truncate(title, 52))}<tspan font-size="17" fill="${MUTED}" dx="12">${escapeXml(truncate(detail, 56))}</tspan></text>
+    <text x="${right}" y="${rowY}" text-anchor="end" font-size="20" font-weight="700" fill="${color}">${escapeXml(money(check.amount))}</text>`;
+  }).join('\n    ');
+
+  return {
+    height,
+    svg: `${card(PAGE_X, y, PAGE_WIDTH, height, '#2A2418', '#4A3F26')}
+    ${iconBadge(PAGE_X + 46, y + 44, 18, AMBER, GLYPH_ALERT)}
+    <text x="${PAGE_X + 76}" y="${y + 51}" font-size="20" font-weight="800" fill="${INK}">СТОИТ ПРОВЕРИТЬ · ${checks.length}</text>
+    <text x="${right}" y="${y + 51}" text-anchor="end" font-size="16" fill="${MUTED}">записи за этот день</text>
+    ${rowsSvg}`,
+  };
+}
+
 const GLYPH_GIFT = '<rect x="-14" y="-4" width="28" height="18" rx="2"/><line x1="-16" y1="-4" x2="16" y2="-4"/><line x1="0" y1="-4" x2="0" y2="14"/><path d="M0,-4 C-6,-4 -10,-8 -8,-12 C-5,-15 -1,-10 0,-4 C1,-10 5,-15 8,-12 C10,-8 6,-4 0,-4 Z"/>';
 const PROMO_MAX_ITEMS = 8;
 const PROMO_ROW_HEIGHT = 40;
@@ -828,11 +855,17 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
   const detailWidth = (PAGE_WIDTH - 24) / 2;
   const barX = PAGE_X + detailWidth + 24;
 
+  // Optional cards stack under the breakdown; each one adds its height and a 24 gap.
+  const checksY = detailY + detailHeight + 24;
+  const checks = input.moneyChecks?.length
+    ? moneyCheckSection(input.moneyChecks, checksY)
+    : null;
+  const promoY = checksY + (checks ? checks.height + 24 : 0);
   const promo = input.promoGiveaways?.length
-    ? promoGiveawaySection(input.promoGiveaways, detailY + detailHeight + 24)
+    ? promoGiveawaySection(input.promoGiveaways, promoY)
     : null;
   // Write-offs and corrections have an image of their own (buildStockAdjustmentsReportSvg).
-  const lowStockY = detailY + detailHeight + 24 + (promo ? promo.height + 24 : 0);
+  const lowStockY = promoY + (promo ? promo.height + 24 : 0);
   const lowStock = input.lowStockProducts?.length
     ? lowStockSection(input.lowStockProducts, lowStockY)
     : null;
@@ -918,7 +951,7 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
     ${moneyText(barX + 44, netBoxY + 70, barNetProfit, 28, barNetProfit < 0 ? RED : ORANGE)}
     ${iconTile(barX + detailWidth - 100, netBoxY + 16, 56, ORANGE, GLYPH_BARS)}
 
-    ${promo?.svg ?? ''}
+    ${checks ? `${checks.svg}\n    ` : ''}${promo?.svg ?? ''}
     ${lowStock?.svg ?? ''}
 
     ${reportFooter(footerY, `Все суммы указаны в UZS, за ${input.businessDateLabel}. Итоги месяца и прогноз — на следующих изображениях.`)}`);

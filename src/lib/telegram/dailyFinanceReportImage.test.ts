@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
+import type { MoneyCheck } from '../calculations/moneyChecks';
 import type { DailyFinanceReportInput } from './dailyFinanceReport';
 import {
   buildDailyFinanceReportSvg,
@@ -370,6 +371,41 @@ describe('daily finance report image', () => {
     expect(withPromo).not.toContain('Напиток 8');
     expect(withPromo).toContain('и ещё 2');
     expect(withPromo).toContain('себестоимость 165 000 UZS');
+  });
+
+  it('adds a "worth checking" card only when the report date has checks, and leaves the layout alone otherwise', async () => {
+    const moneyChecks: MoneyCheck[] = [
+      {
+        kind: 'duplicate_expense', severity: 'danger', side: 'game_club', date: '2026-08-27',
+        range: { from: '2026-08-27', to: '2026-08-27' }, category: 'supplies', amount: 150_000, count: 2, recordIds: ['a', 'b'],
+      },
+      {
+        kind: 'low_income_day', severity: 'warning', side: 'bar', date: '2026-08-27',
+        range: { from: '2026-08-27', to: '2026-08-27' }, amount: 300_000, usual: 600_000,
+      },
+    ];
+    const plain = buildDailyFinanceReportSvg(reportInput());
+    expect(buildDailyFinanceReportSvg({ ...reportInput(), moneyChecks: [] })).toBe(plain);
+    expect(plain).not.toContain('СТОИТ ПРОВЕРИТЬ');
+
+    const withChecks = buildDailyFinanceReportSvg({ ...reportInput(), moneyChecks });
+    // 96 header + 2 rows of 40 + 16, and a 24 gap.
+    expect(withChecks).toContain('height="1270"');
+    expect(withChecks).toContain('СТОИТ ПРОВЕРИТЬ · 2');
+    expect(withChecks).toContain('Повтор расхода: Расходные материалы и хозтовары');
+    expect(withChecks).toContain('2 одинаковые записи из денег клуба');
+    expect(withChecks).toContain('Низкие продажи бара');
+    expect(withChecks).toContain('150 000 UZS');
+
+    const lowStockProducts = [{ name: 'Cola', currentStock: 0, threshold: 5, level: 'out' as const }];
+    const lowStockOnly = buildDailyFinanceReportSvg({ ...reportInput(), lowStockProducts });
+    const both = buildDailyFinanceReportSvg({ ...reportInput(), lowStockProducts, moneyChecks });
+    const heightOf = (svg: string) => Number(/height="(\d+)"/.exec(svg)?.[1]);
+    expect(heightOf(both) - heightOf(lowStockOnly)).toBe(216);
+    expect(both.indexOf('СТОИТ ПРОВЕРИТЬ')).toBeLessThan(both.indexOf('ЗАКАНЧИВАЕТСЯ НА СКЛАДЕ'));
+
+    const png = await sharp(await renderDailyFinanceReportPng({ ...reportInput(), moneyChecks })).metadata();
+    expect(png).toMatchObject({ format: 'png', width: 1600, height: 1270 });
   });
 });
 

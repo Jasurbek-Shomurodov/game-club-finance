@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { ExpenseRow } from '../calculations/dashboardMetrics';
 import {
   buildDailyFinanceTelegramReport,
   getClubBusinessDayStartHour,
   getLowStockProductRows,
   getPromoGiveawayRows,
+  getReportMoneyChecks,
   sendTelegramMessage,
   sendTelegramPhoto,
   sendTelegramPhotoAlbum,
@@ -73,9 +75,18 @@ describe('buildDailyFinanceTelegramReport', () => {
 
     const inventory = queries.filter((query) =>
       query.table === 'daily_stock_counts' && query.select?.includes('closing_stock'));
+    // Eight weeks back for the money checks' usual weekday income (before the comparison window).
     expect(inventory).toEqual([expect.objectContaining({
-      filters: ['club_id=club', 'date>=2026-08-01', 'date<=2026-09-03'],
+      filters: ['club_id=club', 'date>=2026-07-09', 'date<=2026-09-03'],
     })]);
+    expect(queries).toContainEqual(expect.objectContaining({
+      table: 'daily_cash_entries',
+      filters: ['club_id=club', 'date>=2026-07-09', 'date<=2026-09-03'],
+    }));
+    expect(queries).toContainEqual(expect.objectContaining({
+      table: 'expenses',
+      filters: ['club_id=club', 'date>=2026-08-01', 'date<=2026-09-03'],
+    }));
     expect(queries).toContainEqual(expect.objectContaining({
       table: 'debt_payments',
       select: 'id,debt_id,date,amount',
@@ -96,6 +107,74 @@ describe('buildDailyFinanceTelegramReport', () => {
     ]);
     expect(queries.every((query) => query.filters.includes('club_id=club') || query.filters.includes('id=club')))
       .toBe(true);
+  });
+});
+
+describe('buildDailyFinanceTelegramReport income window', () => {
+  it('keeps the comparison window when the report date is late enough in the month', async () => {
+    const { client, queries } = recordingClient({ id: 'club', name: 'Pixel' });
+    await buildDailyFinanceTelegramReport(client, { businessDate: '2026-09-30', chatId: '-1001', clubId: 'club' });
+    const cash = queries.find((query) => query.table === 'daily_cash_entries');
+    expect(cash?.filters).toEqual(['club_id=club', 'date>=2026-08-01', 'date<=2026-09-30']);
+  });
+});
+
+describe('getReportMoneyChecks', () => {
+  const cash = (date: string, amount: number) => ({ date, cash_income: amount, terminal_income: 0, card_income: 0 });
+  // Five earlier Thursdays at 1 000 000, then a Thursday at 200 000.
+  const history = ['2026-08-06', '2026-08-13', '2026-08-20', '2026-08-27', '2026-09-03'].map((date) => cash(date, 1_000_000));
+  const expense = (id: string): ExpenseRow => ({
+    id, date: '2026-09-10', amount: 50_000, category: 'supplies', payment_source: 'game_club', payment_method: 'cash',
+    comment: null, created_at: '2026-09-10T10:00:00Z',
+  });
+  const base = {
+    businessDate: '2026-09-10',
+    stockRows: [],
+    expenseRows: [expense('a'), expense('b'), { ...expense('c'), date: '2026-09-09' }],
+  };
+
+  it('flags the closed report date: a duplicate that day and a low day with an entry', () => {
+    const checks = getReportMoneyChecks({
+      ...base,
+      currentBusinessDate: '2026-09-11',
+      cashRows: [...history, cash('2026-09-10', 200_000)],
+    });
+    expect(checks?.map((check) => [check.kind, check.date])).toEqual([
+      ['duplicate_expense', '2026-09-10'],
+      ['low_income_day', '2026-09-10'],
+    ]);
+  });
+
+  it('judges no low day for a day still in progress or without a daily-cash entry', () => {
+    const open = getReportMoneyChecks({
+      ...base,
+      currentBusinessDate: '2026-09-10',
+      cashRows: [...history, cash('2026-09-10', 200_000)],
+    });
+    expect(open?.map((check) => check.kind)).toEqual(['duplicate_expense']);
+    const noEntry = getReportMoneyChecks({
+      ...base,
+      currentBusinessDate: '2026-09-11',
+      // The bar had sales, but without the day's cash entry the day is not closed out.
+      stockRows: [
+        ...['2026-08-13', '2026-08-20', '2026-08-27', '2026-09-03'].map((date) => ({ date, bar_income: 500_000 })),
+        { date: '2026-09-10', bar_income: 10_000 },
+      ],
+      cashRows: history,
+    });
+    expect(noEntry?.map((check) => check.kind)).toEqual(['duplicate_expense']);
+  });
+
+  it('omits the block instead of failing the report when the checks cannot be built', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const broken = { some: () => { throw new Error('boom'); } } as never;
+    expect(getReportMoneyChecks({ ...base, currentBusinessDate: '2026-09-11', cashRows: broken })).toBeUndefined();
+    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('money checks unavailable'), expect.any(Error));
+    consoleError.mockRestore();
+  });
+
+  it('omits the block when the business day is unknown', () => {
+    expect(getReportMoneyChecks({ ...base, currentBusinessDate: null, cashRows: history })).toBeUndefined();
   });
 });
 
