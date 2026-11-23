@@ -462,6 +462,8 @@ test('REP-008 each side has its own money flow, and a category in it opens its p
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/financial-analysis');
   await expect(page.getByRole('heading', { name: 'Financial Analysis', level: 1 })).toBeVisible();
+  // "Worth a look" sits under the scorecards: its checks, or one quiet line when nothing is off.
+  await expect(page.getByRole('region', { name: 'Worth a look' })).toBeVisible();
   const flowTitle = (text) => page.locator('#main-content svg title', { hasText: new RegExp(`^${text} `) });
 
   // The game club flow: its income, including new debts, against what it paid for and kept.

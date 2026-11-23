@@ -1,3 +1,5 @@
+import type { MoneyCheck } from '@/lib/calculations/moneyChecks';
+
 /**
  * Links a tapped figure or row opens: the page that lists the records behind it.
  * Each target page reads these query parameters; keep them in step.
@@ -64,6 +66,39 @@ export function financialAnalysisHref(month: string): string {
 /** The owner reserve's own ledger. */
 export function reserveHistoryHref(): string {
   return '/reserve?view=history';
+}
+
+/** Cash shortages live on Owner Profit, beside the money they were taken from. */
+export function cashShortagesHref(): string {
+  return '/money-taken';
+}
+
+/**
+ * Where a money check opens: the records behind it, on a page the member may
+ * open; otherwise nothing. Owner Profit lists shortages only for the owner and
+ * only for the current business month, so any other shortage check opens its
+ * shortage expenses in Reports.
+ */
+export function moneyCheckHref(check: MoneyCheck, access: {
+  canOpen: (path: string) => boolean;
+  isOwner: boolean;
+  /** The club's current business month, `YYYY-MM`. */
+  businessMonth: string;
+}): string | undefined {
+  const expenses = (category: string) => (access.canOpen('/reports')
+    ? reportsHref(check.range, { category: `expense:${category}`, source: check.side })
+    : undefined);
+  switch (check.kind) {
+    case 'duplicate_expense':
+    case 'category_spike':
+      return check.category ? expenses(check.category) : undefined;
+    case 'low_income_day':
+      return check.date && access.canOpen('/daily-report') ? dailyReportHref(check.date) : undefined;
+    case 'repeated_shortage':
+      return access.isOwner && access.canOpen('/money-taken') && check.range.to.slice(0, 7) === access.businessMonth
+        ? cashShortagesHref()
+        : expenses('shortage');
+  }
 }
 
 /** Where a money-details line opens: the closing count for bar sales and purchases, otherwise that day in Reports. */

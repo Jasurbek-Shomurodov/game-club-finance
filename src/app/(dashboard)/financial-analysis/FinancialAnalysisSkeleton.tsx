@@ -2,10 +2,11 @@ import { Skeleton } from '@/components/PresentationFoundation';
 import { DonutCardSkeleton, HeadingSkeleton, InOutChartCardSkeleton, SkeletonCard } from '@/components/charts/ChartSkeletons';
 import { SideScorecardSkeleton } from '@/components/financial-analysis/AnalysisSections';
 import { OverallAnalysisSkeleton } from '@/components/financial-analysis/OverallSkeleton';
+import { MoneyChecksPanelSkeleton } from '@/components/financial-analysis/MoneyChecksPanel';
 
 /**
  * Financial analysis while it loads. The monthly view: the two side scorecards
- * over the money flow, trends and details sections. The overall view has its
+ * over the "Worth a look" checks and the money flow, trends and details sections. The overall view has its
  * own shape (`OverallAnalysisSkeleton`). Keep both in step with the page.
  */
 export function FinancialAnalysisSkeleton({ view = 'monthly' }: { view?: 'monthly' | 'overall' }) {
@@ -52,13 +53,14 @@ function FlowCardSkeleton() {
 }
 
 /**
- * What sits under the scorecards: the money flow (two flow cards, then the
+ * What sits under the scorecards: the "Worth a look" checks, the money flow (two flow cards, then the
  * category donut beside the comparison), the three trend charts and the two
  * detail lists. The planned-expenses block is optional, so it has no placeholder.
  */
 export function AnalysisBodySkeleton() {
   return (
     <div className="space-y-6" aria-hidden="true">
+      <MoneyChecksPanelSkeleton />
       <div className="space-y-3">
         <HeadingSkeleton />
         <FlowCardSkeleton />

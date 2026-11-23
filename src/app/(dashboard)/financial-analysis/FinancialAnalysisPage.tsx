@@ -45,9 +45,11 @@ import {
   type PaymentMethodFlowRow,
   type PlaystationDayRow,
 } from '@/lib/calculations/financialAnalysis';
-import { buildExpensePlanSummary, type ExpensePlanSummary } from '@/lib/calculations/expensePlans';
+import { buildExpensePlanSummary, type ExpensePreset, type ExpensePlanSummary } from '@/lib/calculations/expensePlans';
+import { buildMoneyChecks, moneyCheckHistoryStart } from '@/lib/calculations/moneyChecks';
 import type { MoneyExchangeRow } from '@/lib/calculations/moneyExchanges';
 import { ExpensePlanPanel } from '@/components/financial-analysis/ExpensePlanPanel';
+import { MoneyChecksPanel, MoneyChecksPanelSkeleton } from '@/components/financial-analysis/MoneyChecksPanel';
 import { MoneyFlowSankeys } from '@/components/financial-analysis/MoneyFlowSankeys';
 import {
   CategoryComparison,
@@ -233,12 +235,13 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
     return promise;
   }, [monthlyWindow]);
 
-  // One read covers the selected and comparison periods; they are split in
-  // memory. When both fall inside the 12-month window, that read is reused.
+  // One read covers the selected and comparison periods and the history the
+  // money checks compare with; they are split in memory. When all of it falls
+  // inside the 12-month window, that read is reused.
   const loadLedgers = useCallback(async () => {
     if (!selectedClubId) return null;
     const fetchRange = {
-      from: previousRange.from < range.from ? previousRange.from : range.from,
+      from: [previousRange.from, range.from, moneyCheckHistoryStart(range)].sort()[0],
       to: previousRange.to > range.to ? previousRange.to : range.to,
     };
     const [rows, exchangeRows] = await Promise.all([
@@ -249,7 +252,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
       fetchMoneyExchanges(createClient(), selectedClubId, range.from, range.to),
     ]);
     return { clubId: selectedClubId, ledgers: rows, exchangeRows };
-  }, [loadMonthlyWindow, monthlyWindow, previousRange.from, previousRange.to, range.from, range.to, selectedClubId]);
+  }, [loadMonthlyWindow, monthlyWindow, previousRange.from, previousRange.to, range, selectedClubId]);
   // Ledgers remember their club, so another club's rows never render as current.
   const ledgerQuery = useClubQuery<{ clubId: string; ledgers: AnalysisLedgers; exchangeRows: MoneyExchangeRow[] } | null>(loadLedgers, null);
   const loadedLedgers = ledgerQuery.data && ledgerQuery.data.clubId === selectedClubId ? ledgerQuery.data : null;
@@ -267,6 +270,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
   const monthlyError = monthlyQuery.error;
 
   // Planned expenses (091) for the selected range; absent until a club sets some up.
+  // The presets also tell the money checks which categories the plans cover.
   const loadPlans = useCallback(async () => {
     if (!selectedClubId) return null;
     const supabase = createClient();
@@ -274,11 +278,12 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
       fetchExpensePresets(supabase, selectedClubId),
       fetchPresetExpenses(supabase, selectedClubId, range),
     ]);
-    if (!available || presets.length === 0) return null;
-    return { clubId: selectedClubId, summary: buildExpensePlanSummary(presets, expenses, range) };
+    if (!available || presets.length === 0) return { clubId: selectedClubId, presets: [], summary: null };
+    return { clubId: selectedClubId, presets, summary: buildExpensePlanSummary(presets, expenses, range) };
   }, [range, selectedClubId]);
-  const planQuery = useClubQuery<{ clubId: string; summary: ExpensePlanSummary } | null>(loadPlans, null);
-  const plans = planQuery.data && planQuery.data.clubId === selectedClubId ? planQuery.data.summary : null;
+  const planQuery = useClubQuery<{ clubId: string; presets: ExpensePreset[]; summary: ExpensePlanSummary | null } | null>(loadPlans, null);
+  const loadedPlans = planQuery.data && planQuery.data.clubId === selectedClubId ? planQuery.data : null;
+  const plans = loadedPlans?.summary ?? null;
 
   // A failed window read is evicted above, so a retry reads it afresh while a
   // successful one is shared; the page-level retry covers both queries.
@@ -287,6 +292,28 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
   };
 
   const current = useMemo(() => sliceLedgers(ledgers, range), [ledgers, range]);
+  // What looks off in the month, against the history the ledger read covers.
+  // Until the plans settle it is unknown which categories they cover; a failed
+  // plan read leaves every category to the checks.
+  const plansSettled = !!loadedPlans || planQuery.error;
+  const moneyChecks = useMemo(
+    () => (loadedLedgers && plansSettled
+      ? buildMoneyChecks({
+        range,
+        today: businessToday,
+        expenseRows: loadedLedgers.ledgers.expenseRows,
+        cashRows: loadedLedgers.ledgers.cashRows,
+        stockRows: loadedLedgers.ledgers.stockRows,
+        presets: loadedPlans?.presets ?? [],
+      })
+      : null),
+    [businessToday, loadedLedgers, loadedPlans, plansSettled, range],
+  );
+  const checkAccess = useMemo(() => ({
+    canOpen: (path: string) => canAccessPath(role, featureAccess, path),
+    isOwner: role === 'owner',
+    businessMonth: businessToday.slice(0, 7),
+  }), [businessToday, featureAccess, role]);
   const previous = useMemo(() => sliceLedgers(ledgers, previousRange), [ledgers, previousRange]);
   // Average daily income follows the dashboard: each side through its latest entry in the range.
   const analysis = useMemo(() => buildFinancialAnalysis(range, current, { exchangeRows }), [current, exchangeRows, range]);
@@ -391,6 +418,17 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
             </div>
           ) : (
             <div className={cn('space-y-6 transition-opacity motion-reduce:transition-none', loading && 'pointer-events-none opacity-60')} aria-busy={loading || undefined}>
+              {/* Rows read before a month switch would judge the new month against the wrong history. */}
+              {moneyChecks && !loading ? (
+                <MoneyChecksPanel
+                  checks={moneyChecks}
+                  labelFor={categoryName}
+                  access={checkAccess}
+                  currency={currency}
+                  locale={locale}
+                />
+              ) : <MoneyChecksPanelSkeleton />}
+
               {planQuery.error ? (
                 <Section title={t('planSection')}>
                   <LoadErrorAlert retrying={planQuery.loading} onRetry={() => void planQuery.reload()}>
