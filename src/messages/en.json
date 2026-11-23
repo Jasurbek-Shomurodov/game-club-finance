@@ -545,6 +545,8 @@
     "collectedTakenTotal": "Total taken",
     "collectedEmpty": "No money has been collected this month yet.",
     "collectionFilter": "Filter by closed days",
+    "searchEntries": "Search note, person, category or amount",
+    "noSearchMatches": "No entries match this search.",
     "collectionFilterAll": "All ({count})",
     "collectionFilterPending": "Open ({count})",
     "collectionFilterCollected": "Closed ({count})",

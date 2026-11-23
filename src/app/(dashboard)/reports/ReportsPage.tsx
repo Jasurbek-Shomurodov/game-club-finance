@@ -39,6 +39,7 @@ import {
   PageHeader,
   SectionHeading,
   Select,
+  SearchInput,
   SegmentedControl,
   TableSkeleton,
   toneForAmount,
@@ -171,21 +172,8 @@ function amountToneClassName(amount: number): string {
   return amount < 0 ? 'text-danger-600' : 'text-success-600';
 }
 
-/** The closeout table lists a subtle day header row followed by that day's entries. */
-type CloseoutRow =
-  | {
-    kind: 'day';
-    key: string;
-    date: string;
-    income: number;
-    gameClubExpenses: number;
-    barExpenses: number;
-    total: number;
-    /** Game-club money left on the day in each payment method. */
-    left: Record<'cash' | 'terminal' | 'card' | 'playstation', number>;
-    count: number;
-  }
-  | { kind: 'activity'; key: string; date: string; activity: MoneyReportActivity };
+/** One entry of the closeout table; entries are grouped under a one-line header per day. */
+type CloseoutRow = { key: string; date: string; activity: MoneyReportActivity };
 
 function SummaryCard({
   label,
@@ -244,6 +232,13 @@ type ExpenseSourceFilter = 'game_club' | 'bar' | null;
 
 /** A red edge down the left of every row of a closed (collected) day. */
 const CLOSED_DAY_ROW = '[&>td:first-child]:shadow-[inset_4px_0_0_rgb(var(--c-danger-500))]';
+/** The day header of a closed day: tinted, with the same red edge and the header's hairlines. */
+const CLOSED_DAY_HEADER = 'bg-danger-100/70 shadow-[inset_4px_0_0_rgb(var(--c-danger-500)),inset_0_1px_0_rgb(var(--c-gray-200)),inset_0_-1px_0_rgb(var(--c-gray-200))]';
+
+/** Lower case with spaces and thousands separators dropped from digits, so "1 200 000" finds 1200000. */
+function searchText(value: string): string {
+  return value.toLowerCase().replace(/(\d)[\s\u00a0\u202f,.]+(?=\d)/g, '$1');
+}
 
 export default function ReportsPage({ requestedFrom, requestedTo, requestedCategory, requestedSource, requestedView }: {
   requestedFrom?: string;
@@ -284,6 +279,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   }, [requestedCategory]);
   /** Narrows the closeout table to dates ticked as collected, or to the ones still waiting. */
   const [collectionFilter, setCollectionFilter] = useState<'all' | 'pending' | 'collected'>('all');
+  /** Narrows the closeout to entries whose comment, person, type, category, method or amount match. */
+  const [search, setSearch] = useState('');
   const [view, setView] = useState<ReportsView>(requestedView === 'collected' || (requestedView === 'writeOffs' && role === 'owner') ? requestedView : 'closeout');
   // Keep the tab shareable without dropping the rest of the link.
   useEffect(() => {
@@ -301,6 +298,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     setCategoryFilter(category);
     setSourceFilter(source);
     setCollectionFilter('all');
+    setSearch('');
     document.getElementById('report-closeout')?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
   };
   /** "With the admin" is the money of the days nobody has collected yet: show those days, or every day on a second tap. */
@@ -932,31 +930,41 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   }
 
   const collectedDayCount = filteredReport.days.filter((day) => collectionsByDate.has(day.date)).length;
-  const closeoutRows = useMemo<CloseoutRow[]>(() => filteredReport.days.filter((day) => (
-    collectionFilter === 'all' || collectionsByDate.has(day.date) === (collectionFilter === 'collected')
-  )).flatMap((day) => [
-    {
-      kind: 'day' as const,
-      key: `day:${day.date}`,
-      date: day.date,
-      income: day.income,
-      gameClubExpenses: day.gameClubExpenses,
-      barExpenses: day.barExpenses,
-      total: day.total,
-      left: { cash: day.cash, terminal: day.terminal, card: day.card, playstation: day.playstation },
-      count: day.activities.length,
-    },
-    ...day.activities.map((activity, index) => ({
-      kind: 'activity' as const,
-      key: activity.id ? `${activity.source}:${activity.id}` : `${day.date}-${activity.source}-${index}`,
-      date: day.date,
-      activity,
-    })),
-  ]), [collectionFilter, collectionsByDate, filteredReport.days]);
+  const searchQuery = searchText(search.trim());
+  function matchesSearch(activity: MoneyReportActivity): boolean {
+    if (!searchQuery) return true;
+    const amounts = activity.exchange
+      ? [activity.exchange.fromAmount, activity.exchange.toAmount]
+      : [Math.abs(activity.amount)];
+    const methods = activity.paymentBreakdown
+      ? (Object.keys(activity.paymentBreakdown) as Array<keyof typeof activity.paymentBreakdown>).filter((method) => activity.paymentBreakdown?.[method])
+      : [activity.paymentMethod];
+    return searchText([
+      activity.comment ?? '',
+      activity.createdByName ?? '',
+      activityTypeLabel(activity),
+      categoryLabel(activity),
+      ...methods.map((method) => paymentLabel(method ?? null)),
+      ...amounts.map((amount) => String(amount)),
+    ].join(' ')).includes(searchQuery);
+  }
+  // Days in the chosen state, each with its entries that match the search; a day with none is left out while searching.
+  const closeoutDays = filteredReport.days
+    .filter((day) => collectionFilter === 'all' || collectionsByDate.has(day.date) === (collectionFilter === 'collected'))
+    .map((day) => ({
+      day,
+      rows: day.activities.filter(matchesSearch).map((activity, index): CloseoutRow => ({
+        key: activity.id ? `${activity.source}:${activity.id}` : `${day.date}-${activity.source}-${index}`,
+        date: day.date,
+        activity,
+      })),
+    }))
+    .filter(({ rows }) => rows.length > 0);
+  const closeoutRows = closeoutDays.flatMap(({ rows }) => rows);
 
   /** The entries of the closeout as filtered on screen, one row each; exchanges show what was given. */
   function exportCloseout() {
-    const rows = closeoutRows.flatMap((row) => (row.kind === 'activity' ? [[
+    const rows = closeoutRows.map((row) => [
       row.date,
       activityTypeLabel(row.activity),
       categoryLabel(row.activity),
@@ -964,7 +972,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       row.activity.exchange ? exchangeMethodLabel(row.activity.exchange.from) : paymentLabel(row.activity.paymentMethod),
       row.activity.comment ?? '',
       row.activity.createdByName ?? '',
-    ]] : []));
+    ]);
     const headers = [t('date'), t('type'), t('category'), `${t('amount')} (${tc('currency')})`, tc('paymentMethod'), t('descriptionLabel'), tc('recordedBy')];
     downloadCsv(csvFileName('reports', range.from, range.to), toCsv(headers, rows, csvSeparatorForLocale(locale)));
   }
@@ -986,8 +994,10 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   function dayFigureButton(date: string, figure: DayFigure, children: ReactNode) {
     return (
       <Button
+        key={figure}
         variant="ghost"
         size="sm"
+        className="min-h-7 gap-1.5 px-2 text-xs font-medium text-gray-600"
         title={t('showDayFigure', { figure: dayFigureLabels[figure] })}
         onClick={(event) => {
           event.stopPropagation();
@@ -999,65 +1009,82 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     );
   }
 
+  /** One line per day over its entries: date, day total, the figures that open their entries, and the collection tick. */
+  function dayHeader(day: MoneyReport['days'][number]) {
+    const closed = collectionsByDate.has(day.date);
+    const left = { cash: day.cash, terminal: day.terminal, card: day.card, playstation: day.playstation };
+    return (
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="flex items-center gap-2 whitespace-nowrap">
+          <span className={closed ? 'text-danger-700' : 'text-gray-900'}>{formatDateOnly(day.date, locale)}</span>
+          <Badge variant="outline" size="sm">{day.activities.length}</Badge>
+          {closed && <Badge variant="danger" size="sm" icon={<Lock size={11} aria-hidden="true" />}>{t('dayClosed')}</Badge>}
+        </span>
+        <span className={cn('whitespace-nowrap tabular-nums', amountToneClassName(day.total))}>
+          <Money amount={day.total} showPlus currency={null} />
+        </span>
+        {/* Income minus these game-club expenses is the day total; bar-paid
+            expenses come out of bar cash, so they are listed separately.
+            Each figure opens its entries, where some can be left out. */}
+        <span className="flex flex-1 flex-wrap items-center gap-x-0.5 font-normal">
+          {dayFigureButton(day.date, 'income', <>{t('income')} <Money amount={day.income} currency={null} className="text-gray-900" /></>)}
+          {dayFigureButton(day.date, 'expenses', <>{t('expenses')} <Money amount={day.gameClubExpenses} currency={null} className="text-gray-900" /></>)}
+          {day.barExpenses > 0 && dayFigureButton(day.date, 'barExpenses', <>{t('bar')} · {t('expenses')} <Money amount={day.barExpenses} currency={null} className="text-gray-900" /></>)}
+          {paymentCards.filter((card) => left[card.method] !== 0).map(({ method, icon: Icon, label }) => (
+            dayFigureButton(day.date, method, (
+              <>
+                <Icon size={13} className="shrink-0 text-gray-500" aria-hidden="true" />
+                <span className="sr-only">{t('left')} · </span>{label}
+                <Money amount={left[method]} currency={null} className={amountToneClassName(left[method])} />
+              </>
+            ))
+          ))}
+        </span>
+        {showActions && <span className="ml-auto shrink-0">{collectionCell(day.date)}</span>}
+      </div>
+    );
+  }
+
   const closeoutColumns: DataTableColumn<CloseoutRow>[] = [
     {
       key: 'date',
       header: t('dateAndTime'),
-      className: 'w-56 whitespace-nowrap',
-      render: (row) => (row.kind === 'day' ? (
-        <span className="block">
-          <span className="flex items-center gap-2">
-            <span className={cn('font-semibold', collectionsByDate.has(row.date) ? 'text-danger-700' : 'text-gray-900')}>
-              {formatDateOnly(row.date, locale)}
-            </span>
-            <Badge variant="outline" size="sm">{row.count}</Badge>
-          </span>
-          {collectionsByDate.has(row.date) && (
-            <Badge variant="danger" size="sm" icon={<Lock size={11} aria-hidden="true" />} className="mt-1.5">{t('dayClosed')}</Badge>
-          )}
-        </span>
-      ) : (
-        <span className="flex items-center gap-3">
+      className: 'w-52 whitespace-nowrap',
+      render: (row) => (
+        <span className="flex items-center gap-2.5">
           <CategoryIcon
+            size="sm"
             category={row.activity.category}
             kind={row.activity.kind === 'debt_payment' ? 'debtPayment' : row.activity.kind}
             tone={row.activity.kind === 'expense' && row.activity.paymentSource === 'bar' ? 'bar' : undefined}
           />
-          <span className="block min-w-0">
+          <span className="block min-w-0 leading-tight">
             <span className="block text-gray-700">{formatTime(row.activity.createdAt, locale)}</span>
-            <span className="mt-0.5 block max-w-40 truncate text-xs text-gray-500" title={row.activity.createdByName || t('unknownCreator')}>
+            <span className="block max-w-36 truncate text-xs text-gray-500" title={row.activity.createdByName || t('unknownCreator')}>
               {row.activity.createdByName || t('unknownCreator')}
             </span>
           </span>
         </span>
-      )),
+      ),
     },
     {
       key: 'type',
       header: t('type'),
-      className: 'w-32',
-      render: (row) => (row.kind === 'activity'
-        ? <Badge variant={activityKindVariant(row.activity.kind)}>{activityTypeLabel(row.activity)}</Badge>
-        : null),
+      className: 'w-28',
+      render: (row) => <Badge size="sm" variant={activityKindVariant(row.activity.kind)}>{activityTypeLabel(row.activity)}</Badge>,
     },
     {
       key: 'category',
       header: t('category'),
-      className: 'w-48',
-      render: (row) => (row.kind === 'activity'
-        ? <Badge variant="neutral">{categoryLabel(row.activity)}</Badge>
-        : null),
+      className: 'w-44',
+      render: (row) => <Badge size="sm" variant="neutral">{categoryLabel(row.activity)}</Badge>,
     },
     {
       key: 'amount',
       header: t('amount'),
       align: 'right',
-      className: 'w-44 whitespace-nowrap',
-      render: (row) => (row.kind === 'day' ? (
-        <span className={cn('font-semibold', amountToneClassName(row.total))}>
-          <Money amount={row.total} showPlus currency={null} />
-        </span>
-      ) : row.activity.exchange ? (
+      className: 'w-40 whitespace-nowrap',
+      render: (row) => (row.activity.exchange ? (
         <span className="font-semibold text-gray-700">
           {exchangeAmountLabel(row.activity.exchange.from, row.activity.exchange.fromAmount)}
           {' → '}
@@ -1072,14 +1099,14 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     {
       key: 'payment',
       header: <span className="whitespace-nowrap">{t('paymentMethod')}</span>,
-      className: 'w-36',
+      className: 'w-48',
       render: (row) => {
-        if (row.kind !== 'activity' || row.activity.exchange) return null;
+        if (row.activity.exchange) return null;
         const { paymentBreakdown, paymentMethod } = row.activity;
         if (paymentBreakdown) {
           const used = (Object.keys(paymentBreakdown) as Array<keyof typeof paymentBreakdown>)
             .filter((method) => paymentBreakdown[method] !== 0);
-          return used.length ? <span className="flex flex-col gap-1 text-xs">{used.map(paymentMethodChip)}</span> : null;
+          return used.length ? <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">{used.map(paymentMethodChip)}</span> : null;
         }
         return paymentMethod
           ? <span className="text-xs">{paymentMethodChip(paymentMethod)}</span>
@@ -1089,39 +1116,20 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     {
       key: 'description',
       header: t('descriptionLabel'),
-      className: 'min-w-60',
+      className: 'min-w-48',
       mobile: 'full',
-      render: (row) => (row.kind === 'day' ? (
-        <span className="-mx-2 flex flex-wrap items-center gap-x-1">
-          {/* Income minus these game-club expenses is the day total; bar-paid
-              expenses come out of bar cash, so they are listed separately.
-              Each figure opens its entries, where some can be left out. */}
-          {dayFigureButton(row.date, 'income', <>{t('income')}: <Money amount={row.income} currency={null} /></>)}
-          {dayFigureButton(row.date, 'expenses', <>{t('expenses')}: <Money amount={row.gameClubExpenses} currency={null} /></>)}
-          {row.barExpenses > 0 && dayFigureButton(row.date, 'barExpenses', <>{t('bar')} · {t('expenses')}: <Money amount={row.barExpenses} currency={null} /></>)}
-          {paymentCards.filter((card) => row.left[card.method] !== 0).map(({ method, icon: Icon, label }) => (
-            <span key={method} className="contents" title={`${t('left')}: ${label}`}>
-              {dayFigureButton(row.date, method, (
-                <>
-                  <Icon size={13} className="shrink-0 text-gray-500" aria-hidden="true" />
-                  {t('left')} · {label}
-                  <Money amount={row.left[method]} currency={null} className={amountToneClassName(row.left[method])} />
-                </>
-              ))}
-            </span>
-          ))}
+      render: (row) => (
+        <span className="line-clamp-2 max-w-md break-words text-gray-600" title={row.activity.comment || undefined}>
+          {row.activity.comment || <span className="text-gray-400">—</span>}
         </span>
-      ) : (
-        <span className="block max-w-xs break-words text-gray-600">{row.activity.comment || t('noDescription')}</span>
-      )),
+      ),
     },
     ...(showActions ? [{
       key: 'actions',
       header: <span className="sr-only">{t('actions')}</span>,
       align: 'right' as const,
-      className: 'w-16',
+      className: 'w-14',
       render: (row: CloseoutRow) => {
-        if (row.kind === 'day') return collectionCell(row.date);
         if (collectionsByDate.has(row.date)) {
           return (
             <span className="inline-flex h-8 w-8 items-center justify-center text-danger-400" title={t('dayClosedHint')}>
@@ -1320,72 +1328,81 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
                 title={t('dailyCloseout')}
                 description={t('dailyCloseoutDescription')}
                 action={(
-                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-                    <Button variant="outline" size="sm" onClick={exportCloseout} disabled={loading || closeoutRows.length === 0} icon={<Download size={16} aria-hidden="true" />}>
-                      {tc('export')}
-                    </Button>
-                    <SegmentedControl
-                      variant="chips"
-                      size="sm"
-                      label={t('collectionFilter')}
-                      value={collectionFilter}
-                      onChange={setCollectionFilter}
-                      options={[
-                        { value: 'all', label: t('collectionFilterAll', { count: filteredReport.days.length }) },
-                        { value: 'pending', label: t('collectionFilterPending', { count: filteredReport.days.length - collectedDayCount }) },
-                        { value: 'collected', label: t('collectionFilterCollected', { count: collectedDayCount }) },
-                      ]}
-                    />
-                    <Select
-                      value={categoryFilter}
-                      onChange={(event) => setCategoryFilter(event.target.value as MoneyReportCategoryFilter)}
-                      aria-label={t('filterByCategory')}
-                      className="sm:w-56"
-                    >
-                      <option value="all">{t('allCategories')}</option>
-                      <optgroup label={t('incomeCategories')}>
-                        <option value="money_in">{t('allIncome')}</option>
-                        <option value="income">{t('dailyClubIncome')}</option>
-                        <option value="debt_payment">{t('debtPayment')}</option>
-                      </optgroup>
-                      <option value="exchange">{t('exchanges')}</option>
-                      <optgroup label={t('expenseCategories')}>
-                        <option value="expense">{t('allExpenses')}</option>
-                        {EXPENSE_CATEGORIES.map((category) => (
-                          <option key={category} value={`expense:${category}`}>
-                            {te(category)}
-                          </option>
-                        ))}
-                      </optgroup>
-                    </Select>
-                  </div>
+                  <Button variant="outline" size="sm" onClick={exportCloseout} disabled={loading || closeoutRows.length === 0} icon={<Download size={16} aria-hidden="true" />}>
+                    {tc('export')}
+                  </Button>
                 )}
               />
+              <div className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-center">
+                <SearchInput
+                  controlSize="sm"
+                  value={search}
+                  onChange={setSearch}
+                  placeholder={t('searchEntries')}
+                  className="lg:w-72"
+                />
+                <Select
+                  controlSize="sm"
+                  value={categoryFilter}
+                  onChange={(event) => setCategoryFilter(event.target.value as MoneyReportCategoryFilter)}
+                  aria-label={t('filterByCategory')}
+                  className="lg:w-52"
+                >
+                  <option value="all">{t('allCategories')}</option>
+                  <optgroup label={t('incomeCategories')}>
+                    <option value="money_in">{t('allIncome')}</option>
+                    <option value="income">{t('dailyClubIncome')}</option>
+                    <option value="debt_payment">{t('debtPayment')}</option>
+                  </optgroup>
+                  <option value="exchange">{t('exchanges')}</option>
+                  <optgroup label={t('expenseCategories')}>
+                    <option value="expense">{t('allExpenses')}</option>
+                    {EXPENSE_CATEGORIES.map((category) => (
+                      <option key={category} value={`expense:${category}`}>
+                        {te(category)}
+                      </option>
+                    ))}
+                  </optgroup>
+                </Select>
+                <SegmentedControl
+                  variant="chips"
+                  size="sm"
+                  label={t('collectionFilter')}
+                  value={collectionFilter}
+                  onChange={setCollectionFilter}
+                  className="lg:ml-auto"
+                  options={[
+                    { value: 'all', label: t('collectionFilterAll', { count: filteredReport.days.length }) },
+                    { value: 'pending', label: t('collectionFilterPending', { count: filteredReport.days.length - collectedDayCount }) },
+                    { value: 'collected', label: t('collectionFilterCollected', { count: collectedDayCount }) },
+                  ]}
+                />
+              </div>
             </CardHeader>
             {loading ? (
-              <TableSkeleton bare rows={6} columns={showActions ? 7 : 6} />
+              <TableSkeleton bare rows={8} columns={showActions ? 7 : 6} />
             ) : (
               <DataTable
                 mobileCards
                 bare
+                dense
                 label={t('dailyCloseout')}
-                minWidth={showActions ? 1040 : 980}
+                minWidth={showActions ? 980 : 920}
                 columns={closeoutColumns}
                 data={closeoutRows}
+                groups={closeoutDays.map(({ day, rows }) => ({
+                  key: day.date,
+                  header: dayHeader(day),
+                  rows,
+                  className: collectionsByDate.has(day.date) ? CLOSED_DAY_HEADER : undefined,
+                }))}
                 keyExtractor={(row) => row.key}
-                emptyState={<EmptyState compact title={t('noData')} />}
-                rowClassName={(row) => {
+                emptyState={<EmptyState compact title={searchQuery ? t('noSearchMatches') : t('noData')} />}
+                rowClassName={(row) => (collectionsByDate.has(row.date)
                   // A collected day is closed: its header and entries read as one red block.
-                  if (collectionsByDate.has(row.date)) {
-                    return cn(CLOSED_DAY_ROW, row.kind === 'day'
-                      ? 'bg-danger-100/70 hover:bg-danger-100/70 cursor-default'
-                      : 'bg-danger-50 hover:bg-danger-100/50');
-                  }
-                  return row.kind === 'day' ? 'bg-gray-50 hover:bg-gray-50 cursor-default' : undefined;
-                }}
-                onRowClick={(row) => {
-                  if (row.kind === 'activity') setSelectedEntry({ activity: row.activity, date: row.date });
-                }}
+                  ? cn(CLOSED_DAY_ROW, 'bg-danger-50 hover:bg-danger-100/50')
+                  : undefined)}
+                onRowClick={(row) => setSelectedEntry({ activity: row.activity, date: row.date })}
               />
             )}
           </Card>

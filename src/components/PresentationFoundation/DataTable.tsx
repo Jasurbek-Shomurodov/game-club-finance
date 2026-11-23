@@ -33,6 +33,8 @@ export interface DataTableGroup<T> {
   /** Content of the full-width section header row. */
   header: ReactNode;
   rows: T[];
+  /** Extra classes for the section header cell (a status tint). */
+  className?: string;
 }
 
 const NESTED_CONTROLS = 'a, button, input, select, textarea, label, [role="button"], [role="checkbox"]';
@@ -269,6 +271,7 @@ export function DataTable<T>({
                       'bg-gray-50 text-left shadow-[inset_0_1px_0_rgb(var(--c-gray-200)),inset_0_-1px_0_rgb(var(--c-gray-200))] text-sm font-semibold text-gray-900',
                       stickyHeader && cn('sticky', stickyColumn ? LAYER.group : 'z-10'),
                       mobileCards && 'max-sm:static max-sm:block',
+                      group.className,
                     )}
                   >
                     {group.header}

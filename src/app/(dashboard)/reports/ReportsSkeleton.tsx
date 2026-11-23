@@ -38,6 +38,23 @@ function MoneyTilesCardSkeleton({ count, description = false }: { count: number;
   );
 }
 
+/** The closeout card: heading with export, the search and filter line, then day-grouped entries. */
+export function CloseoutTableSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-surface shadow-card" aria-hidden="true">
+      <div className="space-y-3 p-5">
+        <HeadingSkeleton action />
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+          <Skeleton className="h-10 rounded-xl lg:w-72" />
+          <Skeleton className="h-10 rounded-xl lg:w-52" />
+          <Skeleton className="h-8 rounded-full lg:ml-auto lg:w-72" />
+        </div>
+      </div>
+      <TableSkeleton bare rows={8} columns={6} />
+    </div>
+  );
+}
+
 /**
  * Reports while the route loads, in the shape of the view being opened.
  * Closeout: the four period totals, where the money is, money left by method,
@@ -79,7 +96,7 @@ export function ReportsSkeleton({ view = 'closeout', whereabouts = 3 }: {
         <InOutChartCardSkeleton />
         <DonutCardSkeleton />
       </div>
-      <TableSkeleton rows={8} columns={6} />
+      <CloseoutTableSkeleton />
     </div>
   );
 }

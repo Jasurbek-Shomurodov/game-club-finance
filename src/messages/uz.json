@@ -545,6 +545,8 @@
     "collectedTakenTotal": "Jami olingan",
     "collectedEmpty": "Bu oy hali pul olinmagan.",
     "collectionFilter": "Yopilgan kunlar bo‘yicha filtr",
+    "searchEntries": "Qidirish: izoh, xodim, toifa yoki summa",
+    "noSearchMatches": "Bu qidiruv bo‘yicha yozuv topilmadi.",
     "collectionFilterAll": "Barchasi ({count})",
     "collectionFilterPending": "Ochiq ({count})",
     "collectionFilterCollected": "Yopilgan ({count})",

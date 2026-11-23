@@ -76,7 +76,7 @@ export function PageHeader({ title, tabs, action, meta, back, backLabel, classNa
     {topBarActions}
     {/* Wraps instead of squeezing: the title keeps at least ~16rem and the
         actions drop to their own row when they don't fit beside it. */}
-    <div className={cn('mb-5 flex flex-wrap items-end justify-between gap-x-6 gap-y-3', className)}>
+    <div className={cn('flex flex-wrap justify-between gap-x-6 gap-y-3', inTopBar ? 'mb-4 items-center' : 'mb-5 items-end', className)}>
       <div className="min-w-0 flex-1 basis-64">
         {back && (
           back === true ? (
@@ -96,7 +96,14 @@ export function PageHeader({ title, tabs, action, meta, back, backLabel, classNa
         {meta && !inTopBar && <div className="mt-3">{meta}</div>}
       </div>
       {action && !actionsInTopBar && (
-        <div data-page-actions className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end [&>*]:w-full sm:[&>*]:w-auto">
+        <div
+          data-page-actions
+          className={cn(
+            'flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end [&>*]:w-full sm:[&>*]:w-auto',
+            // Title already in the top bar: the actions keep the bar's compact one-line shape.
+            inTopBar && '[&_[data-range-label]]:hidden [&_[data-range-trigger]]:min-h-11 [&_[data-range-trigger]]:py-1 [&_[data-field-label]]:sr-only',
+          )}
+        >
           {action}
         </div>
       )}

@@ -545,6 +545,8 @@
     "collectedTakenTotal": "Всего забрано",
     "collectedEmpty": "В этом месяце деньги ещё не забирали.",
     "collectionFilter": "Фильтр по закрытым дням",
+    "searchEntries": "Поиск: комментарий, сотрудник, категория, сумма",
+    "noSearchMatches": "Нет записей по этому запросу.",
     "collectionFilterAll": "Все ({count})",
     "collectionFilterPending": "Открытые ({count})",
     "collectionFilterCollected": "Закрытые ({count})",
