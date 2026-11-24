@@ -5410,5 +5410,9 @@
   {
     "file": "181_pixel_exchange_rate_correction.sql",
     "probes": []
+  },
+  {
+    "file": "182_pixel_exchange_receipt_correction.sql",
+    "probes": []
   }
 ]
