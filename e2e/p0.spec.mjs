@@ -1437,7 +1437,8 @@ test('RES-005 an owner puts Game Club money into the reserve from Reports, by me
 
   // The reserve page opens the same form.
   await page.goto('/reserve');
-  await page.getByRole('button', { name: 'Put in', exact: true }).click();
+  // The page action, not the chart's "Put in" legend pill further down.
+  await page.getByRole('button', { name: 'Put in', exact: true }).first().click();
   await expect(page.getByRole('dialog', { name: 'Put into the reserve' }).locator('#reserve-deposit-cash')).toBeVisible();
 });
 
