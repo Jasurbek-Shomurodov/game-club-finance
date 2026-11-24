@@ -58,9 +58,24 @@ describe('entry change notices', () => {
     expect(text).toContain(' · Сумы · ');
   });
 
-  it('keeps the dollars of a dollar expense', () => {
-    const usd = { ...expense, payment_method: 'usd', usd_amount: '100', usd_rate: '12850' };
-    expect(buildExpenseDeletedNotice(usd, 'Owner')).toContain('$100 по курсу 12 850');
+  it('names a USD-account expense by its dollars and account, never a rate or its sums', () => {
+    const usd = { ...expense, amount: 1_082_003, category: 'equipment', payment_method: 'usd', usd_amount: '90', usd_rate: '12022.26' };
+    expect(buildExpenseDeletedNotice(usd, 'Owner').split('\n')).toEqual([
+      '🗑 Удалён расход из резерва, деньги вернулись в резерв: $90',
+      'Долларовый счёт · Оборудование · 24 октября',
+      '💬 Mehrinoz',
+      'Удалил(а) Owner',
+    ]);
+    const changed = buildExpenseChangedNotice(usd, { ...usd, date: '2026-10-20' }, 'Owner');
+    expect(changed.split('\n')).toEqual([
+      '✏️ Изменён расход из резерва: $90',
+      'Долларовый счёт · Оборудование · 20 октября',
+      'Дата: 24 октября → 20 октября',
+      '💬 Mehrinoz',
+      'Изменил(а) Owner',
+    ]);
+    expect(changed).not.toContain('по курсу');
+    expect(changed).not.toContain('сум');
   });
 
   it('lists only the non-zero income methods with their total', () => {

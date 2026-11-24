@@ -15,7 +15,7 @@ import {
   type OwnerProfitSnapshotPayload,
 } from '@/lib/calculations/ownerProfitSnapshot';
 import type { StockPurchaseCostRow } from '@/lib/calculations/barMoney';
-import { applyOwnerReserve, dollarReserveEntries, type ReserveLedgerEntry, type ReservePaidExpense } from '@/lib/calculations/ownerReserve';
+import { applyOwnerReserve, dollarReserveEntries, withReservePurchaseDollars, type ReserveLedgerEntry, type ReservePaidExpense } from '@/lib/calculations/ownerReserve';
 import type {
   DailyCashRow,
   DebtPaymentValueRow,
@@ -118,8 +118,12 @@ function buildOwnerReserve(
       ...dollarReserveEntries(exchangeRows, clubId),
     ],
     // Like investments, a failed expense read leaves reserve purchases out instead of failing the page:
-    // their months then show less left to take, never more.
-    reserveExpenses: reserveMissing || reserveExpenseRes.error ? [] : (reserveExpenseRes.data ?? []).map((row) => ({ ...row, amount: Number(row.amount) })),
+    // their months then show less left to take, never more. A USD-account purchase takes its dollars
+    // and cost per dollar from the dollar expense read, so its history row can lead with the dollars.
+    reserveExpenses: reserveMissing || reserveExpenseRes.error ? [] : withReservePurchaseDollars(
+      (reserveExpenseRes.data ?? []).map((row) => ({ ...row, amount: Number(row.amount) })),
+      dollarExpenses,
+    ),
     exchangeRows,
     dollarExpenses,
     reserveSupported: !reserveMissing,

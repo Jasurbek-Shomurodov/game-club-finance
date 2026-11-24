@@ -32,7 +32,7 @@ import type { MoneyReportActivity } from '@/lib/calculations/moneyReport';
 import type { ExchangeMethod } from '@/lib/calculations/moneyExchanges';
 import type { ReserveDepositAmounts } from '@/lib/calculations/ownerReserve';
 import { reserveHistoryHref } from '@/lib/detailLinks';
-import { formatDateOnly, formatDollars, formatTime, formatUnitCurrency } from '@/lib/formatters';
+import { formatCurrency, formatDateOnly, formatDollars, formatTime, formatUnitCurrency } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 
 /** What an owner may correct on an ordinary expense from its sheet. */
@@ -163,9 +163,18 @@ export function EntryDetailsBody({
             {' → '}
             {exchangeAmountLabel(activity.exchange.to, activity.exchange.toAmount)}
           </>
+        ) : activity.dollars ? (
+          // Paid from the reserve's USD account: what left it is dollars.
+          formatDollars(-activity.dollars.amount)
         ) : (
           <Money amount={activity.amount} showPlus currencyClassName="text-sm font-medium tracking-normal text-gray-500" />
         )}
+        // The sums the dollars count as in expenses: what they cost, set by the database (184).
+        amountLabel={!activity.exchange && activity.dollars ? tc('dollarsCountedAs', {
+          amount: formatCurrency(Math.abs(activity.amount)),
+          currency: tc('currency'),
+          rate: formatUnitCurrency(activity.dollars.rate),
+        }) : undefined}
       />
 
       {activity.paymentBreakdown && methodRows.length > 0 && (
@@ -270,13 +279,8 @@ export function EntryDetailsBody({
             value: activity.paymentBreakdown ? (
               t('noDescription')
             ) : activity.dollars ? (
-              // Dollars were converted at their own rate, so the method stays.
-              <span>
-                {paymentLabel('usd')} · {formatDollars(activity.dollars.amount)}
-                <span className="block text-xs font-normal text-gray-500">
-                  {t('exchangeRate')}: {formatUnitCurrency(activity.dollars.rate)} {tc('currency')}
-                </span>
-              </span>
+              // The dollars and what they count as lead the sheet; the method stays.
+              paymentLabel('usd')
             ) : canCorrectPaymentMethod ? (
               <Select
                 value={activity.paymentMethod ?? ''}

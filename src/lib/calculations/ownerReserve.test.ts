@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyOwnerReserve, dollarReserveEntries, reserveActivity, groupReserveActivityByDay, reserveMonthlySeries, reserveDailySeries, reserveBalances, reserveForMonth, planGameClubDepositAll, type ReservePaidExpense } from './ownerReserve';
+import { applyOwnerReserve, dollarReserveEntries, reserveActivity, groupReserveActivityByDay, reserveMonthlySeries, reserveDailySeries, reserveBalances, reserveForMonth, planGameClubDepositAll, withReservePurchaseDollars, type ReservePaidExpense } from './ownerReserve';
 import { sumAvailableMoneyResults, type AvailableMoneyByMonth } from './availableMoney';
 import type { OwnerReserveEntry } from '@/types';
 
@@ -68,6 +68,34 @@ describe('reserveForMonth', () => {
 describe('reserveActivity', () => {
   it('lists the newest first', () => {
     expect(reserveActivity(entries, purchases).map((row) => row.id)).toEqual(['pcs', 'back', 'oct', 'sep', 'bar']);
+  });
+
+  it('gives a USD-account purchase its dollars and cost per dollar, and a sums purchase none', () => {
+    const rows = withReservePurchaseDollars(
+      [
+        purchase('rent', { payment_method: 'usd', amount: 1_082_003, category: 'rent' }),
+        purchase('pcs'),
+        // Read before the dollar expense read caught up: the sums still show.
+        purchase('late', { payment_method: 'usd', amount: 250_000 }),
+      ],
+      [
+        { id: 'rent', usd_amount: '90', usd_rate: '12022.26' },
+        // A sums purchase never takes dollars, whatever a read says.
+        { id: 'pcs', usd_amount: 10, usd_rate: 12_000 },
+      ],
+    );
+    expect(rows.map((row) => [row.id, row.usd_amount, row.usd_rate])).toEqual([
+      ['rent', '90', '12022.26'], ['pcs', undefined, undefined], ['late', undefined, undefined],
+    ]);
+    const activity = reserveActivity([], rows);
+    const dollarsOf = (id: string) => {
+      const row = activity.find((item) => item.id === id);
+      return row?.kind === 'purchase' ? row.dollars : 'not a purchase';
+    };
+    expect(dollarsOf('rent')).toEqual({ amount: 90, rate: 12_022.26 });
+    expect(dollarsOf('pcs')).toBeUndefined();
+    expect(dollarsOf('late')).toBeUndefined();
+    expect(activity.find((item) => item.id === 'rent')?.amount).toBe(1_082_003);
   });
 
   it('dates a deposit by the day the money moved, else the day it was made kept inside its month', () => {

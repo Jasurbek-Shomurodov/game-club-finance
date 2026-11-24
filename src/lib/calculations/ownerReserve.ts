@@ -19,6 +19,34 @@ export interface ReservePaidExpense {
   category: string;
   comment: string | null;
   created_at: string;
+  /** A USD-account expense (143): the dollars spent and what each cost (184), joined from the dollar expense read. */
+  usd_amount?: number | string | null;
+  usd_rate?: number | string | null;
+}
+
+/**
+ * The dollars of a USD-account expense and what each cost, in sums (184), when
+ * they were read; null on a sums purchase or when the dollars are unknown.
+ */
+export function reservePurchaseDollars(expense: Pick<ReservePaidExpense, 'payment_method' | 'usd_amount' | 'usd_rate'>): { amount: number; rate: number } | null {
+  return expense.payment_method === 'usd' && expense.usd_amount != null && expense.usd_rate != null
+    ? { amount: Number(expense.usd_amount), rate: Number(expense.usd_rate) }
+    : null;
+}
+
+/**
+ * Gives each USD-account purchase its dollars and cost per dollar from the
+ * dollar expense read (124), matched by id; sums purchases stay as they are.
+ */
+export function withReservePurchaseDollars<T extends ReservePaidExpense>(
+  expenses: readonly T[],
+  dollarExpenses: ReadonlyArray<{ id: string; usd_amount: number | string | null; usd_rate: number | string | null }>,
+): T[] {
+  const byId = new Map(dollarExpenses.map((row) => [row.id, row]));
+  return expenses.map((expense) => {
+    const dollars = expense.payment_method === 'usd' ? byId.get(expense.id) : undefined;
+    return dollars ? { ...expense, usd_amount: dollars.usd_amount, usd_rate: dollars.usd_rate } : expense;
+  });
 }
 
 export interface ReserveFlow {
@@ -193,7 +221,11 @@ export function reserveBalances(
 
 export type ReserveActivity =
   | { kind: 'deposit' | 'return'; id: string; date: string; source: OwnerWithdrawalSource; amount: number; method: OwnerReserveMethod | null; note: string | null; createdAt: string; entry: ReserveLedgerEntry }
-  | { kind: 'purchase'; id: string; date: string; source: OwnerWithdrawalSource; amount: number; method: OwnerReserveMethod | null; note: string | null; createdAt: string; category: string }
+  /**
+   * An expense the reserve paid: `amount` is the sums it counts as. One paid
+   * from the USD account carries its `dollars` and their cost per dollar (184).
+   */
+  | { kind: 'purchase'; id: string; date: string; source: OwnerWithdrawalSource; amount: number; method: OwnerReserveMethod | null; note: string | null; createdAt: string; category: string; dollars?: { amount: number; rate: number } | null }
   /**
    * Dollars bought with the reserve's sums or sold for them (170): `id` is the
    * exchange's, `amount` the sums, `method` the method the sums passed through.
@@ -251,11 +283,14 @@ export function reserveActivity(
         method: entry.payment_method, note: entry.comment, createdAt: entry.created_at, entry,
       }];
     }),
-    ...expenses.map((expense): ReserveActivity => ({
-      kind: 'purchase', id: expense.id, date: expense.date, source: sideOf(expense.payment_source), amount: Number(expense.amount),
-      method: reserveExpenseMethod(expense.payment_source, expense.payment_method), note: expense.comment, createdAt: expense.created_at,
-      category: expense.category,
-    })),
+    ...expenses.map((expense): ReserveActivity => {
+      const dollars = reservePurchaseDollars(expense);
+      return {
+        kind: 'purchase', id: expense.id, date: expense.date, source: sideOf(expense.payment_source), amount: Number(expense.amount),
+        method: reserveExpenseMethod(expense.payment_source, expense.payment_method), note: expense.comment, createdAt: expense.created_at,
+        category: expense.category, ...(dollars ? { dollars } : {}),
+      };
+    }),
   ].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
 }
 

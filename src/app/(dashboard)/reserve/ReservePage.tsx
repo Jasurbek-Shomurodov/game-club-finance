@@ -241,7 +241,8 @@ export default function ReservePage() {
       description: row.kind === 'exchange'
         ? t('exchange.deleteConfirm', { sums: amount, dollars: formatDollars(row.usd) })
         : row.kind === 'purchase'
-          ? tr('deletePurchaseConfirm', { amount: row.method === 'usd' ? formatDollars(row.amount) : amount })
+          // A USD-account purchase names its dollars; `amount` is the sums they count as (184).
+          ? tr('deletePurchaseConfirm', { amount: row.dollars ? formatDollars(row.dollars.amount) : amount })
           : tr(row.kind === 'deposit' ? 'deleteDepositConfirm' : 'deleteReturnConfirm', { amount }),
       confirmLabel: tc('delete'),
     });

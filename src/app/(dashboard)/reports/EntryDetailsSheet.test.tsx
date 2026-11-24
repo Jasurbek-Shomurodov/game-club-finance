@@ -88,6 +88,19 @@ describe('EntryDetailsBody', () => {
     expect(html).toContain('Mops');
   });
 
+  it('leads a USD-account expense with its dollars and what they count as, with no exchange rate', () => {
+    const html = render({
+      activity: {
+        ...expense, category: 'equipment', amount: -1_082_003, paymentMethod: 'usd', comment: 'Game',
+        dollars: { amount: 90, rate: 12_022.26 },
+      },
+    });
+    expect(html).toContain('−$90');
+    expect(html).toContain('Counted as 1 082 003 UZS · cost 12 022,26 per $1');
+    expect(html).not.toContain(messages.reports.exchangeRate);
+    expect(html).toContain('US dollars');
+  });
+
   it('keeps the reserve actions on a closed day: closing moves no money, the form caps at the till', () => {
     const html = render({ closedBy: 'Aziz' });
     expect(html).toContain(messages.reports.dayClosed);

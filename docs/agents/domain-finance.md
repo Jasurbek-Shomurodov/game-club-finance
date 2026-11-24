@@ -87,12 +87,34 @@ Accounting profit and available cash answer different questions:
   not a configurable club method, and a Bar expense cannot name it. It reduces
   the PlayStation balance, not card. Payroll payments and a plan's usual method
   do not offer it.
-- A Game Club expense can be paid from the club's US dollars bought through
-  money exchanges (`payment_method = 'usd'`, migration 124). The person enters
-  dollars and a rate; `amount` is the sums value (`dollarExpenseAmount`), so
-  profit and expense totals count it in UZS. It lowers the dollars held
-  (`heldDollars`, `dollarsForMonth`), never cash, terminal, card or PlayStation,
-  and its method cannot be corrected afterwards.
+- An expense can be paid from the owner reserve's **USD account**, the dollars
+  bought through money exchanges (`payment_method = 'usd'`, migrations 124,
+  143). The person enters the dollars only; nobody types a rate. The database
+  counts it at **what its dollars cost** (migration 184, `dollar_cost_rate`,
+  trigger `expenses_at_dollar_cost`): the average purchase price of the dollars
+  held just before it,
+
+  ```text
+  usd_rate = round(sums value of the dollars held / dollars held, 2)   -- cost per dollar
+  amount   = round(usd_amount × usd_rate)
+  ```
+
+  where the sums value is the reserve's `'usd'` bucket (sums paid for dollars −
+  sums received for dollars − every dollar expense's `amount`, all time) and the
+  dollars are bought − sold − spent. So `usd_rate` means cost per dollar, not a
+  market rate, and spending dollars never moves the average price of the dollars
+  left; only buying or selling does. Whatever rate a client sends is ignored for
+  a signed-in user (service-role seeds and migrations keep what they pass). A
+  backdated dollar expense is priced at today's cost, the all-time basis the
+  dollar limit uses. With no dollars held the balance trigger refuses it
+  (`INSUFFICIENT_BALANCE`); with dollars held but no positive sums value the
+  cost is unknown and it is refused (`dollar_cost_unknown`). Profit and expense
+  totals count `amount` in UZS. It lowers the dollars held (`heldDollars`,
+  `dollarsForMonth`), never cash, terminal, card or PlayStation, and its method
+  cannot be corrected afterwards. Wherever it is shown (Reports entry details,
+  Reserve history, Telegram) it leads with its dollars (`$90`); the app adds
+  "Counted as 1 082 003 UZS · cost 12 022.26 per $1" beneath, and the Telegram
+  notices name the account ("Долларовый счёт") and no sums figure.
 - A manual Game Club expense cannot spend more than its method holds
   (migration 125, `expense_method_balance`). A UZS method holds its Reports
   "left" for the expense's month: collections plus debt payments, minus Game
@@ -232,6 +254,14 @@ and purchases from it. A `deposit` takes money out of a
 month's owner profit (it is not a withdrawal: withdrawn totals and owner-profit
 KPI are unchanged), a `return` gives it back to a month, and a purchase paid
 from the reserve is an ordinary expense with `paid_from_reserve`.
+
+The reserve holds two accounts (155): the **UZS account** (its sums, whatever
+side or method they came from; a purchase from it is stored as cash) and the
+**USD account** (its dollars, 143; a purchase from it is a `payment_method =
+'usd'` expense counted at what its dollars cost, 184, see Canonical formulas).
+The USD account's "bought for" is its `'usd'` bucket and its average price is
+that bucket over the dollars held (`reserveDollarRates`); both stay exact
+because a dollar purchase takes out exactly its dollars' cost.
 
 ```text
 reserve held   = deposits - returns - reserve purchases       (per side; per method on Game Club)

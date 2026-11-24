@@ -3,7 +3,7 @@ import type { ExchangeMethod } from '../calculations/moneyExchanges';
 import { targetChatId } from './clubChat';
 import { exchangeAmounts, exchangeMethods, exchangeReserveNote } from './exchangeNotification';
 import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
-import { expenseDollars, expenseFromReserve, expenseMethod, expenseSource } from './expenseNotification';
+import { expenseDollars, expenseFigure, expenseFromReserve, expenseMethod, expenseSource, expenseSourceAndMethod } from './expenseNotification';
 import { authorLine, commentLine, details, lines, method as methodLabel, noticeDate, sum } from './messageParts';
 import { sendTelegramMessage } from './sendDailyFinanceReport';
 
@@ -29,16 +29,19 @@ export interface ExpenseNoticeRow {
 
 const paymentLabel = (expense: ExpenseNoticeRow) => expenseMethod(expense.payment_method, expenseDollars(expense), expenseFromReserve(expense));
 
-const expenseDetails = (expense: ExpenseNoticeRow) => details(
-  expenseSource(expense.payment_source, expenseFromReserve(expense)),
-  category(expense.category),
-  paymentLabel(expense),
-  noticeDate(expense.date),
-);
+/** "$90" for a USD-account expense, whose sums the database set (184); otherwise its sums. */
+const figure = (expense: ExpenseNoticeRow) => expenseFigure(Number(expense.amount), expenseDollars(expense));
+
+const expenseDetails = (expense: ExpenseNoticeRow) => {
+  const [paidFrom, paidWith] = expenseSourceAndMethod(
+    expense.payment_source, expense.payment_method, expenseDollars(expense), expenseFromReserve(expense),
+  );
+  return details(paidFrom, category(expense.category), paidWith, noticeDate(expense.date));
+};
 
 export function buildExpenseDeletedNotice(expense: ExpenseNoticeRow, deletedBy: string): string {
   return lines(
-    `🗑 Удалён расход${expenseFromReserve(expense) ? ' из резерва, деньги вернулись в резерв' : ''}: ${sum(Number(expense.amount))}`,
+    `🗑 Удалён расход${expenseFromReserve(expense) ? ' из резерва, деньги вернулись в резерв' : ''}: ${figure(expense)}`,
     expenseDetails(expense),
     commentLine(expense.comment),
     `Удалил(а) ${deletedBy}`,
@@ -48,7 +51,7 @@ export function buildExpenseDeletedNotice(expense: ExpenseNoticeRow, deletedBy: 
 /** The current expense, then "Field: old → new" for each field that changed. */
 export function buildExpenseChangedNotice(before: ExpenseNoticeRow, after: ExpenseNoticeRow, changedBy: string): string {
   const changes: Array<[string, string, string]> = [
-    ['Сумма', sum(Number(before.amount)), sum(Number(after.amount))],
+    ['Сумма', figure(before), figure(after)],
     ['Источник', expenseSource(before.payment_source, expenseFromReserve(before)), expenseSource(after.payment_source, expenseFromReserve(after))],
     ['Категория', category(before.category), category(after.category)],
     ['Оплата', paymentLabel(before), paymentLabel(after)],
@@ -56,7 +59,7 @@ export function buildExpenseChangedNotice(before: ExpenseNoticeRow, after: Expen
   ];
   const commentChanged = (before.comment ?? '') !== (after.comment ?? '');
   return lines(
-    `✏️ Изменён расход${expenseFromReserve(after) ? ' из резерва' : ''}: ${sum(Number(after.amount))}`,
+    `✏️ Изменён расход${expenseFromReserve(after) ? ' из резерва' : ''}: ${figure(after)}`,
     expenseDetails(after),
     ...changes.filter(([, old, now]) => old !== now).map(([label, old, now]) => `${label}: ${old} → ${now}`),
     commentChanged ? `Комментарий: ${before.comment || '—'} → ${after.comment || '—'}` : commentLine(after.comment),

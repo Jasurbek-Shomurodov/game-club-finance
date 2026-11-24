@@ -26,6 +26,14 @@ const KIND_TONE: Record<ReserveActivity['kind'], Tone> = { deposit: 'primary', r
 
 const dollars = (value: number) => formatDollars(value);
 
+/** "Counted as 1 082 003 UZS · cost 12 022.26 per $1": what a USD-account purchase's dollars count as in sums (184). */
+function useDollarsCountedAs() {
+  const tc = useTranslations('common');
+  return (row: { amount: number; dollars: { rate: number } }) => tc('dollarsCountedAs', {
+    amount: formatCurrency(row.amount), currency: tc('currency'), rate: formatUnitCurrency(row.dollars.rate),
+  });
+}
+
 /** Why a row cannot be deleted here, or null when it can. */
 function lockReason(row: ReserveActivity): 'exchange' | 'collection' | null {
   // A purchase is an expense the reserve paid: deleting it gives the money back to the reserve.
@@ -132,6 +140,12 @@ export function ReserveHistoryList({ activity, methodLabel, busyId, disabled, on
                               <span className="block text-base font-bold text-gray-900">{dollars(row.usd)}</span>
                               <span className="block text-xs text-gray-500">{formatCurrency(row.amount)} {tc('currency')}</span>
                             </span>
+                          ) : row.kind === 'purchase' && row.dollars ? (
+                            // Paid from the USD account: the dollars lead, the sums they count as follow (the cost per dollar is in the details).
+                            <span className={amountClassName}>
+                              <span className="block text-base font-bold text-gray-900">{dollars(-row.dollars.amount)}</span>
+                              <span className="block text-xs text-gray-500">{formatCurrency(row.amount)} {tc('currency')}</span>
+                            </span>
                           ) : (
                             <span className={cn(amountClassName, 'text-base font-bold', incoming ? 'text-primary-600' : 'text-gray-900')}>
                               {incoming ? '+' : '−'}{formatCurrency(row.amount)}
@@ -200,10 +214,12 @@ function ReserveEntryDetails({ row, title, month, methodLabel, categoryLabel, bu
   const t = useTranslations('ownerReserve');
   const tc = useTranslations('common');
   const { locale } = useAppLocale();
+  const countedAs = useDollarsCountedAs();
   const Icon = KIND_ICON[row.kind];
   const incoming = row.kind === 'deposit';
   const kindLabel = t(`kinds.${row.kind}`);
   const locked = lockReason(row);
+  const purchaseDollars = row.kind === 'purchase' ? row.dollars ?? null : null;
   const collectionDate = row.kind === 'deposit' ? row.entry.collection_date : null;
 
   const facts: Array<{ label: string; value: ReactNode; hint?: string }> = [];
@@ -276,6 +292,12 @@ function ReserveEntryDetails({ row, title, month, methodLabel, categoryLabel, bu
                 ? `${formatCurrency(row.amount)} ${tc('currency')} → ${dollars(row.usd)}`
                 : `${dollars(row.usd)} → ${formatCurrency(row.amount)} ${tc('currency')}`}
             </p>
+          ) : purchaseDollars ? (
+            // Paid from the USD account: what left it is dollars; the sums are what they cost (184).
+            <>
+              <p className="text-2xl font-bold tabular-nums text-gray-900">{dollars(-purchaseDollars.amount)}</p>
+              <p className="text-xs text-gray-500">{countedAs({ amount: row.amount, dollars: purchaseDollars })}</p>
+            </>
           ) : (
             <p className={cn('text-2xl font-bold tabular-nums', incoming ? 'text-primary-600' : 'text-gray-900')}>
               {incoming ? '+' : '−'}{formatCurrency(row.amount)}
