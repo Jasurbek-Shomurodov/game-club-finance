@@ -48,6 +48,7 @@ import {
 } from '@/lib/calculations/financialAnalysis';
 import { buildExpensePlanSummary, type ExpensePreset, type ExpensePlanSummary, type PresetExpenseRow } from '@/lib/calculations/expensePlans';
 import { buildMoneyChecks, moneyCheckHistoryStart } from '@/lib/calculations/moneyChecks';
+import { buildPlanPaymentHistory, planHistoryStart } from '@/lib/calculations/planPaymentHistory';
 import {
   buildUpcomingPayments,
   planSuggestionHistoryStart,
@@ -58,6 +59,7 @@ import {
 } from '@/lib/calculations/upcomingPayments';
 import type { MoneyExchangeRow } from '@/lib/calculations/moneyExchanges';
 import { ExpensePlanPanel } from '@/components/financial-analysis/ExpensePlanPanel';
+import { PlanPaymentHistoryCard } from '@/components/financial-analysis/PlanPaymentHistoryCard';
 import { useExpensePresetForm } from '@/components/expense-presets/useExpensePresetForm';
 import { MoneyChecksPanel, MoneyChecksPanelSkeleton } from '@/components/financial-analysis/MoneyChecksPanel';
 import { MoneyFlowSankeys } from '@/components/financial-analysis/MoneyFlowSankeys';
@@ -284,12 +286,13 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
 
   // Planned expenses (091) for the selected range; absent until a club sets some up.
   // The presets also tell the money checks which categories the plans cover.
-  // In the current month the linked payments reach back far enough to find
-  // each plan's usual pay day.
+  // The linked payments reach back far enough for the payment history's six
+  // months and, in the current month, each plan's usual pay day; the summary
+  // and the upcoming payments pick their own dates from them.
   const loadPlans = useCallback(async () => {
     if (!selectedClubId) return null;
     const supabase = createClient();
-    const linkedRange = isCurrentMonth ? { from: usualDayHistoryStart(range), to: range.to } : range;
+    const linkedRange = { from: [usualDayHistoryStart(range), planHistoryStart(range)].sort()[0], to: range.to };
     const [{ presets, available }, linked] = await Promise.all([
       fetchExpensePresets(supabase, selectedClubId),
       fetchPresetExpenses(supabase, selectedClubId, linkedRange),
@@ -297,7 +300,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
     if (!available) return { clubId: selectedClubId, rangeFrom: range.from, available, presets: [], linked: [], summary: null };
     if (presets.length === 0) return { clubId: selectedClubId, rangeFrom: range.from, available, presets, linked: [], summary: null };
     return { clubId: selectedClubId, rangeFrom: range.from, available, presets, linked, summary: buildExpensePlanSummary(presets, linked, range) };
-  }, [isCurrentMonth, range, selectedClubId]);
+  }, [range, selectedClubId]);
   const planQuery = useClubQuery<{
     clubId: string;
     /** The month the plans were read for: a reload keeps the previous month's data until it lands. */
@@ -319,6 +322,13 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
       : null),
     [businessToday, isCurrentMonth, loadedPlans, plans, range],
   );
+  // What was paid against each plan in each of the last six months.
+  const planHistory = useMemo(
+    () => (plans && loadedPlans
+      ? buildPlanPaymentHistory({ summary: plans, linkedExpenses: loadedPlans.linked, range })
+      : null),
+    [loadedPlans, plans, range],
+  );
   // Regular expenses with no plan, offered to the owner (the only member who may add plans)
   // in the current month, once both the plans and the history are in.
   const isOwner = role === 'owner';
@@ -330,6 +340,10 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
     [isCurrentMonth, isOwner, ledgerQuery.loading, loadedLedgers, loadedPlans, range],
   );
   const suggestionsFor = (side: PlanSuggestion['side']) => suggestions.filter((suggestion) => suggestion.side === side);
+  const hasPlanRows = !!plans && (plans.gameClub.rows.length > 0 || plans.bar.rows.length > 0);
+  const showGameClubPlans = (plans?.gameClub.rows.length ?? 0) > 0 || suggestionsFor('game_club').length > 0;
+  const showBarPlans = (plans?.bar.rows.length ?? 0) > 0 || suggestionsFor('bar').length > 0;
+  const canOpenReports = canAccessPath(role, featureAccess, '/reports');
   const { openPresetForm, presetFormDialog } = useExpensePresetForm({
     clubId: selectedClubId ?? '',
     presets: livePresets,
@@ -407,7 +421,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
   }, [t, tCategories]);
   const suggestionProps = {
     suggestionLabel: (suggestion: PlanSuggestion) => categoryName(suggestion.category),
-    suggestionHref: (suggestion: PlanSuggestion) => (canAccessPath(role, featureAccess, '/reports')
+    suggestionHref: (suggestion: PlanSuggestion) => (canOpenReports
       ? reportsHref(planSuggestionRange(range), { category: `expense:${suggestion.category}`, source: suggestion.side })
       : undefined),
     onSuggest: (suggestion: PlanSuggestion) => openPresetForm(null, {
@@ -502,10 +516,10 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
                     {t('planLoadError')}
                   </LoadErrorAlert>
                 </Section>
-              ) : ((plans && (plans.gameClub.rows.length > 0 || plans.bar.rows.length > 0)) || suggestions.length > 0) && (
+              ) : (hasPlanRows || suggestions.length > 0) && (
                 <Section title={t('planSection')} description={t('planSectionDesc')}>
                   <div className="grid gap-4 lg:grid-cols-2">
-                    {((plans?.gameClub.rows.length ?? 0) > 0 || suggestionsFor('game_club').length > 0) && (
+                    {showGameClubPlans && (
                       <ExpensePlanPanel
                         title={td('gameClub')}
                         icon={SIDE_ICONS.gameClub}
@@ -519,7 +533,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
                         locale={locale}
                       />
                     )}
-                    {((plans?.bar.rows.length ?? 0) > 0 || suggestionsFor('bar').length > 0) && (
+                    {showBarPlans && (
                       <ExpensePlanPanel
                         title={td('bar')}
                         icon={SIDE_ICONS.bar}
@@ -529,6 +543,19 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
                         suggestions={suggestionsFor('bar')}
                         {...suggestionProps}
                         rowHref={(row) => reportsHref(range, { category: `expense:${row.preset.category}`, source: row.preset.payment_source })}
+                        currency={currency}
+                        locale={locale}
+                      />
+                    )}
+                    {/* Beside a single side's panel it fills the free cell; under two it spans both. */}
+                    {planHistory && hasPlanRows && (
+                      <PlanPaymentHistoryCard
+                        className={showGameClubPlans && showBarPlans ? 'lg:col-span-2' : undefined}
+                        history={planHistory}
+                        sideTitles={{ gameClub: td('gameClub'), bar: td('bar') }}
+                        cellHref={canOpenReports
+                          ? (row, cell) => reportsHref(cell.range, { category: `expense:${row.preset.category}`, source: row.preset.payment_source })
+                          : undefined}
                         currency={currency}
                         locale={locale}
                       />

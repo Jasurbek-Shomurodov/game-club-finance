@@ -37,7 +37,7 @@ export const SUGGESTION_EXEMPT_CATEGORIES: readonly string[] = ['salary', 'short
 const toUtc = (iso: string) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
 
 /** The first day of the month `offset` months from the one `iso` falls in. */
-function monthStart(iso: string, offset = 0): string {
+export function monthStart(iso: string, offset = 0): string {
   const absolute = Number(iso.slice(0, 4)) * 12 + Number(iso.slice(5, 7)) - 1 + offset;
   return `${Math.floor(absolute / 12)}-${String((absolute % 12) + 1).padStart(2, '0')}-01`;
 }

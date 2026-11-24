@@ -207,6 +207,11 @@ test('EXP-008 a planned expense is set up in Settings, picked in the expense for
   const plan = page.getByRole('region', { name: 'Game Club' }).filter({ hasText: 'iCafe' });
   await expect(plan).toContainText(`${uzs(650_000)} of ${uzs(500_000)}`);
   await expect(plan).toContainText(`+${uzs(150_000)}`);
+  // The payment history: this month's cell holds what was paid and opens the month's payments of the plan.
+  const monthLabel = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${month}-01T00:00:00Z`));
+  const historyCell = page.getByRole('link', { name: new RegExp(`^iCafe, ${monthLabel}: ${uzs(650_000)} `) });
+  await expect(historyCell).toHaveText('650K');
+  await expect(historyCell).toHaveAttribute('href', `/reports?from=${month}-01&to=${month}-${lastDay}&category=expense%3Aequipment&source=game_club`);
 
   // With a payment linked, the plan keeps its category and money source (093); the amount stays editable.
   await page.goto('/settings');
