@@ -1204,6 +1204,8 @@
     "usdRateHint": "UZS for 1 US dollar",
     "usdInSums": "Counted as about {amount} {currency} in expenses",
     "usdRateRequired": "Enter the exchange rate.",
+    "priceInDollars": "Price in dollars",
+    "priceInDollarsHint": "Converts dollars to sums at a rate you enter. The expense is saved in UZS.",
     "availableAmount": "Available: {amount}",
     "overBalance": "Only {amount} is left in this payment method.",
     "balancesHelp": "Each method shows the Game Club money it holds for the expense month; dollars show every dollar held.",

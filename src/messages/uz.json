@@ -1204,6 +1204,8 @@
     "usdRateHint": "1 AQSH dollari uchun so‘m",
     "usdInSums": "Xarajatga taxminan {amount} {currency} bo‘lib hisoblanadi",
     "usdRateRequired": "Kursni kiriting.",
+    "priceInDollars": "Narxi dollarda",
+    "priceInDollarsHint": "Dollarni siz kiritgan kurs bo‘yicha so‘mga aylantiradi. Xarajat so‘mda saqlanadi.",
     "availableAmount": "Mavjud: {amount}",
     "overBalance": "Bu to‘lov usulida faqat {amount} qolgan.",
     "balancesHelp": "Har bir usul ostida xarajat oyidagi klub puli qoldig‘i ko‘rsatilgan; dollarda esa qo‘ldagi barcha dollar.",

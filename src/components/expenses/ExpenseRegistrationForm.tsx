@@ -9,6 +9,7 @@ import { PAYMENT_METHOD_ICONS } from '@/components/paymentMethodIcons';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
   Button,
+  Checkbox,
   CurrencyInput,
   DatePicker,
   DecimalInput,
@@ -21,7 +22,7 @@ import {
   Select,
   useEntryNoteGuard,
 } from '@/components/PresentationFoundation';
-import { formatCurrency, formatCurrencyInput, parseDecimalInput, formatDollars } from '@/lib/formatters';
+import { formatCurrency, formatCurrencyInput, formatDecimalInput, parseDecimalInput, formatDollars } from '@/lib/formatters';
 import { isExpenseCategoryAllowedForSource, manualExpenseCategoriesFor } from '@/lib/expenseCategories';
 import { createClient, mutateFinanceRequest } from '@/lib/supabase/client';
 import { fetchExpensePresets } from '@/lib/supabase/expensePresets';
@@ -106,6 +107,10 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
     payment_source: (defaultFromReserve ? 'reserve' : 'game_club') as PaymentSource,
     comment: '',
     preset_id: '',
+    // The UZS account's "Price in dollars" converter: it only fills the sums, nothing about dollars is saved.
+    price_in_dollars: false,
+    price_dollars: '',
+    price_rate: '',
   }), [businessToday, defaultFromReserve, enabledPaymentMethods]);
   const [form, setForm] = useState(emptyForm);
   // A date whose money was collected is closed (097); say so before saving.
@@ -177,6 +182,10 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
   // Dollars held whose sums cost is used up (sold for more than they all cost): the
   // database cannot price a USD-account expense and refuses it (184, dollar_cost_unknown).
   const dollarCostUnknown = paysInDollars && dollarsHeld !== null && dollarsHeld > 0 && usdCostRate === null;
+  // A UZS-account purchase priced in dollars: dollars × the typed rate fill the sums,
+  // which stay editable and are what is saved and checked against the account.
+  const convertsDollars = fromReserve && form.price_in_dollars;
+  const priceRateMissing = convertsDollars && parseDecimalInput(form.price_dollars) > 0 && !(parseDecimalInput(form.price_rate) > 0);
 
   function methodMoney(method: ExpensePaymentMethod, amount: number): string {
     return method === 'usd'
@@ -233,8 +242,31 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
       }
       // Leaving dollars for sums: sum amounts are whole, so show what will be saved.
       if (current.payment_method === 'usd' && next.payment_method !== 'usd') next.amount = formatCurrencyInput(current.amount);
+      // Another source or account hides the dollar converter; the sums stay as they are.
+      if (next.payment_source !== current.payment_source || next.payment_method !== current.payment_method) {
+        next.price_in_dollars = false;
+        next.price_dollars = '';
+        next.price_rate = '';
+      }
+      // The converter fills the sums with dollars × rate; the sums can still be edited afterwards.
+      if (field === 'price_dollars' || field === 'price_rate') {
+        const sums = dollarExpenseAmount(parseDecimalInput(next.price_dollars), parseDecimalInput(next.price_rate));
+        next.amount = sums === null ? '' : formatCurrencyInput(sums);
+      }
       return next;
     });
+  }
+
+  /** Turning the converter on starts its rate from the club's latest dollar exchange; off leaves the sums alone. */
+  function togglePriceInDollars(on: boolean) {
+    setError('');
+    const lastRate = balanceQuery.data?.usdRate ?? null;
+    setForm((current) => ({
+      ...current,
+      price_in_dollars: on,
+      price_dollars: '',
+      price_rate: on && lastRate !== null && lastRate > 0 ? formatDecimalInput(lastRate) : '',
+    }));
   }
 
   function choosePreset(presetId: string) {
@@ -269,6 +301,11 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
 
     if (!selectedClubId) {
       setError(tc('error'));
+      return;
+    }
+    // Dollars without a rate would leave the sums empty, and a plan's amount would be saved instead.
+    if (priceRateMissing) {
+      setError(t('usdRateRequired'));
       return;
     }
     if (!amount || amount <= 0) {
@@ -507,18 +544,55 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
           />
         </Field>
       ) : (
-        <Field label={t('amount')} htmlFor="expense-amount" required={plannedAmount === null} labelAddon={availableAddon} error={overBalanceError}>
-          <CurrencyInput
-            id="expense-amount"
-            controlSize="lg"
-            autoFocus
-            required={plannedAmount === null}
-            placeholder={plannedAmount === null ? undefined : formatCurrency(plannedAmount)}
-            value={form.amount}
-            onValueChange={(value) => set('amount', value)}
-            trailingAddon={tc('currency')}
-          />
-        </Field>
+        <div className="space-y-3">
+          <Field label={t('amount')} htmlFor="expense-amount" required={plannedAmount === null} labelAddon={availableAddon} error={overBalanceError}>
+            <CurrencyInput
+              id="expense-amount"
+              controlSize="lg"
+              autoFocus
+              required={plannedAmount === null}
+              placeholder={plannedAmount === null ? undefined : formatCurrency(plannedAmount)}
+              value={form.amount}
+              onValueChange={(value) => set('amount', value)}
+              trailingAddon={tc('currency')}
+            />
+          </Field>
+          {/* Only the UZS account converts: the USD account spends its own dollars at what they cost. */}
+          {fromReserve && (
+            <Checkbox
+              id="expense-price-in-dollars"
+              label={t('priceInDollars')}
+              description={t('priceInDollarsHint')}
+              checked={form.price_in_dollars}
+              onChange={(event) => togglePriceInDollars(event.target.checked)}
+            />
+          )}
+          {convertsDollars && (
+            <div className="grid grid-cols-2 gap-3">
+              <Field label={t('usdAmount')} htmlFor="expense-dollar-price">
+                <DecimalInput
+                  id="expense-dollar-price"
+                  value={form.price_dollars}
+                  onValueChange={(value) => set('price_dollars', value)}
+                  trailingAddon="$"
+                />
+              </Field>
+              <Field
+                label={t('usdRate')}
+                htmlFor="expense-dollar-rate"
+                hint={t('usdRateHint')}
+                error={priceRateMissing ? t('usdRateRequired') : undefined}
+              >
+                <DecimalInput
+                  id="expense-dollar-rate"
+                  value={form.price_rate}
+                  onValueChange={(value) => set('price_rate', value)}
+                  trailingAddon={tc('currency')}
+                />
+              </Field>
+            </div>
+          )}
+        </div>
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

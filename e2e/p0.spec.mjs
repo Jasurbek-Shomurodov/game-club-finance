@@ -171,6 +171,49 @@ test('EXP-011 an expense paid from the reserve USD account asks no rate, counts 
   expect(rows.at(-1)).toEqual({ amount: 250000, payment_method: 'usd', usd_amount: 20, usd_rate: 12500 });
 });
 
+test('EXP-015 a UZS-account purchase priced in dollars fills the sums from dollars × rate and is saved in sums only', async ({ page }) => {
+  // The latest exchange gives the converter its starting rate.
+  const bought = await restAs(accounts.owner, 'POST', 'rpc/record_money_exchange', {
+    p_id: crypto.randomUUID(), p_club_id: clubs.arcade.id, p_date: today, p_from_method: 'cash', p_to_method: 'usd',
+    p_from_amount: 125_000, p_rate: 12_500, p_comment: 'Cash moved into dollars for parts',
+  });
+  expect(bought.ok).toBe(true);
+  await page.goto('/reports');
+  await moveReserve(page, 'deposit', 'game_club', 500_000);
+  await page.reload();
+  await page.getByRole('button', { name: 'Register Expense' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Register Expense' });
+  const priceInDollars = dialog.getByRole('checkbox', { name: /^Price in dollars/ });
+  // Only the reserve's UZS account converts: not Game Club money, not the USD account.
+  await expect(priceInDollars).toHaveCount(0);
+  await dialog.getByRole('radio', { name: 'Reserve', exact: true }).click();
+  const accountPicker = dialog.getByRole('radiogroup', { name: 'Account' });
+  await accountPicker.getByRole('radio', { name: /USD account/ }).click();
+  await expect(priceInDollars).toHaveCount(0);
+  await accountPicker.getByRole('radio', { name: /UZS account/ }).click();
+  await priceInDollars.check();
+  await expect(dialog.locator('#expense-dollar-rate')).toHaveValue(uzs(12_500));
+  await dialog.locator('#expense-dollar-price').fill('10');
+  await expect(dialog.locator('#expense-amount')).toHaveValue(uzs(125_000));
+  // Turning it off hides the dollars and the rate and keeps the sums.
+  await priceInDollars.uncheck();
+  await expect(dialog.locator('#expense-dollar-price')).toHaveCount(0);
+  await expect(dialog.locator('#expense-amount')).toHaveValue(uzs(125_000));
+  await dialog.locator('#expense-category').selectOption('repair');
+  await dialog.locator('#expense-comment').fill('Spare parts priced in dollars, paid in sums');
+  const posts = [];
+  page.on('request', request => { if (request.method() === 'POST' && request.url().endsWith('/api/expenses')) posts.push(request.postDataJSON()); });
+  await dialog.getByRole('button', { name: 'Save Expense' }).click();
+  await expect(page.getByText('Expense registered successfully.')).toBeVisible();
+  expect(posts).toHaveLength(1);
+  expect(posts[0]).toMatchObject({ amount: 125000, paymentMethod: 'cash', fromReserve: true });
+  expect(posts[0]).not.toHaveProperty('usdAmount');
+  expect(posts[0]).not.toHaveProperty('usdRate');
+  // An ordinary reserve purchase in sums: nothing about dollars is stored.
+  const rows = await (await restAs(accounts.owner, 'GET', `expenses?select=amount,payment_method,paid_from_reserve,usd_amount,usd_rate&club_id=eq.${clubs.arcade.id}&date=eq.${today}&order=created_at.asc`)).json();
+  expect(rows.at(-1)).toEqual({ amount: 125000, payment_method: 'cash', paid_from_reserve: true, usd_amount: null, usd_rate: null });
+});
+
 test('EXP-008 a planned expense is set up in Settings, picked in the expense form and compared in Financial analysis', async ({ page }) => {
   await page.goto('/settings');
   await page.getByRole('button', { name: 'Add planned expense' }).click();
