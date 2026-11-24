@@ -2,7 +2,7 @@
 
 import type { LucideIcon } from 'lucide-react';
 import { CircleDollarSign, HandCoins, Landmark, PiggyBank } from 'lucide-react';
-import { Card, Money, SectionHeading, SkeletonStatus, StatTile, toneForAmount } from '@/components/PresentationFoundation';
+import { Button, Card, Money, SectionHeading, SkeletonStatus, StatTile, toneForAmount } from '@/components/PresentationFoundation';
 import type { MoneyReportPaymentBreakdown } from '@/lib/calculations/moneyReport';
 import { formatDollars } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
@@ -12,8 +12,9 @@ import { MoneyTilesSkeleton, moneyTilesGridClassName } from './ReportsSkeleton';
 /**
  * Where the Game Club's money is right now (169): with the admin, with the
  * collector, and in the owner reserve. Three places, not parts of one total.
+ * An owner can put money into the reserve from here; the form is the reserve's own.
  */
-export function MoneyWhereabouts({ loading, title, kassa, collected, reserve, kassaLabel, kassaHelper, collectedLabel, collectedHelper, reserveLabel, reserveHelper, onKassaClick, onCollectedClick, kassaSelected }: {
+export function MoneyWhereabouts({ loading, title, kassa, collected, reserve, kassaLabel, kassaHelper, collectedLabel, collectedHelper, reserveLabel, reserveHelper, onKassaClick, onCollectedClick, kassaSelected, reserveDepositLabel, onReserveDeposit }: {
   loading: boolean;
   title: string;
   kassa: number;
@@ -30,13 +31,21 @@ export function MoneyWhereabouts({ loading, title, kassa, collected, reserve, ka
   onKassaClick: () => void;
   onCollectedClick: () => void;
   kassaSelected: boolean;
+  /** Owner: opens the reserve deposit form (ReserveDepositModal); shown beside the reserve, with its label. */
+  reserveDepositLabel?: string;
+  onReserveDeposit?: () => void;
 }) {
   const count = reserve === null ? 2 : 3;
+  const depositAction = reserve !== null && onReserveDeposit && reserveDepositLabel ? (
+    <Button variant="outline" size="sm" onClick={onReserveDeposit} icon={<PiggyBank size={16} aria-hidden="true" />}>
+      {reserveDepositLabel}
+    </Button>
+  ) : undefined;
   /** The place's name over one muted line saying what money that is. */
   const place = (label: string, helper: string) => <>{label}<span className="block font-normal">{helper}</span></>;
   return (
     <Card as="section">
-      <SectionHeading size="sm" title={title} />
+      <SectionHeading size="sm" title={title} action={depositAction} />
       {loading ? (
         <SkeletonStatus><MoneyTilesSkeleton count={count} tall className="mt-3" /></SkeletonStatus>
       ) : (

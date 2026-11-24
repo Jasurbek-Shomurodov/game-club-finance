@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ArrowDownToLine, ArrowUpFromLine, ArrowRightLeft, Banknote, CalendarRange, DollarSign, ShoppingCart, Undo2, X } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, ArrowRightLeft, Banknote, CalendarRange, DollarSign, PiggyBank, ShoppingCart, Undo2, X } from 'lucide-react';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
@@ -66,6 +66,7 @@ import { ReserveHistoryList, type DeletableReserveActivity } from './ReserveHist
 import { ReserveExplorerSkeleton, ReserveHistorySkeleton, ReserveOverviewSkeleton } from './ReserveSkeleton';
 import { ReserveReturnModal } from './ReserveReturnModal';
 import { ExpenseModal } from '@/components/expenses/ExpenseModal';
+import { ReserveDepositModal } from '@/components/owner-reserve/ReserveDepositModal';
 import { scrollBehavior } from '@/lib/scroll';
 
 const ReserveExplorer = dynamic(() => import('./ReserveExplorer').then((module) => module.ReserveExplorer), {
@@ -107,6 +108,14 @@ export default function ReservePage() {
   const [exchangeDirection, setExchangeDirection] = useState<'buy' | 'sell' | null>(null);
   const [returnOpen, setReturnOpen] = useState(false);
   const [reservePayOpen, setReservePayOpen] = useState(false);
+  const [depositOpen, setDepositOpen] = useState(false);
+  // Dialogs belong to the club they were opened for: close them on a club switch.
+  useEffect(() => {
+    setExchangeDirection(null);
+    setReturnOpen(false);
+    setReservePayOpen(false);
+    setDepositOpen(false);
+  }, [selectedClubId]);
   // A filter belongs to the club it was set on: another club's history starts unfiltered.
   const [filterState, setFilterState] = useState<{ clubId: string; filter: ReserveHistoryFilter }>({ clubId: selectedClubId, filter: ALL_HISTORY });
   const historyFilter = filterState.clubId === selectedClubId ? filterState.filter : ALL_HISTORY;
@@ -263,6 +272,16 @@ export default function ReservePage() {
       tabs={sectionTabs}
       action={(
         <>
+          {/* Game Club money from the till, by method; Owner Profit keeps its own month-based form. */}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={actionsDisabled}
+            onClick={() => setDepositOpen(true)}
+            icon={<PiggyBank size={16} aria-hidden="true" />}
+          >
+            {tr('depositForm.button')}
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -558,6 +577,16 @@ export default function ReservePage() {
           }}
         />
       ) : null}
+      <ReserveDepositModal
+        open={depositOpen}
+        onClose={() => setDepositOpen(false)}
+        onSaved={async () => {
+          setDepositOpen(false);
+          showToast(tr('depositedToast'), 'success');
+          await query.reload({ silent: true });
+        }}
+        onChanged={() => void query.reload({ silent: true })}
+      />
       <ExpenseModal
         open={reservePayOpen}
         onClose={() => setReservePayOpen(false)}

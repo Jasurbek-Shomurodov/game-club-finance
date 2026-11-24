@@ -2,6 +2,7 @@ import { sumAvailableMoneyResults, type AvailableMoneyByMonth, type AvailableSou
 import type { ExchangeMethod, MoneyExchangeRow } from './moneyExchanges';
 import {
   OWNER_RESERVE_METHODS,
+  OWNER_WITHDRAWAL_PAYMENT_METHODS,
   type OwnerReserveEntry,
   type OwnerReserveMethod,
   type OwnerWithdrawalPaymentMethod,
@@ -402,6 +403,41 @@ export function planGameClubDepositAll(
     left -= amount;
   }
   return plan;
+}
+
+/** Game Club amounts by payment method, as the reserve deposit form holds them. */
+export type ReserveDepositAmounts = Partial<Record<OwnerWithdrawalPaymentMethod, number>>;
+
+/** A whole, non-negative sum; anything that is not a finite number is nothing. */
+const wholeSum = (value: number | null | undefined) => (
+  typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0
+);
+
+/**
+ * Where the reserve deposit form starts, per Game Club method: what was asked
+ * for (an income entry's split), never more than the till holds on the chosen
+ * day. Asked for nothing (the page's "Put in"): everything the till holds.
+ * Whole sums only, as the database stores them.
+ */
+export function reserveDepositPrefill(
+  wanted: ReserveDepositAmounts | null | undefined,
+  till: ReserveDepositAmounts,
+): Record<OwnerWithdrawalPaymentMethod, number> {
+  const askedFor = Boolean(wanted) && Object.keys(wanted as object).length > 0;
+  return Object.fromEntries(OWNER_WITHDRAWAL_PAYMENT_METHODS.map((method) => {
+    const held = wholeSum(till[method]);
+    return [method, askedFor ? Math.min(wholeSum(wanted?.[method]), held) : held];
+  })) as Record<OwnerWithdrawalPaymentMethod, number>;
+}
+
+/** The parts of one deposit: a whole, positive amount for each shown method, in the order shown. */
+export function reserveDepositParts(
+  amounts: ReserveDepositAmounts,
+  methods: readonly OwnerWithdrawalPaymentMethod[],
+): { method: OwnerWithdrawalPaymentMethod; amount: number }[] {
+  return methods
+    .map((method) => ({ method, amount: wholeSum(amounts[method]) }))
+    .filter((part) => part.amount > 0);
 }
 
 /**

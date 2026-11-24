@@ -109,6 +109,9 @@ import {
 } from '@/lib/supabase/moneyCollections';
 import { fetchReserveHoldings } from '@/lib/supabase/ownerReserve';
 import { CollectMoneyModal } from './CollectMoneyForm';
+import { ReserveDepositModal } from '@/components/owner-reserve/ReserveDepositModal';
+import type { ReserveDepositAmounts } from '@/lib/calculations/ownerReserve';
+import { reservedFromGameClubOn } from '@/lib/calculations/entryReserve';
 import { ReportsTabs, type ReportsView } from './ReportsTabs';
 import { DayBreakdownModal } from './DayBreakdownModal';
 import { MethodDaysModal, type PaymentMethodFigure } from './MethodDaysModal';
@@ -252,6 +255,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   const te = useTranslations('expenses.categories');
   const tex = useTranslations('expenses');
   const tg = useTranslations('glance');
+  const tor = useTranslations('ownerReserve');
   const { locale } = useAppLocale();
   const { selectedClubId, businessDayStartHour, role, featureAccess, enabledPaymentMethods } = useClub();
   const hasReportsAccess = canAccessFeature(role, featureAccess, 'reports');
@@ -552,6 +556,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   ])) as Record<CollectedMethod, number>, [collectedSummary.held, paymentCardData]);
   const kassaTotal = COLLECTED_METHODS.reduce((sum, method) => sum + kassaByMethod[method], 0);
   const [collectDialogOpen, setCollectDialogOpen] = useState(false);
+  /** Owner: the reserve deposit form, open with the day and amounts it starts from (none: today, all the till holds). */
+  const [reserveDeposit, setReserveDeposit] = useState<{ date?: string; amounts?: ReserveDepositAmounts } | null>(null);
 
   // Dialogs belong to the club they were opened for: close them on a club switch.
   useEffect(() => {
@@ -562,6 +568,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     setExpenseDialogOpen(false);
     setExchangeDialogOpen(false);
     setCollectDialogOpen(false);
+    setReserveDeposit(null);
     setActionError('');
   }, [selectedClubId]);
 
@@ -1194,6 +1201,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       onCollectedClick={() => setView('collected')}
       onKassaClick={showPendingDays}
       kassaSelected={view === 'closeout' && collectionFilter === 'pending'}
+      reserveDepositLabel={tor('depositForm.button')}
+      onReserveDeposit={isOwner ? () => setReserveDeposit({}) : undefined}
     />
   );
 
@@ -1457,6 +1466,22 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         />
       )}
 
+      {hasReportsAccess && isOwner && (
+        <ReserveDepositModal
+          open={reserveDeposit !== null}
+          initialDate={reserveDeposit?.date}
+          initialAmounts={reserveDeposit?.amounts}
+          onClose={() => setReserveDeposit(null)}
+          onSaved={async () => {
+            setReserveDeposit(null);
+            showToast(tor('depositedToast'));
+            await reloadReport({ silent: true });
+          }}
+          // Some methods stored and another refused: the form stays open, the figures catch up.
+          onChanged={() => void reloadReport({ silent: true })}
+        />
+      )}
+
       {hasReportsAccess && canRegisterExpenses && (
         <ExpenseModal
           open={expenseDialogOpen}
@@ -1500,6 +1525,15 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         paymentLabel={paymentLabel}
         exchangeAmountLabel={exchangeAmountLabel}
         onCorrect={(change) => selectedEntry && void handleUpdateExpense(selectedEntry.activity, change)}
+        canMoveToReserve={isOwner}
+        reservedThatDay={selectedEntry ? reservedFromGameClubOn(reportRows.reserveMoves, selectedEntry.date, reportRows.collectedMoves) : 0}
+        onMoveToReserve={(amounts) => {
+          if (!isOwner || !selectedEntry) return;
+          // The deposit form takes over from the sheet: same day, the entry's amounts as the start.
+          const { date } = selectedEntry;
+          setSelectedEntry(null);
+          setReserveDeposit({ date, amounts });
+        }}
       />
 
       {toastElement}

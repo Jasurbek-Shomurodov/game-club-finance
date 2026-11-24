@@ -542,6 +542,12 @@
     "dateUpdated": "Date changed",
     "dateUpdateError": "Could not change the date. Try again.",
     "addedAt": "Added at {time}",
+    "entryReserve": {
+      "methodsTitle": "By payment method",
+      "moveAll": "Move to reserve",
+      "moveMethod": "Move {method} to reserve",
+      "reservedThatDay": "In the reserve from this day"
+    },
     "collectionMark": "Close the day",
     "collectionMarkConfirm": "Close {date}? No income or expense can be added, changed or deleted on it. Only an owner can reopen it. To take money, use “Collect money”.",
     "collectionUndo": "Reopen the day",
@@ -3079,7 +3085,22 @@
     "paidToast": "Paid from the reserve.",
     "openPage": "Charts and history",
     "exchangeBought": "Bought {usd}",
-    "exchangeSold": "Sold {usd}"
+    "exchangeSold": "Sold {usd}",
+    "depositForm": {
+      "button": "Put in",
+      "title": "Put into the reserve",
+      "description": "Game Club money leaves the kassa on this day and is set aside in the owner reserve. It leaves that month’s profit but is not withdrawn.",
+      "date": "Date",
+      "dateHint": "The day the money left the kassa.",
+      "available": "In the kassa: {amount}",
+      "balancesError": "Could not load what the kassa holds. You can still save; the amounts are checked when you do.",
+      "comment": "Note",
+      "commentPlaceholder": "Optional, for example “for new PCs”",
+      "total": "You put in",
+      "nothing": "Enter how much to put in.",
+      "futureDate": "The date cannot be in the future.",
+      "storedParts": "Already put in: {parts}. What is still filled in below is not saved yet."
+    }
   },
   "reservePage": {
     "title": "Reserve",

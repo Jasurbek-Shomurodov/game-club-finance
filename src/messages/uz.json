@@ -542,6 +542,12 @@
     "dateUpdated": "Sana o'zgartirildi",
     "dateUpdateError": "Sanani o'zgartirib bo'lmadi. Qayta urinib ko'ring.",
     "addedAt": "{time} da qo'shilgan",
+    "entryReserve": {
+      "methodsTitle": "To‘lov usullari bo‘yicha",
+      "moveAll": "Jamg‘armaga",
+      "moveMethod": "{method}ni jamg‘armaga qo‘yish",
+      "reservedThatDay": "Shu kuni jamg‘armaga qo‘yilgan"
+    },
     "collectionMark": "Kunni yopish",
     "collectionMarkConfirm": "{date} yopilsinmi? Bu kunga daromad yoki xarajat qo‘shib, o‘zgartirib yoki o‘chirib bo‘lmaydi. Uni faqat egasi qayta ocha oladi. Pul olish uchun «Pulni olish» tugmasidan foydalaning.",
     "collectionUndo": "Kunni qayta ochish",
@@ -3079,7 +3085,22 @@
     "paidToast": "Jamg'armadan to'landi.",
     "openPage": "Grafiklar va tarix",
     "exchangeBought": "{usd} sotib olindi",
-    "exchangeSold": "{usd} sotildi"
+    "exchangeSold": "{usd} sotildi",
+    "depositForm": {
+      "button": "Qo‘yish",
+      "title": "Jamg‘armaga qo‘yish",
+      "description": "Game Club puli shu kuni kassadan chiqib, egasining jamg‘armasiga qo‘yiladi. U o‘sha oy foydasidan chiqadi, lekin olib ketilmaydi.",
+      "date": "Sana",
+      "dateHint": "Pul kassadan chiqqan kun.",
+      "available": "Kassada: {amount}",
+      "balancesError": "Kassada qancha borligini yuklab bo‘lmadi. Baribir saqlash mumkin: summalar saqlanganda tekshiriladi.",
+      "comment": "Izoh",
+      "commentPlaceholder": "Ixtiyoriy, masalan «yangi kompyuterlar uchun»",
+      "total": "Siz qo‘yasiz",
+      "nothing": "Qancha qo‘yishni kiriting.",
+      "futureDate": "Sana kelajakda bo‘lishi mumkin emas.",
+      "storedParts": "Allaqachon qo‘yildi: {parts}. Pastda qolgani hali saqlanmagan."
+    }
   },
   "reservePage": {
     "title": "Jamg'arma",

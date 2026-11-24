@@ -1401,6 +1401,105 @@ test('RES-007 the reserve charts follow one period, a selected day opens its ent
   await expect(page.getByRole('button', { name: 'Clear filter' })).toHaveCount(0);
 });
 
+test('RES-005 an owner puts Game Club money into the reserve from Reports, by method, out of what the till holds', async ({ page }) => {
+  await page.goto('/reports');
+  const whereabouts = page.locator('section').filter({ hasText: 'Money still in the club’s kassa' }).first();
+  await whereabouts.getByRole('button', { name: 'Put in' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Put into the reserve' });
+  // Each method starts at everything the till holds today (as on the collect form), and says how much that is.
+  await expect(dialog.locator('#reserve-deposit-cash')).toHaveValue(uzs(1_280_000));
+  await expect(dialog.getByText(`In the kassa: ${uzs(850_000)} UZS`)).toBeVisible();
+  await dialog.locator('#reserve-deposit-cash').fill('300000');
+  for (const method of ['terminal', 'card', 'playstation']) {
+    const field = dialog.locator(`#reserve-deposit-${method}`);
+    if (await field.count()) await field.fill('');
+  }
+  const posts = [];
+  page.on('request', request => { if (request.method() === 'POST' && request.url().endsWith('/api/reserve')) posts.push(request.postDataJSON()); });
+  await dialog.getByRole('button', { name: 'Put into reserve' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Money put into the reserve.' })).toBeVisible();
+  await expect(dialog).toBeHidden();
+
+  // One Game Club deposit, cash only, on today in today's month.
+  expect(posts).toHaveLength(1);
+  expect(posts[0]).toMatchObject({ kind: 'deposit', source: 'game_club', month: today.slice(0, 7), date: today });
+  expect(posts[0].parts.map(part => [part.method, part.amount])).toEqual([['cash', 300_000]]);
+  const rows = await (await restAs(accounts.owner, 'GET', `owner_reserve_entries?select=kind,source,payment_method,amount,entry_date&club_id=eq.${clubs.arcade.id}`)).json();
+  expect(rows).toEqual([{ kind: 'deposit', source: 'game_club', payment_method: 'cash', amount: 300_000, entry_date: today }]);
+
+  // The reserve page opens the same form.
+  await page.goto('/reserve');
+  await page.getByRole('button', { name: 'Put in', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Put into the reserve' }).locator('#reserve-deposit-cash')).toBeVisible();
+});
+
+test('RES-006 an owner moves an income entry\'s money to the reserve from its Entry details, one method or all', async ({ page }) => {
+  await page.goto('/reports');
+  await page.getByText('E2E fixture').first().click();
+  const details = page.getByRole('dialog', { name: 'Entry details' });
+  // The day's income is listed by method, each with its own reserve action.
+  await expect(details.getByRole('heading', { name: 'By payment method' })).toBeVisible();
+  await expect(details.getByRole('button', { name: 'Move Cash to reserve' })).toBeVisible();
+  const posts = [];
+  page.on('request', request => { if (request.method() === 'POST' && request.url().endsWith('/api/reserve')) posts.push(request.postDataJSON()); });
+
+  // One method: the form opens on the entry's day with only that method filled in.
+  await details.getByRole('button', { name: 'Move Terminal to reserve' }).click();
+  await expect(details).toBeHidden();
+  const form = page.getByRole('dialog', { name: 'Put into the reserve' });
+  await expect(form.locator('#reserve-deposit-terminal')).toHaveValue(uzs(dailyCash.arcade.terminal_income));
+  await expect(form.locator('#reserve-deposit-cash')).toHaveValue('');
+  await form.getByRole('button', { name: 'Put into reserve' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Money put into the reserve.' })).toBeVisible();
+  expect(posts).toHaveLength(1);
+  expect(posts[0]).toMatchObject({ kind: 'deposit', source: 'game_club', month: today.slice(0, 7), date: today });
+  expect(posts[0].parts.map(part => [part.method, part.amount])).toEqual([['terminal', dailyCash.arcade.terminal_income]]);
+
+  // The entry now shows what went into the reserve that day, linked to the reserve history; "Move to reserve" fills every method.
+  await page.getByText('E2E fixture').first().click();
+  await expect(details.getByRole('link', { name: /In the reserve from this day/ })).toContainText(uzs(dailyCash.arcade.terminal_income));
+  await details.getByRole('button', { name: 'Move to reserve', exact: true }).click();
+  // A fresh form, even when reopened at once: the till has no terminal money left now.
+  await expect(form.locator('#reserve-deposit-cash')).toHaveValue(uzs(dailyCash.arcade.cash_income));
+  await expect(form.getByText(`In the kassa: ${uzs(0)} UZS`)).toBeVisible();
+
+  // A split save goes one method at a time. When one is refused, the method stored before it is
+  // cleared from the form and named, and the refused one keeps its amount (and its id) for a retry.
+  await form.locator('#reserve-deposit-cash').fill('100000');
+  await form.locator('#reserve-deposit-card').fill('50000');
+  const playstation = form.locator('#reserve-deposit-playstation');
+  if (await playstation.count()) await playstation.fill('');
+  posts.length = 0;
+  let refuseCard = true;
+  await page.route('**/api/reserve', async route => {
+    if (refuseCard && route.request().postDataJSON().parts[0].method === 'card') {
+      refuseCard = false;
+      await route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ failure: 'day_balance' }) });
+      return;
+    }
+    await route.continue();
+  });
+  await form.getByRole('button', { name: 'Put into reserve' }).click();
+  await expect(form.getByText('On that day this payment method had less money than that. Choose a later date.')).toBeVisible();
+  await expect(form.getByText(`Already put in: Cash ${uzs(100_000)} UZS.`)).toBeVisible();
+  await expect(form.locator('#reserve-deposit-cash')).toHaveValue('');
+  await expect(form.locator('#reserve-deposit-card')).toHaveValue(uzs(50_000));
+  expect(posts.map(post => post.parts.map(part => [part.method, part.amount]))).toEqual([[['cash', 100_000]], [['card', 50_000]]]);
+
+  // The retry sends only the card, under the id it was refused with, so it is stored once.
+  await form.getByRole('button', { name: 'Put into reserve' }).click();
+  await expect(form).toBeHidden();
+  expect(posts).toHaveLength(3);
+  expect(posts[2].parts).toEqual(posts[1].parts);
+  await page.unroute('**/api/reserve');
+  const rows = await (await restAs(accounts.owner, 'GET', `owner_reserve_entries?select=payment_method,amount&club_id=eq.${clubs.arcade.id}&order=amount.desc`)).json();
+  expect(rows).toEqual([
+    { payment_method: 'terminal', amount: dailyCash.arcade.terminal_income },
+    { payment_method: 'cash', amount: 100_000 },
+    { payment_method: 'card', amount: 50_000 },
+  ]);
+});
+
 test('SYS-001 the owner opens System sanity checks from the command palette and all seven pass', async ({ page }) => {
   await page.goto('/dashboard');
   await expect(page.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeVisible();

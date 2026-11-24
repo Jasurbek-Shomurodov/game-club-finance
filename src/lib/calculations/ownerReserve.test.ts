@@ -243,3 +243,36 @@ describe('reserve overview figures', () => {
     expect(reserveFlowSplit({ deposited: 100, returned: 80, spent: 50 }).held).toBe(0);
   });
 });
+
+describe('reserveDepositPrefill', () => {
+  const till = { cash: 1_280_000, terminal: 850_000, card: 0, playstation: 250_000 };
+
+  it('starts every method at everything the till holds when nothing was asked for', async () => {
+    const { reserveDepositPrefill } = await import('./ownerReserve');
+    expect(reserveDepositPrefill(undefined, till)).toEqual(till);
+    expect(reserveDepositPrefill({}, till)).toEqual(till);
+  });
+
+  it('caps what was asked for at the till, and leaves methods not asked for empty', async () => {
+    const { reserveDepositPrefill } = await import('./ownerReserve');
+    expect(reserveDepositPrefill({ cash: 2_000_000, terminal: 300_000, card: 50_000 }, till))
+      .toEqual({ cash: 1_280_000, terminal: 300_000, card: 0, playstation: 0 });
+  });
+
+  it('never starts below zero, and gives whole sums', async () => {
+    const { reserveDepositPrefill } = await import('./ownerReserve');
+    expect(reserveDepositPrefill({ cash: -40_000, terminal: 100_000.75 }, { cash: 500_000, terminal: 900_000, card: -10 }))
+      .toEqual({ cash: 0, terminal: 100_000, card: 0, playstation: 0 });
+    expect(reserveDepositPrefill(null, { cash: -5, terminal: 12_000.9, card: Number.NaN }))
+      .toEqual({ cash: 0, terminal: 12_000, card: 0, playstation: 0 });
+  });
+});
+
+describe('reserveDepositParts', () => {
+  it('sends one whole, positive part per shown method, in the order shown', async () => {
+    const { reserveDepositParts } = await import('./ownerReserve');
+    expect(reserveDepositParts({ cash: 300_000, terminal: 0, card: 120_000.6, playstation: 50_000 }, ['card', 'cash', 'terminal']))
+      .toEqual([{ method: 'card', amount: 120_000 }, { method: 'cash', amount: 300_000 }]);
+    expect(reserveDepositParts({ cash: -1 }, ['cash'])).toEqual([]);
+  });
+});

@@ -39,6 +39,45 @@ export interface ReserveMoveRequest {
 
 export const requestReserveMove = (clubId: string, move: ReserveMoveRequest) => send('POST', { clubId, ...move });
 
+export interface ReserveDepositByMethodResult {
+  /** The methods stored by this call, in the order sent. */
+  saved: OwnerWithdrawalPaymentMethod[];
+  /** The method that was refused (or whose request failed) and why; null when every part was stored. */
+  failure: { method: OwnerWithdrawalPaymentMethod; code: ReserveErrorCode } | null;
+}
+
+/**
+ * A Game Club deposit split by method, sent as one request per method, one
+ * after another, stopping at the first refusal. /api/reserve stores the parts
+ * of one request in order and keeps those before a refusal, so one request per
+ * method lets the form know exactly which parts are stored. Each part keeps its
+ * own id, so a retried method is stored once. `onSaved` hears each stored part
+ * as it lands. The group gets one Telegram notice per method.
+ */
+export async function requestReserveDepositByMethod(
+  clubId: string,
+  deposit: Omit<ReserveMoveRequest, 'kind' | 'source' | 'parts'> & {
+    parts: Array<{ id: string; method: OwnerWithdrawalPaymentMethod; amount: number }>;
+  },
+  onSaved?: (method: OwnerWithdrawalPaymentMethod) => void,
+): Promise<ReserveDepositByMethodResult> {
+  const { parts, ...move } = deposit;
+  const saved: OwnerWithdrawalPaymentMethod[] = [];
+  for (const part of parts) {
+    let code: ReserveErrorCode | null;
+    try {
+      code = await requestReserveMove(clubId, { ...move, kind: 'deposit', source: 'game_club', parts: [part] });
+    } catch {
+      // The request may or may not have arrived; its id is kept, so a retry is stored once.
+      code = 'failed';
+    }
+    if (code) return { saved, failure: { method: part.method, code } };
+    saved.push(part.method);
+    onSaved?.(part.method);
+  }
+  return { saved, failure: null };
+}
+
 export const requestReserveDelete = (clubId: string, entryId: string) => send('DELETE', { clubId, entryId });
 
 export interface ReserveExchangeRequest {
