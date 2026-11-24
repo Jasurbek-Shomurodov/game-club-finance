@@ -3237,7 +3237,7 @@
       "previous": "Назад",
       "next": "Вперёд",
       "clear": "Сбросить выбор",
-      "hint": "Нажмите на график, чтобы выбрать {unit, select, week {неделю} month {месяц} other {день}}.",
+      "hint": "Нажмите на {unit, select, week {неделю} month {месяц} other {день}} на графике",
       "summary": "{period}: в резерве {held}, изменение {change}",
       "selectedSummary": "{title}: на конец {held}, внесено {putIn}, выведено {takenOut}"
     },

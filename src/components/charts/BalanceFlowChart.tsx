@@ -43,6 +43,13 @@ const FLOW_KEYS = ['income', 'expenses'] as const;
 const DIMMED = 0.3;
 /** Horizontal travel before a touch counts as dragging across the plot rather than a tap. */
 const DRAG_THRESHOLD_PX = 8;
+/** Widest bar on a wide screen. */
+const BAR_MAX_PX = 14;
+/** Shortest bar that still shows: one large deposit must not flatten every other bucket to nothing. */
+const MIN_BAR_PX = 3;
+
+/** Bar height floor: any movement draws at least `MIN_BAR_PX`; a bucket with none draws nothing. */
+export const visibleBarHeight = (value: number | undefined | null) => (value && value > 0 ? MIN_BAR_PX : 0);
 
 /**
  * Where a key press moves the selection over `keys` (oldest first): Left and
@@ -113,8 +120,6 @@ export function BalanceFlowChart({
   const data = rows as BalanceFlowRow[];
   const labels = new Map(rows.map((row) => [row.key, row.label]));
   const selected = rows.find((row) => row.key === selectedKey) ?? null;
-  const income = rows.reduce((sum, row) => sum + row.income, 0);
-  const expenses = rows.reduce((sum, row) => sum + row.expenses, 0);
   const tooltipSeries = [
     { key: 'held', label: heldLabel, color: chartColors.primary },
     { key: 'income', label: incomeLabel, color: chartColors.success },
@@ -165,14 +170,15 @@ export function BalanceFlowChart({
 
   return (
     <div className="space-y-3">
+      {/* No totals on the pills: the caller's readout shows them, and two short pills stay on one line on a phone. */}
       <ChartLegendToggle
         label={legendLabel}
         hidden={hidden}
         onToggle={(key) => toggle(key, FLOW_KEYS)}
         onFocus={setFocused}
         items={[
-          { key: 'income', label: incomeLabel, color: chartColors.success, swatch: 'square', total: formatAxis(income, locale) },
-          { key: 'expenses', label: expensesLabel, color: chartColors.danger, swatch: 'square', total: formatAxis(expenses, locale) },
+          { key: 'income', label: incomeLabel, color: chartColors.success, swatch: 'square' },
+          { key: 'expenses', label: expensesLabel, color: chartColors.danger, swatch: 'square' },
         ]}
       />
       <div
@@ -248,7 +254,8 @@ export function BalanceFlowChart({
               data={data}
               syncId="balance-flow"
               barGap={1}
-              barCategoryGap="20%"
+              // A narrow gap: weekly and monthly columns use their band instead of showing slivers.
+              barCategoryGap="8%"
               margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
               onClick={handleClick}
               onMouseUp={handlePointerUp}
@@ -268,12 +275,12 @@ export function BalanceFlowChart({
               <Tooltip cursor={{ fill: chartColors.cursor }} content={() => null} />
               {marker}
               {!hidden.has('income') && (
-                <Bar dataKey="income" fill={chartColors.success} radius={[3, 3, 0, 0]} maxBarSize={14} isAnimationActive={false}>
+                <Bar dataKey="income" fill={chartColors.success} radius={[3, 3, 0, 0]} maxBarSize={BAR_MAX_PX} minPointSize={visibleBarHeight} isAnimationActive={false}>
                   {rows.map((row) => <Cell key={row.key} fillOpacity={barOpacity('income', row.key)} />)}
                 </Bar>
               )}
               {!hidden.has('expenses') && (
-                <Bar dataKey="expenses" fill={chartColors.danger} radius={[3, 3, 0, 0]} maxBarSize={14} isAnimationActive={false}>
+                <Bar dataKey="expenses" fill={chartColors.danger} radius={[3, 3, 0, 0]} maxBarSize={BAR_MAX_PX} minPointSize={visibleBarHeight} isAnimationActive={false}>
                   {rows.map((row) => <Cell key={row.key} fillOpacity={barOpacity('expenses', row.key)} />)}
                 </Bar>
               )}

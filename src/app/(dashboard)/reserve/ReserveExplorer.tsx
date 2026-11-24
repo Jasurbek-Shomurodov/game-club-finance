@@ -3,7 +3,7 @@
 import { useRef } from 'react';
 import { ChevronLeft, ChevronRight, ListFilter, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { Button, IconButton, StatTile, type MetricTone } from '@/components/PresentationFoundation';
+import { Button, IconButton, StatTile, metricToneClassName, type MetricTone } from '@/components/PresentationFoundation';
 import { BalanceFlowChart, type BalanceFlowRow } from '@/components/charts/BalanceFlowChart';
 import {
   reserveWindowSummary,
@@ -20,6 +20,7 @@ import {
   formatMonthShort,
   formatYearMonth,
 } from '@/lib/formatters';
+import { cn } from '@/lib/utils';
 
 /** A signed amount: "+200 000", "−50 000" (the formatter carries the minus), "0". */
 const signed = (amount: number) => (amount > 0 ? `+${formatCurrency(amount)}` : formatCurrency(amount));
@@ -79,71 +80,101 @@ export function ReserveExplorer({ series, period, selectedKey, onSelect, onOpenE
     else onOpenEntries(period === 'all' || !series.from ? null : { from: series.from, to: series.to });
   };
 
+  // The same three figures in both states: the bucket's, or the whole period's.
+  const shown = selected ?? summary;
+  const figures: Array<{ key: string; label: string; amount: number; tone: MetricTone }> = [
+    { key: 'held', label: selected ? t('explorer.heldAtEnd') : t('explorer.heldNow'), amount: shown.held, tone: 'default' },
+    { key: 'in', label: t('putIn'), amount: shown.deposited, tone: shown.deposited > 0 ? 'success' : 'default' },
+    { key: 'out', label: t('takenOut'), amount: shown.withdrawn, tone: shown.withdrawn > 0 ? 'danger' : 'default' },
+  ];
+
+  // One structure with fixed heights in both states, so selecting, stepping or
+  // clearing never moves the chart under the finger: a 36px title row (the
+  // step buttons, or the hint in their place), a sub line held at two lines on
+  // a phone, three figures, and a 36px row for the entries button or its empty text.
   return (
     <div className="space-y-4">
       {/* The readout: what the selected bucket (or the period) held and moved. */}
-      <div className="space-y-3 rounded-xl bg-gray-50 p-3 sm:p-4">
-        <div className="flex items-start justify-between gap-2">
-          <p className="sr-only" aria-live="polite">{announcement}</p>
-          <div className="min-w-0 flex-1">
-            <p className="break-words text-sm font-semibold text-gray-950">{selected ? bucketTitle(selected) : periodName}</p>
-            <p className="mt-0.5 text-xs leading-5 text-gray-500">{selected ? periodName : `${windowRange} · ${t('explorer.hint', { unit })}`}</p>
+      <div className="space-y-2 rounded-xl bg-gray-50 p-3 sm:space-y-3 sm:p-4">
+        <div>
+          <div className="flex min-h-9 items-center gap-2">
+            <p className="line-clamp-2 min-w-0 flex-1 break-words text-sm font-semibold leading-tight text-gray-950">{selected ? bucketTitle(selected) : periodName}</p>
+            {selected ? (
+              <div className="-my-1 flex shrink-0 items-center">
+                <IconButton
+                  variant="ghost"
+                  size="lg"
+                  label={t('explorer.previous')}
+                  icon={<ChevronLeft size={18} aria-hidden="true" />}
+                  // Stays focusable at the ends, so focus is not lost mid-step.
+                  aria-disabled={atFirst || undefined}
+                  onClick={() => { if (!atFirst) onSelect(buckets[index - 1].key); }}
+                />
+                <IconButton
+                  variant="ghost"
+                  size="lg"
+                  label={t('explorer.next')}
+                  icon={<ChevronRight size={18} aria-hidden="true" />}
+                  aria-disabled={atLast || undefined}
+                  onClick={() => { if (!atLast) onSelect(buckets[index + 1].key); }}
+                />
+                <IconButton
+                  variant="ghost"
+                  size="lg"
+                  label={t('explorer.clear')}
+                  icon={<X size={18} aria-hidden="true" />}
+                  onClick={() => {
+                    // This button goes with the selection; focus returns to the chart it came from.
+                    plotRef.current?.focus();
+                    onSelect(null);
+                  }}
+                />
+              </div>
+            ) : (
+              // Where the step buttons go once a column is picked: no extra line in either state.
+              <p className="line-clamp-2 max-w-[50%] shrink-0 text-right text-xs leading-4 text-gray-500">{t('explorer.hint', { unit })}</p>
+            )}
           </div>
-          {selected ? (
-            <div className="-my-1 flex shrink-0 items-center">
-              <IconButton
-                variant="ghost"
-                size="lg"
-                label={t('explorer.previous')}
-                icon={<ChevronLeft size={18} aria-hidden="true" />}
-                // Stays focusable at the ends, so focus is not lost mid-step.
-                aria-disabled={atFirst || undefined}
-                onClick={() => { if (!atFirst) onSelect(buckets[index - 1].key); }}
-              />
-              <IconButton
-                variant="ghost"
-                size="lg"
-                label={t('explorer.next')}
-                icon={<ChevronRight size={18} aria-hidden="true" />}
-                aria-disabled={atLast || undefined}
-                onClick={() => { if (!atLast) onSelect(buckets[index + 1].key); }}
-              />
-              <IconButton
-                variant="ghost"
-                size="lg"
-                label={t('explorer.clear')}
-                icon={<X size={18} aria-hidden="true" />}
-                onClick={() => {
-                  // This button goes with the selection; focus returns to the chart it came from.
-                  plotRef.current?.focus();
-                  onSelect(null);
-                }}
-              />
-            </div>
-          ) : null}
+          <p className="mt-0.5 line-clamp-2 text-xs leading-4 text-gray-500 max-sm:min-h-8">
+            {selected ? `${periodName} · ${windowRange}` : (
+              <>
+                {windowRange} ·{' '}
+                <span className="whitespace-nowrap">
+                  {t('explorer.change')}{' '}
+                  <span className={cn('font-semibold tabular-nums', metricToneClassName[changeTone(summary.change)])}>{signed(summary.change)} {currency}</span>
+                </span>
+              </>
+            )}
+          </p>
         </div>
         {/* Plain figures: "Show N entries" below is what opens the records behind them. */}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {selected ? (
-            <>
-              <StatTile variant="card" size="sm" className="col-span-2 sm:col-span-1" label={t('explorer.heldAtEnd')} value={formatCurrency(selected.held)} unit={currency} />
-              <StatTile variant="card" size="sm" label={t('putIn')} value={formatCurrency(selected.deposited)} unit={currency} tone={selected.deposited > 0 ? 'success' : 'default'} />
-              <StatTile variant="card" size="sm" label={t('takenOut')} value={formatCurrency(selected.withdrawn)} unit={currency} tone={selected.withdrawn > 0 ? 'danger' : 'default'} />
-            </>
+        {/* A phone reads them as three short lines; a wider screen as three tiles in a row. */}
+        <dl className="sm:hidden">
+          {figures.map((figure) => (
+            <div key={figure.key} className="flex items-baseline justify-between gap-3 leading-5">
+              <dt className="min-w-0 truncate text-xs font-medium text-gray-500">{figure.label}</dt>
+              <dd className={cn('shrink-0 whitespace-nowrap text-sm font-bold tabular-nums', metricToneClassName[figure.tone])}>
+                {formatCurrency(figure.amount)}
+                <span className="ml-1 text-xs font-medium text-gray-500">{currency}</span>
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <div className="hidden gap-2 sm:grid sm:grid-cols-3">
+          {figures.map((figure) => (
+            <StatTile key={figure.key} variant="card" size="sm" label={figure.label} value={formatCurrency(figure.amount)} unit={currency} tone={figure.tone} />
+          ))}
+        </div>
+        <div className="flex min-h-9 items-center">
+          {count > 0 ? (
+            <Button variant="outline" size="sm" onClick={openEntries} icon={<ListFilter size={15} aria-hidden="true" />}>
+              {t('explorer.showEntries', { count })}
+            </Button>
           ) : (
-            <>
-              <StatTile variant="card" size="sm" label={t('explorer.heldNow')} value={formatCurrency(summary.held)} unit={currency} />
-              <StatTile variant="card" size="sm" label={t('explorer.change')} value={signed(summary.change)} unit={currency} tone={changeTone(summary.change)} />
-            </>
+            <p className="text-xs text-gray-500">{t('explorer.noEntries')}</p>
           )}
         </div>
-        {count > 0 ? (
-          <Button variant="outline" size="sm" onClick={openEntries} icon={<ListFilter size={15} aria-hidden="true" />}>
-            {t('explorer.showEntries', { count })}
-          </Button>
-        ) : (
-          <p className="text-xs text-gray-500">{t('explorer.noEntries')}</p>
-        )}
+        <p className="sr-only" aria-live="polite">{announcement}</p>
       </div>
       <BalanceFlowChart
         rows={rows}

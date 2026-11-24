@@ -3237,7 +3237,7 @@
       "previous": "Oldingi",
       "next": "Keyingi",
       "clear": "Tanlovni bekor qilish",
-      "hint": "Grafikda {unit, select, week {haftani} month {oyni} other {kunni}} tanlash uchun bosing.",
+      "hint": "Grafikda {unit, select, week {haftani} month {oyni} other {kunni}} bosing",
       "summary": "{period}: jamg'armada {held}, o'zgarish {change}",
       "selectedSummary": "{title}: oxirida {held}, qo'yilgan {putIn}, chiqarilgan {takenOut}"
     },

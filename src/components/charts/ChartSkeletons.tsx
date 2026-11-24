@@ -111,13 +111,13 @@ export function InOutChartCardSkeleton({ height = 220, bars, action = false, chi
   );
 }
 
-/** `BalanceFlowChart`: the two-key legend, the balance plot and the short in/out bars under it. */
-export function BalanceFlowChartSkeleton({ balanceHeight = 200, flowHeight = 96, bars = 18, className }: { balanceHeight?: number; flowHeight?: number; bars?: number; className?: string }) {
+/** `BalanceFlowChart`: the two-pill legend on one line, the balance plot and the short in/out bars under it. */
+export function BalanceFlowChartSkeleton({ balanceHeight = 200, flowHeight = 96, bars = 14, className }: { balanceHeight?: number; flowHeight?: number; bars?: number; className?: string }) {
   return (
     <div aria-hidden="true" className={cn('space-y-3', className)}>
-      <div className="flex flex-wrap gap-x-4 gap-y-1">
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="h-4 w-32" />
+      <div className="flex gap-1.5">
+        <Skeleton className="h-10 w-24 rounded-full sm:h-9" />
+        <Skeleton className="h-10 w-28 rounded-full sm:h-9" />
       </div>
       <div>
         <Skeleton className="w-full rounded-xl bg-gray-100" style={{ height: balanceHeight }} />

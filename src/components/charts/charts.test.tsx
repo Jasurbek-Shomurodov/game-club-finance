@@ -7,7 +7,7 @@ import messages from '@/messages/en.json';
 import { averageByWeekday } from '@/lib/calculations/insights';
 import { SideGlanceCard, SideGlanceCardSkeleton } from '@/components/dashboard/SideGlanceCard';
 import { SideScorecard } from '@/components/financial-analysis/AnalysisSections';
-import { BalanceFlowChart, nextSelectionKey } from './BalanceFlowChart';
+import { BalanceFlowChart, nextSelectionKey, visibleBarHeight } from './BalanceFlowChart';
 import { CalendarHeatmap } from './CalendarHeatmap';
 import { DonutBreakdown } from './DonutBreakdown';
 import { RadialMeter } from './RadialMeter';
@@ -102,6 +102,33 @@ describe('BalanceFlowChart', () => {
     // Days that moved carry a dot on the balance line; the quiet day does not.
     expect(html.match(/<circle[^>]*r="2.5"/g)).toHaveLength(2);
     expect(html).not.toContain('recharts-reference-line');
+  });
+
+  it('keeps the legend to the two series names, without totals', () => {
+    const html = chart(null);
+    expect(html).toContain('>Put in</span>');
+    expect(html).toContain('>Taken out</span>');
+    expect(html).not.toContain('tabular-nums font-semibold');
+  });
+
+  it('draws a visible bar for any movement and nothing for a bucket without one', () => {
+    expect(visibleBarHeight(1)).toBe(3);
+    expect(visibleBarHeight(5_000_000)).toBe(3);
+    expect(visibleBarHeight(0)).toBe(0);
+    expect(visibleBarHeight(undefined)).toBe(0);
+    // One huge deposit beside a tiny one: the tiny one still draws, the quiet day draws nothing.
+    const html = render(
+      <BalanceFlowChart rows={[
+        { key: '2026-11-01', label: '1 Nov', tooltipLabel: '1 November 2026', held: 5_000_000, income: 5_000_000, expenses: 0 },
+        { key: '2026-11-02', label: '2 Nov', tooltipLabel: '2 November 2026', held: 5_000_000, income: 0, expenses: 0 },
+        { key: '2026-11-03', label: '3 Nov', tooltipLabel: '3 November 2026', held: 5_000_000, income: 0, expenses: 1 },
+      ]} selectedKey={null} onSelect={() => undefined} heldLabel="Held" incomeLabel="Put in" expensesLabel="Taken out"
+        legendLabel="Money in and out" summary="Last 30 days" currency="UZS" locale="en" initialWidth={600} />,
+    );
+    const heights = [...html.matchAll(/<path[^>]*height="([\d.]+)"[^>]*class="recharts-rectangle"/g)].map((match) => Number(match[1]));
+    expect(heights).toHaveLength(2);
+    expect(Math.min(...heights)).toBe(3);
+    expect(Math.max(...heights)).toBeGreaterThan(3);
   });
 
   it('marks the selected column in both plots and dims the other bars', () => {

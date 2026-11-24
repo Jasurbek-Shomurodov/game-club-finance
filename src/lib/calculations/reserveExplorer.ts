@@ -72,11 +72,16 @@ export function reservePeriodStart(period: ReservePeriod, throughDate: string): 
   return null;
 }
 
-/** Days for a window of up to 92 days, Monday weeks up to 370 days, months beyond. */
+/**
+ * Days for a window of up to 31 days, Monday weeks up to 183 days, months
+ * beyond. So 30 days is daily, 90 days is 13–14 weeks and a year is twelve or
+ * thirteen months: few enough columns that each one is wide enough to see and
+ * to tap on a phone.
+ */
 export function reserveBucketUnit(firstDay: string, lastDay: string): ReserveBucketUnit {
   const span = daysBetween(firstDay, lastDay) + 1;
-  if (span <= 92) return 'day';
-  if (span <= 370) return 'week';
+  if (span <= 31) return 'day';
+  if (span <= 183) return 'week';
   return 'month';
 }
 
@@ -169,8 +174,11 @@ export interface ReserveWindowSummary {
   held: number;
   /** `held` minus what it held before the window. */
   change: number;
+  /** Money put in over the window. */
   deposited: number;
+  /** Money that left over the window: returns to profit plus purchases. */
   withdrawn: number;
+  /** History rows in the window, exchanges included. */
   count: number;
 }
 

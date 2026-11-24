@@ -76,15 +76,18 @@ export function ReserveHistoryList({ activity, methodLabel, busyId, disabled, on
       <ul aria-label={t('activityLabel')}>
         {days.map((day) => (
           <li key={day.date} className="border-b border-gray-100 last:border-b-0">
-            <div className="flex items-center justify-between gap-3 bg-gray-50 px-4 py-2 sm:px-5">
-              <p className="text-sm font-semibold text-gray-800">
-                {formatDateOnly(day.date, locale)}
-                <span className="ml-2 text-xs font-normal text-gray-500">{t('dayCount', { count: day.rows.length })}</span>
+            {/* On a phone the date and count take the first line and the day's totals the second. */}
+            <div className="flex flex-col gap-0.5 bg-gray-50 px-4 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-5">
+              <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-semibold text-gray-800">
+                <span className="whitespace-nowrap">{formatDateOnly(day.date, locale)}</span>
+                <span className="whitespace-nowrap text-xs font-normal text-gray-500">{t('dayCount', { count: day.rows.length })}</span>
               </p>
-              <p className="flex gap-3 whitespace-nowrap text-xs font-semibold tabular-nums">
-                {day.deposited > 0 ? <span className="text-primary-600">+{money(day.deposited)}</span> : null}
-                {day.withdrawn > 0 ? <span className="text-gray-600">−{money(day.withdrawn)}</span> : null}
-              </p>
+              {day.deposited > 0 || day.withdrawn > 0 ? (
+                <p className="flex gap-3 whitespace-nowrap text-xs font-semibold tabular-nums">
+                  {day.deposited > 0 ? <span className="text-primary-600">+{money(day.deposited)}</span> : null}
+                  {day.withdrawn > 0 ? <span className="text-gray-600">−{money(day.withdrawn)}</span> : null}
+                </p>
+              ) : null}
             </div>
             <ul className="divide-y divide-gray-100">
               {day.rows.map((row) => {
@@ -94,6 +97,12 @@ export function ReserveHistoryList({ activity, methodLabel, busyId, disabled, on
                 const title = titleOf(row);
                 const month = monthOf(row);
                 const deletable = !lockReason(row);
+                const hasMeta = title !== kindLabel || Boolean(month);
+                // The amount sits under the name on a phone and in its own column from `sm`.
+                const amountClassName = cn(
+                  'ml-auto shrink-0 whitespace-nowrap text-right tabular-nums sm:col-start-2 sm:row-start-1 sm:w-40',
+                  hasMeta && 'sm:row-span-2',
+                );
                 return (
                   <li key={keyOf(row)} className="flex items-center pr-2 sm:pr-3">
                     <TappableSurface onClick={() => setOpenKey(keyOf(row))} chevron={false} className="min-w-0 flex-1 rounded-lg py-3 pl-4 pr-2 sm:pl-5">
@@ -102,38 +111,42 @@ export function ReserveHistoryList({ activity, methodLabel, busyId, disabled, on
                       {row.kind === 'purchase' ? <CategoryIcon category={row.category} tone="move" /> : (
                         <IconChip icon={Icon} tone={KIND_TONE[row.kind]} />
                       )}
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium leading-5 text-gray-900">{title}</span>
-                        {/* One pot: which side or method the money came from is only in the details. */}
-                        {title !== kindLabel || month ? (
-                          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-gray-500">
-                            {title !== kindLabel ? <span>{kindLabel}</span> : null}
-                            {month ? <Badge size="sm" variant="neutral" icon={<CalendarRange size={12} aria-hidden="true" />}>{month}</Badge> : null}
-                          </span>
-                        ) : null}
+                      {/*
+                        A phone gives the name the whole width (two lines at most), then the kind,
+                        the month and the amount flow under it, the amount always on the right.
+                        From `sm`: name and kind on the left, the amount in a column on the right.
+                      */}
+                      <span className="min-w-0 flex-1 sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-x-3">
+                        <span className="block break-words text-sm font-medium leading-5 text-gray-900 max-sm:line-clamp-2 sm:col-start-1 sm:row-start-1 sm:truncate">{title}</span>
+                        <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 sm:contents">
+                          {/* One pot: which side or method the money came from is only in the details. */}
+                          {hasMeta ? (
+                            <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4 text-gray-500 max-sm:contents sm:col-start-1 sm:mt-1 sm:min-w-0">
+                              {title !== kindLabel ? <span className="max-w-full truncate whitespace-nowrap">{kindLabel}</span> : null}
+                              {month ? <Badge size="sm" variant="neutral" icon={<CalendarRange size={12} aria-hidden="true" />}>{month}</Badge> : null}
+                            </span>
+                          ) : null}
+                          {row.kind === 'exchange' ? (
+                            // Sums swapped for dollars: the reserve's total is unchanged.
+                            <span className={amountClassName}>
+                              <span className="block text-base font-bold text-gray-900">{dollars(row.usd)}</span>
+                              <span className="block text-xs text-gray-500">{formatCurrency(row.amount)} {tc('currency')}</span>
+                            </span>
+                          ) : (
+                            <span className={cn(amountClassName, 'text-base font-bold', incoming ? 'text-primary-600' : 'text-gray-900')}>
+                              {incoming ? '+' : '−'}{formatCurrency(row.amount)}
+                              <span className="ml-1 text-xs font-medium text-gray-500">{tc('currency')}</span>
+                            </span>
+                          )}
+                        </span>
                       </span>
-                      {row.kind === 'exchange' ? (
-                        // Sums swapped for dollars: the reserve's total is unchanged.
-                        <span className="shrink-0 whitespace-nowrap text-right tabular-nums sm:w-40">
-                          <span className="block text-base font-bold text-gray-900">{dollars(row.usd)}</span>
-                          <span className="block text-xs text-gray-500">{formatCurrency(row.amount)} {tc('currency')}</span>
-                        </span>
-                      ) : (
-                        <span className={cn(
-                          'shrink-0 whitespace-nowrap text-right text-base font-bold tabular-nums sm:w-40',
-                          incoming ? 'text-primary-600' : 'text-gray-900',
-                        )}>
-                          {incoming ? '+' : '−'}{formatCurrency(row.amount)}
-                          <span className="ml-1 text-xs font-medium text-gray-500">{tc('currency')}</span>
-                        </span>
-                      )}
-                      <ChevronRight size={16} aria-hidden="true" className="shrink-0 text-gray-400" />
+                      <ChevronRight size={16} aria-hidden="true" className="hidden shrink-0 text-gray-400 sm:block" />
                       </span>
                     </TappableSurface>
                     {deletable ? (
                       <IconButton
                         variant="danger"
-                        size="sm"
+                        size="lg"
                         label={`${tc('delete')}: ${title}`}
                         icon={<Trash2 size={16} aria-hidden="true" />}
                         loading={busyId === row.id}
@@ -141,7 +154,7 @@ export function ReserveHistoryList({ activity, methodLabel, busyId, disabled, on
                         onClick={() => onDelete(row)}
                         className="shrink-0"
                       />
-                    ) : <span aria-hidden="true" className="w-8 shrink-0" />}
+                    ) : <span aria-hidden="true" className="w-11 shrink-0" />}
                   </li>
                 );
               })}

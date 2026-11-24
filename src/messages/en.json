@@ -3237,7 +3237,7 @@
       "previous": "Previous",
       "next": "Next",
       "clear": "Clear selection",
-      "hint": "Tap the chart to pick a {unit, select, week {week} month {month} other {day}}.",
+      "hint": "Tap a {unit, select, week {week} month {month} other {day}} on the chart",
       "summary": "{period}: held {held}, change {change}",
       "selectedSummary": "{title}: held at the end {held}, put in {putIn}, taken out {takenOut}"
     },

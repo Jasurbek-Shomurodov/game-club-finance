@@ -42,12 +42,20 @@ describe('reservePeriodStart', () => {
 });
 
 describe('reserveBucketUnit', () => {
-  it('uses days up to 92 days, weeks up to 370 and months beyond', () => {
+  it('uses days up to 31 days, weeks up to 183 and months beyond', () => {
     expect(reserveBucketUnit('2026-01-01', '2026-01-01')).toBe('day');
-    expect(reserveBucketUnit('2026-01-01', addIsoDays('2026-01-01', 91))).toBe('day');
-    expect(reserveBucketUnit('2026-01-01', addIsoDays('2026-01-01', 92))).toBe('week');
-    expect(reserveBucketUnit('2026-01-01', addIsoDays('2026-01-01', 369))).toBe('week');
-    expect(reserveBucketUnit('2026-01-01', addIsoDays('2026-01-01', 370))).toBe('month');
+    expect(reserveBucketUnit('2026-01-01', addIsoDays('2026-01-01', 30))).toBe('day');
+    expect(reserveBucketUnit('2026-01-01', addIsoDays('2026-01-01', 31))).toBe('week');
+    expect(reserveBucketUnit('2026-01-01', addIsoDays('2026-01-01', 182))).toBe('week');
+    expect(reserveBucketUnit('2026-01-01', addIsoDays('2026-01-01', 183))).toBe('month');
+  });
+
+  it('makes 30 days daily, 90 days weekly and a year monthly', () => {
+    const through = '2026-11-24';
+    const unitOf = (period: '30d' | '90d' | '1y') => reserveBucketUnit(reservePeriodStart(period, through) as string, through);
+    expect(unitOf('30d')).toBe('day');
+    expect(unitOf('90d')).toBe('week');
+    expect(unitOf('1y')).toBe('month');
   });
 });
 
@@ -135,27 +143,51 @@ describe('reserveExplorerSeries', () => {
     expect(negative.buckets[negative.buckets.length - 1].held).toBe(200_000);
   });
 
-  it('buckets a year by Monday weeks across the year end, clamping the first and last week to the window', () => {
+  it('buckets 90 days by Monday weeks across the year end, clamping the first and last week to the window', () => {
     const activity = reserveActivity(
       [entry('first', '2025-03-01', 1_000_000), entry('nye', '2025-12-31', 100_000), entry('ny', '2026-01-02', 200_000), entry('now', '2026-02-18', 50_000)],
       [purchase('mid', '2025-12-29', 40_000)],
     );
-    const series = reserveExplorerSeries(activity, '2026-02-18', '1y');
+    const series = reserveExplorerSeries(activity, '2026-02-18', '90d');
     expect(series.unit).toBe('week');
-    expect(series.from).toBe('2025-03-01');
-    // 1 March 2025 is a Saturday: the first week is clamped to it.
-    expect(series.buckets[0]).toMatchObject({ key: '2025-03-01', from: '2025-03-01', to: '2025-03-02', deposited: 1_000_000, count: 1 });
-    expect(series.buckets[1]).toMatchObject({ from: '2025-03-03', to: '2025-03-09' });
+    expect(series.from).toBe('2025-11-21');
+    expect(series.openingHeld).toBe(1_000_000);
+    // 21 November 2025 is a Friday: the first week is clamped to it.
+    expect(series.buckets[0]).toMatchObject({ key: '2025-11-21', from: '2025-11-21', to: '2025-11-23', held: 1_000_000, count: 0 });
+    expect(series.buckets[1]).toMatchObject({ from: '2025-11-24', to: '2025-11-30' });
     // Monday 29 December 2025 to Sunday 4 January 2026 is one week.
     const yearEnd = series.buckets.find((bucket) => bucket.from === '2025-12-29');
     expect(yearEnd).toMatchObject({ to: '2026-01-04', deposited: 300_000, withdrawn: 40_000, count: 3 });
     // 18 February 2026 is a Wednesday: the last week ends today.
     expect(series.buckets[series.buckets.length - 1]).toMatchObject({ from: '2026-02-16', to: '2026-02-18', deposited: 50_000 });
+    expect(series.buckets).toHaveLength(14);
     expect(reconciles(series)).toBe(true);
     // Each bucket's count is what the history lists for its dates.
     for (const bucket of series.buckets) {
       expect(reserveActivityInRange(activity, bucket.from, bucket.to, '2026-02-18')).toHaveLength(bucket.count);
     }
+    // The period's own totals: what the readout shows with nothing selected.
+    expect(reserveWindowSummary(series)).toEqual({ held: 1_310_000, change: 310_000, deposited: 350_000, withdrawn: 40_000, count: 4 });
+  });
+
+  it('buckets a year by month, clamping the first month to the window', () => {
+    const activity = reserveActivity(
+      [entry('first', '2024-12-01', 1_000_000), entry('spring', '2025-03-10', 200_000), entry('now', '2026-02-18', 50_000)],
+      [purchase('rent', '2025-02-25', 100_000), purchase('old', '2025-01-05', 300_000)],
+    );
+    const series = reserveExplorerSeries(activity, '2026-02-18', '1y');
+    expect(series.unit).toBe('month');
+    expect(series.from).toBe('2025-02-19');
+    expect(series.openingHeld).toBe(700_000);
+    expect(series.buckets[0]).toMatchObject({ key: '2025-02-19', from: '2025-02-19', to: '2025-02-28', held: 600_000, withdrawn: 100_000, count: 1 });
+    expect(series.buckets[1]).toMatchObject({ from: '2025-03-01', to: '2025-03-31', deposited: 200_000, held: 800_000 });
+    expect(series.buckets[series.buckets.length - 1]).toMatchObject({ from: '2026-02-01', to: '2026-02-18', held: 850_000 });
+    expect(series.buckets).toHaveLength(13);
+    expect(reconciles(series)).toBe(true);
+    for (const bucket of series.buckets) {
+      expect(reserveActivityInRange(activity, bucket.from, bucket.to, '2026-02-18')).toHaveLength(bucket.count);
+    }
+    expect(reserveWindowSummary(series)).toMatchObject({ held: 850_000, change: 150_000, deposited: 250_000, withdrawn: 100_000, count: 3 });
   });
 
   it('buckets a longer life by month, from the month of the first activity', () => {

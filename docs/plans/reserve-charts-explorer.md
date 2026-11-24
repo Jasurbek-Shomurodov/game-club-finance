@@ -189,3 +189,79 @@ None. No migration.
   verify a tap selects on a phone-sized viewport, not only with a mouse.
 - A reserve younger than the chosen period simply shows from its first day;
   period options are never hidden, so the control does not jump around.
+
+## Slice 2: phone fixes (found at a true 360px width)
+
+Checked on 24 November 2026 in a 360px frame. Layout fits and tap, drag and
+"Show N entries" work, but four things are rough on a phone. Fix all four in
+one change. The working tree is clean; nothing else is in flight.
+
+### 2.1 The chart must not move when a column is selected
+
+Today the readout in `ReserveExplorer.tsx` shows two tiles with nothing
+selected and three with a selection, so the plot jumps 78px under the finger.
+
+- The readout has **one structure in both states**: title row, sub line, the
+  same three figures (held, put in, taken out), then the entries button/empty
+  text. Nothing selected: held now, and put in / taken out **over the period**
+  (`reserveWindowSummary`; add the two totals to it if it lacks them, with a
+  test). Selected: held at the end, put in, taken out of that bucket.
+- The period's change moves into the sub line, signed and toned:
+  "31 Oct – 24 Nov 2026 · Change +5 998 475 сум". The "tap the chart" hint
+  stays but must not add a line that appears only in one state.
+- The previous/next/clear buttons keep their space when nothing is selected
+  (rendered but `invisible`/inert, or the row has a fixed min height), and the
+  entries button and the "no entries" text occupy the same height.
+- Acceptance: at 360px the top of the plot group (`[role=group][tabindex]`)
+  is at the same y before and after selecting, stepping and clearing, for a
+  bucket with entries and for one without.
+
+### 2.2 Shorter readout and a one-line legend on a phone
+
+At 360px the readout plus two stacked legend pills fill the first screen.
+
+- Below `sm` the three figures are compact: label left, amount right, one
+  line each (use an existing `PresentationFoundation` component or `StatTile`
+  variant if one fits; otherwise the plain text styles already used in this
+  file, not a new component). From `sm` up keep the three tiles in a row.
+- The legend pills no longer carry totals on this chart (the readout shows
+  them now), so "Put in" and "Taken out" fit on one line at 360px in uz, ru
+  and en. Do not change `ChartLegendToggle` for other charts.
+- Acceptance: at 360px the readout is at most about 200px tall and the legend
+  is one line.
+
+### 2.3 Columns a finger can see and hit
+
+90 daily columns in a 230px plot are 2.5px each: invisible bars and an
+impossible tap target. One big deposit also flattens every other bar.
+
+- `reserveBucketUnit`: day when the span is ≤ 31 days, week (Monday start)
+  when ≤ 183 days, else month. So 30d is daily, 90d is 13–14 weeks, 1y is
+  months. Update the doc comment, `reserveExplorer.test.ts` boundaries, the
+  period hint copy if it names the unit, and any e2e step (RES-007) that
+  assumed days at 90d.
+- In `BalanceFlowChart` a bucket with movement always draws a visible bar:
+  `minPointSize` of 3 for a value above zero and 0 for zero (the function
+  form; verify an empty bucket draws nothing). Keep the linear axis.
+- Use the band: smaller `barCategoryGap` so weekly/monthly bars are not thin
+  slivers, still capped by `maxBarSize` on wide screens.
+
+### 2.4 History rows at 360px (`ReserveHistoryList.tsx`)
+
+The day header breaks into "11 ноября / 2026 2 / записи" and entry names are
+cut to "PS5 ol…" while the kind label wraps to three lines.
+
+- Day header below `sm`: date and entry count on the first line (no break
+  inside the date), the in/out totals on a second line. From `sm` up as now.
+- Entry row below `sm`: the name gets the width (up to two lines, then
+  truncate), the kind label on one line under it, the amount right-aligned
+  and never wrapping. Keep the row tappable and the delete button at 44px.
+- No change to what the rows show or open.
+
+### Also in this slice
+
+- `ReserveSkeleton.tsx` / `ReserveExplorerSkeleton`: the readout placeholder
+  takes the new shape (three figures, compact on a phone).
+- Any new copy in `en.json`, `ru.json`, `uz.json` together.
+- Tests: `reserveExplorer.test.ts` (thresholds, period totals),
+  `charts.test.tsx` if props change, e2e as above. Gate as in slice 1.
