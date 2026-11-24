@@ -38,18 +38,26 @@ export interface BalanceFlowRow {
   expenses: number;
 }
 
+/** A row as the flow plot draws it: taken out as a negative value, so it hangs below the zero line. */
+type FlowPoint = BalanceFlowRow & { expensesDown: number };
+
 const FLOW_KEYS = ['income', 'expenses'] as const;
 /** Bars outside the selected column. */
 const DIMMED = 0.3;
 /** Horizontal travel before a touch counts as dragging across the plot rather than a tap. */
 const DRAG_THRESHOLD_PX = 8;
-/** Widest bar on a wide screen. */
-const BAR_MAX_PX = 14;
+/** Widest column on a wide screen: put in and taken out share one column, so it may be wider than a paired bar was. */
+const BAR_MAX_PX = 28;
 /** Shortest bar that still shows: one large deposit must not flatten every other bucket to nothing. */
 const MIN_BAR_PX = 3;
+/** Rounded at the end away from the zero line: recharts measures a bar from its value end, so this holds above and below. */
+const BAR_RADIUS: [number, number, number, number] = [3, 3, 0, 0];
 
 /** Bar height floor: any movement draws at least `MIN_BAR_PX`; a bucket with none draws nothing. */
 export const visibleBarHeight = (value: number | undefined | null) => (value && value > 0 ? MIN_BAR_PX : 0);
+
+/** Axis amounts without a sign: taken out reads as an amount, not as a negative number. */
+export const formatFlowAxis = (value: number, locale: string) => formatAxis(Math.abs(value), locale);
 
 /**
  * Where a key press moves the selection over `keys` (oldest first): Left and
@@ -75,7 +83,8 @@ interface ChartPointer {
 
 /**
  * A balance over time (step area) with what came in and went out in each
- * day, week or month under it on the same axis (paired bars). Tapping a
+ * day, week or month under it on the same axis: put in rises from a zero
+ * line and taken out hangs below it, in one column per bucket. Tapping a
  * column, dragging across either plot, or the arrow keys select a bucket; the
  * selection is the caller's and stays until it is cleared. Days that moved
  * carry a dot on the balance line so there is something to aim at.
@@ -92,7 +101,7 @@ export function BalanceFlowChart({
   currency,
   locale,
   balanceHeight = 200,
-  flowHeight = 96,
+  flowHeight = 112,
   initialWidth,
   plotRef,
 }: {
@@ -118,6 +127,8 @@ export function BalanceFlowChart({
   const { hidden, focused, setFocused, toggle } = useSeriesVisibility();
   const touch = useRef<{ x: number; y: number; dragging: boolean } | null>(null);
   const data = rows as BalanceFlowRow[];
+  // Rows stay positive for the caller and the tooltip; only the flow plot negates taken out.
+  const flowData: FlowPoint[] = rows.map((row) => ({ ...row, expensesDown: row.expenses > 0 ? -row.expenses : 0 }));
   const labels = new Map(rows.map((row) => [row.key, row.label]));
   const selected = rows.find((row) => row.key === selectedKey) ?? null;
   const tooltipSeries = [
@@ -251,9 +262,10 @@ export function BalanceFlowChart({
           <ResponsiveContainer width="100%" height="100%" initialDimension={initialDimension(flowHeight)}>
             <BarChart
               accessibilityLayer={false}
-              data={data}
+              data={flowData}
               syncId="balance-flow"
-              barGap={1}
+              // One stack per column, split by sign: put in above the zero line, taken out below it.
+              stackOffset="sign"
               // A narrow gap: weekly and monthly columns use their band instead of showing slivers.
               barCategoryGap="8%"
               margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
@@ -270,20 +282,33 @@ export function BalanceFlowChart({
                 minTickGap={16}
                 tickFormatter={(key: string) => labels.get(key) ?? key}
               />
-              <YAxis width={CHART_Y_AXIS_WIDTH} tickLine={false} axisLine={false} tick={axisTick} tickCount={3} tickFormatter={(value: number) => formatAxis(value, locale)} />
+              {/*
+                One shared linear scale. With three ticks recharts makes it symmetric when both sides
+                have bars (500 / 0 / 500, the line in the centre) and gives one side the whole plot when
+                only one does. Ticks read as amounts, without a minus.
+              */}
+              <YAxis width={CHART_Y_AXIS_WIDTH} tickLine={false} axisLine={false} tick={axisTick} tickCount={3} tickFormatter={(value: number) => formatFlowAxis(value, locale)} />
               {/* The hovered column, mirrored from the balance plot; the numbers are in its tooltip. */}
               <Tooltip cursor={{ fill: chartColors.cursor }} content={() => null} />
               {marker}
+              {/*
+                The floor is read from the row, not from the stacked value recharts passes:
+                a zero taken out is stacked on top of the put in, and would otherwise draw.
+                A negative floor grows the bar down from the zero line.
+              */}
               {!hidden.has('income') && (
-                <Bar dataKey="income" fill={chartColors.success} radius={[3, 3, 0, 0]} maxBarSize={BAR_MAX_PX} minPointSize={visibleBarHeight} isAnimationActive={false}>
+                <Bar dataKey="income" stackId="flow" fill={chartColors.success} radius={BAR_RADIUS} maxBarSize={BAR_MAX_PX}
+                  minPointSize={(_value, index) => visibleBarHeight(rows[index]?.income)} isAnimationActive={false}>
                   {rows.map((row) => <Cell key={row.key} fillOpacity={barOpacity('income', row.key)} />)}
                 </Bar>
               )}
               {!hidden.has('expenses') && (
-                <Bar dataKey="expenses" fill={chartColors.danger} radius={[3, 3, 0, 0]} maxBarSize={BAR_MAX_PX} minPointSize={visibleBarHeight} isAnimationActive={false}>
+                <Bar dataKey="expensesDown" stackId="flow" fill={chartColors.danger} radius={BAR_RADIUS} maxBarSize={BAR_MAX_PX}
+                  minPointSize={(_value, index) => -visibleBarHeight(rows[index]?.expenses)} isAnimationActive={false}>
                   {rows.map((row) => <Cell key={row.key} fillOpacity={barOpacity('expenses', row.key)} />)}
                 </Bar>
               )}
+              <ReferenceLine y={0} stroke={chartColors.axis} strokeOpacity={0.6} />
             </BarChart>
           </ResponsiveContainer>
         </div>

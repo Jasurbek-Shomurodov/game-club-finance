@@ -7,7 +7,8 @@ import messages from '@/messages/en.json';
 import { averageByWeekday } from '@/lib/calculations/insights';
 import { SideGlanceCard, SideGlanceCardSkeleton } from '@/components/dashboard/SideGlanceCard';
 import { SideScorecard } from '@/components/financial-analysis/AnalysisSections';
-import { BalanceFlowChart, nextSelectionKey, visibleBarHeight } from './BalanceFlowChart';
+import { BalanceFlowChart, formatFlowAxis, nextSelectionKey, visibleBarHeight, type BalanceFlowRow } from './BalanceFlowChart';
+import { BalanceFlowChartSkeleton } from './ChartSkeletons';
 import { CalendarHeatmap } from './CalendarHeatmap';
 import { DonutBreakdown } from './DonutBreakdown';
 import { RadialMeter } from './RadialMeter';
@@ -93,6 +94,27 @@ describe('BalanceFlowChart', () => {
     <BalanceFlowChart rows={rows} selectedKey={selectedKey} onSelect={() => undefined} heldLabel="Held" incomeLabel="Put in"
       expensesLabel="Taken out" legendLabel="Money in and out" summary="Last 30 days: held 300 UZS" currency="UZS" locale="en" initialWidth={600} />,
   );
+  const flowChart = (flowRows: BalanceFlowRow[]) => render(
+    <BalanceFlowChart rows={flowRows} selectedKey={null} onSelect={() => undefined} heldLabel="Held" incomeLabel="Put in" expensesLabel="Taken out"
+      legendLabel="Money in and out" summary="Last 30 days" currency="UZS" locale="en" initialWidth={600} />,
+  );
+  /** The lower (flow) plot: its zero line, its bars and its y tick labels. */
+  const flowPlot = (html: string) => {
+    const plot = html.slice(html.lastIndexOf('class="recharts-surface"'));
+    const number = (tag: string, name: string) => Number(tag.match(new RegExp(`\\s${name}="(-?[\\d.]+)"`))?.[1]);
+    const zero = number(plot.match(/<line[^>]*class="recharts-reference-line-line"[^>]*>/)?.[0] ?? '', 'y1');
+    const bars = [...plot.matchAll(/<path[^>]*class="recharts-rectangle"[^>]*>/g)].map(([tag]) => ({
+      side: tag.includes('--c-success-500') ? 'in' : 'out',
+      y: number(tag, 'y'),
+      height: number(tag, 'height'),
+      // Where each rounded corner ends, top to bottom.
+      arcs: [...(tag.match(/\sd="([^"]*)"/)?.[1] ?? '').matchAll(/A\s*[\d.]+,[\d.]+,0,0,[01],\s*-?[\d.]+,(-?[\d.]+)/g)].map((match) => Number(match[1])),
+    }));
+    const yAxis = plot.slice(plot.indexOf('recharts-yAxis'), plot.indexOf('recharts-bar'));
+    const ticks = [...yAxis.matchAll(/<tspan[^>]*>([^<]*)<\/tspan>/g)].map((match) => match[1]);
+    return { zero, bars, ticks };
+  };
+  const day = (key: string, income: number, expenses: number): BalanceFlowRow => ({ key, label: key, tooltipLabel: key, held: 1_000, income, expenses });
 
   it('draws both plots in one focusable group named by its summary, with the in/out legend', () => {
     const html = chart(null);
@@ -101,7 +123,61 @@ describe('BalanceFlowChart', () => {
     expect(html.match(/class="recharts-surface"/g)).toHaveLength(2);
     // Days that moved carry a dot on the balance line; the quiet day does not.
     expect(html.match(/<circle[^>]*r="2.5"/g)).toHaveLength(2);
-    expect(html).not.toContain('recharts-reference-line');
+    // Only the zero line of the flow plot: no column is marked.
+    expect(html.match(/recharts-reference-line-line/g)).toHaveLength(1);
+    expect(html).not.toContain('stroke-dasharray="4 3"');
+    expect(html).not.toContain('recharts-reference-dot');
+  });
+
+  it('puts put in above and taken out below one zero line, in the same column, with amounts on the axis', () => {
+    const { zero, bars, ticks } = flowPlot(chart(null));
+    expect(Number.isFinite(zero)).toBe(true);
+    expect(bars).toHaveLength(2);
+    const putIn = bars.find((bar) => bar.side === 'in');
+    const takenOut = bars.find((bar) => bar.side === 'out');
+    // Put in rises to the line; taken out is drawn from its far end back up to the line.
+    expect(putIn?.height).toBeGreaterThan(0);
+    expect((putIn?.y ?? 0) + (putIn?.height ?? 0)).toBeCloseTo(zero);
+    expect(takenOut?.height).toBeLessThan(0);
+    expect(takenOut?.y).toBeGreaterThan(zero);
+    expect((takenOut?.y ?? 0) + (takenOut?.height ?? 0)).toBeCloseTo(zero);
+    // One shared scale: 200 taken out is shorter than 500 put in.
+    expect(Math.abs(takenOut?.height ?? 0)).toBeLessThan(putIn?.height ?? 0);
+    // The axis reads 500 / 0 / 500, never a minus amount.
+    expect(ticks).toEqual(['500', '0', '500']);
+    expect(formatFlowAxis(-1_500_000, 'en')).toBe(formatFlowAxis(1_500_000, 'en'));
+  });
+
+  it('rounds each bar at the end away from the zero line', () => {
+    const { zero, bars } = flowPlot(chart(null));
+    for (const bar of bars) {
+      expect(bar.arcs.length).toBeGreaterThan(0);
+      for (const arcY of bar.arcs) {
+        expect(Math.abs(arcY - bar.y)).toBeLessThanOrEqual(3);
+        expect(Math.abs(arcY - zero)).toBeGreaterThan(3);
+      }
+    }
+  });
+
+  it('draws at least 3px on both sides for any movement and nothing for an empty bucket', () => {
+    // A huge deposit beside a one-sum withdrawal, a quiet day, and a tiny deposit beside a huge withdrawal.
+    const { zero, bars } = flowPlot(flowChart([day('a', 5_000_000, 1), day('b', 0, 0), day('c', 1, 5_000_000)]));
+    expect(bars).toHaveLength(4);
+    const heights = bars.map((bar) => bar.height);
+    expect(Math.min(...heights.filter((height) => height > 0))).toBe(3);
+    expect(Math.max(...heights.filter((height) => height < 0))).toBe(-3);
+    // The small bars grow away from the line on their own side.
+    for (const bar of bars) expect(bar.y + bar.height).toBeCloseTo(zero);
+    expect(bars.filter((bar) => bar.side === 'out').every((bar) => bar.y > zero)).toBe(true);
+    expect(bars.filter((bar) => bar.side === 'in').every((bar) => bar.y < zero)).toBe(true);
+  });
+
+  it('draws no taken-out bar on top of a put in when nothing was taken out', () => {
+    // Only deposits: the zero line sits at the foot of the plot and every bar is above it.
+    const { zero, bars, ticks } = flowPlot(flowChart([day('a', 500, 0), day('b', 0, 0), day('c', 300, 0)]));
+    expect(bars.map((bar) => bar.side)).toEqual(['in', 'in']);
+    for (const bar of bars) expect(bar.y + bar.height).toBeCloseTo(zero);
+    expect(ticks[0]).toBe('0');
   });
 
   it('keeps the legend to the two series names, without totals', () => {
@@ -111,30 +187,19 @@ describe('BalanceFlowChart', () => {
     expect(html).not.toContain('tabular-nums font-semibold');
   });
 
-  it('draws a visible bar for any movement and nothing for a bucket without one', () => {
+  it('floors a visible bar for any movement and nothing for a bucket without one', () => {
     expect(visibleBarHeight(1)).toBe(3);
     expect(visibleBarHeight(5_000_000)).toBe(3);
     expect(visibleBarHeight(0)).toBe(0);
     expect(visibleBarHeight(undefined)).toBe(0);
-    // One huge deposit beside a tiny one: the tiny one still draws, the quiet day draws nothing.
-    const html = render(
-      <BalanceFlowChart rows={[
-        { key: '2026-11-01', label: '1 Nov', tooltipLabel: '1 November 2026', held: 5_000_000, income: 5_000_000, expenses: 0 },
-        { key: '2026-11-02', label: '2 Nov', tooltipLabel: '2 November 2026', held: 5_000_000, income: 0, expenses: 0 },
-        { key: '2026-11-03', label: '3 Nov', tooltipLabel: '3 November 2026', held: 5_000_000, income: 0, expenses: 1 },
-      ]} selectedKey={null} onSelect={() => undefined} heldLabel="Held" incomeLabel="Put in" expensesLabel="Taken out"
-        legendLabel="Money in and out" summary="Last 30 days" currency="UZS" locale="en" initialWidth={600} />,
-    );
-    const heights = [...html.matchAll(/<path[^>]*height="([\d.]+)"[^>]*class="recharts-rectangle"/g)].map((match) => Number(match[1]));
-    expect(heights).toHaveLength(2);
-    expect(Math.min(...heights)).toBe(3);
-    expect(Math.max(...heights)).toBeGreaterThan(3);
   });
 
   it('marks the selected column in both plots and dims the other bars', () => {
     const html = chart('2026-11-03');
     expect(html).toContain('data-selected="2026-11-03"');
-    expect(html.match(/recharts-reference-line/g)?.length).toBeGreaterThanOrEqual(2);
+    // The dashed marker in both plots, beside the flow plot's zero line.
+    expect(html.match(/stroke-dasharray="4 3"/g)).toHaveLength(2);
+    expect(html.match(/recharts-reference-line-line/g)).toHaveLength(3);
     expect(html).toContain('recharts-reference-dot');
     expect(html).toContain('fill-opacity="0.3"');
   });
@@ -253,5 +318,13 @@ describe('skeletons follow the new layouts', () => {
     const html = render(<SideGlanceCardSkeleton />);
     expect(html.match(/h-8 bg-gray-100/g)).toHaveLength(35);
     expect(html.match(/flex-1 rounded-b-sm/g)).toHaveLength(7);
+  });
+
+  it('draws the balance flow skeleton with bars above and below a zero line at the flow plot height', () => {
+    const html = render(<BalanceFlowChartSkeleton bars={6} />);
+    expect(html).toContain('height:112px');
+    expect(html.match(/flex-1 rounded-b-none rounded-t/g)).toHaveLength(6);
+    expect(html.match(/flex-1 rounded-t-none rounded-b/g)).toHaveLength(6);
+    expect(html).toContain('h-px w-full');
   });
 });

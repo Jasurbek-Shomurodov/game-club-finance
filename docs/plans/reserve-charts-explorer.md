@@ -265,3 +265,28 @@ cut to "PS5 ol…" while the kind label wraps to three lines.
 - Any new copy in `en.json`, `ru.json`, `uz.json` together.
 - Tests: `reserveExplorer.test.ts` (thresholds, period totals),
   `charts.test.tsx` if props change, e2e as above. Gate as in slice 1.
+
+## Slice 3: put in above, taken out below a centre line
+
+On a phone the in/out pair shares a narrow column, so each bar is about 3px
+wide. Draw the flow plot of `BalanceFlowChart` as diverging bars instead:
+
+- Put in goes up from a zero line, taken out goes down from it, in the same
+  column (one `stackId`, `stackOffset="sign"`, taken out plotted as a negative
+  value). Each bar then uses the whole band width; raise `maxBarSize` so a
+  weekly or monthly column is not a sliver, but keep a cap for wide screens.
+- A visible zero line (`ReferenceLine y={0}`). The y axis is symmetric around
+  zero only if that reads well; otherwise let each side scale to the data on
+  one shared linear scale. Tick labels show absolute amounts (no minus sign).
+- The 3px minimum height holds on both sides: any put-in above zero and any
+  taken-out above zero draws at least 3px, zero draws nothing. Rounded corners
+  point away from the zero line on both sides.
+- Give the flow plot a little more height if the two halves need it (about
+  112px); keep the balance plot as is. Selection, dimming, legend toggles,
+  tooltip figures (always positive amounts), keyboard and touch behave as
+  today. Hiding one series leaves the other on its side of the line.
+- Rows passed in (`income`, `expenses`) stay positive; the negation is inside
+  the chart. No calculation, page, locale or e2e change is expected.
+- Update `BalanceFlowChartSkeleton` to the same shape (bars above and below a
+  line) and `charts.test.tsx` (taken-out bars render below the zero line, the
+  minimum height on both sides, an empty bucket draws nothing).

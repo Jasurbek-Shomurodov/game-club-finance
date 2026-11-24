@@ -111,8 +111,12 @@ export function InOutChartCardSkeleton({ height = 220, bars, action = false, chi
   );
 }
 
-/** `BalanceFlowChart`: the two-pill legend on one line, the balance plot and the short in/out bars under it. */
-export function BalanceFlowChartSkeleton({ balanceHeight = 200, flowHeight = 96, bars = 14, className }: { balanceHeight?: number; flowHeight?: number; bars?: number; className?: string }) {
+/** Taken-out bars in the flow skeleton: shorter than the put-in ones, and some columns have none. */
+const DOWN_BAR_HEIGHTS = [35, 0, 60, 20, 0, 45, 0, 30, 70, 0, 25, 50];
+
+/** `BalanceFlowChart`: the two-pill legend on one line, the balance plot, and under it put in above and taken out below a zero line. */
+export function BalanceFlowChartSkeleton({ balanceHeight = 200, flowHeight = 112, bars = 14, className }: { balanceHeight?: number; flowHeight?: number; bars?: number; className?: string }) {
+  const columns = Array.from({ length: bars }, (_, index) => index);
   return (
     <div aria-hidden="true" className={cn('space-y-3', className)}>
       <div className="flex gap-1.5">
@@ -121,14 +125,26 @@ export function BalanceFlowChartSkeleton({ balanceHeight = 200, flowHeight = 96,
       </div>
       <div>
         <Skeleton className="w-full rounded-xl bg-gray-100" style={{ height: balanceHeight }} />
-        <div className="flex items-end gap-1 pl-[60px]" style={{ height: flowHeight }}>
-          {Array.from({ length: bars }, (_, index) => (
-            <Skeleton
-              key={index}
-              className="flex-1 rounded-b-none rounded-t bg-gray-100"
-              style={{ height: `${BAR_HEIGHTS[index % BAR_HEIGHTS.length] * 0.7}%` }}
-            />
-          ))}
+        <div className="flex flex-col pl-[60px]" style={{ height: flowHeight }}>
+          <div className="flex flex-1 items-end gap-1">
+            {columns.map((index) => (
+              <Skeleton
+                key={index}
+                className="flex-1 rounded-b-none rounded-t bg-gray-100"
+                style={{ height: `${BAR_HEIGHTS[index % BAR_HEIGHTS.length] * 0.85}%` }}
+              />
+            ))}
+          </div>
+          <Skeleton className="h-px w-full shrink-0 rounded-none" />
+          <div className="flex flex-1 items-start gap-1">
+            {columns.map((index) => (
+              <Skeleton
+                key={index}
+                className="flex-1 rounded-t-none rounded-b bg-gray-100"
+                style={{ height: `${DOWN_BAR_HEIGHTS[index % DOWN_BAR_HEIGHTS.length]}%` }}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </div>
