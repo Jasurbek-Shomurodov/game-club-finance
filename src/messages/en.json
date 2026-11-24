@@ -1183,7 +1183,8 @@
       "dayCollected": "The money for this day was collected, so the day is closed. Pick another date.",
       "insufficientBalance": "This payment method does not hold enough money for this expense.",
       "reserveInsufficient": "The reserve holds less than this expense in that payment method.",
-      "collectedInsufficient": "Collected money holds less than this expense in that payment method."
+      "collectedInsufficient": "Collected money holds less than this expense in that payment method.",
+      "dollarCostUnknown": "The USD account's dollars have no purchase cost left, so this expense cannot be priced. Buy dollars first or pay from the UZS account."
     },
     "preset": "Planned expense",
     "presetHelp": "Pick one to count this payment against its monthly plan.",
@@ -1193,7 +1194,7 @@
     "usdAmount": "Amount in dollars",
     "usdRate": "Exchange rate",
     "usdRateHint": "UZS for 1 US dollar",
-    "usdInSums": "Recorded as {amount} {currency} in expenses",
+    "usdInSums": "Counted as about {amount} {currency} in expenses",
     "usdRateRequired": "Enter the exchange rate.",
     "availableAmount": "Available: {amount}",
     "overBalance": "Only {amount} is left in this payment method.",
@@ -1201,9 +1202,10 @@
     "balancesLoadError": "Could not load what each payment method holds.",
     "reserveHint": "The reserve pays from its own sums and dollars: Game Club and Bar money stay as they are.",
     "reserveEmptyHint": "The reserve is empty. Put part of a month's profit aside on Owner Profit to pay from it.",
+    "reserveAccount": "Account",
     "reserveMethods": {
-      "sums": "UZS",
-      "usd": "US dollars"
+      "sums": "UZS account",
+      "usd": "USD account"
     },
     "collectedHint": "Paid from money the collector took from the admin. The admin’s kassa stays as it is.",
     "collectedBalancesHelp": "Under each method: how much collected money it holds."
@@ -3156,8 +3158,8 @@
     "overview": "Overview",
     "history": "History · {count}",
     "totalHeld": "In the reserve now",
-    "sumsPot": "UZS",
-    "dollarsPot": "US dollars",
+    "sumsPot": "UZS account",
+    "dollarsPot": "USD account",
     "dollarsBoughtFor": "Bought for {amount}",
     "putIn": "Put in",
     "takenOut": "Taken out",

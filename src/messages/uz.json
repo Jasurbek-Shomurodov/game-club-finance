@@ -1183,7 +1183,8 @@
       "dayCollected": "Bu kunning puli olindi, kun yopilgan. Boshqa sanani tanlang.",
       "insufficientBalance": "Bu to‘lov usulida xarajat uchun pul yetarli emas.",
       "reserveInsufficient": "Tanlangan to'lov usulida jamg'armada bundan kam pul bor.",
-      "collectedInsufficient": "Bu to‘lov usulida yig‘ilgan pul bu xarajatdan kam."
+      "collectedInsufficient": "Bu to‘lov usulida yig‘ilgan pul bu xarajatdan kam.",
+      "dollarCostUnknown": "Dollar hisobidagi dollarlarning xarid narxi qolmagan, shuning uchun bu xarajatni so‘mda hisoblab bo‘lmaydi. Avval dollar sotib oling yoki so‘m hisobidan to‘lang."
     },
     "preset": "Rejalashtirilgan xarajat",
     "presetHelp": "Bu to'lovni oylik rejaga hisoblash uchun tanlang.",
@@ -1193,7 +1194,7 @@
     "usdAmount": "Dollardagi miqdor",
     "usdRate": "Dollar kursi",
     "usdRateHint": "1 AQSH dollari uchun so‘m",
-    "usdInSums": "Xarajatga {amount} {currency} bo‘lib yoziladi",
+    "usdInSums": "Xarajatga taxminan {amount} {currency} bo‘lib hisoblanadi",
     "usdRateRequired": "Kursni kiriting.",
     "availableAmount": "Mavjud: {amount}",
     "overBalance": "Bu to‘lov usulida faqat {amount} qolgan.",
@@ -1201,9 +1202,10 @@
     "balancesLoadError": "To‘lov usullaridagi qoldiqni yuklab bo‘lmadi.",
     "reserveHint": "Jamg'arma o'z so'mi va dollaridan to'laydi: klub va bar puli o'zgarmaydi.",
     "reserveEmptyHint": "Jamg'arma bo'sh. Undan to'lash uchun «Klub egasi foydasi» sahifasida oy foydasining bir qismini jamg'armaga qo'ying.",
+    "reserveAccount": "Hisob",
     "reserveMethods": {
-      "sums": "So'm",
-      "usd": "AQSH dollari"
+      "sums": "So'm hisobi",
+      "usd": "Dollar hisobi"
     },
     "collectedHint": "Yig‘uvchi admindan olgan puldan to‘lanadi. Admin kassasi o‘zgarmaydi.",
     "collectedBalancesHelp": "Har bir usul ostida: unda qancha yig‘ilgan pul bor."
@@ -3156,8 +3158,8 @@
     "overview": "Umumiy ko'rinish",
     "history": "Tarix · {count}",
     "totalHeld": "Hozir jamg'armada",
-    "sumsPot": "So'm",
-    "dollarsPot": "AQSH dollari",
+    "sumsPot": "So'm hisobi",
+    "dollarsPot": "Dollar hisobi",
     "dollarsBoughtFor": "{amount} ga sotib olingan",
     "putIn": "Qo'yilgan",
     "takenOut": "Chiqarilgan",

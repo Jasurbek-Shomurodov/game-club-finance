@@ -205,7 +205,7 @@ describe('expense creation route', () => {
   const body = { clubId: CLUB_ID, date: '2026-10-01', amount: 50000, category: 'repair', paymentMethod: 'cash', paymentSource: 'game_club', comment: ' Fixed the  broken front door ' };
   const saved = { id: EXPENSE_ID, club_id: CLUB_ID, date: '2026-10-01', amount: 50000, category: 'repair', payment_method: 'cash', payment_source: 'game_club', comment: 'Fixed the  broken front door' };
 
-  function mockCreate({ methods = ['cash', 'terminal'], upserted = saved as unknown, existing = null as unknown, insertError = null as { message: string; code?: string } | null } = {}) {
+  function mockCreate({ methods = ['cash', 'terminal'], upserted = saved as unknown, existing = null as unknown, insertError = null as { message: string; code?: string; hint?: string } | null } = {}) {
     const clubQuery = queryResult({ enabled_payment_methods: methods, business_day_start_hour: 6 });
     const writeQuery = queryResult(upserted, insertError);
     const existingQuery = queryResult(existing);
@@ -286,6 +286,20 @@ describe('expense creation route', () => {
     expect((await response.json()).code).toBe('INSUFFICIENT_BALANCE');
   });
 
+  it('says when the dollars held have no purchase cost left to price a USD-account expense (184)', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockCreate({
+      methods: ['terminal'],
+      upserted: null,
+      insertError: { message: 'The dollars held have no sums cost left', code: '23514', hint: 'dollar_cost_unknown' },
+    });
+    const { amount: _sums, ...withoutSums } = body;
+    void _sums;
+    const response = await create({ ...withoutSums, id: EXPENSE_ID, paymentMethod: 'usd', usdAmount: 10 });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: 'DOLLAR_COST_UNKNOWN' });
+  });
+
   it('takes a Game Club expense from PlayStation money without it being an enabled method', async () => {
     const { writeQuery } = mockCreate({ methods: ['terminal'], upserted: { ...saved, payment_method: 'playstation' } });
     const response = await create({ ...body, id: EXPENSE_ID, paymentMethod: 'playstation' });
@@ -293,20 +307,49 @@ describe('expense creation route', () => {
     expect(writeQuery.upsert).toHaveBeenCalledWith(expect.objectContaining({ payment_method: 'playstation', payment_source: 'game_club' }), expect.anything());
   });
 
-  it('books a dollar expense in sums at the entered rate', async () => {
-    const { writeQuery } = mockCreate({ methods: ['terminal'], upserted: { ...saved, payment_method: 'usd', amount: 1_265_050, usd_amount: 100, usd_rate: 12_650.5 } });
-    const response = await create({ ...body, id: EXPENSE_ID, amount: 1, paymentMethod: 'usd', usdAmount: 100, usdRate: 12_650.5 });
+  it('sends only the dollars of a USD-account expense and returns the sums the database counted them at', async () => {
+    const priced = { ...saved, payment_method: 'usd', amount: 1_202_225, usd_amount: 100, usd_rate: 12_022.25 };
+    const { writeQuery } = mockCreate({ methods: ['terminal'], upserted: priced });
+    const { amount: _sums, ...withoutSums } = body;
+    void _sums;
+    const response = await create({ ...withoutSums, id: EXPENSE_ID, paymentMethod: 'usd', usdAmount: 100 });
     expect(response.status).toBe(201);
-    expect(writeQuery.upsert).toHaveBeenCalledWith(expect.objectContaining({
-      payment_method: 'usd', amount: 1_265_050, usd_amount: 100, usd_rate: 12_650.5,
-    }), expect.anything());
+    const row = writeQuery.upsert.mock.calls[0][0] as Record<string, unknown>;
+    expect(row).toMatchObject({ payment_method: 'usd', usd_amount: 100 });
+    expect(row).not.toHaveProperty('amount');
+    expect(row).not.toHaveProperty('usd_rate');
+    expect((await response.json()).expense).toMatchObject({ amount: 1_202_225, usd_rate: 12_022.25 });
   });
 
-  it('needs dollars and a rate exactly on a dollar expense, and only from Game Club money', async () => {
+  it('accepts and ignores the sums and rate an older client still sends with dollars', async () => {
+    const { writeQuery } = mockCreate({ methods: ['terminal'], upserted: { ...saved, payment_method: 'usd', amount: 1_202_225, usd_amount: 100, usd_rate: 12_022.25 } });
+    const response = await create({ ...body, id: EXPENSE_ID, amount: 1_200_000, paymentMethod: 'usd', usdAmount: 100, usdRate: 12_000 });
+    expect(response.status).toBe(201);
+    const row = writeQuery.upsert.mock.calls[0][0] as Record<string, unknown>;
+    expect(row).not.toHaveProperty('amount');
+    expect(row).not.toHaveProperty('usd_rate');
+  });
+
+  it('returns a retried USD-account expense by its dollars, whatever sums it was counted at', async () => {
+    const existing = { ...saved, payment_method: 'usd', amount: 1_202_225, usd_amount: 100, usd_rate: 12_022.25 };
+    mockCreate({ methods: ['terminal'], upserted: null, existing });
+    const retried = await create({ ...body, id: EXPENSE_ID, paymentMethod: 'usd', usdAmount: 100 });
+    expect(retried.status).toBe(200);
+    mockCreate({ methods: ['terminal'], upserted: null, existing });
+    expect((await create({ ...body, id: EXPENSE_ID, paymentMethod: 'usd', usdAmount: 90 })).status).toBe(409);
+  });
+
+  it('needs dollars exactly on a USD-account expense, and only from Game Club money', async () => {
     mockCreate();
-    expect((await create({ ...body, paymentMethod: 'usd', usdAmount: 100 })).status).toBe(400);
-    expect((await create({ ...body, paymentMethod: 'usd', usdAmount: 0.001, usdRate: 12_600 })).status).toBe(400);
+    expect((await create({ ...body, paymentMethod: 'usd' })).status).toBe(400);
+    expect((await create({ ...body, paymentMethod: 'usd', usdAmount: 0.001 })).status).toBe(400);
+    expect((await create({ ...body, paymentMethod: 'usd', usdAmount: 100, usdRate: 0 })).status).toBe(400);
+    expect((await create({ ...body, paymentMethod: 'usd', usdAmount: 100, amount: -1 })).status).toBe(400);
     expect((await create({ ...body, usdAmount: 100, usdRate: 12_600 })).status).toBe(400);
+    expect((await create({ ...body, usdAmount: 100 })).status).toBe(400);
+    const { amount: _sums, ...withoutSums } = body;
+    void _sums;
+    expect((await create({ ...withoutSums })).status).toBe(400);
     const bar = await create({ ...body, category: 'cleaning', paymentMethod: 'usd', paymentSource: 'bar', usdAmount: 100, usdRate: 12_600 });
     expect((await bar.json()).code).toBe('PAYMENT_METHOD_DISABLED');
   });

@@ -69,8 +69,8 @@ describe('expense balance limit (125)', () => {
     `);
   });
 
-  it('reports what each method holds and the latest dollar rate', async () => {
-    expect(await balances()).toEqual({ cash: 1000, terminal: 0, card: 200, playstation: 700, usd: 3, usdRate: 100 });
+  it('reports what each method holds, the latest dollar rate and what a dollar cost (184)', async () => {
+    expect(await balances()).toEqual({ cash: 1000, terminal: 0, card: 200, playstation: 700, usd: 3, usdRate: 100, usdCostRate: 100 });
   });
 
   it('refuses an expense larger than its method holds for the month', async () => {

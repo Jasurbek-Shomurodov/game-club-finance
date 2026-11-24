@@ -130,7 +130,7 @@ test('EXP-010 a Game Club expense can be paid from PlayStation money, a Bar expe
   await expectGameClubExpenses(page, expected.gameClubExpenses + 25_000);
 });
 
-test('EXP-011 an expense can be paid from the reserve US dollars at an entered rate, up to the dollars held', async ({ page }) => {
+test('EXP-011 an expense paid from the reserve USD account asks no rate, counts the dollars at what they cost, up to the dollars held', async ({ page }) => {
   const bought = await restAs(accounts.owner, 'POST', 'rpc/record_money_exchange', {
     p_id: crypto.randomUUID(), p_club_id: clubs.arcade.id, p_date: today, p_from_method: 'cash', p_to_method: 'usd',
     p_from_amount: 1_000_000, p_rate: 12_500, p_comment: 'Cash moved into dollars for parts',
@@ -139,27 +139,36 @@ test('EXP-011 an expense can be paid from the reserve US dollars at an entered r
   await page.goto('/reports');
   await page.getByRole('button', { name: 'Register Expense' }).click();
   const dialog = page.getByRole('dialog', { name: 'Register Expense' });
-  // Dollars are the reserve's own money, apart from Game Club and Bar: only the reserve offers them.
-  await expect(dialog.getByRole('radio', { name: /US dollars/ })).toHaveCount(0);
+  // Dollars are the reserve's own money, apart from Game Club and Bar: only the reserve offers its USD account.
+  await expect(dialog.getByRole('radio', { name: /USD account/ })).toHaveCount(0);
   await dialog.getByRole('radio', { name: 'Reserve', exact: true }).click();
-  await expect(dialog.getByRole('radio', { name: /UZS/ })).toBeVisible();
-  const dollars = dialog.getByRole('radio', { name: /US dollars/ });
+  const accountPicker = dialog.getByRole('radiogroup', { name: 'Account' });
+  await expect(accountPicker.getByRole('radio', { name: /UZS account/ })).toBeVisible();
+  const dollars = accountPicker.getByRole('radio', { name: /USD account/ });
   await expect(dollars).toContainText('$80');
   await dollars.click();
-  // The rate starts from the latest exchange.
-  await expect(dialog.locator('#expense-usd-rate')).toHaveValue(/12\s?500/);
+  // Only the dollars are asked: the market rate has nothing to do with dollars already bought.
+  await expect(dialog.locator('#expense-usd-rate')).toHaveCount(0);
+  await expect(dialog.getByText('Exchange rate')).toHaveCount(0);
   await dialog.locator('#expense-amount').fill('100');
   await expect(dialog.getByText('Only $80 is left in this payment method.')).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Save Expense' })).toBeDisabled();
   await dialog.locator('#expense-amount').fill('20');
-  await dialog.locator('#expense-usd-rate').fill('12600');
-  await expect(dialog.getByText('Recorded as 252 000 UZS in expenses')).toBeVisible();
+  // $80 cost 1 000 000: 12 500 a dollar.
+  await expect(dialog.getByText(`Counted as about ${uzs(250_000)} UZS in expenses`)).toBeVisible();
   await dialog.locator('#expense-category').selectOption('repair');
   await dialog.locator('#expense-comment').fill('Spare parts bought abroad in dollars');
+  const posts = [];
+  page.on('request', request => { if (request.method() === 'POST' && request.url().endsWith('/api/expenses')) posts.push(request.postDataJSON()); });
   await dialog.getByRole('button', { name: 'Save Expense' }).click();
   await expect(page.getByText('Expense registered successfully.')).toBeVisible();
+  expect(posts).toHaveLength(1);
+  expect(posts[0]).toMatchObject({ paymentMethod: 'usd', usdAmount: 20 });
+  expect(posts[0]).not.toHaveProperty('usdRate');
+  expect(posts[0]).not.toHaveProperty('amount');
+  // The database priced the row at what the dollars cost.
   const rows = await (await restAs(accounts.owner, 'GET', `expenses?select=amount,payment_method,usd_amount,usd_rate&club_id=eq.${clubs.arcade.id}&date=eq.${today}&order=created_at.asc`)).json();
-  expect(rows.at(-1)).toEqual({ amount: 252000, payment_method: 'usd', usd_amount: 20, usd_rate: 12600 });
+  expect(rows.at(-1)).toEqual({ amount: 250000, payment_method: 'usd', usd_amount: 20, usd_rate: 12500 });
 });
 
 test('EXP-008 a planned expense is set up in Settings, picked in the expense form and compared in Financial analysis', async ({ page }) => {
@@ -590,10 +599,10 @@ test('OWN-008 profit put into the reserve leaves the month, and a purchase paid 
   // The reserve has its own page: an overview of what it holds, and its history on a second tab.
   await reserve.getByRole('link', { name: 'Charts and history' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Reserve' })).toBeVisible();
-  // Two pots, whatever side or method the money came from: sums and dollars.
+  // Two accounts, whatever side or method the money came from: a UZS one and a USD one.
   const held = page.getByRole('region', { name: 'In the reserve now' });
-  await expect(held).toContainText('UZS');
-  await expect(held).toContainText('US dollars');
+  await expect(held).toContainText('UZS account');
+  await expect(held).toContainText('USD account');
   await expect(page.getByRole('heading', { name: 'Reserve over time' })).toBeVisible();
   await expect(page.getByRole('list', { name: 'Reserve history' })).toHaveCount(0);
   await page.getByRole('radio', { name: /^History · \d+/ }).click();
@@ -1225,7 +1234,7 @@ test('RES-001 money returned from the reserve leaves it and is back in the month
   await moveReserve(page, 'deposit', 'bar', expected.barSales - expected.stockPurchaseCost);
   await page.reload();
   const held = page.getByRole('region', { name: 'In the reserve now' });
-  await expect(held.getByRole('button', { name: tileName('UZS', 548_000) })).toBeVisible();
+  await expect(held.getByRole('button', { name: tileName('UZS account', 548_000) })).toBeVisible();
 
   await page.getByRole('button', { name: 'Return to profit' }).click();
   const dialog = page.getByRole('dialog', { name: 'Return to profit' });
@@ -1252,7 +1261,7 @@ test('RES-001 money returned from the reserve leaves it and is back in the month
   await expect(dialog).toBeHidden();
 
   // 548 000 − 200 000 stays in the reserve.
-  await expect(held.getByRole('button', { name: tileName('UZS', 348_000) })).toBeVisible();
+  await expect(held.getByRole('button', { name: tileName('UZS account', 348_000) })).toBeVisible();
   await expect(held.getByRole('button', { name: tileName('Returned to profit', 200_000) })).toBeVisible();
 
   // The month has it back: cash left to take is 1 280 000 − 500 000 + 200 000.
@@ -1268,7 +1277,7 @@ test('RES-002 a purchase paid on the Reserve page lowers the reserve and leaves 
   await moveReserve(page, 'deposit', 'game_club', 500_000);
   await page.reload();
   const held = page.getByRole('region', { name: 'In the reserve now' });
-  await expect(held.getByRole('button', { name: tileName('UZS', 500_000) })).toBeVisible();
+  await expect(held.getByRole('button', { name: tileName('UZS account', 500_000) })).toBeVisible();
 
   await page.getByRole('button', { name: 'Pay from reserve' }).click();
   const dialog = page.getByRole('dialog', { name: 'Pay from reserve' });
@@ -1287,7 +1296,7 @@ test('RES-002 a purchase paid on the Reserve page lowers the reserve and leaves 
   expect(posts[0]).toMatchObject({ amount: 300000, category: 'equipment', fromReserve: true });
 
   // 500 000 − 300 000 is left, and the purchase is in the reserve's own history.
-  await expect(held.getByRole('button', { name: tileName('UZS', 200_000) })).toBeVisible();
+  await expect(held.getByRole('button', { name: tileName('UZS account', 200_000) })).toBeVisible();
   await expect(held.getByRole('button', { name: tileName('Paid from reserve', 300_000) })).toBeVisible();
   await page.getByRole('radio', { name: /^History · 2$/ }).click();
   const history = page.getByRole('list', { name: 'Reserve history' });

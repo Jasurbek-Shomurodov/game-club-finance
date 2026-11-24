@@ -4210,10 +4210,6 @@
         "kind": "trigger",
         "table": "public.expenses",
         "name": "expenses_method_balance"
-      },
-      {
-        "kind": "function",
-        "signature": "public.get_expense_method_balances(uuid,date)"
       }
     ]
   },
@@ -5461,6 +5457,29 @@
       {
         "kind": "function",
         "signature": "public.expire_activity_notices()"
+      }
+    ]
+  },
+  {
+    "file": "184_dollar_expenses_at_cost.sql",
+    "probes": [
+      {
+        "kind": "trigger",
+        "table": "public.expenses",
+        "name": "expenses_at_dollar_cost"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.get_expense_method_balances(uuid,date)",
+        "md5": "39646540eb6b9679cc59c9ffaa312044"
+      },
+      {
+        "kind": "function",
+        "signature": "public.dollar_cost_rate(uuid,uuid)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.price_dollar_expense()"
       }
     ]
   }

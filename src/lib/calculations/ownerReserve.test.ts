@@ -118,6 +118,25 @@ describe('dollarReserveEntries', () => {
     expect(month.byMethod.usd).toEqual({ deposited: 21_243_000, returned: 0, spent: 15_000_000 });
     expect(reserveBalances(entries, [rent]).game_club.byMethod.usd).toBe(6_243_000);
   });
+
+  it('keeps the average price of the dollars left when dollars are spent at what they cost (184)', async () => {
+    const { reserveDollarRates } = await import('./ownerReserve');
+    const exchanges = [
+      { ...row('a', 'cash', 'usd', 1_200_000, 100), rate: 12_000 },
+      { ...row('b', 'cash', 'usd', 1_300_000, 100), rate: 13_000 },
+    ];
+    const entries = dollarReserveEntries(exchanges, 'club');
+    const before = reserveDollarRates(exchanges, 200, reserveBalances(entries, []).game_club.byMethod.usd);
+    expect(before.averageRate).toBe(12_500);
+    // $50 at the database's cost rate: amount = round(50 x 12 500).
+    const parts: ReservePaidExpense = {
+      id: 'parts', date: '2026-10-31', amount: 625_000, payment_source: 'game_club', payment_method: 'usd',
+      category: 'repair', comment: null, created_at: '2026-10-31T10:00:00Z',
+    };
+    const value = reserveBalances(entries, [parts]).game_club.byMethod.usd;
+    expect(value).toBe(1_875_000);
+    expect(reserveDollarRates(exchanges, 150, value).averageRate).toBe(12_500);
+  });
 });
 
 describe('reserveMonthlySeries', () => {

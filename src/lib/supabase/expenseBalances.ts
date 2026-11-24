@@ -2,11 +2,16 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ExpensePaymentMethod } from '@/types';
 import { isMissingDatabaseFunction } from './errors';
 
-/** What each payment method can still pay (migration 125), plus the latest dollar rate to suggest. */
+/** What each payment method can still pay (migration 125), plus the dollar rates behind the USD account. */
 export interface ExpenseMethodBalances {
   balances: Record<ExpensePaymentMethod, number>;
   /** UZS per dollar of the club's latest dollar exchange on or before the date; null when none. */
   usdRate: number | null;
+  /**
+   * What one dollar held cost (184): the database counts a USD-account expense
+   * at this rate. Null without dollars, or before migration 184.
+   */
+  usdCostRate: number | null;
 }
 
 interface BalancesPayload {
@@ -16,6 +21,7 @@ interface BalancesPayload {
   playstation?: number | string | null;
   usd?: number | string | null;
   usdRate?: number | string | null;
+  usdCostRate?: number | string | null;
 }
 
 /**
@@ -35,6 +41,7 @@ export async function fetchExpenseMethodBalances(
   }
   const payload = (data ?? {}) as BalancesPayload;
   const amount = (value: number | string | null | undefined) => Number(value ?? 0);
+  const rate = (value: number | string | null | undefined) => (value === null || value === undefined ? null : Number(value));
   return {
     balances: {
       cash: amount(payload.cash),
@@ -43,6 +50,7 @@ export async function fetchExpenseMethodBalances(
       playstation: amount(payload.playstation),
       usd: amount(payload.usd),
     },
-    usdRate: payload.usdRate === null || payload.usdRate === undefined ? null : Number(payload.usdRate),
+    usdRate: rate(payload.usdRate),
+    usdCostRate: rate(payload.usdCostRate),
   };
 }

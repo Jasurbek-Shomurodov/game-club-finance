@@ -22,6 +22,7 @@ export const EXPENSE_ERROR_CODES = [
   'INSUFFICIENT_BALANCE',
   'RESERVE_INSUFFICIENT',
   'COLLECTED_INSUFFICIENT',
+  'DOLLAR_COST_UNKNOWN',
   'SERVER_ERROR',
 ] as const;
 
@@ -44,6 +45,7 @@ const ERRORS: Record<ExpenseErrorCode, { status: number; text: string }> = {
   INSUFFICIENT_BALANCE: { status: 409, text: 'The payment method does not hold enough money for this expense' },
   RESERVE_INSUFFICIENT: { status: 409, text: 'The owner reserve holds less than this expense' },
   COLLECTED_INSUFFICIENT: { status: 409, text: 'Collected money holds less than this expense' },
+  DOLLAR_COST_UNKNOWN: { status: 409, text: 'The dollars held have no purchase cost left to price this expense' },
   SERVER_ERROR: { status: 500, text: 'Expense change failed' },
 };
 
@@ -64,6 +66,8 @@ export function expenseErrorCode(error: { code?: string | null; message?: string
   if (error.hint === 'reserve_insufficient') return 'RESERVE_INSUFFICIENT';
   // The 169 trigger: collected money holds less than this expense.
   if (error.hint === 'COLLECTED_INSUFFICIENT' || /insufficient collected money/i.test(message)) return 'COLLECTED_INSUFFICIENT';
+  // The 184 trigger: the dollars held have no sums cost left (sold for more than they cost).
+  if (error.hint === 'dollar_cost_unknown') return 'DOLLAR_COST_UNKNOWN';
   if (error.hint === 'INSUFFICIENT_BALANCE' || /insufficient payment method balance/i.test(message)) return 'INSUFFICIENT_BALANCE';
   if (error.code === '42501') return 'FORBIDDEN';
   if (error.code === '23514') return 'CHECK_FAILED';

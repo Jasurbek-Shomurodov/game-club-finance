@@ -2,7 +2,7 @@ import { after } from 'next/server';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { validateEntryNote } from '@/lib/entryNote';
 import { isExpenseCategoryAllowedForSource, isManualExpenseCategory } from '@/lib/expenseCategories';
-import { dollarExpenseAmount, expensePaymentMethods, normalizePaymentMethods } from '@/lib/paymentMethods';
+import { expensePaymentMethods, normalizePaymentMethods } from '@/lib/paymentMethods';
 import { createClient } from '@/lib/supabase/server';
 import { actorName } from '@/lib/telegram/actorName';
 import { buildExpenseNotification, expenseDollars, expenseFromReserve } from '@/lib/telegram/expenseNotification';
@@ -35,7 +35,11 @@ interface ExpenseRequestBody {
   comment?: unknown;
   /** Optional planned expense (091) this payment belongs to. */
   presetId?: unknown;
-  /** Dollar expenses (124) only: dollars spent and UZS per dollar; `amount` is then computed from them. */
+  /**
+   * USD-account expenses (124) only: the dollars spent. The database counts them
+   * at what the dollars cost (184), so `amount` is not needed. `usdRate` is
+   * what older clients still send: it is accepted and ignored.
+   */
   usdAmount?: unknown;
   usdRate?: unknown;
   /**
@@ -56,7 +60,8 @@ interface ValidExpenseRequestBody {
   id?: string;
   clubId: string;
   date: string;
-  amount: number;
+  /** Sums; absent on a USD-account expense, which the database prices. */
+  amount?: number;
   category: string;
   paymentMethod: ExpensePaymentMethod;
   paymentSource: (typeof PAYMENT_SOURCES)[number];
@@ -75,6 +80,9 @@ const isCents = (value: unknown): value is number => typeof value === 'number'
   && value < 1e14
   && Math.abs(Math.round(value * 100) - value * 100) < 1e-6;
 
+const isPositiveAmount = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0;
+const isAbsent = (value: unknown) => value === null || value === undefined;
+
 interface DeleteExpenseRequestBody {
   clubId?: unknown;
   expenseId?: unknown;
@@ -85,9 +93,8 @@ function isValidBody(body: ExpenseRequestBody): body is ValidExpenseRequestBody 
     && isId(body.clubId)
     && typeof body.date === 'string'
     && isIsoDate(body.date)
-    && typeof body.amount === 'number'
-    && Number.isFinite(body.amount)
-    && body.amount > 0
+    // A USD-account expense is priced by the database; an older client's sums are ignored.
+    && (body.paymentMethod === 'usd' ? isAbsent(body.amount) || isPositiveAmount(body.amount) : isPositiveAmount(body.amount))
     && typeof body.category === 'string'
     && isManualExpenseCategory(body.category.trim())
     // Bar money pays only for cleaning and food/drinks; a chosen
@@ -103,10 +110,10 @@ function isValidBody(body: ExpenseRequestBody): body is ValidExpenseRequestBody 
     && (body.fromCollected === undefined || typeof body.fromCollected === 'boolean')
     && !(body.fromCollected === true && (body.fromReserve === true || body.paymentSource !== 'game_club'
       || !['cash', 'terminal', 'card', 'playstation'].includes(body.paymentMethod as string)))
-    // Dollars and rate come exactly with a dollar expense.
+    // Dollars come exactly with a USD-account expense; an older client's rate is accepted and ignored.
     && (body.paymentMethod === 'usd'
-      ? isCents(body.usdAmount) && isCents(body.usdRate)
-      : (body.usdAmount === null || body.usdAmount === undefined) && (body.usdRate === null || body.usdRate === undefined));
+      ? isCents(body.usdAmount) && (isAbsent(body.usdRate) || isCents(body.usdRate))
+      : isAbsent(body.usdAmount) && isAbsent(body.usdRate));
 }
 
 /** Postgres invalid/out-of-range datetime (e.g. the future-date guard of migration 086). */
@@ -118,9 +125,12 @@ function failure(scope: string, context: Record<string, unknown>, error: Databas
   return expenseErrorResponse(expenseErrorCode(error));
 }
 
-/** Same request id must describe the same expense; anything else is a conflicting reuse. */
+/**
+ * Same request id must describe the same expense; anything else is a conflicting
+ * reuse. A USD-account expense's sums were set by the database, so its dollars decide.
+ */
 function sameExpense(existing: Record<string, unknown>, row: Record<string, unknown>) {
-  return Number(existing.amount) === Number(row.amount)
+  return (row.payment_method === 'usd' || Number(existing.amount) === Number(row.amount))
     && Number(existing.usd_amount ?? 0) === Number(row.usd_amount ?? 0)
     && Boolean(existing.paid_from_reserve) === Boolean(row.paid_from_reserve)
     && Boolean(existing.paid_from_collected) === Boolean(row.paid_from_collected)
@@ -203,15 +213,14 @@ export async function POST(request: Request) {
   // Every manual expense says what the money was for (also enforced by 108).
   if (!validateEntryNote(body.comment).valid) return expenseErrorResponse('NOTE_REQUIRED');
 
-  // A dollar expense is booked in sums at the rate entered (also enforced by 124).
-  const dollars = body.paymentMethod === 'usd' ? { amount: body.usdAmount as number, rate: body.usdRate as number } : null;
-  const amount = dollars ? dollarExpenseAmount(dollars.amount, dollars.rate) : body.amount;
-  if (!amount) return expenseErrorResponse('INVALID_REQUEST');
+  // A USD-account expense carries only its dollars: the 184 trigger counts
+  // them at what they cost and sets amount and usd_rate, read back below.
+  const usdAmount = body.paymentMethod === 'usd' ? body.usdAmount as number : null;
 
   const row = {
     club_id: body.clubId,
     date: body.date,
-    amount,
+    ...(usdAmount === null ? { amount: body.amount } : {}),
     category: body.category.trim(),
     payment_method: body.fromReserve === true ? RESERVE_SUMS_METHOD : body.paymentMethod,
     payment_source: body.paymentSource,
@@ -221,7 +230,7 @@ export async function POST(request: Request) {
     // The 091 trigger checks the preset is live and matches category and source.
     ...(body.presetId ? { preset_id: body.presetId } : {}),
     // Sent only on dollar expenses, so clubs without migration 124 keep saving the rest.
-    ...(dollars ? { usd_amount: dollars.amount, usd_rate: dollars.rate } : {}),
+    ...(usdAmount === null ? {} : { usd_amount: usdAmount }),
     // Sent only when chosen, so clubs without migration 136 keep saving expenses.
     // The 136 trigger checks the owner and what the reserve holds.
     ...(body.fromReserve === true ? { paid_from_reserve: true } : {}),

@@ -77,6 +77,7 @@ const EXPENSE_ERROR_KEYS: Record<string, string> = {
   INSUFFICIENT_BALANCE: 'insufficientBalance',
   RESERVE_INSUFFICIENT: 'reserveInsufficient',
   COLLECTED_INSUFFICIENT: 'collectedInsufficient',
+  DOLLAR_COST_UNKNOWN: 'dollarCostUnknown',
   SERVER_ERROR: 'serverError',
 };
 
@@ -105,7 +106,6 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
     payment_source: (defaultFromReserve ? 'reserve' : 'game_club') as PaymentSource,
     comment: '',
     preset_id: '',
-    usd_rate: '',
   }), [businessToday, defaultFromReserve, enabledPaymentMethods]);
   const [form, setForm] = useState(emptyForm);
   // A date whose money was collected is closed (097); say so before saving.
@@ -160,18 +160,23 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
   }
   const showsBalances = paymentMethods.some((method) => heldBy(method) !== null);
 
-  // Paid from the club's dollars: the amount is in dollars and a rate converts it to sums.
+  // Paid from the USD account: the amount is in dollars only. The database counts
+  // them in expenses at what the dollars cost (184); no rate is asked.
   const paysInDollars = onReserve && form.payment_method === 'usd';
   const fromReserve = onReserve && !paysInDollars;
   // A chosen plan's monthly amount is the amount's placeholder and its value when left empty.
   // It is in sums, so it does not apply to dollars.
   const plannedAmount = !paysInDollars && selectedPreset && selectedPreset.monthly_amount > 0 ? selectedPreset.monthly_amount : null;
   const usdAmount = paysInDollars ? parseDecimalInput(form.amount) : 0;
-  const usdRate = paysInDollars ? parseDecimalInput(form.usd_rate) : 0;
-  const dollarAmount = paysInDollars ? dollarExpenseAmount(usdAmount, usdRate) : null;
+  // A preview only: the database sets the sums when it saves the expense.
+  const usdCostRate = balanceQuery.data?.usdCostRate ?? null;
+  const countedInSums = paysInDollars && usdCostRate !== null ? dollarExpenseAmount(usdAmount, usdCostRate) : null;
   const available = heldBy(form.payment_method);
   const enteredAmount = paysInDollars ? usdAmount : expenseAmountFromInput(form.amount, plannedAmount) ?? 0;
   const overBalance = available !== null && enteredAmount > 0 && enteredAmount > available;
+  // Dollars held whose sums cost is used up (sold for more than they all cost): the
+  // database cannot price a USD-account expense and refuses it (184, dollar_cost_unknown).
+  const dollarCostUnknown = paysInDollars && dollarsHeld !== null && dollarsHeld > 0 && usdCostRate === null;
 
   function methodMoney(method: ExpensePaymentMethod, amount: number): string {
     return method === 'usd'
@@ -217,7 +222,6 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
     // Edited values are a different expense, not a retry of the last attempt.
     requestId.current = null;
     setError('');
-    const lastRate = balanceQuery.data?.usdRate ?? null;
     setForm((current) => {
       const next = { ...current, [field]: value };
       // A new source starts on its own first method, so the reserve opens on its sums.
@@ -229,10 +233,6 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
       }
       // Leaving dollars for sums: sum amounts are whole, so show what will be saved.
       if (current.payment_method === 'usd' && next.payment_method !== 'usd') next.amount = formatCurrencyInput(current.amount);
-      // Paying in dollars starts from the club's latest dollar rate.
-      if (next.payment_method === 'usd' && current.payment_method !== 'usd' && !current.usd_rate && lastRate) {
-        next.usd_rate = String(lastRate);
-      }
       return next;
     });
   }
@@ -264,15 +264,11 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (submitPending.current) return;
-    const amount = paysInDollars ? dollarAmount : expenseAmountFromInput(form.amount, plannedAmount);
+    const amount = paysInDollars ? usdAmount : expenseAmountFromInput(form.amount, plannedAmount);
     const category = form.category;
 
     if (!selectedClubId) {
       setError(tc('error'));
-      return;
-    }
-    if (paysInDollars && usdAmount > 0 && !(usdRate > 0)) {
-      setError(t('usdRateRequired'));
       return;
     }
     if (!amount || amount <= 0) {
@@ -281,6 +277,10 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
     }
     if (overBalance) {
       setError(t('errors.insufficientBalance'));
+      return;
+    }
+    if (dollarCostUnknown) {
+      setError(t('errors.dollarCostUnknown'));
       return;
     }
     if (!category) {
@@ -317,14 +317,14 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
           id: (requestId.current ??= crypto.randomUUID()),
           clubId: selectedClubId,
           date: form.date,
-          amount,
+          // A USD-account expense sends its dollars only; the database counts them in sums.
+          ...(paysInDollars ? { usdAmount } : { amount }),
           category,
           paymentMethod: form.payment_method,
           // The row still lives on a side: the plan's, or Game Club's. The reserve pays it either way.
           paymentSource: onReserve ? selectedPreset?.payment_source ?? 'game_club' : categorySource(form.payment_source),
           comment: form.comment.trim() || null,
           presetId: selectedPreset?.id ?? null,
-          ...(paysInDollars ? { usdAmount, usdRate } : {}),
           ...(fromReserve ? { fromReserve: true } : {}),
           ...(onCollected ? { fromCollected: true } : {}),
         }),
@@ -339,7 +339,7 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
         }
         setError(expenseErrorMessage(code));
         // Money was spent meanwhile: show what is left now.
-        if (code === 'INSUFFICIENT_BALANCE') void balanceQuery.reload({ silent: true });
+        if (code === 'INSUFFICIENT_BALANCE' || code === 'DOLLAR_COST_UNKNOWN') void balanceQuery.reload({ silent: true });
         if (code === 'RESERVE_INSUFFICIENT') void reserveQuery.reload({ silent: true });
         if (code === 'COLLECTED_INSUFFICIENT') void collectedQuery.reload({ silent: true });
         // The plan was archived or changed meanwhile: drop it and show the current list.
@@ -399,7 +399,7 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
     ? t('overBalance', { amount: methodMoney(form.payment_method, available) })
     : undefined;
 
-  const submitDisabled = enabledPaymentMethods.length === 0 || dayClosed || overBalance || !form.category;
+  const submitDisabled = enabledPaymentMethods.length === 0 || dayClosed || overBalance || dollarCostUnknown || !form.category;
   useReportFormState(onFormState, saving, submitDisabled);
 
   return (
@@ -465,14 +465,15 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
         />
       </Field>
 
-      <Field label={t('paymentMethod')} hint={form.payment_source === 'game_club' && showsBalances ? t('balancesHelp') : onCollected ? t('collectedBalancesHelp') : undefined}>
+      {/* The reserve holds two accounts, a UZS one and a USD one, rather than payment methods. */}
+      <Field label={onReserve ? t('reserveAccount') : t('paymentMethod')} hint={form.payment_source === 'game_club' && showsBalances ? t('balancesHelp') : onCollected ? t('collectedBalancesHelp') : undefined}>
         {balanceQuery.error && form.payment_source !== 'bar' && (
           <LoadErrorAlert className="mb-2" retrying={balanceQuery.loading} onRetry={() => void balanceQuery.reload()}>
             {t('balancesLoadError')}
           </LoadErrorAlert>
         )}
         <SegmentedControl
-          label={t('paymentMethod')}
+          label={onReserve ? t('reserveAccount') : t('paymentMethod')}
           value={form.payment_method}
           onChange={(method) => set('payment_method', method)}
           // Three or more labels do not fit one row on a phone.
@@ -487,36 +488,24 @@ export default function ExpenseRegistrationForm({ onSaved, defaultFromReserve = 
       </Field>
 
       {paysInDollars ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label={t('usdAmount')} htmlFor="expense-amount" required labelAddon={availableAddon} error={overBalanceError}>
-            <DecimalInput
-              id="expense-amount"
-              controlSize="lg"
-              autoFocus
-              required
-              value={form.amount}
-              onValueChange={(value) => set('amount', value)}
-              trailingAddon="$"
-            />
-          </Field>
-          <Field
-            label={t('usdRate')}
-            htmlFor="expense-usd-rate"
+        <Field
+          label={t('usdAmount')}
+          htmlFor="expense-amount"
+          required
+          labelAddon={availableAddon}
+          error={overBalanceError ?? (dollarCostUnknown ? t('errors.dollarCostUnknown') : undefined)}
+          hint={countedInSums === null ? undefined : t('usdInSums', { amount: formatCurrency(countedInSums), currency: tc('currency') })}
+        >
+          <DecimalInput
+            id="expense-amount"
+            controlSize="lg"
+            autoFocus
             required
-            hint={dollarAmount === null
-              ? t('usdRateHint')
-              : t('usdInSums', { amount: formatCurrency(dollarAmount), currency: tc('currency') })}
-          >
-            <DecimalInput
-              id="expense-usd-rate"
-              controlSize="lg"
-              required
-              value={form.usd_rate}
-              onValueChange={(value) => set('usd_rate', value)}
-              trailingAddon={tc('currency')}
-            />
-          </Field>
-        </div>
+            value={form.amount}
+            onValueChange={(value) => set('amount', value)}
+            trailingAddon="$"
+          />
+        </Field>
       ) : (
         <Field label={t('amount')} htmlFor="expense-amount" required={plannedAmount === null} labelAddon={availableAddon} error={overBalanceError}>
           <CurrencyInput
