@@ -197,6 +197,22 @@ export function formatDateShort(value: string | Date | null | undefined, locale?
 }
 
 /**
+ * Format an inclusive range of ISO dates, saying the month and year once
+ * where the two ends share them.
+ * Output: "3 – 9 November", "28 October – 3 November", "3 – 9 November 2026"
+ * (with `year`), "28 December 2025 – 3 January 2026" (always, across years).
+ * One day is that day.
+ * Use for: a week or a filter range in a chart readout or a filter chip.
+ */
+export function formatDateRange(from: string, to: string, locale?: string, { year = false }: { year?: boolean } = {}): string {
+  if (from === to) return year ? formatDateOnly(from, locale) : formatDateShort(from, locale);
+  if (from.slice(0, 4) !== to.slice(0, 4)) return `${formatDateOnly(from, locale)} – ${formatDateOnly(to, locale)}`;
+  const end = year ? formatDateOnly(to, locale) : formatDateShort(to, locale);
+  const start = from.slice(0, 7) === to.slice(0, 7) ? String(Number(from.slice(8, 10))) : formatDateShort(from, locale);
+  return `${start} – ${end}`;
+}
+
+/**
  * Format an ISO date for compact date picker controls.
  * Output: "3 June 2026"
  */

@@ -1,10 +1,12 @@
-import { ChartSkeleton, Skeleton } from '@/components/PresentationFoundation';
-import { DonutCardSkeleton, HeadingSkeleton, InOutChartSkeleton, SkeletonCard } from '@/components/charts/ChartSkeletons';
+import { Skeleton } from '@/components/PresentationFoundation';
+import { cn } from '@/lib/utils';
+import { BalanceFlowChartSkeleton, DonutCardSkeleton, HeadingSkeleton, SkeletonCard } from '@/components/charts/ChartSkeletons';
 
 /**
  * The reserve overview while it loads: what it holds now (sums, dollars, the
- * three totals and the split bar), the balance chart beside the spending
- * donut, then money in and out. Keep it in step with ReservePage.
+ * three totals and the split bar), then the period control over the balance
+ * and in/out card (two thirds) beside the spending donut. Keep it in step with
+ * ReservePage.
  */
 export function ReserveOverviewSkeleton({ withSwitch = false }: { withSwitch?: boolean }) {
   return (
@@ -40,14 +42,43 @@ export function ReserveOverviewSkeleton({ withSwitch = false }: { withSwitch?: b
         </div>
       </SkeletonCard>
       </div>
-      <div className="grid gap-4 xl:grid-cols-2">
-        <ChartSkeleton />
-        <DonutCardSkeleton />
+      <div className="space-y-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-9 w-56 max-w-full rounded-xl" />
+        </div>
+        <div className="grid gap-4 xl:grid-cols-3">
+          <SkeletonCard className="xl:col-span-2">
+            <HeadingSkeleton />
+            <ReserveExplorerSkeleton className="mt-4" />
+          </SkeletonCard>
+          <DonutCardSkeleton stacked />
+        </div>
       </div>
-      <SkeletonCard>
-        <HeadingSkeleton />
-        <InOutChartSkeleton className="mt-4" height={256} />
-      </SkeletonCard>
+    </div>
+  );
+}
+
+/** `ReserveExplorer` while its chart code loads: the readout (title, two figures, the entries button) over the chart. */
+export function ReserveExplorerSkeleton({ className }: { className?: string }) {
+  return (
+    <div aria-hidden="true" className={cn('space-y-4', className)}>
+      <div className="space-y-3 rounded-xl bg-gray-50 p-3 sm:p-4">
+        <div className="space-y-1.5">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3 w-56 max-w-full bg-gray-100" />
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {[0, 1].map((index) => (
+            <div key={index} className="space-y-2 rounded-xl border border-gray-200 bg-surface px-4 py-3">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+          ))}
+        </div>
+        <Skeleton className="h-8 w-36 rounded-lg" />
+      </div>
+      <BalanceFlowChartSkeleton />
     </div>
   );
 }

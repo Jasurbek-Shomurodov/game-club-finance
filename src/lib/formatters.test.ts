@@ -15,6 +15,7 @@ import {
   formatDate,
   formatDateOnly,
   formatDatePickerValue,
+  formatDateRange,
   formatDateShort,
   formatDateTime,
   formatDecimalInput,
@@ -99,6 +100,21 @@ describe('formatDateShort', () => {
     expect(formatDateShort('2026-06-03', 'ru')).toBe('3 июня');
     expect(formatDateShort('2026-06-03', 'uz')).toBe('3 iyun');
     expect(formatDateShort('2026-07-01', 'uz')).toBe('1 iyul');
+  });
+});
+
+describe('formatDateRange', () => {
+  it('names the month and year once where both ends share them', () => {
+    expect(formatDateRange('2026-11-03', '2026-11-09', 'en')).toBe('3 – 9 November');
+    expect(formatDateRange('2026-10-28', '2026-11-03', 'en')).toBe('28 October – 3 November');
+    expect(formatDateRange('2026-11-03', '2026-11-09', 'en', { year: true })).toBe('3 – 9 November 2026');
+    expect(formatDateRange('2025-12-29', '2026-01-04', 'en')).toBe('29 December 2025 – 4 January 2026');
+    expect(formatDateRange('2026-11-03', '2026-11-03', 'en')).toBe('3 November');
+  });
+
+  it('follows the app language', () => {
+    expect(formatDateRange('2026-11-03', '2026-11-09', 'ru')).toBe('3 – 9 ноября');
+    expect(formatDateRange('2026-11-03', '2026-11-09', 'uz')).toBe('3 – 9 noyabr');
   });
 });
 

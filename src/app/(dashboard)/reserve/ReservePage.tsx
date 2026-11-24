@@ -6,23 +6,25 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { ArrowDownToLine, ArrowUpFromLine, ArrowRightLeft, Banknote, DollarSign, ShoppingCart, Undo2 } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, ArrowRightLeft, Banknote, CalendarRange, DollarSign, ShoppingCart, Undo2, X } from 'lucide-react';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
 import { ChartCard, ChartEmpty, categoricalColors, chartColors } from '@/components/dashboard/ChartCard';
-import { InOutChartSkeleton } from '@/components/charts/ChartSkeletons';
+import { DonutSkeleton } from '@/components/charts/ChartSkeletons';
 import { rankShares } from '@/lib/calculations/insights';
 import { formatPercentShare } from '@/components/charts/chartFormat';
 import {
   AmountCard,
+  Badge,
   Button,
   Card,
-  ChartSkeleton,
   EmptyState,
+  IconButton,
   LoadErrorAlert,
   MetricCard,
   PageHeader,
+  SectionHeading,
   SegmentedControl,
   SkeletonStatus,
   StatTile,
@@ -35,16 +37,24 @@ import {
   reserveActivity,
   reserveBalances,
   reserveBuyLimits,
-  reserveDailySeries,
   reserveDollarRates,
   reserveFlowSplit,
   reserveFlowTotals,
-  reserveMonthlySeries,
   reserveSpendingByCategory,
   reserveSumsHeld,
   type ReserveActivity,
 } from '@/lib/calculations/ownerReserve';
-import { formatCurrency, formatDateShort, formatMonthShort, formatUnitCurrency, formatDollars } from '@/lib/formatters';
+import {
+  RESERVE_PERIODS,
+  filterReserveHistory,
+  reserveActivityInPeriod,
+  reserveExplorerSeries,
+  reservePeriodStart,
+  type ReserveExplorerSeries,
+  type ReserveHistoryFilter,
+  type ReservePeriod,
+} from '@/lib/calculations/reserveExplorer';
+import { formatCurrency, formatDateRange, formatDateShort, formatUnitCurrency, formatDollars } from '@/lib/formatters';
 import { createClient } from '@/lib/supabase/client';
 import { EMPTY_OWNER_RESERVE, fetchOwnerReserve } from '@/lib/supabase/ownerMoney';
 import { requestReserveDelete, requestReserveExchangeDelete, requestReservePurchaseDelete } from '@/lib/ownerReserveRequests';
@@ -53,25 +63,25 @@ import { useClubQuery } from '@/lib/useClubQuery';
 import type { OwnerReserveMethod } from '@/types';
 import { ReserveExchangeModal } from './ReserveExchangeModal';
 import { ReserveHistoryList, type DeletableReserveActivity } from './ReserveHistoryList';
-import { ReserveHistorySkeleton, ReserveOverviewSkeleton } from './ReserveSkeleton';
+import { ReserveExplorerSkeleton, ReserveHistorySkeleton, ReserveOverviewSkeleton } from './ReserveSkeleton';
 import { ReserveReturnModal } from './ReserveReturnModal';
 import { ExpenseModal } from '@/components/expenses/ExpenseModal';
 import { scrollBehavior } from '@/lib/scroll';
 
-function ChartLoading() {
-  return <ChartSkeleton />;
-}
-const loadCharts = () => import('./ReserveCharts');
-const ReserveBalanceChart = dynamic(() => loadCharts().then((module) => module.ReserveBalanceChart), { ssr: false, loading: ChartLoading });
-const DailyInOutChart = dynamic(() => import('@/components/charts/DailyInOutChart').then((module) => module.DailyInOutChart), {
+const ReserveExplorer = dynamic(() => import('./ReserveExplorer').then((module) => module.ReserveExplorer), {
   ssr: false,
-  loading: () => <InOutChartSkeleton height={256} />,
+  // The wrapper it renders into already carries the card's top margin.
+  loading: () => <ReserveExplorerSkeleton />,
 });
-const DonutBreakdown = dynamic(() => import('@/components/charts/DonutBreakdown').then((module) => module.DonutBreakdown), { ssr: false, loading: ChartLoading });
+const DonutBreakdown = dynamic(() => import('@/components/charts/DonutBreakdown').then((module) => module.DonutBreakdown), {
+  ssr: false,
+  loading: () => <DonutSkeleton stacked />,
+});
 
 type ReserveView = 'overview' | 'history';
-type HistoryFilter = 'all' | ReserveActivity['kind'];
+type HistoryFilter = ReserveHistoryFilter['kind'];
 const FILTER_KINDS: readonly ReserveActivity['kind'][] = ['deposit', 'return', 'purchase', 'exchange'];
+const ALL_HISTORY: ReserveHistoryFilter = { kind: 'all' };
 
 export default function ReservePage() {
   const sectionTabs = useSectionTabs('ownerMoney');
@@ -97,7 +107,20 @@ export default function ReservePage() {
   const [exchangeDirection, setExchangeDirection] = useState<'buy' | 'sell' | null>(null);
   const [returnOpen, setReturnOpen] = useState(false);
   const [reservePayOpen, setReservePayOpen] = useState(false);
-  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all');
+  // A filter belongs to the club it was set on: another club's history starts unfiltered.
+  const [filterState, setFilterState] = useState<{ clubId: string; filter: ReserveHistoryFilter }>({ clubId: selectedClubId, filter: ALL_HISTORY });
+  const historyFilter = filterState.clubId === selectedClubId ? filterState.filter : ALL_HISTORY;
+  const setHistoryFilter = (update: ReserveHistoryFilter | ((current: ReserveHistoryFilter) => ReserveHistoryFilter)) => (
+    setFilterState((state) => {
+      const current = state.clubId === selectedClubId ? state.filter : ALL_HISTORY;
+      return { clubId: selectedClubId, filter: typeof update === 'function' ? update(current) : update };
+    })
+  );
+  const openHistory = (filter: ReserveHistoryFilter) => {
+    setHistoryFilter(filter);
+    showHistory();
+  };
+  const [period, setPeriod] = useState<ReservePeriod>('90d');
 
   // Keep the tab shareable.
   useEffect(() => {
@@ -121,8 +144,17 @@ export default function ReservePage() {
 
   const balances = useMemo(() => reserveBalances(reserveEntries, reserveExpenses), [reserveEntries, reserveExpenses]);
   const activity = useMemo(() => reserveActivity(reserveEntries, reserveExpenses), [reserveEntries, reserveExpenses]);
-  const series = useMemo(() => reserveMonthlySeries(reserveEntries, reserveExpenses, currentMonth), [reserveEntries, reserveExpenses, currentMonth]);
-  const dailySeries = useMemo(() => reserveDailySeries(reserveEntries, reserveExpenses, businessToday), [reserveEntries, reserveExpenses, businessToday]);
+  // The over-time charts follow the period; the totals above them stay all-time.
+  const explorerSeries = useMemo(() => reserveExplorerSeries(activity, businessToday, period), [activity, businessToday, period]);
+  const periodActivity = useMemo(() => reserveActivityInPeriod(activity, period, businessToday), [activity, period, businessToday]);
+  const periodStart = reservePeriodStart(period, businessToday);
+  // A selection belongs to the series it was made on: another period, club or reload clears it.
+  const [selection, setSelection] = useState<{ key: string; series: ReserveExplorerSeries } | null>(null);
+  const selectedKey = selection && selection.series === explorerSeries ? selection.key : null;
+  const selectBucket = useCallback(
+    (key: string | null) => setSelection(key === null ? null : { key, series: explorerSeries }),
+    [explorerSeries],
+  );
   const dollarsHeld = useMemo(() => dollarsForMonth(exchangeRows, currentMonth, dollarExpenses).heldUsd, [exchangeRows, currentMonth, dollarExpenses]);
 
   const currency = tc('currency');
@@ -135,23 +167,25 @@ export default function ReservePage() {
   const rates = useMemo(() => reserveDollarRates(exchangeRows, dollarsHeld, dollarsSumsValue), [exchangeRows, dollarsHeld, dollarsSumsValue]);
   const canBuy = buyLimits.cash > 0 || buyLimits.terminal > 0 || buyLimits.card > 0;
   const te = useTranslations('expenses');
-  // What the reserve paid for, largest category first; the tail folds into "other".
+  const categoryLabel = useCallback((category: string) => {
+    const key = `categories.${category}`;
+    return te.has(key) ? te(key as Parameters<typeof te>[0]) : category.replace(/_/g, ' ');
+  }, [te]);
+  const periodSpent = useMemo(() => reserveFlowTotals(periodActivity).spent, [periodActivity]);
+  // What the reserve paid for in the period, largest category first; the tail folds into "other".
+  // A category opens its purchases in the period; the folded tail opens all of them.
   const spendingSlices = useMemo(() => {
-    const label = (category: string) => {
-      const key = `categories.${category}`;
-      return te.has(key) ? te(key as Parameters<typeof te>[0]) : category.replace(/_/g, ' ');
-    };
     let colorIndex = 0;
     return rankShares(
-      reserveSpendingByCategory(activity).map(({ category, amount }) => ({ key: category, label: label(category), value: amount })),
+      reserveSpendingByCategory(periodActivity).map(({ category, amount }) => ({ key: category, label: categoryLabel(category), value: amount })),
       categoricalColors.length,
       { key: 'other', label: te('categories.other') },
     ).map((slice) => ({
       ...slice,
       color: slice.other ? chartColors.gray : categoricalColors[colorIndex++],
-      onSelect: () => { setHistoryFilter('purchase'); showHistory(); },
+      category: slice.other ? undefined : slice.key,
     }));
-  }, [activity, te]);
+  }, [periodActivity, categoryLabel, te]);
   // Everything put in, as what was spent, sent back to profit and is still held.
   const flowSplit = reserveFlowSplit(totals);
   const flowParts = [
@@ -159,18 +193,31 @@ export default function ReservePage() {
     { key: 'returned', label: t('returned'), value: flowSplit.returned, className: toneClasses.neutral.solid },
     { key: 'held', label: t('stillHeld'), value: flowSplit.held, className: toneClasses.reserve.solid },
   ].filter((part) => part.value > 0);
-  // Money in and out by month, in the shape the shared in/out chart draws.
-  const flowSeries = series.map((row) => ({ date: row.month, label: formatMonthShort(`${row.month}-01`, locale), income: row.deposited, expenses: row.withdrawn }));
   const flowWhole = flowParts.reduce((sum, part) => sum + part.value, 0);
   const filterOptions = useMemo(() => {
     const present = new Set(activity.map((row) => row.kind));
     return FILTER_KINDS.filter((kind) => present.has(kind));
   }, [activity]);
-  const shownFilter: HistoryFilter = historyFilter === 'all' || filterOptions.includes(historyFilter) ? historyFilter : 'all';
+  const shownFilter: HistoryFilter = historyFilter.kind === 'all' || filterOptions.includes(historyFilter.kind) ? historyFilter.kind : 'all';
   const shownActivity = useMemo(
-    () => (shownFilter === 'all' ? activity : activity.filter((row) => row.kind === shownFilter)),
-    [activity, shownFilter],
+    () => filterReserveHistory(activity, { ...historyFilter, kind: shownFilter }, businessToday),
+    [activity, historyFilter, shownFilter, businessToday],
   );
+  const hasDates = Boolean(historyFilter.from && historyFilter.to);
+  const narrowed = hasDates || historyFilter.category !== undefined;
+  // The chip over the history: "3 – 9 November · Rent"; the year only when it is not this one.
+  const narrowedLabel = [
+    historyFilter.from && historyFilter.to
+      ? formatDateRange(historyFilter.from, historyFilter.to, locale, { year: historyFilter.to.slice(0, 4) !== businessToday.slice(0, 4) })
+      : null,
+    historyFilter.category !== undefined ? categoryLabel(historyFilter.category) : null,
+  ].filter(Boolean).join(' · ');
+  // A category is a kind of purchase: another kind drops it.
+  const changeKind = (kind: HistoryFilter) => setHistoryFilter((current) => ({
+    ...current,
+    kind,
+    category: kind === 'all' || kind === 'purchase' ? current.category : undefined,
+  }));
   const methodLabel = (method: OwnerReserveMethod) => (
     method === 'playstation' ? tm('playstation') : method === 'usd' ? tm('dollars') : tc(`paymentMethods.${method}`)
   );
@@ -286,14 +333,14 @@ export default function ReservePage() {
               <p id="reserve-total" className="text-xs font-medium text-gray-500">{t('totalHeld')}</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <AmountCard
-                  onClick={() => { setHistoryFilter('all'); showHistory(); }}
+                  onClick={() => openHistory({ kind: 'all' })}
                   label={t('sumsPot')}
                   amount={sumsHeld}
                   icon={Banknote}
                   accent="reserve"
                 />
                 <MetricCard
-                  onClick={() => { setHistoryFilter(totals.exchanged > 0 ? 'exchange' : 'all'); showHistory(); }}
+                  onClick={() => openHistory({ kind: totals.exchanged > 0 ? 'exchange' : 'all' })}
                   label={t('dollarsPot')}
                   value={dollars}
                   icon={DollarSign}
@@ -342,15 +389,15 @@ export default function ReservePage() {
                   {t('sellDollars')}
                 </Button>
                 {totals.exchanged > 0 ? (
-                  <Button variant="ghost" size="sm" onClick={() => { setHistoryFilter('exchange'); showHistory(); }}>
+                  <Button variant="ghost" size="sm" onClick={() => openHistory({ kind: 'exchange' })}>
                     {t('exchangesCount', { count: totals.exchanged })}
                   </Button>
                 ) : null}
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <StatTile variant="soft" onClick={() => { setHistoryFilter('deposit'); showHistory(); }} icon={ArrowDownToLine} label={t('putIn')} value={formatCurrency(totals.deposited)} unit={currency} tone="success" />
-                <StatTile variant="soft" onClick={() => { setHistoryFilter('return'); showHistory(); }} icon={ArrowUpFromLine} label={t('returned')} value={formatCurrency(totals.returned)} unit={currency} />
-                <StatTile variant="soft" onClick={() => { setHistoryFilter('purchase'); showHistory(); }} icon={ShoppingCart} label={t('spent')} value={formatCurrency(totals.spent)} unit={currency} />
+                <StatTile variant="soft" onClick={() => openHistory({ kind: 'deposit' })} icon={ArrowDownToLine} label={t('putIn')} value={formatCurrency(totals.deposited)} unit={currency} tone="success" />
+                <StatTile variant="soft" onClick={() => openHistory({ kind: 'return' })} icon={ArrowUpFromLine} label={t('returned')} value={formatCurrency(totals.returned)} unit={currency} />
+                <StatTile variant="soft" onClick={() => openHistory({ kind: 'purchase' })} icon={ShoppingCart} label={t('spent')} value={formatCurrency(totals.spent)} unit={currency} />
               </div>
               {flowWhole > 0 ? (
                 <div className="mt-4">
@@ -373,57 +420,104 @@ export default function ReservePage() {
             </Card>
             </section>
 
-            <div className="grid gap-4 xl:grid-cols-2">
-              <ChartCard title={t('balanceTitle')} description={t('balanceDescription')}>
-                {dailySeries.length === 0 ? <ChartEmpty title={tr('empty')} /> : <ReserveBalanceChart rows={dailySeries} locale={locale} currency={currency} />}
-              </ChartCard>
-              <ChartCard title={t('spendingTitle')} description={t('spendingDescription')}>
-                {spendingSlices.length === 0 ? <ChartEmpty title={t('spendingEmpty')} /> : (
-                  <div className="mt-4">
-                    <DonutBreakdown slices={spendingSlices} total={totals.spent} totalLabel={t('spent')} currency={currency} locale={locale} />
-                  </div>
-                )}
-              </ChartCard>
-            </div>
-            <ChartCard title={t('flowTitle')} description={t('flowDescription')}>
-              {series.length === 0 ? <ChartEmpty title={tr('empty')} /> : (
-                <div className="mt-4">
-                  <DailyInOutChart
-                    data={flowSeries}
-                    incomeLabel={t('putIn')}
-                    expensesLabel={t('takenOut')}
-                    legendLabel={t('flowTitle')}
-                    currency={currency}
-                    locale={locale}
-                    height={256}
+            {/* One period for every chart below; the figures above stay all-time. */}
+            <section aria-labelledby="reserve-over-time" className="space-y-3">
+              <SectionHeading
+                as="h2"
+                size="sm"
+                title={<span id="reserve-over-time">{t('overTime')}</span>}
+                className="sm:items-center"
+                action={(
+                  <SegmentedControl
+                    variant="soft"
+                    size="sm"
+                    label={t('period.label')}
+                    options={RESERVE_PERIODS.map((value) => ({ value, label: t(`period.${value}`) }))}
+                    value={period}
+                    onChange={setPeriod}
                   />
-                </div>
-              )}
-            </ChartCard>
+                )}
+              />
+              <div className="grid gap-4 xl:grid-cols-3">
+                <ChartCard className="xl:col-span-2" title={t('balanceTitle')} description={t('balanceDescription')}>
+                  {explorerSeries.buckets.length === 0 ? <ChartEmpty className="mt-4" title={tr('empty')} /> : (
+                    <div className="mt-4">
+                      <ReserveExplorer
+                        series={explorerSeries}
+                        period={period}
+                        selectedKey={selectedKey}
+                        onSelect={selectBucket}
+                        onOpenEntries={(range) => openHistory({ kind: 'all', ...range })}
+                        currency={currency}
+                        locale={locale}
+                      />
+                    </div>
+                  )}
+                </ChartCard>
+                <ChartCard title={t('spendingTitle')} description={t('spendingDescription')}>
+                  {spendingSlices.length === 0 ? <ChartEmpty className="mt-4" title={totals.spent > 0 ? t('spendingEmptyPeriod') : t('spendingEmpty')} /> : (
+                    <div className="mt-4">
+                      <DonutBreakdown
+                        rowFrom="never"
+                        slices={spendingSlices.map(({ category, ...slice }) => ({
+                          ...slice,
+                          onSelect: () => openHistory({
+                            kind: 'purchase',
+                            ...(periodStart ? { from: periodStart, to: businessToday } : {}),
+                            ...(category === undefined ? {} : { category }),
+                          }),
+                        }))}
+                        total={periodSpent}
+                        totalLabel={t('spent')}
+                        currency={currency}
+                        locale={locale}
+                      />
+                    </div>
+                  )}
+                </ChartCard>
+              </div>
+            </section>
           </>
         )
       ) : query.loading ? (
         <SkeletonStatus><ReserveHistorySkeleton /></SkeletonStatus>
       ) : (
         <div className="max-w-4xl space-y-3">
-          {filterOptions.length > 1 ? (
-            <SegmentedControl
-              variant="soft"
-              size="sm"
-              label={t('filter.label')}
-              options={[
-                { value: 'all' as HistoryFilter, label: t('filter.all') },
-                ...filterOptions.map((kind) => ({ value: kind as HistoryFilter, label: t(`filter.${kind}`) })),
-              ]}
-              value={shownFilter}
-              onChange={setHistoryFilter}
-            />
+          {filterOptions.length > 1 || narrowed ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {filterOptions.length > 1 ? (
+                <SegmentedControl
+                  variant="soft"
+                  size="sm"
+                  label={t('filter.label')}
+                  options={[
+                    { value: 'all' as HistoryFilter, label: t('filter.all') },
+                    ...filterOptions.map((kind) => ({ value: kind as HistoryFilter, label: t(`filter.${kind}`) })),
+                  ]}
+                  value={shownFilter}
+                  onChange={changeKind}
+                />
+              ) : null}
+              {narrowed ? (
+                <span className="inline-flex min-w-0 max-w-full items-center">
+                  {/* Wraps on a phone rather than pushing the clear button off the screen. */}
+                  <Badge variant="primary" size="lg" className="min-w-0 whitespace-normal" icon={<CalendarRange size={14} aria-hidden="true" className="shrink-0" />}>{narrowedLabel}</Badge>
+                  <IconButton
+                    variant="ghost"
+                    size="lg"
+                    label={t('historyRange.clear')}
+                    icon={<X size={16} aria-hidden="true" />}
+                    onClick={() => setHistoryFilter((current) => ({ kind: current.kind }))}
+                  />
+                </span>
+              ) : null}
+            </div>
           ) : null}
           <Card as="section" padding="none" className="overflow-hidden" aria-label={tr('activityLabel')}>
           {activity.length === 0 ? (
             <div className="p-4 sm:p-5"><EmptyState compact title={tr('empty')} description={tr('emptyHint')} /></div>
           ) : shownActivity.length === 0 ? (
-            <div className="p-4 sm:p-5"><EmptyState compact title={t('filterEmpty')} /></div>
+            <div className="p-4 sm:p-5"><EmptyState compact title={hasDates ? t('filterEmptyRange') : t('filterEmpty')} /></div>
           ) : (
             <ReserveHistoryList
               activity={shownActivity}

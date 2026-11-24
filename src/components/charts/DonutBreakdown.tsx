@@ -31,8 +31,8 @@ export function DonutBreakdown({ slices, total, totalLabel, currency, locale, si
   currency: string;
   locale: string;
   size?: 'sm' | 'md';
-  /** Where the legend moves beside the ring; `xl` for a donut in a half-width card. */
-  rowFrom?: 'sm' | 'xl';
+  /** Where the legend moves beside the ring; `xl` for a donut in a half-width card, `never` for a narrow column (always under the ring). */
+  rowFrom?: 'sm' | 'xl' | 'never';
   /** How a 0-1 share is written; whole percents in the app language by default. */
   formatShare?: (share: number) => string;
 }) {
@@ -42,7 +42,7 @@ export function DonutBreakdown({ slices, total, totalLabel, currency, locale, si
   const shareText = (share: number) => (formatShare ? formatShare(share) : formatPercentShare(share, locale));
 
   return (
-    <div className={cn('flex flex-col items-center gap-4', rowFrom === 'xl' ? 'xl:flex-row xl:items-center' : 'sm:flex-row sm:items-center')}>
+    <div className={cn('flex flex-col items-center gap-4', rowFrom === 'xl' ? 'xl:flex-row xl:items-center' : rowFrom === 'sm' && 'sm:flex-row sm:items-center')}>
       <div className={cn('relative shrink-0', diameter)} onMouseLeave={() => setActive(null)}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>

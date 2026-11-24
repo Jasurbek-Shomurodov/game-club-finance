@@ -3094,10 +3094,9 @@
     "takenOut": "Chiqarilgan",
     "returned": "Foydaga qaytarilgan",
     "spent": "Jamg'armadan to'langan",
-    "balanceTitle": "Oylar bo'yicha jamg'arma",
-    "balanceDescription": "Har kun oxirida jamg'armada qancha bo'lgani; dollar sotib olingan narxida.",
+    "balanceTitle": "Jamg'arma vaqt bo'yicha",
+    "balanceDescription": "Jamg'armada qancha bo'lgani (dollar sotib olingan narxida) hamda qo'yilgan va chiqarilgan pul.",
     "flowTitle": "Kirim va chiqim",
-    "flowDescription": "Qo'yilgan va qaytarilgan yoki sarflangan, oylar bo'yicha.",
     "loadError": "Jamg'armani yuklab bo'lmadi.",
     "buyDollars": "Dollar sotib olish",
     "sellDollars": "Dollar sotish",
@@ -3144,8 +3143,40 @@
     "stillHeld": "Hali zaxirada",
     "flowSplitLabel": "Qo‘yilgan pul qayerga ketdi",
     "spendingTitle": "Zaxiradan nimaga to‘landi",
-    "spendingDescription": "Zaxiradan qilingan xaridlar, kategoriya bo‘yicha. To‘lovlarni ko‘rish uchun bosing.",
-    "spendingEmpty": "Zaxiradan hali hech narsa to‘lanmagan."
+    "spendingDescription": "Davr ichida zaxiradan qilingan xaridlar, kategoriya bo‘yicha. To‘lovlarni ko‘rish uchun bosing.",
+    "spendingEmpty": "Zaxiradan hali hech narsa to‘lanmagan.",
+    "overTime": "Vaqt bo'yicha",
+    "period": {
+      "label": "Davr",
+      "30d": "30 kun",
+      "90d": "90 kun",
+      "1y": "1 yil",
+      "all": "Hammasi"
+    },
+    "periodName": {
+      "30d": "So'nggi 30 kun",
+      "90d": "So'nggi 90 kun",
+      "1y": "So'nggi bir yil",
+      "all": "Butun davr"
+    },
+    "explorer": {
+      "heldAtEnd": "Oxirida",
+      "heldNow": "Hozir",
+      "change": "O'zgarish",
+      "showEntries": "{count, plural, other {# ta yozuvni ko'rsatish}}",
+      "noEntries": "Yozuv yo'q",
+      "previous": "Oldingi",
+      "next": "Keyingi",
+      "clear": "Tanlovni bekor qilish",
+      "hint": "Grafikda {unit, select, week {haftani} month {oyni} other {kunni}} tanlash uchun bosing.",
+      "summary": "{period}: jamg'armada {held}, o'zgarish {change}",
+      "selectedSummary": "{title}: oxirida {held}, qo'yilgan {putIn}, chiqarilgan {takenOut}"
+    },
+    "historyRange": {
+      "clear": "Filtrni olib tashlash"
+    },
+    "filterEmptyRange": "Bu sanalarda bunday yozuv yo'q.",
+    "spendingEmptyPeriod": "Bu davrda zaxiradan hech narsa to‘lanmagan."
   },
   "glance": {
     "other": "Boshqa",

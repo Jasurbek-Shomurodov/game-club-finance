@@ -47,10 +47,10 @@ export function GlanceStatSkeleton({ className }: { className?: string }) {
   );
 }
 
-/** `DonutBreakdown`: the ring above (phones) or beside its ranked rows. */
-export function DonutSkeleton({ rows = 4, size = 'sm', className }: { rows?: number; size?: 'sm' | 'md'; className?: string }) {
+/** `DonutBreakdown`: the ring above (phones) or beside its ranked rows; `stacked` keeps the rows under it (`rowFrom="never"`). */
+export function DonutSkeleton({ rows = 4, size = 'sm', stacked = false, className }: { rows?: number; size?: 'sm' | 'md'; stacked?: boolean; className?: string }) {
   return (
-    <div aria-hidden="true" className={cn('flex flex-col items-center gap-4 sm:flex-row sm:items-center', className)}>
+    <div aria-hidden="true" className={cn('flex flex-col items-center gap-4', !stacked && 'sm:flex-row sm:items-center', className)}>
       <Skeleton className={cn('shrink-0 rounded-full bg-gray-100', size === 'sm' ? 'h-36 w-36' : 'h-44 w-44')} />
       <div className="w-full min-w-0 flex-1 space-y-1">
         {Array.from({ length: rows }, (_, index) => (
@@ -111,12 +111,36 @@ export function InOutChartCardSkeleton({ height = 220, bars, action = false, chi
   );
 }
 
+/** `BalanceFlowChart`: the two-key legend, the balance plot and the short in/out bars under it. */
+export function BalanceFlowChartSkeleton({ balanceHeight = 200, flowHeight = 96, bars = 18, className }: { balanceHeight?: number; flowHeight?: number; bars?: number; className?: string }) {
+  return (
+    <div aria-hidden="true" className={cn('space-y-3', className)}>
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-4 w-32" />
+      </div>
+      <div>
+        <Skeleton className="w-full rounded-xl bg-gray-100" style={{ height: balanceHeight }} />
+        <div className="flex items-end gap-1 pl-[60px]" style={{ height: flowHeight }}>
+          {Array.from({ length: bars }, (_, index) => (
+            <Skeleton
+              key={index}
+              className="flex-1 rounded-b-none rounded-t bg-gray-100"
+              style={{ height: `${BAR_HEIGHTS[index % BAR_HEIGHTS.length] * 0.7}%` }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** A card with a small heading over a `DonutBreakdown`. */
-export function DonutCardSkeleton({ rows, description = true, className }: { rows?: number; description?: boolean; className?: string }) {
+export function DonutCardSkeleton({ rows, description = true, stacked, className }: { rows?: number; description?: boolean; stacked?: boolean; className?: string }) {
   return (
     <SkeletonCard className={className}>
       <HeadingSkeleton description={description} />
-      <DonutSkeleton className="mt-4" rows={rows} />
+      <DonutSkeleton className="mt-4" rows={rows} stacked={stacked} />
     </SkeletonCard>
   );
 }

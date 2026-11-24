@@ -1340,6 +1340,67 @@ test('RES-004 the Reserve page confirms a return with a toast', async ({ page })
   await expect(page.getByRole('status').filter({ hasText: 'Money returned to owner profit.' })).toBeVisible();
 });
 
+test('RES-007 the reserve charts follow one period, a selected day opens its entries and a category opens its purchases', async ({ page }) => {
+  await page.goto('/reserve');
+  await expect(page.getByRole('heading', { name: 'Reserve', level: 1 })).toBeVisible();
+  await moveReserve(page, 'deposit', 'game_club', 500_000);
+  const bought = await page.request.post('/api/expenses', { data: {
+    id: crypto.randomUUID(), clubId: clubs.arcade.id, date: today, amount: 150_000, category: 'equipment',
+    paymentMethod: 'cash', paymentSource: 'game_club', comment: 'New gaming mouse and keyboards for hall', fromReserve: true,
+  } });
+  expect(bought.status()).toBe(201);
+  await page.reload();
+
+  // One period control for the charts; the old separate "Money in and out" card is gone.
+  const periods = page.getByRole('radiogroup', { name: 'Period' });
+  await expect(periods.getByRole('radio', { name: '90 d' })).toBeChecked();
+  await periods.getByRole('radio', { name: '30 d' }).click();
+  await expect(page.getByRole('heading', { name: 'Reserve over time' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Money in and out' })).toHaveCount(0);
+  const chart = page.getByRole('group', { name: /^Last 30 days: held / });
+  await expect(chart).toBeVisible();
+
+  // The keyboard selects the latest day; Escape lets it go.
+  await chart.focus();
+  await page.keyboard.press('ArrowLeft');
+  const clear = page.getByRole('button', { name: 'Clear selection' });
+  await expect(clear).toBeVisible();
+  // At the latest day Next stays focusable but does nothing.
+  const next = page.getByRole('button', { name: 'Next' });
+  await expect(next).toHaveAttribute('aria-disabled', 'true');
+  await next.focus();
+  await page.keyboard.press('Enter');
+  await expect(next).toBeFocused();
+  await expect(clear).toBeVisible();
+  // Clearing hands focus back to the chart.
+  await clear.click();
+  await expect(clear).toHaveCount(0);
+  await expect(chart).toBeFocused();
+  await page.keyboard.press('ArrowLeft');
+  await expect(clear).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(clear).toHaveCount(0);
+
+  // The selected day's entries open in the history, narrowed to that day.
+  await chart.focus();
+  await page.keyboard.press('ArrowLeft');
+  await page.getByRole('button', { name: 'Show 2 entries' }).click();
+  await expect(page).toHaveURL(/\/reserve\?view=history$/);
+  const history = page.getByRole('list', { name: 'Reserve history' });
+  await expect(history.getByRole('button', { name: /^Delete: / })).toHaveCount(2);
+  await expect(page.getByRole('button', { name: 'Clear filter' })).toBeVisible();
+
+  // A category of the donut opens only its purchases in the period.
+  await page.getByRole('radio', { name: 'Overview' }).click();
+  await page.getByRole('button', { name: new RegExp(`^Equipment: ${uzs(150_000).replace(/ /g, '\\s')}\\sUZS`) }).click();
+  await expect(page.getByRole('radiogroup', { name: 'Show' }).getByRole('radio', { name: 'Paid', exact: true })).toBeChecked();
+  await expect(page.getByText(/· Equipment$/)).toBeVisible();
+  await expect(history.getByRole('button', { name: /^Delete: / })).toHaveCount(1);
+  await expect(history).toContainText(uzs(150_000));
+  await page.getByRole('button', { name: 'Clear filter' }).click();
+  await expect(page.getByRole('button', { name: 'Clear filter' })).toHaveCount(0);
+});
+
 test('SYS-001 the owner opens System sanity checks from the command palette and all seven pass', async ({ page }) => {
   await page.goto('/dashboard');
   await expect(page.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeVisible();

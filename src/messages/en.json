@@ -3095,9 +3095,8 @@
     "returned": "Returned to profit",
     "spent": "Paid from reserve",
     "balanceTitle": "Reserve over time",
-    "balanceDescription": "What the reserve held at the end of every day, dollars at what was paid for them.",
+    "balanceDescription": "What the reserve held, dollars at what was paid for them, over what was put in and taken out.",
     "flowTitle": "Money in and out",
-    "flowDescription": "Put in versus returned or spent, month by month.",
     "loadError": "Could not load the reserve.",
     "buyDollars": "Buy dollars",
     "sellDollars": "Sell dollars",
@@ -3144,8 +3143,40 @@
     "stillHeld": "Still held",
     "flowSplitLabel": "Where the money put in went",
     "spendingTitle": "What the reserve paid for",
-    "spendingDescription": "Purchases paid from the reserve, by category. Tap one to see the payments.",
-    "spendingEmpty": "Nothing has been paid from the reserve yet."
+    "spendingDescription": "Purchases paid from the reserve in the period, by category. Tap one to see the payments.",
+    "spendingEmpty": "Nothing has been paid from the reserve yet.",
+    "overTime": "Over time",
+    "period": {
+      "label": "Period",
+      "30d": "30 d",
+      "90d": "90 d",
+      "1y": "1 y",
+      "all": "All"
+    },
+    "periodName": {
+      "30d": "Last 30 days",
+      "90d": "Last 90 days",
+      "1y": "Last year",
+      "all": "All time"
+    },
+    "explorer": {
+      "heldAtEnd": "Held at the end",
+      "heldNow": "Held now",
+      "change": "Change",
+      "showEntries": "{count, plural, one {Show # entry} other {Show # entries}}",
+      "noEntries": "No entries",
+      "previous": "Previous",
+      "next": "Next",
+      "clear": "Clear selection",
+      "hint": "Tap the chart to pick a {unit, select, week {week} month {month} other {day}}.",
+      "summary": "{period}: held {held}, change {change}",
+      "selectedSummary": "{title}: held at the end {held}, put in {putIn}, taken out {takenOut}"
+    },
+    "historyRange": {
+      "clear": "Clear filter"
+    },
+    "filterEmptyRange": "Nothing of this kind on these dates.",
+    "spendingEmptyPeriod": "Nothing was paid from the reserve in this period."
   },
   "glance": {
     "other": "Other",

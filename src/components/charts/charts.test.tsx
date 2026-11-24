@@ -7,6 +7,7 @@ import messages from '@/messages/en.json';
 import { averageByWeekday } from '@/lib/calculations/insights';
 import { SideGlanceCard, SideGlanceCardSkeleton } from '@/components/dashboard/SideGlanceCard';
 import { SideScorecard } from '@/components/financial-analysis/AnalysisSections';
+import { BalanceFlowChart, nextSelectionKey } from './BalanceFlowChart';
 import { CalendarHeatmap } from './CalendarHeatmap';
 import { DonutBreakdown } from './DonutBreakdown';
 import { RadialMeter } from './RadialMeter';
@@ -79,6 +80,52 @@ describe('DonutBreakdown', () => {
     expect(html).toContain('aria-label="Rent: 200 UZS, 67%"');
     expect(html).toContain('Cleaning');
     expect(html.match(/<button/g)).toHaveLength(1);
+  });
+});
+
+describe('BalanceFlowChart', () => {
+  const rows = [
+    { key: '2026-11-01', label: '1 Nov', tooltipLabel: '1 November 2026', held: 500, income: 500, expenses: 0 },
+    { key: '2026-11-02', label: '2 Nov', tooltipLabel: '2 November 2026', held: 500, income: 0, expenses: 0 },
+    { key: '2026-11-03', label: '3 Nov', tooltipLabel: '3 November 2026', held: 300, income: 0, expenses: 200 },
+  ];
+  const chart = (selectedKey: string | null) => render(
+    <BalanceFlowChart rows={rows} selectedKey={selectedKey} onSelect={() => undefined} heldLabel="Held" incomeLabel="Put in"
+      expensesLabel="Taken out" legendLabel="Money in and out" summary="Last 30 days: held 300 UZS" currency="UZS" locale="en" initialWidth={600} />,
+  );
+
+  it('draws both plots in one focusable group named by its summary, with the in/out legend', () => {
+    const html = chart(null);
+    expect(html).toContain('role="group" aria-label="Last 30 days: held 300 UZS" tabindex="0"');
+    expect(html).toContain('aria-label="Money in and out"');
+    expect(html.match(/class="recharts-surface"/g)).toHaveLength(2);
+    // Days that moved carry a dot on the balance line; the quiet day does not.
+    expect(html.match(/<circle[^>]*r="2.5"/g)).toHaveLength(2);
+    expect(html).not.toContain('recharts-reference-line');
+  });
+
+  it('marks the selected column in both plots and dims the other bars', () => {
+    const html = chart('2026-11-03');
+    expect(html).toContain('data-selected="2026-11-03"');
+    expect(html.match(/recharts-reference-line/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(html).toContain('recharts-reference-dot');
+    expect(html).toContain('fill-opacity="0.3"');
+  });
+
+  it('moves the selection with the arrow keys and clears it with Escape', () => {
+    const keys = rows.map((row) => row.key);
+    expect(nextSelectionKey(keys, null, 'ArrowLeft')).toBe('2026-11-03');
+    expect(nextSelectionKey(keys, null, 'ArrowRight')).toBe('2026-11-03');
+    expect(nextSelectionKey(keys, '2026-11-03', 'ArrowLeft')).toBe('2026-11-02');
+    expect(nextSelectionKey(keys, '2026-11-01', 'ArrowLeft')).toBe('2026-11-01');
+    expect(nextSelectionKey(keys, '2026-11-02', 'ArrowRight')).toBe('2026-11-03');
+    expect(nextSelectionKey(keys, '2026-11-02', 'Home')).toBe('2026-11-01');
+    expect(nextSelectionKey(keys, '2026-11-02', 'End')).toBe('2026-11-03');
+    expect(nextSelectionKey(keys, '2026-11-02', 'Escape')).toBeNull();
+    // Nothing to clear, another key, or nothing to select: the key is left alone.
+    expect(nextSelectionKey(keys, null, 'Escape')).toBeUndefined();
+    expect(nextSelectionKey(keys, '2026-11-02', 'Enter')).toBeUndefined();
+    expect(nextSelectionKey([], null, 'ArrowLeft')).toBeUndefined();
   });
 });
 
