@@ -313,6 +313,8 @@ export interface EntryAuditLog {
   changed_at: string;
   /** Club business date of the change. */
   changed_on: string;
+  /** A Telegram activity notice for this change is still to be sent (183). */
+  notice_pending?: boolean;
 }
 
 /** Per-language texts of a public page (101) or offer (102). */

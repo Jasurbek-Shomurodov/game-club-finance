@@ -85,6 +85,16 @@ describe('POST /api/salaries', () => {
     expect((await post({ action: 'change_term', clubId: CLUB, employeeId: EMPLOYEE, kind: 'kpi', amount: 10, kpiBasis: 'revenue' })).status).toBe(400);
   });
 
+  it('changes a job title and announces it once', async () => {
+    const { rpc } = mockSupabase();
+    const response = await post({ action: 'change_role', clubId: CLUB, employeeId: EMPLOYEE, jobTitle: 'Admin' });
+    expect(await response.json()).toEqual({ ok: true, notificationQueued: true });
+    expect(rpc).toHaveBeenCalledWith('change_salary_employee_role', { p_club_id: CLUB, p_employee_id: EMPLOYEE, p_job_title: 'Admin' });
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledTimes(1);
+    expect(mocks.sendTelegramMessage.mock.calls[0][0].text).toMatch(/^🏷 Новая должность: Izzat\nАдмин · /);
+    expect((await post({ action: 'change_role', clubId: CLUB, employeeId: EMPLOYEE, jobTitle: ' ' })).status).toBe(400);
+  });
+
   it('uses the activate and deactivate functions', async () => {
     const { rpc } = mockSupabase();
     await post({ action: 'set_active', clubId: CLUB, employeeId: EMPLOYEE, active: true });

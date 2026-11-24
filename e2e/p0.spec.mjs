@@ -295,7 +295,7 @@ test('HIST-001 a deleted expense stays readable in the owner\'s edit history', a
   await expect(entry).toContainText(accounts.owner.name);
   // The history is append-only: not even the owner can erase it through the API.
   await restAs(accounts.owner, 'DELETE', `entry_audit_logs?club_id=eq.${clubs.arcade.id}`);
-  expect(await (await restAs(accounts.owner, 'GET', `entry_audit_logs?select=id&club_id=eq.${clubs.arcade.id}`)).json()).toHaveLength(1);
+  expect(await (await restAs(accounts.owner, 'GET', `entry_audit_logs?select=id&club_id=eq.${clubs.arcade.id}&action=neq.insert`)).json()).toHaveLength(1);
 });
 
 test('DASH-009 a payment in a money-flow category opens its details, from the list and from the chart', async ({ page }) => {

@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
+import { announceActivity } from '@/lib/activityNotices';
 import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
@@ -170,6 +171,7 @@ export default function PromotionsPage() {
       setFormError(err);
       return;
     }
+    announceActivity(selectedClubId);
     setModalOpen(false);
     showToast(t('saved'));
     await reload({ silent: true });
@@ -196,6 +198,7 @@ export default function PromotionsPage() {
       setFormError(isArchivedProductWriteError(error) ? t('deleteBlockedArchived') : error ? t('saveFailed') : t('saveNoRows'));
       return;
     }
+    announceActivity(selectedClubId);
     setModalOpen(false);
     showToast(t('deleted'));
     await reload({ silent: true });

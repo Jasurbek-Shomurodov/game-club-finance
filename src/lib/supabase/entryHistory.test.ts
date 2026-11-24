@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
-import { fetchEntryHistory } from './entryHistory';
+import { ACTIVITY_ONLY_TABLES, fetchEntryHistory } from './entryHistory';
 
 type Result = { data: unknown[] | null; error: { message: string; code?: string } | null };
 
@@ -10,7 +10,7 @@ function fakeClient(results: Record<string, Result>) {
   const from = (table: string) => {
     calls[table] = [];
     const builder: Record<string, unknown> = {};
-    for (const method of ['select', 'eq', 'gte', 'lte', 'order', 'in']) {
+    for (const method of ['select', 'eq', 'neq', 'not', 'gte', 'lte', 'order', 'in']) {
       builder[method] = (...args: unknown[]) => { calls[table].push([method, ...args]); return builder; };
     }
     builder.range = () => Promise.resolve(results[table]);
@@ -41,6 +41,12 @@ describe('fetchEntryHistory', () => {
     expect(history.names.get('user-2')).toBe('Admin');
     expect(history.products.get('prod-1')).toBe('Cola');
     expect(calls.entry_audit_logs).toContainEqual(['eq', 'club_id', 'club-1']);
+    // Creations and the tables kept only for activity notices (183) are not shown;
+    // every ledger shown before, collected money included, still is.
+    expect(calls.entry_audit_logs).toContainEqual(['neq', 'action', 'insert']);
+    expect(calls.entry_audit_logs).toContainEqual(['not', 'table_name', 'in', `(${ACTIVITY_ONLY_TABLES.join(',')})`]);
+    expect(ACTIVITY_ONLY_TABLES).not.toContain('money_collections');
+    expect(ACTIVITY_ONLY_TABLES).not.toContain('stock_purchases');
     expect(calls.entry_audit_logs).toContainEqual(['gte', 'changed_on', '2026-10-01']);
     expect(calls.entry_audit_logs).toContainEqual(['lte', 'changed_on', '2026-10-31']);
     expect(calls.products).toContainEqual(['eq', 'club_id', 'club-1']);

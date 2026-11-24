@@ -152,7 +152,7 @@ describe('migration 149: read load', () => {
 
   it('shows the edit history and shortages to the club owner only', async () => {
     const clubs = (userId: string, table: string) => asUser(userId, async () => (
-      await db.query<{ club_id: string }>(`select club_id from public.${table} order by club_id`)
+      await db.query<{ club_id: string }>(`select distinct club_id from public.${table} order by club_id`)
     ).rows.map((row) => row.club_id));
     expect(await clubs(owner, 'entry_audit_logs')).toEqual([club]);
     expect(await clubs(otherOwner, 'entry_audit_logs')).toEqual([otherClub]);

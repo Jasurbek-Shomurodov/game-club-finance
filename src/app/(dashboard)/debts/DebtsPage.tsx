@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { announceActivity } from '@/lib/activityNotices';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
   Avatar,
@@ -349,6 +350,7 @@ export default function DebtsPage() {
         return;
       }
 
+      announceActivity(selectedClubId);
       addRequestId.current = null;
       setAddOpen(false);
       showToast(t('debtSaved'));
@@ -435,6 +437,7 @@ export default function DebtsPage() {
         return;
       }
 
+      announceActivity(selectedClubId);
       payRequestId.current = null;
       closePayModal();
       showToast(t('paymentSaved'));

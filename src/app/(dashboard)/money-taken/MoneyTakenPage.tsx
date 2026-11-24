@@ -39,6 +39,7 @@ import {
 } from '@/components/PresentationFoundation';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
+import { announceActivity } from '@/lib/activityNotices';
 import { EMPTY_OWNER_MONEY, fetchOwnerMoney, type OwnerMoneyData } from '@/lib/supabase/ownerMoney';
 import {
   allSourcesWithdrawable,
@@ -429,6 +430,8 @@ export default function MoneyTakenPage() {
             p_comment: form.comment.trim() || null,
           });
 
+      // Saved even when the club changed meanwhile; the notice is for the club it was saved in.
+      if (!insertError) announceActivity(selectedClubId);
       if (operationLoad !== currentLoad.current) return;
       if (insertError) {
         if (isNoteRequiredError(insertError)) {
@@ -497,6 +500,7 @@ export default function MoneyTakenPage() {
         p_comment: form.comment.trim() || null,
       });
 
+      if (!carryError) announceActivity(selectedClubId);
       if (operationLoad !== currentLoad.current) return;
       if (carryError) {
         showToast(isMissingDatabaseFunction(carryError, 'carry_owner_profit_to_next_month')
@@ -583,6 +587,7 @@ export default function MoneyTakenPage() {
         p_carryover_id: row.id,
       });
 
+      if (!deleteError) announceActivity(selectedClubId);
       if (operationLoad !== currentLoad.current) return;
       if (deleteError) {
         showToast(deleteError.code === '23514' ? t('carryDeleteUsed') : t('deleteError'), 'error');
@@ -630,6 +635,7 @@ export default function MoneyTakenPage() {
         .eq('id', row.id)
         .select('id');
 
+      if (!deleteError && deletedRows?.length) announceActivity(selectedClubId);
       if (operationLoad !== currentLoad.current) return;
       // RLS hides a refused delete as zero affected rows, not as an error.
       if (deleteError || !deletedRows?.length) {
@@ -925,6 +931,7 @@ export default function MoneyTakenPage() {
     setRecoverError(null);
     try {
       const failure = await recoverCashShortage(createClient(), selectedClubId, recoverTarget.shortage.id, recoverRequestId.current, Math.round(recoverValue));
+      if (!failure) announceActivity(selectedClubId);
       if (operationLoad !== currentLoad.current) return;
       if (failure) {
         recoverRequestId.current = null;
@@ -960,6 +967,7 @@ export default function MoneyTakenPage() {
     setShortageBusy(summary.shortage.id);
     try {
       const failure = await deleteCashShortage(createClient(), selectedClubId, summary.shortage.id);
+      if (!failure) announceActivity(selectedClubId);
       if (loadBeforeConfirm !== currentLoad.current) return;
       if (failure) {
         showToast(tsh(`errors.${failure}`), 'error');

@@ -3930,11 +3930,6 @@
         "column": "changed_on"
       },
       {
-        "kind": "constraint",
-        "table": "public.entry_audit_logs",
-        "name": "entry_audit_logs_new_row_matches_action"
-      },
-      {
         "kind": "relation",
         "name": "public.entry_audit_logs_club_changed_idx"
       },
@@ -5414,5 +5409,59 @@
   {
     "file": "182_pixel_exchange_receipt_correction.sql",
     "probes": []
+  },
+  {
+    "file": "183_activity_audit.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.entry_audit_logs",
+        "column": "notice_pending"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.entry_audit_logs",
+        "name": "entry_audit_logs_action_valid"
+      },
+      {
+        "kind": "relation",
+        "name": "public.entry_audit_logs_notice_pending_idx"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.salary_entries",
+        "name": "record_activity_audit_recovery"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.owner_reserve_entries",
+        "name": "record_activity_audit_collected"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.entry_audit_logs",
+        "name": "mark_audit_notice_pending"
+      },
+      {
+        "kind": "function",
+        "signature": "public.record_activity_audit()"
+      },
+      {
+        "kind": "function",
+        "signature": "public.mark_audit_notice_pending()"
+      },
+      {
+        "kind": "function",
+        "signature": "public.claim_activity_notices(uuid,integer)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.release_activity_notices(uuid,bigint[])"
+      },
+      {
+        "kind": "function",
+        "signature": "public.expire_activity_notices()"
+      }
+    ]
   }
 ]

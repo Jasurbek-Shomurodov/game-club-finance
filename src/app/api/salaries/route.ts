@@ -179,7 +179,13 @@ export async function POST(request: Request) {
       case 'change_role': {
         const role = text(body.jobTitle, 120);
         if (!role) throw new BadRequest();
+        // Read only to describe the change in the group notification.
+        const { data: existing, error: lookupError } = await supabase.from('salary_employees').select('job_title')
+          .eq('club_id', clubId).eq('id', employeeId).maybeSingle();
+        if (lookupError) return fail('employee_lookup', lookupError);
         rpcResult = await supabase.rpc('change_salary_employee_role', { p_club_id: clubId, p_employee_id: employeeId, p_job_title: role });
+        const previousRole = typeof existing?.job_title === 'string' ? existing.job_title.trim() : '';
+        if (previousRole !== role) notification = { event: 'role_changed', role, previousRole: previousRole || null };
         break;
       }
       case 'set_active': {

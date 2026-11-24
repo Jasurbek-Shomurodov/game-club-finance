@@ -2,6 +2,7 @@
 
 // Route: /reports
 
+import { announceActivity } from '@/lib/activityNotices';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -587,6 +588,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     if (!confirmed || currentClubId.current !== clubId) return;
     setActionError('');
     const { error } = await deleteMoneyCollection(createClient(), clubId, group.id);
+    if (!error) announceActivity(clubId);
     if (currentClubId.current !== clubId) return;
     if (error) {
       setActionError(isCollectedInsufficientError(error) ? t('collectMoney.undoSpent') : t('collectMoney.error'));
@@ -612,6 +614,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       if ((error as { hint?: string }).hint === 'reserve_exceeds_available') return t('collectMoney.toReserveNoProfit');
       return t('collectMoney.error');
     }
+    announceActivity(selectedClubId);
     showToast(t('collectMoney.movedToReserveToast'));
     void reloadReport({ silent: true });
     return null;

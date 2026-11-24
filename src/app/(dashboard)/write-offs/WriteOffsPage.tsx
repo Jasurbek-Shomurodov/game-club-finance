@@ -25,6 +25,7 @@ import {
   type DataTableColumn,
 } from '@/components/PresentationFoundation';
 import { createClient } from '@/lib/supabase/client';
+import { announceActivity } from '@/lib/activityNotices';
 import { loadClosingStockDay } from '@/lib/supabase/closingStockQueries';
 import {
   buildClosingStockUpserts,
@@ -151,6 +152,8 @@ export default function WriteOffsPage() {
         p_counts: upserts,
       });
       if (error) return saveErrorMessage(error);
+      // A correction of a saved count is an activity notice; a write-off has its own below.
+      announceActivity(selectedClubId);
       showToast(input.quantity > 0 ? tcs('writeOffSaved') : tcs('writeOffRemoved'));
       if (shouldNotifyStockAdjustment(rowStockAdjustment(row), input)) {
         void notifyStockWriteOff(selectedClubId, today, input.productId);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
+import { announceActivity } from '@/lib/activityNotices';
 import { createClient, mutateFinanceRequest } from '@/lib/supabase/client';
 import { isMissingDatabaseColumn } from '@/lib/supabase/errors';
 import { fetchAllRows } from '@/lib/supabase/pagination';
@@ -104,6 +105,7 @@ export function useTeamMembers({ enabled, managedClubs }: { enabled: boolean; ma
       console.error('Failed to add club access', error);
       return false;
     }
+    announceActivity(clubId);
     notifyTeamChanged();
     await load({ silent: true });
     return true;
@@ -120,6 +122,7 @@ export function useTeamMembers({ enabled, managedClubs }: { enabled: boolean; ma
       console.error('Failed to update role', error ?? 'no membership row was updated');
       return false;
     }
+    announceActivity(clubId);
     await load({ silent: true });
     return true;
   }, [load]);
@@ -135,6 +138,7 @@ export function useTeamMembers({ enabled, managedClubs }: { enabled: boolean; ma
       console.error('Failed to remove club access', error ?? 'no membership row was deleted');
       return false;
     }
+    announceActivity(clubId);
     notifyTeamChanged();
     await load({ silent: true });
     return true;
@@ -167,6 +171,7 @@ export function useTeamMembers({ enabled, managedClubs }: { enabled: boolean; ma
         setAccess(previousAccess);
         return false;
       }
+      announceActivity(clubId);
       return true;
     } catch (saveError) {
       console.error('Failed to update feature access', saveError);

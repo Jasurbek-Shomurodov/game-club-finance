@@ -1,5 +1,5 @@
 import { WRITE_OFF_KIND_LABELS } from './dailyFinanceReport';
-import { authorLine, details, lines, noticeDate, sum } from './messageParts';
+import { authorLine, details, lines, noticeDate, sum, units } from './messageParts';
 
 export interface StockWriteOffNoticeInput {
   /** YYYY-MM-DD: the stock-count day the write-off belongs to. */
@@ -14,7 +14,6 @@ export interface StockWriteOffNoticeInput {
   by: string;
 }
 
-const units = (value: number) => `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(value)} шт.`;
 const capitalize = (text: string) => text.charAt(0).toLocaleUpperCase('ru') + text.slice(1);
 
 /** A bar write-off was recorded, changed or removed on Closing Stock. */

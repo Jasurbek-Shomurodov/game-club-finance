@@ -15,6 +15,16 @@ export interface EntryHistory {
 }
 
 /**
+ * Tables migration 183 started logging for the activity notices. /history has
+ * no labels for them yet, so it leaves them out, along with every creation
+ * (action 'insert'); everything it showed before 183 still shows.
+ */
+export const ACTIVITY_ONLY_TABLES = [
+  'products', 'daily_stock_counts', 'promotions', 'club_memberships', 'clubs',
+  'expense_presets', 'salary_employees', 'salary_entries',
+] as const;
+
+/**
  * One club's edit and delete history for business dates `from`..`to`, newest
  * first, with the names it mentions. Owner-only through RLS; every query is
  * club-scoped anyway.
@@ -29,6 +39,8 @@ export async function fetchEntryHistory(
     .from('entry_audit_logs')
     .select('*')
     .eq('club_id', clubId)
+    .neq('action', 'insert')
+    .not('table_name', 'in', `(${ACTIVITY_ONLY_TABLES.join(',')})`)
     .gte('changed_on', from)
     .lte('changed_on', to)
     .order('changed_on', { ascending: false })

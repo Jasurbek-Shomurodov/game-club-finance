@@ -11,6 +11,7 @@ export type SalaryNotificationInput = {
   | { event: 'employee_updated'; role: string; salaryType: 'daily' | 'monthly'; amount: number; kpi: number; kpiSettings: KpiSettings; date: string }
   | { event: 'salary_changed'; salaryType: 'daily' | 'monthly'; amount: number; date?: string }
   | { event: 'kpi_changed'; kpi: number; kpiSettings: KpiSettings; date?: string }
+  | { event: 'role_changed'; role: string; previousRole: string | null }
   | { event: 'deactivated'; date?: string }
   | { event: 'activated'; date?: string }
   | { event: 'payment' | 'bonus' | 'fine' | 'absence'; amount: number; date: string; comment: string | null; paymentMethod?: string | null; paymentSource?: string | null }
@@ -31,6 +32,7 @@ const ENTRY_ICONS = { payment: '💵', bonus: '🎁', fine: '⚠️' } as const;
 const DELETED_TITLES = { payment: 'Удалена зарплата', bonus: 'Удалена премия', fine: 'Удалён штраф', absence: 'Удалён невыход' } as const;
 
 const salary = (amount: number, type: 'daily' | 'monthly') => `${sum(amount)} ${PER[type]}`;
+const roleLabel = (role: string) => ROLES[role] ?? role;
 
 /** "KPI 5% от прибыли владельца (выведенные деньги) · Игровой клуб + Бар", or "Без KPI". */
 function kpiText(kpi: number, settings: KpiSettings) {
@@ -64,6 +66,12 @@ export function buildSalaryNotification(input: SalaryNotificationInput, today = 
       return lines(`💼 Новая зарплата: ${input.employee}`, details(salary(input.amount, input.salaryType), from(input.date)), by);
     case 'kpi_changed':
       return lines(`📈 Новый KPI: ${input.employee}`, details(kpiText(input.kpi, input.kpiSettings), from(input.date)), by);
+    case 'role_changed':
+      return lines(
+        `🏷 Новая должность: ${input.employee}`,
+        details(input.previousRole ? `${roleLabel(input.previousRole)} → ${roleLabel(input.role)}` : roleLabel(input.role), noticeDate(today)),
+        by,
+      );
     case 'deactivated':
       return lines(`⏸ Сотрудник деактивирован: ${input.employee}`, `С ${noticeDate(input.date ?? today)}`, by);
     case 'activated':

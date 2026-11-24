@@ -6,6 +6,7 @@ import { Fragment, useState, useEffect, useCallback, useMemo, useRef, type Keybo
 import { useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { announceActivity } from '@/lib/activityNotices';
 import { loadClosingStockDay } from '@/lib/supabase/closingStockQueries';
 import { fetchPromotions } from '@/lib/supabase/promotions';
 import { promotionsForProduct } from '@/lib/promotions';
@@ -586,6 +587,7 @@ export default function ClosingStockPage() {
 
       if (err) return { ok: false, message: saveErrorMessage(err) };
 
+      announceActivity(selectedClubId);
       clearClosingStockDraft(getBrowserStorage(), date, selectedClubId);
       setDirty(false);
       showToast(successMessage);

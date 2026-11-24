@@ -63,7 +63,8 @@ export async function POST(request: Request) {
   const kind = parsed && parsed.kind !== 'other' ? parsed.kind : null;
   const quantity = kind ? parsed!.quantity : 0;
 
-  // Corrections are reported only in the daily report's album, never instantly.
+  // A correction is announced by the activity notices (migration 183), which
+  // report the saved count, so it is not announced here as well.
   if (kind === 'correction') return Response.json({ notified: false });
 
   // Best-effort, after the response: Telegram never fails or delays the save.

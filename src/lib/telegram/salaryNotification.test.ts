@@ -37,6 +37,13 @@ describe('buildSalaryNotification', () => {
     expect(buildSalaryNotification({ ...base, event: 'activated', date: '2026-09-15' })).toContain('С 15 сентября');
   });
 
+  it('announces a new job title, with the old one when there was one', () => {
+    expect(buildSalaryNotification({ ...base, event: 'role_changed', role: 'Admin', previousRole: 'Cleaner' }, TODAY))
+      .toBe('🏷 Новая должность: Izzat\nУборщик → Админ · 15 ноября\nOwner');
+    expect(buildSalaryNotification({ ...base, event: 'role_changed', role: 'Кассир', previousRole: null }, TODAY))
+      .toBe('🏷 Новая должность: Izzat\nКассир · 15 ноября\nOwner');
+  });
+
   it('announces a new employee with terms', () => {
     expect(buildSalaryNotification({ ...base, event: 'employee_added', role: 'Manager', salaryType: 'daily', amount: 100000, kpi: 3, kpiSettings: { basis: 'overall_profit', gameClub: true, bar: true }, date: '2026-10-01' }).split('\n')).toEqual([
       '👤 Новый сотрудник: Izzat',

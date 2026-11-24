@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { announceActivity } from '@/lib/activityNotices';
 import { runWithJwtTimingRetry } from '@/lib/supabase/authRetry';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import { useSectionTabs } from '@/components/layout/SectionTabs';
@@ -621,6 +622,7 @@ export default function StockPurchasePage() {
       return;
     }
 
+    announceActivity(selectedClubId);
     purchaseRequestId.current = null;
     clearItemFields();
     showToast(t('success'));
@@ -663,6 +665,7 @@ export default function StockPurchasePage() {
       return;
     }
 
+    announceActivity(selectedClubId);
     showToast(t('deleteSuccess'));
     const nextPage = purchases.length === 1 && purchasePage > 1 ? purchasePage - 1 : purchasePage;
     await reloadAfterMutation(nextPage);

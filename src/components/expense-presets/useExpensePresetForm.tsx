@@ -19,6 +19,7 @@ import { useClub } from '@/components/layout/DashboardShell';
 import { PAYMENT_METHOD_ICONS } from '@/components/paymentMethodIcons';
 import { PAYMENT_METHODS, type EntryPaymentMethod } from '@/types';
 import { createClient } from '@/lib/supabase/client';
+import { announceActivity } from '@/lib/activityNotices';
 
 const SOURCES: ExpensePresetSource[] = ['game_club', 'bar'];
 
@@ -146,6 +147,7 @@ export function useExpensePresetForm({ clubId, presets, enabled, onSaved }: {
         : /cannot change/i.test(error.message) ? t('termsLocked') : t('saveError'));
       return;
     }
+    announceActivity(clubId);
     setForm(null);
     await onSaved();
   }

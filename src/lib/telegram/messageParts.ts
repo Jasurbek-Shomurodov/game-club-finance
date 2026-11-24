@@ -1,4 +1,4 @@
-import { formatCurrency, formatDateShort } from '../formatters';
+import { formatCurrency, formatDateShort, formatUnitCurrency } from '../formatters';
 
 /**
  * Shared pieces of the Russian club-group messages. Every message follows one
@@ -19,6 +19,10 @@ export const SOURCE_LABELS: Record<string, string> = { game_club: 'Игрово�
 
 export const noticeDate = (iso: string) => formatDateShort(iso, 'ru');
 export const sum = (value: number) => `${formatCurrency(value)} сум`;
+/** A unit price, keeping its fractions (a weighted-average cost). */
+export const unitSum = (value: number) => `${formatUnitCurrency(value)} сум`;
+/** A stock quantity: whole units, or up to two decimals. */
+export const units = (value: number) => `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(value)} шт.`;
 export const method = (value: string | null | undefined) => (value ? PAYMENT_METHOD_LABELS[value] ?? value : '—');
 export const source = (value: string | null | undefined) => (value ? SOURCE_LABELS[value] ?? value : '—');
 

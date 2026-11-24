@@ -20,6 +20,7 @@ import { formatCurrency } from '@/lib/formatters';
 import { useClub } from '@/components/layout/DashboardShell';
 import { paymentMethodIcon, useExpensePresetForm } from '@/components/expense-presets/useExpensePresetForm';
 import { createClient } from '@/lib/supabase/client';
+import { announceActivity } from '@/lib/activityNotices';
 import { fetchExpensePresets, type ExpensePresetsResult } from '@/lib/supabase/expensePresets';
 import { useClubQuery } from '@/lib/useClubQuery';
 import { SettingsSection } from './SettingsSection';
@@ -75,6 +76,7 @@ function PresetList({ clubId, isOwner }: { clubId: string; isOwner: boolean }) {
       showToast(t('saveError'), 'error');
       return;
     }
+    announceActivity(clubId);
     showToast(t('archived'));
     await query.reload({ silent: true });
   }

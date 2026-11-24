@@ -24,6 +24,7 @@ import {
   useToast,
 } from '@/components/PresentationFoundation';
 import { createClient } from '@/lib/supabase/client';
+import { announceActivity } from '@/lib/activityNotices';
 import { isMissingDatabaseColumn } from '@/lib/supabase/errors';
 import { useClub } from '@/components/layout/DashboardShell';
 import { useSignOut } from '@/components/layout/useSignOut';
@@ -218,6 +219,7 @@ export function SettingsPageClient() {
       if (error) throw error;
       // RLS silently matches no row when the owner role was revoked meanwhile.
       if (!data?.length) throw new Error('club update matched no row');
+      announceActivity(selectedClub.id);
 
       showToast(t('clubDetailsSaved'));
       await refreshClubs();
@@ -252,6 +254,7 @@ export function SettingsPageClient() {
       if (error) throw error;
       // RLS silently matches no row when the owner role was revoked meanwhile.
       if (!data?.length) throw new Error('club update matched no row');
+      announceActivity(selectedClub.id);
 
       showToast(t('businessDaySaved'));
       await refreshClubs();
@@ -287,6 +290,7 @@ export function SettingsPageClient() {
       if (error) throw error;
       // RLS silently matches no row when the owner role was revoked meanwhile.
       if (!data?.length) throw new Error('club update matched no row');
+      announceActivity(selectedClub.id);
 
       showToast(t('paymentMethodsSaved'));
       await refreshClubs();
@@ -319,6 +323,7 @@ export function SettingsPageClient() {
       if (error) throw error;
       // RLS silently matches no row when the owner role was revoked meanwhile.
       if (!data?.length) throw new Error('club update matched no row');
+      announceActivity(selectedClub.id);
 
       setSavedInternetPaymentDay(day);
       showToast(t('internetPaymentDaySaved'));

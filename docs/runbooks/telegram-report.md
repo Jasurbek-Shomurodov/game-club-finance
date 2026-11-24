@@ -192,6 +192,50 @@ of a 30-day month. The reminder keys off the send time, so a recovery or
 forced resend on another day does not carry it. If the column is missing or
 unreadable, the reminder is omitted and the report is still sent.
 
+## Activity notices
+
+Changes investors should hear about that have no notice of their own (new and
+edited products, saved stock counts and corrections, promotions, team access,
+club settings, planned expenses, owner withdrawals and profit carryovers, stock
+purchases, new debts and debt payments, a removed collection, collected money
+moved to the reserve, and the removal or later salary recovery of a cash
+shortage) are announced one message per change:
+
+```text
+database trigger -> entry_audit_logs row, notice_pending = true (183)
+  -> announceActivity(clubId) after the page's save -> POST /api/activity (any member)
+     or deliverActivityNotices() in a server route's after()
+  -> claim_activity_notices (service role; each row once, oldest first)
+  -> names (profiles, products, employees, debts, shortages)
+  -> src/lib/telegram/activityNotification.ts -> sendTelegramMessage
+```
+
+- Capture is in the database, so the message reports what was saved, whichever
+  page or route saved it. Rows of one record by one person in the same claim
+  become one "Поле: было → стало" message, showing only the fields those rows
+  changed.
+- Cash shortage messages go to the owners' group (`TELEGRAM_*_OWNER_CHAT_ID`)
+  and are dropped when it is not set; everything else goes to the club group.
+- Not announced again here: a bar write-off alone (`/api/stock-write-offs`), a
+  purchase moving stock or cost (the purchase notice, which names a new sale
+  price), the evening's first count over a write-off saved earlier that day,
+  salary employee details and job titles (`/api/salaries`), a salary payment
+  method correction (`PATCH /api/expenses`), and a recovery saved together with
+  its shortage (the shortage notice).
+- Sending stops at the first failure. The unsent claimed rows, and the failed
+  one when Telegram certainly did not take it (rate limit, server error, no time
+  left), go back to pending (`release_activity_notices`). A message whose fate
+  is unknown is logged (`[telegram/activity] notice failed`) and never resent.
+- A page call sends one round of up to 10 notices, every send finished within
+  45 s of the request (the route's `maxDuration` is 60 s); the rest waits. One
+  "withdraw all" (142) of several methods and the bar is one message.
+- Safety net: after every report is sent, the cron unmarks all clubs' pending
+  rows older than 3 days (`expire_activity_notices`, also for clubs with no
+  group), then sends one round of up to 10 per configured club, every send
+  bounded by the run's deadline. The rest waits for the next page call or night.
+- Without a bot token or any group for the club nothing is claimed. Nothing
+  before migration 183 is announced.
+
 ## Rendering behavior
 
 The route statically imports the Sharp renderer so Vercel traces the native

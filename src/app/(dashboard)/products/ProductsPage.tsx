@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { createClient } from '@/lib/supabase/client';
+import { announceActivity } from '@/lib/activityNotices';
 import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
@@ -336,6 +337,7 @@ export default function ProductsPage() {
     if (err) {
       setFormError(err);
     } else {
+      announceActivity(selectedClubId);
       setModalOpen(false);
       showToast(t('success'));
       await loadProducts({ silent: true });
@@ -380,6 +382,7 @@ export default function ProductsPage() {
       return;
     }
 
+    announceActivity(selectedClubId);
     setModalOpen(false);
     showToast(t('deleted'));
     await loadProducts({ silent: true });

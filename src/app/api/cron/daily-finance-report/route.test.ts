@@ -13,6 +13,13 @@ const mocks = vi.hoisted(() => ({
   completeDelivery: vi.fn(),
   loadReviewDigest: vi.fn(),
   completeReviewDigest: vi.fn(),
+  deliverActivity: vi.fn(),
+  expireActivity: vi.fn(),
+}));
+
+vi.mock('@/lib/telegram/activityDelivery', () => ({
+  deliverActivityNotices: mocks.deliverActivity,
+  expireActivityNotices: mocks.expireActivity,
 }));
 
 vi.mock('@/lib/googleBusiness/reviewDigestPhoto', () => ({
@@ -112,6 +119,8 @@ describe('daily finance report cron route', () => {
     mocks.completeDelivery.mockResolvedValue(undefined);
     mocks.loadReviewDigest.mockResolvedValue(null);
     mocks.completeReviewDigest.mockResolvedValue(undefined);
+    mocks.deliverActivity.mockResolvedValue({ claimed: 0, sent: 0, failed: 0, unrouted: 0, released: 0 });
+    mocks.expireActivity.mockResolvedValue(0);
     mocks.buildReport.mockResolvedValue({
       clubId: CLUB_ID,
       chatId: '-1001',
@@ -415,6 +424,38 @@ describe('daily finance report cron route', () => {
       imageFileName: 'report.png',
       caption: 'caption',
     }));
+  });
+
+  it('sends the activity notices a page left pending after the report, one small round per club', async () => {
+    const response = await GET(cronRequest('?date=2026-08-26&target=pixel'));
+
+    expect(response.status).toBe(200);
+    expect(mocks.expireActivity).toHaveBeenCalledTimes(1);
+    expect(mocks.deliverActivity).toHaveBeenCalledTimes(1);
+    expect(mocks.deliverActivity).toHaveBeenCalledWith(
+      expect.anything(),
+      CLUB_ID,
+      expect.objectContaining({ batchSize: 10, maxBatches: 1, deadlineAt: expect.any(Number) }),
+    );
+    const { deadlineAt } = mocks.deliverActivity.mock.calls[0][2] as { deadlineAt: number };
+    expect(deadlineAt - Date.now()).toBeLessThanOrEqual(45_000);
+    expect(mocks.sendTelegramPhoto.mock.invocationCallOrder[0])
+      .toBeLessThan(mocks.expireActivity.mock.invocationCallOrder[0]);
+    expect(mocks.expireActivity.mock.invocationCallOrder[0])
+      .toBeLessThan(mocks.deliverActivity.mock.invocationCallOrder[0]);
+  });
+
+  it('still reports the delivery when the notices cannot be sent', async () => {
+    mocks.deliverActivity.mockResolvedValue({ claimed: 3, sent: 0, failed: 0, unrouted: 0, released: 3 });
+    const response = await GET(cronRequest('?date=2026-08-26&target=pixel'));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ status: 'sent' });
+  });
+
+  it('sends no activity notice from a dry run', async () => {
+    await GET(cronRequest('?date=2026-08-26&target=pixel&dryRun=1'));
+    expect(mocks.deliverActivity).not.toHaveBeenCalled();
+    expect(mocks.expireActivity).not.toHaveBeenCalled();
   });
 
   it('sends the report and the day\'s write-offs together as one album', async () => {

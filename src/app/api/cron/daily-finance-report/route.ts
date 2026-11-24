@@ -21,6 +21,7 @@ import {
   type TelegramSendResult,
 } from '@/lib/telegram/sendDailyFinanceReport';
 import { loadAwaitingReviewDigestPhoto, type ReviewDigestPhoto } from '@/lib/googleBusiness/reviewDigestPhoto';
+import { deliverActivityNotices, expireActivityNotices } from '@/lib/telegram/activityDelivery';
 import { completeReviewDigest } from '@/lib/googleBusiness/reviewDigestRows';
 import {
   beginReportDispatch,
@@ -41,6 +42,11 @@ export const maxDuration = 60;
 // Stop starting new build/Telegram attempts once less than this much of
 // maxDuration remains, leaving time to record the outcome in the ledger.
 const FINALIZE_RESERVE_MS = 15_000;
+// Activity notices a page's call left pending go out after the report, one
+// round this size per club, so the report never competes with them for the
+// group's Telegram rate limit or this run's time. The rest waits for the
+// next page call or the next night.
+const ACTIVITY_NOTICE_BATCH = 10;
 
 function jsonNoStore(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
@@ -816,6 +822,17 @@ export async function GET(request: NextRequest) {
         };
       }
     }));
+    // Safety net for activity notices (183), after every report is out: drop
+    // what is too old for any club, then one small round per club. Every send
+    // must end by the run's deadline; unsent rows go back to pending.
+    // Best effort; it never throws.
+    await expireActivityNotices(supabase);
+    await Promise.all(targets.map((target) => deliverActivityNotices(supabase, target.clubId, {
+      batchSize: ACTIVITY_NOTICE_BATCH,
+      maxBatches: 1,
+      deadlineAt,
+    })));
+
     const hasFailure = results.some((result) => !result.ok);
     const singleResult = results.length === 1 ? results[0] : null;
     const singleStatus = singleResult && 'status' in singleResult
