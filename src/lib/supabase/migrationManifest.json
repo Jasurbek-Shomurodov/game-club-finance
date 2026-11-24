@@ -5482,5 +5482,9 @@
         "signature": "public.price_dollar_expense()"
       }
     ]
+  },
+  {
+    "file": "185_pixel_dollar_expenses_at_cost.sql",
+    "probes": []
   }
 ]
