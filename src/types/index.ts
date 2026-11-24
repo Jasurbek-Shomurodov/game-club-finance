@@ -295,18 +295,32 @@ export type AuditedTable =
   | 'debt_payments'
   | 'daily_cash_collections'
   | 'cash_shortages'
-  | 'owner_reserve_entries';
+  | 'owner_reserve_entries'
+  | 'money_collections'
+  // Logged since migration 183 (record_activity_audit): the bar, team access and club settings.
+  | 'products'
+  | 'daily_stock_counts'
+  | 'promotions'
+  | 'club_memberships'
+  | 'clubs'
+  | 'expense_presets'
+  | 'salary_employees'
+  | 'salary_entries';
 
-/** One edit or delete of a finance entry (migration 111); owners read it, nobody writes it. */
+/**
+ * One creation, edit or delete of a club record (migrations 111 and 183);
+ * owners read it, nobody writes it.
+ */
 export interface EntryAuditLog {
   id: number;
   club_id: string;
   table_name: AuditedTable;
-  /** The entry's id; null for collected ticks, keyed by club and date. */
+  /** The entry's id (a team member's user id); null for collected ticks, keyed by club and date. */
   row_id: string | null;
-  action: 'update' | 'delete';
-  old_row: Record<string, unknown>;
-  /** The row after an update; null for a delete. */
+  action: 'insert' | 'update' | 'delete';
+  /** The row before the change; null for an insert. */
+  old_row: Record<string, unknown> | null;
+  /** The row after the change; null for a delete. */
   new_row: Record<string, unknown> | null;
   /** Null when a server job made the change or the user was removed. */
   changed_by: string | null;

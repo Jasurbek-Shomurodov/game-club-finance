@@ -293,6 +293,14 @@ test('HIST-001 a deleted expense stays readable in the owner\'s edit history', a
   await expect(entry).toContainText('Expense');
   await expect(entry).toContainText(uzs(cleaning.amount));
   await expect(entry).toContainText(accounts.owner.name);
+  // A bar record shows from its creation; a money entry (the fixture's debt) only once it is edited or deleted.
+  const product = page.getByRole('listitem').filter({ hasText: 'Created' }).filter({ hasText: products.snickers.name });
+  await expect(product).toContainText('Product');
+  await expect(product).toContainText(uzs(products.snickers.sale_price));
+  await expect(page.getByRole('listitem').filter({ hasText: debts[0].person_name })).toHaveCount(0);
+  await page.getByRole('radiogroup', { name: 'Area' }).getByRole('radio', { name: 'Bar' }).click();
+  await expect(product).toHaveCount(1);
+  await expect(entry).toHaveCount(0);
   // The history is append-only: not even the owner can erase it through the API.
   await restAs(accounts.owner, 'DELETE', `entry_audit_logs?club_id=eq.${clubs.arcade.id}`);
   expect(await (await restAs(accounts.owner, 'GET', `entry_audit_logs?select=id&club_id=eq.${clubs.arcade.id}&action=neq.insert`)).json()).toHaveLength(1);

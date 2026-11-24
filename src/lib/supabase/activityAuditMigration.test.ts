@@ -3,7 +3,7 @@ import { uuid_ossp } from '@electric-sql/pglite/contrib/uuid_ossp';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ACTIVITY_ONLY_TABLES } from './entryHistory';
+import { AUDIT_CREATION_TABLES, AUDITED_TABLES } from '@/lib/entryHistory';
 
 /** Migration 183 on the full replayed schema: creations and settings changes kept, and marked for a notice. */
 
@@ -213,13 +213,19 @@ describe('activity audit (183)', () => {
     expect(def('owner_reserve_entries.record_activity_audit_collected')).toMatch(/WHEN \(new\.from_collected\)/);
   });
 
-  it('names in /history exactly the tables only 183 logs', async () => {
-    const { rows } = await db.query<{ table: string }>(`
-      select distinct c.relname as table from pg_trigger t join pg_class c on c.oid = t.tgrelid
-      where t.tgname like 'record_activity_audit%'
-        and not exists (select 1 from pg_trigger e where e.tgrelid = t.tgrelid and e.tgname = 'record_entry_audit')
-      order by 1`);
-    expect(rows.map((row) => row.table)).toEqual([...ACTIVITY_ONLY_TABLES].sort());
+  it('labels in /history every table the log keeps, and shows only the creations that are not money', async () => {
+    const { rows } = await db.query<{ table: string; inserts: boolean }>(`
+      select c.relname as table, bool_or((t.tgtype & 4) <> 0) as inserts
+      from pg_trigger t join pg_class c on c.oid = t.tgrelid
+      where not t.tgisinternal and (t.tgname = 'record_entry_audit' or t.tgname like 'record_activity_audit%')
+      group by c.relname order by 1`);
+    expect(rows.map((row) => row.table)).toEqual([...AUDITED_TABLES].sort());
+    // Money entries appear in History once edited or deleted, never when recorded.
+    const creations = rows.filter((row) => row.inserts).map((row) => row.table);
+    expect(creations.filter((table) => !AUDIT_CREATION_TABLES.includes(table as never)).sort()).toEqual([
+      'debt_payments', 'new_debts', 'owner_profit_carryovers', 'owner_reserve_entries', 'owner_withdrawals', 'salary_entries', 'stock_purchases',
+    ]);
+    expect([...AUDIT_CREATION_TABLES].sort()).toEqual(creations.filter((table) => AUDIT_CREATION_TABLES.includes(table as never)).sort());
   });
 
   it('accepts only consistent rows', async () => {

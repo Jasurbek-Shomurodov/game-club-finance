@@ -25,19 +25,26 @@ export function EntryHistoryListSkeleton({ rows = 4 }: { rows?: number }) {
 }
 
 /**
- * Entry history while the route loads: the two filters over the change log.
- * Keep it in step with EntryHistoryPage.
+ * Entry history while the route loads: the area chips and the two filters
+ * over the change log. Keep it in step with EntryHistoryPage.
  */
 export function EntryHistorySkeleton() {
   return (
     <div className="space-y-6" aria-hidden="true">
-      <div className="grid gap-3 sm:grid-cols-2 lg:max-w-2xl">
-        {[0, 1].map((index) => (
-          <div key={index} className="space-y-2">
-            <Skeleton className="h-3 w-24 bg-gray-100" />
-            <Skeleton className="h-11 w-full" />
-          </div>
-        ))}
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-2">
+          {[12, 18, 12, 18, 14].map((width, index) => (
+            <Skeleton key={index} className="h-8 shrink-0 rounded-full bg-gray-100" style={{ width: `${width * 4}px` }} />
+          ))}
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:max-w-2xl">
+          {[0, 1].map((index) => (
+            <div key={index} className="space-y-2">
+              <Skeleton className="h-3 w-24 bg-gray-100" />
+              <Skeleton className="h-11 w-full" />
+            </div>
+          ))}
+        </div>
       </div>
       <EntryHistoryListSkeleton />
     </div>
