@@ -5,6 +5,8 @@ import { formatDateOnly } from '../formatters';
 import { isMissingDatabaseColumn } from '../supabase/errors';
 import { fetchAllRows } from '../supabase/pagination';
 import { normalizeBusinessDayStartHour, serverTodayIso } from '../utils';
+import { normalizePaymentMethods } from '../paymentMethods';
+import type { EntryPaymentMethod } from '@/types';
 import {
   buildDailyFinanceReportInput,
   formatRussianDailyFinanceReportCaption,
@@ -187,6 +189,28 @@ export async function getInternetPaymentDay(
   } catch (error) {
     console.error('[telegram/daily-finance] internet payment day unavailable; omitting reminder:', error);
     return null;
+  }
+}
+
+/**
+ * The club's enabled payment methods for the day's payment section. A failure
+ * (or a database without the column) shows every method, so no money is hidden.
+ */
+export async function getEnabledPaymentMethods(
+  supabase: SupabaseClient,
+  clubId: string,
+): Promise<EntryPaymentMethod[]> {
+  try {
+    const { data, error } = await supabase
+      .from('clubs')
+      .select('enabled_payment_methods')
+      .eq('id', clubId)
+      .single();
+    if (error) throw error;
+    return normalizePaymentMethods((data as { enabled_payment_methods?: unknown } | null)?.enabled_payment_methods);
+  } catch (error) {
+    console.error('[telegram/daily-finance] enabled payment methods unavailable; showing every method:', error);
+    return normalizePaymentMethods(undefined);
   }
 }
 
@@ -418,7 +442,7 @@ export async function buildDailyFinanceTelegramReport(
       .order('date', { ascending: true })
       .order('id', { ascending: true }),
   );
-  const [clubRes, cashRes, stockRes, purchaseRes, expenseRes, debtPaymentRes, laterDebtPaymentRes, debtRes, lowStockProductRows, giveawayRows, writeOffRows, internetPaymentDay, reserveMoves, monthExchangeRows, withdrawalRows, currentBusinessDate] = await Promise.all([
+  const [clubRes, cashRes, stockRes, purchaseRes, expenseRes, debtPaymentRes, laterDebtPaymentRes, debtRes, lowStockProductRows, giveawayRows, writeOffRows, internetPaymentDay, reserveMoves, monthExchangeRows, withdrawalRows, currentBusinessDate, enabledPaymentMethods] = await Promise.all([
     getClub(supabase, clubId),
     windowed<DailyCashRow>('daily_cash_entries', 'date,cash_income,terminal_income,card_income,playstation_income', ['date'], incomeFrom),
     // (club_id, date, product_id) is unique, so the ordering pages stably.
@@ -450,6 +474,7 @@ export async function buildDailyFinanceTelegramReport(
     fetchMoneyExchanges(supabase, clubId, monthStart, businessDate),
     getMonthWithdrawalRows(supabase, clubId, monthStart),
     getCurrentBusinessDateOrNull(supabase, clubId, now),
+    getEnabledPaymentMethods(supabase, clubId),
   ]);
 
   const firstError = [
@@ -525,6 +550,7 @@ export async function buildDailyFinanceTelegramReport(
     // Calendar date in the club's time zone, independent of its business-day start.
     sendDate: serverTodayIso(now, 0),
     moneyChecks,
+    enabledPaymentMethods,
   });
   let imagePng: Buffer | null = null;
   try {

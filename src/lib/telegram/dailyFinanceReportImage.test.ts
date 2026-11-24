@@ -409,6 +409,52 @@ describe('daily finance report image', () => {
   });
 });
 
+describe('payments of the day section', () => {
+  const dayByMethod = [
+    { method: 'cash' as const, moneyIn: 950_000, moneyOut: 100_000, net: 850_000 },
+    { method: 'terminal' as const, moneyIn: 450_000, moneyOut: 0, net: 450_000 },
+    { method: 'playstation' as const, moneyIn: 100_000, moneyOut: 300_000, net: -200_000 },
+  ];
+
+  it('draws a tile per method with its net, what came in and went out, and its share of the takings', () => {
+    const svg = buildDailyFinanceReportSvg({ ...reportInput(), dayByMethod });
+
+    expect(svg).toContain('ОПЛАТЫ ЗА ДЕНЬ');
+    expect(svg).toContain('клуб · без бара');
+    expect(svg).toContain('>НАЛИЧНЫЕ<');
+    expect(svg).toContain('>ТЕРМИНАЛ<');
+    expect(svg).toContain('>PLAYSTATION<');
+    // Card is not in the list (disabled and no money that day), so it has no tile.
+    expect(svg).not.toContain('>КАРТА<');
+    expect(svg).toContain('850 000<tspan');
+    expect(svg).toContain('>950 000 UZS<');
+    expect(svg).toContain('>100 000 UZS<');
+    expect(svg).toContain('−200 000<tspan');
+    expect(svg).toContain('>63%<');
+    expect(svg).toContain('>30%<');
+    expect(svg).toContain('>7%<');
+    // 72 heading + 214 tile + 28, and a 24 gap.
+    expect(svg).toContain('height="1392"');
+    expect(svg.indexOf('Чистая прибыль бара')).toBeLessThan(svg.indexOf('ОПЛАТЫ ЗА ДЕНЬ'));
+  });
+
+  it('sits above "worth checking" and is left out when no method moved money', async () => {
+    const moneyChecks: MoneyCheck[] = [{
+      kind: 'low_income_day', severity: 'warning', side: 'bar', date: '2026-08-27',
+      range: { from: '2026-08-27', to: '2026-08-27' }, amount: 300_000, usual: 600_000,
+    }];
+    const both = buildDailyFinanceReportSvg({ ...reportInput(), dayByMethod, moneyChecks });
+    expect(both.indexOf('ОПЛАТЫ ЗА ДЕНЬ')).toBeLessThan(both.indexOf('СТОИТ ПРОВЕРИТЬ'));
+
+    const plain = buildDailyFinanceReportSvg(reportInput());
+    expect(buildDailyFinanceReportSvg({ ...reportInput(), dayByMethod: [] })).toBe(plain);
+    expect(plain).not.toContain('ОПЛАТЫ ЗА ДЕНЬ');
+
+    const png = await sharp(await renderDailyFinanceReportPng({ ...reportInput(), dayByMethod })).metadata();
+    expect(png).toMatchObject({ format: 'png', width: 1600, height: 1392 });
+  });
+});
+
 describe('month money section', () => {
   it('shows each method the club holds and where the month money went', () => {
     const svg = buildMonthlyFinanceReportSvg({

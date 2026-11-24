@@ -4,6 +4,7 @@ import type { ExpenseRow } from '../calculations/dashboardMetrics';
 import {
   buildDailyFinanceTelegramReport,
   getClubBusinessDayStartHour,
+  getEnabledPaymentMethods,
   getLowStockProductRows,
   getPromoGiveawayRows,
   getReportMoneyChecks,
@@ -63,6 +64,21 @@ describe('getClubBusinessDayStartHour', () => {
   });
 });
 
+describe('getEnabledPaymentMethods', () => {
+  it('reads the club methods and shows every method when they cannot be read', async () => {
+    const { client, queries } = recordingClient({ enabled_payment_methods: ['card', 'cash'] });
+    await expect(getEnabledPaymentMethods(client, 'club')).resolves.toEqual(['cash', 'card']);
+    expect(queries).toEqual([{ table: 'clubs', select: 'enabled_payment_methods', filters: ['id=club'] }]);
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await expect(getEnabledPaymentMethods(recordingClient(null, {
+      code: '42703',
+      message: 'column clubs.enabled_payment_methods does not exist',
+    }).client, 'club')).resolves.toEqual(['terminal', 'cash', 'card']);
+    errorSpy.mockRestore();
+  });
+});
+
 describe('buildDailyFinanceTelegramReport', () => {
   it('reads stock-count history and later debt payments for an as-of report', async () => {
     const { client, queries } = recordingClient({ id: 'club', name: 'Pixel' });
@@ -105,6 +121,8 @@ describe('buildDailyFinanceTelegramReport', () => {
       ['club_id=club', 'date<=2026-09-03', 'date>=2026-08-01'],
       ['club_id=club', 'date<=2026-09-03', 'status!=paid'],
     ]);
+    // The day's payment section reads the club's own enabled methods.
+    expect(queries).toContainEqual({ table: 'clubs', select: 'enabled_payment_methods', filters: ['id=club'] });
     expect(queries.every((query) => query.filters.includes('club_id=club') || query.filters.includes('id=club')))
       .toBe(true);
   });

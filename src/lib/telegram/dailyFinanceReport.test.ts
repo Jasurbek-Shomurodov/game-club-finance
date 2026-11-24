@@ -15,6 +15,7 @@ import {
   reportDayMoneyChecks,
   reportMoneyCheckText,
   runningDailyAverage,
+  selectDayPaymentMethods,
   summarizeMonthMoney,
   summarizeStockCorrectionsForReport,
   summarizeStockWriteOffsForReport,
@@ -878,5 +879,79 @@ describe('summarizeMonthMoney', () => {
     const result = summarizeMonthMoney({ month: '2026-11', cashRows: [], expenseRows: [], debtPaymentRows: [] });
     expect(result.withdrawn).toBeUndefined();
     expect(result.reserve.net).toBe(0);
+  });
+});
+
+describe('payments of the day', () => {
+  const flow = (moneyIn: number, moneyOut = 0) => ({ moneyIn, moneyOut, net: moneyIn - moneyOut });
+  const zero = flow(0);
+
+  it('shows enabled methods, any other method with money, and PlayStation only when it moved money', () => {
+    expect(selectDayPaymentMethods(
+      { cash: flow(500_000, 20_000), terminal: zero, card: flow(0, 10_000), playstation: zero },
+      ['cash', 'terminal'],
+    )).toEqual([
+      { method: 'cash', moneyIn: 500_000, moneyOut: 20_000, net: 480_000 },
+      { method: 'terminal', moneyIn: 0, moneyOut: 0, net: 0 },
+      { method: 'card', moneyIn: 0, moneyOut: 10_000, net: -10_000 },
+    ]);
+    expect(selectDayPaymentMethods(
+      { cash: flow(1), terminal: zero, card: zero, playstation: flow(300_000) },
+      ['cash'],
+    ).map((item) => item.method)).toEqual(['cash', 'playstation']);
+  });
+
+  it('is empty when no method moved money that day', () => {
+    expect(selectDayPaymentMethods({ cash: zero, terminal: zero, card: zero, playstation: zero }, ['cash', 'terminal', 'card']))
+      .toEqual([]);
+  });
+
+  it('builds the day section from the report day only and lists it in the text report', () => {
+    const input = buildDailyFinanceReportInput({
+      clubName: 'Pixel',
+      businessDate: '2026-11-20',
+      businessDateLabel: '20 ноября 2026',
+      cashRows: [{ date: '2026-11-20', cash_income: 900_000, terminal_income: 400_000, card_income: 0, playstation_income: 0 }],
+      stockRows: [],
+      stockPurchaseRows: [],
+      expenseRows: [
+        { id: 'a', date: '2026-11-20', amount: 100_000, category: 'supplies', payment_method: 'cash', payment_source: 'game_club', comment: null, created_at: '' },
+        { id: 'b', date: '2026-11-20', amount: 70_000, category: 'supplies', payment_method: 'cash', payment_source: 'bar', comment: null, created_at: '' },
+      ],
+      debtRows: [],
+      // Month-to-date payments: only the report day's count.
+      debtPaymentRows: [
+        { date: '2026-11-03', amount: 999_000, payment_method: 'terminal' },
+        { date: '2026-11-20', amount: 50_000, payment_method: 'cash' },
+      ],
+      enabledPaymentMethods: ['cash', 'terminal'],
+    });
+
+    expect(input.dayByMethod).toEqual([
+      { method: 'cash', moneyIn: 950_000, moneyOut: 100_000, net: 850_000 },
+      { method: 'terminal', moneyIn: 400_000, moneyOut: 0, net: 400_000 },
+    ]);
+    const lines = formatRussianDailyFinanceReport(input).split('\n');
+    expect(lines).toContain('💳 Оплаты за день (клуб, без бара):');
+    expect(lines).toContain('  • Наличные: 850 000 UZS (приход 950 000 UZS, расход 100 000 UZS)');
+    expect(lines).toContain('  • Терминал: 400 000 UZS (приход 400 000 UZS, расход 0 UZS)');
+    expect(lines.some((line) => line.includes('Карта:') && line.includes('приход'))).toBe(false);
+    expect(formatRussianDailyFinanceReportCaption(input)).not.toContain('Оплаты за день');
+  });
+
+  it('shows every method when the enabled list is unknown, and nothing on a day without money', () => {
+    const base = {
+      clubName: 'Pixel', businessDate: '2026-11-20', businessDateLabel: '20 ноября 2026',
+      stockRows: [], stockPurchaseRows: [], expenseRows: [], debtRows: [],
+    };
+    const withMoney = buildDailyFinanceReportInput({
+      ...base,
+      cashRows: [{ date: '2026-11-20', cash_income: 10_000, terminal_income: 0, card_income: 0 }],
+    });
+    expect(withMoney.dayByMethod?.map((item) => item.method)).toEqual(['cash', 'terminal', 'card']);
+
+    const empty = buildDailyFinanceReportInput({ ...base, cashRows: [] });
+    expect(empty.dayByMethod).toEqual([]);
+    expect(formatRussianDailyFinanceReport(empty)).not.toContain('Оплаты за день');
   });
 });

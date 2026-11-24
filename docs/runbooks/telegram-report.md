@@ -135,6 +135,23 @@ date shows today's stock. The section and the caption count appear only when at
 least one product qualifies. If the products read fails, the section is omitted
 and the finance report is still sent.
 
+## "Оплаты за день" (payments of the day) section
+
+The day image has a card under the Club / Bar breakdown, above "Стоит
+проверить", with one tile per payment method for the report date's Game Club
+money (`calculateGameClubDayByPaymentMethod` in
+`src/lib/calculations/dashboardMetrics.ts`): the day's cash-entry takings plus
+debt payments received that day in, the day's Game Club expenses out (bar-paid
+and reserve-paid ones excluded), and in − out as the big figure, with each
+method's share of the day's takings. Exchanges and reserve moves are not part
+of it. Bar sales have no payment method, so the bar is not in it.
+
+It shows the club's `enabled_payment_methods` plus any other method that moved
+money that day, and PlayStation only when it moved money. If the club's
+methods cannot be read, every method is shown. A day where no method moved
+money has no card, and the image is laid out exactly as before. The text
+fallback lists the same figures; the caption is unchanged.
+
 ## "Стоит проверить" (worth checking) block
 
 The report adds a short "🔎 Стоит проверить" block (text, caption count and a

@@ -506,6 +506,54 @@ export function calculateGameClubMoneyLeftByPaymentMethod(
   };
 }
 
+/** One payment method's Game Club money on one day: what came in, what left, and the difference. */
+export interface PaymentMethodDayFlow {
+  moneyIn: number;
+  moneyOut: number;
+  net: number;
+}
+
+export type GameClubDayByPaymentMethod = Record<keyof MoneyLeftByPaymentMethod, PaymentMethodDayFlow>;
+
+/**
+ * Game Club money of one business day per payment method: the day's cash-entry
+ * takings plus debt payments received that day in, the day's Game Club expenses
+ * out, and in − out. Bar-paid and reserve-paid expenses take nothing from a
+ * method, as in calculateGameClubMoneyLeftByPaymentMethod. Exchanges and
+ * reserve moves are left out: this is the day's own takings and spending.
+ */
+export function calculateGameClubDayByPaymentMethod(
+  date: string,
+  cashRows: DailyCashRow[],
+  expenseRows: ExpenseRow[],
+  debtPaymentRows: DebtPaymentValueRow[] = [],
+): GameClubDayByPaymentMethod {
+  const collected = sumGameClubRows(cashRows.filter((row) => row.date === date));
+  const moneyIn = {
+    cash: collected.cashIncome,
+    terminal: collected.terminalIncome,
+    card: collected.cardIncome,
+    playstation: collected.playstationIncome,
+  };
+  const moneyOut = { cash: 0, terminal: 0, card: 0, playstation: 0 };
+
+  for (const row of debtPaymentRows) {
+    if (row.date !== date) continue;
+    moneyIn[gameClubExpensePaymentBucket(row.payment_method)] += Number(row.amount ?? 0);
+  }
+  for (const row of expenseRows) {
+    if (row.date !== date || isBarPaidExpense(row) || isReservePaidExpense(row)) continue;
+    moneyOut[gameClubExpensePaymentBucket(row.payment_method)] += Number(row.amount ?? 0);
+  }
+
+  const flow = (method: keyof MoneyLeftByPaymentMethod): PaymentMethodDayFlow => ({
+    moneyIn: moneyIn[method],
+    moneyOut: moneyOut[method],
+    net: moneyIn[method] - moneyOut[method],
+  });
+  return { cash: flow('cash'), terminal: flow('terminal'), card: flow('card'), playstation: flow('playstation') };
+}
+
 export function calculateDashboardTotals(
   cashRows: DailyCashRow[],
   stockRows: StockCountRow[],

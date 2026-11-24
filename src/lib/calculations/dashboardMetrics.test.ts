@@ -7,6 +7,7 @@ import {
   calculateAverageWeeklyIncome,
   calculateDashboardInventoryValue,
   calculateDashboardTotals,
+  calculateGameClubDayByPaymentMethod,
   calculateGameClubMoneyLeftByPaymentMethod,
   calculateInventoryValue,
   calculateInventoryValueFromLatestStockCounts,
@@ -583,6 +584,81 @@ describe('dashboard metrics', () => {
     })).toEqual({ gameClub: 5, bar: 2 });
     // Without entries in the range, the whole range counts.
     expect(getAverageIncomeDayCounts(range, { cashRows: [], stockRows: [] })).toEqual({ gameClub: 31, bar: 31 });
+  });
+});
+
+describe('calculateGameClubDayByPaymentMethod', () => {
+  const day = '2026-11-20';
+  const expense = (
+    id: string,
+    amount: number,
+    payment_method: string,
+    extra: { date?: string; payment_source?: 'game_club' | 'bar'; paid_from_reserve?: boolean } = {},
+  ) => ({
+    id, date: extra.date ?? day, amount, category: 'supplies', payment_method,
+    payment_source: extra.payment_source ?? 'game_club' as const, paid_from_reserve: extra.paid_from_reserve ?? false,
+    comment: null, created_at: `${day}T10:00:00Z`,
+  });
+
+  it('adds the day takings and debt payments per method and takes the day expenses out', () => {
+    const result = calculateGameClubDayByPaymentMethod(
+      day,
+      [
+        { date: day, cash_income: 800_000, terminal_income: 300_000, card_income: 100_000, playstation_income: 150_000 },
+        { date: day, cash_income: 200_000, terminal_income: 0, card_income: 0 },
+      ],
+      [expense('a', 120_000, 'cash'), expense('b', 40_000, 'terminal'), expense('c', 30_000, 'playstation')],
+      [
+        { date: day, amount: 50_000, payment_method: 'cash' },
+        { date: day, amount: 25_000, payment_method: 'card' },
+      ],
+    );
+
+    expect(result).toEqual({
+      cash: { moneyIn: 1_050_000, moneyOut: 120_000, net: 930_000 },
+      terminal: { moneyIn: 300_000, moneyOut: 40_000, net: 260_000 },
+      card: { moneyIn: 125_000, moneyOut: 0, net: 125_000 },
+      playstation: { moneyIn: 150_000, moneyOut: 30_000, net: 120_000 },
+    });
+  });
+
+  it('leaves bar-paid, reserve-paid and dollar expenses out of every method', () => {
+    const result = calculateGameClubDayByPaymentMethod(
+      day,
+      [{ date: day, cash_income: 500_000, terminal_income: 0, card_income: 0 }],
+      [
+        expense('bar', 70_000, 'cash', { payment_source: 'bar' }),
+        expense('reserve', 90_000, 'cash', { paid_from_reserve: true }),
+        expense('usd', 1_260_000, 'usd'),
+      ],
+    );
+
+    expect(result.cash).toEqual({ moneyIn: 500_000, moneyOut: 0, net: 500_000 });
+    expect(result.card).toEqual({ moneyIn: 0, moneyOut: 0, net: 0 });
+  });
+
+  it('ignores rows from other days', () => {
+    const result = calculateGameClubDayByPaymentMethod(
+      day,
+      [
+        { date: '2026-11-19', cash_income: 999_000, terminal_income: 999_000, card_income: 999_000, playstation_income: 999_000 },
+        { date: day, cash_income: 10_000, terminal_income: 0, card_income: 0 },
+      ],
+      [expense('old', 5_000, 'cash', { date: '2026-11-19' }), expense('next', 6_000, 'terminal', { date: '2026-11-21' })],
+      [{ date: '2026-11-21', amount: 7_000, payment_method: 'terminal' }],
+    );
+
+    expect(result).toEqual({
+      cash: { moneyIn: 10_000, moneyOut: 0, net: 10_000 },
+      terminal: { moneyIn: 0, moneyOut: 0, net: 0 },
+      card: { moneyIn: 0, moneyOut: 0, net: 0 },
+      playstation: { moneyIn: 0, moneyOut: 0, net: 0 },
+    });
+  });
+
+  it('shows a negative net when a method paid out more than it took in', () => {
+    const result = calculateGameClubDayByPaymentMethod(day, [], [expense('a', 40_000, 'terminal')]);
+    expect(result.terminal).toEqual({ moneyIn: 0, moneyOut: 40_000, net: -40_000 });
   });
 });
 

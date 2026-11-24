@@ -9,7 +9,7 @@ import { BAR_LEFT, GAME_CLUB_LEFT, type DrillSankey } from '../calculations/sank
 import { layoutSankey } from '../sankeyLayout';
 import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
 import type { MoneyCheck } from '../calculations/moneyChecks';
-import { hasStockAdjustments, reportMoneyCheckText, runningDailyAverage, type DailyFinanceMonthForecast, type DailyFinanceMonthMoney, stockCorrectionItemLabel, stockWriteOffItemLabel, type DailyFinanceIncomePoint, type DailyFinancePromoGiveaway, type DailyFinanceReportInput, type DailyFinanceStockCorrection, type DailyFinanceStockWriteOff } from './dailyFinanceReport';
+import { hasStockAdjustments, reportMoneyCheckText, runningDailyAverage, type DailyFinanceDayMethod, type DailyFinanceDayMethodKey, type DailyFinanceMonthForecast, type DailyFinanceMonthMoney, stockCorrectionItemLabel, stockWriteOffItemLabel, type DailyFinanceIncomePoint, type DailyFinancePromoGiveaway, type DailyFinanceReportInput, type DailyFinanceStockCorrection, type DailyFinanceStockWriteOff } from './dailyFinanceReport';
 import { REPORT_FONT_DIRECTORY, REPORT_FONT_FILES } from './reportFontConfig';
 
 const WIDTH = 1600;
@@ -140,6 +140,14 @@ const GLYPH_SAFE = '<rect x="-15" y="-14" width="30" height="28" rx="4"/><circle
 const GLYPH_USER = '<circle cx="0" cy="-7" r="7"/><path d="M-13,15 C-13,5 -7,1 0,1 C7,1 13,5 13,15"/>';
 const GLYPH_PEOPLE = '<circle cx="-6" cy="-6" r="6"/><path d="M-17,14 C-17,5 -12,1 -6,1 C0,1 5,5 5,14"/><circle cx="9" cy="-8" r="5"/><path d="M8,0 C14,0 18,4 18,12"/>';
 
+/** Each Game Club payment method's colour, tile fill, glyph and label, on the day and month images alike. */
+const METHOD_STYLES: Record<DailyFinanceDayMethodKey, { label: string; color: string; fill: string; glyph: string }> = {
+  cash: { label: 'НАЛИЧНЫЕ', color: GREEN, fill: '#142A20', glyph: GLYPH_WALLET },
+  terminal: { label: 'ТЕРМИНАЛ', color: BLUE, fill: '#19302C', glyph: GLYPH_TERMINAL },
+  card: { label: 'КАРТА', color: PINK, fill: '#2E1A24', glyph: GLYPH_CARD },
+  playstation: { label: 'PLAYSTATION', color: PURPLE, fill: '#241F3A', glyph: GLYPH_GAMEPAD },
+};
+
 function compactMoney(value: number): string {
   return compactMoneyFormatter.format(Math.round(value));
 }
@@ -174,12 +182,9 @@ function monthMoneySection(value: DailyFinanceMonthMoney, y: number): { svg: str
   const innerX = PAGE_X + 28;
   const innerWidth = PAGE_WIDTH - 56;
   const gap = 16;
-  const methods = [
-    { key: 'cash', label: 'НАЛИЧНЫЕ', color: GREEN, fill: '#142A20', glyph: GLYPH_WALLET, amount: value.byMethod.cash },
-    { key: 'terminal', label: 'ТЕРМИНАЛ', color: BLUE, fill: '#19302C', glyph: GLYPH_TERMINAL, amount: value.byMethod.terminal },
-    { key: 'card', label: 'КАРТА', color: PINK, fill: '#2E1A24', glyph: GLYPH_CARD, amount: value.byMethod.card },
-    { key: 'playstation', label: 'PLAYSTATION', color: PURPLE, fill: '#241F3A', glyph: GLYPH_GAMEPAD, amount: value.byMethod.playstation },
-  ].filter((method) => method.key === 'cash' || method.amount !== 0);
+  const methods = (['cash', 'terminal', 'card', 'playstation'] as const)
+    .map((key) => ({ key, ...METHOD_STYLES[key], amount: value.byMethod[key] }))
+    .filter((method) => method.key === 'cash' || method.amount !== 0);
   const total = methods.reduce((sum, method) => sum + method.amount, 0);
   const positiveTotal = methods.reduce((sum, method) => sum + Math.max(0, method.amount), 0);
 
@@ -240,6 +245,53 @@ function monthMoneySection(value: DailyFinanceMonthMoney, y: number): { svg: str
     ${methodTiles}
     <text x="${innerX}" y="${flowHeadingY}" font-size="16" font-weight="800" fill="${MUTED}">КУДА НАПРАВЛЕНЫ ДЕНЬГИ</text>
     ${flowTiles}`,
+  };
+}
+
+const DAY_METHOD_TILE_HEIGHT = 214;
+
+/** One method's day: the net as the big figure, what came in and went out, and its share of the takings. */
+function dayMethodTile(x: number, y: number, width: number, item: DailyFinanceDayMethod, totalIn: number): string {
+  const style = METHOD_STYLES[item.method];
+  const left = x + 20;
+  const right = x + width - 20;
+  const share = totalIn > 0 && item.moneyIn > 0 ? item.moneyIn / totalIn : 0;
+  const shareLabel = totalIn > 0 ? `${Math.round(share * 100)}%` : '—';
+  const barWidth = width - 40 - 64;
+  return `${card(x, y, width, DAY_METHOD_TILE_HEIGHT, style.fill, `${style.color}55`)}
+    ${iconTile(x + 18, y + 18, 44, style.color, style.glyph)}
+    <text x="${x + 74}" y="${y + 47}" font-size="16" font-weight="800" fill="${style.color}">${escapeXml(style.label)}</text>
+    ${moneyText(left, y + 106, item.net, 30, item.net < 0 ? RED : style.color)}
+    <text x="${left}" y="${y + 140}" font-size="15" fill="${MUTED}">приход</text>
+    <text x="${right}" y="${y + 140}" text-anchor="end" font-size="15" font-weight="700" fill="${TEXT}">${escapeXml(money(item.moneyIn))}</text>
+    <text x="${left}" y="${y + 166}" font-size="15" fill="${MUTED}">расход</text>
+    <text x="${right}" y="${y + 166}" text-anchor="end" font-size="15" font-weight="700" fill="${TEXT}">${escapeXml(money(item.moneyOut))}</text>
+    <rect x="${left}" y="${y + 184}" width="${barWidth}" height="8" rx="4" fill="${BORDER}"/>
+    ${share > 0 ? `<rect x="${left}" y="${y + 184}" width="${(barWidth * share).toFixed(1)}" height="8" rx="4" fill="${style.color}"/>` : ''}
+    <text x="${right}" y="${y + 193}" text-anchor="end" font-size="15" font-weight="700" fill="${MUTED}">${shareLabel}</text>`;
+}
+
+/**
+ * "Payments of the day": the report date's Game Club money per payment method,
+ * so the till and the terminal slip can be checked against it. Bar sales carry
+ * no method, so the bar is not in it.
+ */
+function dayMethodSection(methods: DailyFinanceDayMethod[], y: number): { svg: string; height: number } {
+  const innerX = PAGE_X + 28;
+  const innerWidth = PAGE_WIDTH - 56;
+  const gap = 20;
+  const totalIn = methods.reduce((sum, item) => sum + Math.max(0, item.moneyIn), 0);
+  const tileWidth = (innerWidth - gap * (methods.length - 1)) / methods.length;
+  const tiles = methods.map((item, index) => dayMethodTile(
+    innerX + index * (tileWidth + gap), y + 72, tileWidth, item, totalIn,
+  )).join('\n    ');
+  const height = 72 + DAY_METHOD_TILE_HEIGHT + 28;
+  return {
+    height,
+    svg: `${card(PAGE_X, y, PAGE_WIDTH, height)}
+    <text x="${innerX}" y="${y + 50}" font-size="19" font-weight="800" fill="${INK}">ОПЛАТЫ ЗА ДЕНЬ</text>
+    <text x="${PAGE_X + PAGE_WIDTH - 28}" y="${y + 50}" text-anchor="end" font-size="16" fill="${MUTED}">клуб · без бара · итог = приход − расход · % от прихода дня</text>
+    ${tiles}`,
   };
 }
 
@@ -856,7 +908,11 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
   const barX = PAGE_X + detailWidth + 24;
 
   // Optional cards stack under the breakdown; each one adds its height and a 24 gap.
-  const checksY = detailY + detailHeight + 24;
+  const methodsY = detailY + detailHeight + 24;
+  const methods = input.dayByMethod?.length
+    ? dayMethodSection(input.dayByMethod, methodsY)
+    : null;
+  const checksY = methodsY + (methods ? methods.height + 24 : 0);
   const checks = input.moneyChecks?.length
     ? moneyCheckSection(input.moneyChecks, checksY)
     : null;
@@ -951,7 +1007,7 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
     ${moneyText(barX + 44, netBoxY + 70, barNetProfit, 28, barNetProfit < 0 ? RED : ORANGE)}
     ${iconTile(barX + detailWidth - 100, netBoxY + 16, 56, ORANGE, GLYPH_BARS)}
 
-    ${checks ? `${checks.svg}\n    ` : ''}${promo?.svg ?? ''}
+    ${methods ? `${methods.svg}\n    ` : ''}${checks ? `${checks.svg}\n    ` : ''}${promo?.svg ?? ''}
     ${lowStock?.svg ?? ''}
 
     ${reportFooter(footerY, `Все суммы указаны в UZS, за ${input.businessDateLabel}. Итоги месяца и прогноз — на следующих изображениях.`)}`);

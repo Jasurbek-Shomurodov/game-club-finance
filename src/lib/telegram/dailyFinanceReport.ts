@@ -3,6 +3,7 @@ import { formatCurrency, formatDateOnly } from '../formatters';
 import {
   calculateAverageDailyIncome,
   calculateDashboardTotals,
+  calculateGameClubDayByPaymentMethod,
   calculateGameClubMoneyLeftByPaymentMethod,
   calculateInventoryValueFromLatestStockCounts,
   getAverageIncomeDayCounts,
@@ -20,7 +21,9 @@ import type {
 import { listLowStockProducts, STOCK_CORRECTION_REASON_PATTERN, STOCK_WRITE_OFF_REASON_PATTERN, stockWriteOffQuantity } from '../calculations/stock';
 import type { AnalysisLedgers } from '../calculations/financialAnalysis';
 import type { MoneyExchangeRow } from '../calculations/moneyExchanges';
-import type { MoneyLeftByPaymentMethod } from '../calculations/dashboardMetrics';
+import type { MoneyLeftByPaymentMethod, PaymentMethodDayFlow } from '../calculations/dashboardMetrics';
+import { normalizePaymentMethods } from '../paymentMethods';
+import type { EntryPaymentMethod } from '@/types';
 import { buildDrillSankey, type DrillSankey } from '../calculations/sankeyDrill';
 import { buildMonthForecast, type ForecastDayRow, type SideForecast } from '../calculations/analysisSeries';
 import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
@@ -99,6 +102,45 @@ export interface DailyFinanceReportInput {
    * Absent or empty means no block.
    */
   moneyChecks?: MoneyCheck[];
+  /**
+   * The report date's Game Club money per payment method (bar sales carry no
+   * method): the club's enabled methods plus any other with money that day,
+   * PlayStation only when it had money. Absent or empty means no section.
+   */
+  dayByMethod?: DailyFinanceDayMethod[];
+}
+
+/** A Game Club payment method on the report day. */
+export type DailyFinanceDayMethodKey = keyof MoneyLeftByPaymentMethod;
+
+export interface DailyFinanceDayMethod extends PaymentMethodDayFlow {
+  method: DailyFinanceDayMethodKey;
+}
+
+/** Display order of the methods, the same as the month's money section. */
+export const DAY_METHOD_ORDER: readonly DailyFinanceDayMethodKey[] = ['cash', 'terminal', 'card', 'playstation'];
+
+export const DAY_METHOD_LABELS: Record<DailyFinanceDayMethodKey, string> = {
+  cash: 'Наличные',
+  terminal: 'Терминал',
+  card: 'Карта',
+  playstation: 'PlayStation',
+};
+
+/**
+ * The methods the day section shows: enabled ones (PlayStation is never a
+ * setting, so only when it moved money) and any other method with money that
+ * day, so nothing is hidden. Empty when no method moved money.
+ */
+export function selectDayPaymentMethods(
+  flows: Record<DailyFinanceDayMethodKey, PaymentMethodDayFlow>,
+  enabled: readonly EntryPaymentMethod[],
+): DailyFinanceDayMethod[] {
+  const moved = (method: DailyFinanceDayMethodKey) => flows[method].moneyIn !== 0 || flows[method].moneyOut !== 0;
+  if (!DAY_METHOD_ORDER.some(moved)) return [];
+  return DAY_METHOD_ORDER
+    .filter((method) => moved(method) || (method !== 'playstation' && enabled.includes(method)))
+    .map((method) => ({ method, ...flows[method] }));
 }
 
 export interface DailyFinanceMonthForecast {
@@ -275,6 +317,8 @@ export interface DailyFinanceReportRows {
    * not be built.
    */
   moneyChecks?: readonly MoneyCheck[];
+  /** The club's enabled payment methods; omitted means every method. */
+  enabledPaymentMethods?: readonly EntryPaymentMethod[];
 }
 
 /** The month-end forecast as the report shows it (the same projection as Financial analysis). */
@@ -334,6 +378,15 @@ export function summarizeMonthMoney(input: {
       .filter((row) => row.category === 'salary')
       .reduce((sum, row) => sum + Number(row.amount ?? 0), 0),
   };
+}
+
+function dayMethodLines(methods: DailyFinanceDayMethod[] | undefined): string[] {
+  if (!methods?.length) return [];
+  return [
+    '',
+    '💳 Оплаты за день (клуб, без бара):',
+    ...methods.map((item) => `  • ${DAY_METHOD_LABELS[item.method]}: ${money(item.net)} (приход ${money(item.moneyIn)}, расход ${money(item.moneyOut)})`),
+  ];
 }
 
 function monthMoneyLines(value: DailyFinanceMonthMoney | undefined): string[] {
@@ -894,6 +947,10 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
     moneyChecks: rows.moneyChecks === undefined
       ? undefined
       : reportDayMoneyChecks(rows.moneyChecks, rows.businessDate),
+    dayByMethod: selectDayPaymentMethods(
+      calculateGameClubDayByPaymentMethod(rows.businessDate, rows.cashRows, rows.expenseRows, rows.debtPaymentRows ?? []),
+      rows.enabledPaymentMethods ?? normalizePaymentMethods(undefined),
+    ),
   };
 }
 
@@ -917,6 +974,7 @@ export function formatRussianDailyFinanceReport(input: DailyFinanceReportInput):
     ...categoryLines(input.barExpenseCategories),
     `🍫 Прибыль бара: ${money(input.barProfit)}`,
     `📦 Закупки склада: ${money(input.stockPurchases)}`,
+    ...dayMethodLines(input.dayByMethod),
     '',
     `🗓 Доход клуба с начала месяца: ${money(input.monthToDateRevenue)}`,
     ...(input.monthGameClubProfit === undefined
