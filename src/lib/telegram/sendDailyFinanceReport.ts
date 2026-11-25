@@ -1002,10 +1002,16 @@ interface TelegramCommonSendOptions {
   sleep?: (milliseconds: number) => Promise<void>;
 }
 
+/**
+ * `replyToMessageId` threads the message under an earlier one in the same
+ * chat. A missing original (too old, removed, or a migrated chat) still gets
+ * the message, as a plain one.
+ */
 export function sendTelegramMessage({
   text,
+  replyToMessageId,
   ...options
-}: TelegramCommonSendOptions & { text: string }): Promise<TelegramSendResult> {
+}: TelegramCommonSendOptions & { text: string; replyToMessageId?: number | null }): Promise<TelegramSendResult> {
   return sendTelegramRequest({
     ...options,
     endpoint: 'sendMessage',
@@ -1015,6 +1021,9 @@ export function sendTelegramMessage({
         chat_id: destinationChatId,
         text: truncateTelegramText(text),
         disable_notification: false,
+        ...(replyToMessageId
+          ? { reply_parameters: { message_id: replyToMessageId, allow_sending_without_reply: true } }
+          : {}),
       }),
     }),
   });

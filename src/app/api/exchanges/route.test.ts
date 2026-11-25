@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   sendTelegramMessage: vi.fn(),
-  deleteTelegramMessage: vi.fn(),
   afterTasks: [] as Promise<unknown>[],
 }));
 vi.mock('@/lib/supabase/server', () => ({ createClient: mocks.createClient }));
@@ -13,7 +12,6 @@ vi.mock('@/lib/telegram/sendDailyFinanceReport', async (importOriginal) => ({
   isIsoDate: (await importOriginal<typeof import('@/lib/telegram/sendDailyFinanceReport')>()).isIsoDate,
   sendTelegramMessage: mocks.sendTelegramMessage,
 }));
-vi.mock('@/lib/telegram/deleteTelegramMessage', () => ({ deleteTelegramMessage: mocks.deleteTelegramMessage }));
 
 import { DELETE, POST } from './route';
 
@@ -60,7 +58,6 @@ beforeEach(() => {
   vi.stubEnv('TELEGRAM_MAIN_CLUB_ID', CLUB);
   vi.stubEnv('TELEGRAM_MAIN_CHAT_ID', '-1001');
   mocks.sendTelegramMessage.mockResolvedValue({ result: { chat: { id: -1001 }, message_id: 7 } });
-  mocks.deleteTelegramMessage.mockResolvedValue(undefined);
 });
 
 describe('POST /api/exchanges', () => {
@@ -123,19 +120,26 @@ describe('POST /api/exchanges', () => {
 describe('DELETE /api/exchanges', () => {
   const body = { clubId: CLUB, exchangeId: EXCHANGE };
 
-  it('deletes through the owner-only RPC and removes the group message', async () => {
+  it('deletes through the owner-only RPC and replies to the kept group message', async () => {
     const { rpc } = mockSupabase();
     expect((await call(DELETE, body)).status).toBe(200);
     expect(rpc).toHaveBeenCalledWith('delete_money_exchange', { p_club_id: CLUB, p_id: EXCHANGE });
-    expect(mocks.deleteTelegramMessage).toHaveBeenCalledWith({ botToken: 'token', chatId: '-1001', messageId: 42 });
-    // The deletion is silent in Telegram, so the group gets its own notice.
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledOnce();
     expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({
       chatId: '-1001',
+      replyToMessageId: 42,
       text: expect.stringMatching(/🗑 Удалён обмен: [\s\S]*Удалил\(а\) Alisher/),
     }));
   });
 
-  it('keeps the message when the delete is refused, and never deletes outside the club group', async () => {
+  it('posts a plain notice when no message is stored', async () => {
+    mockSupabase({ exchange: { ...saved, telegram_chat_id: null, telegram_message_id: null } });
+    expect((await call(DELETE, body)).status).toBe(200);
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledOnce();
+    expect(mocks.sendTelegramMessage.mock.calls[0][0]).not.toHaveProperty('replyToMessageId');
+  });
+
+  it('sends nothing when the delete is refused, and never replies outside the club group', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     mockSupabase({ rpcError: { message: 'Only a club owner can delete an exchange.', code: '42501' } });
     expect((await call(DELETE, body)).status).toBe(403);
@@ -145,10 +149,11 @@ describe('DELETE /api/exchanges', () => {
     expect(refused.status).toBe(409);
     expect(await refused.json()).toMatchObject({ code: 'INSUFFICIENT_BALANCE' });
     expect(mocks.sendTelegramMessage).not.toHaveBeenCalled();
-    expect(mocks.deleteTelegramMessage).not.toHaveBeenCalled();
     mockSupabase({ exchange: { ...saved, telegram_chat_id: '-1009' } });
     expect((await call(DELETE, body)).status).toBe(200);
-    expect(mocks.deleteTelegramMessage).not.toHaveBeenCalled();
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledOnce();
+    expect(mocks.sendTelegramMessage.mock.calls[0][0]).toMatchObject({ chatId: '-1001' });
+    expect(mocks.sendTelegramMessage.mock.calls[0][0]).not.toHaveProperty('replyToMessageId');
   });
 
   it('returns 404 for an exchange outside the club', async () => {

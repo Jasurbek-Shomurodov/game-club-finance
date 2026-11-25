@@ -23,7 +23,7 @@ export interface ExchangeRow {
 /**
  * Best-effort, after the response: Telegram never fails or delays a saved
  * exchange. The message coordinates are stored so deleting the exchange
- * removes the message. `inReserve`: bought or sold with the reserve's own sums (170).
+ * posts its notice as a reply to this message. `inReserve`: bought or sold with the reserve's own sums (170).
  */
 export async function notifyExchange(supabase: SupabaseClient, user: User, exchange: ExchangeRow, inReserve = false) {
   const chatId = targetChatId(exchange.club_id);

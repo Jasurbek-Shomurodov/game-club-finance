@@ -3,8 +3,7 @@ import { isExchangeMethod } from '@/lib/calculations/moneyExchanges';
 import { validateEntryNote } from '@/lib/entryNote';
 import { createClient } from '@/lib/supabase/server';
 import { actorName } from '@/lib/telegram/actorName';
-import { targetChatId } from '@/lib/telegram/clubChat';
-import { deleteTelegramMessage } from '@/lib/telegram/deleteTelegramMessage';
+import { clubMessageToReplyTo } from '@/lib/telegram/clubChat';
 import { buildExchangeDeletedNotice, sendClubNotice } from '@/lib/telegram/entryChangeNotification';
 import { notifyExchange, type ExchangeRow } from '@/lib/telegram/exchangeDelivery';
 import { isIsoDate } from '@/lib/telegram/sendDailyFinanceReport';
@@ -87,32 +86,18 @@ export async function DELETE(request: Request) {
   if (lookupError) return failure('lookup', context, lookupError);
   if (!exchange) return exchangeErrorResponse('NOT_FOUND');
 
-  // Owner-only and club-scoped in the RPC. A refused delete keeps the message.
+  // Owner-only and club-scoped in the RPC. A refused delete sends nothing.
   const { error: deleteError } = await supabase.rpc('delete_money_exchange', { p_club_id: clubId, p_id: exchangeId });
   if (deleteError) return failure('deletion', context, deleteError);
 
-  // A deletion is silent in Telegram, so the group also gets its own notice.
+  // The original announcement stays; the deletion notice replies to it, and
+  // only when it is in the club's own group (the stored chat id is not trusted).
+  const replyTo = clubMessageToReplyTo(clubId, exchange as Pick<ExchangeRow, 'telegram_chat_id' | 'telegram_message_id'>);
   after(async () => sendClubNotice(
     clubId,
     buildExchangeDeletedNotice(exchange as ExchangeRow, await actorName(supabase, user)),
     context,
+    replyTo,
   ));
-
-  // Same rule as expenses: only the club's own group, never a stored chat id.
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  const clubChatId = targetChatId(clubId);
-  const coordinates = exchange as Pick<ExchangeRow, 'telegram_chat_id' | 'telegram_message_id'>;
-  if (botToken && clubChatId && coordinates.telegram_message_id && String(coordinates.telegram_chat_id) === clubChatId) {
-    after(async () => {
-      try {
-        await deleteTelegramMessage({ botToken, chatId: clubChatId, messageId: Number(coordinates.telegram_message_id) });
-      } catch (telegramError) {
-        console.error('[telegram/exchange] message deletion failed', {
-          ...context,
-          error: telegramError instanceof Error ? telegramError.message : String(telegramError),
-        });
-      }
-    });
-  }
   return Response.json({ deleted: true });
 }

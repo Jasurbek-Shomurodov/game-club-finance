@@ -40,3 +40,21 @@ export function targetChatId(clubId: string): string | null {
   }
   return null;
 }
+
+/** Where a record's own announcement was posted (stored beside the record, user-writable under RLS). */
+export interface TelegramMessageCoordinates {
+  telegram_chat_id: string | number | null;
+  telegram_message_id: string | number | null;
+}
+
+/**
+ * The announcement a follow-up notice may reply to, or null. Only a message
+ * in the club's own configured group qualifies: the stored chat id is not
+ * trusted, so a forged one never makes the bot point at another chat.
+ */
+export function clubMessageToReplyTo(clubId: string, coordinates: TelegramMessageCoordinates | null | undefined): number | null {
+  const chatId = targetChatId(clubId);
+  if (!chatId || !coordinates || coordinates.telegram_chat_id === null || String(coordinates.telegram_chat_id) !== chatId) return null;
+  const messageId = Number(coordinates.telegram_message_id);
+  return Number.isSafeInteger(messageId) && messageId > 0 ? messageId : null;
+}

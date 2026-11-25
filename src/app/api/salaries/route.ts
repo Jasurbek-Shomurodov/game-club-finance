@@ -4,8 +4,7 @@ import { KPI_BASES, type KpiBasis } from '@/lib/calculations/salaries';
 import { isMissingDatabaseFunction } from '@/lib/supabase/errors';
 import { createClient } from '@/lib/supabase/server';
 import { actorName } from '@/lib/telegram/actorName';
-import { targetChatId } from '@/lib/telegram/clubChat';
-import { deleteTelegramMessage } from '@/lib/telegram/deleteTelegramMessage';
+import { clubMessageToReplyTo, targetChatId, type TelegramMessageCoordinates } from '@/lib/telegram/clubChat';
 import { buildSalaryNotification, type SalaryNotificationInput } from '@/lib/telegram/salaryNotification';
 import { sendTelegramMessage } from '@/lib/telegram/sendDailyFinanceReport';
 import { salaryErrorCode, salaryErrorResponse } from './errors';
@@ -13,11 +12,10 @@ import { salaryErrorCode, salaryErrorResponse } from './errors';
 type Body = Record<string, unknown>;
 type Notification = SalaryNotificationInput extends infer T ? T extends unknown ? Omit<T, 'addedBy' | 'employee'> : never : never;
 type DatabaseError = { message: string; code?: string };
-/** The payroll record a notification announces; its message is removed when the record is deleted. */
+/** The payroll record a notification announces; deleting the record replies to that message. */
 type RateVersion = { id: string; created_at: string };
 /** A rate change carries the employee's newest rate before it, so a call that wrote nothing links nothing. */
 type AnnouncedRecord = { kind: 'entry'; id: string } | { kind: 'rate'; before: RateVersion | null };
-type TelegramCoordinates = { telegram_chat_id: string | null; telegram_message_id: number | string | null };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -48,7 +46,10 @@ const withDefaults = (settings: ReturnType<typeof kpiSettings>) => ({
 });
 
 /** Best-effort and run after the response: a Telegram problem never fails an already committed payroll change. */
-async function notify(supabase: SupabaseClient, user: User, clubId: string, employeeId: string, notification: Notification, record: AnnouncedRecord | null) {
+async function notify(
+  supabase: SupabaseClient, user: User, clubId: string, employeeId: string, notification: Notification, record: AnnouncedRecord | null,
+  replyToMessageId: number | null = null,
+) {
   const chatId = targetChatId(clubId);
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   if (!chatId || !botToken) return false;
@@ -61,6 +62,7 @@ async function notify(supabase: SupabaseClient, user: User, clubId: string, empl
       botToken,
       chatId,
       text: buildSalaryNotification({ ...notification, employee: employee?.name ?? '—', addedBy } as SalaryNotificationInput),
+      ...(replyToMessageId ? { replyToMessageId } : {}),
     });
     if (record) await rememberMessage(supabase, clubId, employeeId, record, telegram.result);
     return true;
@@ -79,7 +81,7 @@ async function latestRate(supabase: SupabaseClient, clubId: string, employeeId: 
   return (data as RateVersion | null) ?? null;
 }
 
-/** Saves where the announcement went (migration 090); without it the message simply stays on deletion. */
+/** Saves where the announcement went (migration 090); without it a deletion notice is posted on its own. */
 async function rememberMessage(
   supabase: SupabaseClient, clubId: string, employeeId: string, record: AnnouncedRecord,
   message: { message_id: number; chat: { id: number } },
@@ -100,20 +102,6 @@ async function rememberMessage(
   if (error) console.error('[telegram/salary] message coordinates were not saved', { clubId, recordId, error: error.message });
 }
 
-/** Removes a deleted record's announcement, only ever from the club's own group (the stored chat id is not trusted). */
-async function deleteAnnouncement(clubId: string, recordId: string, coordinates: TelegramCoordinates | null) {
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = targetChatId(clubId);
-  if (!botToken || !chatId || !coordinates?.telegram_message_id || String(coordinates.telegram_chat_id) !== chatId) return;
-  try {
-    await deleteTelegramMessage({ botToken, chatId, messageId: Number(coordinates.telegram_message_id) });
-  } catch (error) {
-    console.error('[telegram/salary] message deletion failed', {
-      clubId, recordId, error: error instanceof Error ? error.message : String(error),
-    });
-  }
-}
-
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -131,7 +119,8 @@ export async function POST(request: Request) {
   try {
     let notification: Notification | null = null;
     let announced: AnnouncedRecord | null = null;
-    let deletedMessage: { recordId: string; coordinates: TelegramCoordinates | null } | null = null;
+    // A deleted record's announcement, which the deletion notice replies to.
+    let replyToMessageId: number | null = null;
     let rpcResult: { error: DatabaseError | null };
 
     switch (body.action) {
@@ -240,9 +229,10 @@ export async function POST(request: Request) {
           : await supabase.from('salary_rates').select('effective_date').eq('club_id', clubId).eq('id', body.recordId).maybeSingle();
         if (lookup.error) return fail('record_lookup', lookup.error);
         // Where the record was announced; read separately so databases before migration 090 still delete.
+        // The stored chat id is not trusted: only a message in the club's own group is replied to.
         const coordinates = await supabase.from(body.kind === 'entry' ? 'salary_entries' : 'salary_rates')
           .select('telegram_chat_id, telegram_message_id').eq('club_id', clubId).eq('id', body.recordId).maybeSingle();
-        deletedMessage = { recordId: body.recordId, coordinates: coordinates.error ? null : coordinates.data as TelegramCoordinates | null };
+        replyToMessageId = clubMessageToReplyTo(clubId, coordinates.error ? null : coordinates.data as TelegramMessageCoordinates | null);
         // Same audited RPC as before; it checks the record belongs to the club and the caller's access.
         const deleteParams = { p_club_id: clubId, p_id: body.recordId, p_kind: body.kind };
         rpcResult = await supabase.rpc('delete_salary_record', { ...deleteParams, p_reason: reason });
@@ -271,14 +261,11 @@ export async function POST(request: Request) {
 
     if (rpcResult.error) return fail('rpc', rpcResult.error);
 
-    if (deletedMessage) {
-      const { recordId, coordinates } = deletedMessage;
-      after(() => deleteAnnouncement(clubId, recordId, coordinates));
-    }
     if (notification) {
       const pending = notification;
       const record = announced;
-      after(() => notify(supabase, user, clubId, employeeId, pending, record));
+      const replyTo = replyToMessageId;
+      after(() => notify(supabase, user, clubId, employeeId, pending, record, replyTo));
     }
     return Response.json({ ok: true, notificationQueued: notification !== null });
   } catch (error) {

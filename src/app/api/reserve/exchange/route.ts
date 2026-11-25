@@ -34,7 +34,7 @@ const refuse = (failure: ReserveErrorCode | 'unauthorized' | 'invalid') => Respo
  * Owner access, the reserve's sums, the dollars held, the club's methods and
  * the business date are all checked atomically by exchange_owner_reserve; a
  * retried id is recorded once. The club group hears about it like any
- * exchange, so deleting it in Reports or here also removes the message.
+ * exchange, so deleting it in Reports or here replies to that message.
  */
 export async function POST(request: Request) {
   const supabase = await createClient();

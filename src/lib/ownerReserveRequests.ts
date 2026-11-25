@@ -105,7 +105,7 @@ const EXCHANGE_FAILURES: Record<string, ReserveErrorCode> = {
   UNAUTHORIZED: 'forbidden',
 };
 
-/** Undoes an exchange inside the reserve, both halves; /api/exchanges also removes its Telegram message. */
+/** Undoes an exchange inside the reserve, both halves; /api/exchanges replies to its Telegram message with the deletion notice. */
 export async function requestReserveExchangeDelete(clubId: string, exchangeId: string): Promise<ReserveErrorCode | null> {
   const response = await mutateFinanceRequest('/api/exchanges', {
     method: 'DELETE',
@@ -124,7 +124,7 @@ const PURCHASE_FAILURES: Record<string, ReserveErrorCode> = {
   UNAUTHORIZED: 'forbidden',
 };
 
-/** Deletes a purchase the reserve paid; its money is the reserve's again. /api/expenses also removes its Telegram message. */
+/** Deletes a purchase the reserve paid; its money is the reserve's again. /api/expenses replies to its Telegram message with the deletion notice. */
 export async function requestReservePurchaseDelete(clubId: string, expenseId: string): Promise<ReserveErrorCode | null> {
   const response = await mutateFinanceRequest('/api/expenses', {
     method: 'DELETE',

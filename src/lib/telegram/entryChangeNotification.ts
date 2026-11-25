@@ -8,9 +8,10 @@ import { authorLine, commentLine, details, lines, method as methodLabel, noticeD
 import { sendTelegramMessage } from './sendDailyFinanceReport';
 
 /**
- * Club-group notices for entries that were deleted or corrected. The original
- * announcement is removed or edited too, but an edit or a deletion makes no
- * sound in Telegram, so every such change also posts its own message.
+ * Club-group notices for entries that were deleted or corrected. A deleted
+ * entry keeps its original announcement and the notice is posted as a reply
+ * to it; a corrected one has its announcement edited, which makes no sound in
+ * Telegram, so the change also posts its own message.
  */
 
 const category = (value: string) => RUSSIAN_EXPENSE_CATEGORY_LABELS[value] ?? value;
@@ -168,16 +169,23 @@ export function buildDayUncollectedNotice(isoDate: string, removedBy: string): s
 }
 
 /**
- * Posts `text` to the club's own configured group. Best-effort: a missing
- * group or bot token, or a Telegram failure, is logged and never thrown, so
- * an already committed change is never reported as failed.
+ * Posts `text` to the club's own configured group, as a reply to
+ * `replyToMessageId` when given (from `clubMessageToReplyTo`, which only
+ * accepts a message in that group). Best-effort: a missing group or bot
+ * token, or a Telegram failure, is logged and never thrown, so an already
+ * committed change is never reported as failed.
  */
-export async function sendClubNotice(clubId: string, text: string, context: Record<string, unknown>): Promise<boolean> {
+export async function sendClubNotice(
+  clubId: string,
+  text: string,
+  context: Record<string, unknown>,
+  replyToMessageId?: number | null,
+): Promise<boolean> {
   const chatId = targetChatId(clubId);
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   if (!chatId || !botToken) return false;
   try {
-    await sendTelegramMessage({ botToken, chatId, text });
+    await sendTelegramMessage({ botToken, chatId, text, ...(replyToMessageId ? { replyToMessageId } : {}) });
     return true;
   } catch (error) {
     console.error('[telegram/entry-change] notice failed', {

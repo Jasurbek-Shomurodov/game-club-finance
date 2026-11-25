@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
-  deleteTelegramMessage: vi.fn(),
   editTelegramMessage: vi.fn(),
   sendTelegramMessage: vi.fn(),
   afterTasks: [] as Promise<unknown>[],
@@ -11,9 +10,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/lib/supabase/server', () => ({ createClient: mocks.createClient }));
 // after() needs a live request scope; run the task immediately and let tests await it.
 vi.mock('next/server', () => ({ after: (task: () => unknown) => { mocks.afterTasks.push(Promise.resolve().then(task)); } }));
-vi.mock('@/lib/telegram/deleteTelegramMessage', () => ({
-  deleteTelegramMessage: mocks.deleteTelegramMessage,
-}));
 vi.mock('@/lib/telegram/editTelegramMessage', () => ({
   editTelegramMessage: mocks.editTelegramMessage,
 }));
@@ -103,10 +99,10 @@ describe('expense deletion route', () => {
     vi.stubEnv('TELEGRAM_BOT_TOKEN', 'bot-token');
     vi.stubEnv('TELEGRAM_MAIN_CLUB_ID', CLUB_ID);
     vi.stubEnv('TELEGRAM_MAIN_CHAT_ID', '-1001');
-    mocks.deleteTelegramMessage.mockResolvedValue(undefined);
+    mocks.sendTelegramMessage.mockResolvedValue({ result: { chat: { id: -1001 }, message_id: 8 } });
   });
 
-  it('never deletes a Telegram message outside the club\'s configured group', async () => {
+  it('never replies to a Telegram message outside the club\'s configured group', async () => {
     const { deleteQuery } = mockSupabase({
       id: EXPENSE_ID,
       telegram_chat_id: '-1009',
@@ -117,40 +113,44 @@ describe('expense deletion route', () => {
 
     expect(response.status).toBe(200);
     expect(deleteQuery.delete).toHaveBeenCalledOnce();
-    expect(mocks.deleteTelegramMessage).not.toHaveBeenCalled();
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledOnce();
+    expect(mocks.sendTelegramMessage.mock.calls[0][0]).not.toHaveProperty('replyToMessageId');
+    expect(mocks.sendTelegramMessage.mock.calls[0][0]).toMatchObject({ chatId: '-1001' });
   });
 
-  it('deletes the expense before its Telegram notification', async () => {
+  it('keeps the original message and replies to it with the deletion notice, after the expense is deleted', async () => {
     const { deleteQuery } = mockSupabase({
       id: EXPENSE_ID,
       telegram_chat_id: '-1001',
       telegram_message_id: 42,
+      amount: 50000, category: 'electricity', payment_method: 'cash', payment_source: 'game_club', date: '2026-10-20', comment: null,
     });
 
     const response = await DELETE_AND_FLUSH(deleteRequest());
 
     expect(response.status).toBe(200);
-    expect(mocks.deleteTelegramMessage).toHaveBeenCalledWith({
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledOnce();
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({
       botToken: 'bot-token',
       chatId: '-1001',
-      messageId: 42,
-    });
+      replyToMessageId: 42,
+      text: expect.stringContaining('🗑 Удалён расход'),
+    }));
     expect(deleteQuery.delete).toHaveBeenCalledOnce();
     expect(deleteQuery.delete.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.deleteTelegramMessage.mock.invocationCallOrder[0],
+      mocks.sendTelegramMessage.mock.invocationCallOrder[0],
     );
   });
 
-  it('returns 404 and keeps the Telegram message when no row was deleted', async () => {
+  it('returns 404 and sends nothing when no row was deleted', async () => {
     mockSupabase({ id: EXPENSE_ID, telegram_chat_id: '-1001', telegram_message_id: 42 }, []);
     const response = await DELETE_AND_FLUSH(deleteRequest());
     expect(response.status).toBe(404);
     expect((await response.json()).code).toBe('NOT_FOUND');
-    expect(mocks.deleteTelegramMessage).not.toHaveBeenCalled();
     expect(mocks.sendTelegramMessage).not.toHaveBeenCalled();
   });
 
-  it('posts a deletion notice to the club group, even without a stored message', async () => {
+  it('posts a plain deletion notice to the club group when no message is stored', async () => {
     mockSupabase({
       id: EXPENSE_ID, telegram_chat_id: null, telegram_message_id: null,
       amount: 50000, category: 'electricity', payment_method: 'cash', payment_source: 'game_club', date: '2026-10-20', comment: null,
@@ -160,15 +160,16 @@ describe('expense deletion route', () => {
       chatId: '-1001',
       text: expect.stringContaining('🗑 Удалён расход'),
     }));
+    expect(mocks.sendTelegramMessage.mock.calls[0][0]).not.toHaveProperty('replyToMessageId');
   });
 
-  it('still deletes the expense when Telegram refuses deletion', async () => {
+  it('still deletes the expense when Telegram refuses the notice', async () => {
     const { deleteQuery } = mockSupabase({
       id: EXPENSE_ID,
       telegram_chat_id: '-1001',
       telegram_message_id: 42,
     });
-    mocks.deleteTelegramMessage.mockRejectedValue(new Error("message can't be deleted"));
+    mocks.sendTelegramMessage.mockRejectedValue(new Error('Bad Request: chat not found'));
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     const response = await DELETE_AND_FLUSH(deleteRequest());
@@ -196,7 +197,6 @@ describe('expense deletion route', () => {
     const response = await DELETE_AND_FLUSH(deleteRequest());
 
     expect(response.status).toBe(200);
-    expect(mocks.deleteTelegramMessage).not.toHaveBeenCalled();
     expect(deleteQuery.delete).toHaveBeenCalledOnce();
   });
 });

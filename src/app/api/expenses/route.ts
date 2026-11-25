@@ -6,8 +6,7 @@ import { expensePaymentMethods, normalizePaymentMethods } from '@/lib/paymentMet
 import { createClient } from '@/lib/supabase/server';
 import { actorName } from '@/lib/telegram/actorName';
 import { buildExpenseNotification, expenseDollars, expenseFromReserve } from '@/lib/telegram/expenseNotification';
-import { targetChatId } from '@/lib/telegram/clubChat';
-import { deleteTelegramMessage } from '@/lib/telegram/deleteTelegramMessage';
+import { clubMessageToReplyTo, targetChatId } from '@/lib/telegram/clubChat';
 import { editTelegramMessage } from '@/lib/telegram/editTelegramMessage';
 import { buildExpenseChangedNotice, buildExpenseDeletedNotice, sendClubNotice } from '@/lib/telegram/entryChangeNotification';
 import { isIsoDate, sendTelegramMessage } from '@/lib/telegram/sendDailyFinanceReport';
@@ -306,8 +305,7 @@ export async function DELETE(request: Request) {
   // A shortage's expense is removed with its shortage on Owner Profit (135).
   if (expense.cash_shortage_id) return expenseErrorResponse('SHORTAGE_IMMUTABLE');
 
-  // Remove the ledger row first: a failed or refused delete must leave its
-  // Telegram message in place.
+  // Remove the ledger row first: a failed or refused delete sends nothing.
   const { data: deleted, error: deleteError } = await supabase
     .from('expenses')
     .delete()
@@ -318,36 +316,12 @@ export async function DELETE(request: Request) {
   if (deleteError) return failure('deletion', context, deleteError);
   if (!deleted?.length) return expenseErrorResponse('NOT_FOUND');
 
-  // A deletion is silent in Telegram, so the group also gets its own notice.
-  after(async () => sendClubNotice(clubId, buildExpenseDeletedNotice(expense, await actorName(supabase, user)), context));
-
-  // Telegram cleanup is best-effort: the bot cannot remove messages older than
-  // 48 hours (or ones it lost access to), and that never undoes the deletion.
-  // The coordinates are user-writable under RLS, so only touch the club's own
-  // configured group: a forged chat id must never let the bot delete elsewhere.
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  const clubChatId = targetChatId(clubId);
-  if (
-    botToken
-    && clubChatId
-    && expense.telegram_message_id
-    && String(expense.telegram_chat_id) === clubChatId
-  ) {
-    after(async () => {
-      try {
-        await deleteTelegramMessage({
-          botToken,
-          chatId: clubChatId,
-          messageId: Number(expense.telegram_message_id),
-        });
-      } catch (telegramError) {
-        console.error('[telegram/expense] message deletion failed', {
-          ...context,
-          error: telegramError instanceof Error ? telegramError.message : String(telegramError),
-        });
-      }
-    });
-  }
+  // The original announcement stays in the group; the deletion notice replies
+  // to it, so the history shows the entry and, under it, that it was removed.
+  // The coordinates are user-writable under RLS, so only a message in the
+  // club's own configured group is replied to.
+  const replyTo = clubMessageToReplyTo(clubId, expense);
+  after(async () => sendClubNotice(clubId, buildExpenseDeletedNotice(expense, await actorName(supabase, user)), context, replyTo));
   return Response.json({ deleted: true });
 }
 
@@ -468,7 +442,7 @@ export async function PATCH(request: Request) {
   // Editing the original message is silent in Telegram, so the change is also announced.
   after(async () => sendClubNotice(clubId, buildExpenseChangedNotice(expense, updated, await actorName(supabase, user)), context));
 
-  // Best-effort, as for deletion: only the club's own group, and an edit
+  // Best-effort: only the club's own group, and an edit
   // Telegram refuses (old message, lost access) never undoes the change.
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   const clubChatId = targetChatId(clubId);

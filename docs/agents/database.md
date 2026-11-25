@@ -297,8 +297,9 @@ payment methods the club has not enabled.
 Migration 083 narrows the `authenticated` UPDATE privilege on `expenses` to
 `telegram_chat_id` and `telegram_message_id`, the only columns the route
 updates; recorded amounts, dates and categories cannot be rewritten through
-PostgREST. Expense deletes call the bot's `deleteMessage` only when the stored
-chat is the club's configured group.
+PostgREST. Deleting an expense, an exchange or a salary record keeps its
+Telegram announcement and posts the deletion notice as a reply to it, only when
+the stored chat is the club's configured group (`clubMessageToReplyTo`).
 Migration 084 gives `daily_cash_entries.created_by` an `auth.uid()` default,
 requires it to be the signed-in user on insert (as 075 does for `new_debts`),
 and keeps `created_at`/`created_by` fixed on update so the admin 15-minute

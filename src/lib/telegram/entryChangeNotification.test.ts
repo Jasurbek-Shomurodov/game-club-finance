@@ -140,6 +140,14 @@ describe('sendClubNotice', () => {
     expect(send).toHaveBeenCalledOnce();
   });
 
+  it('replies to the given message when one is passed', async () => {
+    send.mockResolvedValue({});
+    await expect(sendClubNotice(CLUB, 'text', {}, 42)).resolves.toBe(true);
+    expect(send).toHaveBeenCalledWith({ botToken: 'bot-token', chatId: '-1001', text: 'text', replyToMessageId: 42 });
+    await sendClubNotice(CLUB, 'text', {}, null);
+    expect(send).toHaveBeenLastCalledWith({ botToken: 'bot-token', chatId: '-1001', text: 'text' });
+  });
+
   it('never throws when Telegram fails', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     send.mockRejectedValue(new Error('down'));

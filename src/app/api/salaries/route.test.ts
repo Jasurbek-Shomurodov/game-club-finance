@@ -1,11 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ createClient: vi.fn(), sendTelegramMessage: vi.fn(), deleteTelegramMessage: vi.fn(), afterTasks: [] as Promise<unknown>[] }));
+const mocks = vi.hoisted(() => ({ createClient: vi.fn(), sendTelegramMessage: vi.fn(), afterTasks: [] as Promise<unknown>[] }));
 vi.mock('@/lib/supabase/server', () => ({ createClient: mocks.createClient }));
 // after() needs a live request scope; run the task immediately and let tests await it.
 vi.mock('next/server', () => ({ after: (task: () => unknown) => { mocks.afterTasks.push(Promise.resolve().then(task)); } }));
 vi.mock('@/lib/telegram/sendDailyFinanceReport', () => ({ sendTelegramMessage: mocks.sendTelegramMessage }));
-vi.mock('@/lib/telegram/deleteTelegramMessage', () => ({ deleteTelegramMessage: mocks.deleteTelegramMessage }));
 
 import { POST } from './route';
 
@@ -251,22 +250,32 @@ describe('POST /api/salaries', () => {
     expect(rpc).toHaveBeenCalledWith('set_salary_record_telegram_message', expect.objectContaining({ p_kind: 'rate', p_id: 'rate-1' }));
   });
 
-  it('deletes a deleted record\'s announcement, only from the club group', async () => {
+  it('keeps a deleted record\'s announcement and replies to it, only in the club group', async () => {
     const body = { action: 'delete_record', clubId: CLUB, employeeId: EMPLOYEE, recordId: REQUEST, kind: 'entry', reason: 'Paid twice' };
     mockSupabase({ existingEntry: true, coordinates: { telegram_chat_id: '-100123', telegram_message_id: 42 } });
     expect((await post(body)).status).toBe(200);
-    expect(mocks.deleteTelegramMessage).toHaveBeenCalledWith({ botToken: 'token', chatId: '-100123', messageId: 42 });
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledOnce();
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({
+      chatId: '-100123', replyToMessageId: 42, text: expect.stringContaining('🗑 Удалена премия'),
+    }));
 
-    mocks.deleteTelegramMessage.mockClear();
+    mocks.sendTelegramMessage.mockClear();
     mockSupabase({ existingEntry: true, coordinates: { telegram_chat_id: '-100999', telegram_message_id: 42 } });
     await post(body);
-    expect(mocks.deleteTelegramMessage).not.toHaveBeenCalled();
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledOnce();
+    expect(mocks.sendTelegramMessage.mock.calls[0][0]).not.toHaveProperty('replyToMessageId');
+
+    mocks.sendTelegramMessage.mockClear();
+    mockSupabase({ existingEntry: true, coordinates: null });
+    await post(body);
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledOnce();
+    expect(mocks.sendTelegramMessage.mock.calls[0][0]).not.toHaveProperty('replyToMessageId');
   });
 
-  it('keeps the message when the record could not be deleted', async () => {
+  it('sends nothing when the record could not be deleted', async () => {
     mockSupabase({ existingEntry: true, rpcError: { message: 'denied', code: '42501' }, coordinates: { telegram_chat_id: '-100123', telegram_message_id: 42 } });
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     expect((await post({ action: 'delete_record', clubId: CLUB, employeeId: EMPLOYEE, recordId: REQUEST, kind: 'entry', reason: 'x' })).status).toBe(403);
-    expect(mocks.deleteTelegramMessage).not.toHaveBeenCalled();
+    expect(mocks.sendTelegramMessage).not.toHaveBeenCalled();
   });
 });

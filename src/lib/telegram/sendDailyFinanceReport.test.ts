@@ -331,6 +331,22 @@ describe('sendTelegramMessage', () => {
     vi.unstubAllGlobals();
   });
 
+  it('replies to an earlier message only when asked, and still sends if the original is gone', async () => {
+    const sent = { ok: true, json: async () => ({ ok: true, result: { message_id: 8, chat: { id: -1001, type: 'supergroup' }, date: 1 } }) } as Response;
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(sent);
+
+    await sendTelegramMessage({ botToken: 'test-token', chatId: '-1001', text: 'removed', replyToMessageId: 42, fetchImpl: fetchMock });
+    await sendTelegramMessage({ botToken: 'test-token', chatId: '-1001', text: 'plain', fetchImpl: fetchMock });
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      chat_id: '-1001',
+      text: 'removed',
+      disable_notification: false,
+      reply_parameters: { message_id: 42, allow_sending_without_reply: true },
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).not.toHaveProperty('reply_parameters');
+  });
+
   it('retries with the new chat id when Telegram upgrades a group', async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
