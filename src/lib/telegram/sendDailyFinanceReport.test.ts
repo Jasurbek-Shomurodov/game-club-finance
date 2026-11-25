@@ -11,6 +11,7 @@ import {
   sendTelegramMessage,
   sendTelegramPhoto,
   sendTelegramPhotoAlbum,
+  TELEGRAM_CAPTION_MAX_LENGTH,
   TELEGRAM_MESSAGE_MAX_LENGTH,
   truncateTelegramText,
 } from './sendDailyFinanceReport';
@@ -23,7 +24,16 @@ vi.mock('./dailyFinanceReportImage', () => ({
 
 type RecordedQuery = { table: string; select?: string; filters: string[] };
 
-function recordingClient(clubRow: Record<string, unknown> | null, clubError: unknown = null) {
+function recordingClient(
+  clubRow: Record<string, unknown> | null,
+  clubError: unknown = null,
+  /** Rows every read of a table returns; none by default. */
+  tableRows: Record<string, unknown[]> = {},
+  /** What each RPC answers; an empty list by default. */
+  rpcResults: Record<string, { data: unknown; error: unknown }> = {},
+  /** An error for the reads it matches; none by default. */
+  readError: (query: RecordedQuery) => unknown = () => null,
+) {
   const queries: RecordedQuery[] = [];
   const client = {
     from: (table: string) => {
@@ -37,14 +47,18 @@ function recordingClient(clubRow: Record<string, unknown> | null, clubError: unk
         gt: (column: string, value: unknown) => { recorded.filters.push(`${column}>${value}`); return query; },
         neq: (column: string, value: unknown) => { recorded.filters.push(`${column}!=${value}`); return query; },
         in: (column: string, values: unknown[]) => { recorded.filters.push(`${column} in ${values.join('|')}`); return query; },
+        or: (filter: string) => { recorded.filters.push(`or(${filter})`); return query; },
         order: () => query,
-        range: async () => ({ data: [], error: null }),
+        range: async () => {
+          const error = readError(recorded);
+          return error ? { data: null, error } : { data: tableRows[table] ?? [], error: null };
+        },
         single: async () => ({ data: clubRow, error: clubError }),
       };
       return query;
     },
-    // The reserve's moves (156): none in these reports.
-    rpc: async () => ({ data: [], error: null }),
+    // The reserve's moves (156) and collected money (169): none unless a test says so.
+    rpc: async (name: string) => rpcResults[name] ?? { data: [], error: null },
   } as unknown as SupabaseClient;
   return { client, queries };
 }
@@ -111,8 +125,10 @@ describe('buildDailyFinanceTelegramReport', () => {
     // Each ledger is read once over the comparison window, never per period.
     for (const table of ['daily_cash_entries', 'daily_stock_counts', 'stock_purchases', 'expenses']) {
       // The giveaway and write-off sections read only the report date, separately.
+      // The reserve's own reads (all its history) are not ledger reads either.
       const ledgerReads = queries.filter((query) => query.table === table
-        && !query.select?.includes('giveaway_quantity') && !query.select?.includes('adjustment_reason'));
+        && !query.select?.includes('giveaway_quantity') && !query.select?.includes('adjustment_reason')
+        && !query.filters.includes('payment_method=usd') && !query.filters.some((filter) => filter.startsWith('or(')));
       expect(ledgerReads, table).toHaveLength(1);
     }
     // The debt ledger is bounded: window debts plus open ones, never all history.
@@ -125,6 +141,76 @@ describe('buildDailyFinanceTelegramReport', () => {
     expect(queries).toContainEqual({ table: 'clubs', select: 'enabled_payment_methods', filters: ['id=club'] });
     expect(queries.every((query) => query.filters.includes('club_id=club') || query.filters.includes('id=club')))
       .toBe(true);
+  });
+});
+
+describe('buildDailyFinanceTelegramReport where the money is', () => {
+  const collectedMoves = [{
+    kind: 'collect', id: 'c1', date: '2026-09-02', method: 'cash', amount: 400_000,
+    comment: null, created_by: 'u', created_at: '2026-09-02T10:00:00Z',
+  }];
+  const tableRows = {
+    daily_cash_entries: [{ date: '2026-09-03', cash_income: 1_000_000, terminal_income: 0, card_income: 0, playstation_income: 0 }],
+    owner_reserve_entries: [{
+      id: 'r1', club_id: 'club', kind: 'deposit', period_month: '2026-09-01', source: 'bar', payment_method: null,
+      amount: 500_000, comment: null, collection_date: null, entry_date: '2026-09-02', created_by: 'u', created_at: '2026-09-02T10:00:00Z',
+    }],
+  };
+
+  it('opens the caption with the till, collected money, the reserve and their total', async () => {
+    const { client, queries } = recordingClient({ id: 'club', name: 'Pixel' }, null, tableRows, {
+      get_collected_money_moves: { data: collectedMoves, error: null },
+    });
+    const report = await buildDailyFinanceTelegramReport(client, { businessDate: '2026-09-03', chatId: '-1001', clubId: 'club' });
+
+    expect(report.caption.split('\n')).toEqual([
+      '👛 У администратора: 600 000 UZS',
+      '💼 Собрано: 400 000 UZS',
+      '🏦 В резерве: 500 000 UZS',
+      '💰 Всего денег: 1 500 000 UZS',
+    ]);
+    expect(report.caption).not.toMatch(/Ежедневный финансовый отчёт|Рабочий день|Заканчивается/);
+    expect(report.caption.length).toBeLessThanOrEqual(TELEGRAM_CAPTION_MAX_LENGTH);
+    // The full text report keeps its own header.
+    expect(report.message.split('\n')[0]).toBe('📊 Ежедневный финансовый отчёт');
+    // The reserve is read from its ledgers, scoped to the club.
+    expect(queries).toContainEqual(expect.objectContaining({ table: 'owner_reserve_entries', filters: ['club_id=club'] }));
+  });
+
+  it('still builds the report, without those lines, when collected money cannot be read', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { client } = recordingClient({ id: 'club', name: 'Pixel' }, null, tableRows, {
+      get_collected_money_moves: { data: null, error: { code: '42501', message: 'permission denied' } },
+    });
+    const report = await buildDailyFinanceTelegramReport(client, { businessDate: '2026-09-03', chatId: '-1001', clubId: 'club' });
+
+    expect(report.caption).not.toMatch(/У администратора|Собрано|В резерве|Всего денег/);
+    expect(report.message).toContain('📊 Ежедневный финансовый отчёт');
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('money whereabouts unavailable'), expect.anything());
+    errorSpy.mockRestore();
+  });
+
+  // The reserve must be right or absent: a read the Reserve page would shrug off drops the lines here.
+  const denied = { code: '42501', message: 'permission denied' };
+  it.each([
+    ['its purchases cannot be read', (query: RecordedQuery) => (
+      query.table === 'expenses' && query.filters.some((filter) => filter.startsWith('or(')) ? denied : null)],
+    ['its dollar expenses cannot be read', (query: RecordedQuery) => (
+      query.table === 'expenses' && query.filters.includes('payment_method=usd') ? denied : null)],
+    ['the database has no reserve yet (136)', (query: RecordedQuery) => (
+      query.table === 'owner_reserve_entries'
+        ? { code: '42P01', message: 'relation "public.owner_reserve_entries" does not exist' }
+        : null)],
+  ])('leaves the money lines out when %s', async (_case, readError) => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { client } = recordingClient({ id: 'club', name: 'Pixel' }, null, tableRows, {
+      get_collected_money_moves: { data: collectedMoves, error: null },
+    }, readError);
+    const report = await buildDailyFinanceTelegramReport(client, { businessDate: '2026-09-03', chatId: '-1001', clubId: 'club' });
+
+    expect(report.caption).not.toMatch(/У администратора|Собрано|В резерве|Всего денег/);
+    expect(report.message).toContain('📊 Ежедневный финансовый отчёт');
+    errorSpy.mockRestore();
   });
 });
 
@@ -643,7 +729,7 @@ describe('sendTelegramPhoto', () => {
       chatId: '-1006',
       imagePng: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
       imageFileName: 'daily-finance.png',
-      caption: '📊 Ежедневный финансовый отчёт\nРабочий день: 27 августа 2026',
+      caption: '👛 У администратора: 1 234 000 UZS\n💰 Всего денег: 1 234 000 UZS',
       fetchImpl: fetchMock,
     });
 
@@ -652,7 +738,7 @@ describe('sendTelegramPhoto', () => {
     const form = fetchMock.mock.calls[0][1]?.body as FormData;
     expect(form.get('chat_id')).toBe('-1006');
     expect(form.get('caption')).toBe(
-      '📊 Ежедневный финансовый отчёт\nРабочий день: 27 августа 2026',
+      '👛 У администратора: 1 234 000 UZS\n💰 Всего денег: 1 234 000 UZS',
     );
     expect(form.get('disable_notification')).toBe('false');
     const photo = form.get('photo');

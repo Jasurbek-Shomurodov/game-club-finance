@@ -24,7 +24,7 @@ import type { MoneyCheck } from '../calculations/moneyChecks';
 import { isIsoDate, nextDailyReportBusinessDateIso, previousClubBusinessDateIso } from './sendDailyFinanceReport';
 
 describe('formatRussianDailyFinanceReport', () => {
-  it('formats the two-line photo caption without duplicating the club name', () => {
+  it('leaves the title, the date and the club name to the image: an empty caption without anything to flag', () => {
     expect(formatRussianDailyFinanceReportCaption({
       clubName: 'Main Game Club',
       businessDateLabel: '27 августа 2026',
@@ -47,7 +47,7 @@ describe('formatRussianDailyFinanceReport', () => {
       barMoneyLeft: 0,
       inventoryValue: 0,
       activeDebts: 0,
-    })).toBe('📊 Ежедневный финансовый отчёт\nРабочий день: 27 августа 2026');
+    })).toBe('');
   });
 
   it('formats the saved Russian Telegram daily finance template', () => {
@@ -445,11 +445,8 @@ describe('formatRussianDailyFinanceReport', () => {
       '  • Red Bull: нет в наличии',
       '  • Cola: 3 шт. (порог 5)',
     ]);
-    expect(formatRussianDailyFinanceReportCaption(input)).toBe([
-      '📊 Ежедневный финансовый отчёт',
-      'Рабочий день: 29 сентября 2026',
-      '⚠️ Заканчивается на складе: 2',
-    ].join('\n'));
+    // The image lists them; the caption does not count them.
+    expect(formatRussianDailyFinanceReportCaption(input)).not.toContain('Заканчивается');
 
     const healthy = buildDailyFinanceReportInput(baseRows);
     expect(healthy.lowStockProducts).toBeUndefined();
@@ -751,7 +748,7 @@ describe('internet payment reminder', () => {
 
     expect(input.internetPaymentDueDate).toBe('2026-10-20');
     expect(formatRussianDailyFinanceReport(input).split('\n').at(-1)).toMatch(/^🌐 Завтра оплата интернета \(20 .+ 2026\)$/);
-    expect(formatRussianDailyFinanceReportCaption(input).split('\n')[2]).toMatch(/^🌐 Завтра оплата интернета/);
+    expect(formatRussianDailyFinanceReportCaption(input).split('\n')[0]).toMatch(/^🌐 Завтра оплата интернета/);
 
     const otherDay = buildDailyFinanceReportInput({ ...baseRows, sendDate: '2026-10-18' });
     expect(otherDay.internetPaymentDueDate).toBeNull();
@@ -953,5 +950,65 @@ describe('payments of the day', () => {
     const empty = buildDailyFinanceReportInput({ ...base, cashRows: [] });
     expect(empty.dayByMethod).toEqual([]);
     expect(formatRussianDailyFinanceReport(empty)).not.toContain('Оплаты за день');
+  });
+});
+
+describe('where the money is, in the caption', () => {
+  const baseRows = {
+    clubName: 'Pixel',
+    businessDate: '2026-11-24',
+    businessDateLabel: '24 ноября 2026',
+    // The month so far: cash 3 000 000, terminal 1 000 000, PlayStation 234 000.
+    cashRows: [{ date: '2026-11-24', cash_income: 1_000_000, terminal_income: 0, card_income: 0, playstation_income: 0 }],
+    monthCashRows: [
+      { date: '2026-11-10', cash_income: 2_000_000, terminal_income: 1_000_000, card_income: 0, playstation_income: 234_000 },
+      { date: '2026-11-24', cash_income: 1_000_000, terminal_income: 0, card_income: 0, playstation_income: 0 },
+    ],
+    stockRows: [],
+    stockPurchaseRows: [],
+    expenseRows: [],
+    debtRows: [],
+    sendDate: '2026-11-25',
+  };
+  const collectedMoves = [
+    { kind: 'collect' as const, id: 'c1', date: '2026-11-20', method: 'cash' as const, amount: 2_500_000, comment: null, createdBy: 'u', createdAt: '2026-11-20T10:00:00Z' },
+    { kind: 'expense' as const, id: 'e1', date: '2026-11-21', method: 'cash' as const, amount: -500_000, comment: null, createdBy: 'u', createdAt: '2026-11-21T10:00:00Z' },
+  ];
+
+  it('opens with the till, collected money, the reserve and all of it, then the flags', () => {
+    const input = buildDailyFinanceReportInput({
+      ...baseRows,
+      collectedMoves,
+      reserveHoldings: { sums: 15_000_000, usd: 1_200 },
+      moneyChecks: [],
+    });
+    expect(input.moneyWhereabouts).toEqual({
+      kassa: 2_234_000, collected: 2_000_000, reserveSums: 15_000_000, reserveUsd: 1_200, totalSums: 19_234_000,
+    });
+    expect(formatRussianDailyFinanceReportCaption({ ...input, promoGiveaways: [{ productName: 'Cola', promotionName: null, quantity: 2, cost: 6_000 }] }).split('\n')).toEqual([
+      '👛 У администратора: 2 234 000 UZS',
+      '💼 Собрано: 2 000 000 UZS',
+      '🏦 В резерве: 15 000 000 UZS + $1 200',
+      '💰 Всего денег: 19 234 000 UZS + $1 200',
+      '🎁 Бонусы по акциям: 2 шт.',
+    ]);
+  });
+
+  it('shows no dollars when the USD account is empty', () => {
+    const input = buildDailyFinanceReportInput({ ...baseRows, collectedMoves: [], reserveHoldings: { sums: 0, usd: 0 } });
+    expect(formatRussianDailyFinanceReportCaption(input)).toBe([
+      '👛 У администратора: 4 234 000 UZS',
+      '💼 Собрано: 0 UZS',
+      '🏦 В резерве: 0 UZS',
+      '💰 Всего денег: 4 234 000 UZS',
+    ].join('\n'));
+  });
+
+  it('leaves the lines out, never shows them as 0, when any part could not be read', () => {
+    for (const rows of [{ collectedMoves }, { reserveHoldings: { sums: 1, usd: 0 } }, {}]) {
+      const input = buildDailyFinanceReportInput({ ...baseRows, ...rows });
+      expect(input.moneyWhereabouts).toBeUndefined();
+      expect(formatRussianDailyFinanceReportCaption(input)).toBe('');
+    }
   });
 });

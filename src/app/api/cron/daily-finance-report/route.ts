@@ -581,7 +581,8 @@ export async function GET(request: NextRequest) {
             ]
           : [];
         const wantsAlbum = albumPhotos.length >= 2;
-        const albumCaption = reviewDigest ? `${report.caption}\n${reviewDigest.reportLine}` : report.caption;
+        // The caption can be empty (nothing to flag and no money figures); no blank first line then.
+        const albumCaption = [report.caption, reviewDigest?.reportLine].filter(Boolean).join('\n');
         const sendImages = () => wantsAlbum
           ? sendTelegramPhotoAlbum({
               botToken,

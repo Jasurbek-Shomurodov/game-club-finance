@@ -1,5 +1,9 @@
 import { fetchReserveMoves } from '@/lib/supabase/reserveMoves';
 import { fetchMoneyExchanges } from '@/lib/supabase/moneyExchanges';
+import { fetchCollectedMoneyMoves } from '@/lib/supabase/moneyCollections';
+import { fetchOwnerReserve } from '@/lib/supabase/ownerMoney';
+import { reserveHoldingsOn } from '@/lib/calculations/ownerReserve';
+import type { CollectedMoneyMove } from '@/lib/calculations/collectedMoney';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatDateOnly } from '../formatters';
 import { isMissingDatabaseColumn } from '../supabase/errors';
@@ -287,6 +291,39 @@ async function getMonthWithdrawalRows(
   return data ?? [];
 }
 
+/**
+ * What "where the money is" needs beyond the report's own ledgers: collected
+ * money moves over the month so far (Reports reads the same window) and the
+ * reserve's holdings at the end of the report date. The reserve is read from
+ * its ledgers, as the Reserve page reads it: get_owner_reserve_balances
+ * answers only a signed-in owner, and this runs under the service role. The
+ * reserve is read strictly: a failed dollar or purchase read would overstate
+ * it, so it drops the lines like any other failure, and so does a database
+ * without the reserve (136). A failure drops the lines, never the report, and
+ * never shows them as 0.
+ */
+export async function getMoneyWhereaboutsRows(
+  supabase: SupabaseClient,
+  clubId: string,
+  monthStart: string,
+  businessDate: string,
+): Promise<{ collectedMoves: CollectedMoneyMove[]; reserveHoldings: { sums: number; usd: number } } | undefined> {
+  try {
+    const [collectedMoves, reserve] = await Promise.all([
+      fetchCollectedMoneyMoves(supabase, clubId, monthStart, businessDate),
+      fetchOwnerReserve(supabase, clubId, businessDate, undefined, { strict: true }),
+    ]);
+    if (!reserve.reserveSupported) {
+      console.error('[telegram/daily-finance] owner reserve not migrated (136); omitting money whereabouts');
+      return undefined;
+    }
+    return { collectedMoves, reserveHoldings: reserveHoldingsOn(reserve, businessDate) };
+  } catch (error) {
+    console.error('[telegram/daily-finance] money whereabouts unavailable; omitting them:', error);
+    return undefined;
+  }
+}
+
 /** The club's current business date at `now`, or null when it cannot be read (the checks block is then omitted). */
 async function getCurrentBusinessDateOrNull(supabase: SupabaseClient, clubId: string, now: Date): Promise<string | null> {
   try {
@@ -442,7 +479,7 @@ export async function buildDailyFinanceTelegramReport(
       .order('date', { ascending: true })
       .order('id', { ascending: true }),
   );
-  const [clubRes, cashRes, stockRes, purchaseRes, expenseRes, debtPaymentRes, laterDebtPaymentRes, debtRes, lowStockProductRows, giveawayRows, writeOffRows, internetPaymentDay, reserveMoves, monthExchangeRows, withdrawalRows, currentBusinessDate, enabledPaymentMethods] = await Promise.all([
+  const [clubRes, cashRes, stockRes, purchaseRes, expenseRes, debtPaymentRes, laterDebtPaymentRes, debtRes, lowStockProductRows, giveawayRows, writeOffRows, internetPaymentDay, reserveMoves, monthExchangeRows, withdrawalRows, currentBusinessDate, enabledPaymentMethods, whereaboutsRows] = await Promise.all([
     getClub(supabase, clubId),
     windowed<DailyCashRow>('daily_cash_entries', 'date,cash_income,terminal_income,card_income,playstation_income', ['date'], incomeFrom),
     // (club_id, date, product_id) is unique, so the ordering pages stably.
@@ -475,6 +512,7 @@ export async function buildDailyFinanceTelegramReport(
     getMonthWithdrawalRows(supabase, clubId, monthStart),
     getCurrentBusinessDateOrNull(supabase, clubId, now),
     getEnabledPaymentMethods(supabase, clubId),
+    getMoneyWhereaboutsRows(supabase, clubId, monthStart, businessDate),
   ]);
 
   const firstError = [
@@ -551,6 +589,8 @@ export async function buildDailyFinanceTelegramReport(
     sendDate: serverTodayIso(now, 0),
     moneyChecks,
     enabledPaymentMethods,
+    collectedMoves: whereaboutsRows?.collectedMoves,
+    reserveHoldings: whereaboutsRows?.reserveHoldings,
   });
   let imagePng: Buffer | null = null;
   try {

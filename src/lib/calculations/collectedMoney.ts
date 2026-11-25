@@ -97,6 +97,53 @@ export function moneyStillHeld(left: number, collectedHeld: number): number {
   return left - collectedHeld;
 }
 
+/**
+ * What each method still has in the admin's till, and all of them together:
+ * Reports' "With the admin" card. `left` is each method's money left for the
+ * month so far (Reports' method cards), `collectedHeld` what collected money
+ * still holds of it over the same days.
+ */
+export function moneyStillHeldByMethod(
+  left: Readonly<Record<CollectedMethod, number>>,
+  collectedHeld: ByCollectedMethod,
+): ByCollectedMethod {
+  return COLLECTED_METHODS.reduce(
+    (sum, method) => add(sum, method, moneyStillHeld(left[method], collectedHeld[method])),
+    NO_COLLECTED_MONEY,
+  );
+}
+
+/** Where the money is: the three places of Reports' "Where the money is", and their sum. */
+export interface MoneyWhereabouts {
+  /** Still in the admin's till (Reports' "With the admin"). */
+  kassa: number;
+  /** Taken out by a collector and not yet spent or put into the reserve. */
+  collected: number;
+  /** The owner reserve's sums, both sides, without its dollars (155). */
+  reserveSums: number;
+  /** Dollars in the reserve's USD account (143); never converted into sums. */
+  reserveUsd: number;
+  /** kassa + collected + reserveSums; the dollars stay apart. */
+  totalSums: number;
+}
+
+/** The till, collected money and the reserve as Reports shows them, with their total in sums. */
+export function summarizeMoneyWhereabouts(input: {
+  left: Readonly<Record<CollectedMethod, number>>;
+  collectedMoves: readonly CollectedMoneyMove[];
+  reserve: { sums: number; usd: number };
+}): MoneyWhereabouts {
+  const collected = summarizeCollectedMoney(input.collectedMoves).held;
+  const kassa = moneyStillHeldByMethod(input.left, collected).total;
+  return {
+    kassa,
+    collected: collected.total,
+    reserveSums: input.reserve.sums,
+    reserveUsd: input.reserve.usd,
+    totalSums: kassa + collected.total + input.reserve.sums,
+  };
+}
+
 /** Moves from the RPC payload, or none when it is missing or malformed (before migration 169). */
 export function parseCollectedMoneyMoves(value: unknown): CollectedMoneyMove[] {
   if (!Array.isArray(value)) return [];

@@ -78,13 +78,23 @@ export const EMPTY_OWNER_RESERVE: OwnerReserveData = {
   reserveSupported: false,
 };
 
+/**
+ * How a failed dollar-expense or reserve-expense read is handled. Lenient (the
+ * pages): it leaves that spending out instead of failing. Strict (a figure that
+ * must be right or absent, such as the Telegram caption): it rejects.
+ */
+interface ReserveReadOptions {
+  strict?: boolean;
+}
+
 /** The four reads behind the reserve, started together. A failed exchange read rejects. */
-function readReserveLedgers(supabase: SupabaseClient, clubId: string, businessToday: string) {
+function readReserveLedgers(supabase: SupabaseClient, clubId: string, businessToday: string, { strict = false }: ReserveReadOptions = {}) {
+  const dollarExpenses = fetchDollarExpenses(supabase, clubId, '2000-01-01', businessToday);
   return Promise.all([
     // Exchanges move money between methods (092); neither balance source includes them.
     fetchMoneyExchanges(supabase, clubId, '2000-01-01', businessToday),
     // Like investments, a failed read leaves dollar spending out instead of failing the page.
-    fetchDollarExpenses(supabase, clubId, '2000-01-01', businessToday).catch(() => [] as DollarExpense[]),
+    strict ? dollarExpenses : dollarExpenses.catch(() => [] as DollarExpense[]),
     // Every column, so entry_date (162) comes back where the database has it and is simply absent before.
     fetchAllRows<OwnerReserveEntry>(() => supabase
       .from('owner_reserve_entries')
@@ -105,12 +115,14 @@ function readReserveLedgers(supabase: SupabaseClient, clubId: string, businessTo
 function buildOwnerReserve(
   clubId: string,
   [exchangeRows, dollarExpenses, reserveRes, reserveExpenseRes]: Awaited<ReturnType<typeof readReserveLedgers>>,
+  { strict = false }: ReserveReadOptions = {},
 ): OwnerReserveData {
   // Before migration 136 there is no reserve: nothing is set aside.
   const reserveMissing = isMissingDatabaseTable(reserveRes.error as { code?: string; message?: string } | null, 'owner_reserve_entries')
     || isMissingDatabaseColumn(reserveExpenseRes.error as { code?: string; message?: string } | null, 'paid_from_reserve');
   const reserveError = reserveMissing ? null : reserveRes.error;
   if (reserveError) throw new Error(reserveError.message);
+  if (strict && !reserveMissing && reserveExpenseRes.error) throw new Error(reserveExpenseRes.error.message);
   return {
     // Exchanges into and out of dollars are the reserve's dollar deposits and returns (143).
     reserveEntries: reserveMissing ? [] : [
@@ -141,10 +153,11 @@ export async function fetchOwnerReserve(
   clubId: string,
   businessToday: string,
   isCurrent: () => boolean = () => true,
+  options: ReserveReadOptions = {},
 ): Promise<OwnerReserveData> {
-  const ledgers = await readReserveLedgers(supabase, clubId, businessToday);
+  const ledgers = await readReserveLedgers(supabase, clubId, businessToday, options);
   if (!isCurrent()) return EMPTY_OWNER_RESERVE;
-  return buildOwnerReserve(clubId, ledgers);
+  return buildOwnerReserve(clubId, ledgers, options);
 }
 
 type RowsResult<T> = { data: T[] | null; error: { code?: string; message: string } | null };

@@ -1,5 +1,5 @@
 import type { ReserveMove } from '@/lib/calculations/reserveMoves';
-import { formatCurrency, formatDateOnly } from '../formatters';
+import { formatCurrency, formatDateOnly, formatDollars } from '../formatters';
 import {
   calculateAverageDailyIncome,
   calculateDashboardTotals,
@@ -29,6 +29,7 @@ import { buildMonthForecast, type ForecastDayRow, type SideForecast } from '../c
 import { RUSSIAN_EXPENSE_CATEGORY_LABELS } from './expenseCategoryLabels';
 import type { LowStockProduct, LowStockProductInput } from '../calculations/stock';
 import { sortMoneyChecks, type MoneyCheck, type MoneyCheckKind } from '../calculations/moneyChecks';
+import { summarizeMoneyWhereabouts, type CollectedMoneyMove, type MoneyWhereabouts } from '../calculations/collectedMoney';
 
 export interface DailyFinanceReportInput {
   clubName: string;
@@ -108,6 +109,12 @@ export interface DailyFinanceReportInput {
    * PlayStation only when it had money. Absent or empty means no section.
    */
   dayByMethod?: DailyFinanceDayMethod[];
+  /**
+   * Where the money is at the end of the report date, as Reports' "Where the
+   * money is" cards: the admin's till, collected money and the reserve. Absent
+   * when any of it could not be read; the caption then leaves the lines out.
+   */
+  moneyWhereabouts?: MoneyWhereabouts;
 }
 
 /** A Game Club payment method on the report day. */
@@ -319,6 +326,16 @@ export interface DailyFinanceReportRows {
   moneyChecks?: readonly MoneyCheck[];
   /** The club's enabled payment methods; omitted means every method. */
   enabledPaymentMethods?: readonly EntryPaymentMethod[];
+  /**
+   * Collected money moves (169) from the month's first day through the report
+   * date; omitted when they could not be read (no "where the money is").
+   */
+  collectedMoves?: readonly CollectedMoneyMove[];
+  /**
+   * What the reserve held at the end of the report date: its sums and its
+   * dollars; omitted when it could not be read (no "where the money is").
+   */
+  reserveHoldings?: { sums: number; usd: number };
 }
 
 /** The month-end forecast as the report shows it (the same projection as Financial analysis). */
@@ -868,6 +885,15 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
     debtRows: monthDebtRows,
     debtPaymentRows: monthDebtPaymentRows,
   };
+  const monthMoney = summarizeMonthMoney({
+    month: monthRange.from.slice(0, 7),
+    cashRows: rows.monthCashRows ?? rows.cashRows,
+    expenseRows: rows.monthExpenseRows ?? rows.expenseRows,
+    debtPaymentRows: monthDebtPaymentRows,
+    exchangeRows: rows.monthExchangeRows,
+    reserveMoves: movesIn(monthRange),
+    withdrawalRows: rows.withdrawalRows,
+  });
 
   return {
     clubName: rows.clubName,
@@ -932,15 +958,7 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
     internetPaymentDueDate: rows.sendDate
       ? internetPaymentDueDate(rows.sendDate, rows.internetPaymentDay)
       : null,
-    monthMoney: summarizeMonthMoney({
-      month: monthRange.from.slice(0, 7),
-      cashRows: rows.monthCashRows ?? rows.cashRows,
-      expenseRows: rows.monthExpenseRows ?? rows.expenseRows,
-      debtPaymentRows: monthDebtPaymentRows,
-      exchangeRows: rows.monthExchangeRows,
-      reserveMoves: movesIn(monthRange),
-      withdrawalRows: rows.withdrawalRows,
-    }),
+    monthMoney,
     monthForecast: rows.forecastLedgers
       ? buildReportMonthForecast(rows.businessDate, rows.forecastLedgers)
       : undefined,
@@ -951,6 +969,10 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
       calculateGameClubDayByPaymentMethod(rows.businessDate, rows.cashRows, rows.expenseRows, rows.debtPaymentRows ?? []),
       rows.enabledPaymentMethods ?? normalizePaymentMethods(undefined),
     ),
+    // The till is each method's money left this month (Reports' cards) less what collected money holds.
+    moneyWhereabouts: rows.collectedMoves && rows.reserveHoldings
+      ? summarizeMoneyWhereabouts({ left: monthMoney.byMethod, collectedMoves: rows.collectedMoves, reserve: rows.reserveHoldings })
+      : undefined,
   };
 }
 
@@ -1003,10 +1025,29 @@ export function formatRussianDailyFinanceReport(input: DailyFinanceReportInput):
   ].join('\n');
 }
 
+/** Sums, plus the dollars beside them when there are any (never converted). */
+function moneyWithDollars(sums: number, usd: number): string {
+  return usd === 0 ? money(sums) : `${money(sums)} + ${formatDollars(usd)}`;
+}
+
+/** "Where the money is": the admin's till, collected money, the reserve and all of it. */
+function moneyWhereaboutsLines(value: MoneyWhereabouts | undefined): string[] {
+  if (!value) return [];
+  return [
+    `👛 У администратора: ${money(value.kassa)}`,
+    `💼 Собрано: ${money(value.collected)}`,
+    `🏦 В резерве: ${moneyWithDollars(value.reserveSums, value.reserveUsd)}`,
+    `💰 Всего денег: ${moneyWithDollars(value.totalSums, value.reserveUsd)}`,
+  ];
+}
+
+/**
+ * Caption under the report album. The images carry the title, the date and the
+ * low-stock list, so the caption says where the money is and flags the rest.
+ */
 export function formatRussianDailyFinanceReportCaption(input: DailyFinanceReportInput): string {
   return [
-    '📊 Ежедневный финансовый отчёт',
-    `Рабочий день: ${input.businessDateLabel}`,
+    ...moneyWhereaboutsLines(input.moneyWhereabouts),
     ...(input.internetPaymentDueDate ? [internetPaymentLine(input.internetPaymentDueDate)] : []),
     ...(input.promoGiveaways?.length
       ? [`🎁 Бонусы по акциям: ${quantityLabel(input.promoGiveaways.reduce((sum, item) => sum + item.quantity, 0))}`]
@@ -1019,9 +1060,6 @@ export function formatRussianDailyFinanceReportCaption(input: DailyFinanceReport
       : []),
     ...(input.moneyChecks?.length
       ? [`🔎 Стоит проверить: ${input.moneyChecks.length}`]
-      : []),
-    ...(input.lowStockProducts?.length
-      ? [`⚠️ Заканчивается на складе: ${input.lowStockProducts.length}`]
       : []),
   ].join('\n');
 }

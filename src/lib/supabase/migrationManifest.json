@@ -5486,5 +5486,9 @@
   {
     "file": "185_pixel_dollar_expenses_at_cost.sql",
     "probes": []
+  },
+  {
+    "file": "186_collected_money_moves_service_role.sql",
+    "probes": []
   }
 ]

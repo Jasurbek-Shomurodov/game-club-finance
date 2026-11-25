@@ -96,7 +96,7 @@ import type { ReserveMove } from '@/lib/calculations/reserveMoves';
 import { requestCollectionChange } from '@/lib/collectionsApi';
 import {
   COLLECTED_METHODS,
-  moneyStillHeld,
+  moneyStillHeldByMethod,
   summarizeCollectedMoney,
   type CollectedMethod,
   type CollectedMoneyMove,
@@ -551,11 +551,11 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   const collectedSummary = useMemo(() => summarizeCollectedMoney(reportRows.collectedMoves), [reportRows.collectedMoves]);
   const collectedByMethod = collectedSummary.held;
   // What the admin still holds: each method's money left, less what the collector holds of it.
-  const kassaByMethod = useMemo(() => Object.fromEntries(COLLECTED_METHODS.map((method) => [
-    method,
-    moneyStillHeld(paymentCardData[method].left, collectedSummary.held[method]),
-  ])) as Record<CollectedMethod, number>, [collectedSummary.held, paymentCardData]);
-  const kassaTotal = COLLECTED_METHODS.reduce((sum, method) => sum + kassaByMethod[method], 0);
+  // The Telegram report's caption counts it with the same function.
+  const kassaTotal = useMemo(() => moneyStillHeldByMethod(
+    Object.fromEntries(COLLECTED_METHODS.map((method) => [method, paymentCardData[method].left])) as Record<CollectedMethod, number>,
+    collectedSummary.held,
+  ).total, [collectedSummary.held, paymentCardData]);
   const [collectDialogOpen, setCollectDialogOpen] = useState(false);
   /** Owner: the reserve deposit form, open with the day and amounts it starts from (none: today, all the till holds). */
   const [reserveDeposit, setReserveDeposit] = useState<{ date?: string; amounts?: ReserveDepositAmounts } | null>(null);

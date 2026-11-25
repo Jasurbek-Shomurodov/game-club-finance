@@ -1,5 +1,5 @@
 import { sumAvailableMoneyResults, type AvailableMoneyByMonth, type AvailableSourceBalance } from './availableMoney';
-import type { ExchangeMethod, MoneyExchangeRow } from './moneyExchanges';
+import { dollarsForMonth, type DollarExpenseRow, type ExchangeMethod, type MoneyExchangeRow } from './moneyExchanges';
 import {
   OWNER_RESERVE_METHODS,
   OWNER_WITHDRAWAL_PAYMENT_METHODS,
@@ -543,6 +543,32 @@ export function reserveDollarRates(
 /** The sums the reserve holds as one pot (155): both sides, without the sums value of its dollars. */
 export function reserveSumsHeld(balances: Record<OwnerWithdrawalSource, ReserveBalance>): number {
   return balances.game_club.held + balances.bar.held - balances.game_club.byMethod.usd;
+}
+
+/**
+ * What the reserve held at the end of `date`, as the Reserve page counts it:
+ * its sums as one pot (155) and the dollars of its USD account (143). Only
+ * deposits, returns, purchases, exchanges and dollar expenses on or before
+ * `date` count, so a later day's moves never show in an earlier day's figure.
+ */
+export function reserveHoldingsOn(
+  reserve: {
+    reserveEntries: readonly ReserveLedgerEntry[];
+    reserveExpenses: readonly ReservePaidExpense[];
+    exchangeRows: readonly MoneyExchangeRow[];
+    dollarExpenses: readonly DollarExpenseRow[];
+  },
+  date: string,
+): { sums: number; usd: number } {
+  const onOrBefore = <T extends { date: string }>(rows: readonly T[]) => rows.filter((row) => row.date <= date);
+  const balances = reserveBalances(
+    reserve.reserveEntries.filter((entry) => reserveEntryDate(entry) <= date),
+    onOrBefore(reserve.reserveExpenses),
+  );
+  return {
+    sums: reserveSumsHeld(balances),
+    usd: dollarsForMonth(onOrBefore(reserve.exchangeRows), date.slice(0, 7), onOrBefore(reserve.dollarExpenses)).heldUsd,
+  };
 }
 
 /** What the reserve paid for, summed per expense category, in the order the categories first appear. */

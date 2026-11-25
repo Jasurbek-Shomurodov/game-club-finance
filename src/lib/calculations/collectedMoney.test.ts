@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   moneyStillHeld,
+  moneyStillHeldByMethod,
   parseCollectedMoneyMoves,
   parseCollectionBalances,
   summarizeCollectedMoney,
+  summarizeMoneyWhereabouts,
   type CollectedMoneyMove,
 } from './collectedMoney';
 
@@ -70,5 +72,30 @@ describe('parseCollectionBalances', () => {
       playstation: { till: 0, collected: 0 },
     });
     expect(parseCollectionBalances(null)).toBeNull();
+  });
+});
+
+describe('moneyStillHeldByMethod', () => {
+  it('takes what collected money holds out of each method and sums the till', () => {
+    const held = summarizeCollectedMoney([
+      move({ method: 'cash', amount: 1_500_000 }),
+      move({ id: 'r2', method: 'terminal', amount: 400_000 }),
+    ]).held;
+    expect(moneyStillHeldByMethod({ cash: 2_000_000, terminal: 300_000, card: 700_000, playstation: 50_000 }, held)).toEqual({
+      cash: 500_000, terminal: -100_000, card: 700_000, playstation: 50_000, total: 1_150_000,
+    });
+  });
+});
+
+describe('summarizeMoneyWhereabouts', () => {
+  it('splits the money into the till, collected money and the reserve, and totals the sums only', () => {
+    expect(summarizeMoneyWhereabouts({
+      left: { cash: 3_000_000, terminal: 1_000_000, card: 0, playstation: 234_000 },
+      collectedMoves: [
+        move({ method: 'cash', amount: 2_500_000 }),
+        move({ kind: 'expense', id: 'e1', method: 'cash', amount: -500_000 }),
+      ],
+      reserve: { sums: 15_000_000, usd: 1_200 },
+    })).toEqual({ kassa: 2_234_000, collected: 2_000_000, reserveSums: 15_000_000, reserveUsd: 1_200, totalSums: 19_234_000 });
   });
 });

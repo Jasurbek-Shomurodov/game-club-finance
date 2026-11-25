@@ -131,9 +131,29 @@ The report lists active, inventory-tracked products that are out of stock or at
 or below their `low_stock_threshold` (default 5, via `listLowStockProducts` in
 `src/lib/calculations/stock.ts`). It uses live `products.current_stock` at send
 time, not the report date's saved closing counts, so a recovery run for an old
-date shows today's stock. The section and the caption count appear only when at
-least one product qualifies. If the products read fails, the section is omitted
-and the finance report is still sent.
+date shows today's stock. The section appears only when at least one product
+qualifies; the caption does not count them (the image lists them). If the
+products read fails, the section is omitted and the finance report is still sent.
+
+## Caption: where the money is
+
+The album caption carries no title or date (the image has both). It opens with
+the three places of Reports' "Where the money is" and their total, at the end of
+the report date: `👛 У администратора` (each method's money left this month
+less what collected money holds, `moneyStillHeldByMethod`, the same function as
+Reports' "With the admin" card), `💼 Собрано` (collected money still held,
+`get_collected_money_moves` from the 1st), `🏦 В резерве` (the reserve's sums,
+plus its USD account's dollars when there are any) and `💰 Всего денег` (the
+three in sums; the dollars stay apart, never converted). The reserve is read
+from its ledgers (`fetchOwnerReserve`, `reserveHoldingsOn`) because
+`get_owner_reserve_balances` answers only a signed-in owner and the cron runs
+under the service role. Migration `186_collected_money_moves_service_role.sql`
+grants `get_collected_money_moves` to the service role explicitly. The reserve
+is read strictly (`fetchOwnerReserve(..., { strict: true })`): unlike the
+Reserve page, a failed dollar-expense or purchase read is not shrugged off, since
+it would overstate the reserve. If any of it cannot be read, or the database has
+no reserve (136), the four lines are left out and the report is still sent. The flags (internet, promo bonuses,
+write-offs, corrections, money checks) follow unchanged.
 
 ## "Оплаты за день" (payments of the day) section
 

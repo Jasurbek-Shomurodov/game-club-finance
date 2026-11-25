@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyOwnerReserve, dollarReserveEntries, reserveActivity, groupReserveActivityByDay, reserveMonthlySeries, reserveDailySeries, reserveBalances, reserveForMonth, planGameClubDepositAll, withReservePurchaseDollars, type ReservePaidExpense } from './ownerReserve';
+import { applyOwnerReserve, dollarReserveEntries, reserveActivity, groupReserveActivityByDay, reserveMonthlySeries, reserveDailySeries, reserveBalances, reserveForMonth, planGameClubDepositAll, reserveHoldingsOn, withReservePurchaseDollars, type ReservePaidExpense } from './ownerReserve';
 import { sumAvailableMoneyResults, type AvailableMoneyByMonth } from './availableMoney';
 import type { OwnerReserveEntry } from '@/types';
 
@@ -321,5 +321,28 @@ describe('reserveDepositParts', () => {
     expect(reserveDepositParts({ cash: 300_000, terminal: 0, card: 120_000.6, playstation: 50_000 }, ['card', 'cash', 'terminal']))
       .toEqual([{ method: 'card', amount: 120_000 }, { method: 'cash', amount: 300_000 }]);
     expect(reserveDepositParts({ cash: -1 }, ['cash'])).toEqual([]);
+  });
+});
+
+describe('reserveHoldingsOn', () => {
+  const exchange = { id: 'x', date: '2026-10-31', from_method: 'cash' as const, to_method: 'usd' as const, from_amount: 1_200_000, to_amount: 100, rate: 12_000 };
+  const dollarRent = { id: 'rent', date: '2026-11-04', amount: 240_000, payment_method: 'usd' as const, usd_amount: 20, usd_rate: 12_000 };
+  const reserve = {
+    reserveEntries: [...entries, ...dollarReserveEntries([exchange], 'club')],
+    reserveExpenses: [purchase('pcs'), { ...purchase('rent'), date: '2026-11-04', amount: 240_000, payment_method: 'usd' }],
+    exchangeRows: [exchange],
+    dollarExpenses: [dollarRent],
+  };
+
+  it('holds the sums as one pot and the USD account in dollars, apart', () => {
+    // Sums: 1 000 000 + 2 000 000 + 300 000 - 200 000 - 2 500 000 (the PCs); the dollars are not in them.
+    expect(reserveHoldingsOn(reserve, '2026-11-30')).toEqual({ sums: 600_000, usd: 80 });
+  });
+
+  it('leaves out what moved after the day', () => {
+    // Before the PCs (11-05) and the dollar rent (11-04).
+    expect(reserveHoldingsOn(reserve, '2026-11-03')).toEqual({ sums: 3_100_000, usd: 100 });
+    // Before the October deposit, the return and the dollars (all 10-31).
+    expect(reserveHoldingsOn(reserve, '2026-10-30')).toEqual({ sums: 1_300_000, usd: 0 });
   });
 });
