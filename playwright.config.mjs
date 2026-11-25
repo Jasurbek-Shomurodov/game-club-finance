@@ -35,7 +35,8 @@ export default defineConfig({
       env: { E2E_SUPABASE_PORT: new URL(supabaseUrl).port },
     },
     {
-      command: `npx next start -p ${new URL(appUrl).port} -H ${new URL(appUrl).hostname}`,
+      // `--` stops newer npx (npm 11.17) reading next's -p as its own --package and exiting.
+      command: `npx --no -- next start -p ${new URL(appUrl).port} -H ${new URL(appUrl).hostname}`,
       url: appUrl + '/login',
       reuseExistingServer: false,
       timeout: 120_000,
