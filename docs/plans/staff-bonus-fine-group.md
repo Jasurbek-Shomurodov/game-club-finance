@@ -64,6 +64,12 @@ None. No migration.
 
 1. All of the above (small enough for one slice).
 
+## Status
+
+Shipped in a83c54d. Production sets `TELEGRAM_PIXEL_STAFF_CHAT_ID` and
+`TELEGRAM_MAIN_STAFF_CHAT_ID` to the "Pixel Gaming" supergroup, which
+`@hoggish_bot` is a member of.
+
 ## Risks
 
 - Bot `@hoggish_bot` must be a member of the staff group before the chat id
