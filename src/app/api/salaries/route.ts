@@ -1,16 +1,18 @@
 import { after } from 'next/server';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { KPI_BASES, type KpiBasis } from '@/lib/calculations/salaries';
+import { pickLocalized } from '@/lib/showcase';
 import { isMissingDatabaseFunction } from '@/lib/supabase/errors';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { actorName } from '@/lib/telegram/actorName';
-import { clubMessageToReplyTo, targetChatId, type TelegramMessageCoordinates } from '@/lib/telegram/clubChat';
-import { buildSalaryNotification, type SalaryNotificationInput } from '@/lib/telegram/salaryNotification';
+import { messageToReplyToIn, staffChatId, targetChatId, type TelegramMessageCoordinates } from '@/lib/telegram/clubChat';
+import { buildSalaryNotification, isStaffSalaryNotice, type SalaryNotificationInput } from '@/lib/telegram/salaryNotification';
 import { sendTelegramMessage } from '@/lib/telegram/sendDailyFinanceReport';
 import { salaryErrorCode, salaryErrorResponse } from './errors';
 
 type Body = Record<string, unknown>;
-type Notification = SalaryNotificationInput extends infer T ? T extends unknown ? Omit<T, 'addedBy' | 'employee'> : never : never;
+type Notification = SalaryNotificationInput extends infer T ? T extends unknown ? Omit<T, 'addedBy' | 'employee' | 'branch'> : never : never;
 type DatabaseError = { message: string; code?: string };
 /** The payroll record a notification announces; deleting the record replies to that message. */
 type RateVersion = { id: string; created_at: string };
@@ -45,23 +47,61 @@ const withDefaults = (settings: ReturnType<typeof kpiSettings>) => ({
   bar: settings.bar ?? true,
 });
 
+/**
+ * Where a notice goes: bonuses and fines (and their deletions) to the staff
+ * group when the club has one, everything else, and those without one, to the
+ * club group.
+ */
+function noticeChat(clubId: string, notification: Notification): { chatId: string | null; toStaff: boolean } {
+  const staff = isStaffSalaryNotice(notification) ? staffChatId(clubId) : null;
+  return staff ? { chatId: staff, toStaff: true } : { chatId: targetChatId(clubId), toStaff: false };
+}
+
+/**
+ * How a staff group shared by several branches tells them apart: the public
+ * page's branch name (ru first), else the club name. Both Pixel clubs share
+ * one club name, so the label must not depend on who recorded the entry: it is
+ * read with the service client (showcase RLS hides the page from callers
+ * without the showcase feature), only for the club whose payroll write the
+ * caller's RPC already authorized, and only those two public columns.
+ */
+async function branchLabel(clubId: string): Promise<string | null> {
+  try {
+    const service = createServiceClient();
+    const [{ data: showcase }, { data: club }] = await Promise.all([
+      service.from('club_showcases').select('translations').eq('club_id', clubId).maybeSingle(),
+      service.from('clubs').select('name').eq('id', clubId).maybeSingle(),
+    ]);
+    const translations = showcase?.translations as Record<string, unknown> | null | undefined;
+    const branch = translations?.branch && typeof translations.branch === 'object' ? translations.branch as Record<string, unknown> : null;
+    const clubName = typeof club?.name === 'string' && club.name.trim() ? club.name.trim() : null;
+    return pickLocalized(branch, 'ru', clubName);
+  } catch (error) {
+    // The notice still goes out, just without the branch.
+    console.error('[telegram/salary] branch label was not read', { clubId, error: error instanceof Error ? error.message : String(error) });
+    return null;
+  }
+}
+
 /** Best-effort and run after the response: a Telegram problem never fails an already committed payroll change. */
 async function notify(
   supabase: SupabaseClient, user: User, clubId: string, employeeId: string, notification: Notification, record: AnnouncedRecord | null,
   replyToMessageId: number | null = null,
 ) {
-  const chatId = targetChatId(clubId);
+  const { chatId, toStaff } = noticeChat(clubId, notification);
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   if (!chatId || !botToken) return false;
   try {
-    const [{ data: employee }, addedBy] = await Promise.all([
+    const [{ data: employee }, addedBy, branch] = await Promise.all([
       supabase.from('salary_employees').select('name').eq('club_id', clubId).eq('id', employeeId).maybeSingle(),
       actorName(supabase, user),
+      // notify() only runs after the payroll RPC succeeded for this club.
+      toStaff ? branchLabel(clubId) : null,
     ]);
     const telegram = await sendTelegramMessage({
       botToken,
       chatId,
-      text: buildSalaryNotification({ ...notification, employee: employee?.name ?? '—', addedBy } as SalaryNotificationInput),
+      text: buildSalaryNotification({ ...notification, employee: employee?.name ?? '—', addedBy, branch } as SalaryNotificationInput),
       ...(replyToMessageId ? { replyToMessageId } : {}),
     });
     if (record) await rememberMessage(supabase, clubId, employeeId, record, telegram.result);
@@ -228,23 +268,27 @@ export async function POST(request: Request) {
           ? await supabase.from('salary_entries').select('kind, amount, date').eq('club_id', clubId).eq('id', body.recordId).maybeSingle()
           : await supabase.from('salary_rates').select('effective_date').eq('club_id', clubId).eq('id', body.recordId).maybeSingle();
         if (lookup.error) return fail('record_lookup', lookup.error);
+        const record = lookup.data as { kind?: 'payment' | 'bonus' | 'fine' | 'absence'; amount?: number | string; date?: string; effective_date?: string } | null;
+        if (record?.kind && record.date) {
+          notification = { event: 'entry_deleted', kind: record.kind, amount: Number(record.amount), date: record.date, reason };
+        } else if (record?.effective_date) {
+          notification = { event: 'rate_deleted', effectiveDate: record.effective_date, reason };
+        }
         // Where the record was announced; read separately so databases before migration 090 still delete.
-        // The stored chat id is not trusted: only a message in the club's own group is replied to.
+        // The stored chat id is not trusted: only a message in the chat this notice goes to is replied to.
         const coordinates = await supabase.from(body.kind === 'entry' ? 'salary_entries' : 'salary_rates')
           .select('telegram_chat_id, telegram_message_id').eq('club_id', clubId).eq('id', body.recordId).maybeSingle();
-        replyToMessageId = clubMessageToReplyTo(clubId, coordinates.error ? null : coordinates.data as TelegramMessageCoordinates | null);
+        if (notification) {
+          replyToMessageId = messageToReplyToIn(
+            noticeChat(clubId, notification).chatId, coordinates.error ? null : coordinates.data as TelegramMessageCoordinates | null,
+          );
+        }
         // Same audited RPC as before; it checks the record belongs to the club and the caller's access.
         const deleteParams = { p_club_id: clubId, p_id: body.recordId, p_kind: body.kind };
         rpcResult = await supabase.rpc('delete_salary_record', { ...deleteParams, p_reason: reason });
         // Before migration 089 the RPC takes no reason; the reason then only reaches the notification.
         if (rpcResult.error && isMissingDatabaseFunction(rpcResult.error, 'delete_salary_record')) {
           rpcResult = await supabase.rpc('delete_salary_record', deleteParams);
-        }
-        const record = lookup.data as { kind?: 'payment' | 'bonus' | 'fine' | 'absence'; amount?: number | string; date?: string; effective_date?: string } | null;
-        if (record?.kind && record.date) {
-          notification = { event: 'entry_deleted', kind: record.kind, amount: Number(record.amount), date: record.date, reason };
-        } else if (record?.effective_date) {
-          notification = { event: 'rate_deleted', effectiveDate: record.effective_date, reason };
         }
         break;
       }

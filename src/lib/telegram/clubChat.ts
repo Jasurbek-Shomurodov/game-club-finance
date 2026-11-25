@@ -33,6 +33,25 @@ export function ownerChatId(clubId: string): string | null {
   return null;
 }
 
+/**
+ * Staff group per target, shared by several branches, for the bonuses and
+ * fines staff should see (and their deletions). Optional: without one those
+ * notices stay in the club group.
+ */
+const STAFF_CHAT_ENV: Readonly<Record<TelegramReportTargetKey, string>> = {
+  pixel: 'TELEGRAM_PIXEL_STAFF_CHAT_ID',
+  main: 'TELEGRAM_MAIN_STAFF_CHAT_ID',
+  bunker: 'TELEGRAM_BUNKER_STAFF_CHAT_ID',
+};
+
+/** The club's staff group, or null when none is configured (callers then use the club group). */
+export function staffChatId(clubId: string): string | null {
+  for (const { key, clubEnvName } of TELEGRAM_REPORT_TARGET_ENV) {
+    if (process.env[clubEnvName] === clubId) return process.env[STAFF_CHAT_ENV[key]]?.trim() || null;
+  }
+  return null;
+}
+
 /** Telegram group configured for a club, or null when the club has none. */
 export function targetChatId(clubId: string): string | null {
   for (const { clubEnvName, chatEnvName } of TELEGRAM_REPORT_TARGET_ENV) {
@@ -53,7 +72,15 @@ export interface TelegramMessageCoordinates {
  * trusted, so a forged one never makes the bot point at another chat.
  */
 export function clubMessageToReplyTo(clubId: string, coordinates: TelegramMessageCoordinates | null | undefined): number | null {
-  const chatId = targetChatId(clubId);
+  return messageToReplyToIn(targetChatId(clubId), coordinates);
+}
+
+/**
+ * The announcement a follow-up notice going to `chatId` may reply to, or null.
+ * `chatId` is the configured chat the notice is sent to; a stored chat id
+ * that differs (another chat, or a forged one) never qualifies.
+ */
+export function messageToReplyToIn(chatId: string | null, coordinates: TelegramMessageCoordinates | null | undefined): number | null {
   if (!chatId || !coordinates || coordinates.telegram_chat_id === null || String(coordinates.telegram_chat_id) !== chatId) return null;
   const messageId = Number(coordinates.telegram_message_id);
   return Number.isSafeInteger(messageId) && messageId > 0 ? messageId : null;

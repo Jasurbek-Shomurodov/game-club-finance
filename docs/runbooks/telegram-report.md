@@ -43,6 +43,15 @@ migration 135). Without it the notice is not sent at all; it never falls back to
 the club group (`ownerChatId` in `clubChat.ts`). Create a Telegram group with
 only the owners and the bot, then set its id here and redeploy.
 
+Optional: `TELEGRAM_<TARGET>_STAFF_CHAT_ID`, a staff group for the bonuses and
+fines recorded on the Salaries page and their deletions (`/api/salaries`,
+`staffChatId` in `clubChat.ts`). Several targets may share one group (both Pixel
+branches do), so each of these notices names its branch after the title: the
+public page's branch name, else the club name. Without it they stay in the club
+group; every other salary notice always goes to the club group. A deletion
+replies to its announcement only when that was posted in the same group. Add
+the bot to the group, then set its id here and redeploy.
+
 The club group also gets instant notices from the routes that save money
 changes (daily cash, expenses, exchanges, collections, salaries).
 Every correction is announced too: expense edits from Entry details and daily

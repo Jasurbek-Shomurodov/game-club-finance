@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSalaryNotification } from './salaryNotification';
+import { buildSalaryNotification, isStaffSalaryNotice } from './salaryNotification';
 
 const base = { addedBy: 'Owner', employee: 'Izzat' };
 const TODAY = '2026-11-15';
@@ -60,5 +60,30 @@ describe('buildSalaryNotification', () => {
     ]);
     expect(buildSalaryNotification({ ...base, event: 'rate_deleted', effectiveDate: '2026-10-01', reason: 'Wrong rate' })).toContain('Действовало с 1 октября · причина: Wrong rate');
     expect(buildSalaryNotification({ ...base, event: 'employee_deleted', reason: 'Left the club' }, TODAY)).toContain('15 ноября · причина: Left the club');
+  });
+
+  it('names the branch after the title of a bonus, a fine and their deletions in a shared staff group', () => {
+    const branch = 'Амир Темур';
+    expect(buildSalaryNotification({ ...base, branch, event: 'bonus', amount: 1000, date: '2026-10-01', comment: null }).split('\n')).toEqual([
+      '🎁 Премия · Амир Темур · Izzat: 1 000 сум', '1 октября', 'Owner',
+    ]);
+    expect(buildSalaryNotification({ ...base, branch, event: 'fine', amount: 1000, date: '2026-10-01', comment: null }).split('\n')[0])
+      .toBe('⚠️ Штраф · Амир Темур · Izzat: 1 000 сум');
+    expect(buildSalaryNotification({ ...base, branch, event: 'entry_deleted', kind: 'fine', amount: 1000, date: '2026-10-01', reason: 'ошибка' }).split('\n')[0])
+      .toBe('🗑 Удалён штраф · Амир Темур · Izzat: 1 000 сум');
+    expect(buildSalaryNotification({ ...base, branch: null, event: 'bonus', amount: 1000, date: '2026-10-01', comment: null }).split('\n')[0])
+      .toBe('🎁 Премия Izzat: 1 000 сум');
+  });
+});
+
+describe('isStaffSalaryNotice', () => {
+  it('picks bonuses, fines and their deletions only', () => {
+    expect(isStaffSalaryNotice({ event: 'bonus' })).toBe(true);
+    expect(isStaffSalaryNotice({ event: 'fine' })).toBe(true);
+    expect(isStaffSalaryNotice({ event: 'entry_deleted', kind: 'bonus' })).toBe(true);
+    expect(isStaffSalaryNotice({ event: 'entry_deleted', kind: 'payment' })).toBe(false);
+    expect(isStaffSalaryNotice({ event: 'payment' })).toBe(false);
+    expect(isStaffSalaryNotice({ event: 'absence' })).toBe(false);
+    expect(isStaffSalaryNotice({ event: 'rate_deleted' })).toBe(false);
   });
 });

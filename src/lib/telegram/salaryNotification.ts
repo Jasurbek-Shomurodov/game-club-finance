@@ -6,6 +6,8 @@ export type KpiSettings = { basis: 'owner_profit' | 'overall_profit' | 'game_clu
 export type SalaryNotificationInput = {
   addedBy: string;
   employee: string;
+  /** The branch a bonus or fine is about, set when it goes to a staff group several branches share. */
+  branch?: string | null;
 } & (
   | { event: 'employee_added'; role: string; salaryType: 'daily' | 'monthly'; amount: number; kpi: number; kpiSettings: KpiSettings; date: string }
   | { event: 'employee_updated'; role: string; salaryType: 'daily' | 'monthly'; amount: number; kpi: number; kpiSettings: KpiSettings; date: string }
@@ -31,6 +33,14 @@ const ENTRY_TITLES = { payment: 'Зарплата', bonus: 'Премия', fine:
 const ENTRY_ICONS = { payment: '💵', bonus: '🎁', fine: '⚠️' } as const;
 const DELETED_TITLES = { payment: 'Удалена зарплата', bonus: 'Удалена премия', fine: 'Удалён штраф', absence: 'Удалён невыход' } as const;
 
+type StaffKind = 'bonus' | 'fine';
+const isStaffKind = (kind: string): kind is StaffKind => kind === 'bonus' || kind === 'fine';
+
+/** Bonuses, fines and their deletions go to the staff group when the club has one. */
+export function isStaffSalaryNotice(input: Pick<SalaryNotificationInput, 'event'> & { kind?: string }): boolean {
+  return isStaffKind(input.event) || (input.event === 'entry_deleted' && typeof input.kind === 'string' && isStaffKind(input.kind));
+}
+
 const salary = (amount: number, type: 'daily' | 'monthly') => `${sum(amount)} ${PER[type]}`;
 const roleLabel = (role: string) => ROLES[role] ?? role;
 
@@ -51,6 +61,8 @@ function kpiText(kpi: number, settings: KpiSettings) {
  */
 export function buildSalaryNotification(input: SalaryNotificationInput, today = serverTodayIso()): string {
   const by = input.addedBy;
+  // "🎁 Премия · Амир Темур · Izzat": the branch follows the title in a shared staff group.
+  const inBranch = (title: string) => (input.branch ? `${title} · ${input.branch} ·` : title);
   const from = (date: string | undefined) => `с ${noticeDate(date ?? today)}`;
 
   switch (input.event) {
@@ -80,7 +92,7 @@ export function buildSalaryNotification(input: SalaryNotificationInput, today = 
       return lines(`🚫 Не пришёл(а) на работу: ${input.employee}`, `${noticeDate(input.date)} · без оплаты за день`, authorLine(by, input.comment));
     case 'entry_deleted':
       return lines(
-        `🗑 ${DELETED_TITLES[input.kind]} ${input.employee}${input.kind === 'absence' ? '' : `: ${sum(input.amount)}`}`,
+        `🗑 ${isStaffKind(input.kind) ? inBranch(DELETED_TITLES[input.kind]) : DELETED_TITLES[input.kind]} ${input.employee}${input.kind === 'absence' ? '' : `: ${sum(input.amount)}`}`,
         details(noticeDate(input.date), `причина: ${input.reason}`),
         `Удалил(а) ${by}`,
       );
@@ -98,7 +110,7 @@ export function buildSalaryNotification(input: SalaryNotificationInput, today = 
       );
     default:
       return lines(
-        `${ENTRY_ICONS[input.event]} ${ENTRY_TITLES[input.event]} ${input.employee}: ${sum(input.amount)}`,
+        `${ENTRY_ICONS[input.event]} ${isStaffKind(input.event) ? inBranch(ENTRY_TITLES[input.event]) : ENTRY_TITLES[input.event]} ${input.employee}: ${sum(input.amount)}`,
         input.event === 'payment'
           ? details(input.paymentSource && source(input.paymentSource), input.paymentMethod && method(input.paymentMethod), noticeDate(input.date))
           : noticeDate(input.date),

@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ createClient: vi.fn(), sendTelegramMessage: vi.fn(), afterTasks: [] as Promise<unknown>[] }));
+const mocks = vi.hoisted(() => ({ createClient: vi.fn(), createServiceClient: vi.fn(), sendTelegramMessage: vi.fn(), afterTasks: [] as Promise<unknown>[] }));
 vi.mock('@/lib/supabase/server', () => ({ createClient: mocks.createClient }));
+vi.mock('@/lib/supabase/service', () => ({ createServiceClient: mocks.createServiceClient }));
 // after() needs a live request scope; run the task immediately and let tests await it.
 vi.mock('next/server', () => ({ after: (task: () => unknown) => { mocks.afterTasks.push(Promise.resolve().then(task)); } }));
 vi.mock('@/lib/telegram/sendDailyFinanceReport', () => ({ sendTelegramMessage: mocks.sendTelegramMessage }));
@@ -12,7 +13,7 @@ const CLUB = '290c5c33-9dfa-464a-a072-ef5a231f5308';
 const EMPLOYEE = '40c05af5-5a59-45ae-a891-19a18228a721';
 const REQUEST = '50c05af5-5a59-45ae-a891-19a18228a722';
 
-function mockSupabase({ user = { id: 'u1', email: 'o@example.test', user_metadata: {} } as unknown, rpcError = null as { message: string; code?: string } | null, existingEntry = false, withStatus = true, coordinates = null as Record<string, unknown> | null, rateVersions = [{ id: 'rate-0', created_at: 't0' }, { id: 'rate-1', created_at: 't1' }] } = {}) {
+function mockSupabase({ user = { id: 'u1', email: 'o@example.test', user_metadata: {} } as unknown, rpcError = null as { message: string; code?: string } | null, existingEntry = false, withStatus = true, coordinates = null as Record<string, unknown> | null, entryKind = 'bonus', showcase = { translations: { branch: { ru: 'Амир Темур', en: 'Amir Temur' } } } as Record<string, unknown> | null, rateVersions = [{ id: 'rate-0', created_at: 't0' }, { id: 'rate-1', created_at: 't1' }] } = {}) {
   let rateRead = 0;
   const rpc = vi.fn((name: string) => {
     if (name !== 'record_salary_entry_with_status') return Promise.resolve({ error: rpcError });
@@ -32,13 +33,26 @@ function mockSupabase({ user = { id: 'u1', email: 'o@example.test', user_metadat
     builder.eq = () => builder;
     builder.maybeSingle = () => Promise.resolve({
       data: columns.startsWith('telegram_') ? coordinates
-        : table === 'salary_entries' ? (existingEntry ? { id: REQUEST, kind: 'bonus', amount: 100, date: '2026-10-01' } : null) : result,
+        : table === 'salary_entries' ? (existingEntry ? { id: REQUEST, kind: entryKind, amount: 100, date: '2026-10-01' } : null) : result,
       error: null,
     });
     return builder;
   });
   mocks.createClient.mockResolvedValue({ auth: { getUser: () => Promise.resolve({ data: { user } }) }, rpc, from });
-  return { rpc };
+  // The branch label is read with the service client, so it does not depend on the caller's showcase access.
+  const serviceReads: Array<{ table: string; columns: string; filters: Array<[string, unknown]> }> = [];
+  mocks.createServiceClient.mockReturnValue({
+    from: (table: string) => {
+      const read = { table, columns: '', filters: [] as Array<[string, unknown]> };
+      serviceReads.push(read);
+      const builder: Record<string, unknown> = {};
+      builder.select = (columns: string) => { read.columns = columns; return builder; };
+      builder.eq = (column: string, value: unknown) => { read.filters.push([column, value]); return builder; };
+      builder.maybeSingle = () => Promise.resolve({ data: table === 'club_showcases' ? showcase : table === 'clubs' ? { name: 'Pixel Gaming' } : null, error: null });
+      return builder;
+    },
+  });
+  return { rpc, serviceReads };
 }
 
 const post = async (body: unknown) => {
@@ -277,5 +291,86 @@ describe('POST /api/salaries', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     expect((await post({ action: 'delete_record', clubId: CLUB, employeeId: EMPLOYEE, recordId: REQUEST, kind: 'entry', reason: 'x' })).status).toBe(403);
     expect(mocks.sendTelegramMessage).not.toHaveBeenCalled();
+  });
+
+  describe('with a staff group', () => {
+    const STAFF = '-100777';
+    const entry = (kind: string, amount = 50000) => ({ action: 'record_entry', clubId: CLUB, employeeId: EMPLOYEE, requestId: REQUEST, date: '2026-10-01', kind, amount, comment: '' });
+    const deletion = { action: 'delete_record', clubId: CLUB, employeeId: EMPLOYEE, recordId: REQUEST, kind: 'entry', reason: 'Paid twice' };
+    beforeEach(() => {
+      vi.stubEnv('TELEGRAM_MAIN_STAFF_CHAT_ID', STAFF);
+      mocks.sendTelegramMessage.mockResolvedValue({ result: { chat: { id: Number(STAFF) }, message_id: 8 } });
+    });
+
+    it.each([['bonus', '🎁 Премия'], ['fine', '⚠️ Штраф']])('sends a %s to the staff group with the branch and remembers it there', async (kind, title) => {
+      const { rpc, serviceReads } = mockSupabase();
+      await post(entry(kind));
+      expect(serviceReads).toEqual([
+        { table: 'club_showcases', columns: 'translations', filters: [['club_id', CLUB]] },
+        { table: 'clubs', columns: 'name', filters: [['id', CLUB]] },
+      ]);
+      expect(mocks.sendTelegramMessage).toHaveBeenCalledOnce();
+      const { chatId, text } = mocks.sendTelegramMessage.mock.calls[0][0];
+      expect(chatId).toBe(STAFF);
+      expect(text.split('\n')[0]).toBe(`${title} · Амир Темур · Izzat: 50 000 сум`);
+      expect(rpc).toHaveBeenCalledWith('set_salary_record_telegram_message', expect.objectContaining({ p_kind: 'entry', p_chat_id: STAFF, p_message_id: 8 }));
+    });
+
+    it('names the club when it has no public branch name', async () => {
+      mockSupabase({ showcase: null });
+      await post(entry('bonus'));
+      expect(mocks.sendTelegramMessage.mock.calls[0][0].text.split('\n')[0]).toBe('🎁 Премия · Pixel Gaming · Izzat: 50 000 сум');
+    });
+
+    it('still sends the notice, without a branch, when the service client is unavailable', async () => {
+      mockSupabase();
+      mocks.createServiceClient.mockImplementation(() => { throw new Error('Missing Supabase service environment variables'); });
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      await post(entry('bonus'));
+      expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({ chatId: STAFF }));
+      expect(mocks.sendTelegramMessage.mock.calls[0][0].text.split('\n')[0]).toBe('🎁 Премия Izzat: 50 000 сум');
+    });
+
+    it('reads no branch when the payroll write failed', async () => {
+      const { serviceReads } = mockSupabase({ rpcError: { message: 'denied', code: '42501' } });
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      expect((await post(entry('bonus'))).status).toBe(403);
+      expect(serviceReads).toEqual([]);
+      expect(mocks.createServiceClient).not.toHaveBeenCalled();
+      expect(mocks.sendTelegramMessage).not.toHaveBeenCalled();
+    });
+
+    it('keeps payments and "did not come" days in the club group without a branch', async () => {
+      const { serviceReads } = mockSupabase();
+      await post({ ...entry('payment'), paymentMethod: 'cash', paymentSource: 'bar' });
+      await post(entry('absence', 0));
+      expect(mocks.sendTelegramMessage.mock.calls.map(([call]) => call.chatId)).toEqual(['-100123', '-100123']);
+      expect(mocks.sendTelegramMessage.mock.calls[0][0].text).not.toContain('Амир Темур');
+      expect(serviceReads).toEqual([]);
+    });
+
+    it('posts a bonus deletion to the staff group, replying only to an announcement made there', async () => {
+      mockSupabase({ existingEntry: true, coordinates: { telegram_chat_id: STAFF, telegram_message_id: 42 } });
+      await post(deletion);
+      expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({
+        chatId: STAFF, replyToMessageId: 42, text: expect.stringContaining('🗑 Удалена премия · Амир Темур · Izzat'),
+      }));
+
+      mocks.sendTelegramMessage.mockClear();
+      // Announced in the club group before the staff group was set up.
+      mockSupabase({ existingEntry: true, coordinates: { telegram_chat_id: '-100123', telegram_message_id: 42 } });
+      await post(deletion);
+      expect(mocks.sendTelegramMessage).toHaveBeenCalledOnce();
+      expect(mocks.sendTelegramMessage.mock.calls[0][0]).toMatchObject({ chatId: STAFF });
+      expect(mocks.sendTelegramMessage.mock.calls[0][0]).not.toHaveProperty('replyToMessageId');
+    });
+
+    it('keeps a payment deletion in the club group', async () => {
+      mockSupabase({ existingEntry: true, entryKind: 'payment', coordinates: { telegram_chat_id: '-100123', telegram_message_id: 42 } });
+      await post(deletion);
+      expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({
+        chatId: '-100123', replyToMessageId: 42, text: expect.stringContaining('🗑 Удалена зарплата Izzat'),
+      }));
+    });
   });
 });
