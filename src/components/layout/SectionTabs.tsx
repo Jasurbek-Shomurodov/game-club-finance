@@ -19,7 +19,7 @@ export interface SectionTabsOptions {
 
 /**
  * The tabs beside a page title that join the screens of one section (the bar,
- * owner money, the team, the reports, salaries, the public page). Tabs come
+ * the team, the reports, salaries, the public page). Tabs come
  * from `SECTION_TABS` in `src/lib/navigation.ts`; each is a route already
  * prefetched by the sidebar, so switching swaps pages without a round trip.
  * Pass the result to `PageHeader`'s `tabs`. Renders nothing for a member who

@@ -926,11 +926,11 @@ test.describe('as an admin', () => {
   });
 });
 
-test('NAV-001 the bar, owner money, reports and team sections each open from one sidebar item and switch by tabs', async ({ page }) => {
+test('NAV-001 the bar, reports and team sections each open from one sidebar item and switch by tabs; the reserve has its own item', async ({ page }) => {
   await page.goto('/dashboard');
   const nav = page.getByRole('navigation');
   // The pages inside a section are no longer separate sidebar items.
-  for (const label of ['Closing Stock', 'Stock Purchase', 'Products', 'Promotions', 'Reserve', 'Edit history']) {
+  for (const label of ['Closing Stock', 'Stock Purchase', 'Products', 'Promotions', 'Edit history']) {
     await expect(nav.getByRole('link', { name: label, exact: true })).toHaveCount(0);
   }
   await open(page, 'Bar', 'Closing Stock');
@@ -941,11 +941,16 @@ test('NAV-001 the bar, owner money, reports and team sections each open from one
   }
   await expect(page).toHaveURL(/\/promotions$/);
 
+  // Owner Profit is one screen; the reserve is the next sidebar item, lit on its own (not Owner Profit, not Team).
   await open(page, 'Owner Profit');
-  await openTab(page, 'Reserve');
-  await expect(page).toHaveURL(/\/reserve$/);
   await expect(nav.getByRole('link', { name: 'Owner Profit', exact: true })).toHaveAttribute('aria-current', 'page');
-  await openTab(page, 'Owner Profit');
+  await expect(page.getByRole('radiogroup', { name: 'Section pages' })).toHaveCount(0);
+  await open(page, 'Reserve');
+  await expect(page).toHaveURL(/\/reserve$/);
+  await expect(page.getByRole('radiogroup', { name: 'Section pages' })).toHaveCount(0);
+  await expect(nav.getByRole('link', { name: 'Reserve', exact: true })).toHaveAttribute('aria-current', 'page');
+  await expect(nav.getByRole('link', { name: 'Owner Profit', exact: true })).not.toHaveAttribute('aria-current', 'page');
+  await expect(nav.getByRole('link', { name: /^Team/ })).not.toHaveAttribute('aria-current', 'page');
 
   // The day and month profit reports are tabs of Reports, next to its own views.
   await open(page, 'Reports');
@@ -998,6 +1003,8 @@ test.describe('as a viewer', () => {
     expect((await restAs(accounts.viewer, 'POST', 'rpc/get_migration_health', { p_club_id: clubs.arcade.id })).status).toBe(403);
     // The edit history is a tab of the owner-only Team section: no nav link, and RLS returns no rows to a member.
     await expect(page.getByRole('navigation').getByRole('link', { name: 'Team', exact: true })).toHaveCount(0);
+    // The reserve is the owner's too: no sidebar item.
+    await expect(page.getByRole('navigation').getByRole('link', { name: 'Reserve', exact: true })).toHaveCount(0);
     expect(await (await restAs(accounts.viewer, 'GET', `entry_audit_logs?select=id&club_id=eq.${clubs.arcade.id}`)).json()).toEqual([]);
     expect(rows).toHaveLength(expenses.length);
   });
@@ -1323,7 +1330,7 @@ test('RES-001 money returned from the reserve leaves it and is back in the month
   await expect(held.getByRole('button', { name: tileName('Returned to profit', 200_000) })).toBeVisible();
 
   // The month has it back: cash left to take is 1 280 000 − 500 000 + 200 000.
-  await openTab(page, 'Owner Profit');
+  await open(page, 'Owner Profit');
   const table = page.getByRole('table').first();
   await expect(table.getByRole('row').filter({ hasText: 'Cash' })).toContainText(uzs(980_000));
   await expect(page.getByRole('link', { name: tileName('In the reserve', 348_000) })).toBeVisible();
@@ -1362,7 +1369,7 @@ test('RES-002 a purchase paid on the Reserve page lowers the reserve and leaves 
   await expect(history).toContainText(uzs(300_000));
 
   // It is an expense, but the month keeps its profit: cash left to take is still 1 280 000 − 500 000.
-  await openTab(page, 'Owner Profit');
+  await open(page, 'Owner Profit');
   const table = page.getByRole('table').first();
   await expect(table.getByRole('row').filter({ hasText: 'Cash' })).toContainText(uzs(780_000));
   await expect(page.getByRole('link', { name: tileName('In the reserve', 200_000) })).toBeVisible();

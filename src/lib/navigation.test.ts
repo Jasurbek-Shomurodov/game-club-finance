@@ -1,20 +1,31 @@
 import { describe, expect, it } from 'vitest';
-import { accessibleSectionPaths, activeSectionTab, isPrimaryNavItemActive, primaryNavItems, sectionForPath, sectionHome, sectionTabs } from './navigation';
+import {
+  RESERVE_PATH,
+  accessibleSectionPaths,
+  activeSectionTab,
+  isPrimaryNavItemActive,
+  isSidebarItemActive,
+  primaryNavItems,
+  sectionForPath,
+  sectionHome,
+  sectionTabs,
+  type SidebarNavTarget,
+} from './navigation';
 
 const hrefs = (tabs: { href: string }[]) => tabs.map((tab) => tab.href);
 
 describe('sectionTabs', () => {
   it('shows an owner every tab of every section', () => {
     expect(hrefs(sectionTabs('bar', 'owner', null))).toEqual(['/closing-stock', '/write-offs', '/stock-purchase', '/products', '/promotions']);
-    expect(hrefs(sectionTabs('ownerMoney', 'owner', null))).toEqual(['/money-taken', '/reserve']);
+    // The reserve has a sidebar item of its own, so Owner Profit has no tabs.
+    expect(hrefs(sectionTabs('ownerMoney', 'owner', null))).toEqual(['/money-taken']);
     expect(hrefs(sectionTabs('team', 'owner', null))).toEqual(['/team', '/history']);
   });
 
   it('keeps the owner-only tabs from other roles, whatever they were granted', () => {
-    // The reserve and the edit history share the owner-only team feature.
-    expect(hrefs(sectionTabs('ownerMoney', 'admin', null))).toEqual(['/money-taken']);
-    expect(hrefs(sectionTabs('ownerMoney', 'admin', ['owner_profit', 'team']))).toEqual(['/money-taken']);
+    // Team and the edit history are owner-only, even with the team feature granted.
     expect(sectionTabs('team', 'admin', ['team'])).toEqual([]);
+    expect(hrefs(sectionTabs('ownerMoney', 'admin', ['owner_profit', 'team']))).toEqual(['/money-taken']);
   });
 
   it('follows feature access tab by tab', () => {
@@ -66,7 +77,7 @@ describe('sectionForPath', () => {
   it('finds the section of a tab, its sub-pages and a trailing slash', () => {
     expect(sectionForPath('/promotions')).toBe('bar');
     expect(sectionForPath('/products/')).toBe('bar');
-    expect(sectionForPath('/reserve')).toBe('ownerMoney');
+    expect(sectionForPath('/money-taken')).toBe('ownerMoney');
     expect(sectionForPath('/history')).toBe('team');
     expect(sectionForPath('/closing-stock/anything')).toBe('bar');
   });
@@ -75,6 +86,8 @@ describe('sectionForPath', () => {
     expect(sectionForPath('/dashboard')).toBeNull();
     expect(sectionForPath('/salaries/history')).toBeNull();
     expect(sectionForPath('/products-old')).toBeNull();
+    // The reserve is a screen of its own, outside Owner Profit.
+    expect(sectionForPath('/reserve')).toBeNull();
     expect(sectionForPath('/')).toBeNull();
   });
 });
@@ -91,7 +104,7 @@ describe('activeSectionTab', () => {
 describe('accessibleSectionPaths', () => {
   it('lists every tab route the member can open', () => {
     expect(accessibleSectionPaths('owner', null)).toEqual([
-      '/closing-stock', '/write-offs', '/stock-purchase', '/products', '/promotions', '/money-taken', '/reserve', '/team', '/history',
+      '/closing-stock', '/write-offs', '/stock-purchase', '/products', '/promotions', '/money-taken', '/team', '/history',
       // The views of /reports share one route, listed once.
       '/reports', '/daily-report', '/monthly-report',
       '/salaries/employees', '/salaries/operations', '/salaries/history',
@@ -144,12 +157,55 @@ describe('isPrimaryNavItemActive', () => {
 
   it('lights a section item on every one of its tabs', () => {
     for (const path of ['/closing-stock', '/write-offs', '/stock-purchase', '/products', '/promotions']) expect(active(path)).toEqual(['bar']);
-    for (const path of ['/money-taken', '/reserve']) expect(active(path)).toEqual(['moneyTaken']);
+    expect(active('/money-taken')).toEqual(['moneyTaken']);
   });
 
   it('lights nothing on screens that live in the menu', () => {
     expect(active('/financial-analysis')).toEqual([]);
     expect(active('/team')).toEqual([]);
     expect(active('/settings')).toEqual([]);
+    // The reserve has its own sidebar item, so it does not light Owner Profit.
+    expect(active('/reserve')).toEqual([]);
+  });
+});
+
+describe('isSidebarItemActive', () => {
+  // The sidebar's items as an owner sees them, in order.
+  const items: SidebarNavTarget[] = [
+    { href: '/dashboard', feature: 'dashboard' },
+    { href: '/financial-analysis', feature: 'dashboard' },
+    { href: '/assistant', feature: 'assistant' },
+    { href: '/daily-cash', feature: 'daily_cash' },
+    { href: '/closing-stock', feature: 'closing_stock', section: 'bar' },
+    { href: '/reports', feature: 'reports' },
+    { href: '/money-taken', feature: 'owner_profit', section: 'ownerMoney' },
+    { href: RESERVE_PATH, feature: 'team', path: RESERVE_PATH },
+    { href: '/debts', feature: 'debts' },
+    { href: '/salaries', feature: 'salaries' },
+    { href: '/showcase', feature: 'showcase' },
+    { href: '/team', feature: 'team', section: 'team' },
+  ];
+  const lit = (pathname: string) => items.filter((item) => isSidebarItemActive(item, pathname)).map((item) => item.href);
+
+  it('lights only the Reserve item on the reserve, not Owner Profit or Team', () => {
+    expect(lit('/reserve')).toEqual(['/reserve']);
+    expect(lit('/reserve/')).toEqual(['/reserve']);
+    expect(lit('/reserve/anything')).toEqual(['/reserve']);
+    expect(lit('/reserve-old')).toEqual([]);
+  });
+
+  it('lights one item per page', () => {
+    expect(lit('/dashboard')).toEqual(['/dashboard']);
+    expect(lit('/financial-analysis')).toEqual(['/financial-analysis']);
+    expect(lit('/money-taken')).toEqual(['/money-taken']);
+    expect(lit('/daily-report')).toEqual(['/reports']);
+    expect(lit('/write-offs')).toEqual(['/closing-stock']);
+    expect(lit('/salaries/history')).toEqual(['/salaries']);
+    expect(lit('/showcase/games')).toEqual(['/showcase']);
+  });
+
+  it('keeps the owner-only pages outside any section under Team', () => {
+    expect(lit('/history')).toEqual(['/team']);
+    expect(lit('/test-checklist')).toEqual(['/team']);
   });
 });

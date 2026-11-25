@@ -33,9 +33,9 @@ const SECTION_TABS: Record<TabSection, readonly SectionTab[]> = {
     { href: '/products', labelKey: 'products' },
     { href: '/promotions', labelKey: 'promotions' },
   ],
+  // The reserve has a sidebar item of its own (owners only); Owner Profit is one screen.
   ownerMoney: [
     { href: '/money-taken', labelKey: 'moneyTaken' },
-    { href: '/reserve', labelKey: 'reserve' },
   ],
   team: [
     { href: '/team', labelKey: 'team' },
@@ -123,6 +123,43 @@ export function accessibleSectionPaths(role: UserRole, explicitAccess: unknown):
   const paths = (Object.keys(SECTION_TABS) as TabSection[])
     .flatMap((section) => sectionTabs(section, role, explicitAccess).map((tab) => tabPath(tab.href)));
   return Array.from(new Set(paths));
+}
+
+/** The owner reserve: an owner-only screen with a sidebar item of its own, outside any section. */
+export const RESERVE_PATH = '/reserve';
+
+/** What the sidebar needs of an item to tell whether the page being shown is one of its pages. */
+export interface SidebarNavTarget {
+  href: string;
+  feature: FeatureKey;
+  /** The item stands for a whole section and stays lit on all of its tabs. */
+  section?: NavSection;
+  /**
+   * The item stands for one route and its sub-paths rather than for its whole
+   * feature (the reserve shares the owner-only team feature with Team).
+   */
+  path?: string;
+}
+
+/** Whether `pathname` is one of the pages the sidebar item stands for. One item is lit per page. */
+export function isSidebarItemActive(item: SidebarNavTarget, pathname: string): boolean {
+  const normalized = normalizePath(pathname);
+  if (item.path) return underPath(normalized, item.path);
+  const section = sectionForPath(normalized);
+  const feature = featureForPath(normalized);
+  if (item.section) {
+    // Owner-only pages outside any section (the test checklist) sit under Team; the reserve has its own item.
+    return section === item.section
+      || (item.section === 'team' && section === null && feature === 'team' && !underPath(normalized, RESERVE_PATH));
+  }
+  // A page inside a section lights only that section's item.
+  if (section) return false;
+  if (item.href === '/reports') return feature === 'reports' || feature === 'expenses';
+  // Both dashboard-feature routes share a feature; tell them apart by path.
+  const onAnalysis = underPath(normalized, '/financial-analysis');
+  if (item.href === '/financial-analysis') return onAnalysis;
+  if (item.href === DASHBOARD_PATH) return feature === 'dashboard' && !onAnalysis;
+  return feature === item.feature;
 }
 
 /** A destination of the phone bottom bar. `key` is its label in the `nav` messages. */

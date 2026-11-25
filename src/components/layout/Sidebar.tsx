@@ -22,13 +22,21 @@ import {
   ChartPie,
   Gamepad2,
   PanelLeft,
+  PiggyBank,
   Sparkles,
 } from 'lucide-react';
 import type { Club, UserRole } from '@/types';
 import { canAccessFeature, featureForPath, type FeatureKey } from '@/lib/permissions';
 import { Avatar, ClubLogo, Drawer, IconButton, LanguageSwitcher, NativeSelectOverlay } from '@/components/PresentationFoundation';
 import { DASHBOARD_PATH } from '@/lib/routes';
-import { accessibleSectionPaths, sectionForPath, sectionHome, type NavSection } from '@/lib/navigation';
+import {
+  RESERVE_PATH,
+  accessibleSectionPaths,
+  isSidebarItemActive,
+  sectionHome,
+  type NavSection,
+  type SidebarNavTarget,
+} from '@/lib/navigation';
 
 interface SidebarClubOption {
   club: Club;
@@ -53,14 +61,11 @@ interface SidebarProps {
   pendingCount?: number;
 }
 
-interface NavItem {
-  href: string;
+/** A section item opens the section's first tab and stays lit on all of them; a path item stands for one route. */
+interface NavItem extends SidebarNavTarget {
   icon: React.ElementType;
   label: string;
-  feature: FeatureKey;
   badge?: number;
-  /** The item stands for a whole section: it opens the section's first tab and stays lit on all of them. */
-  section?: NavSection;
 }
 
 function NavLink({
@@ -146,8 +151,7 @@ export function Sidebar({
   const pathname = activePathname ?? currentPathname;
   const { signOut, signingOut } = useSignOut();
   const selectedClub = memberships.find((membership) => membership.club.id === selectedClubId)?.club ?? null;
-  // Highlight the section, not just the exact path: /salaries/employees/…,
-  // /daily-report and the money-details pages all belong to a nav item.
+  // The profile link lights on Settings; nav items light through isSidebarItemActive.
   const activeFeature = featureForPath(pathname);
 
   function allowed(feature: FeatureKey) {
@@ -155,7 +159,7 @@ export function Sidebar({
     return feature === 'salaries' || canAccessFeature(role, featureAccess, feature);
   }
 
-  // A section's screens (bar, owner money, team) share one item; tabs beside
+  // A section's screens (bar, team) share one item; tabs beside
   // the page title switch between them. The item leads to the first screen
   // this member can open and is hidden when there is none.
   const sectionItem = (section: NavSection, icon: React.ElementType, label: string, feature: FeatureKey, badge?: number): NavItem[] => {
@@ -185,8 +189,9 @@ export function Sidebar({
       label: t('groupMoney'),
       items: [
         { href: '/reports', icon: BarChart3, label: t('reports'), feature: 'reports' },
-        // Owner profit and, for owners, the reserve.
         ...sectionItem('ownerMoney', CircleDollarSign, t('moneyTaken'), 'owner_profit'),
+        // The owner reserve has its own item; it is owner-only through the team feature, as /reserve is.
+        { href: RESERVE_PATH, icon: PiggyBank, label: t('reserve'), feature: 'team', path: RESERVE_PATH },
         { href: '/debts', icon: Users, label: t('debts'), feature: 'debts' },
         { href: '/salaries', icon: HandCoins, label: t('salaries'), feature: 'salaries' },
       ],
@@ -231,21 +236,9 @@ export function Sidebar({
     }
   }, [mobileOpen, navHrefKey, router]);
 
-  function isActive(item: NavItem) {
-    const section = sectionForPath(pathname);
-    if (item.section) {
-      // Owner-only pages outside any section (the test checklist) sit under Team.
-      return section === item.section || (item.section === 'team' && section === null && activeFeature === 'team');
-    }
-    // A page inside a section lights only that section's item.
-    if (section) return false;
-    if (item.href === '/reports') return activeFeature === 'reports' || activeFeature === 'expenses';
-    // Both dashboard-feature routes share a feature; tell them apart by path.
-    const onAnalysis = pathname === '/financial-analysis' || pathname.startsWith('/financial-analysis/');
-    if (item.href === '/financial-analysis') return onAnalysis;
-    if (item.href === DASHBOARD_PATH) return activeFeature === 'dashboard' && !onAnalysis;
-    return activeFeature === item.feature;
-  }
+  // Highlight the section, not just the exact path: /salaries/employees/…,
+  // /daily-report and the money-details pages all belong to a nav item.
+  const isActive = (item: NavItem) => isSidebarItemActive(item, pathname);
 
   const profile = (
     <>

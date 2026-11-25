@@ -68,8 +68,10 @@ changes in both places.
 
 Screens that belong together share one sidebar item and are joined by tabs
 beside the page title (`src/lib/navigation.ts`, `SectionTabs`): **Bar**
-(closing stock, stock purchase, products, promotions), **Owner Profit** (owner
-profit, reserve) and **Team** (team, edit history). Every tab is still its own
+(closing stock, write-offs, stock purchase, products, promotions) and **Team**
+(team, edit history). **Owner Profit** is a section of one screen, and the
+owner reserve has a sidebar item of its own right after it (owners only,
+lit by `isSidebarItemActive` on `/reserve` alone). Every tab is still its own
 route with its own page title and feature gate; the sidebar item opens the
 first tab the member can open and is hidden when there is none, and a member
 with a single tab sees no tabs. Add a screen to a section in

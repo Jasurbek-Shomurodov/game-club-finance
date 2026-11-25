@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDownToLine, CalendarArrowUp, ChevronRight, HandCoins, Layers, PackageMinus, PiggyBank, TriangleAlert, TrendingUp, Undo2, Wallet, type LucideIcon } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
-import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import {
@@ -164,7 +163,6 @@ function withdrawnShare(withdrawn: number, earned: number) {
 }
 
 export default function MoneyTakenPage() {
-  const sectionTabs = useSectionTabs('ownerMoney');
   const t = useTranslations('moneyTaken');
   const tc = useTranslations('common');
   const { locale } = useAppLocale();
@@ -987,7 +985,6 @@ export default function MoneyTakenPage() {
     <div className="space-y-5">
       <PageHeader
         title={t('title')}
-        tabs={sectionTabs}
         action={(
           <Field label={t('month')} className="sm:w-64">
             <MonthPicker value={form.month} max={currentMonth} onChange={(value) => setField('month', value)} />

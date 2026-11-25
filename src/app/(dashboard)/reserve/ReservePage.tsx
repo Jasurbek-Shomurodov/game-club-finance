@@ -8,7 +8,6 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { ArrowDownToLine, ArrowUpFromLine, ArrowRightLeft, Banknote, CalendarRange, DollarSign, PiggyBank, ShoppingCart, Undo2, X } from 'lucide-react';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
-import { useSectionTabs } from '@/components/layout/SectionTabs';
 import { useClub } from '@/components/layout/DashboardShell';
 import { ChartCard, ChartEmpty, categoricalColors, chartColors } from '@/components/dashboard/ChartCard';
 import { DonutSkeleton } from '@/components/charts/ChartSkeletons';
@@ -85,7 +84,6 @@ const FILTER_KINDS: readonly ReserveActivity['kind'][] = ['deposit', 'return', '
 const ALL_HISTORY: ReserveHistoryFilter = { kind: 'all' };
 
 export default function ReservePage() {
-  const sectionTabs = useSectionTabs('ownerMoney');
   const t = useTranslations('reservePage');
   const tr = useTranslations('ownerReserve');
   const tm = useTranslations('moneyTaken');
@@ -270,7 +268,6 @@ export default function ReservePage() {
     <PageHeader
       title={t('title')}
       className="mb-0"
-      tabs={sectionTabs}
       action={(
         <>
           {/* Game Club money from the till, by method; Owner Profit keeps its own month-based form. */}

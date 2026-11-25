@@ -19,7 +19,7 @@ of the owner's day.
 | Every day | What do I record today? | `/daily-cash` | Daily cash |
 | Bar | What is in stock, what moved, what went missing? | `/closing-stock`, `/write-offs`, `/stock-purchase`, `/products`, `/promotions` | Bar (tabs) |
 | Money | Where is the money and who holds it? | `/reports` (closeout, collected, write-offs), `/daily-report`, `/monthly-report`, `/debts` | Reports, Debts |
-| Owner | What can I take, what have I set aside? | `/money-taken`, `/reserve` | Owner Profit (tabs) |
+| Owner | What can I take, what have I set aside? | `/money-taken`, `/reserve` | Owner Profit, Reserve (owners) |
 | People | Who is owed what? | `/salaries/*` | Salaries |
 | Manage | Who can do what, what does the public see? | `/showcase/*`, `/team`, `/history`, `/settings` | Public page, Team |
 
