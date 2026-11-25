@@ -34,4 +34,12 @@ describe('tappable cards', () => {
     expect(html).toMatch(/^<a [^>]*href="\/bar-money-details/);
     expect(html).toContain('1');
   });
+
+  it('shows an unknown amount as a muted dash, never as 0', () => {
+    const html = render(<AmountCard label="In the reserve" amount={null} icon={PackageMinus} sparkline={[1, 2, 3]} />);
+    expect(html).toContain('—');
+    expect(html).toContain('text-gray-500');
+    expect(html).not.toContain('opacity="0.12"');
+    expect(html).not.toMatch(/>0</);
+  });
 });

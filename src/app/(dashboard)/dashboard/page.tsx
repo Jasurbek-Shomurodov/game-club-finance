@@ -1,6 +1,6 @@
 import DashboardPage from './DashboardPage';
 import { Suspense } from 'react';
-import { DashboardSkeleton } from './DashboardSkeleton';
+import { DashboardRouteSkeleton } from './DashboardRouteSkeleton';
 import type { ClubMembership } from '@/types';
 import { normalizeBusinessDayStartHour, serverTodayIso } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/server';
@@ -21,7 +21,7 @@ function selectedMembership(
 
 export default function DashboardRoute() {
   return (
-    <Suspense fallback={<DashboardSkeleton />}>
+    <Suspense fallback={<DashboardRouteSkeleton />}>
       <DashboardSnapshotRoute />
     </Suspense>
   );

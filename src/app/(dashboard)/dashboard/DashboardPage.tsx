@@ -7,6 +7,7 @@ import {
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
+  PiggyBank,
 } from 'lucide-react';
 import { SIDE_ICONS } from '@/components/sideIcons';
 import { useTranslations } from 'next-intl';
@@ -16,7 +17,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { cn } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
-import { capitalizeFirst, formatDateShort, formatYearMonth } from '@/lib/formatters';
+import { capitalizeFirst, formatDateShort, formatDollars, formatYearMonth } from '@/lib/formatters';
 import { useClub } from '@/components/layout/DashboardShell';
 import {
   AmountCard,
@@ -53,6 +54,9 @@ import {
   type DashboardSnapshotPayload,
 } from '@/lib/calculations/dashboardSnapshot';
 import { fetchDashboardSnapshot, fetchDashboardSnapshotFromTables } from '@/lib/supabase/dashboardSnapshot';
+import { EMPTY_OWNER_RESERVE, fetchOwnerReserve } from '@/lib/supabase/ownerMoney';
+import { reserveHoldingsOn, reserveMonthMoves } from '@/lib/calculations/ownerReserve';
+import { useClubQuery } from '@/lib/useClubQuery';
 import {
   markPerformanceRpcAvailable,
   markPerformanceRpcMissing,
@@ -62,7 +66,7 @@ import { closingStockHref, dailyReportHref, financialAnalysisHref, moneyDetailsH
 import { expenseTotalsByCategory, periodProgress, valuesByDate } from '@/lib/calculations/insights';
 import { SideGlanceCard, SideGlanceCardSkeleton } from '@/components/dashboard/SideGlanceCard';
 import { chartColors } from '@/components/dashboard/ChartCard';
-import { FlowCardSkeleton, HEADLINE_GRID_CLASS, TrendChartSkeleton } from './DashboardSkeleton';
+import { FlowCardSkeleton, HEADLINE_GRID_CLASS, HEADLINE_GRID_FOUR_CLASS, TrendChartSkeleton } from './DashboardSkeleton';
 
 function ChartLoading() {
   return <TrendChartSkeleton />;
@@ -236,6 +240,25 @@ export default function DashboardPage({
     void fetchDashboard();
   }, [fetchDashboard]);
 
+  // The reserve is the owner's (/reserve): read only for those who can open it, and on its
+  // own, so a slow or failed read never holds up the rest of the page. Strict, like the
+  // Telegram report: a partial read would overstate it, so the figure is right or absent.
+  const canSeeReserve = canAccessPath(role, featureAccess, '/reserve');
+  const loadReserve = useCallback(
+    (isCurrent: () => boolean) => fetchOwnerReserve(createClient(), selectedClubId, businessToday, isCurrent, { strict: true }),
+    [businessToday, selectedClubId],
+  );
+  const reserveQuery = useClubQuery(Boolean(selectedClubId) && canSeeReserve ? loadReserve : null, EMPTY_OWNER_RESERVE);
+  // Today in the running month; a past month ends with its last day, so later moves never show in it.
+  const reserveDate = isCurrentMonth ? businessToday : range.to;
+  const reserveData = reserveQuery.data;
+  const reserveKnown = !reserveQuery.error && reserveData.reserveSupported;
+  const reserveHoldings = useMemo(() => reserveHoldingsOn(reserveData, reserveDate), [reserveData, reserveDate]);
+  const reserveMoves = useMemo(
+    () => reserveMonthMoves(reserveData.reserveEntries, reserveData.reserveExpenses, month, reserveDate),
+    [reserveData, month, reserveDate],
+  );
+
   useEffect(() => {
     if (loading || renderCharts) return;
     const anchor = chartsAnchorRef.current;
@@ -326,7 +349,16 @@ export default function DashboardPage({
   const gameClubDetailsHref = canOpenGameClubDetails ? moneyDetailsHref('game_club', range) : undefined;
   const barDetailsHref = canOpenBarDetails ? moneyDetailsHref('bar', range) : undefined;
   const periodLabel = `${formatDateShort(range.from, locale)} – ${formatDateShort(range.to, locale)}`;
-  const barProfitComparison = comparisonFor(totals.barProfit, previousTotals.barProfit);
+  // The dollars stay dollars: they are not counted into the sums above them.
+  const reserveNotes = reserveKnown ? [
+    reserveHoldings.usd > 0 ? t('reserveDollars', { amount: formatDollars(reserveHoldings.usd) }) : null,
+    reserveMoves.in > 0 || reserveMoves.out > 0
+      ? t(isCurrentMonth ? 'reserveMovesThisMonth' : 'reserveMovesThatMonth', {
+        in: `${formatCurrency(reserveMoves.in)} ${currency}`,
+        out: `${formatCurrency(reserveMoves.out)} ${currency}`,
+      })
+      : null,
+  ].filter((note): note is string => note !== null) : [];
   const inventoryHelper = data.hasInventoryComparisonData
     ? `${isCurrentMonth ? t('lastMonthInventoryValue') : t('previousMonthInventoryValue')}: ${formatCurrency(data.inventoryComparisonValue)} ${currency}`
     : isCurrentMonth ? t('lowStockAlertsCount', { count: data.lowStockCount }) : '';
@@ -388,7 +420,7 @@ export default function DashboardPage({
       {!error && (
         <>
           {/* Headline numbers: the figures an owner checks first. */}
-          <div className={HEADLINE_GRID_CLASS}>
+          <div className={canSeeReserve ? HEADLINE_GRID_CLASS : HEADLINE_GRID_FOUR_CLASS}>
             <AmountCard
               loading={loading}
               currency={currency}
@@ -442,18 +474,19 @@ export default function DashboardPage({
               comparison={comparisonFor(totals.gameClubProfit, previousTotals.gameClubProfit)}
               helper={`${t('gameClubPaidExpenses')}: ${formatCurrency(totals.gameClubExpenses)} ${currency}`}
             />
-            <AmountCard
-              loading={loading}
-              currency={currency}
-              label={t('barNetProfit')}
-              href={barDetailsHref}
-              amount={totals.barProfit}
-              icon={totals.barProfit < 0 ? ArrowDownRight : ArrowUpRight}
-              accent="bar"
-              tone={toneForAmount(totals.barProfit)}
-              comparison={barProfitComparison}
-              helper={t('barNetProfitDesc')}
-            />
+            {/* The reserve's balance, as a link to its own page; the bar's profit is in its glance card below. */}
+            {canSeeReserve && (
+              <AmountCard
+                loading={reserveQuery.loading}
+                currency={currency}
+                label={isCurrentMonth ? t('reserveNow') : t('reserveOn', { date: formatDateShort(range.to, locale) })}
+                href={pathIfAllowed('/reserve')}
+                amount={reserveKnown ? reserveHoldings.sums : null}
+                icon={PiggyBank}
+                accent="reserve"
+                helper={reserveNotes.length > 0 ? reserveNotes.map((note) => <span key={note} className="block">{note}</span>) : undefined}
+              />
+            )}
           </div>
 
           {/* The month at a glance: each side on its own, never added together. */}

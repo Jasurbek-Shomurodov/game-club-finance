@@ -132,7 +132,8 @@ export function MetricCard({
 
 export interface AmountCardProps extends TappableCardProps {
   label: string;
-  amount: number;
+  /** Null when the figure is unknown (a failed read): a muted dash, never a false 0. */
+  amount: number | null;
   icon: ElementType;
   /** Kept for call-site compatibility; the icon is now drawn inline in a muted tone. */
   iconBgClassName?: string;
@@ -144,7 +145,8 @@ export interface AmountCardProps extends TappableCardProps {
   /** Spending-style cards set 'down' so a rise is shown in red. */
   comparisonGoodWhen?: 'up' | 'down';
   subMetric?: { label: string; amount: number | null; unavailableLabel?: string };
-  helper?: string;
+  /** Phrasing content only (it sits in a `<p>`); separate lines as block spans. */
+  helper?: ReactNode;
   /** The amount day by day, drawn as a small trend line beside it; needs at least two values. */
   sparkline?: readonly number[];
   loading?: boolean;
@@ -194,10 +196,10 @@ export function AmountCard({
         </div>
       ) : (
         <div className="mt-2 flex items-end justify-between gap-3">
-          <p className={cn('min-w-0', metricValueClassName, metricToneClassName[tone])}>
-            <MetricMoney amount={amount} currency={currency} />
+          <p className={cn('min-w-0', metricValueClassName, metricToneClassName[amount === null ? 'muted' : tone])}>
+            {amount === null ? '—' : <MetricMoney amount={amount} currency={currency} />}
           </p>
-          {sparkline && <Sparkline values={sparkline} className={cn('mb-1 max-[380px]:hidden', metricToneClassName[tone])} />}
+          {sparkline && amount !== null && <Sparkline values={sparkline} className={cn('mb-1 max-[380px]:hidden', metricToneClassName[tone])} />}
         </div>
       )}
       {!loading && comparison ? (

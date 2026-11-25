@@ -45,7 +45,10 @@ test('DASH-001 the dashboard headline figures equal the fixture arithmetic', asy
   await expectDashboardAmount(page, 'Bar Sales', expected.barSales);
   // Accounting profit and cash left are different numbers: bar money left deducts the purchase, not the cost of goods.
   await expectDashboardAmount(page, 'Bar Money Left', expected.barSales - expected.stockPurchaseCost);
-  await expectDashboardAmount(page, 'Bar Net Profit', expected.barNetProfit);
+  // The last headline tile is the reserve's balance, a link to its page; the bar's profit lives in its glance card.
+  await expectDashboardAmount(page, 'In the reserve', 0);
+  await expect(page.locator('#main-content a[href="/reserve"]')).toHaveCount(1);
+  expect(await pageText(page)).not.toContain('Bar Net Profit');
 });
 
 test('INC-001 XAPP-001 editing the day\'s cash entry moves every game club total once', async ({ page }) => {
@@ -658,6 +661,11 @@ test('OWN-008 profit put into the reserve leaves the month, and a purchase paid 
   const history = page.getByRole('list', { name: 'Reserve history' });
   await expect(history).toContainText('Paid from reserve');
   await expect(history).toContainText(uzs(300_000));
+
+  // The dashboard shows what is left in the reserve and the month's moves in and out of it.
+  await open(page, 'Dashboard');
+  await expectDashboardAmount(page, 'In the reserve', 500_000 + 48_000 - 300_000);
+  await expect.poll(() => pageText(page)).toContain(`+${uzs(548_000)} UZS in · −${uzs(300_000)} UZS out this month`);
 });
 
 test('SAL-007 an employee\'s history is its own page, and every salary tab has its own address', async ({ page, context }) => {
@@ -968,6 +976,8 @@ test.describe('as a viewer', () => {
     await page.goto('/stock-purchase');
     await expect(page.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeVisible();
     await expect(page).not.toHaveURL(/stock-purchase/);
+    // The reserve is the owner's: its dashboard tile is not there for a viewer.
+    await expect(page.locator('#main-content').getByText('In the reserve', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('navigation').getByRole('link', { name: 'Daily Cash', exact: true })).toHaveCount(0);
     // Of the Bar section a viewer has the catalog only: the item opens it, with no tabs to the write pages.
     await open(page, 'Bar', 'Products');

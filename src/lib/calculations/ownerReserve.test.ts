@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyOwnerReserve, dollarReserveEntries, reserveActivity, groupReserveActivityByDay, reserveMonthlySeries, reserveDailySeries, reserveBalances, reserveForMonth, planGameClubDepositAll, reserveHoldingsOn, withReservePurchaseDollars, type ReservePaidExpense } from './ownerReserve';
+import { applyOwnerReserve, dollarReserveEntries, reserveActivity, groupReserveActivityByDay, reserveMonthlySeries, reserveDailySeries, reserveBalances, reserveForMonth, planGameClubDepositAll, reserveHoldingsOn, reserveMonthMoves, withReservePurchaseDollars, type ReservePaidExpense } from './ownerReserve';
 import { sumAvailableMoneyResults, type AvailableMoneyByMonth } from './availableMoney';
 import type { OwnerReserveEntry } from '@/types';
 
@@ -344,5 +344,66 @@ describe('reserveHoldingsOn', () => {
     expect(reserveHoldingsOn(reserve, '2026-11-03')).toEqual({ sums: 3_100_000, usd: 100 });
     // Before the October deposit, the return and the dollars (all 10-31).
     expect(reserveHoldingsOn(reserve, '2026-10-30')).toEqual({ sums: 1_300_000, usd: 0 });
+  });
+});
+
+describe('reserveMonthMoves', () => {
+  it('sums what went in and out of the sums in the month, by the day the money moved', () => {
+    // October: the 2 000 000 deposit in, the 200 000 return out; September's moves stay in September.
+    expect(reserveMonthMoves(entries, purchases, '2026-10', '2026-10-31')).toEqual({ in: 2_000_000, out: 200_000 });
+    expect(reserveMonthMoves(entries, purchases, '2026-09', '2026-09-30')).toEqual({ in: 1_300_000, out: 0 });
+    // A purchase is money out of the reserve.
+    expect(reserveMonthMoves(entries, purchases, '2026-11', '2026-11-30')).toEqual({ in: 0, out: 2_500_000 });
+  });
+
+  it('leaves out what moved after the day', () => {
+    expect(reserveMonthMoves(entries, purchases, '2026-11', '2026-11-04')).toEqual({ in: 0, out: 0 });
+  });
+
+  // November: dollars bought from the till straight into the USD account, rent paid from it, a Bar purchase,
+  // and dollars bought then partly sold inside the reserve.
+  const tillBuy = { id: 'till', date: '2026-11-02', from_method: 'cash' as const, to_method: 'usd' as const, from_amount: 1_200_000, to_amount: 100, rate: 12_000 };
+  const innerBuy = { id: 'buy', date: '2026-11-06', from_method: 'cash' as const, to_method: 'usd' as const, from_amount: 600_000, to_amount: 50, rate: 12_000 };
+  const innerSell = { id: 'sell', date: '2026-11-08', from_method: 'usd' as const, to_method: 'cash' as const, from_amount: 20, to_amount: 250_000, rate: 12_500 };
+  const exchanges = [tillBuy, innerBuy, innerSell];
+  const novemberEntries = [
+    ...entries,
+    // The sums halves of the exchanges inside the reserve (170).
+    entry('buy-sums', { kind: 'return', period_month: '2026-11-01', entry_date: '2026-11-06', amount: 600_000, paired_exchange_id: 'buy', created_at: '2026-11-06T09:00:00Z' }),
+    entry('sell-sums', { kind: 'deposit', period_month: '2026-11-01', entry_date: '2026-11-08', amount: 250_000, paired_exchange_id: 'sell', created_at: '2026-11-08T09:00:00Z' }),
+    ...dollarReserveEntries(exchanges, 'club'),
+  ];
+  const novemberPurchases = [
+    ...purchases,
+    purchase('rent', { date: '2026-11-04', amount: 240_000, payment_method: 'usd', category: 'rent' }),
+    purchase('snacks', { date: '2026-11-07', amount: 90_000, payment_source: 'bar', payment_method: 'cash' }),
+  ];
+  const reserve = {
+    reserveEntries: novemberEntries,
+    reserveExpenses: novemberPurchases,
+    exchangeRows: exchanges,
+    dollarExpenses: [{ id: 'rent', date: '2026-11-04', amount: 240_000, payment_method: 'usd' as const, usd_amount: 20, usd_rate: 12_000 }],
+  };
+
+  it('leaves the USD account out: dollars bought from the till and a purchase paid in dollars move no sums', () => {
+    const onlyDollars = [...entries, ...dollarReserveEntries([tillBuy], 'club')];
+    const rent = [purchase('rent', { date: '2026-11-04', amount: 240_000, payment_method: 'usd' })];
+    expect(reserveMonthMoves(onlyDollars, rent, '2026-11', '2026-11-30')).toEqual({ in: 0, out: 0 });
+  });
+
+  it('counts the sums paid for dollars inside the reserve as out and the sums a sale brings as in', () => {
+    // In: the 250 000 the sale brought. Out: the 2 500 000 PCs, the 600 000 paid for dollars, the 90 000 Bar purchase.
+    expect(reserveMonthMoves(novemberEntries, novemberPurchases, '2026-11', '2026-11-30')).toEqual({ in: 250_000, out: 3_190_000 });
+  });
+
+  it('reconciles: the sums the month opened with, plus in, minus out, are the sums it ends with', () => {
+    for (const through of ['2026-11-03', '2026-11-06', '2026-11-07', '2026-11-30']) {
+      const opening = reserveHoldingsOn(reserve, '2026-10-31').sums;
+      const closing = reserveHoldingsOn(reserve, through).sums;
+      const moves = reserveMonthMoves(reserve.reserveEntries, reserve.reserveExpenses, '2026-11', through);
+      expect(opening + moves.in - moves.out).toBe(closing);
+    }
+    const october = reserveMonthMoves(reserve.reserveEntries, reserve.reserveExpenses, '2026-10', '2026-10-31');
+    expect(reserveHoldingsOn(reserve, '2026-09-30').sums + october.in - october.out).toBe(reserveHoldingsOn(reserve, '2026-10-31').sums);
   });
 });

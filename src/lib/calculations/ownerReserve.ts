@@ -492,6 +492,38 @@ export function reserveFlowTotals(activity: readonly ReserveActivity[]): Reserve
 }
 
 /**
+ * What moved into and out of the reserve's sums (its UZS account, 155) in one
+ * YYYY-MM month, through `throughDate`, counted the way `reserveHoldingsOn`
+ * counts the sums, so the sums at the end of the month before + in - out =
+ * the sums on `throughDate`. Its USD account stays apart: dollars bought or
+ * sold from the till and Game Club purchases paid in dollars are not sums
+ * moves. Dollars bought inside the reserve (170) are: the sums paid for them
+ * leave the sums (out), and the sums a sale brings in arrive (in).
+ * Deposits and returns are dated by the day the money moved.
+ */
+export function reserveMonthMoves(
+  entries: readonly ReserveLedgerEntry[],
+  expenses: readonly ReservePaidExpense[],
+  month: string,
+  throughDate: string,
+): { in: number; out: number } {
+  const inMonth = (date: string) => date.slice(0, 7) === month && date <= throughDate;
+  const moves = { in: 0, out: 0 };
+  for (const entry of entries) {
+    // The USD account's half: an exchange through dollars (143), as reserveSumsHeld leaves it out.
+    if (entry.source === 'game_club' && entry.payment_method === 'usd') continue;
+    if (!inMonth(reserveEntryDate(entry))) continue;
+    moves[entry.kind === 'deposit' ? 'in' : 'out'] += Number(entry.amount);
+  }
+  for (const expense of expenses) {
+    // Paid from the USD account: its dollars, not the sums. Bar-side purchases always draw on the sums.
+    if (reserveExpenseMethod(expense.payment_source, expense.payment_method) === 'usd') continue;
+    if (inMonth(expense.date)) moves.out += Number(expense.amount);
+  }
+  return moves;
+}
+
+/**
  * Sums the reserve can turn into dollars through each Game Club method, as
  * exchange_owner_reserve limits a buy (170): what that method saved minus what
  * went back from it, never above the sums the reserve holds.
