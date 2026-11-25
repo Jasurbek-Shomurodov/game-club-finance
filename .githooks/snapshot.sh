@@ -16,8 +16,14 @@ snapshot_index() {
   link_node_modules
 }
 
-# The files of one commit.
+# The files of one commit, for the browser suite's production build. Turbopack
+# cannot resolve `next` through a node_modules symlink that points outside the
+# project, so node_modules is cloned instead (copy-on-write on APFS, ~10 s, no
+# extra disk); where cloning is unavailable it falls back to the symlink.
 snapshot_commit() {
   git archive "$1" | tar -x -C "$SNAPSHOT"
-  link_node_modules
+  cp -cR "$repo/node_modules" "$SNAPSHOT/node_modules" 2>/dev/null || {
+    rm -rf "$SNAPSHOT/node_modules"
+    link_node_modules
+  }
 }
