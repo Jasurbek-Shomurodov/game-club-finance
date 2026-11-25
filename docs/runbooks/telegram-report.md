@@ -334,6 +334,16 @@ Reuse the same `requestId` when retrying the same intended resend; it returns
 the stored delivery rather than sending again. Generate a new UUID only when a
 new Telegram message is explicitly intended.
 
+A forced resend carries only the "AI bot" image of its own report: the club's
+digest dated the Tashkent day of that report's scheduled run
+(`dailyReportRunDateIso`: the business date + 1, or + 2 for a club whose day
+starts after 08:00; `loadReviewDigestPhotoForReport`). If that
+digest is still waiting, it is sent and completed as the scheduled send would;
+if it was already sent, it rides in the album again and its row moves to the
+new message (`recordReviewDigestResend`), never waiting again, and a failed
+resend of it is only logged. A waiting digest of any other date is left for
+its own report. Dry runs attach nothing.
+
 ## Verification
 
 Relevant coverage includes:

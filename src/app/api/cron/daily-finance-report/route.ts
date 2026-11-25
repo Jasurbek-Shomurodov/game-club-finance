@@ -20,9 +20,13 @@ import {
   type TelegramSendAttempt,
   type TelegramSendResult,
 } from '@/lib/telegram/sendDailyFinanceReport';
-import { loadAwaitingReviewDigestPhoto, type ReviewDigestPhoto } from '@/lib/googleBusiness/reviewDigestPhoto';
+import {
+  loadAwaitingReviewDigestPhoto,
+  loadReviewDigestPhotoForReport,
+  type ReviewDigestPhoto,
+} from '@/lib/googleBusiness/reviewDigestPhoto';
 import { deliverActivityNotices, expireActivityNotices } from '@/lib/telegram/activityDelivery';
-import { completeReviewDigest } from '@/lib/googleBusiness/reviewDigestRows';
+import { completeReviewDigest, recordReviewDigestResend } from '@/lib/googleBusiness/reviewDigestRows';
 import {
   beginReportDispatch,
   claimReportDelivery,
@@ -553,10 +557,21 @@ export async function GET(request: NextRequest) {
       }
 
       // The Google Maps "AI bot" image the morning review run left for this
-      // report (migration 173). Best-effort: the report never waits on it.
+      // report (migration 173). A forced resend carries only the digest of its
+      // own report (dated that report's scheduled run day), waiting or already
+      // sent; a waiting digest of another date is left for its own report.
+      // Best-effort: the report never waits on it.
       let reviewDigest: ReviewDigestPhoto | null = null;
+      let reviewDigestResent = false;
       try {
-        reviewDigest = await loadAwaitingReviewDigestPhoto(supabase, target.clubId);
+        if (force === '1') {
+          const startHour = await getClubBusinessDayStartHour(supabase, target.clubId);
+          const dated = await loadReviewDigestPhotoForReport(supabase, target.clubId, businessDate, startHour);
+          reviewDigest = dated;
+          reviewDigestResent = dated !== null && !dated.awaitingReport;
+        } else {
+          reviewDigest = await loadAwaitingReviewDigestPhoto(supabase, target.clubId);
+        }
       } catch (error) {
         logDeliveryEvent('error', 'telegram_report_review_digest_failed', {
           businessDate,
@@ -718,7 +733,9 @@ export async function GET(request: NextRequest) {
           }
         }
         // The AI bot image rode in the album; after a text-only report it
-        // follows on its own. Either way the digest stops waiting.
+        // follows on its own. Either way the digest stops waiting. A resent
+        // digest only moves to the new message; a failed resend is logged and
+        // leaves the earlier send's record alone.
         let reviewDigestSent = false;
         if (reviewDigest) {
           let digestResult: { messageId: number | null } | { error: string } = { messageId: telegram.result.message_id };
@@ -740,7 +757,19 @@ export async function GET(request: NextRequest) {
           }
           reviewDigestSent = !('error' in digestResult);
           try {
-            await completeReviewDigest(supabase, target.clubId, reviewDigest.digestDate, digestResult);
+            if (!reviewDigestResent) {
+              await completeReviewDigest(supabase, target.clubId, reviewDigest.digestDate, digestResult);
+            } else if ('error' in digestResult) {
+              logDeliveryEvent('error', 'telegram_report_review_digest_failed', {
+                businessDate,
+                target: target.key,
+                deliveryId: claim.deliveryId,
+                stage: 'resend',
+                error: digestResult.error,
+              });
+            } else {
+              await recordReviewDigestResend(supabase, target.clubId, reviewDigest.digestDate, digestResult.messageId);
+            }
           } catch (error) {
             logDeliveryEvent('error', 'telegram_report_review_digest_failed', {
               businessDate,

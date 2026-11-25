@@ -12,7 +12,9 @@ const mocks = vi.hoisted(() => ({
   beginDispatch: vi.fn(),
   completeDelivery: vi.fn(),
   loadReviewDigest: vi.fn(),
+  loadReviewDigestForReport: vi.fn(),
   completeReviewDigest: vi.fn(),
+  recordReviewDigestResend: vi.fn(),
   deliverActivity: vi.fn(),
   expireActivity: vi.fn(),
 }));
@@ -24,10 +26,12 @@ vi.mock('@/lib/telegram/activityDelivery', () => ({
 
 vi.mock('@/lib/googleBusiness/reviewDigestPhoto', () => ({
   loadAwaitingReviewDigestPhoto: mocks.loadReviewDigest,
+  loadReviewDigestPhotoForReport: mocks.loadReviewDigestForReport,
 }));
 
 vi.mock('@/lib/googleBusiness/reviewDigestRows', () => ({
   completeReviewDigest: mocks.completeReviewDigest,
+  recordReviewDigestResend: mocks.recordReviewDigestResend,
 }));
 
 vi.mock('@/lib/supabase/service', () => ({
@@ -118,7 +122,9 @@ describe('daily finance report cron route', () => {
     mocks.beginDispatch.mockResolvedValue(undefined);
     mocks.completeDelivery.mockResolvedValue(undefined);
     mocks.loadReviewDigest.mockResolvedValue(null);
+    mocks.loadReviewDigestForReport.mockResolvedValue(null);
     mocks.completeReviewDigest.mockResolvedValue(undefined);
+    mocks.recordReviewDigestResend.mockResolvedValue(undefined);
     mocks.deliverActivity.mockResolvedValue({ claimed: 0, sent: 0, failed: 0, unrouted: 0, released: 0 });
     mocks.expireActivity.mockResolvedValue(0);
     mocks.buildReport.mockResolvedValue({
@@ -558,6 +564,122 @@ describe('daily finance report cron route', () => {
     expect(payload.sent[0]).toMatchObject({ format: 'text', reviewDigestSent: true });
     expect(mocks.sendTelegramPhoto).toHaveBeenCalledWith(expect.objectContaining({ imageFileName: 'reviews.png', caption: 'reviews caption' }));
     expect(mocks.completeReviewDigest).toHaveBeenCalledWith(expect.anything(), CLUB_ID, '2026-08-27', { messageId: 51 });
+  });
+
+  describe('AI bot image on a forced resend', () => {
+    const FORCED = '?date=2026-08-26&target=pixel&force=1&requestId=40c05af5-5a59-45ae-a891-19a18228a721';
+    const DATED = {
+      digestDate: '2026-08-27',
+      png: Buffer.from('reviews'),
+      fileName: 'google-reviews-2026-08-27.png',
+      caption: 'reviews caption',
+      reportLine: '🤖 ИИ-бот: ответов на отзывы Google Maps: 2',
+      awaitingReport: false,
+    };
+
+    it('carries the already-sent digest of the business date + 1 and moves it to the new album', async () => {
+      mocks.loadReviewDigestForReport.mockResolvedValue(DATED);
+      const payload = await (await GET(cronRequest(FORCED))).json();
+
+      expect(payload.sent[0]).toMatchObject({ status: 'sent', reviewDigestSent: true });
+      expect(mocks.loadReviewDigestForReport).toHaveBeenCalledWith(expect.anything(), CLUB_ID, '2026-08-26', 0);
+      expect(mocks.sendTelegramPhotoAlbum).toHaveBeenCalledWith(expect.objectContaining({
+        caption: 'caption\n🤖 ИИ-бот: ответов на отзывы Google Maps: 2',
+        photos: [
+          { png: Buffer.from('png'), fileName: 'report.png' },
+          { png: Buffer.from('reviews'), fileName: 'google-reviews-2026-08-27.png' },
+        ],
+      }));
+      expect(mocks.recordReviewDigestResend).toHaveBeenCalledWith(expect.anything(), CLUB_ID, '2026-08-27', 51);
+      expect(mocks.completeReviewDigest).not.toHaveBeenCalled();
+      expect(mocks.loadReviewDigest).not.toHaveBeenCalled();
+    });
+
+    it('completes its own dated digest when it is still waiting, as a scheduled send would', async () => {
+      mocks.loadReviewDigestForReport.mockResolvedValue({ ...DATED, awaitingReport: true });
+      const payload = await (await GET(cronRequest(FORCED))).json();
+
+      expect(payload.sent[0]).toMatchObject({ status: 'sent', reviewDigestSent: true });
+      expect(mocks.sendTelegramPhotoAlbum).toHaveBeenCalledOnce();
+      expect(mocks.completeReviewDigest).toHaveBeenCalledWith(expect.anything(), CLUB_ID, '2026-08-27', { messageId: 51 });
+      expect(mocks.recordReviewDigestResend).not.toHaveBeenCalled();
+    });
+
+    it('leaves a newer waiting digest alone when resending an older date', async () => {
+      mocks.loadReviewDigest.mockResolvedValue({
+        ...DATED, digestDate: '2026-08-30', fileName: 'google-reviews-2026-08-30.png', reportLine: 'newer line',
+      });
+      mocks.loadReviewDigestForReport.mockResolvedValue(DATED);
+      await GET(cronRequest(FORCED));
+
+      expect(mocks.loadReviewDigest).not.toHaveBeenCalled();
+      expect(mocks.sendTelegramPhotoAlbum).toHaveBeenCalledWith(expect.objectContaining({
+        caption: 'caption\n🤖 ИИ-бот: ответов на отзывы Google Maps: 2',
+        photos: [
+          { png: Buffer.from('png'), fileName: 'report.png' },
+          { png: Buffer.from('reviews'), fileName: 'google-reviews-2026-08-27.png' },
+        ],
+      }));
+      expect(mocks.recordReviewDigestResend).toHaveBeenCalledWith(expect.anything(), CLUB_ID, '2026-08-27', 51);
+      expect(mocks.completeReviewDigest).not.toHaveBeenCalled();
+    });
+
+    it('sends no AI bot image when its own date has no digest', async () => {
+      mocks.loadReviewDigest.mockResolvedValue({ ...DATED, digestDate: '2026-08-30' });
+      const payload = await (await GET(cronRequest(FORCED))).json();
+
+      expect(payload.sent[0]).toMatchObject({ status: 'sent', reviewDigestSent: false });
+      expect(mocks.sendTelegramPhotoAlbum).not.toHaveBeenCalled();
+      expect(mocks.completeReviewDigest).not.toHaveBeenCalled();
+      expect(mocks.recordReviewDigestResend).not.toHaveBeenCalled();
+    });
+
+    it('logs a failed separate send of a resent digest without recording over the earlier send', async () => {
+      mocks.loadReviewDigestForReport.mockResolvedValue(DATED);
+      mocks.buildReport.mockResolvedValue({
+        clubId: CLUB_ID, chatId: '-1001', businessDate: '2026-08-26', message: 'text report', caption: 'caption',
+        imagePng: null, imageFileName: 'report.png',
+      });
+      mocks.sendTelegramPhoto.mockRejectedValueOnce(new Error('network down'));
+      const payload = await (await GET(cronRequest(FORCED))).json();
+
+      expect(payload.sent[0]).toMatchObject({ status: 'sent', format: 'text', reviewDigestSent: false });
+      expect(mocks.recordReviewDigestResend).not.toHaveBeenCalled();
+      expect(mocks.completeReviewDigest).not.toHaveBeenCalled();
+    });
+
+    it("passes the club's business-day start hour to the dated lookup", async () => {
+      mocks.getStartHour.mockResolvedValue(10);
+      await GET(cronRequest(FORCED));
+      expect(mocks.loadReviewDigestForReport).toHaveBeenCalledWith(expect.anything(), CLUB_ID, '2026-08-26', 10);
+    });
+
+    it("still sends the report when the club's start hour cannot be read", async () => {
+      mocks.getStartHour.mockRejectedValue(new Error('clubs down'));
+      const payload = await (await GET(cronRequest(FORCED))).json();
+
+      expect(payload.sent[0]).toMatchObject({ status: 'sent', reviewDigestSent: false });
+      expect(mocks.loadReviewDigestForReport).not.toHaveBeenCalled();
+      expect(mocks.sendTelegramPhoto).toHaveBeenCalledOnce();
+    });
+
+    it('still sends the report when the dated digest cannot be loaded', async () => {
+      mocks.loadReviewDigestForReport.mockRejectedValue(new Error('down'));
+      const payload = await (await GET(cronRequest(FORCED))).json();
+
+      expect(payload.sent[0]).toMatchObject({ status: 'sent', reviewDigestSent: false });
+      expect(mocks.sendTelegramPhoto).toHaveBeenCalledOnce();
+      expect(mocks.recordReviewDigestResend).not.toHaveBeenCalled();
+    });
+
+    it('never looks up a sent digest for a scheduled send', async () => {
+      mocks.loadReviewDigestForReport.mockResolvedValue(DATED);
+      const payload = await (await GET(cronRequest('?date=2026-08-26&target=pixel'))).json();
+
+      expect(payload.sent[0]).toMatchObject({ status: 'sent', reviewDigestSent: false });
+      expect(mocks.loadReviewDigestForReport).not.toHaveBeenCalled();
+      expect(mocks.sendTelegramPhotoAlbum).not.toHaveBeenCalled();
+    });
   });
 
   it('sends a single photo when the day had no write-offs or corrections', async () => {

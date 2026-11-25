@@ -3,11 +3,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ExpenseRow } from '../calculations/dashboardMetrics';
 import {
   buildDailyFinanceTelegramReport,
+  dailyReportRunDateIso,
+  DAILY_REPORT_UTC_HOUR,
   getClubBusinessDayStartHour,
   getEnabledPaymentMethods,
   getLowStockProductRows,
   getPromoGiveawayRows,
   getReportMoneyChecks,
+  nextDailyReportBusinessDateIso,
   sendTelegramMessage,
   sendTelegramPhoto,
   sendTelegramPhotoAlbum,
@@ -62,6 +65,33 @@ function recordingClient(
   } as unknown as SupabaseClient;
   return { client, queries };
 }
+
+describe('dailyReportRunDateIso', () => {
+  it.each([
+    [6, '2026-11-24'],
+    [8, '2026-11-24'],
+    [9, '2026-11-25'],
+    [10, '2026-11-25'],
+  ])('dates the run carrying a business day that starts at %i:00', (startHour, runDate) => {
+    expect(dailyReportRunDateIso('2026-11-23', startHour)).toBe(runDate);
+  });
+
+  it('crosses month and year ends', () => {
+    expect(dailyReportRunDateIso('2026-12-31', 0)).toBe('2027-01-01');
+    expect(dailyReportRunDateIso('2026-02-28', 10)).toBe('2026-03-02');
+  });
+
+  it('is the inverse of nextDailyReportBusinessDateIso', () => {
+    for (const startHour of [0, 6, 8, 9, 10, 23]) {
+      const runDate = dailyReportRunDateIso('2026-11-23', startHour);
+      const [year, month, day] = runDate.split('-').map(Number);
+      // Just before the run and at the run, that day's report carries the business date.
+      for (const hour of [0, DAILY_REPORT_UTC_HOUR]) {
+        expect(nextDailyReportBusinessDateIso(new Date(Date.UTC(year, month - 1, day, hour)), startHour)).toBe('2026-11-23');
+      }
+    }
+  });
+});
 
 describe('getClubBusinessDayStartHour', () => {
   it('reads the club start hour and falls back to midnight before migration 019', async () => {

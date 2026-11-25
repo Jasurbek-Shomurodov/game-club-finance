@@ -112,6 +112,26 @@ export function nextDailyReportBusinessDateIso(now: Date, businessDayStartHour: 
   return previousClubBusinessDateIso(reportAt > now ? reportAt : now, businessDayStartHour);
 }
 
+/**
+ * The Tashkent calendar date of the scheduled report run that carries
+ * `businessDate`: the inverse of `nextDailyReportBusinessDateIso`. A club
+ * whose day starts after the report hour is reported a day later, so this is
+ * the business date + 1 or + 2. The morning review run stamps its digest with
+ * this date.
+ */
+export function dailyReportRunDateIso(businessDate: string, businessDayStartHour: number): string {
+  // Each later UTC day's run carries the next business date, so exactly one
+  // of these runs carries `businessDate`.
+  for (let offset = 0; offset <= 3; offset += 1) {
+    const [year, month, day] = addDaysIso(businessDate, offset).split('-').map(Number);
+    const reportAt = new Date(Date.UTC(year, month - 1, day, DAILY_REPORT_UTC_HOUR));
+    if (previousClubBusinessDateIso(reportAt, businessDayStartHour) === businessDate) {
+      return serverTodayIso(reportAt, 0);
+    }
+  }
+  throw new Error(`No scheduled report run carries ${businessDate}`);
+}
+
 /** The club's configured business-day start hour (0 on pre-019 databases). */
 export async function getClubBusinessDayStartHour(
   supabase: SupabaseClient,

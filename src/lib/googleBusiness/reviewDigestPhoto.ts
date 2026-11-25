@@ -2,9 +2,10 @@
 // morning review-reply run left one waiting for it (migration 173).
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { dailyReportRunDateIso } from '@/lib/telegram/sendDailyFinanceReport';
 import { reviewDigestCaption } from './reviewDigest';
-import { renderReviewDigestPng } from './reviewDigestImage';
-import { fetchAwaitingReviewDigest, fetchPreviousReviewDigest } from './reviewDigestRows';
+import { renderReviewDigestPng, type ReviewDigest } from './reviewDigestImage';
+import { fetchAwaitingReviewDigest, fetchPreviousReviewDigest, fetchReviewDigestOfDate } from './reviewDigestRows';
 
 export interface ReviewDigestPhoto {
   digestDate: string;
@@ -16,12 +17,11 @@ export interface ReviewDigestPhoto {
   reportLine: string;
 }
 
-export async function loadAwaitingReviewDigestPhoto(
+async function toReviewDigestPhoto(
   supabase: SupabaseClient,
   clubId: string,
-): Promise<ReviewDigestPhoto | null> {
-  const digest = await fetchAwaitingReviewDigest(supabase, clubId);
-  if (!digest) return null;
+  digest: ReviewDigest,
+): Promise<ReviewDigestPhoto> {
   const previous = await fetchPreviousReviewDigest(supabase, clubId, digest.digestDate).catch(() => null);
   return {
     digestDate: digest.digestDate,
@@ -30,4 +30,31 @@ export async function loadAwaitingReviewDigestPhoto(
     caption: reviewDigestCaption(digest),
     reportLine: `🤖 ИИ-бот: ответов на отзывы Google Maps: ${digest.replied}`,
   };
+}
+
+export async function loadAwaitingReviewDigestPhoto(
+  supabase: SupabaseClient,
+  clubId: string,
+): Promise<ReviewDigestPhoto | null> {
+  const digest = await fetchAwaitingReviewDigest(supabase, clubId);
+  return digest ? toReviewDigestPhoto(supabase, clubId, digest) : null;
+}
+
+/**
+ * The digest the scheduled report of `businessDate` carries, for a forced
+ * resend of that report. The morning review run stamps its digest with the
+ * Tashkent date of that report's run (`dailyReportRunDateIso`: the business
+ * date + 1, or + 2 for a day starting after the report hour).
+ * `awaitingReport` says whether the scheduled send has not taken it yet.
+ */
+export async function loadReviewDigestPhotoForReport(
+  supabase: SupabaseClient,
+  clubId: string,
+  businessDate: string,
+  businessDayStartHour: number,
+): Promise<(ReviewDigestPhoto & { awaitingReport: boolean }) | null> {
+  const digestDate = dailyReportRunDateIso(businessDate, businessDayStartHour);
+  const found = await fetchReviewDigestOfDate(supabase, clubId, digestDate);
+  if (!found) return null;
+  return { ...await toReviewDigestPhoto(supabase, clubId, found.digest), awaitingReport: found.awaitingReport };
 }
