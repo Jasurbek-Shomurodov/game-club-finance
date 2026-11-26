@@ -36,18 +36,31 @@ export interface ReviewDigestSource {
   /** "на Google Maps". */
   where: string;
   footer: string;
+  /** The greeting under the header: what the bot does on this service. */
+  intro: string;
+  /** When a review left without a reply is tried again ("повтор завтра"). */
+  retry: string;
+  /** Reviews drawn at most; beyond that a "…и ещё N" line. */
+  maxReviews: number;
 }
 
 export const GOOGLE_MAPS_DIGEST_SOURCE: ReviewDigestSource = {
   label: 'Google Maps',
   where: 'на Google Maps',
   footer: 'Ответы на отзывы Google Maps каждый день в 08:00 (Ташкент).',
+  intro: 'Каждый день я сам веду наш профиль на Google Maps: читаю новые отзывы гостей и отвечаю каждому на его языке. Вот что я сделал.',
+  retry: 'повтор завтра',
+  maxReviews: 8,
 };
 
 export const YANDEX_MAPS_DIGEST_SOURCE: ReviewDigestSource = {
   label: 'Яндекс Карты',
   where: 'на Яндекс Картах',
   footer: 'Ответы на отзывы и прайс-лист Яндекс Карт ведёт ИИ-бот.',
+  // The Yandex run is started by hand, so nothing here promises a daily time.
+  intro: 'Я веду наш профиль на Яндекс Картах: читаю новые отзывы гостей и отвечаю каждому на его языке. Вот что я сделал.',
+  retry: 'повтор при следующем запуске',
+  maxReviews: 12,
 };
 
 const WIDTH = 1200;
@@ -55,12 +68,13 @@ const CARD_X = 40;
 const PAD = 56;
 const INNER = WIDTH - CARD_X * 2 - PAD * 2;
 const HEADER_HEIGHT = 190;
-const MAX_REVIEWS = 8;
-const COLORS = {
+/** The report images' palette, shared by the Yandex Maps price cards. */
+export const REVIEW_DIGEST_COLORS = {
   page: '#EEF2FB', card: '#FFFFFF', brand: '#0F1E4A', accent: '#7DD3FC', ink: '#0F1E4A', text: '#334155',
   muted: '#64748B', faint: '#94A3B8', rule: '#E2E8F0', tile: '#F5F7FC', intro: '#E8EEFF', badge: '#2563EB',
   good: '#15803D', warn: '#B45309', bad: '#DC2626', star: '#F5A524', bar: '#93C5FD',
 };
+const COLORS = REVIEW_DIGEST_COLORS;
 
 const ERROR_TEXT: Record<string, string> = {
   RECONNECT: 'доступ к Google истёк, владельцу нужно заново подключить Google Maps',
@@ -68,7 +82,7 @@ const ERROR_TEXT: Record<string, string> = {
   FORBIDDEN: 'Google отказал в доступе к профилю',
 };
 
-const escapeXml = (value: string) => value.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c] ?? c);
+export const escapeXml = (value: string) => value.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c] ?? c);
 
 function plural(n: number, one: string, few: string, many: string) {
   const mod10 = n % 10;
@@ -146,7 +160,7 @@ export function buildReviewDigestBlocks(
   const blocks: ReviewDigestBlock[] = [{
     type: 'intro',
     title: 'Привет! Я ИИ-бот Pixel Gaming',
-    text: `Каждый день я сам веду наш профиль ${source.where}: читаю новые отзывы гостей и отвечаю каждому на его языке. Вот что я сделал.`,
+    text: source.intro,
   }];
 
   const { averageRating: rating, totalReviewCount: total, results } = digest;
@@ -159,23 +173,23 @@ export function buildReviewDigestBlocks(
     { label: 'Рейтинг', value: rating !== null ? rating.toFixed(1).replace('.', ',') : '—', sub: ratingSub },
     { label: 'Отзывов всего', value: total !== null ? String(total) : '—', sub: totalSub },
     { label: 'Ответов отправлено', value: String(digest.replied), sub: `из ${handled} ${plural(handled, 'нового', 'новых', 'новых')}`, tone: digest.replied ? 'good' : null },
-    { label: 'Ждут ответа', value: String(digest.remaining + digest.failed), sub: digest.remaining + digest.failed ? 'повтор завтра' : 'всё отвечено', tone: digest.remaining + digest.failed ? 'warn' : null },
+    { label: 'Ждут ответа', value: String(digest.remaining + digest.failed), sub: digest.remaining + digest.failed ? source.retry : 'всё отвечено', tone: digest.remaining + digest.failed ? 'warn' : null },
   ] });
 
   blocks.push({ type: 'heading', text: 'Отзывы' });
   if (digest.error) {
-    blocks.push({ type: 'line', text: `Ошибка: ${ERROR_TEXT[digest.error] ?? 'не удалось прочитать отзывы, повтор завтра'}.`, tone: 'bad' });
+    blocks.push({ type: 'line', text: `Ошибка: ${ERROR_TEXT[digest.error] ?? `не удалось прочитать отзывы, ${source.retry}`}.`, tone: 'bad' });
   }
   if (!results.length && !digest.error) {
     blocks.push({ type: 'line', text: digest.remaining ? 'Сегодня не успел ответить: продолжу завтра.' : 'Новых отзывов без ответа нет: на все отзывы уже есть ответ.' });
   }
-  for (const result of results.slice(0, MAX_REVIEWS)) blocks.push({ type: 'review', ...result });
-  if (results.length > MAX_REVIEWS) blocks.push({ type: 'note', text: `…и ещё ${results.length - MAX_REVIEWS}` });
+  for (const result of results.slice(0, source.maxReviews)) blocks.push({ type: 'review', ...result });
+  if (results.length > source.maxReviews) blocks.push({ type: 'note', text: `…и ещё ${results.length - source.maxReviews}` });
   if (digest.remaining) {
     blocks.push({ type: 'note', text: `Ещё ${digest.remaining} ${plural(digest.remaining, 'отзыв ждёт', 'отзыва ждут', 'отзывов ждут')} ответа: отвечу в следующие дни.`, tone: 'warn' });
   }
   if (digest.failed) {
-    blocks.push({ type: 'note', text: `${digest.failed} ${plural(digest.failed, 'ответ не удалось', 'ответа не удалось', 'ответов не удалось')} отправить: повтор завтра.`, tone: 'warn' });
+    blocks.push({ type: 'note', text: `${digest.failed} ${plural(digest.failed, 'ответ не удалось', 'ответа не удалось', 'ответов не удалось')} отправить: ${source.retry}.`, tone: 'warn' });
   }
   return blocks;
 }
@@ -197,7 +211,7 @@ function stars(x: number, y: number, rating: number, r = 13) {
     `<path d="${starPath(x + r + i * (r * 2 + 6), y - r + 2, r)}" fill="${i < rating ? COLORS.star : COLORS.rule}"/>`).join('');
 }
 
-function layout(blocks: ReviewDigestBlock[], x: number) {
+function layout(blocks: ReviewDigestBlock[], x: number, source: ReviewDigestSource) {
   const parts: string[] = [];
   let y = 0;
   for (const block of blocks) {
@@ -242,7 +256,7 @@ function layout(blocks: ReviewDigestBlock[], x: number) {
         y += 36;
       }
       const replyText = !block.reply
-        ? 'не удалось написать или отправить ответ, повтор завтра'
+        ? `не удалось написать или отправить ответ, ${source.retry}`
         : mostlyDrawable(block.reply) ? drawableText(block.reply) : 'на языке отзыва (картинка его не отображает)';
       const replyLines = wrap(`${published ? 'Ответ' : 'Ошибка'}: ${replyText}`, 23, INNER - 24, 4);
       parts.push(`<rect x="${x}" y="${y + 6}" width="4" height="${replyLines.length * 32 + 4}" rx="2" fill="${published ? COLORS.bar : COLORS.bad}"/>`);
@@ -271,7 +285,7 @@ export function buildReviewDigestSvg(
 ) {
   const x = CARD_X + PAD;
   const bodyTop = CARD_X + HEADER_HEIGHT + 36;
-  const { svg: body, height: bodyHeight } = layout(buildReviewDigestBlocks(digest, previous, source), x);
+  const { svg: body, height: bodyHeight } = layout(buildReviewDigestBlocks(digest, previous, source), x, source);
   const footerTop = bodyTop + bodyHeight + 20;
   const cardHeight = footerTop + 70 - CARD_X;
   const height = cardHeight + CARD_X * 2;

@@ -32,6 +32,7 @@ Everything is written to `artifacts/yandex/` (git-ignored; never commit it).
 | File | Written by | Holds |
 |---|---|---|
 | `<orgId>.yml` | `plan` | The full price list to upload |
+| `cards-<orgId>/<itemId>.png` | `plan` | Each item's price card (1080×1080), the picture the YML links to |
 | `current-<orgId>.json` | agent (optional) | The card's current list, for the diff |
 | `plan-<orgId>.json` | `plan`, then agent | Items, skipped zones/offers, the diff and its counts, `uploaded` |
 | `reviews-<orgId>.json` | agent | Unanswered reviews read from the card |
@@ -44,10 +45,14 @@ Everything is written to `artifacts/yandex/` (git-ignored; never commit it).
 The script reads `.env.local` (Supabase service role, AI model keys, Telegram
 bot and `TELEGRAM_*_CLUB_ID`/`TELEGRAM_*_CHAT_ID`) and prints no secret. It
 reads the production database (read-only) and writes only the files above and,
-with `report --confirm-send`, Telegram messages.
+with `report --confirm-send`, Telegram messages. To draw the cards, `plan`
+loads the club's own images (game covers, zone photos, logo) from the showcase
+storage bucket; it never downloads artwork from anywhere else.
 
 ```bash
-npm run yandex:sync -- plan                    # YML per club + diff against current-<orgId>.json
+npm run yandex:sync -- plan                    # YML + price cards per club + diff against current-<orgId>.json
+npm run yandex:sync -- plan --photo-pictures   # pictures are the zone photo / logo instead of the cards
+npm run yandex:sync -- plan --card-base-url https://<host>/api/showcase/price-card  # another host for the cards
 npm run yandex:sync -- replies                 # replies-<orgId>.json from reviews-<orgId>.json
 npm run yandex:sync -- report --dry-run        # PNGs and captions only
 npm run yandex:sync -- report --confirm-send   # PNGs sent to each club's Telegram group, once per business date
@@ -77,18 +82,44 @@ skips that club for the rest of the business date unless `--resend` is given.
    `price` may be a number or the text the page shows. Leave `description`
    out when the page does not show it; descriptions are then not compared.
 2. **`npm run yandex:sync -- plan`.** It prints, per club, the item count,
-   zones or offers skipped for having no price, and the change against the
-   saved list (`+` added, `−` removed, `~` changed). Items:
-   - "Игровой час — <zone>" (category "Игровое время") for each zone with an
-     hourly price, unless an active offer of that zone is already a 1-hour
-     package (then that offer is the hour price and the zone is listed as
-     skipped);
-   - each active offer with a price (category "Пакеты и акции"), named by
-     its Russian title with the app's " · " written as " — " and its time
-     window in brackets: "Стандарт — 1 час (06:00–18:00)". The description is
-     the offer's text only. Names are unique: if two still match, the price is
-     added ("… — 10 000 сум"), then a number;
-   - pictures are the zone photo, else the club logo.
+   zones or offers skipped for having no price, which games have a cover and
+   which popular ones do not, and the change against the saved list (`+`
+   added, `−` removed, `~` price or description changed, `↻` renamed: same
+   price, same words in another order or with "тариф" or "(день)" instead of
+   the time window). Items:
+   - one **category per zone** in the zone order of the public page
+     ("Стандарт", "VIP", "PlayStation 5"…), then one per other title prefix
+     ("Pro" for "Pro · 1 час" when the page lists no Pro zone), then
+     **"Комбо и акции"** for offers with no zone ("Комбо: 7 часов + сет");
+   - in each zone, "Игровой час — <zone>" when the zone has an hourly price,
+     unless an active offer of that zone is already a 1-hour package (then
+     that offer is the hour price and the zone is listed as skipped), then
+     the zone's active offers with a price, named by the Russian title with
+     the app's " · " written as " — " and the time window in brackets:
+     "Стандарт — 1 час (06:00–18:00)". The full name is kept (zone included).
+     The description is the offer's text only. Names are unique: if two still
+     match, the price is added ("… — 10 000 сум"), then a number;
+   - **pictures are the branded price cards**,
+     `https://pixelgaming.uz/api/showcase/price-card/<slug>/<itemId>.png?v=<hash>`
+     (the `v` changes whenever the card does, so Yandex loads the new one).
+     A versioned card is cached at the edge for good; an address with no or
+     an old `v` redirects (307) to the current one, and a failed database
+     read answers 503 without caching.
+     The same cards are written to `artifacts/yandex/cards-<orgId>/`: look at
+     a few before uploading. A club whose public page is not published gets
+     the zone photo or logo instead, because the route serves only published
+     pages; so does every club with `--photo-pictures`.
+   - The card: dark navy square with a neon frame, the club logo and
+     "PIXEL GAMING", the zone, the package in large capitals ("7 ЧАСОВ"), the
+     time window and the price in a pill. Behind it, darkened, a cover of a
+     popular game the club lists on its page: CS2, Dota 2, Warcraft III /
+     ICCup, PUBG, Valorant, Fortnite, GTA (then Мир танков, Need for Speed,
+     WoW, Lineage II) for computer items; the PlayStation zone's own picture,
+     then EA FC / FIFA, for console items. Items of one zone take consecutive
+     covers and each zone starts one further on, so the choice is the same on
+     every run while the list is the same. No cover → the zone photo → the
+     plain gradient. To vary the cards, add the missing popular games with a
+     cover on the club's public page settings (Games).
 3. **Show the owner the diff and get a yes before uploading** (first live
    run at least, and whenever something is removed).
 4. **Upload the YML.** Товары и услуги → **Загрузить XLS/YML** → tab **YML** →
@@ -138,10 +169,12 @@ skips that club for the rest of the business date unless `--resend` is given.
    **`report --confirm-send`**. Each club with a Telegram group
    (`targetChatId`) gets one image: the Google "AI bot" layout titled
    "Яндекс Карты", with the card's rating, review count, replies sent and
-   each review with its reply, captioned
-   `🤖 ИИ-бот <club> (<address>): отзывы Яндекс Карт за DD.MM.YYYY. Ответов отправлено: N. Прайс-лист: +A / −R / ~C.`
-   (the price part only when the plan is marked `"uploaded": true` and had a
-   saved current list to diff against). The date is the club's business
+   each review with its reply (newest first, up to 12, then "…и ещё N"),
+   captioned
+   `🤖 ИИ-бот <club> (<address>): отзывы Яндекс Карт за DD.MM.YYYY. Ответов отправлено: N. Прайс-лист: 14 позиций, новых 2, убрано 1, цена изменена 3, переименовано 4.`
+   with only the non-zero parts of the price line (the price part only when
+   the plan is marked `"uploaded": true` and had a saved current list to diff
+   against). The image does not promise a daily time: this run is manual. The date is the club's business
    date. A second `--confirm-send` the same business date skips clubs already
    sent (see `sent-<orgId>-<date>.json`) unless `--resend`.
 
@@ -158,8 +191,20 @@ have a reply, and only unanswered ones are read in step 5.
   (`https://yandex.uz/sprav/templates/price-list-template.xml`). Report the
   dialog's error text before changing the format.
 - **Photos lost after an upload.** The upload replaces photos too; every item
-  is sent with the zone photo or club logo, so fix the zone's `image_url` or
-  the club logo in the app and upload again.
+  is sent with its card (or, with `--photo-pictures`, the zone photo or club
+  logo). Open a card URL from the YML in Chrome: a 404 means the page is not
+  published or the item is no longer on it; rerun `plan` and upload again.
+- **A card looks wrong.** The route draws from the published page only: fix
+  the offer, zone or game in the app, rerun `plan` (the `?v=` changes) and
+  upload again. A cover that does not load (not in the showcase bucket, too
+  slow) falls back to the gradient.
+
+## Google products
+
+The same cards suit Google Business Profile → **Products** (Товары), which has
+no API either: upload the PNGs from `artifacts/yandex/cards-<orgId>/` by hand
+in the owner's Chrome, one product per item, with the name and price from
+`plan-<orgId>.json`.
 - **`replies` writes nothing.** No AI model key in `.env.local`: write the
   replies by hand in `replies-<orgId>.json` (or as `reply` in the reviews
   file) and rerun.

@@ -80,6 +80,13 @@ describe('buildReviewDigestSvg', () => {
     expect(buildReviewDigestSvg(digest())).toContain('Ответы на отзывы Google Maps каждый день в 08:00 (Ташкент).');
   });
 
+  it('promises no daily run for Yandex Maps, which is started by hand', () => {
+    const svg = buildReviewDigestSvg(digest(), null, YANDEX_MAPS_DIGEST_SOURCE);
+    expect(svg).not.toMatch(/каждый день|завтра/i);
+    expect(svg).toContain('повтор при следующем запуске');
+    expect(buildReviewDigestSvg(digest())).toContain('Каждый день я сам веду наш профиль на Google Maps');
+  });
+
   it('replaces text the font cannot draw', () => {
     const svg = buildReviewDigestSvg(digest({ results: [{ starRating: 5, reviewerName: null, comment: '非常好的网吧', reply: '谢谢您的评价', status: 'published' }] }));
     expect(svg).toContain('Текст на языке, который картинка не отображает');

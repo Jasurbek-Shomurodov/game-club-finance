@@ -6,19 +6,35 @@
 
 import { formatCurrency } from '@/lib/formatters';
 import { normalizeExternalUrl, packageHours, pickLocalized, splitOfferTitle } from '@/lib/showcase';
-import type { ShowcaseOffer, ShowcasePcZone } from '@/types';
+import type { ShowcaseGame, ShowcaseOffer, ShowcasePcZone } from '@/types';
+import { priceCardUrl, yandexPriceCards } from './priceCard';
 
-/** Yandex's two sections of the list; ids are the YML `categoryId`s. */
-export const YANDEX_PRICE_CATEGORIES = {
-  hourly: { id: '1', name: 'Игровое время' },
-  offers: { id: '2', name: 'Пакеты и акции' },
-} as const;
-export type YandexPriceCategory = keyof typeof YANDEX_PRICE_CATEGORIES;
+/** A section of the list: one per zone in zone order, then combos and promotions. `id` is the YML `categoryId`. */
+export interface YandexPriceCategory {
+  id: string;
+  name: string;
+}
+
+/** Offers that belong to no zone ("Комбо: 7 часов + сет ZarKebab"). */
+export const YANDEX_COMBO_CATEGORY_NAME = 'Комбо и акции';
 
 export interface YandexPriceClub {
+  /** Drawn on the price cards; the brand wordmark when absent. */
+  clubName?: string;
   logoUrl: string | null;
-  zones: Array<Pick<ShowcasePcZone, 'id' | 'name' | 'translations' | 'price_per_hour' | 'image_url' | 'sort_order'>>;
+  zones: Array<Pick<ShowcasePcZone, 'id' | 'kind' | 'name' | 'translations' | 'price_per_hour' | 'image_url' | 'sort_order'>>;
   offers: Array<Pick<ShowcaseOffer, 'id' | 'title' | 'description' | 'translations' | 'price' | 'time_window' | 'is_active' | 'sort_order'>>;
+  /** The club's games: their covers are the price cards' backgrounds. */
+  games?: Array<Pick<ShowcaseGame, 'id' | 'title' | 'image_url' | 'sort_order'>>;
+}
+
+/** The words a price card draws for an item. */
+export interface YandexPriceCardText {
+  /** Small line above the headline: the zone ("VIP"), or "Комбо" for a combo. */
+  label: string;
+  /** The package itself: "7 часов", "2+1 часа", "Ночной пакет", "1 час". */
+  headline: string;
+  timeWindow: string | null;
 }
 
 export interface YandexPriceItem {
@@ -30,6 +46,9 @@ export interface YandexPriceItem {
   category: YandexPriceCategory;
   description: string | null;
   picture: string | null;
+  /** The zone it is sold in; null for a combo or promotion. */
+  zoneId: string | null;
+  card: YandexPriceCardText;
 }
 
 /** A zone or offer left off the list, so the run can say why. */
@@ -44,6 +63,15 @@ export interface YandexSkippedItem {
 export interface YandexPriceList {
   items: YandexPriceItem[];
   skipped: YandexSkippedItem[];
+}
+
+/** The branded price cards as the items' pictures (`<baseUrl>/<slug>/<id>.png`), instead of the zone photo or logo. */
+export interface YandexCardPictures {
+  baseUrl: string;
+  /** The club's public page slug; the card route reads only that page's published data. */
+  slug: string;
+  /** Images the card route may fetch (the showcase storage bucket and the built-in console pictures). */
+  isCardImage: (url: string) => boolean;
 }
 
 /**
@@ -74,6 +102,12 @@ function timeWindowLabel(value: string): string {
   return range ? `${range[1]}–${range[2]}` : trimmed;
 }
 
+/** "Комбо: 7 часов + сет" → label "Комбо", headline "7 часов + сет"; any other title is all headline. */
+function comboCardText(title: string): Pick<YandexPriceCardText, 'label' | 'headline'> {
+  const prefixed = /^([^:]{2,24}):\s*(\S.*)$/.exec(title.trim());
+  return prefixed ? { label: prefixed[1].trim(), headline: prefixed[2].trim() } : { label: YANDEX_COMBO_CATEGORY_NAME, headline: title.trim() };
+}
+
 /**
  * Yandex shows items by name, so each must be unique: a repeated name gets its
  * price, and a name still repeated after that a running number.
@@ -91,18 +125,29 @@ function uniqueNames(items: YandexPriceItem[]): YandexPriceItem[] {
   });
 }
 
-/** Every price on the club's Yandex Maps card, hourly prices first. */
-export function buildYandexPriceItems(club: YandexPriceClub): YandexPriceList {
-  const hourly: YandexPriceItem[] = [];
-  const packages: YandexPriceItem[] = [];
+/**
+ * Every price on the club's Yandex Maps card, one category per zone in zone
+ * order (its hour first, then its packages), then one per other title prefix
+ * ("Pro · 1 час" when the page lists no Pro zone), then combos and promotions.
+ * Category ids count up in that order.
+ */
+export function buildYandexPriceItems(club: YandexPriceClub, options: { cardPictures?: YandexCardPictures | null } = {}): YandexPriceList {
   const skipped: YandexSkippedItem[] = [];
   const logo = normalizeExternalUrl(club.logoUrl);
-  const zones = bySortOrder(club.zones).map((zone) => ({
-    zone,
-    names: [zone.name, ...Object.values(zone.translations?.name ?? {})].filter((name): name is string => Boolean(name?.trim())),
-    label: pickLocalized(zone.translations?.name, 'ru', zone.name) ?? zone.name,
-    picture: normalizeExternalUrl(zone.image_url),
-  }));
+  const zones = bySortOrder(club.zones).map((zone, index) => {
+    const label = pickLocalized(zone.translations?.name, 'ru', zone.name) ?? zone.name;
+    return {
+      zone,
+      names: [zone.name, ...Object.values(zone.translations?.name ?? {})].filter((name): name is string => Boolean(name?.trim())),
+      label,
+      category: { id: String(index + 1), name: label },
+      picture: normalizeExternalUrl(zone.image_url),
+    };
+  });
+  const packagesByZone = new Map<string, YandexPriceItem[]>();
+  /** Offers titled for a zone the page does not list ("Pro · 1 час"): a category of their own, after the zones. */
+  const otherGroups = new Map<string, { name: string; items: Array<Omit<YandexPriceItem, 'category'>> }>();
+  const combos: Array<Omit<YandexPriceItem, 'category'>> = [];
   /** Zones with an active, priced 1-hour package: their hourly item would repeat it. */
   const zonesWithHourPackage = new Set<string>();
 
@@ -117,26 +162,58 @@ export function buildYandexPriceItems(club: YandexPriceClub): YandexPriceList {
       continue;
     }
     const description = offer.translations?.description?.ru?.trim() || offer.description?.trim() || null;
-    const split = splitOfferTitle(offer.title).zone ? splitOfferTitle(offer.title) : splitOfferTitle(title);
+    const shown = splitOfferTitle(title);
+    const split = splitOfferTitle(offer.title).zone ? splitOfferTitle(offer.title) : shown;
     const zone = split.zone ? zones.find((candidate) => candidate.names.some((zoneName) => sameName(zoneName, split.zone!))) : undefined;
-    if (zone && packageHours(split.length) === 1) zonesWithHourPackage.add(zone.zone.id);
-    packages.push({ id: yandexItemId('offer', offer.id), name, price, category: 'offers', description, picture: zone?.picture ?? logo });
-  }
-
-  for (const { zone, label, picture } of zones) {
-    if (zonesWithHourPackage.has(zone.id)) {
-      skipped.push({ kind: 'zone', id: zone.id, name: label, reason: 'hourly_offer' });
+    const base = { id: yandexItemId('offer', offer.id), name, price, description };
+    if (!zone && split.zone) {
+      const groupName = (shown.zone ?? split.zone).trim();
+      const key = normalizePriceName(groupName);
+      const group = otherGroups.get(key) ?? { name: groupName, items: [] };
+      group.items.push({ ...base, picture: logo, zoneId: null, card: { label: group.name, headline: (shown.zone ? shown.length : split.length).trim(), timeWindow } });
+      otherGroups.set(key, group);
       continue;
     }
+    if (!zone) {
+      combos.push({ ...base, picture: logo, zoneId: null, card: { ...comboCardText(title), timeWindow } });
+      continue;
+    }
+    if (packageHours(split.length) === 1) zonesWithHourPackage.add(zone.zone.id);
+    const headline = (shown.zone ? shown.length : split.length).trim();
+    const list = packagesByZone.get(zone.zone.id) ?? [];
+    list.push({ ...base, category: zone.category, picture: zone.picture ?? logo, zoneId: zone.zone.id, card: { label: zone.label, headline, timeWindow } });
+    packagesByZone.set(zone.zone.id, list);
+  }
+
+  const items: YandexPriceItem[] = [];
+  for (const { zone, label, category, picture } of zones) {
     const price = wholePrice(zone.price_per_hour);
-    if (!price) {
-      skipped.push({ kind: 'zone', id: zone.id, name: label, reason: 'no_price' });
-      continue;
+    if (zonesWithHourPackage.has(zone.id)) skipped.push({ kind: 'zone', id: zone.id, name: label, reason: 'hourly_offer' });
+    else if (!price) skipped.push({ kind: 'zone', id: zone.id, name: label, reason: 'no_price' });
+    else {
+      items.push({
+        id: yandexItemId('zone', zone.id), name: `Игровой час — ${label}`, price, category, description: null,
+        picture: picture ?? logo, zoneId: zone.id, card: { label, headline: '1 час', timeWindow: null },
+      });
     }
-    hourly.push({ id: yandexItemId('zone', zone.id), name: `Игровой час — ${label}`, price, category: 'hourly', description: null, picture: picture ?? logo });
+    items.push(...(packagesByZone.get(zone.id) ?? []));
   }
+  let nextCategory = zones.length + 1;
+  for (const group of otherGroups.values()) {
+    const category = { id: String(nextCategory++), name: group.name };
+    items.push(...group.items.map((item) => ({ ...item, category })));
+  }
+  const combo = { id: String(nextCategory), name: YANDEX_COMBO_CATEGORY_NAME };
+  items.push(...combos.map((item) => ({ ...item, category: combo })));
 
-  return { items: uniqueNames([...hourly, ...packages]), skipped };
+  const unique = uniqueNames(items);
+  const cardPictures = options.cardPictures;
+  if (!cardPictures) return { items: unique, skipped };
+  const cards = new Map(yandexPriceCards(club, unique, cardPictures.isCardImage).map((card) => [card.itemId, card]));
+  return {
+    items: unique.map((item) => ({ ...item, picture: priceCardUrl(cardPictures.baseUrl, cardPictures.slug, cards.get(item.id)!) })),
+    skipped,
+  };
 }
 
 /** Characters XML 1.0 does not allow at all (control characters, lone surrogates), even escaped. */
@@ -146,15 +223,14 @@ const escapeXml = (value: string) => value.replace(XML_INVALID, '').replace(/[&<
 
 /** The list as YML, in the shape of Yandex's own template (`/sprav/templates/price-list-template.xml`). */
 export function buildYandexYml(items: readonly YandexPriceItem[], { clubName }: { clubName: string }): string {
-  const categories = (Object.keys(YANDEX_PRICE_CATEGORIES) as YandexPriceCategory[])
-    .filter((key) => items.some((item) => item.category === key))
-    .map((key) => `      <category id="${YANDEX_PRICE_CATEGORIES[key].id}">${escapeXml(YANDEX_PRICE_CATEGORIES[key].name)}</category>`);
+  const categories = [...new Map(items.map((item) => [item.category.id, item.category])).values()]
+    .map((category) => `      <category id="${escapeXml(category.id)}">${escapeXml(category.name)}</category>`);
   const offers = items.map((item) => [
     `      <offer id="${escapeXml(item.id)}">`,
     `        <name>${escapeXml(item.name)}</name>`,
     `        <price>${item.price}</price>`,
     '        <currencyId>UZS</currencyId>',
-    `        <categoryId>${YANDEX_PRICE_CATEGORIES[item.category].id}</categoryId>`,
+    `        <categoryId>${escapeXml(item.category.id)}</categoryId>`,
     ...(item.picture ? [`        <picture>${escapeXml(item.picture)}</picture>`] : []),
     ...(item.description ? [`        <description>${escapeXml(item.description)}</description>`] : []),
     '      </offer>',
@@ -193,10 +269,17 @@ export interface YandexPriceChange {
   fields: Array<'price' | 'description'>;
 }
 
+/** An item the card lists under another name: same price, same words. */
+export interface YandexPriceRename {
+  before: YandexPriceSnapshotItem;
+  after: YandexPriceItem;
+}
+
 export interface YandexPriceDiff {
   added: YandexPriceItem[];
   removed: YandexPriceSnapshotItem[];
   changed: YandexPriceChange[];
+  renamed: YandexPriceRename[];
 }
 
 /** "Игровой час - VIP " and "игровой час — vip" are the same item. */
@@ -207,6 +290,32 @@ export function normalizePriceName(name: string): string {
     .replace(/[‐-―−\-·•|]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+const TIME_RANGE = /(\d{1,2})[:.](\d{2})\s*[-‐-―−]\s*(\d{1,2})[:.](\d{2})/g;
+
+/**
+ * The two windows the card used to write in words: a day rate "(день)" is
+ * 06:00–18:00 and an evening rate "(вечер и ночь)" is 18:00–06:00. Only these
+ * exact windows read as those words; any other window stays a window of its own.
+ */
+const WINDOW_WORDS: Record<string, string> = { t0600t1800: 'день', t1800t0600: 'вечер и ночь' };
+
+/**
+ * A name's words, as a sorted set, for spotting a rename: order, punctuation
+ * and "тариф" do not count, and a time window is one word ("t2300t0600"), or
+ * the day/evening words for the two windows above. "Ночной пакет — VIP
+ * (23:00–06:00)" matches "VIP — Ночной пакет (23:00–06:00)", and
+ * "1 час (день)" matches "1 час (06:00–18:00)", but two different windows never match.
+ */
+export function priceNameWords(name: string): string {
+  const lower = name.toLocaleLowerCase('ru').replace(/ё/g, 'е');
+  const withWindows = lower.replace(TIME_RANGE, (_range, fromHour: string, fromMinute: string, toHour: string, toMinute: string) => {
+    const key = `t${fromHour.padStart(2, '0')}${fromMinute}t${toHour.padStart(2, '0')}${toMinute}`;
+    return ` ${WINDOW_WORDS[key] ?? key} `;
+  });
+  const words = withWindows.split(/[^0-9a-zа-я+]+/).filter((word) => word && word !== 'тариф' && word !== '+');
+  return [...new Set(words)].sort().join(' ');
 }
 
 const normalizeDescription = (value: string | null | undefined) => (value ?? '').replace(/\s+/g, ' ').trim();
@@ -259,20 +368,81 @@ export function diffPriceList(current: readonly YandexPriceSnapshotItem[], next:
     if (before.description !== undefined && normalizeDescription(before.description) !== normalizeDescription(item.description)) fields.push('description');
     if (fields.length) changed.push({ name: item.name, before, after: item, fields });
   }
-  const removed = current.filter((item) => !nextNames.has(normalizePriceName(item.name)));
-  return { added, removed, changed };
+  const unmatched = current.filter((item) => !nextNames.has(normalizePriceName(item.name)));
+  const renamed: YandexPriceRename[] = [];
+  const removed: YandexPriceSnapshotItem[] = [];
+  for (const before of unmatched) {
+    const words = priceNameWords(before.name);
+    const index = before.price === null ? -1 : added.findIndex((item) => item.price === before.price && priceNameWords(item.name) === words);
+    if (index < 0) {
+      removed.push(before);
+      continue;
+    }
+    renamed.push({ before, after: added[index] });
+    added.splice(index, 1);
+  }
+  return { added, removed, changed, renamed };
 }
 
 const sum = (price: number | null) => (price === null ? 'без цены' : `${formatCurrency(price)} сум`);
 
 /** The diff as lines for the owner to read before the upload. */
 export function formatPriceDiff(diff: YandexPriceDiff): string[] {
-  if (!diff.added.length && !diff.removed.length && !diff.changed.length) return ['Без изменений: на карточке уже этот прайс-лист.'];
+  if (!diff.added.length && !diff.removed.length && !diff.changed.length && !diff.renamed.length) return ['Без изменений: на карточке уже этот прайс-лист.'];
   return [
     ...diff.added.map((item) => `+ ${item.name}: ${sum(item.price)}`),
     ...diff.removed.map((item) => `− ${item.name}: ${sum(item.price)}`),
     ...diff.changed.map((change) => `~ ${change.name}: ${change.fields.map((field) => (field === 'price'
       ? `${sum(change.before.price)} → ${sum(change.after.price)}`
       : 'описание')).join(', ')}`),
+    ...diff.renamed.map((rename) => `↻ ${rename.before.name} → ${rename.after.name}: ${sum(rename.after.price)}`),
   ];
+}
+
+const payloadText = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null);
+const payloadNumber = (value: unknown) => {
+  const parsed = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : NaN;
+  return Number.isFinite(parsed) ? parsed : null;
+};
+const payloadRows = (value: unknown) => (Array.isArray(value) ? value.filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object') : []);
+const payloadTranslations = (value: unknown) => (value && typeof value === 'object' && !Array.isArray(value) ? value as YandexPriceClub['zones'][number]['translations'] : undefined);
+
+/**
+ * The club's price list input from its published page (`get_public_showcase`),
+ * the only data the public price-card route reads. The payload holds active
+ * offers only, each list already in the page's order. Null when unpublished.
+ */
+export function yandexPriceClubFromShowcase(raw: unknown): { slug: string; club: YandexPriceClub } | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const data = raw as Record<string, unknown>;
+  const slug = payloadText(data.slug);
+  if (!slug) return null;
+  return {
+    slug,
+    club: {
+      clubName: payloadText(data.club_name) ?? undefined,
+      logoUrl: payloadText(data.logo_url),
+      zones: payloadRows(data.zones).flatMap((zone, index) => {
+        const id = payloadText(zone.id);
+        const name = payloadText(zone.name);
+        return id && name ? [{
+          id, name, kind: zone.kind === 'playstation' ? 'playstation' as const : 'pc' as const, translations: payloadTranslations(zone.translations),
+          price_per_hour: payloadNumber(zone.price_per_hour), image_url: payloadText(zone.image_url), sort_order: index,
+        }] : [];
+      }),
+      offers: payloadRows(data.offers).flatMap((offer, index) => {
+        const id = payloadText(offer.id);
+        const title = payloadText(offer.title);
+        return id && title ? [{
+          id, title, description: payloadText(offer.description), translations: payloadTranslations(offer.translations),
+          price: payloadNumber(offer.price), time_window: payloadText(offer.time_window), is_active: true, sort_order: index,
+        }] : [];
+      }),
+      games: payloadRows(data.games).flatMap((game, index) => {
+        const id = payloadText(game.id);
+        const title = payloadText(game.title);
+        return id && title ? [{ id, title, image_url: payloadText(game.image_url), sort_order: index }] : [];
+      }),
+    },
+  };
 }

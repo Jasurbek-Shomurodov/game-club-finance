@@ -5,7 +5,10 @@ const CLUB = '0f8fad5b-d9cb-469f-a165-70867728950e';
 
 describe('parseYandexSyncArgs', () => {
   it('reads the command and a club', () => {
-    expect(parseYandexSyncArgs(['plan'])).toEqual({ ok: true, args: { command: 'plan', clubId: null, dryRun: false, confirmSend: false, resend: false } });
+    expect(parseYandexSyncArgs(['plan'])).toEqual({ ok: true, args: {
+      command: 'plan', clubId: null, dryRun: false, confirmSend: false, resend: false,
+      cardBaseUrl: 'https://pixelgaming.uz/api/showcase/price-card', photoPictures: false,
+    } });
     expect(parseYandexSyncArgs(['replies', '--club', CLUB.toUpperCase()])).toMatchObject({ ok: true, args: { command: 'replies', clubId: CLUB } });
   });
 
@@ -17,6 +20,17 @@ describe('parseYandexSyncArgs', () => {
     expect(parseYandexSyncArgs(['report', '--dry-run', '--resend']).ok).toBe(false);
     expect(parseYandexSyncArgs(['report', '--dry-run', '--confirm-send']).ok).toBe(false);
     expect(parseYandexSyncArgs(['plan', '--resend']).ok).toBe(false);
+  });
+
+  it('reads where the price cards are served, or photos instead', () => {
+    expect(parseYandexSyncArgs(['plan', '--card-base-url', 'https://staging.example.com/api/showcase/price-card/'])).toMatchObject({ ok: true, args: { cardBaseUrl: 'https://staging.example.com/api/showcase/price-card' } });
+    expect(parseYandexSyncArgs(['plan', '--photo-pictures'])).toMatchObject({ ok: true, args: { photoPictures: true } });
+    expect(parseYandexSyncArgs(['plan', '--card-base-url', 'http://pixelgaming.uz/x']).ok).toBe(false);
+    expect(parseYandexSyncArgs(['plan', '--card-base-url', 'https://pixelgaming.uz/x?y=1']).ok).toBe(false);
+    expect(parseYandexSyncArgs(['plan', '--card-base-url']).ok).toBe(false);
+    expect(parseYandexSyncArgs(['plan', '--card-base-url', 'https://pixelgaming.uz/x', '--photo-pictures']).ok).toBe(false);
+    expect(parseYandexSyncArgs(['replies', '--photo-pictures']).ok).toBe(false);
+    expect(parseYandexSyncArgs(['report', '--dry-run', '--card-base-url', 'https://pixelgaming.uz/x']).ok).toBe(false);
   });
 
   it('rejects unknown commands and options', () => {

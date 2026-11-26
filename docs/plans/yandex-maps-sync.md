@@ -110,3 +110,54 @@ in-app UI, so no locale or skeleton changes.
   app so the list keeps images.
 - Replies go out publicly: the first live run shows the owner the price-list
   diff and every reply before anything is uploaded or posted.
+
+## Slice 2: branded product cards, zone categories, digest fixes
+
+Why: the strongest club cards on Yandex Maps (True Gamers, checked Nov 2026)
+show every package as a branded square tile with the package name in large
+type, grouped under one category per zone (BOOTCAMP, NORMAL, SOLO…), with a
+short duration line. Ours reuse one zone photo per item or fall back to the
+logo (Pro, Комбо), and sit in a single "Пакеты и акции" category.
+
+1. **Branded price-card image** for every price-list item.
+   - Pure builder `src/lib/yandexMaps/priceCardImage.ts`: `buildPriceCardSvg`
+     and `renderPriceCardPng` (Sharp + the bundled report fonts via
+     `@/lib/telegram/reportFontConfig`), 1080×1080: the zone photo as a
+     darkened background when there is one (else the brand gradient), club
+     logo/wordmark "PIXEL GAMING" on top, the zone as a small uppercase label,
+     the package as the big headline ("7 ЧАСОВ", "2+1 ЧАСА", "НОЧНОЙ ПАКЕТ"),
+     the time window when set, and the price ("60 000 сум") in a pill. Colours
+     from the digest image palette; no new palette. Text must fit: shrink or
+     wrap long headlines; test with the longest real names
+     ("Комбо: 3+2 часа + сеты ZarKebab").
+   - Public route on the public site, no auth, no secrets:
+     `GET /api/showcase/price-card/[slug]/[itemId]` (itemId = the YML id,
+     `.png` suffix allowed) → PNG, `Cache-Control: public, max-age=86400`.
+     Data only from the public showcase payload for that slug (the same source
+     the public page uses), so nothing unpublished leaks; 404 for unknown
+     slug/item. Remote zone photo fetched with a timeout and only from the
+     showcase storage host; on failure fall back to the gradient. Check
+     `src/proxy.ts`/middleware host rules so the route answers on
+     `pixelgaming.uz`; add it to the e2e public-route coverage if such a list
+     exists.
+   - `buildYandexPriceItems` gets `cardBaseUrl`; when given, `picture` is
+     `<cardBaseUrl>/<slug>/<id>.png`. The script passes
+     `https://pixelgaming.uz/api/showcase/price-card` (override with
+     `--card-base-url`, omit pictures swap with `--photo-pictures`).
+     `plan` also writes the PNGs to `artifacts/yandex/cards-<orgId>/` using the
+     same renderer, for review and for manual upload to Google products.
+2. **Categories per zone**: category = the zone name ("Стандарт", "VIP",
+   "Pro", "PlayStation 5"); offers that match no zone go to "Комбо и акции".
+   Category order follows zone sort order. Item name drops the zone prefix
+   only if Yandex keeps names unique per list — keep the full name (safer).
+3. **Digest image and caption**
+   - Reviews newest first; raise the cap so a normal run shows all (keep a hard
+     cap of 12, "…и ещё N" beyond).
+   - Yandex source copy must not say "каждый день": the run is manual.
+   - Price diff detects renames: a removed and an added item with the same
+     price whose names share the same word set (ignoring order, punctuation,
+     "тариф", and a time window vs "(день)"/"(вечер и ночь)") is a rename, not
+     +1/−1. Caption: `Прайс-лист: N позиций` plus only the non-zero parts of
+     `новых A, убрано R, цена изменена C, переименовано M`.
+4. Tests for all of the above; runbook updated (cards step, Google products
+   note).

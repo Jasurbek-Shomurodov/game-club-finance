@@ -360,6 +360,11 @@ const PLAYSTATION_PRESETS: Record<PlaystationModel, { console: string; image_url
 };
 const presets = Object.values(PLAYSTATION_PRESETS);
 
+/** Whether a zone picture is one of the built-in console images served from the site's `public/playstation/`. */
+export function isPlaystationPresetImage(url: string | null | undefined): boolean {
+  return presets.some((preset) => preset.image_url === url?.trim());
+}
+
 /** The model behind a saved console name, including older free-text ones like "PS5 Pro". */
 export function playstationModel(consoleName: string): PlaystationModel | null {
   const match = /(?:ps|playstation)\s*([345])/i.exec(consoleName);

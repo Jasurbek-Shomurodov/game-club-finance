@@ -13,6 +13,9 @@
     },
     "src/app/api/cron/google-review-replies/route.ts": {
       "includeFiles": "{node_modules/@img/sharp-libvips-linux-x64/**,src/assets/fonts/*.ttf}"
+    },
+    "src/app/api/showcase/price-card/**/route.ts": {
+      "includeFiles": "{node_modules/@img/sharp-libvips-linux-x64/**,src/assets/fonts/*.ttf,public/playstation/*.svg}"
     }
   }
 }

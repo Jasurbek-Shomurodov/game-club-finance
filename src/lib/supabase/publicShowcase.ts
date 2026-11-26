@@ -43,6 +43,16 @@ export async function fetchPublicShowcase(slug: string, locale: string): Promise
   return parsePublicShowcase(data, locale);
 }
 
+/**
+ * The unparsed payload of a published club page, for readers that need what
+ * the page parser drops (every language's text, the offers' order): the
+ * Yandex Maps price-card route. Null when unknown or unpublished; throws when
+ * the read itself failed, so the caller can tell an outage from a missing page.
+ */
+export async function fetchPublicShowcasePayload(slug: string): Promise<unknown> {
+  return readPublicRpc('get_public_showcase', slug);
+}
+
 /** A brand with no published club is not a page: it reads as not found (117). */
 export async function fetchPublicBrand(slug: string, locale: string): Promise<PublicBrand | null> {
   const data = await readPublicRpc('get_public_brand', slug).catch(() => null);

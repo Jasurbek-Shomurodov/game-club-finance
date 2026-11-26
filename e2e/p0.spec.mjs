@@ -1825,6 +1825,7 @@ test.describe('a visitor of the public site', () => {
       if ((await updated.json()).length === 0) {
         expect((await restAs(accounts.owner, 'POST', 'club_showcases', { club_id: clubs.arcade.id, ...settings })).status).toBe(201);
       }
+      const offerIds = [];
       for (const offer of [
         { title: 'VIP · 1 hour', price: 20000, sort_order: 1 },
         { title: 'VIP · 2+1 hours', badge: '2+1', price: 40000, sort_order: 2 },
@@ -1832,7 +1833,24 @@ test.describe('a visitor of the public site', () => {
         { title: 'Standard · 1 hour', price: 10000, time_window: '06:00 – 18:00', sort_order: 4 },
         { title: 'Standard · 1 hour', price: 15000, time_window: '18:00 – 06:00', sort_order: 5 },
         { title: 'Standard · Night package', price: 50000, time_window: '23:00 – 06:00', sort_order: 6 },
-      ]) expect((await restAs(accounts.owner, 'POST', 'showcase_offers', { club_id: clubs.arcade.id, ...offer })).status).toBe(201);
+      ]) {
+        const created = await restAs(accounts.owner, 'POST', 'showcase_offers', { club_id: clubs.arcade.id, ...offer });
+        expect(created.status).toBe(201);
+        offerIds.push((await created.json())[0].id);
+      }
+
+      // Each package has a public price card for the club's Yandex Maps list: a PNG named by its YML offer id.
+      // An address without the card's version is sent on to the versioned one, which is drawn and cached for good.
+      const cardId = `o${offerIds[5].replace(/-/g, '').slice(0, 19)}`;
+      const redirect = await page.request.get(`/api/showcase/price-card/${slug}/${cardId}.png`, { maxRedirects: 0 });
+      expect(redirect.status()).toBe(307);
+      const versioned = redirect.headers()['location'];
+      expect(versioned).toMatch(new RegExp(`/api/showcase/price-card/${slug}/${cardId}\\.png\\?v=[0-9a-f]{8}$`));
+      const card = await page.request.get(versioned, { maxRedirects: 0 });
+      expect(card.status()).toBe(200);
+      expect(card.headers()['content-type']).toBe('image/png');
+      expect(card.headers()['cache-control']).toContain('immutable');
+      expect((await page.request.get(`/api/showcase/price-card/${slug}/o0000000000000000000.png`)).status()).toBe(404);
 
       expect((await page.goto(`/club/${slug}`)).status()).toBe(200);
       const prices = page.locator('#prices');

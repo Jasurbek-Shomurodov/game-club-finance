@@ -4,6 +4,7 @@
 // does everything else:
 //
 //   npm run yandex:sync -- plan     YML price list per club (+ diff against current-<orgId>.json)
+//                                   and its price cards in cards-<orgId>/ [--card-base-url <url>] [--photo-pictures]
 //   npm run yandex:sync -- replies  replies for the unanswered reviews in reviews-<orgId>.json
 //   npm run yandex:sync -- report --dry-run | --confirm-send [--resend]
 //                                   "AI bot" image per club, sent to the club's Telegram group
@@ -11,9 +12,11 @@
 //
 // `--club <id>` limits a run to one club. Reads the database with the service
 // role (every query filtered by club_id) and writes only under
-// artifacts/yandex/ and, for `report --confirm-send`, to Telegram.
+// artifacts/yandex/ and, for `report --confirm-send`, to Telegram. `plan`
+// also loads the club's own showcase images (zone photos, game covers, logo)
+// to draw the cards; it fetches nothing else.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { createReviewReplyWriter } from '../src/lib/googleBusiness/replyWriter';
@@ -24,9 +27,12 @@ import { serverTodayIso } from '../src/lib/utils';
 import { parseYandexSyncArgs, type YandexSyncArgs } from '../src/lib/yandexMaps/cli';
 import { generatedAtOf, priceDiffCounts, uploadedPriceCounts, yandexDigestCaption, yandexReportDecision, yandexReviewDigest } from '../src/lib/yandexMaps/digest';
 import { yandexOrgId } from '../src/lib/yandexMaps/orgId';
-import { buildYandexPriceItems, buildYandexYml, diffPriceList, formatPriceDiff, parsePriceSnapshot } from '../src/lib/yandexMaps/priceList';
+import { gameCoverReport, yandexPriceCards } from '../src/lib/yandexMaps/priceCard';
+import { isPriceCardImageUrl, loadPriceCardImage } from '../src/lib/yandexMaps/priceCardAssets';
+import { renderPriceCardPng } from '../src/lib/yandexMaps/priceCardImage';
+import { buildYandexPriceItems, buildYandexYml, diffPriceList, formatPriceDiff, parsePriceSnapshot, type YandexPriceClub } from '../src/lib/yandexMaps/priceList';
 import { buildYandexReplies, parseYandexReplies, parseYandexReviews } from '../src/lib/yandexMaps/reviews';
-import type { ShowcaseOffer, ShowcasePcZone } from '../src/types';
+import type { ShowcaseGame, ShowcaseOffer, ShowcasePcZone } from '../src/types';
 
 const OUTPUT_DIRECTORY = resolve(process.cwd(), 'artifacts', 'yandex');
 const SECRET_NAMES = /KEY|SECRET|TOKEN|PASSWORD/i;
@@ -70,17 +76,20 @@ interface SyncClub {
   clubName: string;
   logoUrl: string | null;
   address: string | null;
+  /** The public page; the price cards are served from it only while it is published. */
+  slug: string | null;
+  published: boolean;
 }
 
 /** Every club whose public page links its own Yandex Maps place. */
 async function loadClubs(supabase: SupabaseClient, clubId: string | null): Promise<SyncClub[]> {
-  let query = supabase.from('club_showcases').select('club_id, yandex_maps_url, address').not('yandex_maps_url', 'is', null);
+  let query = supabase.from('club_showcases').select('club_id, yandex_maps_url, address, slug, is_published').not('yandex_maps_url', 'is', null);
   if (clubId) query = query.eq('club_id', clubId);
   const { data, error } = await query;
   if (error) throw new Error(`Could not read club_showcases: ${error.message}`);
 
   const clubs: SyncClub[] = [];
-  for (const row of (data ?? []) as Array<{ club_id: string; yandex_maps_url: string | null; address: string | null }>) {
+  for (const row of (data ?? []) as Array<{ club_id: string; yandex_maps_url: string | null; address: string | null; slug: string | null; is_published: boolean | null }>) {
     const orgId = yandexOrgId(row.yandex_maps_url);
     if (!orgId) {
       console.warn(`Skipping club ${row.club_id}: its Yandex Maps link has no organisation id`);
@@ -95,25 +104,59 @@ async function loadClubs(supabase: SupabaseClient, clubId: string | null): Promi
       clubName: record.name,
       logoUrl: record.logo_url,
       address: row.address?.trim() || record.address?.trim() || null,
+      slug: row.slug?.trim() || null,
+      published: row.is_published === true,
     });
   }
   if (!clubs.length) console.warn(clubId ? `Club ${clubId} has no Yandex Maps place` : 'No club has a Yandex Maps place');
   return clubs;
 }
 
-async function plan(supabase: SupabaseClient, clubs: SyncClub[]) {
+/** Draws every item's card into cards-<orgId>/ (emptied first), the same picture the public route serves. */
+async function writePriceCards(club: SyncClub, priceClub: YandexPriceClub, items: ReturnType<typeof buildYandexPriceItems>['items'], isCardImage: (url: string) => boolean) {
+  const directory = outputPath(`cards-${club.orgId}`);
+  mkdirSync(directory, { recursive: true });
+  for (const file of readdirSync(directory)) if (file.endsWith('.png')) rmSync(resolve(directory, file));
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const images = new Map<string, Promise<Buffer | null>>();
+  const load = (url: string | null) => {
+    if (!url) return Promise.resolve(null);
+    if (!images.has(url)) images.set(url, loadPriceCardImage(url, { supabaseUrl, timeoutMs: 15_000 }));
+    return images.get(url)!;
+  };
+  for (const card of yandexPriceCards(priceClub, items, isCardImage)) {
+    const [background, logo] = await Promise.all([load(card.background), load(card.logoUrl)]);
+    if (card.background && !background) console.warn(`  card ${card.itemId}: its background did not load, drawn on the gradient`);
+    writeFileSync(resolve(directory, `${card.itemId}.png`), await renderPriceCardPng(card, { background, logo }));
+  }
+  return directory;
+}
+
+async function plan(supabase: SupabaseClient, clubs: SyncClub[], args: YandexSyncArgs) {
+  const isCardImage = (url: string) => isPriceCardImageUrl(url, process.env.NEXT_PUBLIC_SUPABASE_URL);
   for (const club of clubs) {
-    const [zones, offers] = await Promise.all([
-      supabase.from('showcase_pc_zones').select('*').eq('club_id', club.clubId),
-      supabase.from('showcase_offers').select('*').eq('club_id', club.clubId),
+    // The public page's order (sort_order, then created_at), so the local cards and category ids
+    // are the ones the price-card route serves.
+    const [zones, offers, games] = await Promise.all([
+      supabase.from('showcase_pc_zones').select('*').eq('club_id', club.clubId).order('sort_order').order('created_at'),
+      supabase.from('showcase_offers').select('*').eq('club_id', club.clubId).order('sort_order').order('created_at'),
+      supabase.from('showcase_games').select('id, title, image_url, sort_order').eq('club_id', club.clubId).order('sort_order').order('created_at'),
     ]);
     if (zones.error) throw new Error(`Could not read zones of ${club.clubId}: ${zones.error.message}`);
     if (offers.error) throw new Error(`Could not read offers of ${club.clubId}: ${offers.error.message}`);
+    if (games.error) throw new Error(`Could not read games of ${club.clubId}: ${games.error.message}`);
 
-    const { items, skipped } = buildYandexPriceItems({
+    const priceClub: YandexPriceClub = {
+      clubName: club.clubName,
       logoUrl: club.logoUrl,
       zones: (zones.data ?? []) as ShowcasePcZone[],
       offers: (offers.data ?? []) as ShowcaseOffer[],
+      games: (games.data ?? []) as Array<Pick<ShowcaseGame, 'id' | 'title' | 'image_url' | 'sort_order'>>,
+    };
+    // The cards are served from the public page, so an unpublished one keeps the photos.
+    const cardsServed = !args.photoPictures && club.published && Boolean(club.slug);
+    const { items, skipped } = buildYandexPriceItems(priceClub, {
+      cardPictures: cardsServed ? { baseUrl: args.cardBaseUrl, slug: club.slug!, isCardImage } : null,
     });
     const ymlPath = outputPath(`${club.orgId}.yml`);
     writeFileSync(ymlPath, buildYandexYml(items, { clubName: club.clubName }));
@@ -129,13 +172,21 @@ async function plan(supabase: SupabaseClient, clubs: SyncClub[]) {
       items,
       skipped,
       diff,
-      diffCounts: diff ? priceDiffCounts(diff) : null,
+      diffCounts: diff ? priceDiffCounts(diff, items.length) : null,
       // The agent sets this to true once the YML is uploaded; only then does the report mention the price list.
       uploaded: false,
     });
 
     console.log(`\n${club.clubName} (${club.address ?? 'no address'}), Yandex org ${club.orgId}`);
     console.log(`  ${items.length} items -> ${ymlPath}`);
+    const cardsDirectory = await writePriceCards(club, priceClub, items, isCardImage);
+    console.log(`  price cards -> ${cardsDirectory}`);
+    if (args.photoPictures) console.log('  pictures: zone photos and logo (--photo-pictures)');
+    else if (!cardsServed) console.warn('  pictures: zone photos and logo, because the club page is not published (the card route serves only published pages)');
+    else console.log(`  pictures: price cards at ${args.cardBaseUrl}/${club.slug}/<id>.png`);
+    const covers = gameCoverReport(priceClub.games ?? [], isCardImage);
+    console.log(`  games with a cover: ${covers.withCover.length ? covers.withCover.join(', ') : 'none'}`);
+    if (covers.missing.length) console.log(`  popular games without a cover (add them with a cover to vary the cards): ${covers.missing.join(', ')}`);
     for (const item of skipped) {
       console.log(`  skipped ${item.kind} "${item.name}": ${item.reason === 'no_price' ? 'no price' : 'an active 1-hour package already sells this hour'}`);
     }
@@ -249,7 +300,7 @@ async function main() {
   const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
   mkdirSync(OUTPUT_DIRECTORY, { recursive: true });
   const clubs = await loadClubs(supabase, args.clubId);
-  if (args.command === 'plan') await plan(supabase, clubs);
+  if (args.command === 'plan') await plan(supabase, clubs, args);
   else if (args.command === 'replies') await replies(clubs);
   else await report(supabase, clubs, args);
 }
