@@ -198,6 +198,7 @@ describe('buildDailyFinanceTelegramReport where the money is', () => {
       '💼 Собрано: 400 000 UZS',
       '🏦 В резерве: 500 000 UZS',
       '💰 Всего денег: 1 500 000 UZS',
+      '📈 Инвестировано за месяц: 0 UZS',
     ]);
     expect(report.caption).not.toMatch(/Ежедневный финансовый отчёт|Рабочий день|Заканчивается/);
     expect(report.caption.length).toBeLessThanOrEqual(TELEGRAM_CAPTION_MAX_LENGTH);

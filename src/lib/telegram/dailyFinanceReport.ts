@@ -1043,11 +1043,15 @@ function moneyWhereaboutsLines(value: MoneyWhereabouts | undefined): string[] {
 
 /**
  * Caption under the report album. The images carry the title, the date and the
- * low-stock list, so the caption says where the money is and flags the rest.
+ * low-stock list, so the caption says where the money is, what was invested
+ * this month, and flags the rest.
  */
 export function formatRussianDailyFinanceReportCaption(input: DailyFinanceReportInput): string {
   return [
     ...moneyWhereaboutsLines(input.moneyWhereabouts),
+    ...(input.monthMoney
+      ? [`📈 Инвестировано за месяц: ${money(input.monthMoney.invested.gameClub + input.monthMoney.invested.bar)}`]
+      : []),
     ...(input.internetPaymentDueDate ? [internetPaymentLine(input.internetPaymentDueDate)] : []),
     ...(input.promoGiveaways?.length
       ? [`🎁 Бонусы по акциям: ${quantityLabel(input.promoGiveaways.reduce((sum, item) => sum + item.quantity, 0))}`]

@@ -748,7 +748,9 @@ describe('internet payment reminder', () => {
 
     expect(input.internetPaymentDueDate).toBe('2026-10-20');
     expect(formatRussianDailyFinanceReport(input).split('\n').at(-1)).toMatch(/^🌐 Завтра оплата интернета \(20 .+ 2026\)$/);
-    expect(formatRussianDailyFinanceReportCaption(input).split('\n')[0]).toMatch(/^🌐 Завтра оплата интернета/);
+    const captionLines = formatRussianDailyFinanceReportCaption(input).split('\n');
+    expect(captionLines[0]).toBe('📈 Инвестировано за месяц: 0 UZS');
+    expect(captionLines[1]).toMatch(/^🌐 Завтра оплата интернета/);
 
     const otherDay = buildDailyFinanceReportInput({ ...baseRows, sendDate: '2026-10-18' });
     expect(otherDay.internetPaymentDueDate).toBeNull();
@@ -990,6 +992,7 @@ describe('where the money is, in the caption', () => {
       '💼 Собрано: 2 000 000 UZS',
       '🏦 В резерве: 15 000 000 UZS + $1 200',
       '💰 Всего денег: 19 234 000 UZS + $1 200',
+      '📈 Инвестировано за месяц: 0 UZS',
       '🎁 Бонусы по акциям: 2 шт.',
     ]);
   });
@@ -1001,14 +1004,28 @@ describe('where the money is, in the caption', () => {
       '💼 Собрано: 0 UZS',
       '🏦 В резерве: 0 UZS',
       '💰 Всего денег: 4 234 000 UZS',
+      '📈 Инвестировано за месяц: 0 UZS',
     ].join('\n'));
+  });
+
+  it('adds the month\'s investments in both businesses under the money lines', () => {
+    const investment = (date: string, amount: number, payment_source: 'game_club' | 'bar') => ({
+      id: `inv-${date}-${payment_source}`, date, category: 'investments', amount, payment_source, payment_method: 'cash', comment: null, created_at: `${date}T10:00:00Z`,
+    });
+    const input = buildDailyFinanceReportInput({
+      ...baseRows,
+      collectedMoves: [],
+      reserveHoldings: { sums: 0, usd: 0 },
+      monthExpenseRows: [investment('2026-11-05', 3_000_000, 'game_club'), investment('2026-11-12', 500_000, 'bar')],
+    });
+    expect(formatRussianDailyFinanceReportCaption(input).split('\n')).toContain('📈 Инвестировано за месяц: 3 500 000 UZS');
   });
 
   it('leaves the lines out, never shows them as 0, when any part could not be read', () => {
     for (const rows of [{ collectedMoves }, { reserveHoldings: { sums: 1, usd: 0 } }, {}]) {
       const input = buildDailyFinanceReportInput({ ...baseRows, ...rows });
       expect(input.moneyWhereabouts).toBeUndefined();
-      expect(formatRussianDailyFinanceReportCaption(input)).toBe('');
+      expect(formatRussianDailyFinanceReportCaption(input)).toBe('📈 Инвестировано за месяц: 0 UZS');
     }
   });
 });
