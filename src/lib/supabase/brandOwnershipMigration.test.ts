@@ -1,7 +1,8 @@
-import { PGlite } from '@electric-sql/pglite';
+import type { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { emptyDatabase } from './__tests__/snapshotDatabase';
 
 const sql = (file: string) => readFileSync(resolve('migrations', file), 'utf8');
 const migration = sql('117_brand_owner_only_and_payload_cleanup.sql');
@@ -20,7 +21,7 @@ const brandSql = (actor: string, slug: string, published = true) => `
   insert into showcase_brands(owner_id, slug, name, is_published) values ('${actor}','${slug}','Brand',${published})`;
 
 beforeAll(async () => {
-  db = new PGlite();
+  db = await emptyDatabase();
   await db.exec(`
     create role authenticated; create role anon;
     create schema auth;

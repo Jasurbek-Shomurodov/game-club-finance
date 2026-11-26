@@ -1,7 +1,8 @@
-import { PGlite } from '@electric-sql/pglite';
+import type { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { emptyDatabase } from './__tests__/snapshotDatabase';
 import { buildEditableClosingStockRows, buildClosingStockUpserts } from '../closingStock';
 import type { Product } from '../../types';
 
@@ -34,7 +35,7 @@ async function live(id = fanta) {
 }
 
 beforeAll(async () => {
-  db = new PGlite();
+  db = await emptyDatabase();
   await db.exec(`
     create role authenticated; create role anon;
     create schema auth;

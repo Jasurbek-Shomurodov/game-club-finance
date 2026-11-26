@@ -1,7 +1,8 @@
-import { PGlite } from '@electric-sql/pglite';
+import type { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { emptyDatabase } from './__tests__/snapshotDatabase';
 
 let db: PGlite;
 const owner = '00000000-0000-0000-0000-000000000001';
@@ -16,7 +17,7 @@ async function pay(id = payment, kind = 'payment', amount = 100, date = '2026-09
   return db.query(`select record_salary_entry($1,$2,$3,$4,$5,$6,'note',$7,$8)`, [clubId, employeeId, id, date, kind, amount, kind === 'payment' ? method : null, kind === 'payment' ? 'game_club' : null]);
 }
 beforeAll(async () => {
-  db = new PGlite();
+  db = await emptyDatabase();
   await db.exec(`
     create role authenticated nologin; create role anon nologin;
     create schema auth; grant usage on schema public,auth to authenticated,anon;

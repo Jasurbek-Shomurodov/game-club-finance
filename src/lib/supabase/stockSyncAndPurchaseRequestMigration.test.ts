@@ -1,7 +1,8 @@
-import { PGlite } from '@electric-sql/pglite';
+import type { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { emptyDatabase } from './__tests__/snapshotDatabase';
 
 const migration = (name: string) => readFileSync(resolve('migrations', name), 'utf8');
 const club = '10000000-0000-0000-0000-000000000001';
@@ -30,7 +31,7 @@ const counts = async () => (await db.query('select date::text,previous_stock::in
 const purchases = async () => Number((await db.query<{ n: number }>('select count(*)::int as n from stock_purchases')).rows[0].n);
 
 beforeAll(async () => {
-  db = new PGlite();
+  db = await emptyDatabase();
   await db.exec(`
     create role authenticated; create role anon;
     create schema auth;

@@ -1,8 +1,9 @@
-import { PGlite } from '@electric-sql/pglite';
+import type { PGlite } from '@electric-sql/pglite';
 import { uuid_ossp } from '@electric-sql/pglite/contrib/uuid_ossp';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { emptyDatabase } from './__tests__/snapshotDatabase';
 
 const migration = readFileSync(resolve(process.cwd(), 'migrations/091_expense_presets.sql'), 'utf8');
 const integrity = readFileSync(resolve(process.cwd(), 'migrations/093_expense_preset_integrity.sql'), 'utf8');
@@ -27,7 +28,7 @@ const insertExpense = (preset: string | null, category = 'electricity', source =
 );
 
 beforeAll(async () => {
-  db = new PGlite({ extensions: { uuid_ossp } });
+  db = await emptyDatabase({ uuid_ossp });
   await db.exec(`
     create extension if not exists "uuid-ossp";
     create role authenticated nologin; create role anon nologin;

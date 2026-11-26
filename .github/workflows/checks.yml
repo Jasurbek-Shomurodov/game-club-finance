@@ -32,10 +32,16 @@ jobs:
       - run: npm run build
 
   # The P0 flows in a real browser: a production build against e2e/fake-supabase.mjs (the app's migration chain
-  # in PGlite), on the fixed clubs and accounts in e2e/fixture.mjs. No real account or service is reached.
+  # in PGlite), on the fixed clubs and accounts in e2e/fixture.mjs. No real account or service is reached. The tests
+  # run one at a time against one database, so they are split across three jobs, each with its own build and database.
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    name: e2e (${{ matrix.shard }}/3)
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -46,11 +52,11 @@ jobs:
       # When apt cannot reach the Ubuntu mirrors, install Chromium alone: the runner image already has its
       # libraries, and only optional fonts are missing.
       - run: npx playwright install --with-deps chromium || npx playwright install chromium
-      - run: npm run test:e2e:full
+      - run: npm run test:e2e:full -- --shard=${{ matrix.shard }}/3
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/

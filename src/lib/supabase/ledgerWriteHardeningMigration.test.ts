@@ -1,7 +1,8 @@
-import { PGlite } from '@electric-sql/pglite';
+import type { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { emptyDatabase } from './__tests__/snapshotDatabase';
 
 const sql = readFileSync(resolve('migrations', '086_ledger_write_hardening.sql'), 'utf8');
 const club = '10000000-0000-0000-0000-000000000001';
@@ -11,7 +12,7 @@ const debt = '30000000-0000-0000-0000-000000000001';
 let db: PGlite;
 
 beforeAll(async () => {
-  db = new PGlite();
+  db = await emptyDatabase();
   await db.exec(`
     create role authenticated; create role anon;
     create schema auth;

@@ -1,8 +1,8 @@
-import { PGlite } from '@electric-sql/pglite';
-import { uuid_ossp } from '@electric-sql/pglite/contrib/uuid_ossp';
-import { readFileSync, readdirSync } from 'node:fs';
+import type { PGlite } from '@electric-sql/pglite';
+import { readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { fullSchemaDatabase } from './__tests__/snapshotDatabase';
 import { loadMigrationHealth, loadProbeResults, migrationStatuses, type HealthResult } from './migrationHealth';
 import manifest from './migrationManifest.json';
 
@@ -21,25 +21,9 @@ const ADMIN = '00000000-0000-4000-8000-0000000000a2';
 
 let db: PGlite;
 
-/** A database with the Supabase roles and schemas the migrations expect, then `migrationFiles` applied. */
+/** The Supabase stand-ins with `migrationFiles` applied, and two clubs with their members. */
 async function migratedDatabase(migrationFiles: readonly string[]) {
-  const db = new PGlite({ extensions: { uuid_ossp } });
-  await db.exec(`
-    create role authenticated nologin; create role anon nologin; create role service_role nologin;
-    create schema auth; create schema extensions; create schema cron; create schema net;
-    create table auth.users(id uuid primary key, email text, raw_user_meta_data jsonb default '{}'::jsonb);
-    create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-    create function auth.role() returns text language sql stable as $$ select current_setting('request.jwt.claim.role', true) $$;
-    create table cron.job(jobid bigserial primary key, jobname text, schedule text, command text);
-    create function cron.schedule(job_name text, schedule text, command text) returns bigint language sql as $$ insert into cron.job(jobname, schedule, command) values (job_name, schedule, command) returning jobid $$;
-    create function cron.unschedule(job_id bigint) returns boolean language sql as $$ delete from cron.job where jobid = job_id returning true $$;
-    create function net.http_post(url text, body jsonb default '{}', params jsonb default '{}', headers jsonb default '{}', timeout_milliseconds int default 1000) returns bigint language sql as $$ select 1::bigint $$;
-    grant usage on schema public, auth, extensions, cron, net to authenticated, anon, service_role;
-  `);
-  for (const name of migrationFiles) {
-    await db.exec(readFileSync(resolve(migrationsDir, name), 'utf8')
-      .replace(/create extension if not exists (pg_cron|pg_net)[^;]*;/gi, ''));
-  }
+  const db = await fullSchemaDatabase((name) => migrationFiles.includes(name));
   await db.exec(`
     insert into auth.users(id, email) values ('${OWNER}', 'owner@example.test'), ('${ADMIN}', 'admin@example.test');
     insert into public.clubs(id, name) values ('${CLUB}', 'Health A'), ('${OTHER_CLUB}', 'Health B');

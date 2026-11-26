@@ -1,7 +1,8 @@
-import { PGlite } from '@electric-sql/pglite';
+import type { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { emptyDatabase } from './__tests__/snapshotDatabase';
 
 const readMigration = (name: string) => readFileSync(resolve(process.cwd(), 'migrations', name), 'utf8');
 const owner = '00000000-0000-0000-0000-000000000001';
@@ -18,7 +19,7 @@ const run = (sql: string) => asOwner(() => db.exec(sql));
 const count = async (table: string) => (await db.query<{ n: number }>(`select count(*)::int as n from public.${table}`)).rows[0].n;
 
 beforeAll(async () => {
-  db = new PGlite();
+  db = await emptyDatabase();
   await db.exec(`
     create role authenticated nologin; create role anon nologin;
     create schema auth; grant usage on schema public, auth to authenticated;

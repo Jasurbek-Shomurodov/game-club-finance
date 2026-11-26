@@ -1,8 +1,9 @@
-import { PGlite } from '@electric-sql/pglite';
+import type { PGlite } from '@electric-sql/pglite';
 import { uuid_ossp } from '@electric-sql/pglite/contrib/uuid_ossp';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { emptyDatabase } from './__tests__/snapshotDatabase';
 import { EXPENSE_CATEGORIES, MANUAL_EXPENSE_CATEGORIES } from '@/lib/expenseCategories';
 
 /**
@@ -50,7 +51,7 @@ const tableName = (typeName: string) => {
 let db: PGlite;
 
 beforeAll(async () => {
-  db = new PGlite({ extensions: { uuid_ossp } });
+  db = await emptyDatabase({ uuid_ossp });
   await db.exec(`
     create role authenticated nologin; create role anon nologin; create role service_role nologin;
     create schema auth; create schema extensions; create schema cron; create schema net;

@@ -1,7 +1,8 @@
-import { PGlite } from '@electric-sql/pglite';
+import type { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { emptyDatabase } from './__tests__/snapshotDatabase';
 
 const migration = readFileSync(resolve('migrations', '098_public_showcase.sql'), 'utf8');
 const brandMigration = readFileSync(resolve('migrations', '099_showcase_brands.sql'), 'utf8');
@@ -28,7 +29,7 @@ async function asRole(role: 'anon' | 'authenticated', actor = '', clubRole = 'ow
 }
 
 beforeAll(async () => {
-  db = new PGlite();
+  db = await emptyDatabase();
   await db.exec(`
     create role authenticated; create role anon;
     create schema auth;

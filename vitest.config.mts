@@ -19,6 +19,8 @@ export default defineConfig({
     // The PGlite tests boot an embedded PostgreSQL in beforeAll; on a loaded
     // machine or a small CI runner that takes longer than the 10s default.
     hookTimeout: 60_000,
+    // A per-run directory where the PGlite tests share their migrated databases.
+    globalSetup: ['./vitest.globalSetup.ts'],
     // `npm run test:coverage` measures every src file, including ones no test
     // imports, and scripts/check-coverage-floor.mjs compares the result with
     // scripts/coverage-floor.json.

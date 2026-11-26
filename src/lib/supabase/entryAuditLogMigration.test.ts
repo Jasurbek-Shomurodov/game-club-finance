@@ -1,7 +1,8 @@
-import { PGlite } from '@electric-sql/pglite';
+import type { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { emptyDatabase } from './__tests__/snapshotDatabase';
 
 const migration = readFileSync(resolve(process.cwd(), 'migrations', '111_entry_audit_log.sql'), 'utf8');
 const owner = '00000000-0000-0000-0000-000000000001';
@@ -19,7 +20,7 @@ interface LogRow { club_id: string; table_name: string; row_id: string; action: 
 const logs = async () => (await db.query<LogRow>('select * from public.entry_audit_logs order by id')).rows;
 
 beforeAll(async () => {
-  db = new PGlite();
+  db = await emptyDatabase();
   await db.exec(`
     create role authenticated nologin; create role anon nologin;
     create schema auth; grant usage on schema public, auth to authenticated;

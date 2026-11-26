@@ -1,7 +1,8 @@
-import { PGlite } from '@electric-sql/pglite';
+import type { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { emptyDatabase } from './__tests__/snapshotDatabase';
 import { countNoteWords } from '@/lib/entryNote';
 
 const migration = readFileSync(resolve(process.cwd(), 'migrations', '108_required_entry_notes.sql'), 'utf8');
@@ -13,7 +14,7 @@ const insert = (table: string, comment: string | null, extra = '') =>
 const words = async (note: string) => (await db.query<{ n: number }>('select public.entry_note_word_count($1) as n', [note])).rows[0].n;
 
 beforeAll(async () => {
-  db = new PGlite();
+  db = await emptyDatabase();
   await db.exec(`
     create role anon nologin; create role authenticated nologin;
     create table public.expenses (id serial primary key, comment text, salary_entry_id uuid);

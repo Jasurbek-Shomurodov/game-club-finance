@@ -21,12 +21,21 @@ npm run test:coverage
 `npm test` runs Vitest in the Node environment. Tests are colocated as
 `*.test.ts` or `*.test.tsx` near the behavior they protect.
 
+The PGlite database tests under `src/lib/supabase` get their database from
+`src/lib/supabase/__tests__/snapshotDatabase.ts`, never from `new PGlite()`:
+`fullSchemaDatabase()` is the Supabase stand-ins plus every migration (or a
+filtered subset), `snapshotDatabase(steps)` any other setup SQL, and
+`emptyDatabase()` a blank one. Each distinct setup is built once per run and
+every file loads a copy in about a tenth of a second, instead of each file
+replaying the migration chain itself. The snapshots live in a directory that
+`vitest.globalSetup.ts` creates for the run and deletes after it.
+
 `npm install` sets `core.hooksPath` to `.githooks`. Both hooks check a temporary
 copy of exactly what is committed or pushed (`.githooks/snapshot.sh`), so other
 uncommitted work in the tree neither fails nor passes them:
 
 - `pre-commit`: typecheck, lint, and `npm run test:coverage` with the coverage
-  floor (about a minute).
+  floor (about 40 seconds).
 - `pre-push`: `npm run audit:prod` (the dependency audit below), then
   `npm run test:e2e:full` on the pushed commit when the push changes `src/`,
   `migrations/`, `e2e/` or the build setup (about two minutes; docs- and
@@ -42,7 +51,8 @@ before anything else.
 `.github/workflows/checks.yml` runs on every push and pull request: `npm ci`,
 `npm run audit:prod`, typecheck, lint, `npm run
 test:coverage`, and the production build with placeholder Supabase values; a
-second job, `e2e`, runs the browser P0 suite described below.
+second job, `e2e`, runs the browser P0 suite described below, split by test into
+three parallel shards (`--shard=N/3`).
 `test:coverage` runs the whole suite under v8 coverage (the PGlite tests need no
 system package) and then `scripts/check-coverage-floor.mjs` compares
 `coverage/lcov.info` with `scripts/coverage-floor.json`: the job fails when line,

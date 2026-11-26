@@ -1,7 +1,8 @@
-import { PGlite } from '@electric-sql/pglite';
+import type { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { emptyDatabase } from './__tests__/snapshotDatabase';
 
 let db: PGlite;
 const CLUB = '290c5c33-9dfa-464a-a072-ef5a231f5308';
@@ -9,7 +10,7 @@ const read = (file: string) => readFileSync(resolve('migrations', file), 'utf8')
 const migration = read('152_google_review_auto_replies.sql');
 
 beforeAll(async () => {
-  db = new PGlite();
+  db = await emptyDatabase();
   await db.exec(`
     create role authenticated; create role anon; create role service_role;
     create schema auth; create table auth.users (id uuid primary key);

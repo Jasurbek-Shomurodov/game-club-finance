@@ -1,7 +1,8 @@
-import { PGlite } from '@electric-sql/pglite';
+import type { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { emptyDatabase } from './__tests__/snapshotDatabase';
 
 const migration = readFileSync(resolve(process.cwd(), 'migrations/095_expense_date_correction.sql'), 'utf8');
 const owner = '00000000-0000-0000-0000-000000000001';
@@ -22,7 +23,7 @@ const move = (userId: string, date: string, clubId = club) => asUser(userId, () 
 const dateOf = async () => (await db.query<{ date: string }>("select to_char(date, 'YYYY-MM-DD') as date from public.expenses")).rows[0].date;
 
 beforeAll(async () => {
-  db = new PGlite();
+  db = await emptyDatabase();
   await db.exec(`
     create role authenticated nologin; create role anon nologin;
     create schema auth; grant usage on schema public, auth to authenticated;

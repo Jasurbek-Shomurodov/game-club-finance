@@ -5,7 +5,8 @@ import { spawnSync } from 'node:child_process';
 import { blankedEnv } from './env.mjs';
 import { anonKey, supabaseUrl } from './settings.mjs';
 
-const result = spawnSync('npx', ['next', 'build', '--webpack'], {
+// `--no --` keeps npx (npm 11.17) from reading --webpack as its own option, which left the build on Turbopack.
+const result = spawnSync('npx', ['--no', '--', 'next', 'build', '--webpack'], {
   stdio: 'inherit',
   env: { ...process.env, ...blankedEnv(), NEXT_PUBLIC_SUPABASE_URL: supabaseUrl, NEXT_PUBLIC_SUPABASE_ANON_KEY: anonKey },
 });

@@ -1,13 +1,14 @@
-import { PGlite } from '@electric-sql/pglite';
+import type { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { emptyDatabase } from './__tests__/snapshotDatabase';
 import { EXPENSE_CATEGORIES } from '@/lib/expenseCategories';
 
 let db: PGlite;
 
 beforeAll(async () => {
-  db = new PGlite();
+  db = await emptyDatabase();
   await db.exec(`
     create table public.expenses(id serial primary key, category text not null, comment text);
     insert into public.expenses(category, comment) values

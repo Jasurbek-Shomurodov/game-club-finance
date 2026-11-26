@@ -1,7 +1,8 @@
-import { PGlite } from '@electric-sql/pglite';
+import type { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { emptyDatabase } from './__tests__/snapshotDatabase';
 
 const sql = (file: string) => readFileSync(resolve('migrations', file), 'utf8');
 // The showcase chain up to the payload this migration replaces (140).
@@ -20,7 +21,7 @@ let db: PGlite;
 const payload = async (slug: string) => (await db.query<{ data: Record<string, unknown> | null }>(`select get_public_showcase('${slug}') as data`)).rows[0].data;
 
 beforeAll(async () => {
-  db = new PGlite();
+  db = await emptyDatabase();
   await db.exec(`
     create role authenticated; create role anon; create role service_role;
     create schema auth;

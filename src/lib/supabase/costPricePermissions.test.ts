@@ -1,6 +1,7 @@
-import { PGlite } from '@electric-sql/pglite';
+import type { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { emptyDatabase } from './__tests__/snapshotDatabase';
 
 const migration = (name: string) => readFileSync(`migrations/${name}`, 'utf8');
 const club = '10000000-0000-0000-0000-000000000001';
@@ -28,7 +29,7 @@ async function asRole(role: string) {
 }
 
 beforeAll(async () => {
-  db = new PGlite();
+  db = await emptyDatabase();
   await db.exec(`
     create role authenticated; create role anon;
     create schema auth;

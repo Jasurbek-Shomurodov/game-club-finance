@@ -1,7 +1,8 @@
-import { PGlite } from '@electric-sql/pglite';
+import type { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { emptyDatabase } from './__tests__/snapshotDatabase';
 
 const migration = readFileSync(resolve(process.cwd(), 'migrations/081_cost_and_index_cleanup.sql'), 'utf8');
 const owner = '00000000-0000-0000-0000-000000000001';
@@ -23,7 +24,7 @@ const visibleClubs = (userId: string, table: string) => asUser(userId, async () 
 const purchaseBaseline = new Map<string, string[]>();
 
 beforeAll(async () => {
-  db = new PGlite();
+  db = await emptyDatabase();
   await db.exec(`
     create role authenticated nologin;
     create role anon nologin;
