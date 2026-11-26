@@ -36,6 +36,7 @@ guide relevant to the task; do not load every document or migration by default.
 | Database backups or restore | `docs/runbooks/database-backup.md` |
 | Public site domain and admin subdomain | `docs/runbooks/public-domain.md` |
 | Google Maps (Business Profile) posting | `docs/runbooks/google-business-profile.md` |
+| Yandex Maps price list, review replies and the Yandex AI-bot image | `docs/runbooks/yandex-maps-sync.md` |
 
 ## Local URLs
 

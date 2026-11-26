@@ -1,0 +1,17 @@
+{
+  "//": "For tsx scripts that import server modules (npm run yandex:sync). Next resolves `server-only` itself and it is not an npm dependency here, so map it to Next's empty server stub, as vitest.config.mts does. hoggish-assistant/server only exports an `import` condition, which a tsx (CommonJS) script cannot resolve by name, so point at its file. The app's own tsconfig.json is unchanged.",
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": [
+        "../src/*"
+      ],
+      "server-only": [
+        "../node_modules/next/dist/compiled/server-only/empty.js"
+      ],
+      "hoggish-assistant/server": [
+        "../node_modules/hoggish-assistant/dist/server.js"
+      ]
+    }
+  }
+}

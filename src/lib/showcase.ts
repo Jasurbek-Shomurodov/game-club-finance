@@ -543,7 +543,8 @@ export interface PublicShowcaseOffer {
 
 const TITLE_SEPARATOR = /\s+[·•|—–-]\s+/;
 
-function splitOfferTitle(title: string): { zone: string | null; length: string } {
+/** "VIP · 3 часа" → the zone ("VIP") and the package ("3 часа"); no zone when the title has no separator. */
+export function splitOfferTitle(title: string): { zone: string | null; length: string } {
   const parts = title.split(TITLE_SEPARATOR);
   if (parts.length < 2) return { zone: null, length: title };
   return { zone: parts[0], length: parts.slice(1).join(' · ') };

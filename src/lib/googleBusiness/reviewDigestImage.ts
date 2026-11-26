@@ -29,6 +29,27 @@ export interface ReviewDigestPrevious {
   totalReviewCount: number | null;
 }
 
+/** Which maps service the image speaks for: its header label, "on <service>" and footer. */
+export interface ReviewDigestSource {
+  /** Shown upper-cased after the club name in the header. */
+  label: string;
+  /** "на Google Maps". */
+  where: string;
+  footer: string;
+}
+
+export const GOOGLE_MAPS_DIGEST_SOURCE: ReviewDigestSource = {
+  label: 'Google Maps',
+  where: 'на Google Maps',
+  footer: 'Ответы на отзывы Google Maps каждый день в 08:00 (Ташкент).',
+};
+
+export const YANDEX_MAPS_DIGEST_SOURCE: ReviewDigestSource = {
+  label: 'Яндекс Карты',
+  where: 'на Яндекс Картах',
+  footer: 'Ответы на отзывы и прайс-лист Яндекс Карт ведёт ИИ-бот.',
+};
+
 const WIDTH = 1200;
 const CARD_X = 40;
 const PAD = 56;
@@ -117,19 +138,23 @@ export type ReviewDigestBlock =
   | ({ type: 'review' } & ReviewReplyResult);
 
 /** Turns the day's digest (and the previous one, for deltas) into drawable blocks. */
-export function buildReviewDigestBlocks(digest: ReviewDigest, previous: ReviewDigestPrevious | null = null): ReviewDigestBlock[] {
+export function buildReviewDigestBlocks(
+  digest: ReviewDigest,
+  previous: ReviewDigestPrevious | null = null,
+  source: ReviewDigestSource = GOOGLE_MAPS_DIGEST_SOURCE,
+): ReviewDigestBlock[] {
   const blocks: ReviewDigestBlock[] = [{
     type: 'intro',
     title: 'Привет! Я ИИ-бот Pixel Gaming',
-    text: 'Каждый день я сам веду наш профиль на Google Maps: читаю новые отзывы гостей и отвечаю каждому на его языке. Вот что я сделал.',
+    text: `Каждый день я сам веду наш профиль ${source.where}: читаю новые отзывы гостей и отвечаю каждому на его языке. Вот что я сделал.`,
   }];
 
   const { averageRating: rating, totalReviewCount: total, results } = digest;
   const handled = results.length + digest.remaining;
   const ratingSub = rating !== null && previous?.averageRating != null
     ? (Math.abs(rating - previous.averageRating) >= 0.05 ? `${signed(rating - previous.averageRating, 1)} за сутки` : 'без изменений')
-    : 'на Google Maps';
-  const totalSub = total !== null && previous?.totalReviewCount != null ? `${signed(total - previous.totalReviewCount)} за сутки` : 'на Google Maps';
+    : source.where;
+  const totalSub = total !== null && previous?.totalReviewCount != null ? `${signed(total - previous.totalReviewCount)} за сутки` : source.where;
   blocks.push({ type: 'tiles', tiles: [
     { label: 'Рейтинг', value: rating !== null ? rating.toFixed(1).replace('.', ',') : '—', sub: ratingSub },
     { label: 'Отзывов всего', value: total !== null ? String(total) : '—', sub: totalSub },
@@ -239,10 +264,14 @@ function layout(blocks: ReviewDigestBlock[], x: number) {
   return { svg: parts.join(''), height: y };
 }
 
-export function buildReviewDigestSvg(digest: ReviewDigest, previous: ReviewDigestPrevious | null = null) {
+export function buildReviewDigestSvg(
+  digest: ReviewDigest,
+  previous: ReviewDigestPrevious | null = null,
+  source: ReviewDigestSource = GOOGLE_MAPS_DIGEST_SOURCE,
+) {
   const x = CARD_X + PAD;
   const bodyTop = CARD_X + HEADER_HEIGHT + 36;
-  const { svg: body, height: bodyHeight } = layout(buildReviewDigestBlocks(digest, previous), x);
+  const { svg: body, height: bodyHeight } = layout(buildReviewDigestBlocks(digest, previous, source), x);
   const footerTop = bodyTop + bodyHeight + 20;
   const cardHeight = footerTop + 70 - CARD_X;
   const height = cardHeight + CARD_X * 2;
@@ -253,15 +282,19 @@ export function buildReviewDigestSvg(digest: ReviewDigest, previous: ReviewDiges
   <g font-family="Noto Sans">
   <rect x="${CARD_X}" y="${CARD_X}" width="${cardWidth}" height="${cardHeight}" rx="28" fill="${COLORS.card}"/>
   <path d="M${CARD_X} ${CARD_X + HEADER_HEIGHT}V${CARD_X + 28}a28 28 0 0 1 28 -28H${CARD_X + cardWidth - 28}a28 28 0 0 1 28 28V${CARD_X + HEADER_HEIGHT}Z" fill="${COLORS.brand}"/>
-  <text x="${x}" y="${CARD_X + 58}" font-size="22" font-weight="700" letter-spacing="3" fill="${COLORS.accent}">${escapeXml(drawableText(digest.clubName).toLocaleUpperCase('ru') || 'PIXEL GAMING')} · GOOGLE MAPS</text>
+  <text x="${x}" y="${CARD_X + 58}" font-size="22" font-weight="700" letter-spacing="3" fill="${COLORS.accent}">${escapeXml(drawableText(digest.clubName).toLocaleUpperCase('ru') || 'PIXEL GAMING')} · ${escapeXml(source.label.toLocaleUpperCase('ru'))}</text>
   <text x="${x}" y="${CARD_X + 118}" font-size="50" font-weight="700" fill="white">Отчёт ИИ-бота за сутки</text>
   <text x="${x}" y="${CARD_X + 160}" font-size="27" fill="white" fill-opacity="0.88">${escapeXml(subtitle)}: отзывы</text>
   <g transform="translate(0 ${bodyTop})">${body}</g>
   <rect x="${x}" y="${footerTop}" width="${INNER}" height="1.5" fill="${COLORS.rule}"/>
-  <text x="${x}" y="${footerTop + 44}" font-size="21" fill="${COLORS.faint}">Ответы на отзывы Google Maps каждый день в 08:00 (Ташкент).</text>
+  <text x="${x}" y="${footerTop + 44}" font-size="21" fill="${COLORS.faint}">${escapeXml(source.footer)}</text>
   </g></svg>`;
 }
 
-export async function renderReviewDigestPng(digest: ReviewDigest, previous: ReviewDigestPrevious | null = null): Promise<Buffer> {
-  return sharp(Buffer.from(buildReviewDigestSvg(digest, previous))).png({ compressionLevel: 9 }).toBuffer();
+export async function renderReviewDigestPng(
+  digest: ReviewDigest,
+  previous: ReviewDigestPrevious | null = null,
+  source: ReviewDigestSource = GOOGLE_MAPS_DIGEST_SOURCE,
+): Promise<Buffer> {
+  return sharp(Buffer.from(buildReviewDigestSvg(digest, previous, source))).png({ compressionLevel: 9 }).toBuffer();
 }

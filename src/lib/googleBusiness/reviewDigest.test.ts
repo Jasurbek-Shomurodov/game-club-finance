@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { reviewDigestCaption, reviewDigestFromOutcome, sendReviewDigest, type ReviewDigestDeps } from './reviewDigest';
-import { buildReviewDigestBlocks, buildReviewDigestSvg, drawableText, renderReviewDigestPng, russianLongDate, type ReviewDigest } from './reviewDigestImage';
+import { buildReviewDigestBlocks, buildReviewDigestSvg, drawableText, renderReviewDigestPng, russianLongDate, YANDEX_MAPS_DIGEST_SOURCE, type ReviewDigest } from './reviewDigestImage';
 import type { ClubReplyOutcome } from './reviewReplies';
 
 const CLUB = { clubId: 'club-1', clubName: 'Pixel Gaming', address: 'Matbuotchilar 17' };
@@ -69,6 +69,15 @@ describe('buildReviewDigestSvg', () => {
     expect(svg).toContain('«Zoʻr klub, kompyuterlar tez»');
     expect(svg).toContain('Ответ: Rahmat, Aziz!');
     expect(svg).toContain('Ошибка ответа');
+  });
+
+  it('speaks for Yandex Maps when given its source', () => {
+    const svg = buildReviewDigestSvg(digest(), null, YANDEX_MAPS_DIGEST_SOURCE);
+    expect(svg).toContain('PIXEL GAMING · ЯНДЕКС КАРТЫ');
+    expect(svg).toContain('веду наш профиль на Яндекс Картах');
+    expect(svg).toContain('Ответы на отзывы и прайс-лист Яндекс Карт ведёт ИИ-бот.');
+    expect(svg).not.toContain('Google');
+    expect(buildReviewDigestSvg(digest())).toContain('Ответы на отзывы Google Maps каждый день в 08:00 (Ташкент).');
   });
 
   it('replaces text the font cannot draw', () => {
