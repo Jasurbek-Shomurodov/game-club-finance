@@ -15,7 +15,9 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     return { rules: { userAgent: '*', disallow: '/' } };
   }
   return {
-    rules: { userAgent: '*', allow: '/', disallow: ['/api/'] },
+    // Price cards are pictures that map listings (Yandex Business) download; its
+    // fetcher obeys robots.txt, so they are the one open path under /api/.
+    rules: { userAgent: '*', allow: ['/', '/api/showcase/price-card/'], disallow: ['/api/'] },
     sitemap: `${origin}/sitemap.xml`,
     host: origin,
   };

@@ -7,7 +7,7 @@ describe('parseYandexSyncArgs', () => {
   it('reads the command and a club', () => {
     expect(parseYandexSyncArgs(['plan'])).toEqual({ ok: true, args: {
       command: 'plan', clubId: null, dryRun: false, confirmSend: false, resend: false,
-      cardBaseUrl: 'https://pixelgaming.uz/api/showcase/price-card', photoPictures: false,
+      cardBaseUrl: 'https://www.pixelgaming.uz/api/showcase/price-card', photoPictures: false,
     } });
     expect(parseYandexSyncArgs(['replies', '--club', CLUB.toUpperCase()])).toMatchObject({ ok: true, args: { command: 'replies', clubId: CLUB } });
   });

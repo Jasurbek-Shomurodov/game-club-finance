@@ -100,7 +100,7 @@ skips that club for the rest of the business date unless `--resend` is given.
      The description is the offer's text only. Names are unique: if two still
      match, the price is added ("… — 10 000 сум"), then a number;
    - **pictures are the branded price cards**,
-     `https://pixelgaming.uz/api/showcase/price-card/<slug>/<itemId>.png?v=<hash>`
+     `https://www.pixelgaming.uz/api/showcase/price-card/<slug>/<itemId>.png?v=<hash>`
      (the `v` changes whenever the card does, so Yandex loads the new one).
      A versioned card is cached at the edge for good; an address with no or
      an old `v` redirects (307) to the current one, and a failed database

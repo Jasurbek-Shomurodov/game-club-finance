@@ -21,7 +21,8 @@ export interface YandexSyncArgs {
 }
 
 /** The public site's price-card route (src/app/api/showcase/price-card). */
-export const DEFAULT_PRICE_CARD_BASE_URL = 'https://pixelgaming.uz/api/showcase/price-card';
+/** The www host: the bare domain answers 308, which Yandex does not follow when it fetches pictures. */
+export const DEFAULT_PRICE_CARD_BASE_URL = 'https://www.pixelgaming.uz/api/showcase/price-card';
 
 export const YANDEX_SYNC_USAGE = 'Usage: npm run yandex:sync -- <plan|replies|report> [--club <club id>] [--card-base-url <https url>] [--photo-pictures] [--dry-run] [--confirm-send [--resend]]';
 
@@ -55,7 +56,7 @@ export function parseYandexSyncArgs(argv: readonly string[]): { ok: true; args: 
     else if (flag === '--photo-pictures') args.photoPictures = true;
     else if (flag === '--card-base-url') {
       const value = cardBaseUrl(rest[i + 1]);
-      if (!value) return { ok: false, error: '--card-base-url needs an https address, e.g. https://pixelgaming.uz/api/showcase/price-card' };
+      if (!value) return { ok: false, error: '--card-base-url needs an https address, e.g. https://www.pixelgaming.uz/api/showcase/price-card' };
       args.cardBaseUrl = value;
       cardBaseUrlGiven = true;
       i += 1;
