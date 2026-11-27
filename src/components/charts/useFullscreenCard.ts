@@ -9,8 +9,9 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
  * cut it, its own scrolling. `ChartCard` applies them through its
  * `fullscreen` prop.
  */
+// `!m-0`: a parent's `space-y-*` margin outranks a plain `m-0` and would push the card down from the top edge.
 export const fullscreenCardClassName =
-  'fixed inset-0 z-50 m-0 flex h-[100dvh] w-full flex-col overflow-y-auto overscroll-contain rounded-none border-0 shadow-none ' +
+  'fixed inset-0 z-50 !m-0 flex h-[100dvh] w-full flex-col overflow-y-auto overscroll-contain rounded-none border-0 shadow-none ' +
   'pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]';
 
 /** Classes for the chart's own box inside a full-screen card: it takes the room the rest of the card leaves. */
