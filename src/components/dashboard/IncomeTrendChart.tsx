@@ -269,7 +269,7 @@ export function IncomeTrendChart({ data, link, onSelectDay }: IncomeTrendChartPr
         rows={dayRows}
         currency={currency}
         description={t('incomeTrend')}
-        onOpenDay={onSelectDay}
+        onOpenDay={chart.openDayReport}
       />
     </ChartCard>
   );

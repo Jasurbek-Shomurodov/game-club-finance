@@ -51,6 +51,16 @@ export function useDayChart<T extends { iso: string }>(
   const closeDay = useCallback(() => setOpenDay(null), []);
 
   /**
+   * Hands a day to the host. A full-screen card returns to the page first, so
+   * what the host does with the day (a page that scrolls to it) is not hidden
+   * behind the overlay.
+   */
+  const selectDay = useCallback((iso: string) => {
+    if (filling) closeFullscreen();
+    onSelectDay?.(iso);
+  }, [closeFullscreen, filling, onSelectDay]);
+
+  /**
    * The chart's `onClick` over the points it draws: a drag never opens a day,
    * nor does a neighbour drawn just outside a zoomed view; a phone opens the
    * day's details.
@@ -60,8 +70,8 @@ export function useDayChart<T extends { iso: string }>(
     const iso = pickedDay(drawn, state?.activeTooltipIndex, zoomed)?.iso;
     if (!iso) return;
     if (mobile) setOpenDay(iso);
-    else onSelectDay?.(iso);
-  }, [consumeDrag, mobile, onSelectDay, zoomed]);
+    else if (onSelectDay) selectDay(iso);
+  }, [consumeDrag, mobile, onSelectDay, selectDay, zoomed]);
 
   return {
     mobile,
@@ -89,5 +99,7 @@ export function useDayChart<T extends { iso: string }>(
     openDay,
     openRow: openDay ? rows.find((row) => row.iso === openDay) ?? null : null,
     closeDay,
+    /** For `ChartDayDetails`' "Open day report": leaves full screen, then opens the day; undefined when the chart cannot open one. */
+    openDayReport: onSelectDay ? selectDay : undefined,
   };
 }

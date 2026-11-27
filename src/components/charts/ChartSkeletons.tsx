@@ -72,13 +72,16 @@ export function DonutSkeleton({ rows = 4, size = 'sm', stacked = false, classNam
 
 const BAR_HEIGHTS = [45, 70, 55, 85, 60, 95, 50, 75, 65, 90, 40, 80];
 
-/** `DailyInOutChart`: the two-key legend over paired bars of the given plot height. */
+/** `DailyInOutChart`: the two legend pills and the full-screen button over paired bars of the given plot height. */
 export function InOutChartSkeleton({ height = 220, bars = 12, className }: { height?: number; bars?: number; className?: string }) {
   return (
     <div aria-hidden="true" className={cn('space-y-3', className)}>
-      <div className="flex flex-wrap gap-x-4 gap-y-1">
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="h-4 w-32" />
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          <Skeleton className="h-10 w-32 rounded-full sm:h-9" />
+          <Skeleton className="h-10 w-32 rounded-full sm:h-9" />
+        </div>
+        <Skeleton className="h-10 w-10 shrink-0 rounded-lg" />
       </div>
       <div className="flex items-end gap-2" style={{ height }}>
         {Array.from({ length: bars }, (_, index) => (

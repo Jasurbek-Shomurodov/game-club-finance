@@ -20,6 +20,7 @@ import {
   PAYMENT_PREFIX,
   PAID_FROM_GAME_CLUB,
   buildDrillSankey,
+  drillFlowTone,
   type DrillNode,
   type DrillSankey,
   type DrillTarget,
@@ -146,6 +147,7 @@ export function MoneyFlowSankeys({
               onTargetClick={(key) => openDrill(targets.get(key)?.node)}
               isTargetClickable={(key) => Boolean(targets.get(key)?.node.open)}
               openLabel={(name) => t('openFlow', { name })}
+              flowTone={drillFlowTone}
               minRows={rows}
             />
           ) : (

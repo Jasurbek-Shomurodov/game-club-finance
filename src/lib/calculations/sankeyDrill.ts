@@ -76,6 +76,26 @@ const isBar = (row: ExpenseRow) => row.payment_source === 'bar';
 /** The comment group a payment falls in. */
 const noteKey = (row: ExpenseRow) => (row.comment?.trim() ? `${NOTE_PREFIX}${row.comment.trim()}` : NO_COMMENT);
 
+/**
+ * Which way the money on a flow moves, so a flow is coloured by it rather than
+ * by the node it touches: money coming in, money spent, profit kept, or a loss
+ * (spending this side's own money did not cover).
+ */
+export type SankeyFlowTone = 'income' | 'expense' | 'kept' | 'loss';
+
+/**
+ * The tone of the flow into the hub from source `key` (`column` "source") or
+ * out of the hub to target `key` ("target"). A side's own Sankey draws its
+ * income sources into the hub and its costs and what it kept out; a category
+ * or payment Sankey draws the side's money paid into it, which is spending.
+ */
+export function drillFlowTone(column: 'source' | 'target', key: string): SankeyFlowTone {
+  if (column === 'source' && key === 'shortfall') return 'loss';
+  if (key === GAME_CLUB_LEFT || key === BAR_LEFT) return 'kept';
+  if (column === 'source' && key !== PAID_FROM_GAME_CLUB && key !== PAID_FROM_BAR) return 'income';
+  return 'expense';
+}
+
 /** The details of one payment. */
 export function paymentTarget(row: ExpenseRow): Extract<DrillTarget, { kind: 'payment' }> {
   return { kind: 'payment', id: row.id, date: row.date, category: row.category, source: isBar(row) ? 'bar' : 'game_club' };

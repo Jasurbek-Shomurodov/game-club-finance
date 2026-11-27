@@ -8,6 +8,7 @@ import { ChartEmpty } from '@/components/dashboard/ChartCard';
 import type { AnalysisLedgers } from '@/lib/calculations/financialAnalysis';
 import {
   buildDrillSankey,
+  drillFlowTone,
   drillDetailsHref,
   drillExpenseRows,
   drillPaymentGroups,
@@ -136,6 +137,7 @@ export function SankeyDrillModal({
               onTargetClick={(key) => go(targets.get(key)?.node)}
               isTargetClickable={(key) => Boolean(targets.get(key)?.node.open)}
               openLabel={(name) => t('openFlow', { name })}
+              flowTone={drillFlowTone}
             />
           ) : (
             <ChartEmpty title={t('empty')} />

@@ -12,6 +12,7 @@ import {
   PAYMENT_PREFIX,
   buildDrillSankey,
   drillDetailsHref,
+  drillFlowTone,
   drillExpenseRows,
   drillPaymentGroups,
   type DrillTarget,
@@ -189,5 +190,27 @@ describe('drillPaymentGroups', () => {
   it('lists an opened group and the folded other category payment by payment', () => {
     expect(drillPaymentGroups({ kind: 'category', category: 'salary', notes: [`${NOTE_PREFIX}Izzat`] }, rows)).toBeNull();
     expect(drillPaymentGroups({ kind: 'category', category: OTHER_CATEGORY, named: ['salary'] }, rows)).toBeNull();
+  });
+});
+
+describe('drillFlowTone', () => {
+  it('colours a side\'s own flow by where the money goes: in, spent, kept or lost', () => {
+    const club = buildDrillSankey({ kind: 'gameClub' }, ledgers);
+    expect(club.sources.map((node) => drillFlowTone('source', node.key))).toEqual(club.sources.map(() => 'income'));
+    expect(drillFlowTone('target', GAME_CLUB_LEFT)).toBe('kept');
+    expect(drillFlowTone('target', BAR_LEFT)).toBe('kept');
+    expect(drillFlowTone('target', BAR_COST_TARGET)).toBe('expense');
+    expect(drillFlowTone('target', 'salary')).toBe('expense');
+    // Costs above the side's own money: the shortfall flowing in is a loss.
+    expect(drillFlowTone('source', 'shortfall')).toBe('loss');
+    // Only as money flowing in: a target of that name is spending like any other.
+    expect(drillFlowTone('target', 'shortfall')).toBe('expense');
+  });
+
+  it('treats the money paid into a category or a payment as spending', () => {
+    expect(drillFlowTone('source', PAID_FROM_GAME_CLUB)).toBe('expense');
+    expect(drillFlowTone('source', PAID_FROM_BAR)).toBe('expense');
+    expect(drillFlowTone('target', `${PAYMENT_PREFIX}e1`)).toBe('expense');
+    expect(drillFlowTone('target', MORE_PAYMENTS)).toBe('expense');
   });
 });

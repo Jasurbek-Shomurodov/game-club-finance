@@ -1,11 +1,31 @@
 'use client';
 
-import { useEffect, useState, type KeyboardEvent } from 'react';
+import { useEffect, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { chartColors } from '@/components/dashboard/ChartCard';
 import { formatCurrency } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 import type { SankeyNode } from '@/lib/calculations/financialAnalysis';
+import type { SankeyFlowTone } from '@/lib/calculations/sankeyDrill';
 import { layoutSankey, sankeyLinkPath as linkPath } from '@/lib/sankeyLayout';
 import { formatCompactMoney, formatShare } from './analysisFormat';
+
+/**
+ * A flow's colour says which way the money moves, as in the finance app:
+ * money in and profit kept green (kept the stronger), spending amber, a loss
+ * red. Nodes keep their own colours.
+ */
+const FLOW_TONES: Record<SankeyFlowTone, { color: string; opacity: number }> = {
+  income: { color: chartColors.success, opacity: 0.28 },
+  kept: { color: chartColors.success, opacity: 0.42 },
+  expense: { color: chartColors.warning, opacity: 0.36 },
+  loss: { color: chartColors.danger, opacity: 0.34 },
+};
+/** A flow without a tone takes its node's colour at this strength. */
+const NODE_FLOW_OPACITY = 0.3;
+/** The flow under the pointer, the flow under a finger, and the others while one of them is lit. */
+const HOVERED_OPACITY = 0.6;
+const PRESSED_OPACITY = 0.75;
+const DIMMED_OPACITY = 0.1;
 
 const LAYOUT = { nodeWidth: 10, nodePadding: 14, perNode: 30, minHeight: 300, padY: 8, labelGap: 8, perColumn: 100, hubLabelSpace: 22 };
 
@@ -62,9 +82,20 @@ export interface SankeyFlowChartProps {
   openLabel?: (name: string) => string;
   /** Draw at least this many node rows tall, so side-by-side charts share one height. */
   minRows?: number;
+  /**
+   * Which way the money on a flow moves (`drillFlowTone`): the flow into the
+   * hub from a source, or out of it to a target. Without it a flow takes its
+   * node's colour.
+   */
+  flowTone?: (column: 'source' | 'target', key: string) => SankeyFlowTone;
 }
 
-/** Three-column flow: income sources → total income → where it went (costs, categories, profit). */
+/**
+ * Three-column flow: income sources → total income → where it went (costs,
+ * categories, profit). A tap on a flow opens the node it leads to: a flow out
+ * of the hub opens its target, and a flow into the hub (which does not open)
+ * its source. A finger on a flow or a node lights it, since touch has no hover.
+ */
 export function SankeyFlowChart({
   sankey,
   hubLabel,
@@ -80,8 +111,12 @@ export function SankeyFlowChart({
   isSourceClickable = () => true,
   openLabel = (name) => name,
   minRows = 0,
+  flowTone,
 }: SankeyFlowChartProps) {
   const [hovered, setHovered] = useState<string | null>(null);
+  const [pressed, setPressed] = useState<string | null>(null);
+  // What is lit: the flow or node under a finger, else the one under the pointer.
+  const lit = pressed ?? hovered;
   const [wrapRef, measuredWidth] = useElementWidth();
   useFontsLoaded();
   const { nodeWidth, nodePadding, perNode, minHeight, padY, labelGap, perColumn, hubLabelSpace } = LAYOUT;
@@ -105,12 +140,36 @@ export function SankeyFlowChart({
   const rightX = width - marginRight - nodeWidth;
   const hubX = Math.round((leftX + rightX) / 2);
 
-  const linkOpacity = (key: string) => (hovered === key ? 0.55 : hovered ? 0.12 : 0.3);
-  const hover = (key: string) => ({ onMouseEnter: () => setHovered(key), onMouseLeave: () => setHovered(null) });
+  const flowLook = (column: 'source' | 'target', key: string, nodeColor: string) => {
+    const tone = flowTone ? FLOW_TONES[flowTone(column, key)] : null;
+    const id = `${column === 'source' ? 's' : 't'}-${key}`;
+    const base = tone?.opacity ?? NODE_FLOW_OPACITY;
+    return {
+      stroke: tone?.color ?? nodeColor,
+      strokeOpacity: pressed === id ? PRESSED_OPACITY : lit === id ? HOVERED_OPACITY : lit ? DIMMED_OPACITY : base,
+    };
+  };
+  const release = () => setPressed(null);
+  // Hover for a mouse only (the mouse events a browser emulates after a tap would leave a flow lit); for a finger or
+  // a pen, the pressed state while it is down (a scroll cancels it).
+  const hover = (key: string) => ({
+    onPointerEnter: (event: PointerEvent<SVGElement>) => {
+      if (event.pointerType === 'mouse') setHovered(key);
+    },
+    onPointerLeave: (event: PointerEvent<SVGElement>) => {
+      if (event.pointerType === 'mouse') setHovered(null);
+      else release();
+    },
+    onPointerDown: (event: PointerEvent<SVGElement>) => {
+      if (event.pointerType !== 'mouse') setPressed(key);
+    },
+    onPointerUp: release,
+    onPointerCancel: release,
+  });
   const sourceOpens = (key: string) => Boolean(onSourceClick) && isSourceClickable(key);
   const targetOpens = (key: string) => Boolean(onTargetClick) && isTargetClickable(key);
   const flowClick = (opens: boolean, open: () => void) => ({
-    className: cn('transition-[stroke-opacity]', opens && 'cursor-pointer'),
+    className: cn('transition-[stroke-opacity] motion-reduce:transition-none', opens && 'cursor-pointer'),
     onClick: opens ? open : undefined,
   });
   // A node that opens is a button: a click, Enter or Space opens it.
@@ -142,9 +201,8 @@ export function SankeyFlowChart({
               key={`ls-${node.key}`}
               d={linkPath(leftX + nodeWidth, node.y + node.h / 2, hubX, node.hubY + node.band / 2)}
               fill="none"
-              stroke={sourceColor(node.key)}
+              {...flowLook('source', node.key, sourceColor(node.key))}
               strokeWidth={Math.max(1, node.band)}
-              strokeOpacity={linkOpacity(`s-${node.key}`)}
               {...hover(`s-${node.key}`)}
               {...flowClick(sourceOpens(node.key), () => onSourceClick?.(node.key))}
             >
@@ -156,9 +214,8 @@ export function SankeyFlowChart({
               key={`lt-${node.key}`}
               d={linkPath(hubX + nodeWidth, node.hubY + node.band / 2, rightX, node.y + node.h / 2)}
               fill="none"
-              stroke={targetColor(node.key)}
+              {...flowLook('target', node.key, targetColor(node.key))}
               strokeWidth={Math.max(1, node.band)}
-              strokeOpacity={linkOpacity(`t-${node.key}`)}
               {...hover(`t-${node.key}`)}
               {...flowClick(targetOpens(node.key), () => onTargetClick?.(node.key))}
             >
@@ -179,7 +236,7 @@ export function SankeyFlowChart({
                 y={node.y + node.h / 2}
                 dy="0.35em"
                 textAnchor="end"
-                className={cn('fill-current text-[12px] font-semibold text-gray-800', hovered && hovered !== `s-${node.key}` && 'opacity-50')}
+                className={cn('fill-current text-[12px] font-semibold text-gray-800', lit && lit !== `s-${node.key}` && 'opacity-50')}
               >
                 {sourceText(node)}
               </text>
@@ -208,7 +265,7 @@ export function SankeyFlowChart({
                 x={rightX + nodeWidth + labelGap}
                 y={node.y + node.h / 2}
                 dy="0.35em"
-                className={cn('fill-current text-[12px] font-semibold text-gray-800', hovered && hovered !== `t-${node.key}` && 'opacity-50')}
+                className={cn('fill-current text-[12px] font-semibold text-gray-800', lit && lit !== `t-${node.key}` && 'opacity-50')}
               >
                 {targetText(node)}
               </text>

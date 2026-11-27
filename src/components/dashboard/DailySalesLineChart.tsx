@@ -251,7 +251,7 @@ export function DailySalesLineChart({ data, onSelectDay }: DailySalesLineChartPr
         rows={dayRows}
         currency={currency}
         description={t('dailySales')}
-        onOpenDay={onSelectDay}
+        onOpenDay={chart.openDayReport}
       />
     </ChartCard>
   );
