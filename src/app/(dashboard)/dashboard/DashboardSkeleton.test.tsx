@@ -3,7 +3,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import messages from '@/messages/en.json';
-import { DashboardSkeleton } from './DashboardSkeleton';
+import { DashboardSkeleton, TrendChartSkeleton } from './DashboardSkeleton';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: () => {}, replace: () => {}, prefetch: () => {} }),
@@ -32,6 +32,14 @@ describe('DashboardSkeleton', () => {
     expect(headlineTiles(html)).toBe(4);
     expect(html).toContain('2xl:grid-cols-4');
     expect(html).not.toContain('2xl:grid-cols-5');
+  });
+
+  it('gives each trend chart a headline per side, the income trend with its change lines', () => {
+    const figures = (html: string) => (html.match(/h-8 w-44/g) ?? []).length;
+    const changes = (html: string) => (html.match(/h-3 w-40 max-w-full bg-gray-100/g) ?? []).length;
+    expect(figures(render(<TrendChartSkeleton />))).toBe(2);
+    expect(changes(render(<TrendChartSkeleton />))).toBe(2);
+    expect(changes(render(<TrendChartSkeleton change={false} />))).toBe(0);
   });
 });
 

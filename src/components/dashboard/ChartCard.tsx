@@ -3,6 +3,8 @@
 import { useCallback, useId, useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Card, EmptyState, HelpButton } from '@/components/PresentationFoundation';
+import { FullscreenToggle } from '@/components/charts/ChartControls';
+import { fullscreenCardClassName, type FullscreenCard } from '@/components/charts/useFullscreenCard';
 import { cn } from '@/lib/utils';
 import { formatCurrency, intlLocaleFor } from '@/lib/formatters';
 
@@ -45,18 +47,28 @@ export const extendedCategoricalColors = [...categoricalColors, token('viz-6'), 
 export const CHART_Y_AXIS_WIDTH = 60;
 
 /** Card wrapper shared by every dashboard chart; the section is named by its heading. */
-export function ChartCard({ title, description, help, action, className, children }: {
+export function ChartCard({ title, description, help, action, headline, fullscreen, className, children }: {
   title: string;
   description?: string;
   /** Explanation behind a "?" beside the title. */
   help?: string;
   action?: ReactNode;
+  /** The figure under the title (`ChartHeadline`). */
+  headline?: ReactNode;
+  /** From `useFullscreenCard`: adds the full-screen button, and the card fills the window while it is open. */
+  fullscreen?: Pick<FullscreenCard, 'open' | 'toggle'>;
   className?: string;
   children: ReactNode;
 }) {
   const headingId = useId();
+  const filling = !!fullscreen?.open;
   return (
-    <Card as="section" className={cn('flex flex-col', className)} aria-labelledby={headingId}>
+    <Card
+      as="section"
+      className={cn('flex flex-col', className, filling && fullscreenCardClassName)}
+      aria-labelledby={headingId}
+      data-fullscreen={filling || undefined}
+    >
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0 flex-1 basis-48">
           <div className="flex items-center gap-1">
@@ -64,8 +76,14 @@ export function ChartCard({ title, description, help, action, className, childre
             {help && <HelpButton title={title} body={help} className="-my-2 shrink-0" />}
           </div>
           {description && <p className="mt-0.5 text-xs leading-5 text-gray-500">{description}</p>}
+          {headline && <div className="mt-2">{headline}</div>}
         </div>
-        {action}
+        {fullscreen ? (
+          <div className="flex flex-wrap items-start justify-end gap-2">
+            {action}
+            <FullscreenToggle open={filling} onToggle={fullscreen.toggle} />
+          </div>
+        ) : action}
       </div>
       {children}
     </Card>

@@ -1,5 +1,6 @@
 import { MetricGridSkeleton, Skeleton } from '@/components/PresentationFoundation';
 import { HeadingSkeleton, SkeletonCard } from '@/components/charts/ChartSkeletons';
+import { ChartHeadlineSkeleton } from '@/components/charts/ChartHeadline';
 import { SideGlanceCardSkeleton } from '@/components/dashboard/SideGlanceCard';
 
 /**
@@ -27,7 +28,7 @@ export function DashboardSkeleton({ withReserve = true }: { withReserve?: boolea
         <FlowCardSkeleton />
       </div>
       <div className="space-y-4" aria-hidden="true">
-        <TrendChartSkeleton />
+        <TrendChartSkeleton change={false} />
         <TrendChartSkeleton />
       </div>
     </div>
@@ -68,11 +69,18 @@ export function FlowCardSkeleton() {
   );
 }
 
-/** A trend chart card (daily sales, income trend): heading, legend pills, the plot. */
-export function TrendChartSkeleton() {
+/**
+ * A trend chart card (daily sales, income trend): heading, legend pills, each
+ * side's headline figure (with its change line where the chart has one), the plot.
+ */
+export function TrendChartSkeleton({ change = true }: { change?: boolean }) {
   return (
     <SkeletonCard>
       <HeadingSkeleton description={false} action />
+      <div className="mt-2 flex flex-wrap gap-x-8 gap-y-3">
+        <ChartHeadlineSkeleton change={change} />
+        <ChartHeadlineSkeleton change={change} />
+      </div>
       <Skeleton className="mt-3 h-64 w-full rounded-xl bg-gray-100 sm:h-72" />
     </SkeletonCard>
   );

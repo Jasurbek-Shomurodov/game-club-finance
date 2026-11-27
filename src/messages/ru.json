@@ -3355,5 +3355,18 @@
       "withdrawn": "Снято",
       "openMonth": "Открыть месяц"
     }
+  },
+  "charts": {
+    "openFullScreen": "Открыть на весь экран",
+    "exitFullScreen": "Выйти из полноэкранного режима",
+    "zoomIn": "Приблизить",
+    "zoomOut": "Отдалить",
+    "showAll": "Показать всё",
+    "viewportHint": "Перетащите, чтобы листать время, прокрутите для масштаба",
+    "viewportLabel": "Перемещение и масштаб графика",
+    "changeInPeriod": "Изменение за период",
+    "openDayReport": "Открыть отчёт за день",
+    "dayDetailsTitle": "Данные за {date}",
+    "noEntry": "Нет записи"
   }
 }

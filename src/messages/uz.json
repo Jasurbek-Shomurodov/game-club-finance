@@ -3355,5 +3355,18 @@
       "withdrawn": "Olingan",
       "openMonth": "Oyni ochish"
     }
+  },
+  "charts": {
+    "openFullScreen": "To‘liq ekranda ochish",
+    "exitFullScreen": "To‘liq ekrandan chiqish",
+    "zoomIn": "Yaqinlashtirish",
+    "zoomOut": "Uzoqlashtirish",
+    "showAll": "Hammasini ko‘rsatish",
+    "viewportHint": "Vaqt bo‘ylab yurish uchun suring, masshtab uchun aylantiring",
+    "viewportLabel": "Grafikni surish va masshtablash",
+    "changeInPeriod": "Davr ichidagi o‘zgarish",
+    "openDayReport": "Kunlik hisobotni ochish",
+    "dayDetailsTitle": "{date} ma’lumotlari",
+    "noEntry": "Yozuv yo‘q"
   }
 }

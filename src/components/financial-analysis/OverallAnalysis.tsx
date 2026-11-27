@@ -406,13 +406,19 @@ export function OverallAnalysis({ businessToday, onOpenMonth }: { businessToday:
                   { side: 'bar', label: td('bar'), icon: SIDE_ICONS.bar, balance: ownerTotals.bar },
                 ]}
               />
-              <ChartCard title={t('ownerChartTitle')} help={t('help.ownerMonths')} description={t('ownerChartDesc')}>
-                {ownerLoading
-                  ? <div className="mt-4"><ChartSkeleton /></div>
-                  : ownerMonths.length > 0
-                    ? <OwnerMonthsChart rows={ownerMonths} locale={locale} currency={currency} />
-                    : <ChartEmpty title={t('empty')} className="mt-4" />}
-              </ChartCard>
+              <OwnerMonthsChart
+                rows={ownerMonths}
+                locale={locale}
+                currency={currency}
+                card={{
+                  title: t('ownerChartTitle'),
+                  help: t('help.ownerMonths'),
+                  description: t('ownerChartDesc'),
+                  placeholder: ownerLoading
+                    ? <div className="mt-4"><ChartSkeleton /></div>
+                    : ownerMonths.length > 0 ? undefined : <ChartEmpty title={t('empty')} className="mt-4" />,
+                }}
+              />
             </div>
           )}
         </Section>
@@ -427,19 +433,22 @@ export function OverallAnalysis({ businessToday, onOpenMonth }: { businessToday:
           <Section id="forecast" help={t('help.forecast')} title={t('forecastSection')} description={t('forecastSectionDesc', { month: monthName(forecast.month) })}>
             <div className="grid gap-4 xl:grid-cols-2">
               {(['gameClub', 'bar', 'playstation'] as const).map((side) => (
-                <ChartCard
+                <ForecastChart
                   key={side}
-                  // PlayStation money is part of Game Club money; it gets the full row under the two sides.
-                  className={side === 'playstation' ? 'xl:col-span-2' : undefined}
-                  help={t('help.forecastChart')}
-                  title={t(side === 'gameClub' ? 'forecastGameClubTitle' : side === 'bar' ? 'forecastBarTitle' : 'forecastPlaystationTitle')}
-                  description={t('forecastDesc')}
-                >
-                  <ProfitStats items={forecastStats(side)} />
-                  {forecast[side].daysCounted > 0
-                    ? <ForecastChart forecast={forecast} side={side} locale={locale} currency={currency} />
-                    : <ChartEmpty title={t('forecastNoData')} className="mt-4" />}
-                </ChartCard>
+                  forecast={forecast}
+                  side={side}
+                  locale={locale}
+                  currency={currency}
+                  card={{
+                    // PlayStation money is part of Game Club money; it gets the full row under the two sides.
+                    className: side === 'playstation' ? 'xl:col-span-2' : undefined,
+                    help: t('help.forecastChart'),
+                    title: t(side === 'gameClub' ? 'forecastGameClubTitle' : side === 'bar' ? 'forecastBarTitle' : 'forecastPlaystationTitle'),
+                    description: t('forecastDesc'),
+                    placeholder: forecast[side].daysCounted > 0 ? undefined : <ChartEmpty title={t('forecastNoData')} className="mt-4" />,
+                    children: <ProfitStats items={forecastStats(side)} />,
+                  }}
+                />
               ))}
             </div>
           </Section>
@@ -447,12 +456,20 @@ export function OverallAnalysis({ businessToday, onOpenMonth }: { businessToday:
           <Section id="profit" help={t('help.profit')} title={t('overallSection')} description={t('overallSectionDesc', { count: summary.months })}>
             <div className="grid gap-4 xl:grid-cols-2">
               {(['gameClub', 'bar'] as const).map((side) => (
-                <ChartCard key={side} help={t('help.profitMonths')} title={t(side === 'gameClub' ? 'profitMonthsGameClubTitle' : 'profitMonthsBarTitle')} description={t('profitMonthsDesc')}>
-                  <ProfitStats items={profitStats(side, summary[side])} />
-                  {hasActivity
-                    ? <ProfitMonthsChart rows={profitMonths[side]} average={summary[side].averageMonthlyProfit} locale={locale} currency={currency} />
-                    : <ChartEmpty title={t('empty')} className="mt-4" />}
-                </ChartCard>
+                <ProfitMonthsChart
+                  key={side}
+                  rows={profitMonths[side]}
+                  average={summary[side].averageMonthlyProfit}
+                  locale={locale}
+                  currency={currency}
+                  card={{
+                    help: t('help.profitMonths'),
+                    title: t(side === 'gameClub' ? 'profitMonthsGameClubTitle' : 'profitMonthsBarTitle'),
+                    description: t('profitMonthsDesc'),
+                    placeholder: hasActivity ? undefined : <ChartEmpty title={t('empty')} className="mt-4" />,
+                    children: <ProfitStats items={profitStats(side, summary[side])} />,
+                  }}
+                />
               ))}
             </div>
           </Section>
@@ -461,51 +478,71 @@ export function OverallAnalysis({ businessToday, onOpenMonth }: { businessToday:
             {hasActivity ? (
               <>
                 <div className="grid gap-4 xl:grid-cols-2">
-                  <ChartCard title={t('sideFlowGameClubTitle')} help={t('help.sideFlow')} description={t('sideFlowDesc')}>
-                    <SideFlowChart rows={series.periods} side="gameClub" granularity={granularity} locale={locale} currency={currency} />
-                  </ChartCard>
-                  <ChartCard title={t('sideFlowBarTitle')} help={t('help.sideFlow')} description={t('sideFlowDesc')}>
-                    <SideFlowChart rows={series.periods} side="bar" granularity={granularity} locale={locale} currency={currency} />
-                  </ChartCard>
+                  <SideFlowChart
+                    rows={series.periods}
+                    side="gameClub"
+                    granularity={granularity}
+                    locale={locale}
+                    currency={currency}
+                    card={{ title: t('sideFlowGameClubTitle'), help: t('help.sideFlow'), description: t('sideFlowDesc') }}
+                  />
+                  <SideFlowChart
+                    rows={series.periods}
+                    side="bar"
+                    granularity={granularity}
+                    locale={locale}
+                    currency={currency}
+                    card={{ title: t('sideFlowBarTitle'), help: t('help.sideFlow'), description: t('sideFlowDesc') }}
+                  />
                 </div>
-                <ChartCard title={t('cumulativeTitle')} help={t('help.cumulative')} description={t('cumulativeDesc')}>
-                  <CumulativeProfitChart rows={series.periods} granularity={granularity} locale={locale} currency={currency} />
-                </ChartCard>
+                <CumulativeProfitChart
+                  rows={series.periods}
+                  granularity={granularity}
+                  locale={locale}
+                  currency={currency}
+                  card={{ title: t('cumulativeTitle'), help: t('help.cumulative'), description: t('cumulativeDesc') }}
+                />
                 <div className="grid gap-4 xl:grid-cols-2">
-                  <ChartCard title={t('incomeMixTitle')} help={t('help.incomeMix')} description={t('incomeMixDesc')}>
-                    <IncomeMixChart rows={series.periods} granularity={granularity} locale={locale} currency={currency} />
-                  </ChartCard>
-                  <ChartCard title={t('categoryTrendTitle')} help={t('help.categoryTrend')} description={t('categoryTrendDesc')}>
-                    {analysis.topCategories.length > 0 ? (
-                      <CategoryTrendChart
-                        rows={series.categories}
-                        categories={analysis.topCategories}
-                        colors={colors}
-                        labelFor={categoryName}
-                        granularity={granularity}
-                        locale={locale}
-                        currency={currency}
-                      />
-                    ) : <ChartEmpty title={t('noExpenses')} className="mt-4" />}
-                  </ChartCard>
+                  <IncomeMixChart
+                    rows={series.periods}
+                    granularity={granularity}
+                    locale={locale}
+                    currency={currency}
+                    card={{ title: t('incomeMixTitle'), help: t('help.incomeMix'), description: t('incomeMixDesc') }}
+                  />
+                  <CategoryTrendChart
+                    rows={series.categories}
+                    periods={series.periods}
+                    categories={analysis.topCategories}
+                    colors={colors}
+                    labelFor={categoryName}
+                    granularity={granularity}
+                    locale={locale}
+                    currency={currency}
+                    card={{
+                      title: t('categoryTrendTitle'),
+                      help: t('help.categoryTrend'),
+                      description: t('categoryTrendDesc'),
+                      placeholder: analysis.topCategories.length > 0 ? undefined : <ChartEmpty title={t('noExpenses')} className="mt-4" />,
+                    }}
+                  />
                 </div>
                 <div className="grid gap-4 xl:grid-cols-2">
                   {(['gameClub', 'bar'] as const).map((side) => (
-                    <ChartCard
+                    <WeeklyAverageChart
                       key={side}
-                      help={t('help.weeklyAverage')}
-                      title={t(side === 'gameClub' ? 'weeklyAverageGameClubTitle' : 'weeklyAverageBarTitle')}
-                      description={t('weeklyAverageDesc')}
-                    >
-                      <ProfitStats items={weeklyAverageStats(side)} />
-                      <WeeklyAverageChart
-                        rows={weeklyAverages.weeks}
-                        side={side}
-                        average={weeklyAverages[side === 'gameClub' ? 'gameClubAverage' : 'barAverage']}
-                        locale={locale}
-                        currency={currency}
-                      />
-                    </ChartCard>
+                      rows={weeklyAverages.weeks}
+                      side={side}
+                      average={weeklyAverages[side === 'gameClub' ? 'gameClubAverage' : 'barAverage']}
+                      locale={locale}
+                      currency={currency}
+                      card={{
+                        help: t('help.weeklyAverage'),
+                        title: t(side === 'gameClub' ? 'weeklyAverageGameClubTitle' : 'weeklyAverageBarTitle'),
+                        description: t('weeklyAverageDesc'),
+                        children: <ProfitStats items={weeklyAverageStats(side)} />,
+                      }}
+                    />
                   ))}
                 </div>
                 <ChartCard title={t('weekdayTitle')} help={t('help.weekday')} description={t('weekdayDesc')}>

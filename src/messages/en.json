@@ -3355,5 +3355,18 @@
       "withdrawn": "Withdrawn",
       "openMonth": "Open a month"
     }
+  },
+  "charts": {
+    "openFullScreen": "Open in full screen",
+    "exitFullScreen": "Exit full screen",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "showAll": "Show all",
+    "viewportHint": "Drag to move through time, scroll to zoom",
+    "viewportLabel": "Move and zoom the chart",
+    "changeInPeriod": "Change in period",
+    "openDayReport": "Open day report",
+    "dayDetailsTitle": "Details for {date}",
+    "noEntry": "No entry"
   }
 }

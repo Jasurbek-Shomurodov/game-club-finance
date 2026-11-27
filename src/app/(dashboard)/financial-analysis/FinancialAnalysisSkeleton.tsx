@@ -1,5 +1,6 @@
 import { Skeleton } from '@/components/PresentationFoundation';
-import { DonutCardSkeleton, HeadingSkeleton, InOutChartCardSkeleton, SkeletonCard } from '@/components/charts/ChartSkeletons';
+import { DonutCardSkeleton, HeadingSkeleton, SkeletonCard } from '@/components/charts/ChartSkeletons';
+import { AnalysisChartCardSkeleton } from '@/components/financial-analysis/AnalysisChartCardSkeleton';
 import { SideScorecardSkeleton } from '@/components/financial-analysis/AnalysisSections';
 import { OverallAnalysisSkeleton } from '@/components/financial-analysis/OverallSkeleton';
 import { MoneyChecksPanelSkeleton } from '@/components/financial-analysis/MoneyChecksPanel';
@@ -54,8 +55,9 @@ function FlowCardSkeleton() {
 
 /**
  * What sits under the scorecards: the "Worth a look" checks, the money flow (two flow cards, then the
- * category donut beside the comparison), the three trend charts and the two
- * detail lists. The planned-expenses block is optional, so it has no placeholder.
+ * category donut beside the comparison), the three trend charts (daily and
+ * monthly with each side's headline figure, PlayStation with its own three
+ * figures) and the two detail lists. The planned-expenses block is optional, so it has no placeholder.
  */
 export function AnalysisBodySkeleton() {
   return (
@@ -72,9 +74,18 @@ export function AnalysisBodySkeleton() {
       </div>
       <div className="space-y-3">
         <HeadingSkeleton />
-        <InOutChartCardSkeleton height={288} />
-        <InOutChartCardSkeleton height={256} />
-        <InOutChartCardSkeleton height={288} />
+        <AnalysisChartCardSkeleton headlines={2} pills={5} height={288} />
+        <AnalysisChartCardSkeleton height={256}>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            {Array.from({ length: 3 }, (_, index) => (
+              <div key={index} className="space-y-1.5">
+                <Skeleton className="h-3 w-24 bg-gray-100" />
+                <Skeleton className="h-5 w-28" />
+              </div>
+            ))}
+          </div>
+        </AnalysisChartCardSkeleton>
+        <AnalysisChartCardSkeleton headlines={2} pills={4} height={288} />
       </div>
       <div className="space-y-3">
         <HeadingSkeleton description={false} />

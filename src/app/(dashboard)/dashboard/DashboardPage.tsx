@@ -68,17 +68,22 @@ import { SideGlanceCard, SideGlanceCardSkeleton } from '@/components/dashboard/S
 import { chartColors } from '@/components/dashboard/ChartCard';
 import { FlowCardSkeleton, HEADLINE_GRID_CLASS, HEADLINE_GRID_FOUR_CLASS, TrendChartSkeleton } from './DashboardSkeleton';
 
-function ChartLoading() {
+// Daily sales heads with each side's total; the income trend with each side's average and how it moved.
+function DailySalesLoading() {
+  return <TrendChartSkeleton change={false} />;
+}
+
+function IncomeTrendLoading() {
   return <TrendChartSkeleton />;
 }
 
 const IncomeTrendChart = dynamic(
   () => import('@/components/dashboard/IncomeTrendChart').then((module) => module.IncomeTrendChart),
-  { ssr: false, loading: ChartLoading },
+  { ssr: false, loading: IncomeTrendLoading },
 );
 const DailySalesLineChart = dynamic(
   () => import('@/components/dashboard/DailySalesLineChart').then((module) => module.DailySalesLineChart),
-  { ssr: false, loading: ChartLoading },
+  { ssr: false, loading: DailySalesLoading },
 );
 
 /** A few figures for one side, under its money-flow Sankey; each opens the records behind it. */
@@ -303,13 +308,16 @@ export default function DashboardPage({
       data.trend.filter((row, index) => index === 0 || row.date <= businessToday),
       data.ledgers.cashRows,
       { gameClub: data.latestDailyCashEntryDate, bar: data.latestBarEntryDate },
-    ).map((row) => ({ ...row, date: formatDateShort(row.date, locale) })),
+    // The day itself (iso) moves the full-screen chart and opens a tapped day's report.
+    ).map((row) => ({ ...row, iso: row.date, date: formatDateShort(row.date, locale) })),
     [data.trend, data.ledgers.cashRows, data.latestDailyCashEntryDate, data.latestBarEntryDate, businessToday, locale],
   );
   /** A link only to pages this member can open. */
   const pathIfAllowed = (path: string) => (canAccessPath(role, featureAccess, path) ? path : undefined);
   const productsHref = pathIfAllowed('/products');
   const canOpenDailyReport = Boolean(pathIfAllowed('/daily-report'));
+  // A tapped chart day opens its daily report (on a phone, from the day's details).
+  const openDayReport = canOpenDailyReport ? (date: string) => router.push(dailyReportHref(date)) : undefined;
   const canOpenReports = Boolean(pathIfAllowed('/reports'));
   const canOpenGameClubDetails = Boolean(pathIfAllowed('/game-club-money-details'));
   const canOpenBarDetails = Boolean(pathIfAllowed('/bar-money-details'));
@@ -601,7 +609,7 @@ export default function DashboardPage({
 
           {!renderCharts ? (
             <div ref={chartsAnchorRef} className="space-y-4" role="status" aria-label={t('loading')}>
-              <TrendChartSkeleton />
+              <TrendChartSkeleton change={false} />
               <TrendChartSkeleton />
             </div>
           ) : (
@@ -611,10 +619,10 @@ export default function DashboardPage({
               className={cn('space-y-4 transition-opacity motion-reduce:transition-none', loading && 'pointer-events-none opacity-60')}
               aria-busy={loading || undefined}
             >
-              <DailySalesLineChart data={dailySales} />
+              <DailySalesLineChart data={dailySales} onSelectDay={openDayReport} />
               <IncomeTrendChart
                 data={trend}
-                onSelectDay={canOpenDailyReport ? (date) => router.push(dailyReportHref(date)) : undefined}
+                onSelectDay={openDayReport}
                 link={(
                   <ButtonLink
                     href={financialAnalysisHref(month)}

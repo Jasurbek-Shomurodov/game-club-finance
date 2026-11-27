@@ -603,39 +603,54 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
               </Section>
 
               <Section title={t('trendsSection')} description={t('trendsSectionDesc')}>
-                <ChartCard title={t('dailyTitle')} description={t('dailyDesc')}>
-                  {hasActivity
-                    ? <DailyFlowChart data={dailyRows} locale={locale} currency={currency} />
-                    : <ChartEmpty title={t('empty')} className="mt-4" />}
-                </ChartCard>
+                <DailyFlowChart
+                  data={dailyRows}
+                  locale={locale}
+                  currency={currency}
+                  card={{
+                    title: t('dailyTitle'),
+                    description: t('dailyDesc'),
+                    placeholder: hasActivity ? undefined : <ChartEmpty title={t('empty')} className="mt-4" />,
+                  }}
+                />
 
-                <ChartCard title={t('playstationTitle')} description={t('playstationDesc')}>
-                  <PlaystationFigures
-                    total={analysis.totals.playstationIncome}
-                    previous={previousAnalysis.totals.playstationIncome}
-                    gameClubIncome={analysis.totals.gameClubIncome}
-                    days={playstationDays}
-                    // PlayStation money is entered with each day's cash: its records are the period's income in Reports.
-                    totalHref={canAccessPath(role, featureAccess, '/reports') ? reportsHref(range, { category: 'income' }) : undefined}
-                    locale={locale}
-                    currency={currency}
-                  />
-                  {analysis.totals.playstationIncome > 0
-                    ? <PlaystationDailyChart data={playstationDays} locale={locale} currency={currency} />
-                    : <ChartEmpty title={t('playstationEmpty')} className="mt-4" />}
-                </ChartCard>
+                <PlaystationDailyChart
+                  data={playstationDays}
+                  locale={locale}
+                  currency={currency}
+                  card={{
+                    title: t('playstationTitle'),
+                    description: t('playstationDesc'),
+                    placeholder: analysis.totals.playstationIncome > 0 ? undefined : <ChartEmpty title={t('playstationEmpty')} className="mt-4" />,
+                    children: (
+                      <PlaystationFigures
+                        total={analysis.totals.playstationIncome}
+                        previous={previousAnalysis.totals.playstationIncome}
+                        gameClubIncome={analysis.totals.gameClubIncome}
+                        days={playstationDays}
+                        // PlayStation money is entered with each day's cash: its records are the period's income in Reports.
+                        totalHref={canAccessPath(role, featureAccess, '/reports') ? reportsHref(range, { category: 'income' }) : undefined}
+                        locale={locale}
+                        currency={currency}
+                      />
+                    ),
+                  }}
+                />
 
-                <ChartCard title={t('monthlyTitle')} description={t('monthlyDesc')}>
-                  {monthlyError ? (
-                    <LoadErrorAlert className="mt-4" retrying={monthlyQuery.loading} onRetry={() => void monthlyQuery.reload()}>
-                      {t('monthlyLoadError')}
-                    </LoadErrorAlert>
-                  ) : monthly ? (
-                    <MonthlyTrendChart data={monthly} locale={locale} currency={currency} />
-                  ) : (
-                    <div className="mt-4"><ChartSkeleton /></div>
-                  )}
-                </ChartCard>
+                <MonthlyTrendChart
+                  data={monthly ?? []}
+                  locale={locale}
+                  currency={currency}
+                  card={{
+                    title: t('monthlyTitle'),
+                    description: t('monthlyDesc'),
+                    placeholder: monthlyError ? (
+                      <LoadErrorAlert className="mt-4" retrying={monthlyQuery.loading} onRetry={() => void monthlyQuery.reload()}>
+                        {t('monthlyLoadError')}
+                      </LoadErrorAlert>
+                    ) : monthly ? undefined : <div className="mt-4"><ChartSkeleton /></div>,
+                  }}
+                />
               </Section>
 
               <Section title={t('detailsSection')}>
