@@ -143,8 +143,17 @@ archived product accept no writes, so such a delete is refused; the page says so
 The closing page has no per-row adjustment column. Missing (`shortage`) or
 spoiled (`expired`) bar units are recorded through the Write-off dialog, opened
 from Closing Stock or from the bar section's own `/write-offs` page,
-which stores them in the existing adjustment fields of that day's count via
-`save_closing_stock_counts`, so no schema change was needed:
+which stores them in the existing adjustment fields of that day's count, so no
+schema change was needed. Since migration 188 both pages call
+`record_stock_write_off` for one product: it locks and reads the **saved** row
+(or builds the open-day row the save path would), sets the adjustment to the
+requested total, moves closing stock by the difference and keeps the saved
+`sold_quantity`, then saves that one row through `save_closing_stock_counts`.
+A page loaded before another device saved the day's sales can no longer
+overwrite them. Closing Stock refuses a write-off while the sheet has unsaved
+counts or an applied draft (`hasUnsavedSheetCounts`): save the counts first.
+A past day with no saved counts (clean sheet) is still saved whole as its first
+count, so it does not become a one-product snapshot:
 
 ```text
 adjustment_quantity = -writeOffQuantity

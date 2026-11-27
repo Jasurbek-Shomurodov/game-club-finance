@@ -73,7 +73,7 @@ import { SIDE_ICONS } from '@/components/sideIcons';
 import { METHOD_ICONS, SOURCE_ICONS, SOURCE_TINTS, SOURCE_TONES } from '@/components/owner-money/profitIcons';
 import { WithdrawalHistory, historyCreatedAt, type HistoryRow } from './WithdrawalHistory';
 import { CashShortagesSection } from './CashShortagesSection';
-import { ReserveSection } from './ReserveSection';
+import { ReserveSection, ReserveSectionSkeleton } from './ReserveSection';
 import { BarWriteOffsSection } from './BarWriteOffsSection';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import { parseWriteOffReason, summarizeStockWriteOffs, type StockWriteOffCountRow } from '@/lib/stockWriteOffs';
@@ -1409,7 +1409,7 @@ export default function MoneyTakenPage() {
               {/* Reserve, shortages and write-offs keep their place while loading and say so when they fail. */}
               {isOwner && loading ? (
                 <>
-                  <TableSkeleton rows={2} columns={2} />
+                  <ReserveSectionSkeleton />
                   <TableSkeleton rows={2} columns={3} />
                   <TableSkeleton rows={1} columns={3} />
                 </>

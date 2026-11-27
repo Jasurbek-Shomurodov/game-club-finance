@@ -35,6 +35,8 @@ import { PaymentDetails } from '@/components/financial-analysis/PaymentDetails';
 import { calculateFinancialReportTotals, calculateManualIncome, sumDebtIncome } from '@/lib/calculations/dailyReport';
 import { canAccessPath } from '@/lib/permissions';
 import { loadFinanceReportRows, type FinanceStockCountRow } from '@/lib/supabase/financeReportSnapshot';
+import { fetchReserveMoves } from '@/lib/supabase/reserveMoves';
+import type { ReserveMove } from '@/lib/calculations/reserveMoves';
 import { ChevronRight, FileText } from 'lucide-react';
 import type { DailyCashEntry, Expense, StockPurchase } from '@/types';
 import { closingStockHref, dayRange, moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
@@ -45,9 +47,11 @@ interface DailyReportData {
   stockPurchases: StockPurchase[];
   expenses: Expense[];
   debtIncome: number;
+  /** The day's owner reserve moves (156): bar cash left counts them as the dashboard does. */
+  reserveMoves: ReserveMove[];
 }
 
-const EMPTY_REPORT: DailyReportData = { cashEntry: null, stockCounts: [], stockPurchases: [], expenses: [], debtIncome: 0 };
+const EMPTY_REPORT: DailyReportData = { cashEntry: null, stockCounts: [], stockPurchases: [], expenses: [], debtIncome: 0, reserveMoves: [] };
 
 export default function DailyReportPage() {
   const t = useTranslations('dailyReport');
@@ -73,7 +77,11 @@ export default function DailyReportPage() {
 
   const loadReport = useCallback(async () => {
     if (!selectedClubId) return EMPTY_REPORT;
-    const result = await loadFinanceReportRows(createClient(), selectedClubId, date, date, 'day');
+    const supabase = createClient();
+    const [result, reserveMoves] = await Promise.all([
+      loadFinanceReportRows(supabase, selectedClubId, date, date, 'day'),
+      fetchReserveMoves(supabase, selectedClubId, date, date),
+    ]);
     if (!result.data) throw new Error(result.error?.message);
     return {
       cashEntry: result.data.cashRows[0] ?? null,
@@ -81,10 +89,11 @@ export default function DailyReportPage() {
       stockPurchases: result.data.purchaseRows,
       expenses: result.data.expenseRows,
       debtIncome: sumDebtIncome(result.data.debtRows),
+      reserveMoves,
     };
   }, [date, selectedClubId]);
   const report = useClubQuery<DailyReportData>(loadReport, EMPTY_REPORT);
-  const { cashEntry, stockCounts, stockPurchases, expenses, debtIncome } = report.data;
+  const { cashEntry, stockCounts, stockPurchases, expenses, debtIncome, reserveMoves } = report.data;
   const loading = report.loading;
   const loadError = report.error;
 
@@ -96,9 +105,12 @@ export default function DailyReportPage() {
     stockRows: stockCounts,
     purchaseRows: stockPurchases,
     expenseRows: expenses,
+    reserveMoves,
   });
 
-  const hasData = cashEntry !== null || stockCounts.length > 0 || stockPurchases.length > 0 || expenses.length > 0 || debtIncome > 0;
+  // A bar reserve move alone still changes the day's bar cash left.
+  const hasBarReserveMove = reserveMoves.some((move) => move.source === 'bar');
+  const hasData = cashEntry !== null || stockCounts.length > 0 || stockPurchases.length > 0 || expenses.length > 0 || debtIncome > 0 || hasBarReserveMove;
   const currency = tc('currency');
   const expenseLabel = (category: string) => (te.has(`categories.${category}`) ? te(`categories.${category}` as Parameters<typeof te>[0]) : category);
 

@@ -1,6 +1,7 @@
 import { FormSkeleton, Skeleton, TableSkeleton } from '@/components/PresentationFoundation';
 import { SkeletonCard } from '@/components/charts/ChartSkeletons';
 import { OwnerProfitTrendSkeleton } from './OwnerProfitTrend';
+import { ReserveSectionSkeleton } from './ReserveSection';
 
 /**
  * Owner Profit while the route loads: the "left to take" headline with its
@@ -53,7 +54,7 @@ export function OwnerProfitSkeleton() {
         <FormSkeleton className="xl:col-start-2 xl:row-start-1" />
         <div className="min-w-0 space-y-5 xl:col-start-1 xl:row-start-1">
           <TableSkeleton rows={6} columns={5} />
-          <TableSkeleton rows={2} columns={2} />
+          <ReserveSectionSkeleton />
           <TableSkeleton rows={2} columns={3} />
           <TableSkeleton rows={1} columns={3} />
           <TableSkeleton rows={5} columns={4} />

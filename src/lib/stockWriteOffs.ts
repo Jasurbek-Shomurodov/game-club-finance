@@ -22,6 +22,11 @@ import {
  * expected. It is saved as a positive adjustment whose reason is
  * "correction" [": note"] (migration 167). The units join the closing balance;
  * sales, bar cost and bar profit are unchanged.
+ *
+ * Pages save a write-off or correction through record_stock_write_off
+ * (migration 188), which applies it to the product's saved count, so the
+ * day's saved sales always win over the copy the page loaded.
+ * `applyStockWriteOff` only checks the request against that copy first.
  */
 export const STOCK_WRITE_OFF_KINDS = ['shortage', 'expired'] as const;
 export type StockWriteOffKind = (typeof STOCK_WRITE_OFF_KINDS)[number];
@@ -137,6 +142,27 @@ export function applyStockWriteOff(
     adjustmentQuantity: String(quantity > 0 ? signed : 0),
     adjustmentReason: quantity > 0 ? formatWriteOffReason(writeOff.kind, writeOff.note) : '',
     closingStock: String(base + (quantity > 0 ? signed : 0)),
+  };
+}
+
+/**
+ * Arguments of record_stock_write_off (migration 188) for one product's
+ * write-off or correction on a day: the kind, the day's total units (0
+ * removes it) and the note. The database works out closing stock from the
+ * saved count and keeps its sold quantity.
+ */
+export function stockWriteOffRpcArgs(
+  clubId: string,
+  date: string,
+  writeOff: { productId: string; kind: StockAdjustmentKind; quantity: number; note?: string },
+) {
+  return {
+    p_club_id: clubId,
+    p_date: date,
+    p_product_id: writeOff.productId,
+    p_kind: writeOff.kind,
+    p_quantity: normalizeStockCount(writeOff.quantity),
+    p_note: writeOff.note?.trim() || null,
   };
 }
 

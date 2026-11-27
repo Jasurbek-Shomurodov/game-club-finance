@@ -546,6 +546,39 @@ export function reserveBuyLimits(
   };
 }
 
+export interface ReserveReturnLimits {
+  /** What each Game Club method can give back to owner profit. */
+  game_club: Record<OwnerWithdrawalPaymentMethod, number>;
+  /** What the Bar can give back. */
+  bar: number;
+}
+
+/**
+ * What each reserve bucket can give back to owner profit, as
+ * return_owner_reserve limits a return (155, 162): what the bucket saved minus
+ * what already went back from it, never above the sums the reserve holds.
+ * Purchases come out of the pot, not a bucket, so they lower every bucket's
+ * limit only through the sums held.
+ */
+export function reserveReturnLimits(
+  entries: readonly ReserveLedgerEntry[],
+  sumsHeld: number,
+): ReserveReturnLimits {
+  let barNet = 0;
+  for (const entry of entries) {
+    if (entry.source === 'bar') barNet += (entry.kind === 'deposit' ? 1 : -1) * Number(entry.amount);
+  }
+  return {
+    game_club: reserveBuyLimits(entries, sumsHeld),
+    bar: Math.max(0, Math.min(barNet, Math.max(0, sumsHeld))),
+  };
+}
+
+/** True when any bucket can give money back. */
+export const canReturnFromReserve = (limits: ReserveReturnLimits) => (
+  limits.bar > 0 || OWNER_WITHDRAWAL_PAYMENT_METHODS.some((method) => limits.game_club[method] > 0)
+);
+
 export interface DollarRates {
   /** UZS per dollar of the latest exchange into or out of dollars; null when there was none. */
   lastRate: number | null;

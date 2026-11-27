@@ -1,6 +1,6 @@
 import { serverTodayIso } from '@/lib/utils';
 import { calculateGameClubIncome } from './dailyCash';
-import { calculateBarMoney } from './barMoney';
+import { calculateBarMoney, calculateBarMoneyLeft } from './barMoney';
 import type { StockPurchaseCostRow } from './barMoney';
 import { exchangeNetByMethod, type MoneyExchangeRow } from './moneyExchanges';
 import { isReservePaidExpense, reservedNetBy, type ReserveMove } from './reserveMoves';
@@ -583,14 +583,14 @@ export function calculateDashboardTotals(
   const gameClubExpenses = totalExpenses - barExpenses;
   // Money left keeps the reserve out (156): purchases it paid stay in expenses
   // and profit, but take nothing from the side; money put into it leaves the side.
-  const reservePaid = (source: 'game_club' | 'bar') => expenseRows.reduce(
-    (sum, row) => (isReservePaidExpense(row) && isBarPaidExpense(row) === (source === 'bar') ? sum + Number(row.amount ?? 0) : sum),
+  const reservePaidGameClub = expenseRows.reduce(
+    (sum, row) => (isReservePaidExpense(row) && !isBarPaidExpense(row) ? sum + Number(row.amount ?? 0) : sum),
     0,
   );
-  const barIncome = barMoney.barMoney - barExpenses + reservePaid('bar') - reservedNetBy(reserveMoves, 'bar');
+  const barIncome = calculateBarMoneyLeft(barMoney.barMoney, expenseRows, reserveMoves);
   const barProfit = barMoney.barSales - barCost - barExpenses;
   const gameClubMoneyLeft = collectedGameClub.gameClubIncome + debtPaymentsCollected - gameClubExpenses
-    + reservePaid('game_club') - reservedNetBy(reserveMoves, 'game_club');
+    + reservePaidGameClub - reservedNetBy(reserveMoves, 'game_club');
   const inventoryValue = calculateInventoryValue(products);
   const activeDebtRows = activeDebtSnapshot.filter((debt) => debt.status !== 'paid');
   const activeDebts = activeDebtRows.reduce(

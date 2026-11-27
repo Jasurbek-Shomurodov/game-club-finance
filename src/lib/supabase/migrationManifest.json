@@ -2347,10 +2347,6 @@
         "kind": "constraint",
         "table": "public.salary_rates",
         "name": "salary_rates_kpi_pool_check"
-      },
-      {
-        "kind": "function",
-        "signature": "public.save_salary_employee(uuid,uuid,text,text,date,text,numeric,numeric,boolean,text,boolean,boolean)"
       }
     ]
   },
@@ -4161,12 +4157,7 @@
   },
   {
     "file": "123_backdated_salary_term_change.sql",
-    "probes": [
-      {
-        "kind": "function",
-        "signature": "public.change_salary_term(uuid,uuid,text,numeric,text,text,boolean,boolean,date)"
-      }
-    ]
+    "probes": []
   },
   {
     "file": "124_usd_expenses.sql",
@@ -5494,5 +5485,29 @@
   {
     "file": "187_pixel_real_pc_counts.sql",
     "probes": []
+  },
+  {
+    "file": "188_record_stock_write_off.sql",
+    "probes": [
+      {
+        "kind": "function",
+        "signature": "public.record_stock_write_off(uuid,date,uuid,text,numeric,text)"
+      }
+    ]
+  },
+  {
+    "file": "189_salary_game_club_income_basis.sql",
+    "probes": [
+      {
+        "kind": "functionBody",
+        "signature": "public.save_salary_employee(uuid,uuid,text,text,date,text,numeric,numeric,boolean,text,boolean,boolean)",
+        "md5": "b48a57dbc97a342836df5c6e7ebf7f70"
+      },
+      {
+        "kind": "functionBody",
+        "signature": "public.change_salary_term(uuid,uuid,text,numeric,text,text,boolean,boolean,date)",
+        "md5": "4d37a5851de5c39b9b55b0630f8b7907"
+      }
+    ]
   }
 ]

@@ -56,7 +56,7 @@ import { useClubQuery } from '@/lib/useClubQuery';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { formatCurrency, formatDateOnly, formatNumber, formatUnitCurrency } from '@/lib/formatters';
 import { summarizeStockRow, summarizeStockRows } from '@/lib/calculations/stock';
-import { classifyStockWriteError, type StockWriteErrorLike } from '@/lib/stockWriteErrors';
+import { classifyStockWriteError, writeOffAvailableQuantity, type StockWriteErrorLike } from '@/lib/stockWriteErrors';
 import {
   applyBulkStockOrder,
   applyClosingStockDraft,
@@ -69,6 +69,7 @@ import {
   closingStockRowTotalsInput,
   isReadOnlyClosingStockProduct,
   isWholeNumberInput,
+  hasUnsavedSheetCounts,
   normalizeStockCount,
   readClosingStockDraft,
   saveClosingStockDraft,
@@ -84,7 +85,7 @@ import {
   type BulkStockOrderSummary,
   type StorageLike,
 } from '@/lib/closingStock';
-import { applyStockWriteOff, notifyStockWriteOff, rowStockAdjustment, shouldNotifyStockAdjustment, StockWriteOffError, writeOffKindVariant, type StockWriteOffEntry } from '@/lib/stockWriteOffs';
+import { applyStockWriteOff, notifyStockWriteOff, rowStockAdjustment, shouldNotifyStockAdjustment, stockWriteOffRpcArgs, StockWriteOffError, writeOffKindVariant, type StockWriteOffEntry } from '@/lib/stockWriteOffs';
 import { WriteOffDetailsModal } from '@/components/stock-adjustments/WriteOffDetailsModal';
 import {
   Banknote,
@@ -183,9 +184,11 @@ interface ClosingStockDayData {
   /** Promotions failed to load: giveaways stay enterable, just without a label. */
   promotionsFailed: boolean;
   purchaseCostsByProduct: Record<string, number>;
+  /** A browser draft changed the loaded rows: they are not what the database holds. */
+  draftApplied: boolean;
 }
 
-const EMPTY_DAY: ClosingStockDayData = { rows: [], hasSavedCounts: false, promotions: [], promotionsFailed: false, purchaseCostsByProduct: {} };
+const EMPTY_DAY: ClosingStockDayData = { rows: [], hasSavedCounts: false, promotions: [], promotionsFailed: false, purchaseCostsByProduct: {}, draftApplied: false };
 
 /** `null` date means "follow the club's current business day". */
 interface DateSelection {
@@ -283,15 +286,17 @@ export default function ClosingStockPage() {
       day.previousClosings,
       day.isCurrentDate,
     );
+    const rows = canUseDraft && day.draftEligible ? applyBrowserDraft(
+      date,
+      selectedClubId,
+      editableRows,
+      businessDayStartHour,
+      draftMode,
+    ) : editableRows;
     return {
-      rows: canUseDraft && day.draftEligible ? applyBrowserDraft(
-        date,
-        selectedClubId,
-        editableRows,
-        businessDayStartHour,
-        draftMode,
-      ) : editableRows,
+      rows,
       hasSavedCounts: day.hasSavedCounts,
+      draftApplied: changedClosingStockRows(rows, editableRows).length > 0,
       // Promotions only label giveaways; a failed read must not block counting.
       promotions: promotionsRes.data ?? [],
       promotionsFailed: Boolean(promotionsRes.error),
@@ -541,6 +546,8 @@ export default function ClosingStockPage() {
     successMessage: string,
   ): Promise<{ ok: boolean; message: string | null }> {
     if (isReadOnly) return { ok: false, message: t('readOnlyBody') };
+    // A failed reload leaves stale rows (one may predate a write-off): never re-send them.
+    if (loadError) return { ok: false, message: t('loadFailed') };
 
     // Inactive and archived rows stay on screen but the save RPC rejects
     // them; it leaves their saved rows untouched when they are omitted.
@@ -636,11 +643,18 @@ export default function ClosingStockPage() {
   }
 
   async function handleWriteOffSave(writeOff: StockWriteOffInput): Promise<string | null> {
-    let nextRows: RowData[];
+    const row = rows.find((candidate) => candidate.product.id === writeOff.productId);
+    if (!row) return tc('error');
+    if (loadError) return t('loadFailed');
+    // The write-off saves this product from its saved count and the day is
+    // reloaded, so counts on screen that are not saved yet must be saved first.
+    if (hasUnsavedSheetCounts(rows, dayQuery.data.rows, dayQuery.data.draftApplied)) {
+      return t('writeOffSaveCountFirst');
+    }
+    let nextRow: RowData;
     try {
-      nextRows = rows.map((row) => (row.product.id === writeOff.productId
-        ? applyStockWriteOff(row, writeOff)
-        : row));
+      // A first check against the sheet; the database checks the saved count.
+      nextRow = applyStockWriteOff(row, writeOff);
     } catch (writeOffError) {
       if (writeOffError instanceof StockWriteOffError) {
         if (writeOffError.code === 'exceeds_stock') {
@@ -656,13 +670,59 @@ export default function ClosingStockPage() {
       return tc('error');
     }
 
-    const previous = rowStockAdjustment(rows.find((row) => row.product.id === writeOff.productId) ?? { adjustmentQuantity: '', adjustmentReason: '' });
-    const result = await persistStockCounts(nextRows, writeOff.quantity > 0 ? t('writeOffSaved') : t('writeOffRemoved'));
-    if (result.ok && selectedClubId && shouldNotifyStockAdjustment(previous, writeOff)) {
+    const previous = rowStockAdjustment(row);
+    const successMessage = writeOff.quantity > 0 ? t('writeOffSaved') : t('writeOffRemoved');
+    const notify = () => {
       // Best-effort: the club's group hears about it; a failed notice never undoes the save.
-      void notifyStockWriteOff(selectedClubId, date, writeOff.productId);
+      if (selectedClubId && shouldNotifyStockAdjustment(previous, writeOff)) {
+        void notifyStockWriteOff(selectedClubId, date, writeOff.productId);
+      }
+    };
+
+    // A past day with nothing saved yet is saved whole as its first count, as
+    // before: saving one product alone would turn the day into a snapshot of
+    // that product only (the day then lists saved products only). The sheet is
+    // clean and loaded, so this sends the defaults that loaded plus the write-off.
+    if (isHistoricalDate && !hasSavedCounts) {
+      const result = await persistStockCounts(
+        rows.map((candidate) => (candidate.product.id === writeOff.productId ? nextRow : candidate)),
+        successMessage,
+      );
+      if (result.ok) notify();
+      return result.ok ? null : result.message ?? tc('error');
     }
-    return result.ok ? null : result.message ?? tc('error');
+
+    if (isReadOnly) return t('readOnlyBody');
+    if (!selectedClubId || isReadOnlyClosingStockProduct(row.product)) return tc('error');
+    setSaving(true);
+    setError('');
+    try {
+      // Only this product: the database applies the write-off to its saved
+      // count (migration 188), so sales saved elsewhere since the sheet
+      // loaded are kept and the other products are not re-sent.
+      const { error: err } = await createClient().rpc('record_stock_write_off', stockWriteOffRpcArgs(selectedClubId, date, writeOff));
+      if (err) {
+        switch (classifyStockWriteError(err)) {
+          case 'writeOffExceedsStock':
+            return t('writeOffExceedsStock', { product: row.product.name, available: formatNumber(writeOffAvailableQuantity(err) ?? 0) });
+          case 'writeOffHasAdjustment':
+            return t('writeOffHasAdjustment', { product: row.product.name });
+          default:
+            return saveErrorMessage(err);
+        }
+      }
+      announceActivity(selectedClubId);
+      showToast(successMessage);
+      notify();
+      // The sheet is clean, so the reload simply shows the saved day. If it
+      // fails, loadError replaces the sheet and blocks every save until a retry lands.
+      void reload({ silent: true });
+      return null;
+    } catch {
+      return t('saveFailed');
+    } finally {
+      setSaving(false);
+    }
   }
 
   const day = dayRange(date);

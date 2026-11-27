@@ -10,12 +10,19 @@ import {
   moneyDetailLineHref,
   moneyDetailsHref,
   reportsHref,
+  reserveHistoryHref,
+  reserveHref,
   stockPurchaseHref,
 } from './detailLinks';
 
 const november = { from: '2026-11-01', to: '2026-11-30' };
 
 describe('detail links', () => {
+  it('opens the reserve overview or its history', () => {
+    expect(reserveHref()).toBe('/reserve');
+    expect(reserveHistoryHref()).toBe('/reserve?view=history');
+  });
+
   it('opens each side’s money details for the period', () => {
     expect(moneyDetailsHref('game_club', november)).toBe('/game-club-money-details?from=2026-11-01&to=2026-11-30');
     expect(moneyDetailsHref('bar', dayRange('2026-11-05'))).toBe('/bar-money-details?from=2026-11-05&to=2026-11-05');

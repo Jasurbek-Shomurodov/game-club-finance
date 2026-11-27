@@ -63,6 +63,11 @@ export function financialAnalysisHref(month: string): string {
   return `/financial-analysis?${new URLSearchParams({ month }).toString()}`;
 }
 
+/** The owner reserve's overview: its UZS and USD accounts, with the dollars' rates. */
+export function reserveHref(): string {
+  return '/reserve';
+}
+
 /** The owner reserve's own ledger. */
 export function reserveHistoryHref(): string {
   return '/reserve?view=history';

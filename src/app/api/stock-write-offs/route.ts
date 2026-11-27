@@ -13,10 +13,10 @@ const isId = (value: unknown): value is string => typeof value === 'string' && U
 
 /**
  * Tells the club's group about a bar write-off just saved on Closing Stock or
- * Write-offs. The write-off itself is saved by save_closing_stock_counts
- * (owners and admins with the bar, migration 164); this reads the saved count
- * back, so the message reports what the database
- * holds, never what the browser claims.
+ * Write-offs. The write-off itself is saved by record_stock_write_off
+ * (migration 188, through save_closing_stock_counts: owners and admins with
+ * the bar, migration 164); this reads the saved count back, so the message
+ * reports what the database holds, never what the browser claims.
  */
 export async function POST(request: Request) {
   const supabase = await createClient();

@@ -167,11 +167,19 @@ describe('buildMonthForecast', () => {
       incomeToDate: clubIncome,
       profitToDate: clubIncome - 8_000,
       projectedIncome: Math.round(clubIncome * 31 / 5),
-      projectedProfit: Math.round((clubIncome - 8_000) * 31 / 5),
+      // Expenses are not stretched over the month: the 8 000 paid so far is counted once.
+      projectedProfit: Math.round(clubIncome * 31 / 5) - 8_000,
       lastMonthIncome: 170_000,
       lastMonthProfit: 140_000,
     });
-    expect(forecast.bar).toMatchObject({ daysCounted: 5, incomeToDate: 10_000, profitToDate: 10_000 - 5_000 - 12_000 });
+    // The bar's cost of goods grows with its sales (5 000 → 31 000); its 12 000 expense does not.
+    expect(forecast.bar).toMatchObject({
+      daysCounted: 5,
+      incomeToDate: 10_000,
+      profitToDate: 10_000 - 5_000 - 12_000,
+      projectedIncome: 62_000,
+      projectedProfit: 62_000 - 31_000 - 12_000,
+    });
     expect(forecast.days).toHaveLength(31);
     expect(forecast.days[4]).toMatchObject({ gameClubActual: clubIncome, gameClubProjected: clubIncome });
     expect(forecast.days[5]).toMatchObject({ gameClubActual: null, gameClubProjected: Math.round(clubIncome + clubIncome / 5) });
@@ -195,6 +203,31 @@ describe('buildMonthForecast', () => {
     expect(forecast.days[4]).toMatchObject({ playstationActual: 10_000, playstationProjected: 10_000 });
     expect(forecast.days[30].playstationProjected).toBe(62_000);
     expect(forecast.days[27].playstationLastMonth).toBe(20_000);
+  });
+
+  it('counts a one-off bill once instead of stretching it over the month (the audit case)', () => {
+    // 2 Nov: 3 000 000 on the 1st and the 2nd, 20 000 000 rent paid on the 1st.
+    const november: AnalysisLedgers = {
+      cashRows: [
+        { date: '2026-11-01', cash_income: 3_000_000, terminal_income: 0, card_income: 0, playstation_income: 0 },
+        { date: '2026-11-02', cash_income: 3_000_000, terminal_income: 0, card_income: 0, playstation_income: 0 },
+        { date: '2026-11-03', cash_income: 3_000_000, terminal_income: 0, card_income: 0, playstation_income: 0 },
+      ],
+      stockRows: [],
+      purchaseRows: [],
+      expenseRows: [expense('rent', '2026-11-01', 20_000_000, 'rent')],
+      debtRows: [],
+      debtPaymentRows: [],
+    };
+    // Two counted days are too few to project at all: no −210 000 000 forecast.
+    const early = buildMonthForecast('2026-11-02', november);
+    expect(early.gameClub).toMatchObject({ daysCounted: 2, incomeToDate: 6_000_000, profitToDate: -14_000_000, projectedIncome: null, projectedProfit: null });
+    expect(early.days.every((row) => row.gameClubProjected === null)).toBe(true);
+    expect(early.days[1].gameClubActual).toBe(6_000_000);
+    // From the third day: 3 000 000 a day over 30 days, minus the rent once.
+    const third = buildMonthForecast('2026-11-03', november);
+    expect(third.gameClub).toMatchObject({ daysCounted: 3, projectedIncome: 90_000_000, projectedProfit: 70_000_000 });
+    expect(third.days[29].gameClubProjected).toBe(90_000_000);
   });
 
   it('does not project a side without entries this month', () => {

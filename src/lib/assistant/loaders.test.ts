@@ -150,6 +150,35 @@ describe('createDatasetLoader: outlook', () => {
     }
   });
 
+  it('reports what is still due on its own and keeps it out of the profit forecast', async () => {
+    try {
+      const { loader } = await outlookLoader({
+        role: 'owner',
+        featureAccess: null,
+        presets: () => Promise.resolve({
+          presets: [{ id: 'p1', name: 'Rent', category: 'rent', payment_source: 'game_club', payment_method: 'cash', monthly_amount: 1_000_000, sort_order: 0, archived_at: null }],
+          available: true,
+        }),
+        ledgers: () => Promise.resolve({
+          ...emptyLedgers,
+          cashRows: [
+            { id: 'c1', date: '2026-11-01', cash_income: 2_000_000, terminal_income: 0, card_income: 0, playstation_income: 0 },
+            { id: 'c2', date: '2026-11-20', cash_income: 2_000_000, terminal_income: 0, card_income: 0, playstation_income: 0 },
+          ],
+        }),
+      });
+      const result = await loader.load({ dataset: 'outlook' });
+      const value = (metric: string) => result.table.rows.find((row) => row.metric === metric)?.value;
+      // 4 000 000 over 20 counted days is 6 000 000 over November's 30. The 1 000 000 rent
+      // still due is its own figure: the forecast counts expenses as paid so far, as Financial Analysis does.
+      expect(value('gameClubStillDue')).toBe(1_000_000);
+      expect(value('gameClubProjectedIncome')).toBe(6_000_000);
+      expect(value('gameClubProjectedProfit')).toBe(6_000_000);
+    } finally {
+      cleanup();
+    }
+  });
+
   it('marks parts outside the member access as no_access without reading them; the reserve is never a gap for a non-owner', async () => {
     try {
       const { loader, reserve, ownerMoney, rpc } = await outlookLoader({ role: 'admin', featureAccess: ['assistant', 'dashboard'] });

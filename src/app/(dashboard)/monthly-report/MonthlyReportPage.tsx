@@ -28,6 +28,8 @@ import { capitalizeFirst, formatCurrency, formatDate, formatYearMonth } from '@/
 import { calculateFinancialReportTotals, calculateManualIncome, sumDebtIncome } from '@/lib/calculations/dailyReport';
 import { canAccessPath } from '@/lib/permissions';
 import { loadFinanceReportRows, type FinanceReportRows } from '@/lib/supabase/financeReportSnapshot';
+import { fetchReserveMoves } from '@/lib/supabase/reserveMoves';
+import type { ReserveMove } from '@/lib/calculations/reserveMoves';
 import { BarChart2 } from 'lucide-react';
 import { ExportButton, type ExportFile } from '@/components/ExportButton';
 import { sheetFileName } from '@/lib/sheetExport';
@@ -75,19 +77,25 @@ function groupRowsByDate<T extends { date: string }>(items: T[]): Map<string, T[
   return grouped;
 }
 
-/** One report row per date that has any cash, stock, purchase, expense, or debt activity, newest first. */
-function buildDayRows(data: FinanceReportRows): DayRow[] {
+/**
+ * One report row per date that has any cash, stock, purchase, expense, debt or
+ * bar reserve activity, newest first. Bar cash left counts the day's owner
+ * reserve moves (156), so the month adds up to the dashboard's figure.
+ */
+function buildDayRows(data: FinanceReportRows, reserveMoves: readonly ReserveMove[]): DayRow[] {
   const cashByDate = groupRowsByDate(data.cashRows);
   const stockByDate = groupRowsByDate(data.stockTotalRows);
   const purchasesByDate = groupRowsByDate(data.purchaseRows);
   const expensesByDate = groupRowsByDate(data.expenseRows);
   const debtsByDate = groupRowsByDate(data.debtRows);
+  const barReserveByDate = groupRowsByDate(reserveMoves.filter((move) => move.source === 'bar'));
   const datesSet = new Set<string>([
     ...cashByDate.keys(),
     ...stockByDate.keys(),
     ...purchasesByDate.keys(),
     ...expensesByDate.keys(),
     ...debtsByDate.keys(),
+    ...barReserveByDate.keys(),
   ]);
   const dates = Array.from(datesSet).sort().reverse();
 
@@ -101,6 +109,7 @@ function buildDayRows(data: FinanceReportRows): DayRow[] {
       stockRows: stockByDate.get(date) ?? [],
       purchaseRows: purchasesByDate.get(date) ?? [],
       expenseRows: expensesByDate.get(date) ?? [],
+      reserveMoves: barReserveByDate.get(date) ?? [],
     });
     return {
       date,
@@ -135,9 +144,13 @@ export default function MonthlyReportPage() {
   const loadRows = useCallback(async () => {
     if (!selectedClubId) return [];
     const { from, to } = monthRange(month);
-    const result = await loadFinanceReportRows(createClient(), selectedClubId, from, to, 'range');
+    const supabase = createClient();
+    const [result, reserveMoves] = await Promise.all([
+      loadFinanceReportRows(supabase, selectedClubId, from, to, 'range'),
+      fetchReserveMoves(supabase, selectedClubId, from, to),
+    ]);
     if (!result.data) throw new Error(result.error?.message);
-    return buildDayRows(result.data);
+    return buildDayRows(result.data, reserveMoves);
   }, [month, selectedClubId]);
   const report = useClubQuery<DayRow[]>(loadRows, []);
   const rows = report.data;

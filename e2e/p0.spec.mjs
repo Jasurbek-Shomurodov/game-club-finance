@@ -419,10 +419,19 @@ test('STOCK-001 STOCK-002 STOCK-003 a purchase and a closing count go through th
   await expectDashboardAmount(page, 'Game Club Income', expected.bunkerGameClubIncome);
 });
 
-test('STOCK-008 a write-off removes units from closing stock without a sale, charges its cost to bar profit and shows in Reports', async ({ page }) => {
+test('STOCK-008 a write-off removes units from closing stock without a sale, keeps sales saved elsewhere, charges its cost to bar profit and shows in Reports', async ({ page }) => {
   // E2E Arcade saved today's count in the fixture: cola closes at 62 with 12 sold.
   await page.goto('/closing-stock');
   await expect(page.getByRole('heading', { name: 'Closing Stock', level: 1 })).toBeVisible();
+  // Another device saves 3 more colas sold after this page loaded (12 -> 15).
+  const later = await restAs(accounts.owner, 'POST', 'rpc/save_closing_stock_counts', {
+    p_club_id: clubs.arcade.id,
+    p_date: today,
+    p_counts: [{ product_id: products.cola.id, closing_stock: expected.colaStock - 3, sold_quantity: 15, giveaway_quantity: 0 }],
+  });
+  expect(later.status).toBe(200);
+  const rpcs = [];
+  page.on('request', request => { if (request.method() === 'POST' && /\/rest\/v1\/rpc\/(record_stock_write_off|save_closing_stock_counts)$/.test(request.url())) rpcs.push(request.url().split('/').pop()); });
   await page.getByRole('button', { name: 'Write-off' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.locator('#write-off-product').selectOption(products.cola.id);
@@ -431,12 +440,14 @@ test('STOCK-008 a write-off removes units from closing stock without a sale, cha
   await dialog.locator('#write-off-note').fill('E2E sour');
   await dialog.getByRole('button', { name: 'Write off' }).click();
   await expect(page.getByText('Write-off saved')).toBeVisible();
+  // Only the write-off goes out: the sheet loaded before the later save is never re-sent.
+  expect(rpcs).toEqual(['record_stock_write_off']);
 
   const [count] = await (await restAs(accounts.owner, 'GET', `daily_stock_counts?select=adjustment_quantity,adjustment_reason,closing_stock,sold_quantity,bar_income,bar_cost,writeoff_cost&club_id=eq.${clubs.arcade.id}&product_id=eq.${products.cola.id}&date=eq.${today}`)).json();
   expect({ ...count, adjustment_quantity: Number(count.adjustment_quantity), closing_stock: Number(count.closing_stock), sold_quantity: Number(count.sold_quantity), bar_income: Number(count.bar_income), bar_cost: Number(count.bar_cost), writeoff_cost: Number(count.writeoff_cost) }).toEqual({
-    adjustment_quantity: -3, adjustment_reason: 'expired: E2E sour', closing_stock: expected.colaStock - 3, sold_quantity: 12, bar_income: 12 * products.cola.sale_price,
+    adjustment_quantity: -3, adjustment_reason: 'expired: E2E sour', closing_stock: expected.colaStock - 6, sold_quantity: 15, bar_income: 15 * products.cola.sale_price,
     // The written-off units are charged to bar profit at cost, with no income.
-    bar_cost: (12 + 3) * products.cola.cost_price, writeoff_cost: 3 * products.cola.cost_price,
+    bar_cost: (15 + 3) * products.cola.cost_price, writeoff_cost: 3 * products.cola.cost_price,
   });
 
   await page.goto('/reports?view=writeOffs');
@@ -1333,7 +1344,7 @@ test('RES-001 money returned from the reserve leaves it and is back in the month
   await open(page, 'Owner Profit');
   const table = page.getByRole('table').first();
   await expect(table.getByRole('row').filter({ hasText: 'Cash' })).toContainText(uzs(980_000));
-  await expect(page.getByRole('link', { name: tileName('In the reserve', 348_000) })).toBeVisible();
+  await expect(page.getByRole('link', { name: tileName('UZS account', 348_000) })).toBeVisible();
 });
 
 test('RES-002 a purchase paid on the Reserve page lowers the reserve and leaves the month\'s profit alone', async ({ page }) => {
@@ -1372,7 +1383,7 @@ test('RES-002 a purchase paid on the Reserve page lowers the reserve and leaves 
   await open(page, 'Owner Profit');
   const table = page.getByRole('table').first();
   await expect(table.getByRole('row').filter({ hasText: 'Cash' })).toContainText(uzs(780_000));
-  await expect(page.getByRole('link', { name: tileName('In the reserve', 200_000) })).toBeVisible();
+  await expect(page.getByRole('link', { name: tileName('UZS account', 200_000) })).toBeVisible();
 });
 
 test('RES-003 the Put in, Returned and Paid tiles each open the history narrowed to that kind', async ({ page }) => {

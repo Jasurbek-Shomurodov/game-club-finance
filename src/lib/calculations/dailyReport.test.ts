@@ -5,6 +5,8 @@ import {
   sumDebtIncome,
 } from './dailyReport';
 import { calculateDashboardTotals } from './dashboardMetrics';
+import { buildBarMoneyDetailRows } from './moneyDetails';
+import type { ReserveMove } from './reserveMoves';
 
 describe('calculateManualIncome', () => {
   it('sums game club payment method fields', () => {
@@ -148,6 +150,49 @@ describe('calculateFinancialReportTotals', () => {
     expect(report.barProfit).toBe(dashboard.barProfit);
     expect(report.gameClubProfit).toBe(305000);
     expect(report.barProfit).toBe(40000);
+  });
+});
+
+describe('bar cash left with the owner reserve (156)', () => {
+  // A bar deposit into the reserve, a bar purchase the reserve's sums paid and one its dollars paid.
+  const stockRows = [{ date: '2026-11-10', bar_income: 900_000, bar_cost: 400_000, bar_profit: 500_000, sold_quantity: 30 }];
+  const purchaseRows = [{ date: '2026-11-10', quantity: 10, cost_price: 20_000, comment: null }];
+  const expenseRows = [
+    { id: 'bar-own', date: '2026-11-10', amount: 50_000, category: 'cleaning', payment_source: 'bar' as const, payment_method: 'cash', comment: null, created_at: '2026-11-10T09:00:00Z' },
+    { id: 'bar-reserve', date: '2026-11-10', amount: 300_000, category: 'equipment', payment_source: 'bar' as const, payment_method: 'cash', paid_from_reserve: true, comment: null, created_at: '2026-11-10T10:00:00Z' },
+    { id: 'bar-usd', date: '2026-11-10', amount: 120_000, category: 'equipment', payment_source: 'bar' as const, payment_method: 'usd', comment: null, created_at: '2026-11-10T11:00:00Z' },
+    { id: 'club', date: '2026-11-10', amount: 70_000, category: 'rent', payment_source: 'game_club' as const, payment_method: 'cash', comment: null, created_at: '2026-11-10T12:00:00Z' },
+  ];
+  const reserveMoves: ReserveMove[] = [
+    { date: '2026-11-10', source: 'bar', method: null, amount: 250_000 },
+    // Game Club moves never touch the bar.
+    { date: '2026-11-10', source: 'game_club', method: 'cash', amount: 1_000_000 },
+  ];
+
+  it('takes bar deposits out and leaves purchases the reserve paid in, as the dashboard and bar money details do', () => {
+    const report = calculateFinancialReportTotals({ manualIncome: 0, stockRows, purchaseRows, expenseRows, reserveMoves });
+    const dashboard = calculateDashboardTotals([], stockRows, purchaseRows, expenseRows, [], [], [], [], reserveMoves);
+    const details = buildBarMoneyDetailRows(stockRows, purchaseRows, expenseRows, reserveMoves);
+
+    // 900 000 sales − 200 000 purchases − 50 000 bar-paid expense − 250 000 into the reserve.
+    expect(report.barCashLeft).toBe(400_000);
+    expect(report.barCashLeft).toBe(dashboard.barIncome);
+    expect(report.barCashLeft).toBe(details.reduce((sum, row) => sum + row.moneyLeft, 0));
+    // Accounting profit is unchanged: reserve-paid purchases stay bar expenses.
+    expect(report.barExpenses).toBe(470_000);
+    expect(report.barProfit).toBe(900_000 - 400_000 - 470_000);
+    expect(report.barProfit).toBe(dashboard.barProfit);
+  });
+
+  it('adds back money the reserve returned to the bar', () => {
+    const totals = calculateFinancialReportTotals({
+      manualIncome: 0,
+      stockRows,
+      purchaseRows: [],
+      expenseRows: [],
+      reserveMoves: [{ date: '2026-11-10', source: 'bar', method: null, amount: -100_000 }],
+    });
+    expect(totals.barCashLeft).toBe(1_000_000);
   });
 });
 

@@ -63,6 +63,7 @@ beforeAll(async () => {
   await db.exec(migration('141_write_offs_in_bar_profit.sql'));
   await db.exec(migration('164_write_offs_for_admins.sql'));
   await db.exec(migration('167_stock_corrections.sql'));
+  await db.exec(migration('188_record_stock_write_off.sql'));
   await db.exec(`grant usage on schema public, auth to authenticated;
     grant select on products, stock_purchases, daily_stock_counts to authenticated;`);
 }, 20000);
@@ -213,5 +214,90 @@ describe('stock corrections (migration 167)', () => {
     await asAdmin();
     await save(day, { product_id: cola, closing_stock: 8, sold_quantity: 0, adjustment_quantity: -2, adjustment_reason: 'shortage' });
     await expect(correction(1, 'correction')).rejects.toThrow('Only a club owner');
+  });
+});
+
+describe('write-offs from the saved count (migration 188)', () => {
+  const day = '2026-10-15';
+  const asAdmin = () => db.exec("select set_config('test.role','admin',false)");
+  const record = (kind: string, quantity: number, note: string | null = null, date = day, product = cola, clubId = club) =>
+    db.query('select public.record_stock_write_off($1,$2,$3,$4,$5,$6)', [clubId, date, product, kind, quantity, note]);
+  const row = async (date = day) => (await db.query(`select previous_stock,closing_stock,sold_quantity,adjustment_quantity,
+    adjustment_reason,writeoff_cost::float8,bar_income::float8,bar_cost::float8
+    from daily_stock_counts where club_id=$1 and product_id=$2 and date=$3`, [club, cola, date])).rows[0];
+
+  it('keeps the sales another device saved after the page loaded', async () => {
+    await db.exec(`update products set current_stock = 30 where id = '${cola}'`);
+    // The page opened on 12 sold; another device then saved 15 sold.
+    await save(day, { product_id: cola, closing_stock: 18, sold_quantity: 12 });
+    await save(day, { product_id: cola, closing_stock: 15, sold_quantity: 15 });
+    await record('shortage', 2, ' lost ');
+    expect(await row()).toEqual({
+      previous_stock: '30', closing_stock: '13', sold_quantity: '15', adjustment_quantity: '-2',
+      adjustment_reason: 'shortage: lost', writeoff_cost: 18000, bar_income: 225000, bar_cost: 153000,
+    });
+  });
+
+  it('builds the open-day row as the save path does when nothing is saved yet', async () => {
+    await record('expired', 3);
+    expect(await row()).toEqual({
+      previous_stock: '10', closing_stock: '7', sold_quantity: '0', adjustment_quantity: '-3',
+      adjustment_reason: 'expired', writeoff_cost: 27000, bar_income: 0, bar_cost: 27000,
+    });
+  });
+
+  it('sets the write-off to the new total, records a correction and removes it, sales untouched', async () => {
+    await save(day, { product_id: cola, closing_stock: 6, sold_quantity: 4 });
+    await record('shortage', 1);
+    await record('shortage', 3, 'two more');
+    expect(await row()).toMatchObject({ closing_stock: '3', sold_quantity: '4', adjustment_quantity: '-3', writeoff_cost: 27000 });
+    await record('correction', 2, 'found');
+    expect(await row()).toMatchObject({ closing_stock: '8', sold_quantity: '4', adjustment_quantity: '2', adjustment_reason: 'correction: found', writeoff_cost: 0 });
+    await record('shortage', 0);
+    expect(await row()).toMatchObject({ closing_stock: '6', sold_quantity: '4', adjustment_quantity: '0', adjustment_reason: null, writeoff_cost: 0 });
+  });
+
+  it('recalculates later counts when the owner writes off on a past day', async () => {
+    await db.exec("select set_config('test.date','2026-10-12',false)");
+    await save('2026-10-12', { product_id: cola, closing_stock: 10, sold_quantity: 0 });
+    await db.exec("select set_config('test.date','2026-10-15',false)");
+    await save(day, { product_id: cola, closing_stock: 5, sold_quantity: 5 });
+    await record('expired', 1, null, '2026-10-12');
+    expect(await row('2026-10-12')).toMatchObject({ closing_stock: '9', sold_quantity: '0', adjustment_quantity: '-1', writeoff_cost: 9000 });
+    expect(await row()).toMatchObject({ previous_stock: '9', closing_stock: '5', sold_quantity: '4' });
+  });
+
+  it('keeps the owner-only rules and the save path checks', async () => {
+    await asAdmin();
+    await record('shortage', 3);
+    await expect(record('shortage', 2)).rejects.toThrow('Only a club owner');
+    await expect(record('expired', 3)).rejects.toThrow('Only a club owner');
+    await expect(record('shortage', 0)).rejects.toThrow('Only a club owner');
+    await expect(record('shortage', 4, null, '2026-10-14')).rejects.toThrow('Admins can only save the current business day');
+    await expect(record('shortage', 1, null, '2026-10-16')).rejects.toThrow('cannot be in the future');
+    await db.exec("select set_config('test.role','viewer',false)");
+    await expect(record('shortage', 4)).rejects.toThrow('Not authorized');
+    await expect(record('shortage', 1, null, day, cola, otherClub)).rejects.toThrow('Not authorized');
+    expect(await row()).toMatchObject({ adjustment_quantity: '-3', closing_stock: '7' });
+  });
+
+  it('refuses more units than are left, made-to-order products, odd input and free-text additions', async () => {
+    await save(day, { product_id: cola, closing_stock: 6, sold_quantity: 4 });
+    await expect(record('shortage', 7)).rejects.toMatchObject({ code: '23514', hint: 'write_off_exceeds_stock', detail: '6' });
+    await expect(record('shortage', 1, null, day, tea)).rejects.toThrow('Made-to-order');
+    for (const [kind, quantity] of [['broken', 1], ['shortage', -1], ['shortage', 1.5]] as const) {
+      await expect(record(kind, quantity)).rejects.toMatchObject({ code: '22023' });
+    }
+    await save(day, { product_id: cola, closing_stock: 8, sold_quantity: 4, adjustment_quantity: 2, adjustment_reason: 'found' });
+    await expect(record('shortage', 1)).rejects.toMatchObject({ code: '23514', hint: 'write_off_has_adjustment' });
+    expect(await row()).toMatchObject({ adjustment_quantity: '2', adjustment_reason: 'found', sold_quantity: '4' });
+  });
+
+  it('is callable by signed-in members only', async () => {
+    const grants = (await db.query(`select grantee from information_schema.routine_privileges
+      where routine_name = 'record_stock_write_off' order by grantee`)).rows.map((r) => (r as { grantee: string }).grantee);
+    expect(grants).toContain('authenticated');
+    expect(grants).not.toContain('anon');
+    expect(grants).not.toContain('PUBLIC');
   });
 });

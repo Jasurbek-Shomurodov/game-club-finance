@@ -417,8 +417,8 @@ type OutlookRow = [string, number | null, 'UZS' | 'days'];
  * withdrew this month and what is left after it; then the owner reserve. Rows
  * that are not included are left out, never shown as zero. Payment-method rows
  * are the game club's; the bar has only its side total. The game club and the
- * bar are never added together; a forecast is null until its side has an
- * entry this month.
+ * bar are never added together; a forecast is null until its side has
+ * MIN_PROJECTION_DAYS counted days this month.
  */
 export function outlookTable(input: OutlookInput): DataTable {
   const { forecast, stillDue, money, ownerMonth } = input;

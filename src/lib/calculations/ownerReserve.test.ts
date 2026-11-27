@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyOwnerReserve, dollarReserveEntries, reserveActivity, groupReserveActivityByDay, reserveMonthlySeries, reserveDailySeries, reserveBalances, reserveForMonth, planGameClubDepositAll, reserveHoldingsOn, reserveMonthMoves, withReservePurchaseDollars, type ReservePaidExpense } from './ownerReserve';
+import { applyOwnerReserve, dollarReserveEntries, reserveActivity, groupReserveActivityByDay, reserveMonthlySeries, reserveDailySeries, reserveBalances, reserveForMonth, planGameClubDepositAll, reserveHoldingsOn, reserveMonthMoves, reserveReturnLimits, reserveSumsHeld, canReturnFromReserve, withReservePurchaseDollars, type ReservePaidExpense } from './ownerReserve';
 import { sumAvailableMoneyResults, type AvailableMoneyByMonth } from './availableMoney';
 import type { OwnerReserveEntry } from '@/types';
 
@@ -405,5 +405,48 @@ describe('reserveMonthMoves', () => {
     }
     const october = reserveMonthMoves(reserve.reserveEntries, reserve.reserveExpenses, '2026-10', '2026-10-31');
     expect(reserveHoldingsOn(reserve, '2026-09-30').sums + october.in - october.out).toBe(reserveHoldingsOn(reserve, '2026-10-31').sums);
+  });
+});
+
+describe('reserveReturnLimits', () => {
+  const limitsFor = (ledger: OwnerReserveEntry[], paid: ReservePaidExpense[]) => (
+    reserveReturnLimits(ledger, reserveSumsHeld(reserveBalances(ledger, paid)))
+  );
+
+  it('caps a bucket at the sums held once a purchase took money from the pot', () => {
+    // Since 155 every purchase from the reserve's sums is stored as Game Club cash.
+    const limits = limitsFor(
+      [entry('terminal', { payment_method: 'terminal', amount: 5_000_000 })],
+      [purchase('rent', { amount: 3_000_000 })],
+    );
+    expect(limits.game_club.terminal).toBe(2_000_000);
+    expect(limits.game_club.cash).toBe(0);
+    expect(limits.bar).toBe(0);
+  });
+
+  it('gives every bucket the lower of what it saved and what the pot holds', () => {
+    const limits = limitsFor(
+      [
+        entry('cash', { amount: 5_000_000 }),
+        entry('bar', { source: 'bar', payment_method: null, amount: 5_000_000 }),
+      ],
+      [purchase('pcs', { amount: 6_000_000 })],
+    );
+    expect(limits.game_club.cash).toBe(4_000_000);
+    expect(limits.bar).toBe(4_000_000);
+  });
+
+  it('takes earlier returns off the bucket and never goes below zero', () => {
+    const ledger = [
+      entry('cash', { amount: 3_000_000 }),
+      entry('back', { kind: 'return', amount: 1_000_000 }),
+      entry('bar', { source: 'bar', payment_method: null, amount: 500_000 }),
+      entry('bar-back', { source: 'bar', payment_method: null, kind: 'return', amount: 500_000 }),
+    ];
+    expect(reserveReturnLimits(ledger, 10_000_000)).toMatchObject({ game_club: { cash: 2_000_000 }, bar: 0 });
+    const empty = reserveReturnLimits(ledger, -1);
+    expect(empty).toMatchObject({ game_club: { cash: 0 }, bar: 0 });
+    expect(canReturnFromReserve(empty)).toBe(false);
+    expect(canReturnFromReserve(reserveReturnLimits(ledger, 1))).toBe(true);
   });
 });

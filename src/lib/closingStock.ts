@@ -289,6 +289,21 @@ export function changedClosingStockRows(
   return rows.filter((row) => saved.get(row.product.id) !== closingRowFingerprint(row));
 }
 
+/**
+ * Whether the sheet holds counts the database does not: edits that differ
+ * from the rows that loaded, or a browser draft applied on load. A write-off
+ * saves one product from its saved count (migration 188), so it is refused
+ * until those counts are saved; otherwise they would be lost on the reload
+ * that follows, and a draft would stop re-applying once the day has a count.
+ */
+export function hasUnsavedSheetCounts(
+  rows: ClosingStockRowData[],
+  loaded: ClosingStockRowData[],
+  draftApplied: boolean,
+): boolean {
+  return draftApplied || changedClosingStockRows(rows, loaded).length > 0;
+}
+
 export function getBulkStockAvailableQuantity(row: ClosingStockRowData): number | null {
   return row.product.tracks_inventory === false
     ? null

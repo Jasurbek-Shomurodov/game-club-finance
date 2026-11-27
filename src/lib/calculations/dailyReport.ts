@@ -1,6 +1,7 @@
 import { calculateGameClubIncome } from './dailyCash';
-import { calculateBarMoney } from './barMoney';
+import { calculateBarMoney, calculateBarMoneyLeft } from './barMoney';
 import type { BarSalesRow, StockPurchaseCostRow } from './barMoney';
+import type { ReserveMove } from './reserveMoves';
 
 export interface DailyCashEntry {
   cash_income: number;
@@ -20,6 +21,10 @@ export interface FinancialReportStockRow extends BarSalesRow {
 export interface FinancialReportExpenseRow {
   amount: number;
   payment_source?: 'game_club' | 'bar' | null;
+  /** Paid from the owner reserve's sums (136): it takes nothing from bar cash left (156). */
+  paid_from_reserve?: boolean | null;
+  /** `usd` marks a purchase the reserve's dollars paid (143). */
+  payment_method?: string | null;
 }
 
 export interface FinancialReportInput {
@@ -28,6 +33,8 @@ export interface FinancialReportInput {
   stockRows: FinancialReportStockRow[];
   purchaseRows: StockPurchaseCostRow[];
   expenseRows: FinancialReportExpenseRow[];
+  /** Money moved into or out of the owner reserve in the period (156); only bar cash left reads them. */
+  reserveMoves?: readonly ReserveMove[];
 }
 
 export interface FinancialReportTotals {
@@ -48,7 +55,11 @@ export interface FinancialReportTotals {
   barExpenses: number;
   /** Expenses paid from game-club money. */
   gameClubExpenses: number;
-  /** Bar cash left after inventory purchases and expenses paid by the bar. */
+  /**
+   * Bar cash left after inventory purchases, the expenses the bar paid and its
+   * net deposits into the owner reserve; a purchase the reserve paid takes
+   * nothing from it. The same figure as the dashboard and bar money details.
+   */
   barCashLeft: number;
   /**
    * The game club and the bar are separate businesses; their money is never
@@ -75,8 +86,8 @@ export function calculateManualIncome(entry: DailyCashEntry): number {
 
 /**
  * Uses the same game-club, bar and bar-cash definitions as the dashboard while
- * keeping those views separate. Inventory purchases affect bar cash left;
- * cost of goods sold affects accounting profit.
+ * keeping those views separate. Inventory purchases and owner reserve moves
+ * affect bar cash left; cost of goods sold affects accounting profit.
  */
 export function calculateFinancialReportTotals({
   manualIncome,
@@ -84,6 +95,7 @@ export function calculateFinancialReportTotals({
   stockRows,
   purchaseRows,
   expenseRows,
+  reserveMoves = [],
 }: FinancialReportInput): FinancialReportTotals {
   const { barSales, stockPurchaseCost, barMoney } = calculateBarMoney(stockRows, purchaseRows);
   const barCost = stockRows.reduce((sum, row) => sum + Number(row.bar_cost ?? 0), 0);
@@ -105,7 +117,7 @@ export function calculateFinancialReportTotals({
     stockPurchaseCost,
     barExpenses,
     gameClubExpenses,
-    barCashLeft: barMoney - barExpenses,
+    barCashLeft: calculateBarMoneyLeft(barMoney, expenseRows, reserveMoves),
     gameClubProfit: manualIncome + debtIncome - gameClubExpenses,
     barProfit: barSales - barCost - barExpenses,
   };

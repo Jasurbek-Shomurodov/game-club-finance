@@ -7,7 +7,7 @@ import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import { useClub } from '@/components/layout/DashboardShell';
 import { MONEY_SOURCE_ICONS } from '@/components/sideIcons';
 import { Button, CurrencyInput, Field, InlineAlert, Modal, MonthPicker, SegmentedControl } from '@/components/PresentationFoundation';
-import type { ReserveBalance } from '@/lib/calculations/ownerReserve';
+import type { ReserveReturnLimits } from '@/lib/calculations/ownerReserve';
 import { formatCurrency, formatCurrencyInput, formatYearMonth, parseCurrencyInput } from '@/lib/formatters';
 import { requestReserveMove } from '@/lib/ownerReserveRequests';
 import type { ReserveErrorCode } from '@/lib/supabase/ownerReserve';
@@ -22,8 +22,8 @@ import { METHOD_ICONS } from '@/components/owner-money/profitIcons';
 
 /** Mounted only while open, so every opening starts a fresh return. */
 interface ReserveReturnModalProps {
-  /** What the reserve holds per side (reserveBalances). */
-  balances: Record<OwnerWithdrawalSource, ReserveBalance>;
+  /** What each bucket can give back, as the database limits a return (reserveReturnLimits). */
+  limits: ReserveReturnLimits;
   /** The club's business month: the month whose profit the money goes back to by default. */
   currentMonth: string;
   methodLabel: (method: OwnerReserveMethod) => string;
@@ -38,18 +38,17 @@ interface ReserveReturnModalProps {
  * the home of this action; the month it returns to is chosen here because the
  * reserve page has no month of its own.
  */
-export function ReserveReturnModal({ balances, currentMonth, methodLabel, currentLoad, onClose, onSaved }: ReserveReturnModalProps) {
+export function ReserveReturnModal({ limits, currentMonth, methodLabel, currentLoad, onClose, onSaved }: ReserveReturnModalProps) {
   const t = useTranslations('moneyTaken');
   const tr = useTranslations('ownerReserve');
   const tc = useTranslations('common');
   const { locale } = useAppLocale();
   const { selectedClubId } = useClub();
-  const reserveHeld = balances;
-  const gameClubReturnable = OWNER_WITHDRAWAL_PAYMENT_METHODS.some((method) => reserveHeld.game_club.byMethod[method] > 0);
+  const gameClubReturnable = OWNER_WITHDRAWAL_PAYMENT_METHODS.some((method) => limits.game_club[method] > 0);
   const [month, setMonth] = useState(currentMonth);
-  const [returnTarget, setReturnTarget] = useState<OwnerWithdrawalSource>(gameClubReturnable || reserveHeld.bar.held <= 0 ? 'game_club' : 'bar');
+  const [returnTarget, setReturnTarget] = useState<OwnerWithdrawalSource>(gameClubReturnable || limits.bar <= 0 ? 'game_club' : 'bar');
   const [returnMethod, setReturnMethod] = useState<OwnerWithdrawalPaymentMethod>(
-    () => OWNER_WITHDRAWAL_PAYMENT_METHODS.find((value) => reserveHeld.game_club.byMethod[value] > 0) ?? 'cash',
+    () => OWNER_WITHDRAWAL_PAYMENT_METHODS.find((value) => limits.game_club[value] > 0) ?? 'cash',
   );
   const [returnInput, setReturnInput] = useState('');
   const [reserveError, setReserveError] = useState<ReserveErrorCode | null>(null);
@@ -57,7 +56,7 @@ export function ReserveReturnModal({ balances, currentMonth, methodLabel, curren
   const reserveRequestId = useRef<string | null>(null);
 
   const currency = (amount: number) => `${formatCurrency(amount)} ${tc('currency')}`;
-  const returnMax = returnTarget === 'game_club' ? reserveHeld.game_club.byMethod[returnMethod] : returnTarget === 'bar' ? reserveHeld.bar.held : 0;
+  const returnMax = returnTarget === 'game_club' ? limits.game_club[returnMethod] : returnTarget === 'bar' ? limits.bar : 0;
   const returnValue = parseCurrencyInput(returnInput);
   const returnValid = Number.isFinite(returnValue) && returnValue > 0 && returnValue <= returnMax;
 
@@ -137,7 +136,7 @@ export function ReserveReturnModal({ balances, currentMonth, methodLabel, curren
                   value: source,
                   label: tr(`sources.${source}`),
                   icon: <Icon size={16} aria-hidden="true" />,
-                  disabled: source === 'game_club' ? !gameClubReturnable : reserveHeld.bar.held <= 0,
+                  disabled: source === 'game_club' ? !gameClubReturnable : limits.bar <= 0,
                 };
               })}
             />
@@ -158,11 +157,11 @@ export function ReserveReturnModal({ balances, currentMonth, methodLabel, curren
                 const Icon = METHOD_ICONS[method];
                 return {
                   value: method,
-                  disabled: reserveHeld.game_club.byMethod[method] <= 0,
+                  disabled: limits.game_club[method] <= 0,
                   label: (
                     <span className="flex flex-col items-center py-1 leading-tight">
                       <span className="inline-flex items-center gap-1.5"><Icon size={14} aria-hidden="true" />{methodLabel(method)}</span>
-                      <span className="mt-0.5 text-xs font-normal tabular-nums opacity-80">{formatCurrency(reserveHeld.game_club.byMethod[method])}</span>
+                      <span className="mt-0.5 text-xs font-normal tabular-nums opacity-80">{formatCurrency(limits.game_club[method])}</span>
                     </span>
                   ),
                 };

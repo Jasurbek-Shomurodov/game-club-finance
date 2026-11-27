@@ -96,6 +96,7 @@ visible to every club owner until requests are targeted at a club.
 | `record_stock_purchase` | Insert purchase and update stock/cost safely; the `p_request_id` overload (119) records a retried submit once and (120) adds to the open day's saved closing. |
 | `delete_stock_purchase` | Remove a purchase and repair inventory safely, including the open day's saved closing (120). |
 | `save_closing_stock_counts` | Save/validate daily counts and historical chain. |
+| `record_stock_write_off` | One product's write-off or correction for a day (188): applies it to the saved count (keeping its sold quantity) and saves that row through `save_closing_stock_counts`. |
 | `withdraw_owner_money_for_month` | Atomically withdraw a custom amount for one month/source, or allocate across both sources. |
 | `take_all_owner_money_for_month` | Atomically take one month/source remainder. |
 | `get_dashboard_snapshot` | Efficient dashboard payload. |

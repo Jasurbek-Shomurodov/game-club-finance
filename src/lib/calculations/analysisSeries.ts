@@ -4,6 +4,7 @@ import {
   countDashboardRangeDaysThroughDate,
   getAverageIncomeDayCounts,
   getLatestRowDateInRange,
+  MIN_PROJECTION_DAYS,
   sumGameClubRows,
   type ExpenseRow,
 } from './dashboardMetrics';
@@ -350,8 +351,17 @@ export interface SideForecast {
   daysCounted: number;
   incomeToDate: number;
   profitToDate: number;
-  /** Month-end figures if the rest of the month keeps this month's daily pace; null without entries. */
+  /**
+   * Month-end money in if the rest of the month keeps this month's daily pace.
+   * Null until the side has MIN_PROJECTION_DAYS counted days.
+   */
   projectedIncome: number | null;
+  /**
+   * Projected money in minus projected spending: the bar's cost of goods sold
+   * grows with its sales, while expenses are counted as paid so far; bills
+   * still to come are not included, and a bill paid once is not stretched over
+   * the month. Null whenever projectedIncome is.
+   */
   projectedProfit: number | null;
   lastMonthIncome: number;
   lastMonthProfit: number;
@@ -386,10 +396,13 @@ export interface MonthForecast {
 }
 
 /**
- * The business month so far and where it ends at its current pace: each side's
- * money in and profit per counted day (through that side's latest entry, as
- * "average daily income" counts them), stretched over the whole month. Last
- * month's running money in is drawn alongside by day of month.
+ * The business month so far and where it ends at its current pace. Money in
+ * per counted day (through that side's latest entry, as "average daily income"
+ * counts them) is stretched over the whole month, and the bar's cost of goods
+ * sold with it. Expenses are not stretched: they are counted as paid so far, so
+ * rent paid on the 1st is counted once, and bills still to come are not
+ * included. No side is projected before MIN_PROJECTION_DAYS
+ * counted days. Last month's running money in is drawn alongside by day of month.
  */
 export function buildMonthForecast(businessToday: string, ledgers: AnalysisLedgers): MonthForecast {
   const month = businessToday.slice(0, 7);
@@ -413,20 +426,27 @@ export function buildMonthForecast(businessToday: string, ledgers: AnalysisLedge
   const incomeOf = (side: ForecastSide, row: (typeof current)[number]) => (
     side === 'gameClub' ? row.gameClubIncome : side === 'bar' ? row.barSales : playstationByDate.get(row.date) ?? 0
   );
-  const spentOf = (side: ForecastSide, row: (typeof current)[number]) => (
-    side === 'gameClub' ? row.gameClubExpenses : side === 'bar' ? row.barCost + row.barExpenses : 0
+  // Cost of goods sold follows sales; expenses are bills, paid when they fall due.
+  const costOf = (side: ForecastSide, row: (typeof current)[number]) => (side === 'bar' ? row.barCost : 0);
+  const expensesOf = (side: ForecastSide, row: (typeof current)[number]) => (
+    side === 'gameClub' ? row.gameClubExpenses : side === 'bar' ? row.barExpenses : 0
   );
+  const spentOf = (side: ForecastSide, row: (typeof current)[number]) => costOf(side, row) + expensesOf(side, row);
   const sideForecast = (side: ForecastSide): SideForecast => {
-    const incomeToDate = current.reduce((total, row) => total + incomeOf(side, row), 0);
-    const profitToDate = current.reduce((total, row) => total + incomeOf(side, row) - spentOf(side, row), 0);
+    const total = (pick: (row: (typeof current)[number]) => number) => current.reduce((sum, row) => sum + pick(row), 0);
+    const incomeToDate = total((row) => incomeOf(side, row));
+    const costToDate = total((row) => costOf(side, row));
+    const expensesToDate = total((row) => expensesOf(side, row));
     const daysCounted = incomeToDate > 0 ? dayCounts[side === 'bar' ? 'bar' : 'gameClub'] : 0;
-    const scale = daysCounted ? length / daysCounted : 0;
+    const projectable = daysCounted >= MIN_PROJECTION_DAYS;
+    const scale = projectable ? length / daysCounted : 0;
+    const projectedIncome = projectable ? Math.round(incomeToDate * scale) : null;
     return {
       daysCounted,
       incomeToDate,
-      profitToDate,
-      projectedIncome: daysCounted ? Math.round(incomeToDate * scale) : null,
-      projectedProfit: daysCounted ? Math.round(profitToDate * scale) : null,
+      profitToDate: incomeToDate - costToDate - expensesToDate,
+      projectedIncome,
+      projectedProfit: projectedIncome === null ? null : projectedIncome - Math.round(costToDate * scale) - expensesToDate,
       lastMonthIncome: previous.reduce((total, row) => total + incomeOf(side, row), 0),
       lastMonthProfit: previous.reduce((total, row) => total + incomeOf(side, row) - spentOf(side, row), 0),
     };
@@ -445,9 +465,11 @@ export function buildMonthForecast(businessToday: string, ledgers: AnalysisLedge
     const counted = forecast.daysCounted;
     const reached = counted ? actual[side][counted - 1] : 0;
     const pace = counted ? reached / counted : 0;
+    // The dashed line is the money-in forecast: drawn only when that forecast exists.
+    const projecting = forecast.projectedIncome !== null;
     return {
       actual: counted && day <= counted ? actual[side][day - 1] : null,
-      projected: counted && day >= counted ? Math.round(reached + pace * (day - counted)) : null,
+      projected: projecting && day >= counted ? Math.round(reached + pace * (day - counted)) : null,
       lastMonth: day <= before[side].length ? before[side][day - 1] : null,
     };
   };

@@ -11,6 +11,7 @@ import {
   maxWriteOffQuantity,
   parseWriteOffReason,
   StockWriteOffError,
+  stockWriteOffRpcArgs,
   summarizeStockAdjustments,
   summarizeStockWriteOffs,
   writeOffEntryKey,
@@ -329,5 +330,20 @@ describe('shouldNotifyStockAdjustment', () => {
     expect(shouldNotifyStockAdjustment(null, { kind: 'correction', quantity: 3 })).toBe(false);
     expect(shouldNotifyStockAdjustment({ sign: 1 }, { kind: 'correction', quantity: 5 })).toBe(false);
     expect(shouldNotifyStockAdjustment({ sign: 1 }, { kind: 'correction', quantity: 0 })).toBe(false);
+  });
+});
+
+describe('stockWriteOffRpcArgs', () => {
+  it('sends one product\'s write-off total, never a rebuilt count', () => {
+    expect(stockWriteOffRpcArgs('club-1', '2026-10-15', { productId: 'cola', kind: 'expired', quantity: 3, note: '  sour ' })).toEqual({
+      p_club_id: 'club-1', p_date: '2026-10-15', p_product_id: 'cola', p_kind: 'expired', p_quantity: 3, p_note: 'sour',
+    });
+  });
+
+  it('sends a removal as 0 units with no note', () => {
+    expect(stockWriteOffRpcArgs('club-1', '2026-10-15', { productId: 'cola', kind: 'shortage', quantity: 0, note: '   ' }))
+      .toMatchObject({ p_quantity: 0, p_note: null });
+    expect(stockWriteOffRpcArgs('club-1', '2026-10-15', { productId: 'cola', kind: 'correction', quantity: 2.7 }))
+      .toMatchObject({ p_kind: 'correction', p_quantity: 2, p_note: null });
   });
 });

@@ -36,6 +36,8 @@ import {
   reserveActivity,
   reserveBalances,
   reserveBuyLimits,
+  reserveReturnLimits,
+  canReturnFromReserve,
   reserveDollarRates,
   reserveFlowSplit,
   reserveFlowTotals,
@@ -171,6 +173,8 @@ export default function ReservePage() {
   const totals = useMemo(() => reserveFlowTotals(activity), [activity]);
   const dollarsSumsValue = balances.game_club.byMethod.usd;
   const buyLimits = useMemo(() => reserveBuyLimits(reserveEntries, sumsHeld), [reserveEntries, sumsHeld]);
+  // What a return may give back, as return_owner_reserve allows it.
+  const returnLimits = useMemo(() => reserveReturnLimits(reserveEntries, sumsHeld), [reserveEntries, sumsHeld]);
   const rates = useMemo(() => reserveDollarRates(exchangeRows, dollarsHeld, dollarsSumsValue), [exchangeRows, dollarsHeld, dollarsSumsValue]);
   const canBuy = buyLimits.cash > 0 || buyLimits.terminal > 0 || buyLimits.card > 0;
   const te = useTranslations('expenses');
@@ -292,7 +296,7 @@ export default function ReservePage() {
           <Button
             variant="outline"
             size="sm"
-            disabled={actionsDisabled || (balances.game_club.held <= 0 && balances.bar.held <= 0)}
+            disabled={actionsDisabled || !canReturnFromReserve(returnLimits)}
             onClick={() => setReturnOpen(true)}
             icon={<Undo2 size={16} aria-hidden="true" />}
           >
@@ -563,7 +567,7 @@ export default function ReservePage() {
       ) : null}
       {returnOpen ? (
         <ReserveReturnModal
-          balances={balances}
+          limits={returnLimits}
           currentMonth={currentMonth}
           methodLabel={methodLabel}
           currentLoad={currentLoad}

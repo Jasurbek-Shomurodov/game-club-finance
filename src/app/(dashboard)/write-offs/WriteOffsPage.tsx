@@ -28,7 +28,6 @@ import { createClient } from '@/lib/supabase/client';
 import { announceActivity } from '@/lib/activityNotices';
 import { loadClosingStockDay } from '@/lib/supabase/closingStockQueries';
 import {
-  buildClosingStockUpserts,
   buildEditableClosingStockRows,
   isReadOnlyClosingStockProduct,
   type ClosingStockRowData,
@@ -38,11 +37,12 @@ import {
   notifyStockWriteOff,
   rowStockAdjustment,
   shouldNotifyStockAdjustment,
+  stockWriteOffRpcArgs,
   StockWriteOffError,
   writeOffKindVariant,
   type RowStockAdjustment,
 } from '@/lib/stockWriteOffs';
-import { classifyStockWriteError, type StockWriteErrorLike } from '@/lib/stockWriteErrors';
+import { classifyStockWriteError, writeOffAvailableQuantity, type StockWriteErrorLike } from '@/lib/stockWriteErrors';
 import { formatDateOnly, formatNumber } from '@/lib/formatters';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
@@ -112,8 +112,11 @@ export default function WriteOffsPage() {
     })
     .sort((a, b) => a.row.product.name.localeCompare(b.row.product.name)), [rows]);
 
-  function saveErrorMessage(error: StockWriteErrorLike) {
+  function saveErrorMessage(error: StockWriteErrorLike, productName: string) {
     switch (classifyStockWriteError(error)) {
+      case 'writeOffExceedsStock':
+        return tcs('writeOffExceedsStock', { product: productName, available: formatNumber(writeOffAvailableQuantity(error) ?? 0) });
+      case 'writeOffHasAdjustment': return tcs('writeOffHasAdjustment', { product: productName });
       case 'permission': return tcs('errorPermission');
       case 'adminPastDate': return tcs('errorAdminPastDate');
       case 'adjustmentOwnerOnly': return tcs('errorAdjustmentOwnerOnly');
@@ -125,14 +128,15 @@ export default function WriteOffsPage() {
     }
   }
 
-  // Saves only this product's count for the day through the same atomic RPC
-  // as Closing Stock; the other products' counts are left as they are.
+  // Records only this product's write-off for the day. The database applies
+  // it to the saved count (migration 188), so sales saved on another device
+  // since this page loaded are kept; the other products are left as they are.
   async function handleSave(input: StockWriteOffInput): Promise<string | null> {
     const row = rows.find((candidate) => candidate.product.id === input.productId);
     if (!row || !selectedClubId) return tc('error');
-    let nextRow: ClosingStockRowData;
     try {
-      nextRow = applyStockWriteOff(row, input);
+      // A first check against the loaded copy; the database checks the saved count.
+      applyStockWriteOff(row, input);
     } catch (error) {
       if (error instanceof StockWriteOffError) {
         if (error.code === 'exceeds_stock') {
@@ -145,13 +149,12 @@ export default function WriteOffsPage() {
 
     setSaving(true);
     try {
-      const { upserts } = buildClosingStockUpserts({ date: today, rows: [nextRow], createdBy: null });
-      const { error } = await createClient().rpc('save_closing_stock_counts', {
-        p_club_id: selectedClubId,
-        p_date: today,
-        p_counts: upserts,
-      });
-      if (error) return saveErrorMessage(error);
+      const { error } = await createClient().rpc('record_stock_write_off', stockWriteOffRpcArgs(selectedClubId, today, input));
+      if (error) {
+        // A refused write-off may mean the day changed elsewhere: show the saved count.
+        void query.reload({ silent: true });
+        return saveErrorMessage(error, row.product.name);
+      }
       // A correction of a saved count is an activity notice; a write-off has its own below.
       announceActivity(selectedClubId);
       showToast(input.quantity > 0 ? tcs('writeOffSaved') : tcs('writeOffRemoved'));

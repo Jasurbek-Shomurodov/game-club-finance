@@ -13,6 +13,7 @@ import {
   closingStockDraftKey,
   closingStockRowTotalsInput,
   isReadOnlyClosingStockProduct,
+  hasUnsavedSheetCounts,
   normalizeStockAdjustment,
   normalizeStockCount,
   readClosingStockDraft,
@@ -983,6 +984,25 @@ describe('closing stock row edits', () => {
 
     it('treats a row missing from the snapshot as changed', () => {
       expect(changedClosingStockRows([row()], [])).toHaveLength(1);
+    });
+  });
+
+  describe('a write-off waits for unsaved counts to be saved', () => {
+    const tea = row({ product: { ...row().product, id: 'tea', name: 'Tea' } });
+
+    it('allows a write-off on a sheet that matches what loaded', () => {
+      expect(hasUnsavedSheetCounts([row(), tea], [row(), tea], false)).toBe(false);
+      // Edited and typed back to the loaded values is no change.
+      expect(hasUnsavedSheetCounts([withClosingStock(withClosingStock(row(), '8'), '10'), tea], [row(), tea], false)).toBe(false);
+    });
+
+    it('refuses while any product has an unsaved count', () => {
+      expect(hasUnsavedSheetCounts([row(), withSoldQuantity(tea, '1')], [row(), tea], false)).toBe(true);
+      expect(hasUnsavedSheetCounts([withSoldQuantity(row(), '2'), tea], [row(), tea], false)).toBe(true);
+    });
+
+    it('refuses while a draft is applied, even untouched', () => {
+      expect(hasUnsavedSheetCounts([row(), tea], [row(), tea], true)).toBe(true);
     });
   });
 });

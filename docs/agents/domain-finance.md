@@ -392,7 +392,9 @@ Each salary rate carries a KPI basis (migration 070) and the pools it draws from
   Club income (cash + terminal + card + PlayStation in `daily_cash_entries`),
   credited on that day with no expense, salary or bar deduction. It always uses
   the Game Club pool alone (a check constraint enforces it), forms no group and
-  does not change other employees' KPI. `get_salary_profit_snapshot` returns the
+  does not change other employees' KPI. `save_salary_employee` and
+  `change_salary_term` accept it since migration 189 and store it with
+  `kpi_game_club = true, kpi_bar = false`. `get_salary_profit_snapshot` returns the
   daily totals as `dailyGameClubIncome` (per date, never per payment method).
   Each day's amount is net of that day's Game Club `discount` (147) and
   `repair` (154) expenses.
