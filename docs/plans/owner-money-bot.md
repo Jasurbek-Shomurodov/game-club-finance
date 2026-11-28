@@ -191,3 +191,15 @@ confirmed with `useConfirm`). uz/ru/en copy, skeleton updated.
 
 The acting-as-owner wrappers (`owner_bot_act…`) come with slice 3, where they
 are first used.
+
+## Slice 2 detail
+
+Webhook `src/app/api/telegram/owner-bot/route.ts` with `/start` (and the
+`/start <code>` deep link), `/link`, `/clubs` and a read-only `/today`; logic in
+`src/lib/telegram/ownerBot/`. Operating it: `docs/runbooks/owner-money-bot.md`
+(including `npm run owner-bot:webhook -- set`). `/today` shows the report's
+"Оплаты за день" figures and the bar's sales for the club's last closed
+business day; the till balance (`get_collection_balances`) arrives with the
+buttons in slice 3. Wrong `/link` codes are limited per Telegram account in the
+database (migration `191_owner_bot_link_throttle.sql`, additive), because a
+counter in memory does not survive serverless cold starts.

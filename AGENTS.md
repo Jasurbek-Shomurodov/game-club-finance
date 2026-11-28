@@ -33,6 +33,7 @@ guide relevant to the task; do not load every document or migration by default.
 | Tables, RLS, RPCs, auth, or migrations | `docs/agents/database.md` |
 | Verification strategy | `docs/agents/testing.md` |
 | Telegram reports, cron, retries, or deployment | `docs/runbooks/telegram-report.md` |
+| The owner money bot (private Telegram bot, webhook, linking) | `docs/runbooks/owner-money-bot.md` |
 | Database backups or restore | `docs/runbooks/database-backup.md` |
 | Public site domain and admin subdomain | `docs/runbooks/public-domain.md` |
 | Google Maps (Business Profile) posting | `docs/runbooks/google-business-profile.md` |

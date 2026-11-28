@@ -26,7 +26,8 @@
     "ci:watch": "sh scripts/watch-ci.sh",
     "audit:prod": "node scripts/audit-prod.mjs",
     "migrations:manifest": "tsx scripts/generate-migration-manifest.ts",
-    "yandex:sync": "tsx --tsconfig scripts/tsconfig.server-script.json scripts/yandex-maps-sync.ts"
+    "yandex:sync": "tsx --tsconfig scripts/tsconfig.server-script.json scripts/yandex-maps-sync.ts",
+    "owner-bot:webhook": "tsx --tsconfig scripts/tsconfig.server-script.json scripts/owner-bot-webhook.ts"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",

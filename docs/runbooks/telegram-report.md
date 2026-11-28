@@ -2,6 +2,9 @@
 
 Read this before changing or operating the scheduled Telegram report.
 
+The owner money bot (owners' private chats, its own token and webhook) has its
+own runbook: `docs/runbooks/owner-money-bot.md`.
+
 ## Pipeline and ownership
 
 Each configured target is built independently from that club's Supabase rows:

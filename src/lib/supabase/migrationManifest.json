@@ -5740,5 +5740,43 @@
         "signature": "public.owner_bot_owner_clubs(bigint)"
       }
     ]
+  },
+  {
+    "file": "191_owner_bot_link_throttle.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.owner_bot_link_throttle"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_link_throttle",
+        "column": "telegram_user_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_link_throttle",
+        "column": "window_started_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_link_throttle",
+        "column": "failures"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_bot_link_throttle",
+        "name": "owner_bot_link_throttle_telegram_user_positive"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_bot_link_throttle",
+        "name": "owner_bot_link_throttle_failures"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_redeem_link_code_limited(text,bigint,text)"
+      }
+    ]
   }
 ]
