@@ -26,6 +26,7 @@ import {
   type ReviewDigestPhoto,
 } from '@/lib/googleBusiness/reviewDigestPhoto';
 import { deliverActivityNotices, expireActivityNotices } from '@/lib/telegram/activityDelivery';
+import { sendOwnerBotMorningMessages } from '@/lib/telegram/ownerBot/morning';
 import { completeReviewDigest, recordReviewDigestResend } from '@/lib/googleBusiness/reviewDigestRows';
 import {
   beginReportDispatch,
@@ -226,17 +227,19 @@ export async function GET(request: NextRequest) {
     const scheduledDelivery = !dryRun && force !== '1';
     const resolvedTargets = await Promise.all(targets.map(async (target) => {
       if (requestedDate !== null && !scheduledDelivery) {
-        return { target, businessDate: requestedDate, currentBusinessDate: null };
+        return { target, businessDate: requestedDate, currentBusinessDate: null, lastClosedBusinessDate: null };
       }
       try {
         const startHour = await retryReportBuild(
           () => getClubBusinessDayStartHour(supabase, target.clubId),
           { attempts: 3, delayMs: 200, deadlineAt },
         );
+        const lastClosedBusinessDate = previousClubBusinessDateIso(now, startHour);
         return {
           target,
-          businessDate: requestedDate ?? previousClubBusinessDateIso(now, startHour),
+          businessDate: requestedDate ?? lastClosedBusinessDate,
           currentBusinessDate: serverTodayIso(now, startHour),
+          lastClosedBusinessDate,
         };
       } catch (error) {
         return { target, businessDate: requestedDate, error };
@@ -332,6 +335,28 @@ export async function GET(request: NextRequest) {
     }
 
     const botToken = requireEnv('TELEGRAM_BOT_TOKEN');
+    // The owner bot's morning message for a club whose scheduled report is
+    // delivered (docs/runbooks/owner-money-bot.md). Once per club, date and
+    // owner, recorded in the database, so the retry runs complete a missed
+    // one and never send it twice. It never throws and never fails the report;
+    // a forced resend, or a run for any day but the club's last closed one,
+    // does not send it.
+    const sendOwnerMessages = async (
+      clubId: string,
+      businessDate: string,
+      lastClosedBusinessDate: string | null | undefined,
+    ) => {
+      // Only for the day the morning report covers: a scheduled run for an
+      // older date (?date=…) must not give owners live buttons for that day.
+      if (!scheduledDelivery || !lastClosedBusinessDate || businessDate !== lastClosedBusinessDate) return null;
+      try {
+        const sent = await sendOwnerBotMorningMessages(supabase, { clubId, businessDate, now, deadlineAt });
+        return sent.skipped ? null : { sent: sent.sent, alreadySent: sent.alreadySent, failed: sent.failed };
+      } catch (error) {
+        logDeliveryEvent('error', 'owner_bot_morning_failed', { businessDate, clubId, error: describeUnknownError(error) });
+        return null;
+      }
+    };
     const results = await Promise.all(resolvedTargets.map(async (resolved) => {
       if ('error' in resolved || resolved.businessDate === null) {
         return businessDateFailure(resolved);
@@ -372,6 +397,7 @@ export async function GET(request: NextRequest) {
           deliveryId: claim.deliveryId,
           reason: 'already_sent',
         });
+        const ownerBotMessages = await sendOwnerMessages(target.clubId, businessDate, resolved.lastClosedBusinessDate);
         return {
           ok: true,
           target: target.key,
@@ -385,6 +411,7 @@ export async function GET(request: NextRequest) {
           skipped: true,
           sentAt: claim.sentAt,
           telegram: claim.telegramResult,
+          ownerBotMessages,
         };
       }
 
@@ -780,6 +807,7 @@ export async function GET(request: NextRequest) {
             });
           }
         }
+        const ownerBotMessages = await sendOwnerMessages(target.clubId, businessDate, resolved.lastClosedBusinessDate);
         return {
           ok: true,
           target: target.key,
@@ -795,6 +823,7 @@ export async function GET(request: NextRequest) {
           attempts: telegram.attempts.length,
           writeOffsImageSent,
           reviewDigestSent,
+          ownerBotMessages,
         };
       } catch (error) {
         const telegramAttempts = error instanceof TelegramSendError ? error.attempts : [];

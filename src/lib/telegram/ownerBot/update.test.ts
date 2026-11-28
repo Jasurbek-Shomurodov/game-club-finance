@@ -15,9 +15,16 @@ const privateMessage = (overrides: Record<string, unknown> = {}) => ({
 describe('parseOwnerBotMessage', () => {
   it('reads a private text message from a person', () => {
     expect(parseOwnerBotMessage(privateMessage())).toEqual({
-      updateId: 10, chatId: 4242, telegramUserId: 4242, username: 'pixel_owner', text: '/today',
+      updateId: 10, chatId: 4242, telegramUserId: 4242, username: 'pixel_owner', text: '/today', replyToMessageId: null,
     });
     expect(parseOwnerBotMessage(privateMessage({ from: { id: 4242 } }))?.username).toBeNull();
+  });
+
+  it('names the bot\'s message a reply answers, and only a bot\'s', () => {
+    const reply = (from: Record<string, unknown>) => privateMessage({ text: '500 000', reply_to_message: { message_id: 901, from } });
+    expect(parseOwnerBotMessage(reply({ id: 7, is_bot: true }))?.replyToMessageId).toBe(901);
+    expect(parseOwnerBotMessage(reply({ id: 4242, is_bot: false }))?.replyToMessageId).toBeNull();
+    expect(parseOwnerBotMessage(privateMessage({ reply_to_message: { message_id: 'x', from: { is_bot: true } } }))?.replyToMessageId).toBeNull();
   });
 
   it('ignores groups, channels and bots', () => {

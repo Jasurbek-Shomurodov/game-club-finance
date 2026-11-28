@@ -5915,5 +5915,288 @@
         "signature": "public.owner_bot_undo(bigint,uuid)"
       }
     ]
+  },
+  {
+    "file": "193_owner_bot_bar_amounts_morning.sql",
+    "probes": [
+      {
+        "kind": "column",
+        "table": "public.owner_money_handovers",
+        "column": "group_id"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_money_handovers_group"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_bot_steps"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_steps",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_steps",
+        "column": "telegram_user_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_steps",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_steps",
+        "column": "business_date"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_steps",
+        "column": "kind"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_steps",
+        "column": "side"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_steps",
+        "column": "payment_method"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_steps",
+        "column": "action"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_steps",
+        "column": "amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_steps",
+        "column": "items"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_steps",
+        "column": "request_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_steps",
+        "column": "handover_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_steps",
+        "column": "prompt_message_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_steps",
+        "column": "day_chat_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_steps",
+        "column": "day_message_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_steps",
+        "column": "created_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_steps",
+        "column": "expires_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_steps",
+        "column": "used_at"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_bot_steps",
+        "name": "owner_bot_steps_telegram_user_positive"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_bot_steps",
+        "name": "owner_bot_steps_kind"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_bot_steps",
+        "name": "owner_bot_steps_shape"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_bot_steps",
+        "name": "owner_bot_steps_expiry"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_bot_steps_day"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_bot_steps_prompt_message"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_bot_steps_expiry"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_bot_steps_club"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_bot_steps_handover"
+      },
+      {
+        "kind": "policy",
+        "table": "public.owner_bot_steps",
+        "name": "owner_bot_steps_service"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_bot_day_messages"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_day_messages",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_day_messages",
+        "column": "business_date"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_day_messages",
+        "column": "telegram_user_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_day_messages",
+        "column": "claimed_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_day_messages",
+        "column": "sent_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_day_messages",
+        "column": "chat_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_day_messages",
+        "column": "message_id"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_bot_day_messages",
+        "name": "owner_bot_day_messages_telegram_user_positive"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_bot_day_messages",
+        "name": "owner_bot_day_messages_sent"
+      },
+      {
+        "kind": "policy",
+        "table": "public.owner_bot_day_messages",
+        "name": "owner_bot_day_messages_service"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_bar_sales(uuid,date)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_mark_lock(uuid,date,text)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_reserve_bucket_lock(uuid,date)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_amount_limit(uuid,date,text,text,text)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_day_extras(bigint,uuid,uuid,date)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_full_day(bigint,uuid,uuid,date)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_step_row(bigint,uuid,boolean)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_today(bigint,uuid,date)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_button(bigint,uuid)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_pick(bigint,uuid,text)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_ask_amount(bigint,uuid,text,bigint,bigint)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_prompt_sent(bigint,uuid,bigint)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_answer_amount(bigint,bigint,numeric)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_confirm_any(bigint,uuid,bigint,bigint)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_undo_any(bigint,uuid)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_club_owner_telegram_ids(uuid)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_claim_day_message(uuid,date,bigint)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_finish_day_message(uuid,date,bigint,bigint,bigint)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_release_day_message(uuid,date,bigint)"
+      }
+    ]
   }
 ]

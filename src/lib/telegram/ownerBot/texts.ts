@@ -2,8 +2,8 @@ import { formatDateOnly } from '../../formatters';
 import { DAY_METHOD_LABELS, type DailyFinanceDayMethod, type DailyFinanceDayMethodKey } from '../dailyFinanceReport';
 import { lines, sum } from '../messageParts';
 import type { OwnerBotClub, OwnerBotLinkStatus } from './accounts';
-import type { OwnerBotActionResult, OwnerBotChoiceAction, OwnerBotHandoverAction, OwnerBotRefusal } from './actions';
-import type { OwnerBotDayView, OwnerBotLine, OwnerBotLineStatus } from './dayView';
+import type { OwnerBotActionResult, OwnerBotHandoverAction, OwnerBotRefusal } from './actions';
+import type { OwnerBotBarLine, OwnerBotDayView, OwnerBotLine, OwnerBotLineStatus } from './dayView';
 
 /**
  * The owner money bot's Russian replies (docs/plans/owner-money-bot.md). Every
@@ -89,9 +89,14 @@ export interface OwnerBotDay {
 export const BUTTON_TEXT = {
   collect: '✅ Забрал',
   reserve: '🏦 В резерв',
+  left: '👌 Оставил в баре',
+  amount: '✏️ Другая сумма',
   back: '⬅️ Назад',
   yes: '✅ Да',
   no: '✖️ Нет',
+  bar: '🍺 Бар',
+  allCollect: '✅ Всё забрал',
+  allReserve: '🏦 Всё в резерв',
 } as const;
 
 /** A method's button on the day message. */
@@ -113,6 +118,7 @@ const LINE_STATUS: Record<OwnerBotLineStatus, string> = {
   collected: '✅ забрал',
   reserve: '🏦 в резерве',
   withdrawn: '👤 взял себе',
+  left: '👌 оставил в баре',
 };
 
 function lineText(line: OwnerBotLine): string {
@@ -121,19 +127,29 @@ function lineText(line: OwnerBotLine): string {
   return `${methodName(line.method)}: ${sum(line.amount)}${dayFigure} · ${LINE_STATUS[line.status]}`;
 }
 
-/** The /today message for one club: one line per Game Club method, the bar's sales and what the admin still holds. */
+const BAR_NAME = '🍺 Бар';
+
+/** The bar's sales; its state once there were any, with what was marked when it differs from the sales. */
+function barLineText(bar: OwnerBotBarLine): string {
+  const head = `${BAR_NAME} (продажи): ${sum(bar.sales)}`;
+  if (bar.status === 'empty') return head;
+  const moved = bar.status !== 'open' && bar.amount !== bar.sales ? ` ${sum(bar.amount)}` : '';
+  return `${head} · ${LINE_STATUS[bar.status]}${moved}`;
+}
+
+/** The /today message for one club: one line per Game Club method, the bar and what the admin still holds. */
 export function dayText(view: OwnerBotDayView): string {
   return lines(
     `🏢 ${view.clubName} · ${formatDateOnly(view.businessDate, 'ru')}`,
     ...(view.lines.length > 0 ? view.lines.map(lineText) : ['📭 В клубе за этот день оплат нет.']),
-    `🍺 Бар (продажи): ${sum(view.barSales)}`,
+    barLineText(view.bar),
     `👛 Осталось у администратора: ${sum(view.tillTotal)}`,
   );
 }
 
-/** The day message with a question under it (the submenu or the confirmation). */
-function withQuestion(view: OwnerBotDayView, question: string): string {
-  return `${dayText(view)}\n\n${question}`;
+/** The day message with a question under it (a submenu or a confirmation). */
+function withQuestion(view: OwnerBotDayView, ...question: Array<string | null>): string {
+  return `${dayText(view)}\n\n${lines(...question)}`;
 }
 
 /** After a method's button: what happened to that money. */
@@ -141,11 +157,42 @@ export function methodMenuText(view: OwnerBotDayView, line: OwnerBotLine): strin
   return withQuestion(view, `👉 ${methodName(line.method)}: ${sum(line.amount)}. Что сделали с этими деньгами?`);
 }
 
-/** Before saving: the amount fixed when the owner chose. */
-export function confirmText(
-  view: OwnerBotDayView,
-  choice: { method: DailyFinanceDayMethodKey; action: OwnerBotChoiceAction; amount: number },
-): string {
+/** After the bar's button: what happened to the day's bar money. */
+export function barMenuText(view: OwnerBotDayView): string {
+  return withQuestion(view, `👉 ${BAR_NAME}: ${sum(view.bar.sales)}. Что сделали с этими деньгами?`);
+}
+
+/** After ✏️ Другая сумма on a method: what the part is for, before the bot asks how much. */
+export function amountMenuText(view: OwnerBotDayView, line: OwnerBotLine): string {
+  return withQuestion(view, `✏️ ${methodName(line.method)}: часть от ${sum(line.amount)}. Что сделали с этой частью?`);
+}
+
+/** A choice waiting for ✅ Да, with the amount fixed when it was made. */
+export type OwnerBotConfirmChoice =
+  | { kind: 'method'; method: DailyFinanceDayMethodKey; action: 'collected' | 'reserve'; amount: number }
+  | { kind: 'bar'; action: 'reserve' | 'left'; amount: number; capped: boolean }
+  | { kind: 'all'; action: 'collected' | 'reserve'; items: ReadonlyArray<{ method: DailyFinanceDayMethodKey; amount: number }> };
+
+/** Before saving: what will be saved, with every amount. */
+export function confirmText(view: OwnerBotDayView, choice: OwnerBotConfirmChoice): string {
+  if (choice.kind === 'all') {
+    const total = choice.items.reduce((sumOfItems, item) => sumOfItems + item.amount, 0);
+    return withQuestion(
+      view,
+      choice.action === 'reserve' ? `🏦 Переместить всё в резерв · ${view.clubName}?` : `✅ Отметить, что вы забрали всё · ${view.clubName}?`,
+      ...choice.items.map((item) => `${methodName(item.method)}: ${sum(item.amount)}`),
+      `💰 Всего: ${sum(total)}`,
+    );
+  }
+  if (choice.kind === 'bar') {
+    const what = `${sum(choice.amount)} · ${BAR_NAME} · ${view.clubName}`;
+    if (choice.action === 'left') return withQuestion(view, `👌 Отметить, что ${what} остались в баре?`);
+    return withQuestion(
+      view,
+      `🏦 Переместить в резерв ${what}?`,
+      choice.capped ? `ℹ️ Не больше прибыли бара за месяц, поэтому меньше продаж дня (${sum(view.bar.sales)}).` : null,
+    );
+  }
   const what = `${sum(choice.amount)} · ${methodName(choice.method)} · ${view.clubName}`;
   return withQuestion(view, choice.action === 'reserve'
     ? `🏦 Переместить в резерв ${what}?`
@@ -153,7 +200,16 @@ export function confirmText(
 }
 
 /** The undo button's label. */
-export function undoButtonText(undo: { method: DailyFinanceDayMethodKey; action: OwnerBotHandoverAction }): string {
+export function undoButtonText(undo: {
+  side: 'game_club' | 'bar';
+  method: DailyFinanceDayMethodKey | null;
+  action: OwnerBotHandoverAction;
+  group: boolean;
+}): string {
+  if (undo.group) return undo.action === 'reserve' ? '↩️ Отменить: всё в резерв' : '↩️ Отменить: всё забрал';
+  if (undo.side === 'bar' || !undo.method) {
+    return undo.action === 'left' ? '↩️ Отменить: оставил в баре' : '↩️ Отменить: бар в резерв';
+  }
   const method = METHOD_IN_SENTENCE[undo.method];
   if (undo.action === 'reserve') return `↩️ Отменить: ${method} в резерв`;
   if (undo.action === 'withdrawn') return `↩️ Отменить: ${method} себе`;
@@ -162,12 +218,51 @@ export function undoButtonText(undo: { method: DailyFinanceDayMethodKey; action:
 
 /** The toast after a saved or undone press (a repeat of the same press says the same). */
 export function resultToastText(result: OwnerBotActionResult): string {
-  const what = `${DAY_METHOD_LABELS[result.method]} ${sum(result.amount)}`;
+  const amount = sum(result.amount);
+  const what = result.group
+    ? `всё ${amount}`
+    : result.side === 'bar' || !result.method ? `Бар ${amount}` : `${DAY_METHOD_LABELS[result.method]} ${amount}`;
   if (result.status === 'undone') return `↩️ Отменено: ${what}`;
   // A repeated press (a resent ✅ Да or ↩️) after the mark was undone.
   if (result.status === 'already_undone') return `↩️ Уже отменено: ${what}`;
+  if (result.group) return result.action === 'reserve' ? `🏦 Всё в резерве: ${amount}` : `✅ Забрал всё: ${amount}`;
+  if (result.action === 'left') return `👌 Оставил в баре: ${amount}`;
   if (result.action === 'reserve') return `🏦 В резерве: ${what}`;
   return `✅ Забрал: ${what}`;
+}
+
+/** What a typed amount is for, as the question names it. */
+export interface OwnerBotAmountQuestion {
+  clubName: string;
+  side: 'game_club' | 'bar';
+  method: DailyFinanceDayMethodKey | null;
+  action: 'collected' | 'reserve';
+  maxAmount: number;
+}
+
+/**
+ * The ForceReply question of ✏️ Другая сумма; asked again, with the reason,
+ * after an answer that is not a sum or is more than may be taken.
+ */
+export function amountPromptText(question: OwnerBotAmountQuestion, problem: 'invalid' | 'too_large' | null = null): string {
+  const what = question.side === 'bar' || !question.method ? BAR_NAME : methodName(question.method);
+  const ask = question.action === 'reserve' ? 'сколько переместить в резерв?' : 'сколько забрали?';
+  return lines(
+    problem === 'invalid' ? '❌ Не понял сумму. Напишите целое число сум, например 500 000.' : null,
+    problem === 'too_large' ? '⚠️ Это больше, чем можно.' : null,
+    `✏️ ${question.clubName} · ${what}: ${ask}`,
+    `👇 Ответьте на это сообщение суммой до ${sum(question.maxAmount)}.`,
+  );
+}
+
+/** The toast when the question has been sent. */
+export function amountPromptToastText(): string {
+  return '✏️ Напишите сумму в ответ на вопрос ниже.';
+}
+
+/** A reply that looks like a sum but answers no open question (old, answered, or not one of the bot's). */
+export function amountPromptExpiredText(): string {
+  return '⌛ Этот вопрос о сумме уже не действует. Отправьте /today.';
 }
 
 const REFUSAL_TEXT: Record<OwnerBotRefusal, string> = {
@@ -175,6 +270,8 @@ const REFUSAL_TEXT: Record<OwnerBotRefusal, string> = {
   expired: '⌛ Кнопка устарела. Отправьте /today.',
   already_marked: '👌 Эти деньги уже отмечены.',
   nothing_in_till: '👌 В кассе по этому способу оплаты уже ничего нет.',
+  nothing_in_bar: '👌 В баре за этот день продаж нет.',
+  bar_reserve_unavailable: '⚠️ В резерв нельзя: прибыль бара за месяц уже выведена или в резерве.',
   undo_expired: '⌛ Отменить можно только в течение 10 минут. Исправьте в приложении.',
   cannot_undo: '⚠️ Это нельзя отменить из бота. Исправьте в приложении.',
   till_short: '⚠️ В кассе уже меньше денег. Отправьте /today, чтобы обновить сумму.',

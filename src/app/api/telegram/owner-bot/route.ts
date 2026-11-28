@@ -2,11 +2,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
 import { handleOwnerBotCallback, type OwnerBotCallbackReply } from '@/lib/telegram/ownerBot/callbacks';
 import { handleOwnerBotMessage, type OwnerBotReply } from '@/lib/telegram/ownerBot/handler';
+import { deliverOwnerBotReply, sendOwnerBotPrompt } from '@/lib/telegram/ownerBot/outgoing';
 import { answerOwnerBotCallback, editOwnerBotMessage } from '@/lib/telegram/ownerBot/telegramApi';
 import { errorText, pressFailedText } from '@/lib/telegram/ownerBot/texts';
 import { parseOwnerBotCallbackQuery, parseOwnerBotMessage, type OwnerBotCallbackQuery } from '@/lib/telegram/ownerBot/update';
 import { ownerBotWebhookAuthStatus } from '@/lib/telegram/ownerBot/webhookAuth';
-import { sendTelegramMessage } from '@/lib/telegram/sendDailyFinanceReport';
 
 /**
  * Webhook of the owner money bot (docs/plans/owner-money-bot.md,
@@ -62,9 +62,10 @@ export async function POST(request: Request) {
     // Not an update Telegram can send again in a better shape: drop it.
     return handled();
   }
+  const deadlineAt = startedAt + REPLY_DEADLINE_MS;
   const press = parseOwnerBotCallbackQuery(update);
   if (press) {
-    await answerPress(supabase, botToken, press);
+    await answerPress(supabase, botToken, press, deadlineAt);
     return handled();
   }
   const message = parseOwnerBotMessage(update);
@@ -80,14 +81,11 @@ export async function POST(request: Request) {
 
   for (const reply of replies) {
     try {
-      await sendTelegramMessage({
+      await deliverOwnerBotReply(supabase, reply, {
         botToken,
-        chatId: String(message.chatId),
-        text: reply.text,
-        replyMarkup: reply.keyboard ? { ...reply.keyboard } : null,
-        maxAttempts: 2,
-        timeoutMs: 5_000,
-        deadlineAt: startedAt + REPLY_DEADLINE_MS,
+        chatId: message.chatId,
+        telegramUserId: message.telegramUserId,
+        deadlineAt,
       });
     } catch (error) {
       // TelegramSendError messages never contain the token (boundedDescription).
@@ -100,10 +98,11 @@ export async function POST(request: Request) {
 
 /**
  * A button press: the toast first (it also stops the button's spinner),
- * then the message redrawn in place. A resent update presses the same
- * button again, which the database answers without saving twice.
+ * then the message redrawn in place, then for ✏️ Другая сумма the question
+ * as a new message. A resent update presses the same button again, which the
+ * database answers without saving twice.
  */
-async function answerPress(supabase: SupabaseClient, botToken: string, press: OwnerBotCallbackQuery) {
+async function answerPress(supabase: SupabaseClient, botToken: string, press: OwnerBotCallbackQuery, deadlineAt: number) {
   let reply: OwnerBotCallbackReply;
   try {
     reply = await handleOwnerBotCallback(supabase, press);
@@ -118,10 +117,25 @@ async function answerPress(supabase: SupabaseClient, botToken: string, press: Ow
     // An answer after Telegram's time limit is refused; the message is still redrawn.
     console.error('[telegram/owner-bot] press not answered:', describe(error));
   }
-  if (!reply.edit || !press.privateChat || press.chatId === null || press.messageId === null) return;
-  try {
-    await editOwnerBotMessage({ botToken, chatId: press.chatId, messageId: press.messageId, ...reply.edit });
-  } catch (error) {
-    console.error('[telegram/owner-bot] message not redrawn:', describe(error));
+  if (!press.privateChat || press.chatId === null || press.messageId === null) return;
+  if (reply.edit) {
+    try {
+      await editOwnerBotMessage({ botToken, chatId: press.chatId, messageId: press.messageId, ...reply.edit });
+    } catch (error) {
+      console.error('[telegram/owner-bot] message not redrawn:', describe(error));
+    }
+  }
+  if (reply.prompt) {
+    try {
+      await sendOwnerBotPrompt(supabase, {
+        botToken,
+        chatId: press.chatId,
+        telegramUserId: press.telegramUserId,
+        deadlineAt,
+        ...reply.prompt,
+      });
+    } catch (error) {
+      console.error('[telegram/owner-bot] amount question not sent:', describe(error));
+    }
   }
 }

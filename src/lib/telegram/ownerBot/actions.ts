@@ -8,22 +8,33 @@ import {
 
 /**
  * The owner bot's money buttons, through the service-role wrappers of
- * migration 192. Each call names the presser's Telegram id and a row id from
- * the button; the database finds the club, date, method and amount, checks
- * that the linked user owns the club, and acts as that user. Every call
- * answers the day the button belongs to, so the message can be redrawn.
+ * migrations 192 and 193. Each call names the presser's Telegram id and a row
+ * id from the button (or, for a typed amount, the question's message id); the
+ * database finds the club, date, method and amount, checks that the linked
+ * user owns the club, and acts as that user. Every call answers the day the
+ * button belongs to, so the message can be redrawn.
  */
 
-/** What the owner said happened to a method's money (owner_money_handovers.action, Game Club side). */
-export type OwnerBotHandoverAction = 'collected' | 'reserve' | 'withdrawn';
-/** The two a button can make in this slice. */
-export type OwnerBotChoiceAction = 'collected' | 'reserve';
+/** Which money a mark is about: a Game Club payment method, or the bar (no method). */
+export type OwnerBotSide = 'game_club' | 'bar';
+/** What the owner said happened to the money (owner_money_handovers.action). */
+export type OwnerBotHandoverAction = 'collected' | 'reserve' | 'withdrawn' | 'left';
+/** The choices a button can make: a Game Club method collected or reserved, the bar reserved or left. */
+export type OwnerBotChoiceAction = 'collected' | 'reserve' | 'left';
+/** What owner_bot_pick (193) is asked for. */
+export type OwnerBotPickAction = OwnerBotChoiceAction | 'all_collected' | 'all_reserve';
+/** What a typed amount can be for. */
+export type OwnerBotAmountAction = 'collected' | 'reserve';
 
 export interface OwnerBotHandover {
   id: string;
-  method: CollectedMethod;
+  side: OwnerBotSide;
+  /** Null for the bar. */
+  method: CollectedMethod | null;
   action: OwnerBotHandoverAction;
   amount: number;
+  /** The marks of one "Всё…" confirmation share it; null otherwise. */
+  groupId: string | null;
   createdAt: string;
   /** Until when the owner who made it may undo it from the bot. */
   undoUntil: string;
@@ -38,26 +49,60 @@ export interface OwnerBotDayState {
   businessDate: string;
   /** What is still in the admin's till per method on that day (get_collection_balances 'till'). */
   till: Record<CollectedMethod, number>;
-  /** Game Club marks not undone, oldest first. */
+  /** Marks of both sides not undone, oldest first. */
   handovers: OwnerBotHandover[];
   /** The button row of each method's line, for this Telegram account. */
   lineIds: Partial<Record<CollectedMethod, string>>;
+  /** The day row (193): the bar line's button and the "Всё…" buttons. */
+  dayId: string | null;
 }
 
-/** The button row a press named: a line (action null) or a choice waiting for ✅ Да. */
+/** What a button row stands for (owner_bot_button and owner_bot_pick, 193). */
+export type OwnerBotButtonKind = 'line' | 'choice' | 'day' | 'bar_choice' | 'all_choice' | 'amount_prompt';
+
+export interface OwnerBotChoiceItem {
+  method: CollectedMethod;
+  amount: number;
+}
+
 export interface OwnerBotPendingButton {
   id: string;
-  method: CollectedMethod;
+  kind: OwnerBotButtonKind;
+  side: OwnerBotSide;
+  method: CollectedMethod | null;
   action: OwnerBotChoiceAction | null;
   amount: number | null;
+  /** The methods and amounts of a "Всё…" choice, in the report's order. */
+  items: OwnerBotChoiceItem[];
+  /** A bar reserve smaller than the day's sales, because the month's bar profit allows no more. */
+  capped: boolean;
+  /** Past its time or already used; read only presses still redraw from it. */
+  expired: boolean;
+}
+
+/** The question a "✏️ Другая сумма" press asked (owner_bot_ask_amount, owner_bot_answer_amount). */
+export interface OwnerBotAmountPrompt {
+  id: string;
+  side: OwnerBotSide;
+  method: CollectedMethod | null;
+  action: OwnerBotAmountAction;
+  /** The most the answer may be now (what the default would be). */
+  maxAmount: number;
+  /** The day message it was asked from, which the confirmation then replaces. */
+  dayChatId: number | null;
+  dayMessageId: number | null;
 }
 
 export interface OwnerBotActionResult {
   status: 'saved' | 'already_saved' | 'undone' | 'already_undone';
   handoverId: string;
-  method: CollectedMethod;
+  side: OwnerBotSide;
+  /** Null for the bar and for a "Всё…" group. */
+  method: CollectedMethod | null;
   action: OwnerBotHandoverAction;
+  /** For a group, the sum of its marks. */
   amount: number;
+  group: boolean;
 }
 
 export interface OwnerBotDayWithPending extends OwnerBotDayState {
@@ -68,8 +113,17 @@ export interface OwnerBotDayWithResult extends OwnerBotDayState {
   result: OwnerBotActionResult;
 }
 
+export interface OwnerBotDayWithPrompt extends OwnerBotDayState {
+  prompt: OwnerBotAmountPrompt;
+}
+
+/** The answer to a typed amount: a choice to confirm, or the question again. */
+export type OwnerBotAmountAnswer =
+  | ({ status: 'chosen' } & OwnerBotDayWithPending & { prompt: OwnerBotAmountPrompt })
+  | { status: 'invalid' | 'too_large'; clubName: string; prompt: OwnerBotAmountPrompt };
+
 /**
- * Why a press was refused, from the hint of the wrapper (192) or of the
+ * Why a press was refused, from the hint of the wrapper (192, 193) or of the
  * money RPC it called (146, 169, 097, 170). Each has its own reply.
  */
 export type OwnerBotRefusal =
@@ -77,6 +131,8 @@ export type OwnerBotRefusal =
   | 'expired'
   | 'already_marked'
   | 'nothing_in_till'
+  | 'nothing_in_bar'
+  | 'bar_reserve_unavailable'
   | 'undo_expired'
   | 'cannot_undo'
   | 'till_short'
@@ -91,6 +147,8 @@ const REFUSAL_BY_HINT: Readonly<Record<string, OwnerBotRefusal>> = {
   owner_bot_expired: 'expired',
   owner_bot_already_marked: 'already_marked',
   owner_bot_nothing_in_till: 'nothing_in_till',
+  owner_bot_nothing_in_bar: 'nothing_in_bar',
+  owner_bot_bar_reserve_unavailable: 'bar_reserve_unavailable',
   owner_bot_undo_expired: 'undo_expired',
   owner_bot_cannot_undo: 'cannot_undo',
   INSUFFICIENT_BALANCE: 'till_short',
@@ -139,17 +197,46 @@ const whole = (value: unknown) => {
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;
 };
+const idOrNull = (value: unknown) => (typeof value === 'string' && value ? value : null);
+const positiveOrNull = (value: unknown) => {
+  const number = Number(value);
+  return value !== null && value !== undefined && Number.isSafeInteger(number) && number > 0 ? number : null;
+};
+
+function isSide(value: unknown): value is OwnerBotSide {
+  return value === 'game_club' || value === 'bar';
+}
 
 function isHandoverAction(value: unknown): value is OwnerBotHandoverAction {
-  return value === 'collected' || value === 'reserve' || value === 'withdrawn';
+  return value === 'collected' || value === 'reserve' || value === 'withdrawn' || value === 'left';
 }
 
 function isChoiceAction(value: unknown): value is OwnerBotChoiceAction {
-  return value === 'collected' || value === 'reserve';
+  return value === 'collected' || value === 'reserve' || value === 'left';
 }
+
+const BUTTON_KINDS: readonly OwnerBotButtonKind[] = ['line', 'choice', 'day', 'bar_choice', 'all_choice', 'amount_prompt'];
 
 function invalid(): never {
   throw new Error('The owner bot day payload has an unexpected shape');
+}
+
+/** A mark of a side with the method that side needs (the bar has none). */
+function parseHandover(row: Record<string, unknown>): OwnerBotHandover | null {
+  if (!isSide(row.side) || !isHandoverAction(row.action)) return null;
+  const method = row.side === 'game_club' ? (isCollectedMethod(row.payment_method) ? row.payment_method : null) : null;
+  if (row.side === 'game_club' && method === null) return null;
+  return {
+    id: text(row.id),
+    side: row.side,
+    method,
+    action: row.action,
+    amount: whole(row.amount),
+    groupId: idOrNull(row.group_id),
+    createdAt: text(row.created_at),
+    undoUntil: text(row.undo_until),
+    mine: row.mine === true,
+  };
 }
 
 export function parseOwnerBotDayState(value: unknown): OwnerBotDayState {
@@ -160,17 +247,8 @@ export function parseOwnerBotDayState(value: unknown): OwnerBotDayState {
 
   const handovers = (Array.isArray(value.handovers) ? value.handovers : [])
     .filter(isRecord)
-    // Bar marks arrive with slice 4; this message shows Game Club methods only.
-    .filter((row) => row.side === 'game_club' && isCollectedMethod(row.payment_method) && isHandoverAction(row.action))
-    .map((row): OwnerBotHandover => ({
-      id: text(row.id),
-      method: row.payment_method as CollectedMethod,
-      action: row.action as OwnerBotHandoverAction,
-      amount: whole(row.amount),
-      createdAt: text(row.created_at),
-      undoUntil: text(row.undo_until),
-      mine: row.mine === true,
-    }));
+    .map(parseHandover)
+    .filter((handover): handover is OwnerBotHandover => handover !== null);
 
   const lineIds: Partial<Record<CollectedMethod, string>> = {};
   if (isRecord(value.lines)) {
@@ -187,16 +265,50 @@ export function parseOwnerBotDayState(value: unknown): OwnerBotDayState {
     till,
     handovers,
     lineIds,
+    dayId: idOrNull(value.day_id),
   };
 }
 
+function parseItems(value: unknown): OwnerBotChoiceItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord).flatMap((item) => (isCollectedMethod(item.payment_method)
+    ? [{ method: item.payment_method, amount: whole(item.amount) }]
+    : []));
+}
+
 function parsePending(value: unknown): OwnerBotPendingButton {
-  if (!isRecord(value) || typeof value.id !== 'string' || !isCollectedMethod(value.payment_method)) invalid();
+  if (!isRecord(value) || typeof value.id !== 'string') invalid();
+  const kind = (BUTTON_KINDS as readonly unknown[]).includes(value.kind) ? value.kind as OwnerBotButtonKind : null;
+  const side = isSide(value.side) ? value.side : null;
+  if (!kind || !side) invalid();
+  const method = isCollectedMethod(value.payment_method) ? value.payment_method : null;
+  if ((kind === 'line' || kind === 'choice') && method === null) invalid();
   return {
     id: value.id,
-    method: value.payment_method,
+    kind,
+    side,
+    method,
     action: isChoiceAction(value.action) ? value.action : null,
     amount: value.amount === null || value.amount === undefined ? null : whole(value.amount),
+    items: parseItems(value.items),
+    capped: value.capped === true,
+    expired: value.expired === true,
+  };
+}
+
+function parsePrompt(value: unknown): OwnerBotAmountPrompt {
+  if (!isRecord(value) || typeof value.id !== 'string' || !isSide(value.side)
+    || (value.action !== 'collected' && value.action !== 'reserve')) invalid();
+  const method = isCollectedMethod(value.payment_method) ? value.payment_method : null;
+  if (value.side === 'game_club' && method === null) invalid();
+  return {
+    id: value.id,
+    side: value.side,
+    method,
+    action: value.action,
+    maxAmount: whole(value.max_amount),
+    dayChatId: positiveOrNull(value.day_chat_id),
+    dayMessageId: positiveOrNull(value.day_message_id),
   };
 }
 
@@ -204,13 +316,19 @@ const RESULT_STATUSES = ['saved', 'already_saved', 'undone', 'already_undone'] a
 
 function parseResult(value: unknown): OwnerBotActionResult {
   if (!isRecord(value) || !(RESULT_STATUSES as readonly unknown[]).includes(value.status)
-    || !isCollectedMethod(value.payment_method) || !isHandoverAction(value.action)) invalid();
+    || !isHandoverAction(value.action)) invalid();
+  const side = isSide(value.side) ? value.side : 'game_club';
+  const group = value.group === true;
+  const method = isCollectedMethod(value.payment_method) ? value.payment_method : null;
+  if (side === 'game_club' && !group && method === null) invalid();
   return {
     status: value.status as OwnerBotActionResult['status'],
     handoverId: text(value.handover_id),
-    method: value.payment_method,
+    side,
+    method,
     action: value.action,
     amount: whole(value.amount),
+    group,
   };
 }
 
@@ -221,33 +339,88 @@ async function call(supabase: SupabaseClient, name: string, args: Record<string,
   return data;
 }
 
-/** The /today state of one club and business day, with a line id per method. */
+/** The /today (and morning) state of one club and business day: lines, the day row and the marks. */
 export async function openOwnerBotDay(
   supabase: SupabaseClient,
   { telegramUserId, clubId, businessDate }: { telegramUserId: number; clubId: string; businessDate: string },
 ): Promise<OwnerBotDayState> {
-  return parseOwnerBotDayState(await call(supabase, 'owner_bot_open_day', {
+  return parseOwnerBotDayState(await call(supabase, 'owner_bot_today', {
     p_telegram_user_id: telegramUserId,
     p_club_id: clubId,
     p_date: businessDate,
   }));
 }
 
-/** The day a button belongs to, and the button's own row (menu, back, no). */
-export async function readOwnerBotPending(supabase: SupabaseClient, telegramUserId: number, id: string): Promise<OwnerBotDayWithPending> {
-  const data = await call(supabase, 'owner_bot_pending', { p_telegram_user_id: telegramUserId, p_id: id });
+/**
+ * Read only: the day a button of either table belongs to and the button's
+ * own row, also when it has expired (✖️ Нет, ⬅️ Назад and the submenus).
+ */
+export async function readOwnerBotButton(supabase: SupabaseClient, telegramUserId: number, id: string): Promise<OwnerBotDayWithPending> {
+  const data = await call(supabase, 'owner_bot_button', { p_telegram_user_id: telegramUserId, p_id: id });
   return { ...parseOwnerBotDayState(data), pending: parsePending(data.pending) };
 }
 
-/** A new choice for what is still in the till now; nothing is saved until ✅ Да. */
-export async function chooseOwnerBotAction(
+/** A new choice with the amount fixed now; nothing is saved until ✅ Да. */
+export async function pickOwnerBotAction(
   supabase: SupabaseClient,
   telegramUserId: number,
-  lineId: string,
-  action: OwnerBotChoiceAction,
+  id: string,
+  action: OwnerBotPickAction,
 ): Promise<OwnerBotDayWithPending> {
-  const data = await call(supabase, 'owner_bot_choose', { p_telegram_user_id: telegramUserId, p_line_id: lineId, p_action: action });
+  const data = await call(supabase, 'owner_bot_pick', { p_telegram_user_id: telegramUserId, p_id: id, p_action: action });
   return { ...parseOwnerBotDayState(data), pending: parsePending(data.pending) };
+}
+
+/** ✏️ Другая сумма: a question for this line or the bar, remembering the day message it came from. */
+export async function askOwnerBotAmount(
+  supabase: SupabaseClient,
+  { telegramUserId, id, action, chatId, messageId }: {
+    telegramUserId: number;
+    id: string;
+    action: OwnerBotAmountAction;
+    chatId: number | null;
+    messageId: number | null;
+  },
+): Promise<OwnerBotDayWithPrompt> {
+  const data = await call(supabase, 'owner_bot_ask_amount', {
+    p_telegram_user_id: telegramUserId,
+    p_id: id,
+    p_action: action,
+    p_chat_id: chatId,
+    p_message_id: messageId,
+  });
+  return { ...parseOwnerBotDayState(data), prompt: parsePrompt(data.prompt) };
+}
+
+/** The ForceReply message a question was sent as; the owner's reply is matched by it. */
+export async function recordOwnerBotPrompt(
+  supabase: SupabaseClient,
+  { telegramUserId, promptId, promptMessageId }: { telegramUserId: number; promptId: string; promptMessageId: number },
+): Promise<void> {
+  const { error } = await supabase.rpc('owner_bot_prompt_sent', {
+    p_telegram_user_id: telegramUserId,
+    p_prompt_id: promptId,
+    p_prompt_message_id: promptMessageId,
+  });
+  if (error) throw new OwnerBotActionError(error);
+}
+
+/** The owner's typed amount (null when it was not a sum), for the question sent as that message. */
+export async function answerOwnerBotAmount(
+  supabase: SupabaseClient,
+  { telegramUserId, promptMessageId, amount }: { telegramUserId: number; promptMessageId: number; amount: number | null },
+): Promise<OwnerBotAmountAnswer> {
+  const data = await call(supabase, 'owner_bot_answer_amount', {
+    p_telegram_user_id: telegramUserId,
+    p_prompt_message_id: promptMessageId,
+    p_amount: amount,
+  });
+  const prompt = parsePrompt(data.prompt);
+  if (data.status === 'chosen') {
+    return { status: 'chosen', ...parseOwnerBotDayState(data), pending: parsePending(data.pending), prompt };
+  }
+  if (data.status !== 'invalid' && data.status !== 'too_large') invalid();
+  return { status: data.status, clubName: text(data.club_name) || '—', prompt };
 }
 
 /** ✅ Да: saves the choice once; a repeated press answers already_saved. */
@@ -255,7 +428,7 @@ export async function confirmOwnerBotAction(
   supabase: SupabaseClient,
   { telegramUserId, choiceId, chatId, messageId }: { telegramUserId: number; choiceId: string; chatId: number | null; messageId: number | null },
 ): Promise<OwnerBotDayWithResult> {
-  const data = await call(supabase, 'owner_bot_confirm', {
+  const data = await call(supabase, 'owner_bot_confirm_any', {
     p_telegram_user_id: telegramUserId,
     p_choice_id: choiceId,
     p_chat_id: chatId,
@@ -264,8 +437,8 @@ export async function confirmOwnerBotAction(
   return { ...parseOwnerBotDayState(data), result: parseResult(data.result) };
 }
 
-/** ↩️ Отменить: within 10 minutes, by the owner who saved it. */
+/** ↩️ Отменить: within 10 minutes, by the owner who saved it; a "Всё…" group as a whole. */
 export async function undoOwnerBotAction(supabase: SupabaseClient, telegramUserId: number, handoverId: string): Promise<OwnerBotDayWithResult> {
-  const data = await call(supabase, 'owner_bot_undo', { p_telegram_user_id: telegramUserId, p_handover_id: handoverId });
+  const data = await call(supabase, 'owner_bot_undo_any', { p_telegram_user_id: telegramUserId, p_handover_id: handoverId });
   return { ...parseOwnerBotDayState(data), result: parseResult(data.result) };
 }

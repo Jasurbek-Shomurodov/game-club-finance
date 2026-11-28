@@ -17,6 +17,11 @@ const mocks = vi.hoisted(() => ({
   recordReviewDigestResend: vi.fn(),
   deliverActivity: vi.fn(),
   expireActivity: vi.fn(),
+  ownerMorning: vi.fn(),
+}));
+
+vi.mock('@/lib/telegram/ownerBot/morning', () => ({
+  sendOwnerBotMorningMessages: mocks.ownerMorning,
 }));
 
 vi.mock('@/lib/telegram/activityDelivery', () => ({
@@ -127,6 +132,7 @@ describe('daily finance report cron route', () => {
     mocks.recordReviewDigestResend.mockResolvedValue(undefined);
     mocks.deliverActivity.mockResolvedValue({ claimed: 0, sent: 0, failed: 0, unrouted: 0, released: 0 });
     mocks.expireActivity.mockResolvedValue(0);
+    mocks.ownerMorning.mockResolvedValue({ skipped: false, sent: 1, alreadySent: 0, failed: 0 });
     mocks.buildReport.mockResolvedValue({
       clubId: CLUB_ID,
       chatId: '-1001',
@@ -892,5 +898,88 @@ describe('daily finance report cron route', () => {
     expect(mocks.beginDispatch).not.toHaveBeenCalled();
     expect(mocks.sendTelegramPhoto).not.toHaveBeenCalled();
     expect(mocks.sendTelegramMessage).not.toHaveBeenCalled();
+  });
+
+  describe('the owner bot\'s morning message', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      // 08:00 in Tashkent on 27 August: 26 August is the club's last closed business day.
+      vi.setSystemTime(new Date('2026-08-27T03:00:00.000Z'));
+    });
+
+    it('goes out after a scheduled report is delivered and recorded, for that club and day', async () => {
+      const response = await GET(cronRequest('?date=2026-08-26&target=pixel'));
+      const payload = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(mocks.ownerMorning).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ clubId: CLUB_ID, businessDate: '2026-08-26', deadlineAt: expect.any(Number), now: expect.any(Date) }),
+      );
+      expect(mocks.completeDelivery.mock.invocationCallOrder[0]).toBeLessThan(mocks.ownerMorning.mock.invocationCallOrder[0]);
+      expect(payload.sent[0]).toMatchObject({ status: 'sent', ownerBotMessages: { sent: 1, alreadySent: 0, failed: 0 } });
+    });
+
+    it('is completed by a retry run that finds the report already sent; the record keeps it to once', async () => {
+      mocks.claimDelivery.mockResolvedValue({
+        outcome: 'already_sent',
+        deliveryId: '40c05af5-5a59-45ae-a891-19a18228a721',
+        status: 'sent',
+        claimCount: 1,
+        sentAt: '2026-08-27T06:00:00.000Z',
+        telegramResult: { messageId: 50 },
+      });
+      mocks.ownerMorning.mockResolvedValue({ skipped: false, sent: 0, alreadySent: 1, failed: 0 });
+
+      const payload = await (await GET(cronRequest('?date=2026-08-26&target=pixel'))).json();
+      expect(mocks.ownerMorning).toHaveBeenCalledTimes(1);
+      expect(payload.sent[0]).toMatchObject({ status: 'already_sent', ownerBotMessages: { alreadySent: 1 } });
+    });
+
+    it('is not sent by a forced resend or after a failed report', async () => {
+      await GET(cronRequest('?date=2026-08-26&target=pixel&force=1'));
+      expect(mocks.ownerMorning).not.toHaveBeenCalled();
+
+      mocks.sendTelegramPhoto.mockRejectedValue(new TelegramSendError('Telegram send failed', [], true));
+      mocks.sendTelegramPhotoAlbum.mockRejectedValue(new TelegramSendError('Telegram send failed', [], true));
+      await GET(cronRequest('?date=2026-08-26&target=pixel'));
+      expect(mocks.ownerMorning).not.toHaveBeenCalled();
+    });
+
+    it('goes out for the scheduled run without a date too', async () => {
+      await GET(cronRequest());
+      expect(mocks.ownerMorning).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ businessDate: '2026-08-26' }));
+    });
+
+    it('is not sent by a scheduled run for an older day, so owners never get live buttons for it', async () => {
+      const response = await GET(cronRequest('?date=2026-08-20&target=pixel'));
+      const payload = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(payload.sent[0]).toMatchObject({ status: 'sent', ownerBotMessages: null });
+      expect(mocks.ownerMorning).not.toHaveBeenCalled();
+
+      mocks.claimDelivery.mockResolvedValue({
+        outcome: 'already_sent',
+        deliveryId: '40c05af5-5a59-45ae-a891-19a18228a721',
+        status: 'sent',
+        claimCount: 1,
+        sentAt: '2026-08-21T06:00:00.000Z',
+        telegramResult: { messageId: 50 },
+      });
+      await GET(cronRequest('?date=2026-08-20&target=pixel'));
+      expect(mocks.ownerMorning).not.toHaveBeenCalled();
+    });
+
+    it('never fails the report', async () => {
+      mocks.ownerMorning.mockRejectedValue(new Error('owner bot down'));
+      const response = await GET(cronRequest('?date=2026-08-26&target=pixel'));
+      const payload = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(payload.sent[0]).toMatchObject({ ok: true, status: 'sent', ownerBotMessages: null });
+      expect(mocks.completeDelivery).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ outcome: 'sent' }));
+      expect(mocks.completeDelivery).toHaveBeenCalledTimes(1);
+    });
   });
 });

@@ -11,6 +11,11 @@ export interface OwnerBotMessage {
   telegramUserId: number;
   username: string | null;
   text: string;
+  /**
+   * The bot's message this one replies to (the ForceReply question of
+   * ✏️ Другая сумма), or null. Only a reply to a bot's message counts.
+   */
+  replyToMessageId: number | null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -37,7 +42,10 @@ export function parseOwnerBotMessage(update: unknown): OwnerBotMessage | null {
 
   const updateId = typeof update.update_id === 'number' ? update.update_id : 0;
   const username = typeof from.username === 'string' && from.username.trim() ? from.username.trim() : null;
-  return { updateId, chatId, telegramUserId, username, text: message.text };
+  const repliedTo = isRecord(message.reply_to_message) ? message.reply_to_message : null;
+  const repliedFrom = repliedTo && isRecord(repliedTo.from) ? repliedTo.from : null;
+  const replyToMessageId = repliedTo && repliedFrom?.is_bot === true ? positiveId(repliedTo.message_id) : null;
+  return { updateId, chatId, telegramUserId, username, text: message.text, replyToMessageId };
 }
 
 /**

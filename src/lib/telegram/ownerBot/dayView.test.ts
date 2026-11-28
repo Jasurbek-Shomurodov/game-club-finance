@@ -24,14 +24,17 @@ const state = (overrides: Partial<OwnerBotDayState> = {}): OwnerBotDayState => (
   till: { cash: 1_200_000, terminal: 700_000, card: 0, playstation: 0 },
   handovers: [],
   lineIds: LINES,
+  dayId: 'd1',
   ...overrides,
 });
 
 const handover = (overrides: Partial<OwnerBotHandover>): OwnerBotHandover => ({
   id: 'h1',
+  side: 'game_club',
   method: 'cash',
   action: 'collected',
   amount: 1_200_000,
+  groupId: null,
   createdAt: '2026-11-28T04:55:00.000000+00:00',
   undoUntil: '2026-11-28T05:05:00.000000+00:00',
   mine: true,
@@ -47,7 +50,9 @@ describe('buildOwnerBotDayView', () => {
       { method: 'card', status: 'empty', amount: 0, dayNet: 0, buttonId: null },
     ]);
     expect(view.tillTotal).toBe(1_900_000);
-    expect(view.barSales).toBe(450_000);
+    expect(view.bar).toEqual({ status: 'open', sales: 450_000, amount: 450_000, buttonId: 'd1' });
+    // Two methods open: "Всё…" saves taps.
+    expect(view.allButtonId).toBe('d1');
     expect(view.undo).toBeNull();
   });
 
@@ -56,6 +61,8 @@ describe('buildOwnerBotDayView', () => {
     expect(view.lines.map((line) => [line.method, line.status, line.amount])).toEqual([
       ['cash', 'empty', 0], ['terminal', 'empty', 0], ['card', 'empty', 0], ['playstation', 'open', 99_999],
     ]);
+    // One open method: its own button does the same as "Всё…".
+    expect(view.allButtonId).toBeNull();
   });
 
   it('marks a line with its latest mark and the amount marked, without a button', () => {
@@ -69,7 +76,30 @@ describe('buildOwnerBotDayView', () => {
     expect(ownerBotLine(view, 'cash')).toMatchObject({ status: 'collected', amount: 1_200_000, buttonId: null });
     expect(ownerBotLine(view, 'terminal')).toMatchObject({ status: 'reserve', amount: 700_000, dayNet: 800_000, buttonId: null });
     // Only this owner's own last mark can be undone.
-    expect(view.undo).toEqual({ handoverId: 'h2', method: 'cash', action: 'collected' });
+    expect(view.undo).toEqual({ handoverId: 'h2', side: 'game_club', method: 'cash', action: 'collected', group: false });
+  });
+
+  it('shows the bar\'s mark with what it moved, and no bar button without sales', () => {
+    const marked = buildOwnerBotDayView(day, state({
+      handovers: [handover({ id: 'b1', side: 'bar', method: null, action: 'reserve', amount: 300_000 })],
+    }), NOW);
+    expect(marked.bar).toEqual({ status: 'reserve', sales: 450_000, amount: 300_000, buttonId: null });
+    expect(marked.undo).toEqual({ handoverId: 'b1', side: 'bar', method: null, action: 'reserve', group: false });
+    expect(marked.lines.map((line) => line.status)).toEqual(['open', 'open', 'empty']);
+    expect(buildOwnerBotDayView({ ...day, barSales: 0 }, state(), NOW).bar).toEqual({ status: 'empty', sales: 0, amount: 0, buttonId: null });
+    expect(buildOwnerBotDayView(day, state({ dayId: null }), NOW).bar.buttonId).toBeNull();
+  });
+
+  it('offers one undo for a "Всё…" group, naming no single method', () => {
+    const view = buildOwnerBotDayView(day, state({
+      till: { cash: 0, terminal: 0, card: 0, playstation: 0 },
+      handovers: [
+        handover({ id: 'g1', method: 'cash', action: 'reserve', groupId: 'grp' }),
+        handover({ id: 'g2', method: 'terminal', action: 'reserve', amount: 700_000, groupId: 'grp' }),
+      ],
+    }), NOW);
+    expect(view.undo).toMatchObject({ side: 'game_club', method: null, action: 'reserve', group: true });
+    expect(view.allButtonId).toBeNull();
   });
 
   it('drops the undo after 10 minutes and never offers another owner\'s mark', () => {

@@ -1,6 +1,6 @@
 # Owner money bot: confirm where each day's money went
 
-Status: approved 28 Nov 2026 (decisions at the end). Building slice by slice.
+Status: approved 28 Nov 2026 (decisions at the end). Slices 1–3 shipped; 4 and 5 built (migration 193). 👤 Себе is a later slice (decision 2).
 
 ## Goal and user flow
 
@@ -255,3 +255,73 @@ come with slice 4.
   of its own; the collected-to-reserve deposit is announced by the activity
   audit as from the app, a plain collection is not (the app's collect route
   posts that notice itself).
+
+## Slice 4 detail
+
+The bar line, "✏️ Другая сумма" and "✅ Всё забрал / 🏦 Всё в резерв". Still no
+👤 Себе (decision 2).
+
+- Migration `193_owner_bot_bar_amounts_morning.sql` (additive): the column
+  `owner_money_handovers.group_id`, the table `owner_bot_steps` (service role
+  only) for what 192's table cannot hold (a `day` row per Telegram account,
+  club and date for the bar and "Всё…" buttons; `bar_choice`; `all_choice`
+  with its methods; `amount_prompt`), and the wrappers `owner_bot_today`,
+  `owner_bot_button`, `owner_bot_pick`, `owner_bot_ask_amount`,
+  `owner_bot_prompt_sent`, `owner_bot_answer_amount`, `owner_bot_confirm_any`
+  and `owner_bot_undo_any`. Same rules as 192: service role only,
+  `owner_bot_act_as` on every call, advisory locks per club, day and method
+  (the bar has its own key), idempotent by request id, only choice and
+  question rows locked. A Game Club reserve confirmation takes the month's
+  reserve bucket lock first (before the mark locks and `collect_money`'s
+  method-balance lock), the order an undo takes them in, so the two cannot
+  deadlock. No existing function is replaced: for one Game Club
+  method the new wrappers call 192's `owner_bot_choose`, `owner_bot_confirm`
+  and `owner_bot_undo` and add the day row and `group_id` to the answer. The
+  webhook now calls only the 193 wrappers.
+- Bar: `[🍺 Бар]` → `[🏦 В резерв] [👌 Оставил в баре] / [✏️ Другая сумма]
+  [⬅️ Назад]` → confirm → save. The reserve is `move_owner_profit_to_reserve`
+  (source `bar`, the business date's month, `p_date` the business date, entry
+  id the choice's request id); its default is the day's bar sales capped by
+  `owner_profit_bucket_available` for the bar and that month, and the confirm
+  says when it was capped. Nothing allowed: alert
+  `owner_bot_bar_reserve_unavailable`. "Left" is only the handover row (the
+  day's sales). Undo: `delete_owner_reserve_entry`, or only `undone_at` for
+  "left".
+- ✏️ Другая сумма: on a method first `[✅ Забрал] [🏦 В резерв]`, on the bar
+  always the reserve; the bot sends a ForceReply question (an `amount_prompt`
+  row with the message id, 1 hour). The reply is matched by `reply_to_message`
+  and the Telegram account, read as a whole sum (`amount.ts`: spaces, dots or
+  commas between thousands, optional `сум`), and must be above 0 and at most
+  what the default would be now; otherwise the question is sent again with the
+  reason. A good sum becomes a normal choice (a 192 choice row or a bar
+  choice) and the confirmation is sent below the answer, while the day message
+  it was asked from loses its buttons (one live keyboard). A partly marked
+  method counts as marked; the rest stays in the till.
+- "Всё…": shown while two or more methods are open. One confirmation lists
+  every Game Club method with money in the till and no mark, its amount and
+  the total; ✅ Да is one transaction with `collect_money` (and
+  `move_collected_to_reserve`) per method, each with its own request id, so
+  every handover keeps 192's link (request id = collection = reserve entry) and
+  each collection can still be undone on its own in the app. One handover per
+  method, all sharing `group_id`; one undo for the group.
+- Reviewer's note from slice 3: ✖️ Нет, ⬅️ Назад and the redraw after a
+  refusal use the read-only `owner_bot_button`, which also reads an expired
+  row, so an expired choice brings the day back instead of "Кнопка устарела".
+
+## Slice 5 detail
+
+- After the daily report cron delivers a club's scheduled report and records
+  it, `sendOwnerBotMorningMessages` sends every linked owner of that club
+  (`owner_bot_club_owner_telegram_ids`) the `/today` message for that business
+  date, with its buttons, through the owner bot token. Skipped silently without
+  `TELEGRAM_OWNER_BOT_TOKEN`; not for a forced resend, a dry run, or a run for
+  any date but the club's last closed business day.
+- Once per club, date and owner: `owner_bot_day_messages` (193) is claimed
+  before sending (`owner_bot_claim_day_message`, never taken twice), completed
+  with the message id, and released only after a definite send failure. The
+  retry runs also call it when they find the report already sent, so a missed
+  morning message is completed without ever sending one twice.
+- It never throws and runs after the report's ledger row is final, so it never
+  affects the report or its retries. The cron answer carries
+  `ownerBotMessages` per club.
+- The optional evening reminder is not built (not needed now).

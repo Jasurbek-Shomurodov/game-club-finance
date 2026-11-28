@@ -149,4 +149,36 @@ describe('POST /api/telegram/owner-bot', () => {
     expect(error.mock.calls.flat().join(' ')).not.toContain(TOKEN);
     error.mockRestore();
   });
+
+  it('after ✏️ Другая сумма, sends the question with ForceReply below the redrawn message and records it', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+    mocks.createServiceClient.mockReturnValue({ rpc });
+    mocks.sendTelegramMessage.mockResolvedValue({ ok: true, result: { message_id: 901 } });
+    mocks.handleOwnerBotCallback.mockResolvedValue({
+      answer: { text: '✏️ Напишите сумму', showAlert: false },
+      edit: { text: 'day', keyboard: KEYBOARD },
+      prompt: { promptId: 'p1', text: 'how much?' },
+    });
+    expect((await call(buttonPress())).status).toBe(200);
+    expect(mocks.editOwnerBotMessage).toHaveBeenCalledTimes(1);
+    expect(mocks.sendTelegramMessage).toHaveBeenCalledWith(expect.objectContaining({
+      botToken: TOKEN, chatId: '4242', text: 'how much?', replyMarkup: expect.objectContaining({ force_reply: true }),
+    }));
+    expect(mocks.editOwnerBotMessage.mock.invocationCallOrder[0]).toBeLessThan(mocks.sendTelegramMessage.mock.invocationCallOrder[0]);
+    expect(rpc).toHaveBeenCalledWith('owner_bot_prompt_sent', { p_telegram_user_id: 4242, p_prompt_id: 'p1', p_prompt_message_id: 901 });
+  });
+
+  it('asks again with ForceReply, and sends a confirmation after taking the buttons off the earlier message', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+    mocks.createServiceClient.mockReturnValue({ rpc });
+    mocks.handleOwnerBotMessage.mockResolvedValueOnce([{ text: 'again?', keyboard: null, promptId: 'p1' }]);
+    expect((await call(privateUpdate('пятьсот'))).status).toBe(200);
+    expect(mocks.sendTelegramMessage.mock.calls[0][0]).toMatchObject({ text: 'again?', replyMarkup: { force_reply: true } });
+    expect(rpc).toHaveBeenCalledWith('owner_bot_prompt_sent', { p_telegram_user_id: 4242, p_prompt_id: 'p1', p_prompt_message_id: 9 });
+
+    mocks.handleOwnerBotMessage.mockResolvedValueOnce([{ text: 'confirm?', keyboard: KEYBOARD, retire: { chatId: 4242, messageId: 7, text: 'day' } }]);
+    expect((await call(privateUpdate('500 000'))).status).toBe(200);
+    expect(mocks.editOwnerBotMessage).toHaveBeenCalledWith({ botToken: TOKEN, chatId: 4242, messageId: 7, text: 'day', keyboard: null });
+    expect(mocks.sendTelegramMessage.mock.calls[1][0]).toMatchObject({ text: 'confirm?', replyMarkup: KEYBOARD });
+  });
 });
