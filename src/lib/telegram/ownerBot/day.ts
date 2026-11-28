@@ -49,11 +49,16 @@ export function summarizeOwnerBotDay(rows: OwnerBotDayRows): OwnerBotDay {
  * that club only.
  */
 export async function fetchOwnerBotDay(supabase: SupabaseClient, club: OwnerBotClub, now: Date): Promise<OwnerBotDay> {
-  const [startHour, enabledPaymentMethods] = await Promise.all([
-    getClubBusinessDayStartHour(supabase, club.id),
-    getEnabledPaymentMethods(supabase, club.id),
-  ]);
-  const businessDate = previousClubBusinessDateIso(now, startHour);
+  const startHour = await getClubBusinessDayStartHour(supabase, club.id);
+  return fetchOwnerBotDayOn(supabase, club, previousClubBusinessDateIso(now, startHour));
+}
+
+/**
+ * One given business day of the club, as fetchOwnerBotDay counts it: a
+ * button press redraws the day its message was for, not today's.
+ */
+export async function fetchOwnerBotDayOn(supabase: SupabaseClient, club: OwnerBotClub, businessDate: string): Promise<OwnerBotDay> {
+  const enabledPaymentMethods = await getEnabledPaymentMethods(supabase, club.id);
   const onDay = <T,>(table: string, columns: string, orderBy: string[]) => fetchAllRows<T>(() => {
     let query = supabase.from(table).select(columns).eq('club_id', club.id).eq('date', businessDate);
     for (const column of orderBy) query = query.order(column, { ascending: true });

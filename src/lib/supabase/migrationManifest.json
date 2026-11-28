@@ -5778,5 +5778,142 @@
         "signature": "public.owner_bot_redeem_link_code_limited(text,bigint,text)"
       }
     ]
+  },
+  {
+    "file": "192_owner_bot_actions.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.owner_bot_pending_actions"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_pending_actions",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_pending_actions",
+        "column": "telegram_user_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_pending_actions",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_pending_actions",
+        "column": "business_date"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_pending_actions",
+        "column": "payment_method"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_pending_actions",
+        "column": "action"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_pending_actions",
+        "column": "amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_pending_actions",
+        "column": "request_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_pending_actions",
+        "column": "handover_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_pending_actions",
+        "column": "created_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_pending_actions",
+        "column": "expires_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_bot_pending_actions",
+        "column": "used_at"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_bot_pending_actions",
+        "name": "owner_bot_pending_actions_telegram_user_positive"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_bot_pending_actions",
+        "name": "owner_bot_pending_actions_method"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_bot_pending_actions",
+        "name": "owner_bot_pending_actions_kind"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_bot_pending_actions",
+        "name": "owner_bot_pending_actions_expiry"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_bot_pending_actions_line"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_bot_pending_actions_expiry"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_bot_pending_actions_club"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_bot_pending_actions_handover"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_act_as(bigint,uuid)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_day(bigint,uuid,uuid,date)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_pending_row(bigint,uuid,boolean)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_open_day(bigint,uuid,date)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_pending(bigint,uuid)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_choose(bigint,uuid,text)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_confirm(bigint,uuid,bigint,bigint)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_undo(bigint,uuid)"
+      }
+    ]
   }
 ]

@@ -7,7 +7,7 @@ export interface FakeRead {
 }
 
 type TableRows = Record<string, Array<Record<string, unknown>>>;
-type RpcAnswer = (args: Record<string, unknown>) => { data: unknown; error: { message: string; code?: string } | null };
+export type RpcAnswer = (args: Record<string, unknown>) => { data: unknown; error: { message: string; code?: string; hint?: string } | null };
 
 /**
  * Just enough of supabase-js for the owner bot: from().select().eq()…order()

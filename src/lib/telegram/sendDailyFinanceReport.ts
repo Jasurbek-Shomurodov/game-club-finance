@@ -1136,13 +1136,19 @@ interface TelegramCommonSendOptions {
 /**
  * `replyToMessageId` threads the message under an earlier one in the same
  * chat. A missing original (too old, removed, or a migrated chat) still gets
- * the message, as a plain one.
+ * the message, as a plain one. `replyMarkup` attaches an inline keyboard
+ * (the owner bot's buttons).
  */
 export function sendTelegramMessage({
   text,
   replyToMessageId,
+  replyMarkup,
   ...options
-}: TelegramCommonSendOptions & { text: string; replyToMessageId?: number | null }): Promise<TelegramSendResult> {
+}: TelegramCommonSendOptions & {
+  text: string;
+  replyToMessageId?: number | null;
+  replyMarkup?: Record<string, unknown> | null;
+}): Promise<TelegramSendResult> {
   return sendTelegramRequest({
     ...options,
     endpoint: 'sendMessage',
@@ -1155,6 +1161,7 @@ export function sendTelegramMessage({
         ...(replyToMessageId
           ? { reply_parameters: { message_id: replyToMessageId, allow_sending_without_reply: true } }
           : {}),
+        ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
       }),
     }),
   });

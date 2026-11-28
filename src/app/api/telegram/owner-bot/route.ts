@@ -1,15 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
-import { handleOwnerBotMessage } from '@/lib/telegram/ownerBot/handler';
-import { errorText } from '@/lib/telegram/ownerBot/texts';
-import { parseOwnerBotMessage } from '@/lib/telegram/ownerBot/update';
+import { handleOwnerBotCallback, type OwnerBotCallbackReply } from '@/lib/telegram/ownerBot/callbacks';
+import { handleOwnerBotMessage, type OwnerBotReply } from '@/lib/telegram/ownerBot/handler';
+import { answerOwnerBotCallback, editOwnerBotMessage } from '@/lib/telegram/ownerBot/telegramApi';
+import { errorText, pressFailedText } from '@/lib/telegram/ownerBot/texts';
+import { parseOwnerBotCallbackQuery, parseOwnerBotMessage, type OwnerBotCallbackQuery } from '@/lib/telegram/ownerBot/update';
 import { ownerBotWebhookAuthStatus } from '@/lib/telegram/ownerBot/webhookAuth';
 import { sendTelegramMessage } from '@/lib/telegram/sendDailyFinanceReport';
 
 /**
  * Webhook of the owner money bot (docs/plans/owner-money-bot.md,
  * docs/runbooks/owner-money-bot.md). Telegram calls it with every update; it
- * answers only private messages from the sender's own linked account.
+ * answers private messages and presses of its buttons, acting only for the
+ * sender's own linked account.
  *
  * Telegram resends an update until it gets a 2xx, so every update that
  * passed the secret check is answered 200, even when the reply could not be
@@ -59,23 +62,29 @@ export async function POST(request: Request) {
     // Not an update Telegram can send again in a better shape: drop it.
     return handled();
   }
+  const press = parseOwnerBotCallbackQuery(update);
+  if (press) {
+    await answerPress(supabase, botToken, press);
+    return handled();
+  }
   const message = parseOwnerBotMessage(update);
   if (!message) return handled();
 
-  let replies: string[];
+  let replies: OwnerBotReply[];
   try {
     replies = await handleOwnerBotMessage(supabase, message);
   } catch (error) {
     console.error('[telegram/owner-bot] update not handled:', describe(error));
-    replies = [errorText()];
+    replies = [{ text: errorText(), keyboard: null }];
   }
 
-  for (const text of replies) {
+  for (const reply of replies) {
     try {
       await sendTelegramMessage({
         botToken,
         chatId: String(message.chatId),
-        text,
+        text: reply.text,
+        replyMarkup: reply.keyboard ? { ...reply.keyboard } : null,
         maxAttempts: 2,
         timeoutMs: 5_000,
         deadlineAt: startedAt + REPLY_DEADLINE_MS,
@@ -87,4 +96,32 @@ export async function POST(request: Request) {
     }
   }
   return handled();
+}
+
+/**
+ * A button press: the toast first (it also stops the button's spinner),
+ * then the message redrawn in place. A resent update presses the same
+ * button again, which the database answers without saving twice.
+ */
+async function answerPress(supabase: SupabaseClient, botToken: string, press: OwnerBotCallbackQuery) {
+  let reply: OwnerBotCallbackReply;
+  try {
+    reply = await handleOwnerBotCallback(supabase, press);
+  } catch (error) {
+    console.error('[telegram/owner-bot] button press not handled:', describe(error));
+    reply = { answer: { text: pressFailedText(), showAlert: true }, edit: null };
+  }
+
+  try {
+    await answerOwnerBotCallback({ botToken, callbackQueryId: press.callbackQueryId, ...reply.answer });
+  } catch (error) {
+    // An answer after Telegram's time limit is refused; the message is still redrawn.
+    console.error('[telegram/owner-bot] press not answered:', describe(error));
+  }
+  if (!reply.edit || !press.privateChat || press.chatId === null || press.messageId === null) return;
+  try {
+    await editOwnerBotMessage({ botToken, chatId: press.chatId, messageId: press.messageId, ...reply.edit });
+  } catch (error) {
+    console.error('[telegram/owner-bot] message not redrawn:', describe(error));
+  }
 }

@@ -203,3 +203,55 @@ business day; the till balance (`get_collection_balances`) arrives with the
 buttons in slice 3. Wrong `/link` codes are limited per Telegram account in the
 database (migration `191_owner_bot_link_throttle.sql`, additive), because a
 counter in memory does not survive serverless cold starts.
+
+## Slice 3 detail
+
+Game Club methods only (cash, terminal, card, PlayStation): ✅ Забрал and
+🏦 В резерв, a confirmation, and undo for 10 minutes. 👤 Себе waits for its own
+slice (decision 2); the bar line stays read-only, and "Другая сумма" / "Всё…"
+come with slice 4.
+
+- `/today` sends one message per owned club with a keyboard: a button for every
+  method with money still in the till and no mark. A line reads
+  `💵 Наличные: 1 000 000 сум (за день 1 200 000 сум) · ⏳ не отмечено`: the
+  amount is what `get_collection_balances` says is still in the till for that
+  method on that business date (whole sums), the day's report figure in
+  brackets only when it differs. A till of 0 shows `👌 в кассе ничего нет` and
+  no button; a marked line shows `✅ забрал` / `🏦 в резерве` with what was
+  marked. The footer `👛 Осталось у администратора` is the till of all
+  methods. A method outside the report's list still shows when the till holds
+  it or it is marked.
+- Tap a method → the same message gets `👉 … Что сделали с этими деньгами?` and
+  `[✅ Забрал] [🏦 В резерв] / [⬅️ Назад]` → a choice fixes the amount in the
+  till at that moment → `[✅ Да] [✖️ Нет]` → saved, toast
+  (`answerCallbackQuery`), the message is redrawn with the mark and
+  `[↩️ Отменить: наличные в резерв]` (the presser's own last mark, while its 10
+  minutes last). Refusals are alerts and the day is redrawn, so a question that
+  no longer holds does not stay on screen.
+- Callback data is `v1:<menu|collect|reserve|back|yes|no|undo>:<uuid>` (at most
+  47 bytes). The uuid is a row of `owner_bot_pending_actions` or, for undo, of
+  `owner_money_handovers`; club, date, method and amount always come from the
+  database.
+- Migration `192_owner_bot_actions.sql` (additive): `owner_bot_pending_actions`
+  (line rows per Telegram account, club, date and method, 7 days; choice rows
+  with action, amount and request id, 1 hour; service role only, no policies)
+  and service-role-only wrappers `owner_bot_open_day`, `owner_bot_pending`,
+  `owner_bot_choose`, `owner_bot_confirm`, `owner_bot_undo`. Each resolves the
+  linked user, checks the owner role on an active club, sets
+  `request.jwt.claim.sub`, `request.jwt.claim.role` and the `sub`/`role` of
+  `request.jwt.claims` with `set_config(..., true)` so `auth.uid()` is the
+  owner for the rest of the transaction, and calls the existing RPCs:
+  `collect_money`, then `move_collected_to_reserve` (reserve entry id = the
+  collection's request id) in the same transaction; undo is
+  `delete_owner_reserve_entry` then `delete_money_collection`. The handover
+  row (`request_id` = the choice's) is inserted idempotently and undo sets
+  `undone_at`. A second ✅ Да, or Telegram resending the update, answers
+  `already_saved` (`already_undone` after an undo); two choices for the same method and day are serialised by
+  an advisory lock and the second is refused as already marked. Undo is only
+  for the owner who made the mark. Only the choice row is locked; the day
+  redraw skips locked rows and never waits, so concurrent presses cannot
+  deadlock. Line rows are refused once expired and renewed only while valid.
+- Comment on the ledger rows: `Telegram`. The bot sends no club-group notice
+  of its own; the collected-to-reserve deposit is announced by the activity
+  audit as from the app, a plain collection is not (the app's collect route
+  posts that notice itself).
