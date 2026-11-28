@@ -58,15 +58,32 @@ const tables: Record<string, Array<Record<string, unknown>>> = {
   ],
 };
 
-/** A chainable stand-in for the PostgREST builder that filters by date. */
+/** A chainable stand-in for the PostgREST builder that filters by date and by the columns a row has. */
 function fakeTableClient() {
   return {
+    // Nothing moved into or out of the reserve (156).
+    rpc: async () => ({ data: [], error: null }),
     from(table: string) {
       const filters: Array<(row: Record<string, unknown>) => boolean> = [];
       const builder = {
         select: () => builder,
-        eq: () => builder,
+        eq: (column: string, value: unknown) => {
+          filters.push((row) => !(column in row) || row[column] === value);
+          return builder;
+        },
+        gt: (column: string, value: string | number) => {
+          filters.push((row) => (typeof value === 'number' ? Number(row[column]) > value : String(row[column]) > value));
+          return builder;
+        },
+        in: (column: string, values: unknown[]) => {
+          filters.push((row) => values.includes(row[column]));
+          return builder;
+        },
         order: () => builder,
+        lt: (column: string, value: string) => {
+          filters.push((row) => String(row[column]) < value);
+          return builder;
+        },
         gte: (column: string, value: string) => {
           filters.push((row) => String(row[column]) >= value);
           return builder;
@@ -122,7 +139,7 @@ describe('dashboard snapshot loading', () => {
 
   it('calls the RPC with every range and normalizes the payload', async () => {
     const rpc = vi.fn().mockResolvedValue({ data: { cashRows: [], stockRows: [{ date: '2026-10-01' }] }, error: null });
-    const result = await fetchDashboardSnapshot({ rpc } as unknown as SupabaseClient, 'club-1', ranges);
+    const result = await fetchDashboardSnapshot({ rpc, from: fakeTableClient().from } as unknown as SupabaseClient, 'club-1', ranges);
 
     expect(rpc).toHaveBeenCalledWith('get_dashboard_snapshot', {
       p_club_id: 'club-1',
@@ -140,13 +157,14 @@ describe('dashboard snapshot loading', () => {
   });
 
   it('asks for the fallback only when the RPC is missing', async () => {
+    const { from } = fakeTableClient();
     const missing = vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST202', message: 'not found' } });
-    expect(await fetchDashboardSnapshot({ rpc: missing } as unknown as SupabaseClient, 'club-1', ranges))
+    expect(await fetchDashboardSnapshot({ rpc: missing, from } as unknown as SupabaseClient, 'club-1', ranges))
       .toEqual({ data: null, error: null, fallbackRequired: true });
 
     const denied = { code: '42501', message: 'Not authorized for this club.' };
     const failing = vi.fn().mockResolvedValue({ data: null, error: denied });
-    expect(await fetchDashboardSnapshot({ rpc: failing } as unknown as SupabaseClient, 'club-1', ranges))
+    expect(await fetchDashboardSnapshot({ rpc: failing, from } as unknown as SupabaseClient, 'club-1', ranges))
       .toEqual({ data: null, error: denied, fallbackRequired: false });
   });
 

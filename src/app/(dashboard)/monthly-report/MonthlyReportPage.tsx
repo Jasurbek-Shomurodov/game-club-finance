@@ -33,7 +33,7 @@ import type { ReserveMove } from '@/lib/calculations/reserveMoves';
 import { BarChart2 } from 'lucide-react';
 import { ExportButton, type ExportFile } from '@/components/ExportButton';
 import { sheetFileName } from '@/lib/sheetExport';
-import { dailyReportHref, moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
+import { dailyReportHref, financialAnalysisHref, moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
 
 interface DayRow {
   date: string;
@@ -218,14 +218,16 @@ export default function MonthlyReportPage() {
   const monthBounds = monthRange(month);
   const gameClubHref = linkIfAllowed(moneyDetailsHref('game_club', monthBounds));
   const barHref = linkIfAllowed(moneyDetailsHref('bar', monthBounds));
+  // Profit is accounting profit: Financial Analysis of the month explains it, not the cash-left pages.
+  const profitHref = linkIfAllowed(financialAnalysisHref(month));
   const totalFigures = {
     gameClubIncome: { href: gameClubHref, label: t('gameClubIncome'), amount: totals.gameClubIncome },
     gameClubExpenses: { href: linkIfAllowed(reportsHref(monthBounds, { category: 'expense', source: 'game_club' })), label: t('gameClubExpenses'), amount: totals.gameClubExpenses },
-    gameClubProfit: { href: gameClubHref, label: t('gameClubProfit'), amount: totals.gameClubProfit },
+    gameClubProfit: { href: profitHref, label: t('gameClubProfit'), amount: totals.gameClubProfit },
     barSales: { href: barHref, label: t('barSales'), amount: totals.barSales },
     costOfGoodsSold: { href: barHref, label: t('costOfGoodsSold'), amount: totals.barCost },
     barExpenses: { href: linkIfAllowed(reportsHref(monthBounds, { category: 'expense', source: 'bar' })), label: t('barExpenses'), amount: totals.barExpenses },
-    barProfit: { href: barHref, label: t('barProfit'), amount: totals.barProfit },
+    barProfit: { href: profitHref, label: t('barProfit'), amount: totals.barProfit },
     inventoryPurchases: { href: barHref, label: t('inventoryPurchases'), amount: totals.stockPurchaseCost },
     barCashLeft: { href: barHref, label: t('barCashLeft'), amount: totals.barCashLeft },
   };

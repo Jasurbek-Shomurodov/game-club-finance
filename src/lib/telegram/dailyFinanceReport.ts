@@ -266,6 +266,11 @@ export interface DailyFinanceReportRows {
   clubName: string;
   businessDate: string;
   businessDateLabel: string;
+  /**
+   * The club's business-day start hour: a product deleted before it belongs
+   * to the day before when the warehouse value drops it. Omitted: midnight.
+   */
+  businessDayStartHour?: number;
   cashRows: DailyCashRow[];
   stockRows: StockCountRow[];
   stockPurchaseRows: StockPurchaseCostRow[];
@@ -856,15 +861,18 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
     previousMonthTotals.gameClubIncome,
     previousAverageDayCount,
   );
+  const businessDayStartHour = rows.businessDayStartHour ?? 0;
   const previousInventoryValue = calculateInventoryValueFromLatestStockCounts(
     rows.previousMonthInventoryRows ?? [],
     previousMonthRange.to,
+    businessDayStartHour,
   );
   const inventoryValue = rows.inventoryRows === undefined
     ? dailyTotals.inventoryValue
     : calculateInventoryValueFromLatestStockCounts(
       rows.inventoryRows.filter((row) => row.date <= rows.businessDate),
       rows.businessDate,
+      businessDayStartHour,
     );
   const averageDailyGameClubIncome = calculateAverageDailyIncome(
     monthTotals.gameClubIncome,

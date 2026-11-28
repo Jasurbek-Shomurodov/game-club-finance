@@ -78,6 +78,7 @@
     "debtIncome": "Qarz daromadi",
     "activeDebts": "Faol qarzlar",
     "activeDebtsDesc": "To'lanmagan yoki qisman to'langan: {count}",
+    "activeDebtsOn": "{date} holatiga qarzlar",
     "averageDailyIncome": "O'rtacha kunlik daromad",
     "averageDailyClubIncomeDesc": "Tanlangan davr uchun klub + PlayStation kunlik daromadi",
     "averageDailyBarIncomeDesc": "Tanlangan davr uchun barning kunlik savdosi",
@@ -340,6 +341,7 @@
     "tableDesc": "Har bir qismning har oydagi tushumi va foydasi, yangilari yuqorida.",
     "tableDescOwner": "Har bir qismning har oydagi tushumi, foydasi va egasi olgan pul, yangilari yuqorida.",
     "tableMonth": "Oy",
+    "monthSoFar": "{month} (hali davom etmoqda)",
     "tableGameClubWithdrawn": "Klubdan olingan",
     "tableBarWithdrawn": "Bardan olingan",
     "overallLargestDesc": "Butun davrdagi eng katta xarajatlar.",
@@ -442,7 +444,7 @@
       "forecast": "Bu oy qayerga ketmoqda. Prognoz har bir qismning hozirgacha kunlik tushumini butun oyga cho‘zadi; xarajatlar to‘langanicha hisoblanadi, cho‘zilmaydi.\n\nFaqat qismning oxirgi yozuvigacha bo‘lgan kunlar hisoblanadi va bunday kunlar kamida uchta bo‘lgandagina prognoz chiqadi.",
       "forecastChart": "To‘liq chiziq — shu oy tushumi kunma-kun yig‘ilib boradi. Uzuq chiziq — sur’at saqlansa oy qanday tugashi. Kulrang chiziq — taqqoslash uchun o‘tgan oy kunma-kun.\n\nFoyda prognozida bar tannarxi savdo bilan birga o‘sadi, xarajatlar esa hozirgacha to‘langanicha olinadi, shuning uchun oyning qolgan qismidagi to‘lovlar unga kirmaydi. Uchinchi hisoblangan kungacha prognoz ko‘rsatilmaydi.",
       "profit": "Butun tarix davomida har bir qism foydasi oyma-oy qanday bo‘lgani: o‘rtacha oy, eng yaxshi va eng zaif oylar, nechta oy zarar bilan yakunlangani.",
-      "profitMonths": "Har bir ustun — oy foydasi: yashil — foyda, qizil — zarar. Uzuq chiziq — oylik o‘rtacha foyda, binafsha chiziq — o‘ng shkala bo‘yicha marja.\n\nO‘rtachaga barcha oylar, hatto sokin oylar ham kiradi, shuning uchun u oddiy oy haqiqatda nima keltirishini ko‘rsatadi.",
+      "profitMonths": "Har bir ustun — oy foydasi: yashil — foyda, qizil — zarar. Uzuq chiziq — oylik o‘rtacha foyda, binafsha chiziq — o‘ng shkala bo‘yicha marja.\n\nO‘rtachaga barcha yakunlangan oylar, hatto sokin oylar ham kiradi, shuning uchun u oddiy oy haqiqatda nima keltirishini ko‘rsatadi. Joriy oy tugagach, o‘rtachaga, eng yaxshi va eng zaif oylarga hamda zararli oylar soniga qo‘shiladi.",
       "reports": "O‘sha pul davrlar bo‘yicha. Yuqorida kunlar, haftalar va oylarni almashtiring: kunlar — oxirgi 31 kun, haftalar (dushanbadan yakshanbagacha) — oxirgi 26 hafta, oylar — butun tarix.\n\nAniq summalarni ko‘rish uchun ustun ustiga olib boring yoki bosing.",
       "sideFlow": "Har bir davrda birinchi ustun — tushum, ikkinchisi — xarajat; yashil chiziq — foyda (tushum minus xarajat). Chiziq noldan pastga tushsa, o‘sha davr zarar bilan o‘tgan.",
       "cumulative": "Har bir qism foydasi ko‘rsatilgan birinchi davrdan boshlab davrma-davr qo‘shib boriladi. Ko‘tarilayotgan chiziq — qism pul topishda davom etmoqda; pasayish — zararlar avval topilganning bir qismini yeb qo‘ygan.",
@@ -522,7 +524,6 @@
     "exchangedOut": "Almashtirishga berildi",
     "intoReserve": "Jamg'armaga",
     "usd": "AQSH dollari",
-    "usdHeld": "Davr ichida sotib olingan minus sotilgan va sarflangan",
     "exchangeSaved": "Almashtirish saqlandi.",
     "exchangeRate": "Kurs",
     "paymentMethodUpdated": "To'lov usuli o'zgartirildi.",
@@ -643,7 +644,9 @@
       "collectedCard": "Yig‘ilgan",
       "collectedCardHelper": "Yig‘uvchi olgan, hali jamg‘armada emas",
       "reserveCard": "Jamg‘armada",
-      "reserveCardHelper": "Egasi ajratib qo‘ygan"
+      "reserveCardHelper": "Egasi ajratib qo‘ygan",
+      "whereTitleNow": "Pul hozir qayerda",
+      "whereNowHint": "Bugun, {date}, qaysi davr tanlanganidan qat’i nazar"
     },
     "collectedView": {
       "viewLabel": "Yig‘ilgan pul ko‘rinishi",
@@ -675,7 +678,10 @@
     },
     "dailyChartTitle": "O‘yin klubi kunlar bo‘yicha",
     "dailyChartDesc": "Davrning har bir kunida yig‘ilgan daromad va o‘yin klubi to‘lagan xarajatlar.",
-    "dailyChartIncome": "Daromad"
+    "dailyChartIncome": "Daromad",
+    "fromEarlierThisMonth": "Shu oyning oldingi kunlaridan",
+    "usdPeriodChange": "Davr ichida",
+    "usdHeldNote": "Davrning oxirgi kunidagi qoldiq; nom ostidagi qator — davr ichida sotib olingan minus sotilgan va sarflangan."
   },
   "dailyCash": {
     "title": "Kunlik kassa",
@@ -2009,9 +2015,9 @@
     "barProfitFail": "{count} yozuvda bar foydasi mos emas.",
     "netProfit": "Klub va bar foydasi kunlik hisobot bilan mos",
     "netProfitDetail": "Klub {gameClub} {currency} (kunlik hisobot {gameClubReport} {currency}); bar {bar} {currency} (kunlik hisobot {barReport} {currency}).",
-    "debts": "Manfiy qarz qoldiqlari yoʻq",
-    "debtsOk": "Barcha {count} faol qarz toʻgʻri.",
-    "debtsFail": "{count} qarzda manfiy qoldiq bor.",
+    "debts": "Qarz qoldiqlari toʻgʻri",
+    "debtsOk": "Barcha {count} qarzning toʻlangan summasi va qoldigʻi toʻgʻri.",
+    "debtsFail": "{count} qarz ortiqcha toʻlangan yoki qoldigʻi summa minus toʻlanganga teng emas.",
     "expenses": "Barcha xarajatlar musbat",
     "expensesOk": "Bugungi barcha {count} xarajat toʻgʻri.",
     "expensesFail": "{count} xarajat nol yoki manfiy.",
@@ -3166,7 +3172,8 @@
       "nothing": "Qancha qo‘yishni kiriting.",
       "futureDate": "Sana kelajakda bo‘lishi mumkin emas.",
       "storedParts": "Allaqachon qo‘yildi: {parts}. Pastda qolgani hali saqlanmagan."
-    }
+    },
+    "depositAllPartial": "Qo‘yildi: {saved}. Qo‘yilmadi: {failed}."
   },
   "reservePage": {
     "title": "Jamg'arma",

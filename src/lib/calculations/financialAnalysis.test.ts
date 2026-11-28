@@ -9,7 +9,9 @@ import {
   buildMonthlyAnalysis,
   buildOverallSummary,
   buildPaymentMethodFlow,
+  buildSideComparisons,
   firstLedgerDate,
+  ledgersInRange,
   monthsSpanned,
   barFlow,
   foldCategories,
@@ -210,6 +212,70 @@ describe('overall helpers', () => {
     expect(summary.bar.best).toEqual({ month: '2026-09-01', profit: 40 });
     expect(summary.bar.worst).toEqual({ month: '2026-08-01', profit: -20 });
     expect(buildOverallSummary([]).gameClub).toEqual({ averageMonthlyProfit: 0, best: null, worst: null, lossMonths: 0 });
+  });
+
+  it('leaves the month still running out of the average, best, worst and loss months', () => {
+    const row = (month: string, gameClubLeft: number, barLeft: number) => ({
+      month, gameClubIncome: 100, gameClubLeft, barSales: 50, barLeft,
+    });
+    // October is half over: its loss so far and its small bar profit say nothing about a month yet.
+    const rows = [row('2026-08-01', 300, 20), row('2026-09-01', 100, 40), row('2026-10-01', -500, 1)];
+    const summary = buildOverallSummary(rows, '2026-10');
+    expect(summary.months).toBe(3);
+    expect(summary.gameClub).toEqual({
+      averageMonthlyProfit: 200,
+      best: { month: '2026-08-01', profit: 300 },
+      worst: { month: '2026-09-01', profit: 100 },
+      lossMonths: 0,
+    });
+    expect(summary.bar.worst).toEqual({ month: '2026-08-01', profit: 20 });
+    // Only the running month in the history: nothing finished to summarise yet.
+    expect(buildOverallSummary([row('2026-10-01', -500, 1)], '2026-10').gameClub)
+      .toEqual({ averageMonthlyProfit: 0, best: null, worst: null, lossMonths: 0 });
+  });
+});
+
+describe('buildSideComparisons', () => {
+  const history: AnalysisLedgers = {
+    cashRows: [
+      { date: '2026-09-05', cash_income: 100, terminal_income: 0, card_income: 0, playstation_income: 20 },
+      { date: '2026-09-14', cash_income: 900, terminal_income: 0, card_income: 0 },
+      { date: '2026-10-05', cash_income: 300, terminal_income: 0, card_income: 0, playstation_income: 30 },
+    ],
+    stockRows: [
+      { date: '2026-09-03', bar_income: 50, bar_cost: 20, bar_profit: 30, sold_quantity: 1 },
+      { date: '2026-10-03', bar_income: 80, bar_cost: 30, bar_profit: 50, sold_quantity: 1 },
+    ],
+    purchaseRows: [],
+    expenseRows: [
+      expense('e1', '2026-09-06', 40, 'rent'),
+      expense('e2', '2026-10-14', 70, 'rent'),
+      expense('e3', '2026-10-02', 10, 'supplies', { payment_source: 'bar' }),
+    ],
+    debtRows: [],
+    debtPaymentRows: [],
+  };
+
+  it('measures each side over its own compared stretches', () => {
+    const result = buildSideComparisons(history, {
+      gameClub: { current: { from: '2026-10-01', to: '2026-10-05' }, previous: { from: '2026-09-01', to: '2026-09-05' } },
+      bar: { current: { from: '2026-10-01', to: '2026-10-03' }, previous: { from: '2026-09-01', to: '2026-09-03' } },
+    });
+    // The 14 October expense and the 14 September takings sit outside the game club's five days.
+    expect(result.gameClub.now).toMatchObject({ income: 330, spent: 0, left: 330 });
+    expect(result.gameClub.before).toMatchObject({ income: 120, spent: 0, left: 120 });
+    expect(result.gameClub.beforeTotals.playstationIncome).toBe(20);
+    expect(result.bar.now).toMatchObject({ income: 80, spent: 40, left: 40 });
+    expect(result.bar.before).toMatchObject({ income: 50, spent: 20, left: 30 });
+  });
+
+  it('slices every ledger to a range', () => {
+    const sliced = ledgersInRange({ ...history, reserveMoves: [{ date: '2026-10-04', source: 'game_club', method: 'cash', amount: 5 }] }, { from: '2026-10-01', to: '2026-10-04' });
+    expect(sliced.cashRows).toEqual([]);
+    expect(sliced.stockRows.map((row) => row.date)).toEqual(['2026-10-03']);
+    expect(sliced.expenseRows.map((row) => row.id)).toEqual(['e3']);
+    expect(sliced.reserveMoves).toHaveLength(1);
+    expect(sliced.purchaseRows).toEqual([]);
   });
 });
 

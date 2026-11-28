@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const { mutateFinanceRequest } = vi.hoisted(() => ({ mutateFinanceRequest: vi.fn() }));
 vi.mock('@/lib/supabase/client', () => ({ mutateFinanceRequest }));
 
-import { requestReserveDelete, requestReserveDepositByMethod, requestReserveMove, type ReserveMoveRequest } from './ownerReserveRequests';
+import { requestReserveDelete, requestReserveDepositByMethod, requestReserveMove, requestReserveMoveParts, type ReserveMoveRequest } from './ownerReserveRequests';
 
 const move: ReserveMoveRequest = {
   kind: 'deposit',
@@ -59,6 +59,49 @@ describe('requestReserveMove', () => {
     // GIVEN a server error with a non-JSON body
     stubFetch(new Response('upstream down', { status: 502 }));
     expect(await requestReserveMove('club-1', move)).toBe('failed');
+  });
+});
+
+describe('requestReserveMoveParts', () => {
+  const putAllIn: ReserveMoveRequest = {
+    ...move,
+    comment: '',
+    parts: [
+      { id: 'cash-part', method: 'cash', amount: 500_000 },
+      { id: 'terminal-part', method: 'terminal', amount: 200_000 },
+    ],
+  };
+
+  it('names the stored parts and the refused ones with their reasons', async () => {
+    // GIVEN a server that stored the cash part and refused the terminal one
+    stubFetch(new Response(JSON.stringify({
+      failure: 'day_balance',
+      saved: [{ id: 'cash-part', method: 'cash', amount: 500_000 }],
+      failed: [{ id: 'terminal-part', method: 'terminal', amount: 200_000, failure: 'day_balance' }],
+    }), { status: 409 }));
+
+    // WHEN the move is sent
+    const result = await requestReserveMoveParts('club-1', putAllIn);
+
+    // THEN each part is where the server put it, as it was sent
+    expect(result).toEqual({
+      saved: [putAllIn.parts[0]],
+      failed: [{ ...putAllIn.parts[1], failure: 'day_balance' }],
+    });
+  });
+
+  it('refuses every part when the request was refused as a whole, and stores every part on a bare success', async () => {
+    // GIVEN a signed-out refusal without part lists
+    stubFetch(new Response(JSON.stringify({ failure: 'forbidden' }), { status: 401 }));
+    expect((await requestReserveMoveParts('club-1', putAllIn)).failed.map((part) => part.failure)).toEqual(['forbidden', 'forbidden']);
+
+    // GIVEN an unknown code
+    stubFetch(new Response('upstream down', { status: 502 }));
+    expect((await requestReserveMoveParts('club-1', putAllIn)).failed.map((part) => part.failure)).toEqual(['failed', 'failed']);
+
+    // GIVEN a success without part lists
+    stubFetch(new Response(null, { status: 200 }));
+    expect(await requestReserveMoveParts('club-1', putAllIn)).toEqual({ saved: putAllIn.parts, failed: [] });
   });
 });
 

@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isCurrentMonthPeriod,
+  monthToDateRange,
   moneyStillHeld,
   moneyStillHeldByMethod,
   parseCollectedMoneyMoves,
   parseCollectionBalances,
+  periodCoversMoneyNow,
   summarizeCollectedMoney,
   summarizeMoneyWhereabouts,
   type CollectedMoneyMove,
@@ -97,5 +100,33 @@ describe('summarizeMoneyWhereabouts', () => {
       ],
       reserve: { sums: 15_000_000, usd: 1_200 },
     })).toEqual({ kassa: 2_234_000, collected: 2_000_000, reserveSums: 15_000_000, reserveUsd: 1_200, totalSums: 19_234_000 });
+  });
+});
+
+describe('where the money is now', () => {
+  const today = '2026-11-28';
+
+  it('counts the till from the business month\'s first day through today', () => {
+    expect(monthToDateRange(today)).toEqual({ from: '2026-11-01', to: today });
+    expect(monthToDateRange('2026-12-01')).toEqual({ from: '2026-12-01', to: '2026-12-01' });
+  });
+
+  it('reuses a period\'s own figures only when it starts in today\'s month and reaches today', () => {
+    expect(periodCoversMoneyNow({ from: '2026-11-01', to: '2026-11-30' }, today)).toBe(true);
+    expect(periodCoversMoneyNow({ from: '2026-11-10', to: today }, today)).toBe(true);
+    // Ends before today: the days since are missing.
+    expect(periodCoversMoneyNow({ from: '2026-11-01', to: '2026-11-20' }, today)).toBe(false);
+    // Starts last month: the cards would add October's leftover to a till that starts November at zero.
+    expect(periodCoversMoneyNow({ from: '2026-10-15', to: today }, today)).toBe(false);
+    expect(periodCoversMoneyNow({ from: '2026-10-01', to: '2026-10-31' }, today)).toBe(false);
+  });
+
+  it('calls a period the current month only from its first day through today or later', () => {
+    expect(isCurrentMonthPeriod({ from: '2026-11-01', to: '2026-11-30' }, today)).toBe(true);
+    expect(isCurrentMonthPeriod({ from: '2026-11-01', to: today }, today)).toBe(true);
+    expect(isCurrentMonthPeriod({ from: '2026-11-10', to: today }, today)).toBe(false);
+    expect(isCurrentMonthPeriod({ from: '2026-11-01', to: '2026-11-20' }, today)).toBe(false);
+    expect(isCurrentMonthPeriod({ from: '2026-11-01', to: '2026-12-05' }, today)).toBe(false);
+    expect(isCurrentMonthPeriod({ from: '2026-10-01', to: '2026-10-31' }, today)).toBe(false);
   });
 });

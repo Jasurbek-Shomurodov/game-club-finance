@@ -40,7 +40,8 @@ export default function BarMoneyDetailsPage({ requestedFrom, requestedTo }: { re
       );
     }
 
-    // Compatibility path while migration 049 is being deployed.
+    // Compatibility path while migration 049 is being deployed. Reserve moves
+    // come from their own RPC (empty before 156), so they apply here too.
     const [stockRes, purchaseRes, expenseRes] = await Promise.all([
       fetchAllRows<MoneyDetailStockRow>(() => inRangeQuery(
         supabase.from('daily_stock_counts').select('date,bar_income').eq('club_id', clubId).order('date', { ascending: true }).order('id', { ascending: true }),
@@ -67,6 +68,7 @@ export default function BarMoneyDetailsPage({ requestedFrom, requestedTo }: { re
         product_name: (Array.isArray(products) ? products[0] : products)?.name ?? null,
       })),
       expenseRes.data ?? [],
+      reserveMoves,
     );
   }, []);
 

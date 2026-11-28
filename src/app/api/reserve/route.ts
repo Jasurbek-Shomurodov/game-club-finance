@@ -83,6 +83,12 @@ function parseMove(body: Record<string, unknown> | null): MoveBody | null {
  * Moves owner profit into the reserve (deposit) or back out (return). Several
  * parts are one Game Club move split by method, as "Put all in" makes them;
  * the group gets one message for everything that was newly recorded.
+ *
+ * Each part is its own atomic RPC with its own balance, so a refused part
+ * does not stop the others. The reply lists the parts that are stored
+ * (`saved`, retries included) and the refused ones with their reason
+ * (`failed`); when any part is refused it also carries the first refusal as
+ * `failure`, with that refusal's status.
  */
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -96,26 +102,31 @@ export async function POST(request: Request) {
   // checked atomically by each RPC; a retried id is recorded once.
   const write = body.kind === 'deposit' ? depositToReserve : returnFromReserve;
   const recorded: ReserveNoticePart[] = [];
-  let failure: ReserveErrorCode | null = null;
+  const saved: MoveBody['parts'] = [];
+  const failed: Array<MoveBody['parts'][number] & { failure: ReserveErrorCode }> = [];
   for (const part of body.parts) {
     const result = await write(supabase, body.clubId, {
       id: part.id, month: body.month, date: body.date, source: body.source, method: part.method, amount: part.amount, comment: body.comment,
     });
     if (result.failure) {
-      failure = result.failure;
-      console.error('[reserve] move refused', { clubId: body.clubId, entryId: part.id, kind: body.kind, failure });
-      break;
+      failed.push({ ...part, failure: result.failure });
+      console.error('[reserve] move refused', { clubId: body.clubId, entryId: part.id, kind: body.kind, failure: result.failure });
+      continue;
     }
+    saved.push(part);
     if (result.created) recorded.push({ method: part.method, amount: part.amount });
   }
 
-  // Parts saved before a refusal stay saved, so they are still reported.
+  // Parts stored beside a refusal stay stored, so they are still reported.
   if (recorded.length > 0) {
     notify(supabase, user, body.clubId, (by) => buildReserveMoveNotice({
       kind: body.kind, month: body.month, source: body.source, parts: recorded, comment: body.comment.trim() || null, by,
     }), { kind: body.kind, month: body.month });
   }
-  return failure ? refuse(failure) : Response.json({ recorded: recorded.length });
+  const failure = failed[0]?.failure;
+  return failure
+    ? Response.json({ failure, saved, failed }, { status: STATUS[failure] })
+    : Response.json({ recorded: recorded.length, saved, failed });
 }
 
 /** Deletes a deposit or return; the database refuses money that was already used. */

@@ -8,7 +8,7 @@ import {
   type ExpenseRow,
   type MoneyLeftByPaymentMethod,
 } from './dashboardMetrics';
-import { exchangeFlowByMethod, heldDollars, type ExchangeMethod, type MoneyExchangeRow } from './moneyExchanges';
+import { exchangeFlowByMethod, heldDollars, type DollarExpenseRow, type ExchangeMethod, type MoneyExchangeRow } from './moneyExchanges';
 import { isReservePaidExpense, reservedNetBy, type ReserveMove } from './reserveMoves';
 import {
   calculateBarMoney,
@@ -471,6 +471,54 @@ export function openingBalanceRange(from: string): { from: string; to: string } 
   if (day <= 1) return null;
   const previous = String(day - 1).padStart(2, '0');
   return { from: `${match[1]}-${match[2]}-01`, to: `${match[1]}-${match[2]}-${previous}` };
+}
+
+/**
+ * What `withOpeningBalances` adds to the method cards from the earlier days of
+ * the period's month, all methods together, or null when no opening applies.
+ * The cards sum to `gameClubLeft` plus this.
+ */
+export function openingBalanceTotal(opening: MoneyReport['paymentMethods'] | null): number | null {
+  if (!opening) return null;
+  return Object.values(opening).reduce((sum, method) => sum + method.left, 0);
+}
+
+/** Each payment method's money left, as `moneyStillHeldByMethod` and `summarizeMoneyWhereabouts` take it. */
+export function moneyLeftByMethod(methods: MoneyReport['paymentMethods']): Record<keyof MoneyReport['paymentMethods'], number> {
+  return {
+    cash: methods.cash.left,
+    terminal: methods.terminal.left,
+    card: methods.card.left,
+    playstation: methods.playstation.left,
+  };
+}
+
+/** The first day any ledger may hold, as Owner Profit reads every exchange since. */
+export const LEDGER_START_DATE = '2000-01-01';
+
+/**
+ * Every day before a period starts, from `LEDGER_START_DATE`: the exchanges and
+ * dollar expenses that decide the dollars held when it begins. Null when
+ * nothing comes before it.
+ */
+export function earlierDaysRange(from: string): { from: string; to: string } | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(from);
+  if (!match || from <= LEDGER_START_DATE) return null;
+  const previous = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) - 1));
+  return { from: LEDGER_START_DATE, to: previous.toISOString().slice(0, 10) };
+}
+
+/**
+ * Dollars held at a period's last day: what every earlier exchange and dollar
+ * expense left (`earlierDaysRange`), plus the period's own movement
+ * (`MoneyReport.usd`). Never added to a UZS figure.
+ */
+export function dollarsHeldAtPeriodEnd(
+  earlierExchanges: MoneyExchangeRow[],
+  earlierDollarExpenses: readonly DollarExpenseRow[],
+  periodMovement: number,
+): number {
+  return Math.round((heldDollars(earlierExchanges, earlierDollarExpenses) + periodMovement) * 100) / 100;
 }
 
 /**

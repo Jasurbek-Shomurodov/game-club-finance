@@ -344,14 +344,20 @@ export async function getMoneyWhereaboutsRows(
   }
 }
 
-/** The club's current business date at `now`, or null when it cannot be read (the checks block is then omitted). */
-async function getCurrentBusinessDateOrNull(supabase: SupabaseClient, clubId: string, now: Date): Promise<string | null> {
+/** The club's business-day start hour, or null when it cannot be read; read once per report. */
+async function getClubBusinessDayStartHourOrNull(supabase: SupabaseClient, clubId: string): Promise<number | null> {
   try {
-    return serverTodayIso(now, await getClubBusinessDayStartHour(supabase, clubId));
+    return await getClubBusinessDayStartHour(supabase, clubId);
   } catch (error) {
     console.error('[telegram/daily-finance] business day unavailable; omitting money checks:', error);
     return null;
   }
+}
+
+/** The club's current business date at `now`, or null when its start hour cannot be read (the checks block is then omitted). */
+async function getCurrentBusinessDateOrNull(startHour: Promise<number | null>, now: Date): Promise<string | null> {
+  const hour = await startHour;
+  return hour === null ? null : serverTodayIso(now, hour);
 }
 
 /**
@@ -414,6 +420,94 @@ async function getClub(supabase: SupabaseClient, clubId: string): Promise<ClubRo
 
 /** One stock-count row carrying both the sales and the inventory columns. */
 type StockWindowRow = StockCountRow & InventorySnapshotRow;
+
+/** A catalog row as the warehouse value needs it: archived and deleted products included. */
+export interface InventoryProductRow {
+  id: string;
+  tracks_inventory?: boolean | null;
+  deleted_at?: string | null;
+}
+
+/** Product ids per `.in()` read, so the request URL stays short. */
+const PRODUCT_ID_CHUNK = 100;
+
+/**
+ * Products whose latest count on or before `asOf` is older than the window
+ * the report already read (from `windowFrom`). The warehouse value takes
+ * each product's latest count, so a product counted only before the window
+ * (archived, or counted rarely) would otherwise drop out. Products that hold
+ * no stock value on `asOf` are left out: untracked ones, and ones deleted
+ * well before the window (their stock is zero from the deletion day on; the
+ * extra day covers the business-day start hour).
+ */
+export function productsNeedingEarlierCounts(
+  products: readonly InventoryProductRow[],
+  windowRows: ReadonlyArray<{ product_id: string; date: string }>,
+  windowFrom: string,
+  asOf: string,
+): string[] {
+  const covered = new Set(windowRows.filter((row) => row.date <= asOf).map((row) => row.product_id));
+  const deletedBefore = addDaysIso(windowFrom, -1);
+  return products
+    .filter((product) => product.tracks_inventory !== false
+      && !(product.deleted_at && product.deleted_at.slice(0, 10) < deletedBefore)
+      && !covered.has(product.id))
+    .map((product) => product.id);
+}
+
+/**
+ * Every saved count before `before` for the given products, so the warehouse
+ * value sees each product's latest count however old. A failure keeps the
+ * value to the counts already read; it never blocks the report.
+ */
+async function getEarlierInventoryRows(
+  supabase: SupabaseClient,
+  clubId: string,
+  productIds: string[],
+  before: string,
+): Promise<InventorySnapshotRow[]> {
+  if (productIds.length === 0) return [];
+  try {
+    const chunks: string[][] = [];
+    for (let index = 0; index < productIds.length; index += PRODUCT_ID_CHUNK) {
+      chunks.push(productIds.slice(index, index + PRODUCT_ID_CHUNK));
+    }
+    const results = await Promise.all(chunks.map((ids) => fetchAllRows<InventorySnapshotRow>(() =>
+      supabase
+        .from('daily_stock_counts')
+        .select('product_id,date,closing_stock,cost_price,products(tracks_inventory,deleted_at)')
+        .eq('club_id', clubId)
+        .in('product_id', ids)
+        .lt('date', before)
+        .order('date', { ascending: true })
+        .order('product_id', { ascending: true }),
+    )));
+    const error = results.find((result) => result.error)?.error;
+    if (error) throw error;
+    return results.flatMap((result) => (result.data ?? []) as InventorySnapshotRow[]);
+  } catch (error) {
+    console.error('[telegram/daily-finance] earlier stock counts unavailable; using the report window only:', error);
+    return [];
+  }
+}
+
+/** The club's whole catalog for the warehouse value; a failure reads no earlier counts. */
+async function getInventoryProductRows(supabase: SupabaseClient, clubId: string): Promise<InventoryProductRow[]> {
+  try {
+    const { data, error } = await fetchAllRows<InventoryProductRow>(() =>
+      supabase
+        .from('products')
+        .select('id,tracks_inventory,deleted_at')
+        .eq('club_id', clubId)
+        .order('id', { ascending: true }),
+    );
+    if (error) throw error;
+    return (data ?? []) as InventoryProductRow[];
+  } catch (error) {
+    console.error('[telegram/daily-finance] products unavailable; using the report window only for stock value:', error);
+    return [];
+  }
+}
 
 function inRange<T extends { date: string }>(rows: T[], from: string, to: string): T[] {
   return rows.filter((row) => row.date >= from && row.date <= to);
@@ -490,6 +584,10 @@ export async function buildDailyFinanceTelegramReport(
       return query as never;
     });
 
+  // The catalog, archived products included, to find products last counted before the window.
+  const inventoryProductsPromise = getInventoryProductRows(supabase, clubId);
+  // The money checks' current day and the warehouse value's deletion days both use it.
+  const businessDayStartHourPromise = getClubBusinessDayStartHourOrNull(supabase, clubId);
   const laterDebtPaymentsPromise = fetchAllRows<DailyFinanceReportLaterDebtPaymentRow>(() =>
     supabase
       .from('debt_payments')
@@ -530,7 +628,7 @@ export async function buildDailyFinanceTelegramReport(
     fetchReserveMoves(supabase, clubId, windowFrom, businessDate),
     fetchMoneyExchanges(supabase, clubId, monthStart, businessDate),
     getMonthWithdrawalRows(supabase, clubId, monthStart),
-    getCurrentBusinessDateOrNull(supabase, clubId, now),
+    getCurrentBusinessDateOrNull(businessDayStartHourPromise, now),
     getEnabledPaymentMethods(supabase, clubId),
     getMoneyWhereaboutsRows(supabase, clubId, monthStart, businessDate),
   ]);
@@ -555,6 +653,16 @@ export async function buildDailyFinanceTelegramReport(
   const purchaseRows = (purchaseRes.data ?? []) as StockPurchaseCostRow[];
   const expenseRows = (expenseRes.data ?? []) as ExpenseRow[];
   const debtPaymentRows = (debtPaymentRes.data ?? []) as DailyFinanceReportDebtPaymentRow[];
+  // Each product's latest count on or before the report date and on or before
+  // the end of the comparison month, however old: products last counted before
+  // the window get their earlier counts read too.
+  const earlierInventoryRows = await getEarlierInventoryRows(
+    supabase,
+    clubId,
+    productsNeedingEarlierCounts(await inventoryProductsPromise, incomeStockRows, incomeFrom, previousMonthRange.to),
+    incomeFrom,
+  );
+  const inventoryHistory: InventorySnapshotRow[] = [...earlierInventoryRows, ...incomeStockRows];
   const day = <T extends { date: string }>(rows: T[]) => inRange(rows, businessDate, businessDate);
   const month = <T extends { date: string }>(rows: T[]) => inRange(rows, monthStart, businessDate);
   const previous = <T extends { date: string }>(rows: T[]) => inRange(rows, previousMonthRange.from, previousMonthRange.to);
@@ -566,10 +674,13 @@ export async function buildDailyFinanceTelegramReport(
     expenseRows: day(expenseRows),
   });
 
+  // Unreadable: midnight, as before the start hour existed.
+  const businessDayStartHour = (await businessDayStartHourPromise) ?? 0;
   const input = buildDailyFinanceReportInput({
     clubName: clubRes.name,
     businessDate,
     businessDateLabel: formatDateOnly(businessDate, 'ru'),
+    businessDayStartHour,
     cashRows: day(cashRows),
     stockRows: day(stockRows),
     stockPurchaseRows: day(purchaseRows),
@@ -583,8 +694,8 @@ export async function buildDailyFinanceTelegramReport(
     previousMonthStockPurchaseRows: previous(purchaseRows),
     previousMonthExpenseRows: previous(expenseRows),
     previousMonthDebtPaymentRows: previous(debtPaymentRows),
-    previousMonthInventoryRows: previous(stockRows),
-    inventoryRows: stockRows,
+    previousMonthInventoryRows: inventoryHistory.filter((row) => row.date <= previousMonthRange.to),
+    inventoryRows: inventoryHistory,
     debtRows: (debtRes.data ?? []) as DailyFinanceReportDebtRow[],
     debtPaymentRows: month(debtPaymentRows),
     laterDebtPaymentRows: (laterDebtPaymentRes.data ?? []) as DailyFinanceReportLaterDebtPaymentRow[],

@@ -115,7 +115,7 @@ export function openDebtsByPerson(
 export interface DebtsSummary {
   /** What is still owed across every debt that is not paid off. */
   outstandingTotal: number;
-  /** Distinct people (by trimmed, case-insensitive name) with a debt that is not paid off. */
+  /** Distinct people (by `debtPersonKey`, as the list groups them) with a debt that is not paid off. */
   debtorCount: number;
   /** Everything paid back so far, across open and paid debts. */
   paidTotal: number;
@@ -132,7 +132,24 @@ export function summarizeDebts(
     paidTotal += Number(debt.paid_amount) || 0;
     if (debt.status === 'paid') continue;
     outstandingTotal += calculateRemainingDebt(Number(debt.amount) || 0, Number(debt.paid_amount) || 0);
-    debtors.add(debt.person_name.trim().toLocaleLowerCase());
+    debtors.add(debtPersonKey(debt.person_name));
   }
   return { outstandingTotal, debtorCount: debtors.size, paidTotal };
+}
+
+/**
+ * Debts whose stored balance does not add up: paid more than was lent, or a
+ * stored remaining amount other than amount − paid. Read every debt of the
+ * club, paid ones included: an overpaid debt is marked paid. Amounts may come
+ * back from Postgres as numeric strings; a difference within 1 UZS is rounding.
+ */
+export function debtsWithInvalidBalance<T extends { amount: number | string; paid_amount: number | string | null; remaining_amount: number | string | null }>(
+  debts: readonly T[],
+): T[] {
+  return debts.filter((debt) => {
+    const amount = Number(debt.amount) || 0;
+    const paid = Number(debt.paid_amount ?? 0) || 0;
+    const remaining = Number(debt.remaining_amount ?? Number.NaN);
+    return paid - amount > 1 || !Number.isFinite(remaining) || Math.abs(remaining - (amount - paid)) > 1;
+  });
 }

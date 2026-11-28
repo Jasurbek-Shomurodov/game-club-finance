@@ -78,6 +78,7 @@
     "debtIncome": "Debt Income",
     "activeDebts": "Active Debts",
     "activeDebtsDesc": "{count} unpaid or partially paid records",
+    "activeDebtsOn": "Debts open on {date}",
     "averageDailyIncome": "Average Daily Income",
     "averageDailyClubIncomeDesc": "Game Club + PlayStation income per day for the selected period",
     "averageDailyBarIncomeDesc": "Bar sales per day for the selected period",
@@ -340,6 +341,7 @@
     "tableDesc": "Each side's money in and profit for every month, newest first.",
     "tableDescOwner": "Each side's money in, profit and owner withdrawals for every month, newest first.",
     "tableMonth": "Month",
+    "monthSoFar": "{month} (so far)",
     "tableGameClubWithdrawn": "Game club withdrawn",
     "tableBarWithdrawn": "Bar withdrawn",
     "overallLargestDesc": "The biggest single expenses of all time.",
@@ -442,7 +444,7 @@
       "forecast": "Where this month is heading. The forecast stretches each side's money in per day so far over the whole month; expenses are counted as paid, not stretched.\n\nOnly days up to the side's latest entry are counted, and a side needs at least three of them before it is forecast.",
       "forecastChart": "Solid line: money in so far this month, added up day by day. Dashed line: where it ends if the same daily pace continues. Grey line: last month, day by day, for comparison.\n\nThe forecast profit grows bar cost of goods with sales but keeps expenses at what was paid so far, so bills still to come later in the month are not in it. No forecast is shown before the third day counted.",
       "profit": "How each side's profit behaved month by month over the whole history: the average month, the best and weakest months and how many months ended with a loss.",
-      "profitMonths": "Each bar is a month's profit: green for a profit, red for a loss. The dashed line is the average monthly profit and the purple line is the margin, read on the right-hand scale.\n\nThe average includes every month, even quiet ones, so it shows what a typical month really brings.",
+      "profitMonths": "Each bar is a month's profit: green for a profit, red for a loss. The dashed line is the average monthly profit and the purple line is the margin, read on the right-hand scale.\n\nThe average includes every finished month, even quiet ones, so it shows what a typical month really brings. The month still running counts in the average, the best and weakest months and the loss months once it ends.",
       "reports": "The same money split by period. Switch between days, weeks and months above: days show the last 31 days, weeks (Monday to Sunday) the last 26 weeks, months the whole history.\n\nHover or tap a bar to see its exact amounts.",
       "sideFlow": "For each period, the first bar is the money in and the second is the spending; the green line is the profit (money in minus spending). When the line drops below zero, that period lost money.",
       "cumulative": "The profit of each side added up period after period, starting at the first period shown. A rising line means the side keeps making money; a falling stretch means losses ate into what was earned before.",
@@ -522,7 +524,6 @@
     "exchangedOut": "Exchanged out",
     "intoReserve": "Into reserve",
     "usd": "US dollars",
-    "usdHeld": "Bought minus sold and spent in this period",
     "exchangeSaved": "Exchange saved.",
     "exchangeRate": "Exchange rate",
     "paymentMethodUpdated": "Payment method updated.",
@@ -643,7 +644,9 @@
       "collectedCard": "Collected",
       "collectedCardHelper": "Taken by the collector, not yet in the reserve",
       "reserveCard": "In the reserve",
-      "reserveCardHelper": "Set aside by the owner"
+      "reserveCardHelper": "Set aside by the owner",
+      "whereTitleNow": "Where the money is now",
+      "whereNowHint": "Today, {date}, whatever period is picked"
     },
     "collectedView": {
       "viewLabel": "Collected money view",
@@ -675,7 +678,10 @@
     },
     "dailyChartTitle": "Game Club day by day",
     "dailyChartDesc": "Income collected and Game Club expenses paid each day of the period.",
-    "dailyChartIncome": "Income"
+    "dailyChartIncome": "Income",
+    "fromEarlierThisMonth": "From earlier this month",
+    "usdPeriodChange": "This period",
+    "usdHeldNote": "Held on the period's last day; the line under the name is bought minus sold and spent in the period."
   },
   "dailyCash": {
     "title": "Daily Cash Entry",
@@ -2009,9 +2015,9 @@
     "barProfitFail": "{count} entries have a bar profit mismatch.",
     "netProfit": "Game club and bar profit match the daily report",
     "netProfitDetail": "Game club {gameClub} {currency} (daily report {gameClubReport} {currency}); bar {bar} {currency} (daily report {barReport} {currency}).",
-    "debts": "No negative remaining debt amounts",
-    "debtsOk": "All {count} active debts have valid remaining amounts.",
-    "debtsFail": "{count} debts have a negative remaining amount.",
+    "debts": "Debt balances add up",
+    "debtsOk": "All {count} debts have valid paid and remaining amounts.",
+    "debtsFail": "{count} debts are overpaid or their remaining amount is not amount minus paid.",
     "expenses": "All expenses have positive amounts",
     "expensesOk": "All {count} expenses for today are valid.",
     "expensesFail": "{count} expenses have a zero or negative amount.",
@@ -3166,7 +3172,8 @@
       "nothing": "Enter how much to put in.",
       "futureDate": "The date cannot be in the future.",
       "storedParts": "Already put in: {parts}. What is still filled in below is not saved yet."
-    }
+    },
+    "depositAllPartial": "Put in: {saved}. Not put in: {failed}."
   },
   "reservePage": {
     "title": "Reserve",

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  calculateRemainingDebt, canManageDebts, classifyDebtPaymentInsertError, debtAgeDays, debtPersonKey, getDebtStatus,
+  calculateRemainingDebt, canManageDebts, classifyDebtPaymentInsertError, debtAgeDays, debtPersonKey, debtsWithInvalidBalance, getDebtStatus,
   latestPaymentDateByDebt, openDebtsByPerson, sortOpenDebts, summarizeDebts,
 } from './debt';
 
@@ -176,7 +176,38 @@ describe('summarizeDebts', () => {
     expect(summarizeDebts(debts)).toEqual({ outstandingTotal: 120_000, debtorCount: 2, paidTotal: 95_000 });
   });
 
+  it('counts people the way the list groups them: inner spacing and case ignored', () => {
+    const spelled = [
+      { person_name: 'Ali  Valiyev', amount: 10, paid_amount: 0, status: 'unpaid' },
+      { person_name: 'ali valiyev', amount: 10, paid_amount: 0, status: 'unpaid' },
+      { person_name: 'АЛИ', amount: 10, paid_amount: 0, status: 'unpaid' },
+      { person_name: 'али', amount: 10, paid_amount: 0, status: 'unpaid' },
+    ];
+    expect(summarizeDebts(spelled).debtorCount).toBe(openDebtsByPerson(spelled.map((debt, index) => ({ ...debt, id: index, date: '2026-11-01' }))).size);
+    expect(summarizeDebts(spelled).debtorCount).toBe(2);
+  });
+
   it('is all zeros without debts', () => {
     expect(summarizeDebts([])).toEqual({ outstandingTotal: 0, debtorCount: 0, paidTotal: 0 });
+  });
+});
+
+describe('debtsWithInvalidBalance', () => {
+  it('flags an overpaid debt even when it is marked paid, and a remaining amount that does not add up', () => {
+    const debts = [
+      { id: 'ok', amount: 100_000, paid_amount: 30_000, remaining_amount: 70_000 },
+      { id: 'paid', amount: '40000', paid_amount: '40000', remaining_amount: '0' },
+      { id: 'overpaid', amount: 20_000, paid_amount: 25_000, remaining_amount: 0 },
+      { id: 'drifted', amount: 50_000, paid_amount: 10_000, remaining_amount: 50_000 },
+      { id: 'missing', amount: 50_000, paid_amount: 0, remaining_amount: null },
+    ];
+    expect(debtsWithInvalidBalance(debts).map((debt) => debt.id)).toEqual(['overpaid', 'drifted', 'missing']);
+  });
+
+  it('treats an unpaid debt without a paid amount as nothing paid and ignores sub-sum rounding', () => {
+    expect(debtsWithInvalidBalance([
+      { amount: 10_000, paid_amount: null, remaining_amount: 10_000 },
+      { amount: '10000.40', paid_amount: '0', remaining_amount: '10000' },
+    ])).toEqual([]);
   });
 });

@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { buildFilteredMoneyReport, buildMoneyReport, expensesFromSource, openingBalanceRange, withOpeningBalances } from './moneyReport';
+import {
+  buildFilteredMoneyReport,
+  buildMoneyReport,
+  dollarsHeldAtPeriodEnd,
+  earlierDaysRange,
+  expensesFromSource,
+  moneyLeftByMethod,
+  openingBalanceRange,
+  openingBalanceTotal,
+  withOpeningBalances,
+} from './moneyReport';
 
 describe('money report', () => {
   it('carries resolved creator names into report activities', () => {
@@ -450,5 +460,59 @@ describe('opening balances', () => {
     expect(cards.cash).toMatchObject({ opening: 8_472_000, collected: 7_288_000, expenses: 5_135_000, exchangedOut: 7_200_000, left: 3_425_000 });
     expect(cards.terminal).toMatchObject({ opening: 0, left: 0 });
     expect(withOpeningBalances(period, null)).toBe(period);
+  });
+});
+
+describe('opening balance total', () => {
+  it('is what the cards add from earlier in the month, so they sum to the headline plus it', () => {
+    const opening = buildMoneyReport(
+      [{ date: '2026-11-03', cash_income: 800_000, terminal_income: 300_000, card_income: 0, playstation_income: 50_000 }],
+      [{ id: 'e1', date: '2026-11-04', amount: 200_000, category: 'supplies', payment_method: 'cash', comment: '', created_at: '2026-11-04T10:00:00Z' }],
+    ).paymentMethods;
+    const period = buildMoneyReport(
+      [{ date: '2026-11-12', cash_income: 400_000, terminal_income: 0, card_income: 100_000, playstation_income: 0 }],
+      [],
+    );
+    const cards = withOpeningBalances(period.paymentMethods, opening);
+    const cardsTotal = Object.values(cards).reduce((sum, method) => sum + method.left, 0);
+
+    expect(openingBalanceTotal(opening)).toBe(950_000);
+    expect(cardsTotal).toBe(period.gameClubLeft + 950_000);
+    expect(openingBalanceTotal(null)).toBeNull();
+  });
+});
+
+describe('money left by method', () => {
+  it('takes each method\'s money left', () => {
+    const report = buildMoneyReport(
+      [{ date: '2026-11-03', cash_income: 800_000, terminal_income: 300_000, card_income: 20_000, playstation_income: 50_000 }],
+      [{ id: 'e1', date: '2026-11-04', amount: 200_000, category: 'supplies', payment_method: 'terminal', comment: '', created_at: '2026-11-04T10:00:00Z' }],
+    );
+    expect(moneyLeftByMethod(report.paymentMethods)).toEqual({ cash: 800_000, terminal: 100_000, card: 20_000, playstation: 50_000 });
+  });
+});
+
+describe('dollars held at a period end', () => {
+  const exchange = (id: string, date: string, from: 'cash' | 'usd', to: 'cash' | 'usd', fromAmount: number, toAmount: number) => ({
+    id, date, from_method: from, to_method: to, from_amount: fromAmount, to_amount: toAmount, rate: 12_500, comment: '', created_by: null, created_at: `${date}T10:00:00Z`,
+  });
+
+  it('covers every day before the period from the ledger start', () => {
+    expect(earlierDaysRange('2026-11-01')).toEqual({ from: '2000-01-01', to: '2026-10-31' });
+    expect(earlierDaysRange('2026-03-01')).toEqual({ from: '2000-01-01', to: '2026-02-28' });
+    expect(earlierDaysRange('2026-11-15')).toEqual({ from: '2000-01-01', to: '2026-11-14' });
+    expect(earlierDaysRange('2000-01-01')).toBeNull();
+    expect(earlierDaysRange('not a date')).toBeNull();
+  });
+
+  it('adds the period\'s movement to what earlier days left, so selling dollars bought earlier is not negative', () => {
+    // October: $200 bought, $30 spent. November: $80 of it sold.
+    const earlier = [exchange('x1', '2026-10-05', 'cash', 'usd', 2_500_000, 200)];
+    const earlierSpent = [{ date: '2026-10-20', amount: 375_000, payment_method: 'usd', usd_amount: 30 }];
+    const november = buildMoneyReport([], [], [], [], [], [exchange('x2', '2026-11-10', 'usd', 'cash', 80, 1_000_000)]);
+
+    expect(november.usd).toBe(-80);
+    expect(dollarsHeldAtPeriodEnd(earlier, earlierSpent, november.usd)).toBe(90);
+    expect(dollarsHeldAtPeriodEnd([], [], 40.5)).toBe(40.5);
   });
 });

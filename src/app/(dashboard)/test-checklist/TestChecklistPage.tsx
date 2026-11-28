@@ -10,6 +10,7 @@ import { relatedClub } from '@/lib/supabase/memberships';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import { Badge, ButtonLink, Card, EmptyState, InlineAlert, PageHeader } from '@/components/PresentationFoundation';
 import { calculateFinancialReportTotals, calculateManualIncome, type DailyCashEntry } from '@/lib/calculations/dailyReport';
+import { debtsWithInvalidBalance } from '@/lib/calculations/debt';
 import { normalizeBusinessDayStartHour, serverTodayIso } from '@/lib/utils';
 import { formatDateOnly, formatNumber } from '@/lib/formatters';
 import { DASHBOARD_PATH } from '@/lib/routes';
@@ -89,11 +90,11 @@ export default async function TestChecklistPage() {
       .eq('club_id', clubId)
       .eq('date', today)
       .order('id')),
-    fetchAllRows<{ id: string; amount: number; paid_amount: number | null }>(() => supabase
+    // Every debt, paid ones too: an overpaid debt is marked paid, so an unpaid-only read could never find one.
+    fetchAllRows<{ id: string; amount: number; paid_amount: number | null; remaining_amount: number | null }>(() => supabase
       .from('new_debts')
-      .select('id,amount,paid_amount')
+      .select('id,amount,paid_amount,remaining_amount')
       .eq('club_id', clubId)
-      .neq('status', 'paid')
       .order('id')),
     // The rows the daily report itself uses (snapshot RPC, or its fallback).
     loadFinanceReportRows(supabase, clubId, today, today, 'day'),
@@ -123,7 +124,7 @@ export default async function TestChecklistPage() {
   const stockRows = stockRes.data ?? [];
   const purchaseRows = purchaseRes.data ?? [];
   const expenseRows = expenseRes.data ?? [];
-  const activeDebts = debtRes.data ?? [];
+  const debts = debtRes.data ?? [];
   const n = (value: number) => formatNumber(value);
 
   const checks: CheckResult[] = [];
@@ -207,11 +208,11 @@ export default async function TestChecklistPage() {
     link: '/daily-report',
   });
 
-  const negDebts = activeDebts.filter((d) => Number(d.paid_amount ?? 0) > Number(d.amount));
+  const badDebts = debtsWithInvalidBalance(debts);
   checks.push({
     name: t('debts'),
-    pass: negDebts.length === 0,
-    explanation: negDebts.length === 0 ? t('debtsOk', { count: activeDebts.length }) : t('debtsFail', { count: negDebts.length }),
+    pass: badDebts.length === 0,
+    explanation: badDebts.length === 0 ? t('debtsOk', { count: debts.length }) : t('debtsFail', { count: badDebts.length }),
     link: '/debts',
   });
 

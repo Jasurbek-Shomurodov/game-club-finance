@@ -215,7 +215,7 @@ export default function DashboardPage({
         payload = fallback.data;
       }
 
-      setData(buildDashboardDataFromSnapshot({ ...snapshotRanges, payload }));
+      setData(buildDashboardDataFromSnapshot({ ...snapshotRanges, payload, businessToday, businessDayStartHour }));
       displayedRequestKey.current = requestKey;
       setLoading(false);
     } catch {
@@ -229,7 +229,7 @@ export default function DashboardPage({
       setError(true);
       setLoading(false);
     }
-  }, [range.from, range.to, selectedClubId, snapshotRanges]);
+  }, [businessDayStartHour, businessToday, range.from, range.to, selectedClubId, snapshotRanges]);
 
   useEffect(() => {
     const requestKey = `${selectedClubId}:${range.from}:${range.to}`;
@@ -281,7 +281,8 @@ export default function DashboardPage({
     return () => observer.disconnect();
   }, [loading, renderCharts]);
 
-  const { totals, previousTotals } = data;
+  // Each side's "vs last month" ends on its own latest entered day (getSideComparisonRanges).
+  const { totals, comparison } = data;
 
   const incomeComparisonLabel = isCurrentMonth ? t('vsLastMonth') : t('vsPreviousMonth');
 
@@ -438,7 +439,7 @@ export default function DashboardPage({
               icon={SIDE_ICONS.gameClub}
               accent="primary"
               tone="success"
-              comparison={comparisonFor(totals.gameClubIncome, previousTotals.gameClubIncome)}
+              comparison={comparisonFor(comparison.gameClub.current.gameClubIncome, comparison.gameClub.previous.gameClubIncome)}
               helper={paceNote(totals.gameClubIncome, averageGameClubDayCount)}
               sparkline={gameClubSpark}
             />
@@ -452,7 +453,7 @@ export default function DashboardPage({
               icon={SIDE_ICONS.playstation}
               accent="primary"
               tone="success"
-              comparison={comparisonFor(totals.playstationIncome, previousTotals.playstationIncome)}
+              comparison={comparisonFor(comparison.gameClub.current.playstationIncome, comparison.gameClub.previous.playstationIncome)}
               helper={paceNote(totals.playstationIncome, averageGameClubDayCount)}
               sparkline={playstationSpark}
             />
@@ -465,7 +466,7 @@ export default function DashboardPage({
               icon={SIDE_ICONS.bar}
               accent="bar"
               tone="success"
-              comparison={comparisonFor(totals.barSales, previousTotals.barSales)}
+              comparison={comparisonFor(comparison.bar.current.barSales, comparison.bar.previous.barSales)}
               helper={paceNote(totals.barSales, averageBarDayCount)}
               sparkline={barSpark}
             />
@@ -479,7 +480,7 @@ export default function DashboardPage({
               icon={totals.gameClubProfit < 0 ? ArrowDownRight : ArrowUpRight}
               accent="primary"
               tone={toneForAmount(totals.gameClubProfit)}
-              comparison={comparisonFor(totals.gameClubProfit, previousTotals.gameClubProfit)}
+              comparison={comparisonFor(comparison.gameClub.current.gameClubProfit, comparison.gameClub.previous.gameClubProfit)}
               helper={`${t('gameClubPaidExpenses')}: ${formatCurrency(totals.gameClubExpenses)} ${currency}`}
             />
             {/* The reserve's balance, as a link to its own page; the bar's profit is in its glance card below. */}
@@ -581,7 +582,7 @@ export default function DashboardPage({
                     loading={loading}
                     items={[
                       { href: gameClubDetailsHref, label: t('totalMoneyLeft'), helper: t('totalMoneyLeftDesc'), amount: totals.gameClubMoneyLeft, currency, tone: toneForAmount(totals.gameClubMoneyLeft) },
-                      { href: pathIfAllowed('/debts'), label: t('activeDebts'), helper: t('activeDebtsDesc', { count: totals.activeDebtCount }), amount: totals.activeDebts, currency, tone: totals.activeDebts > 0 ? 'danger' : 'default' },
+                      { href: pathIfAllowed('/debts'), label: isCurrentMonth ? t('activeDebts') : t('activeDebtsOn', { date: formatDateShort(range.to, locale) }), helper: t('activeDebtsDesc', { count: totals.activeDebtCount }), amount: totals.activeDebts, currency, tone: totals.activeDebts > 0 ? 'danger' : 'default' },
                       { href: gameClubDetailsHref, label: t('averageDailyIncome'), helper: t('averageDailyClubIncomeDesc'), amount: averageGameClubIncome, currency },
                       { href: gameClubDetailsHref, label: t('averageWeeklyIncome'), helper: t('averageWeeklyClubIncomeDesc'), amount: averageWeeklyGameClubIncome, currency },
                     ]}

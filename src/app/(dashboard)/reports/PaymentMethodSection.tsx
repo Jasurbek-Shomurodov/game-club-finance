@@ -12,11 +12,14 @@ import { MoneyTilesSkeleton, moneyTilesGridClassName } from './ReportsSkeleton';
 /**
  * Where the Game Club's money is right now (169): with the admin, with the
  * collector, and in the owner reserve. Three places, not parts of one total.
+ * The figures are always today's, whatever period the page shows.
  * An owner can put money into the reserve from here; the form is the reserve's own.
  */
-export function MoneyWhereabouts({ loading, title, kassa, collected, reserve, kassaLabel, kassaHelper, collectedLabel, collectedHelper, reserveLabel, reserveHelper, onKassaClick, onCollectedClick, kassaSelected, reserveDepositLabel, onReserveDeposit }: {
+export function MoneyWhereabouts({ loading, title, description, kassa, collected, reserve, kassaLabel, kassaHelper, collectedLabel, collectedHelper, reserveLabel, reserveHelper, onKassaClick, onCollectedClick, kassaSelected, reserveDepositLabel, onReserveDeposit }: {
   loading: boolean;
   title: string;
+  /** Says the figures are today's, when the page shows another period. */
+  description?: string;
   kassa: number;
   collected: number;
   /** Null when the viewer cannot read the reserve. */
@@ -45,7 +48,7 @@ export function MoneyWhereabouts({ loading, title, kassa, collected, reserve, ka
   const place = (label: string, helper: string) => <>{label}<span className="block font-normal">{helper}</span></>;
   return (
     <Card as="section">
-      <SectionHeading size="sm" title={title} action={depositAction} />
+      <SectionHeading size="sm" title={title} description={description} action={depositAction} />
       {loading ? (
         <SkeletonStatus><MoneyTilesSkeleton count={count} tall className="mt-3" /></SkeletonStatus>
       ) : (
@@ -70,9 +73,10 @@ export interface PaymentMethodTile {
 /**
  * What each payment method has left for the period, one tile per method. A
  * tile opens the method's full breakdown and its days (`MethodDaysModal`);
- * the dollars tile opens the exchanges behind it.
+ * the dollars tile, dollars held at the period's end over the period's own
+ * movement, opens the exchanges behind it.
  */
-export function PaymentMethodTiles({ loading, skeletonCount, title, description, methods, data, usd, usdLabel, usdNote, onSelectMethod, onSelectUsd }: {
+export function PaymentMethodTiles({ loading, skeletonCount, title, description, methods, data, usd, usdChange, usdLabel, usdChangeLabel, usdNote, onSelectMethod, onSelectUsd }: {
   loading: boolean;
   /** Tiles to draw while loading. */
   skeletonCount: number;
@@ -80,14 +84,20 @@ export function PaymentMethodTiles({ loading, skeletonCount, title, description,
   description: string;
   methods: readonly PaymentMethodTile[];
   data: Record<PaymentMethodFigure, MoneyReportPaymentBreakdown>;
-  /** Dollars held; the tile is drawn only when it is not zero. */
+  /** Dollars held at the period's end; the tile is drawn when it or `usdChange` is not zero. */
   usd: number;
+  /** Dollars bought minus sold and spent in the period. */
+  usdChange: number;
   usdLabel: string;
+  /** Names `usdChange` on the tile's second line. */
+  usdChangeLabel: string;
   usdNote: string;
   onSelectMethod: (method: PaymentMethodFigure) => void;
   onSelectUsd: () => void;
 }) {
-  const count = methods.length + (usd !== 0 ? 1 : 0);
+  const showUsd = usd !== 0 || usdChange !== 0;
+  const count = methods.length + (showUsd ? 1 : 0);
+  const usdChangeText = `${usdChange > 0 ? '+' : ''}${formatDollars(usdChange)}`;
   return (
     <Card as="section">
       <SectionHeading size="sm" title={title} description={description} />
@@ -107,11 +117,18 @@ export function PaymentMethodTiles({ loading, skeletonCount, title, description,
                 onClick={() => onSelectMethod(method)}
               />
             ))}
-            {usd !== 0 && (
-              <StatTile variant="soft" icon={CircleDollarSign} label={usdLabel} value={formatDollars(usd)} tone={usd < 0 ? 'danger' : 'success'} onClick={onSelectUsd} />
+            {showUsd && (
+              <StatTile
+                variant="soft"
+                icon={CircleDollarSign}
+                label={<>{usdLabel}<span className="block font-normal">{usdChangeLabel}: {usdChangeText}</span></>}
+                value={formatDollars(usd)}
+                tone={usd < 0 ? 'danger' : 'success'}
+                onClick={onSelectUsd}
+              />
             )}
           </div>
-          {usd !== 0 && <p className="mt-2 text-xs text-gray-500">{usdLabel}: {usdNote}</p>}
+          {showUsd && <p className="mt-2 text-xs text-gray-500">{usdLabel}: {usdNote}</p>}
         </>
       )}
     </Card>

@@ -53,8 +53,12 @@ import { useAppLocale } from '@/components/i18n/AppLocaleContext';
 import {
   buildFilteredMoneyReport,
   buildMoneyReport,
+  dollarsHeldAtPeriodEnd,
+  earlierDaysRange,
   expensesFromSource,
+  moneyLeftByMethod,
   openingBalanceRange,
+  openingBalanceTotal,
   withOpeningBalances,
   type MoneyReport,
   type MoneyReportActivity,
@@ -72,7 +76,7 @@ import { formatCurrency, formatDateOnly, formatDateShort, formatDollars, formatT
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import { createClient, mutateFinanceRequest } from '@/lib/supabase/client';
 import { requestDailyCashDeletion } from '@/lib/dailyCashApi';
-import { isMissingDatabaseFunction } from '@/lib/supabase/errors';
+import { isMissingDatabaseColumn, isMissingDatabaseFunction } from '@/lib/supabase/errors';
 import { cn } from '@/lib/utils';
 import { useBusinessToday } from '@/lib/useBusinessToday';
 import { useBusinessPeriod } from '@/lib/useBusinessPeriod';
@@ -90,14 +94,16 @@ import { DonutSkeleton, InOutChartSkeleton } from '@/components/charts/ChartSkel
 import { MoneyWhereabouts, PaymentMethodTiles } from './PaymentMethodSection';
 import { EntryDetailsSheet, activityKindVariant, type ExpenseCorrection } from './EntryDetailsSheet';
 import WriteOffsTab from './WriteOffsTab';
-import { fetchDollarExpenses, fetchMoneyExchanges, withDollarAmounts } from '@/lib/supabase/moneyExchanges';
+import { fetchDollarExpenses, fetchMoneyExchanges, withDollarAmounts, type DollarExpense } from '@/lib/supabase/moneyExchanges';
 import { fetchReserveMoves } from '@/lib/supabase/reserveMoves';
 import type { ReserveMove } from '@/lib/calculations/reserveMoves';
 import { requestCollectionChange } from '@/lib/collectionsApi';
 import {
-  COLLECTED_METHODS,
-  moneyStillHeldByMethod,
+  isCurrentMonthPeriod,
+  monthToDateRange,
+  periodCoversMoneyNow,
   summarizeCollectedMoney,
+  summarizeMoneyWhereabouts,
   type CollectedMethod,
   type CollectedMoneyMove,
   type CollectionGroup,
@@ -155,6 +161,15 @@ const emptyReportRows = {
   collectorNames: new Map<string, string | null>() as ReadonlyMap<string, string | null>,
   /** The owner reserve's sums, for owners; null when it cannot be read. */
   reserveSums: null as number | null,
+  /**
+   * Where the money is today when the period's own figures are not (it ends
+   * before today or starts in another month): the method cards and collected
+   * money of the business month's first day through today. Null when the
+   * period's figures already are today's, or the snapshot RPC (047) is missing.
+   */
+  now: null as { methods: MoneyReport['paymentMethods']; collectedMoves: CollectedMoneyMove[] } | null,
+  /** Exchanges and dollar expenses dated before the period, for the dollars held at its end. */
+  earlierDollars: { exchanges: [] as MoneyExchangeRow[], dollarExpenses: [] as DollarExpense[] },
 };
 
 type ReportRange = { from: string; to: string };
@@ -185,6 +200,7 @@ function SummaryCard({
   icon,
   tone,
   loading = false,
+  helper,
   href,
   onClick,
 }: {
@@ -193,6 +209,8 @@ function SummaryCard({
   icon: LucideIcon;
   tone: MetricTone;
   loading?: boolean;
+  /** One muted line under the figure. */
+  helper?: ReactNode;
   href?: string;
   onClick?: () => void;
 }) {
@@ -200,6 +218,7 @@ function SummaryCard({
     <MetricCard
       href={href}
       onClick={onClick}
+      helper={helper}
       label={label}
       value={<Money amount={value} currencyClassName="text-sm font-medium tracking-normal text-gray-500" />}
       tone={tone}
@@ -306,9 +325,13 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     setSearch('');
     document.getElementById('report-closeout')?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
   };
-  /** "With the admin" is the money of the days nobody has collected yet: show those days, or every day on a second tap. */
+  /**
+   * "With the admin" is the money of this month's days nobody has collected yet: show those days,
+   * or every day on a second tap. From another period it opens this month, whose money it is.
+   */
   const showPendingDays = () => {
-    const selected = view === 'closeout' && collectionFilter === 'pending';
+    const selected = view === 'closeout' && collectionFilter === 'pending' && !whereaboutsNow;
+    if (whereaboutsNow) setRange(getDashboardRange('month', businessToday));
     setView('closeout');
     setCollectionFilter(selected ? 'all' : 'pending');
     if (selected) return;
@@ -340,7 +363,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
 
     const supabase = createClient();
     const collectedFrom = openingBalanceRange(range.from)?.from ?? range.from;
-    const [snapshotResult, exchangeRows, collections, dollarExpenses, { opening }, reserveMoves, collectedMoves, reserveHoldings] = await Promise.all([
+    const nowRange = monthToDateRange(businessToday);
+    const [snapshotResult, exchangeRows, collections, dollarExpenses, { opening }, reserveMoves, collectedMoves, reserveHoldings, now, earlierDollars] = await Promise.all([
       supabase.rpc('get_money_report_snapshot', {
         p_club_id: selectedClubId,
         p_range_from: range.from,
@@ -355,12 +379,15 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       fetchReserveMoves(supabase, selectedClubId, range.from, range.to),
       fetchCollectedMoneyMoves(supabase, selectedClubId, collectedFrom, range.to),
       isOwner ? fetchReserveHoldings(supabase, selectedClubId) : Promise.resolve(null),
+      // The period's own figures are today's when it starts this month and reaches today.
+      periodCoversMoneyNow({ from: range.from, to: range.to }, businessToday) ? Promise.resolve(null) : loadMoneyNow(selectedClubId),
+      loadEarlierDollars(selectedClubId),
     ]);
     // Everyone who moved collected money: collectors, and who paid from it or moved it to the reserve.
     const collectorNames = await fetchProfileNames(supabase, collectedMoves.flatMap((move) => (
       move.createdBy ? [move.createdBy] : []
     )));
-    const collectedRows = { collectedMoves, collectorNames, reserveSums: reserveHoldings?.sums ?? null };
+    const collectedRows = { collectedMoves, collectorNames, reserveSums: reserveHoldings?.sums ?? null, now, earlierDollars };
 
     if (!snapshotResult.error) {
       const snapshot = snapshotResult.data as MoneyReportSnapshotPayload;
@@ -392,14 +419,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         .lte('date', range.to)
         .order('date', { ascending: true })
         .order('created_at', { ascending: true })),
-      fetchAllRows<ExpenseRow>(() => supabase
-        .from('expenses')
-        .select('id,date,amount,category,payment_method,payment_source,comment,created_by,created_at')
-        .eq('club_id', selectedClubId)
-        .gte('date', range.from)
-        .lte('date', range.to)
-        .order('date', { ascending: true })
-        .order('id', { ascending: true })),
+      fetchFallbackExpenses(selectedClubId),
       fetchAllRows<MoneyReportDebtPaymentRow>(() => supabase
         .from('debt_payments')
         .select('id,date,amount,payment_method,comment,created_at')
@@ -469,6 +489,58 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     };
 
     /**
+     * The period's expenses for the compatibility path. A purchase the reserve
+     * paid (136) takes nothing from a method, as on the main path; a database
+     * without the column has no such purchases.
+     */
+    async function fetchFallbackExpenses(clubId: string) {
+      const read = (columns: string) => fetchAllRows<ExpenseRow>(() => supabase
+        .from('expenses')
+        .select(columns)
+        .eq('club_id', clubId)
+        .gte('date', range.from)
+        .lte('date', range.to)
+        .order('date', { ascending: true })
+        .order('id', { ascending: true }));
+      const columns = 'id,date,amount,category,payment_method,payment_source,comment,created_by,created_at';
+      const result = await read(`${columns},paid_from_reserve`);
+      return result.error && isMissingDatabaseColumn(result.error, 'paid_from_reserve') ? read(columns) : result;
+    }
+
+    /**
+     * Where the money is today (the till and collected money start each month
+     * at zero): the method cards and collected money of the business month's
+     * first day through today, counted as the period's cards are. Null before
+     * the snapshot RPC (047): the period's own figures are shown instead.
+     */
+    async function loadMoneyNow(clubId: string): Promise<typeof emptyReportRows['now']> {
+      const [result, nowExchanges, nowReserveMoves, nowCollectedMoves] = await Promise.all([
+        supabase.rpc('get_money_report_snapshot', { p_club_id: clubId, p_range_from: nowRange.from, p_range_to: nowRange.to }),
+        fetchMoneyExchanges(supabase, clubId, nowRange.from, nowRange.to),
+        fetchReserveMoves(supabase, clubId, nowRange.from, nowRange.to),
+        fetchCollectedMoneyMoves(supabase, clubId, nowRange.from, nowRange.to),
+      ]);
+      if (result.error) {
+        if (isMissingDatabaseFunction(result.error, 'get_money_report_snapshot')) return null;
+        throw result.error;
+      }
+      const rows = result.data as MoneyReportSnapshotPayload;
+      const methods = buildMoneyReport(rows.cash ?? [], rows.expenses ?? [], rows.debtPayments ?? [], [], [], nowExchanges, nowReserveMoves).paymentMethods;
+      return { methods, collectedMoves: nowCollectedMoves };
+    }
+
+    /** Every exchange and dollar expense before the period: the dollars it starts with. */
+    async function loadEarlierDollars(clubId: string): Promise<typeof emptyReportRows['earlierDollars']> {
+      const earlier = earlierDaysRange(range.from);
+      if (!earlier) return emptyReportRows.earlierDollars;
+      const [exchanges, earlierDollarExpenses] = await Promise.all([
+        fetchMoneyExchanges(supabase, clubId, earlier.from, earlier.to),
+        fetchDollarExpenses(supabase, clubId, earlier.from, earlier.to),
+      ]);
+      return { exchanges, dollarExpenses: earlierDollarExpenses };
+    }
+
+    /**
      * Money is counted per month, so a period starting mid-month begins with
      * what the month's earlier days left in each method. Null before the
      * snapshot RPC (047) exists: the cards then show the period alone.
@@ -496,7 +568,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       const names = await fetchProfileNames(supabase, rows.map((row) => row.created_by));
       return rows.map((row) => ({ ...row, creator_name: row.created_by ? names.get(row.created_by) ?? null : null }));
     }
-  }, [hasReportsAccess, isOwner, range.from, range.to, selectedClubId]);
+  }, [businessToday, hasReportsAccess, isOwner, range.from, range.to, selectedClubId]);
   const reportQuery = useClubQuery<typeof emptyReportRows>(loadReport, emptyReportRows);
   const { loading, reload: reloadReport } = reportQuery;
   /** The report failed to load; shown with a Retry action instead of the empty state. */
@@ -547,15 +619,28 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     () => withOpeningBalances(report.paymentMethods, reportRows.opening),
     [report.paymentMethods, reportRows.opening],
   );
+  // What the cards add from the period's month before it starts: the cards sum to the headline plus this.
+  const openingTotal = openingBalanceTotal(reportRows.opening);
+  // Dollars held on the period's last day; the period's own movement is the tile's second line.
+  const usdHeld = useMemo(
+    () => dollarsHeldAtPeriodEnd(reportRows.earlierDollars.exchanges, reportRows.earlierDollars.dollarExpenses, report.usd),
+    [report.usd, reportRows.earlierDollars],
+  );
   // Collected money over the same span as the cards' money left: the month's first day through the period's end.
   const collectedSummary = useMemo(() => summarizeCollectedMoney(reportRows.collectedMoves), [reportRows.collectedMoves]);
   const collectedByMethod = collectedSummary.held;
-  // What the admin still holds: each method's money left, less what the collector holds of it.
-  // The Telegram report's caption counts it with the same function.
-  const kassaTotal = useMemo(() => moneyStillHeldByMethod(
-    Object.fromEntries(COLLECTED_METHODS.map((method) => [method, paymentCardData[method].left])) as Record<CollectedMethod, number>,
-    collectedSummary.held,
-  ).total, [collectedSummary.held, paymentCardData]);
+  // Where the money is today, whatever the period: the till and collected money start each month
+  // at zero, so they come from this month's first day through today (the period's own figures
+  // when they already are that). What the admin still holds is each method's money left, less
+  // what the collector holds of it; the Telegram report's caption counts it with the same function.
+  const moneyNow = useMemo(() => summarizeMoneyWhereabouts({
+    left: moneyLeftByMethod(reportRows.now?.methods ?? paymentCardData),
+    collectedMoves: reportRows.now?.collectedMoves ?? reportRows.collectedMoves,
+    reserve: { sums: reportRows.reserveSums ?? 0, usd: 0 },
+  }), [paymentCardData, reportRows.collectedMoves, reportRows.now, reportRows.reserveSums]);
+  // Named "now" when the period is not this month; not before 047, when only the period's figures exist.
+  const whereaboutsNow = (periodCoversMoneyNow(range, businessToday) || reportRows.now !== null)
+    && !isCurrentMonthPeriod(range, businessToday);
   const [collectDialogOpen, setCollectDialogOpen] = useState(false);
   /** Owner: the reserve deposit form, open with the day and amounts it starts from (none: today, all the till holds). */
   const [reserveDeposit, setReserveDeposit] = useState<{ date?: string; amounts?: ReserveDepositAmounts } | null>(null);
@@ -1191,9 +1276,10 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   const whereabouts = (
     <MoneyWhereabouts
       loading={loading}
-      title={t('collectMoney.whereTitle')}
-      kassa={kassaTotal}
-      collected={collectedSummary.held.total}
+      title={whereaboutsNow ? t('collectMoney.whereTitleNow') : t('collectMoney.whereTitle')}
+      description={whereaboutsNow ? t('collectMoney.whereNowHint', { date: formatDateOnly(businessToday, locale) }) : undefined}
+      kassa={moneyNow.kassa}
+      collected={moneyNow.collected}
       reserve={reportRows.reserveSums}
       kassaLabel={t('collectMoney.inKassaCard')}
       kassaHelper={t('collectMoney.inKassaCardHelper')}
@@ -1201,9 +1287,13 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
       collectedHelper={t('collectMoney.collectedCardHelper')}
       reserveLabel={t('collectMoney.reserveCard')}
       reserveHelper={t('collectMoney.reserveCardHelper')}
-      onCollectedClick={() => setView('collected')}
+      onCollectedClick={() => {
+        // Collected money now is this month's: from another period, open this month's collections.
+        if (whereaboutsNow) setRange(getDashboardRange('month', businessToday));
+        setView('collected');
+      }}
       onKassaClick={showPendingDays}
-      kassaSelected={view === 'closeout' && collectionFilter === 'pending'}
+      kassaSelected={view === 'closeout' && collectionFilter === 'pending' && !whereaboutsNow}
       reserveDepositLabel={tor('depositForm.button')}
       onReserveDeposit={isOwner ? () => setReserveDeposit({}) : undefined}
     />
@@ -1292,7 +1382,16 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
           <section className={cn(metricGridClassName, 'sm:grid-cols-2 xl:grid-cols-4')}>
             <SummaryCard loading={loading} onClick={() => showCloseout('money_in', null)} label={t('totalCollected')} value={report.totalCollected} icon={WalletCards} tone="success" />
             <SummaryCard loading={loading} onClick={() => showCloseout('expense', 'game_club')} label={t('gameClubExpenses')} value={report.gameClubExpenses} icon={ReceiptText} tone="danger" />
-            <SummaryCard loading={loading} href={moneyDetailsHref('game_club', range)} label={t('gameClubLeft')} value={report.gameClubLeft} icon={CircleDollarSign} tone={toneForAmount(report.gameClubLeft, 'default')} />
+            <SummaryCard
+              loading={loading}
+              href={moneyDetailsHref('game_club', range)}
+              label={t('gameClubLeft')}
+              value={report.gameClubLeft}
+              icon={CircleDollarSign}
+              tone={toneForAmount(report.gameClubLeft, 'default')}
+              // The method cards also hold what the month's earlier days left: name it, so they add up.
+              helper={openingTotal ? <>{t('fromEarlierThisMonth')}: <Money amount={openingTotal} /></> : undefined}
+            />
             <SummaryCard loading={loading} href={moneyDetailsHref('bar', range)} label={t('barCashLeft')} value={report.barLeft} icon={Banknote} tone={toneForAmount(report.barLeft, 'default')} />
           </section>
 
@@ -1305,9 +1404,11 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
             description={t('moneyLeftDescription')}
             methods={shownPaymentCards}
             data={paymentCardData}
-            usd={report.usd}
+            usd={usdHeld}
+            usdChange={report.usd}
             usdLabel={t('usd')}
-            usdNote={t('usdHeld')}
+            usdChangeLabel={t('usdPeriodChange')}
+            usdNote={t('usdHeldNote')}
             onSelectMethod={setMethodDays}
             onSelectUsd={() => showCloseout('exchange', null)}
           />

@@ -294,6 +294,52 @@ export function getDashboardComparisonRange(
   };
 }
 
+/** One side's "vs last month": the stretch of the current period it compares, and the stretch it compares with. */
+export interface SideComparisonRanges {
+  current: { from: string; to: string };
+  previous: { from: string; to: string };
+}
+
+/**
+ * The periods behind each side's "vs last month". While the range is in
+ * progress (through its last day), each side compares from the range start through its own latest
+ * entered day (game club: daily cash or new debt; bar: stock count; the same
+ * rule as getAverageIncomeDayCounts), and the previous period ends on the
+ * same day of it, so a day not entered yet is never measured against a full
+ * day. Without entries a side compares through the business today. A finished
+ * range compares in full, as getDashboardComparisonRange does.
+ */
+export function getSideComparisonRanges(
+  period: DashboardPeriod,
+  range: { from: string; to: string },
+  businessToday: string,
+  rows: {
+    cashRows: readonly { date: string }[];
+    debtRows?: readonly { date?: string }[];
+    stockRows: readonly { date: string }[];
+  },
+): { gameClub: SideComparisonRanges; bar: SideComparisonRanges } {
+  // The last day counts as in progress too: a side that has not entered it yet compares one day less.
+  const inProgress = businessToday >= range.from && businessToday <= range.to;
+  if (!inProgress) {
+    const whole = { current: range, previous: getDashboardComparisonRange(period, range, businessToday) };
+    return { gameClub: whole, bar: whole };
+  }
+  const soFar = { from: range.from, to: businessToday };
+  const debtDates = (rows.debtRows ?? []).flatMap((row) => (row.date ? [{ date: row.date }] : []));
+  const side = (latest: string | null): SideComparisonRanges => {
+    const through = latest ?? businessToday;
+    return {
+      current: { from: range.from, to: through },
+      previous: getDashboardComparisonRange(period, range, through),
+    };
+  };
+  return {
+    gameClub: side(getLatestRowDateInRange([...rows.cashRows, ...debtDates], soFar)),
+    bar: side(getLatestRowDateInRange([...rows.stockRows], soFar)),
+  };
+}
+
 export function countDashboardRangeDays(range: { from: string; to: string }): number {
   const from = parseLocalIsoDate(range.from);
   const to = parseLocalIsoDate(range.to);
@@ -629,20 +675,31 @@ export function calculateInventoryValue(products: ProductValueRow[]): number {
   );
 }
 
-/** Business date a product was deleted on, or null while it is not deleted. */
-function deletedOnBusinessDate(product: InventorySnapshotProduct | null | undefined): string | null {
+/**
+ * Business date a product was deleted on, or null while it is not deleted.
+ * A deletion before the club's business-day start hour belongs to the day before.
+ */
+function deletedOnBusinessDate(
+  product: InventorySnapshotProduct | null | undefined,
+  businessDayStartHour: number,
+): string | null {
   if (!product?.deleted_at) return null;
   const deletedAt = new Date(product.deleted_at);
-  return Number.isNaN(deletedAt.getTime()) ? null : serverTodayIso(deletedAt);
+  return Number.isNaN(deletedAt.getTime()) ? null : serverTodayIso(deletedAt, businessDayStartHour);
 }
 
 /**
  * Stock value at cost as of `asOf`, from each product's latest saved count.
  * Deleting a product zeroes its stock without a new count, so a product
- * deleted on or before `asOf` is worth nothing; before that date its counts
+ * deleted on or before `asOf` (in the club's business days, which start at
+ * `businessDayStartHour`) is worth nothing; before that date its counts
  * still stand.
  */
-export function calculateInventoryValueFromLatestStockCounts(rows: InventorySnapshotRow[], asOf: string): number {
+export function calculateInventoryValueFromLatestStockCounts(
+  rows: InventorySnapshotRow[],
+  asOf: string,
+  businessDayStartHour = 0,
+): number {
   const latestByProduct = rows.reduce((map, row) => {
     const existing = map.get(row.product_id);
 
@@ -657,7 +714,7 @@ export function calculateInventoryValueFromLatestStockCounts(rows: InventorySnap
     (sum, row) => {
       const product = Array.isArray(row.products) ? row.products[0] : row.products;
       if (product?.tracks_inventory === false) return sum;
-      const deletedOn = deletedOnBusinessDate(product);
+      const deletedOn = deletedOnBusinessDate(product, businessDayStartHour);
       if (deletedOn !== null && deletedOn <= asOf) return sum;
       return sum + Number(row.closing_stock ?? 0) * Number(row.cost_price ?? 0);
     },
@@ -670,12 +727,16 @@ export function calculateDashboardInventoryValue(
   liveInventoryValue: number,
   rows: InventorySnapshotRow[],
   range: { from: string; to: string },
+  businessDayStartHour = 0,
 ): number {
   if (period !== 'lastMonth') return liveInventoryValue;
 
+  // Each product's latest count on or before the month's end, however old: a deactivated
+  // product is never counted again but still holds its stock.
   return calculateInventoryValueFromLatestStockCounts(
-    rows.filter((row) => row.date >= range.from && row.date <= range.to),
+    rows.filter((row) => row.date <= range.to),
     range.to,
+    businessDayStartHour,
   );
 }
 

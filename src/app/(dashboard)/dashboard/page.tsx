@@ -42,10 +42,8 @@ async function DashboardSnapshotRoute() {
   // The server runs in UTC; compute the club's business date in the app time
   // zone so the snapshot matches the range the browser will ask for.
   const now = new Date();
-  const businessToday = serverTodayIso(
-    now,
-    normalizeBusinessDayStartHour(club.business_day_start_hour),
-  );
+  const businessDayStartHour = normalizeBusinessDayStartHour(club.business_day_start_hour);
+  const businessToday = serverTodayIso(now, businessDayStartHour);
   // The dashboard always shows the club's current business month.
   const ranges = getDashboardSnapshotRanges(businessToday);
   const supabase = await createClient();
@@ -54,7 +52,7 @@ async function DashboardSnapshotRoute() {
   // Errors and older databases without the RPC load on the client instead.
   if (!snapshot.data) return <DashboardPage />;
 
-  const data = buildDashboardDataFromSnapshot({ ...ranges, payload: snapshot.data });
+  const data = buildDashboardDataFromSnapshot({ ...ranges, payload: snapshot.data, businessToday, businessDayStartHour });
 
   return (
     <DashboardPage

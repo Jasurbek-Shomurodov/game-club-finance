@@ -20,7 +20,7 @@ import {
   type MoneyReportCashRow,
   type MoneyReportDebtPaymentRow,
 } from '@/lib/calculations/moneyReport';
-import { fetchAnalysisLedgers } from '@/lib/supabase/analysisLedgers';
+import { fetchAnalysisLedgers, fetchExpenseLedgerRows } from '@/lib/supabase/analysisLedgers';
 import { fetchReserveMoves } from '@/lib/supabase/reserveMoves';
 import { loadFinanceReportRows } from '@/lib/supabase/financeReportSnapshot';
 import { isMissingDatabaseFunction } from '@/lib/supabase/errors';
@@ -126,14 +126,8 @@ async function fetchMoneyReportRows(
       .lte('date', range.to)
       .order('date', { ascending: true })
       .order('id', { ascending: true })),
-    fetchAllRows<ExpenseRow>(() => supabase
-      .from('expenses')
-      .select('id,date,amount,category,payment_method,payment_source,comment,created_at')
-      .eq('club_id', clubId)
-      .gte('date', range.from)
-      .lte('date', range.to)
-      .order('date', { ascending: true })
-      .order('id', { ascending: true })),
+    // With the reserve flag, so reserve purchases stay out of the method balances (156).
+    fetchExpenseLedgerRows(supabase, clubId, range),
     fetchAllRows<MoneyReportDebtPaymentRow>(() => supabase
       .from('debt_payments')
       .select('id,date,amount,payment_method')

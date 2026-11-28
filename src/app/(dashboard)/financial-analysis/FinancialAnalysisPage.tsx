@@ -31,6 +31,7 @@ import {
 import { ChartCard, ChartEmpty, chartColors } from '@/components/dashboard/ChartCard';
 import {
   getDashboardComparisonRange,
+  getSideComparisonRanges,
   percentChange,
 } from '@/lib/calculations/dashboardMetrics';
 import {
@@ -40,6 +41,8 @@ import {
   buildFinancialAnalysis,
   buildMonthlyAnalysis,
   buildPlaystationDaily,
+  buildSideComparisons,
+  ledgersInRange,
   visiblePaymentMethodRows,
   type AnalysisLedgers,
   type MonthlyAnalysisRow,
@@ -108,22 +111,7 @@ const emptyLedgers: AnalysisLedgers = {
   debtPaymentRows: [],
 };
 
-const inRange = <T extends { date?: string }>(rows: T[], range: Range) =>
-  rows.filter((row) => row.date !== undefined && row.date >= range.from && row.date <= range.to);
-
 const containsRange = (outer: Range, inner: Range) => inner.from >= outer.from && inner.to <= outer.to;
-
-function sliceLedgers(ledgers: AnalysisLedgers, range: Range): AnalysisLedgers {
-  return {
-    cashRows: inRange(ledgers.cashRows, range),
-    stockRows: inRange(ledgers.stockRows, range),
-    purchaseRows: [],
-    expenseRows: inRange(ledgers.expenseRows, range),
-    debtRows: inRange(ledgers.debtRows, range),
-    debtPaymentRows: inRange(ledgers.debtPaymentRows, range),
-    reserveMoves: inRange(ledgers.reserveMoves ?? [], range),
-  };
-}
 
 function firstMonthOfWindow(businessToday: string, months = 12): string {
   const [year, month] = businessToday.split('-').map(Number);
@@ -360,7 +348,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
     void Promise.all([ledgerQuery.reload(), monthlyQuery.reload(), planQuery.reload()]);
   };
 
-  const current = useMemo(() => sliceLedgers(ledgers, range), [ledgers, range]);
+  const current = useMemo(() => ledgersInRange(ledgers, range), [ledgers, range]);
   // What looks off in the month, against the history the ledger read covers.
   // Until the plans settle it is unknown which categories they cover; a failed
   // plan read leaves every category to the checks.
@@ -383,7 +371,7 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
     isOwner: role === 'owner',
     businessMonth: businessToday.slice(0, 7),
   }), [businessToday, featureAccess, role]);
-  const previous = useMemo(() => sliceLedgers(ledgers, previousRange), [ledgers, previousRange]);
+  const previous = useMemo(() => ledgersInRange(ledgers, previousRange), [ledgers, previousRange]);
   // Average daily income follows the dashboard: each side through its latest entry in the range.
   const analysis = useMemo(() => buildFinancialAnalysis(range, current, { exchangeRows }), [current, exchangeRows, range]);
   // Days after today have no data yet; drawing them only adds an empty tail (as on the dashboard).
@@ -391,7 +379,15 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
     () => analysis.daily.filter((row, index) => index === 0 || row.date <= businessToday),
     [analysis.daily, businessToday],
   );
-  const previousAnalysis = useMemo(() => buildFinancialAnalysis(previousRange, previous), [previous, previousRange]);
+  // "vs last month": while the month runs, each side compares through its latest entered day
+  // with the same days of last month, so a day not entered yet is not set against a full one.
+  const sideComparison = useMemo(
+    () => buildSideComparisons(
+      ledgers,
+      getSideComparisonRanges(isCurrentMonth ? 'month' : 'lastMonth', range, businessToday, current),
+    ),
+    [businessToday, current, isCurrentMonth, ledgers, range],
+  );
   // PlayStation money, collected with each day's cash: how it grows day over day in the period.
   const playstationDays = useMemo(
     () => buildPlaystationDaily(range, current.cashRows, businessToday),
@@ -435,7 +431,6 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
   const methodName = (method: PaymentMethodFlowRow['method']) => td(method);
 
   const { indicators } = analysis;
-  const previousIndicators = previousAnalysis.indicators;
   const comparisonLabel = t('vsPrevious');
   const compare = (now: number, before: number) => {
     const value = percentChange(now, before);
@@ -468,7 +463,8 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
               color={chartColors.primary}
               incomeLabel={t('moneyIn')}
               now={indicators.gameClub}
-              before={previousIndicators.gameClub}
+              compareNow={sideComparison.gameClub.now}
+              before={sideComparison.gameClub.before}
               compare={compare}
               loading={loading}
               currency={currency}
@@ -484,7 +480,8 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
               color={chartColors.orange}
               incomeLabel={t('barSalesIn')}
               now={indicators.bar}
-              before={previousIndicators.bar}
+              compareNow={sideComparison.bar.now}
+              before={sideComparison.bar.before}
               compare={compare}
               loading={loading}
               currency={currency}
@@ -625,7 +622,8 @@ function MonthlyAnalysis({ range, businessToday }: { range: Range; businessToday
                     children: (
                       <PlaystationFigures
                         total={analysis.totals.playstationIncome}
-                        previous={previousAnalysis.totals.playstationIncome}
+                        // PlayStation money is the game club's: it compares over the game club's days.
+                        previous={sideComparison.gameClub.beforeTotals.playstationIncome}
                         gameClubIncome={analysis.totals.gameClubIncome}
                         days={playstationDays}
                         // PlayStation money is entered with each day's cash: its records are the period's income in Reports.

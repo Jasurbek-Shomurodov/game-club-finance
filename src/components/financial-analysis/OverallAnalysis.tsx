@@ -153,7 +153,8 @@ export function OverallAnalysis({ businessToday, onOpenMonth }: { businessToday:
       ledgers: source,
       analysis: buildFinancialAnalysis(range, source),
       months,
-      summary: buildOverallSummary(months),
+      // The month still running is listed but not counted in the average, best, worst or loss months.
+      summary: buildOverallSummary(months, businessToday.slice(0, 7)),
     };
   }, [businessToday, ledgers]);
   const { analysis, months, summary, range } = history;
@@ -226,7 +227,15 @@ export function OverallAnalysis({ businessToday, onOpenMonth }: { businessToday:
     <span className={cn('tabular-nums', metricToneClassName[toneForAmount(amount)])}>{formatCurrency(amount)}</span>
   );
   const columns: DataTableColumn<MonthTableRow>[] = [
-    { key: 'month', header: t('tableMonth'), render: (row) => <span className="font-medium text-gray-900">{monthName(row.month)}</span> },
+    {
+      key: 'month',
+      header: t('tableMonth'),
+      render: (row) => (
+        <span className="font-medium text-gray-900">
+          {row.month.slice(0, 7) === businessToday.slice(0, 7) ? t('monthSoFar', { month: monthName(row.month) }) : monthName(row.month)}
+        </span>
+      ),
+    },
     { key: 'gameClubIncome', header: t('gameClubIncome'), align: 'right', render: (row) => <span className="tabular-nums">{formatCurrency(row.gameClubIncome)}</span> },
     { key: 'gameClubLeft', header: t('drill.gameClubLeft'), align: 'right', render: (row) => signedCell(row.gameClubLeft) },
     { key: 'barSales', header: t('barSales'), align: 'right', render: (row) => <span className="tabular-nums">{formatCurrency(row.barSales)}</span> },

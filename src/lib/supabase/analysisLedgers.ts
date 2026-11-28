@@ -7,11 +7,38 @@ import type {
   StockCountRow,
 } from '@/lib/calculations/dashboardMetrics';
 import type { AnalysisLedgers } from '@/lib/calculations/financialAnalysis';
+import { isMissingDatabaseColumn } from './errors';
 import { fetchFinanceReportSnapshot, type FinanceReportSection } from './financeReportSnapshot';
 import { fetchAllRows } from './pagination';
 import { fetchReserveMoves } from './reserveMoves';
 
 const ANALYSIS_SECTIONS: FinanceReportSection[] = ['cash', 'stock_totals', 'expenses', 'debts', 'debt_payments'];
+
+const EXPENSE_LEDGER_COLUMNS = 'id,date,amount,category,payment_method,payment_source,comment,created_at';
+
+/**
+ * A club's expenses between two dates for the compatibility (table-read)
+ * paths, with `paid_from_reserve` so reserve purchases stay out of money
+ * left as on the RPC paths (156). A database without that column (before
+ * migration 136) has no reserve purchases, so its rows are read without it.
+ */
+export async function fetchExpenseLedgerRows(
+  supabase: SupabaseClient,
+  clubId: string,
+  range: { from: string; to: string },
+) {
+  const read = (columns: string) => fetchAllRows<ExpenseRow>(() => supabase
+    .from('expenses')
+    .select(columns)
+    .eq('club_id', clubId)
+    .gte('date', range.from)
+    .lte('date', range.to)
+    .order('date', { ascending: true })
+    .order('id', { ascending: true }) as never);
+  const withReserve = await read(`${EXPENSE_LEDGER_COLUMNS},paid_from_reserve`);
+  if (isMissingDatabaseColumn(withReserve.error, 'paid_from_reserve')) return read(EXPENSE_LEDGER_COLUMNS);
+  return withReserve;
+}
 
 /**
  * Reads every ledger the analysis needs for one date window, scoped to the
@@ -67,14 +94,7 @@ export async function fetchAnalysisLedgers(
       .lte('date', range.to)
       .order('date', { ascending: true })
       .order('product_id', { ascending: true })),
-    fetchAllRows<ExpenseRow>(() => supabase
-      .from('expenses')
-      .select('id,date,amount,category,payment_method,payment_source,comment,created_at')
-      .eq('club_id', clubId)
-      .gte('date', range.from)
-      .lte('date', range.to)
-      .order('date', { ascending: true })
-      .order('id', { ascending: true })),
+    fetchExpenseLedgerRows(supabase, clubId, range),
     fetchAllRows<DebtValueRow & { id: string }>(() => supabase
       .from('new_debts')
       .select('id,date,amount,remaining_amount,status')

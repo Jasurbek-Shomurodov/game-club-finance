@@ -11,6 +11,7 @@ import {
   getPromoGiveawayRows,
   getReportMoneyChecks,
   nextDailyReportBusinessDateIso,
+  productsNeedingEarlierCounts,
   sendTelegramMessage,
   sendTelegramPhoto,
   sendTelegramPhotoAlbum,
@@ -30,8 +31,8 @@ type RecordedQuery = { table: string; select?: string; filters: string[] };
 function recordingClient(
   clubRow: Record<string, unknown> | null,
   clubError: unknown = null,
-  /** Rows every read of a table returns; none by default. */
-  tableRows: Record<string, unknown[]> = {},
+  /** Rows every read of a table returns (or the rows for one read); none by default. */
+  tableRows: Record<string, unknown[] | ((query: RecordedQuery) => unknown[])> = {},
   /** What each RPC answers; an empty list by default. */
   rpcResults: Record<string, { data: unknown; error: unknown }> = {},
   /** An error for the reads it matches; none by default. */
@@ -48,13 +49,15 @@ function recordingClient(
         gte: (column: string, value: unknown) => { recorded.filters.push(`${column}>=${value}`); return query; },
         lte: (column: string, value: unknown) => { recorded.filters.push(`${column}<=${value}`); return query; },
         gt: (column: string, value: unknown) => { recorded.filters.push(`${column}>${value}`); return query; },
+        lt: (column: string, value: unknown) => { recorded.filters.push(`${column}<${value}`); return query; },
         neq: (column: string, value: unknown) => { recorded.filters.push(`${column}!=${value}`); return query; },
         in: (column: string, values: unknown[]) => { recorded.filters.push(`${column} in ${values.join('|')}`); return query; },
         or: (filter: string) => { recorded.filters.push(`or(${filter})`); return query; },
         order: () => query,
         range: async () => {
           const error = readError(recorded);
-          return error ? { data: null, error } : { data: tableRows[table] ?? [], error: null };
+          const rows = tableRows[table];
+          return error ? { data: null, error } : { data: (typeof rows === 'function' ? rows(recorded) : rows) ?? [], error: null };
         },
         single: async () => ({ data: clubRow, error: clubError }),
       };
@@ -242,6 +245,80 @@ describe('buildDailyFinanceTelegramReport where the money is', () => {
     expect(report.caption).not.toMatch(/У администратора|Собрано|В резерве|Всего денег/);
     expect(report.message).toContain('📊 Ежедневный финансовый отчёт');
     errorSpy.mockRestore();
+  });
+});
+
+describe('productsNeedingEarlierCounts', () => {
+  const windowRows = [
+    { product_id: 'cola', date: '2026-08-10' },
+    { product_id: 'chips', date: '2026-09-02' },
+  ];
+
+  it('asks for products with no count in the window on or before the date, archived ones included', () => {
+    expect(productsNeedingEarlierCounts([
+      { id: 'cola', tracks_inventory: true, deleted_at: null },
+      // Counted only after the comparison day: its earlier count gives last month's value.
+      { id: 'chips', tracks_inventory: true, deleted_at: null },
+      { id: 'archived', tracks_inventory: true, deleted_at: null },
+      { id: 'service', tracks_inventory: false, deleted_at: null },
+      // Deleted well before the window: worth nothing on either date.
+      { id: 'gone', tracks_inventory: true, deleted_at: '2026-06-01T09:00:00Z' },
+      // Deleted inside the window: still worth something before that day.
+      { id: 'later-gone', tracks_inventory: true, deleted_at: '2026-08-20T09:00:00Z' },
+    ], windowRows, '2026-07-09', '2026-08-31')).toEqual(['chips', 'archived', 'later-gone']);
+  });
+});
+
+describe('buildDailyFinanceTelegramReport stock value', () => {
+  const count = (productId: string, date: string, closing: number) => ({
+    product_id: productId, date, closing_stock: closing, cost_price: 1_000, bar_income: 0, bar_profit: 0, bar_cost: 0,
+    sold_quantity: 0, products: { tracks_inventory: true, deleted_at: null },
+  });
+
+  it('values every product at its latest count on or before the date, however old, scoped to the club', async () => {
+    const { client, queries } = recordingClient({ id: 'club', name: 'Pixel' }, null, {
+      // The catalog read (the low-stock section reads its own active rows).
+      products: (query) => (query.select === 'id,tracks_inventory,deleted_at'
+        ? [{ id: 'cola', tracks_inventory: true, deleted_at: null }, { id: 'archived', tracks_inventory: true, deleted_at: null }]
+        : []),
+      daily_stock_counts: (query) => {
+        if (query.filters.some((filter) => filter.startsWith('product_id in'))) return [count('archived', '2026-05-30', 4)];
+        if (query.select?.includes('closing_stock')) return [count('cola', '2026-09-03', 10)];
+        return [];
+      },
+    });
+    const report = await buildDailyFinanceTelegramReport(client, { businessDate: '2026-09-03', chatId: '-1001', clubId: 'club' });
+
+    // Cola's 10 counted today plus the archived product's 4 from May.
+    expect(report.message).toContain('📦 Стоимость склада: 14 000 UZS');
+    expect(queries).toContainEqual(expect.objectContaining({
+      table: 'daily_stock_counts',
+      // Cola too: it has no count on or before last month's comparison day (3 Aug).
+      filters: ['club_id=club', 'product_id in cola|archived', 'date<2026-07-09'],
+    }));
+    expect(queries).toContainEqual(expect.objectContaining({ table: 'products', select: 'id,tracks_inventory,deleted_at', filters: ['club_id=club'] }));
+  });
+});
+
+describe('buildDailyFinanceTelegramReport stock value and the business day', () => {
+  // 05:30 in Tashkent on 3 September: before a 06:00 start, so still the 2 September business day.
+  const deletedEarly = (startHour: number) => recordingClient({ id: 'club', name: 'Pixel', business_day_start_hour: startHour }, null, {
+    daily_stock_counts: (query) => (query.select?.includes('closing_stock') && !query.filters.some((filter) => filter.startsWith('product_id in'))
+      ? [{
+        product_id: 'cola', date: '2026-09-02', closing_stock: 10, cost_price: 1_000, bar_income: 0, bar_profit: 0, bar_cost: 0,
+        sold_quantity: 0, products: { tracks_inventory: true, deleted_at: '2026-09-03T00:30:00Z' },
+      }]
+      : []),
+  });
+
+  it('drops a product deleted before the club\'s day starts from that business day\'s value', async () => {
+    const report = await buildDailyFinanceTelegramReport(deletedEarly(6).client, { businessDate: '2026-09-02', chatId: '-1001', clubId: 'club' });
+    expect(report.message).toContain('📦 Стоимость склада: 0 UZS');
+  });
+
+  it('keeps it on a club whose day starts at midnight: the deletion is the next day', async () => {
+    const report = await buildDailyFinanceTelegramReport(deletedEarly(0).client, { businessDate: '2026-09-02', chatId: '-1001', clubId: 'club' });
+    expect(report.message).toContain('📦 Стоимость склада: 10 000 UZS');
   });
 });
 

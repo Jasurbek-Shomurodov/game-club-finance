@@ -78,7 +78,7 @@ import { BarWriteOffsSection } from './BarWriteOffsSection';
 import { fetchAllRows } from '@/lib/supabase/pagination';
 import { parseWriteOffReason, summarizeStockWriteOffs, type StockWriteOffCountRow } from '@/lib/stockWriteOffs';
 import { planGameClubDepositAll, reserveBalances, reserveForMonth, reservedNet } from '@/lib/calculations/ownerReserve';
-import { requestReserveMove } from '@/lib/ownerReserveRequests';
+import { requestReserveMove, requestReserveMoveParts } from '@/lib/ownerReserveRequests';
 import { CashShortageModal } from '@/components/cash-shortages/CashShortageForm';
 import {
   EMPTY_CASH_SHORTAGES,
@@ -879,8 +879,9 @@ export default function MoneyTakenPage() {
     setReserveBusy(`all:${source}`);
     try {
       // One deposit per Game Club method, so each keeps its own reserve balance;
-      // sent together so the club's group gets a single message.
-      const failure = await requestReserveMove(selectedClubId, {
+      // sent together so the club's group gets a single message. A refused
+      // method does not stop the others: the toast names what went in and what did not.
+      const { saved, failed } = await requestReserveMoveParts(selectedClubId, {
         kind: 'deposit',
         month: form.month,
         source,
@@ -888,7 +889,17 @@ export default function MoneyTakenPage() {
         parts: parts.map((part) => ({ id: crypto.randomUUID(), method: part.method, amount: part.amount })),
       });
       if (loadBeforeConfirm !== currentLoad.current) return;
-      showToast(failure ? tr(`errors.${failure}`) : tr('depositedToast'), failure ? 'error' : 'success');
+      const partLabel = (method: OwnerReserveMethod | null) => (method ? methodLabel(method) : tr(`sources.${source}`));
+      if (failed.length === 0) {
+        showToast(tr('depositedToast'), 'success');
+      } else if (saved.length === 0) {
+        showToast(tr(`errors.${failed[0].failure}`), 'error');
+      } else {
+        showToast(tr('depositAllPartial', {
+          saved: saved.map((part) => `${partLabel(part.method)} ${currency(part.amount)}`).join(', '),
+          failed: failed.map((part) => `${partLabel(part.method)} — ${tr(`errors.${part.failure}`)}`).join('; '),
+        }), 'error');
+      }
       await loadData({ silent: true });
     } catch {
       showToast(tr('errors.failed'), 'error');

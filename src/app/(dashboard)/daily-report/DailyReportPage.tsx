@@ -39,7 +39,7 @@ import { fetchReserveMoves } from '@/lib/supabase/reserveMoves';
 import type { ReserveMove } from '@/lib/calculations/reserveMoves';
 import { ChevronRight, FileText } from 'lucide-react';
 import type { DailyCashEntry, Expense, StockPurchase } from '@/types';
-import { closingStockHref, dayRange, moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
+import { closingStockHref, dayRange, debtsHref, financialAnalysisHref, moneyDetailsHref, reportsHref } from '@/lib/detailLinks';
 
 interface DailyReportData {
   cashEntry: DailyCashEntry | null;
@@ -116,19 +116,22 @@ export default function DailyReportPage() {
 
   // The game club and the bar are separate businesses: one row each, never added together.
   const day = dayRange(date);
-  const gameClubHref = linkIfAllowed(moneyDetailsHref('game_club', day));
+  // Profit is accounting profit: Financial Analysis of the day's month explains it. Money
+  // details explain cash left, a different figure, so only the bar's cash figures open them.
+  const profitHref = linkIfAllowed(financialAnalysisHref(date.slice(0, 7)));
   const barHref = linkIfAllowed(moneyDetailsHref('bar', day));
   const stockHref = linkIfAllowed(closingStockHref(date));
   const incomeHref = linkIfAllowed(reportsHref(day, { category: 'income' }));
   const totalFigures = {
     manualIncome: { href: incomeHref, label: t('manualIncome'), amount: manualIncome },
-    debtIncome: { href: linkIfAllowed(reportsHref(day, { category: 'debt_payment' })), label: t('debtIncome'), amount: debtIncome },
+    // Debt income is new debt principal, not payments: it opens the debts themselves.
+    debtIncome: { href: linkIfAllowed(debtsHref()), label: t('debtIncome'), amount: debtIncome },
     gameClubExpenses: { href: linkIfAllowed(reportsHref(day, { category: 'expense', source: 'game_club' })), label: t('gameClubExpenses'), amount: reportTotals.gameClubExpenses },
-    gameClubProfit: { href: gameClubHref, label: t('gameClubProfit'), amount: reportTotals.gameClubProfit },
+    gameClubProfit: { href: profitHref, label: t('gameClubProfit'), amount: reportTotals.gameClubProfit },
     barSales: { href: stockHref, label: t('barSales'), amount: reportTotals.barSales },
     costOfGoodsSold: { href: stockHref, label: t('costOfGoodsSold'), amount: reportTotals.barCost },
     barExpenses: { href: linkIfAllowed(reportsHref(day, { category: 'expense', source: 'bar' })), label: t('barExpenses'), amount: reportTotals.barExpenses },
-    barProfit: { href: barHref, label: t('barProfit'), amount: reportTotals.barProfit },
+    barProfit: { href: profitHref, label: t('barProfit'), amount: reportTotals.barProfit },
     inventoryPurchases: { href: barHref, label: t('inventoryPurchases'), amount: reportTotals.stockPurchaseCost },
     barCashLeft: { href: barHref, label: t('barCashLeft'), amount: reportTotals.barCashLeft },
   };

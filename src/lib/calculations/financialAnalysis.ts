@@ -10,6 +10,7 @@ import {
   type DebtValueRow,
   type ExpenseRow,
   type MoneyLeftByPaymentMethod,
+  type SideComparisonRanges,
   type StockCountRow,
   type StockPurchaseCostRow,
 } from './dashboardMetrics';
@@ -362,6 +363,63 @@ export function buildFinancialAnalysis(
   };
 }
 
+/** The ledger rows dated inside `range` (purchases are not part of the analysis). */
+export function ledgersInRange(ledgers: AnalysisLedgers, range: { from: string; to: string }): AnalysisLedgers {
+  const inRange = <T extends { date?: string }>(rows: readonly T[]) =>
+    rows.filter((row) => row.date !== undefined && row.date >= range.from && row.date <= range.to);
+  return {
+    cashRows: inRange(ledgers.cashRows),
+    stockRows: inRange(ledgers.stockRows),
+    purchaseRows: [],
+    expenseRows: inRange(ledgers.expenseRows),
+    debtRows: inRange(ledgers.debtRows),
+    debtPaymentRows: inRange(ledgers.debtPaymentRows),
+    reserveMoves: inRange(ledgers.reserveMoves ?? []),
+  };
+}
+
+/** One side's "vs last month": its figures over each compared stretch (getSideComparisonRanges). */
+export interface SideComparison {
+  now: SourceIndicators;
+  before: SourceIndicators;
+  nowTotals: DashboardTotals;
+  beforeTotals: DashboardTotals;
+}
+
+/**
+ * Each side's figures over its own compared stretches, from ledgers that
+ * cover both. Read only the side's own figures: the game club's from
+ * `gameClub`, the bar's from `bar`.
+ */
+export function buildSideComparisons(
+  ledgers: AnalysisLedgers,
+  ranges: { gameClub: SideComparisonRanges; bar: SideComparisonRanges },
+): { gameClub: SideComparison; bar: SideComparison } {
+  const over = (range: { from: string; to: string }) => {
+    const rows = ledgersInRange(ledgers, range);
+    const totals = analysisTotals(rows);
+    return { totals, indicators: buildAnalysisIndicators(totals, getAverageIncomeDayCounts(range, rows)) };
+  };
+  const gameClubNow = over(ranges.gameClub.current);
+  const gameClubBefore = over(ranges.gameClub.previous);
+  const barNow = over(ranges.bar.current);
+  const barBefore = over(ranges.bar.previous);
+  return {
+    gameClub: {
+      now: gameClubNow.indicators.gameClub,
+      before: gameClubBefore.indicators.gameClub,
+      nowTotals: gameClubNow.totals,
+      beforeTotals: gameClubBefore.totals,
+    },
+    bar: {
+      now: barNow.indicators.bar,
+      before: barBefore.indicators.bar,
+      nowTotals: barNow.totals,
+      beforeTotals: barBefore.totals,
+    },
+  };
+}
+
 export interface PlaystationDayRow {
   date: string;
   /** PlayStation money collected that day. */
@@ -451,7 +509,7 @@ export function monthsSpanned(from: string, to: string): number {
 }
 
 export interface OverallSideSummary {
-  /** Average monthly profit over every month in the history, empty months included. */
+  /** Average monthly profit over every finished month in the history, empty months included. */
   averageMonthlyProfit: number;
   best: { month: string; profit: number } | null;
   worst: { month: string; profit: number } | null;
@@ -459,16 +517,25 @@ export interface OverallSideSummary {
   lossMonths: number;
 }
 
-/** Average, best and worst month of each side's profit; the sides are never combined. */
-export function buildOverallSummary(rows: MonthlyAnalysisRow[]): { months: number; gameClub: OverallSideSummary; bar: OverallSideSummary } {
+/**
+ * Average, best and worst month of each side's profit; the sides are never
+ * combined. `unfinishedMonth` (YYYY-MM, the business month still running) is
+ * left out of all four: half a month is not a month. `months` still counts
+ * every month of the history.
+ */
+export function buildOverallSummary(
+  rows: MonthlyAnalysisRow[],
+  unfinishedMonth?: string,
+): { months: number; gameClub: OverallSideSummary; bar: OverallSideSummary } {
+  const finished = rows.filter((row) => row.month.slice(0, 7) !== unfinishedMonth);
   const side = (profitOf: (row: MonthlyAnalysisRow) => number, incomeOf: (row: MonthlyAnalysisRow) => number): OverallSideSummary => {
-    const active = rows.filter((row) => incomeOf(row) !== 0 || profitOf(row) !== 0);
+    const active = finished.filter((row) => incomeOf(row) !== 0 || profitOf(row) !== 0);
     const pick = (better: (a: number, b: number) => boolean) => active.reduce<OverallSideSummary['best']>(
       (found, row) => (found === null || better(profitOf(row), found.profit) ? { month: row.month, profit: profitOf(row) } : found),
       null,
     );
     return {
-      averageMonthlyProfit: rows.length ? Math.round(rows.reduce((sum, row) => sum + profitOf(row), 0) / rows.length) : 0,
+      averageMonthlyProfit: finished.length ? Math.round(finished.reduce((sum, row) => sum + profitOf(row), 0) / finished.length) : 0,
       best: pick((a, b) => a > b),
       worst: pick((a, b) => a < b),
       lossMonths: active.filter((row) => profitOf(row) < 0).length,

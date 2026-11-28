@@ -60,7 +60,7 @@ const FIGURE_TILE = 'min-w-0 rounded-xl bg-gray-50 px-3 py-2.5 max-sm:flex max-s
  * margin ring and the daily average. The game club and the bar each get one;
  * the two are never added together.
  */
-export function SideScorecard({ title, icon: Icon, accent = 'neutral', color, incomeLabel, now, before, compare, loading, currency, locale, detailsHref, spentHref, labels }: {
+export function SideScorecard({ title, icon: Icon, accent = 'neutral', color, incomeLabel, now, compareNow = now, before, compare, loading, currency, locale, detailsHref, spentHref, labels }: {
   title: string;
   icon: LucideIcon;
   /** Kept for call-site compatibility; the icon tile takes its colour from `accent`. */
@@ -70,6 +70,8 @@ export function SideScorecard({ title, icon: Icon, accent = 'neutral', color, in
   color: string;
   incomeLabel: string;
   now: SourceIndicators;
+  /** The figures `before` is compared with, when the compared stretch is shorter than `now`'s; defaults to `now`. */
+  compareNow?: SourceIndicators;
   before?: SourceIndicators;
   compare?: (now: number, before: number) => { value: number | null; label: string };
   loading: boolean;
@@ -88,10 +90,10 @@ export function SideScorecard({ title, icon: Icon, accent = 'neutral', color, in
   const keptShare = hasIncome ? Math.max(0, 1 - spentShare) : 0;
   const spentText = hasIncome ? formatPercentShare(spentShare, locale) : '—';
   const keptText = hasIncome ? formatPercentShare(keptShare, locale) : '—';
-  const figures: Array<{ key: string; label: string; amount: number; tone: MetricTone; href?: string; goodWhen: 'up' | 'down'; previous?: number }> = [
-    { key: 'in', label: incomeLabel, amount: now.income, tone: 'default', href: detailsHref, goodWhen: 'up', previous: before?.income },
-    { key: 'spent', label: labels.spent, amount: now.spent, tone: 'danger', href: spentHref, goodWhen: 'down', previous: before?.spent },
-    { key: 'profit', label: labels.profit, amount: now.left, tone: toneForAmount(now.left), href: detailsHref, goodWhen: 'up', previous: before?.left },
+  const figures: Array<{ key: string; label: string; amount: number; tone: MetricTone; href?: string; goodWhen: 'up' | 'down'; compared: number; previous?: number }> = [
+    { key: 'in', label: incomeLabel, amount: now.income, tone: 'default', href: detailsHref, goodWhen: 'up', compared: compareNow.income, previous: before?.income },
+    { key: 'spent', label: labels.spent, amount: now.spent, tone: 'danger', href: spentHref, goodWhen: 'down', compared: compareNow.spent, previous: before?.spent },
+    { key: 'profit', label: labels.profit, amount: now.left, tone: toneForAmount(now.left), href: detailsHref, goodWhen: 'up', compared: compareNow.left, previous: before?.left },
   ];
   return (
     <Card as="section" aria-label={title}>
@@ -106,7 +108,7 @@ export function SideScorecard({ title, icon: Icon, accent = 'neutral', color, in
       {/* Three across only where each figure has room for a whole amount; otherwise one row per figure. */}
       <div className={FIGURE_GRID}>
         {figures.map((figure) => {
-          const change = compare && figure.previous !== undefined ? compare(figure.amount, figure.previous) : null;
+          const change = compare && figure.previous !== undefined ? compare(figure.compared, figure.previous) : null;
           const good = change?.value !== null && change?.value !== undefined
             ? (figure.goodWhen === 'up' ? change.value >= 0 : change.value <= 0)
             : null;

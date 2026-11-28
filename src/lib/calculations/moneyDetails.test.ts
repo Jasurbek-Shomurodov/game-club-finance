@@ -158,4 +158,22 @@ describe('bar money detail rows', () => {
   it('does not create a day for a purchase before the cutoff', () => {
     expect(buildBarMoneyDetailRows([], [purchaseRows[0]], [])).toEqual([]);
   });
+
+  it('takes Bar money put into the reserve off its day, on fallback rows too, and ignores Game Club moves', () => {
+    const fallback = buildBarMoneyDetailRows(
+      [{ date: '2026-07-03', bar_income: 100_000 }],
+      [],
+      [{ date: '2026-07-03', amount: 10_000, category: 'other', payment_source: 'bar', comment: null }],
+      [
+        { date: '2026-07-03', source: 'bar', method: null, amount: 30_000 },
+        { date: '2026-07-04', source: 'bar', method: null, amount: 5_000 },
+        { date: '2026-07-03', source: 'game_club', method: 'cash', amount: 99_000 },
+      ],
+    );
+    expect(fallback.map((row) => [row.date, row.deductionsTotal, row.moneyLeft])).toEqual([
+      ['2026-07-03', 40_000, 60_000],
+      ['2026-07-04', 5_000, -5_000],
+    ]);
+    expect(fallback[0].deductions.at(-1)).toEqual({ kind: 'reserve', amount: 30_000 });
+  });
 });

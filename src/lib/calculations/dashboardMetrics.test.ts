@@ -18,6 +18,7 @@ import {
   getDashboardRange,
   getLatestRowDateInRange,
   getPreviousDashboardRange,
+  getSideComparisonRanges,
   localIsoDate,
   percentChange,
 } from './dashboardMetrics';
@@ -217,6 +218,59 @@ describe('dashboard metrics', () => {
     ).toEqual({ from: '2026-05-25', to: '2026-05-31' });
   });
 
+  it('ends each side\'s "vs last month" on its own latest entered day while the month runs', () => {
+    const october = { from: '2026-10-01', to: '2026-10-31' };
+    const ranges = getSideComparisonRanges('month', october, '2026-10-14', {
+      // Today's cash is not entered yet; a new debt was entered on the 12th.
+      cashRows: [{ date: '2026-10-05' }, { date: '2026-10-11' }],
+      debtRows: [{ date: '2026-10-12' }, {}],
+      stockRows: [{ date: '2026-10-09' }],
+    });
+    expect(ranges.gameClub).toEqual({
+      current: { from: '2026-10-01', to: '2026-10-12' },
+      previous: { from: '2026-09-01', to: '2026-09-12' },
+    });
+    expect(ranges.bar).toEqual({
+      current: { from: '2026-10-01', to: '2026-10-09' },
+      previous: { from: '2026-09-01', to: '2026-09-09' },
+    });
+  });
+
+  it('compares a side with no entries yet through today, and a finished month in full', () => {
+    const october = { from: '2026-10-01', to: '2026-10-31' };
+    const empty = getSideComparisonRanges('month', october, '2026-10-14', { cashRows: [], stockRows: [] });
+    expect(empty.bar).toEqual({ current: { from: '2026-10-01', to: '2026-10-14' }, previous: { from: '2026-09-01', to: '2026-09-14' } });
+    // An entry dated after today does not move the comparison past today.
+    const future = getSideComparisonRanges('month', october, '2026-10-14', { cashRows: [{ date: '2026-10-20' }], stockRows: [] });
+    expect(future.gameClub.current.to).toBe('2026-10-14');
+
+    const september = { from: '2026-09-01', to: '2026-09-30' };
+    const past = getSideComparisonRanges('lastMonth', september, '2026-10-14', { cashRows: [{ date: '2026-09-03' }], stockRows: [] });
+    expect(past.gameClub).toEqual({ current: september, previous: { from: '2026-08-01', to: '2026-08-31' } });
+    expect(past.bar).toEqual(past.gameClub);
+  });
+
+  it('on the month\'s last day compares a side that has not entered it with one day less', () => {
+    const october = { from: '2026-10-01', to: '2026-10-31' };
+    const lastDay = getSideComparisonRanges('month', october, '2026-10-31', {
+      cashRows: [{ date: '2026-10-31' }],
+      stockRows: [{ date: '2026-10-30' }],
+    });
+    // The game club entered the 31st: the whole month against the whole month before.
+    expect(lastDay.gameClub).toEqual({ current: october, previous: { from: '2026-09-01', to: '2026-09-30' } });
+    // The bar's last count is the 30th: 1-30 October against 1-30 September.
+    expect(lastDay.bar).toEqual({
+      current: { from: '2026-10-01', to: '2026-10-30' },
+      previous: { from: '2026-09-01', to: '2026-09-30' },
+    });
+    // August has 31 days: a side through the 30th compares with 1-30 July, not all of it.
+    const august = getSideComparisonRanges('month', { from: '2026-08-01', to: '2026-08-31' }, '2026-08-31', {
+      cashRows: [{ date: '2026-08-30' }],
+      stockRows: [],
+    });
+    expect(august.gameClub.previous).toEqual({ from: '2026-07-01', to: '2026-07-30' });
+  });
+
   it('calculates inventory value from latest closing stock per product', () => {
     expect(
       calculateInventoryValueFromLatestStockCounts([
@@ -252,6 +306,19 @@ describe('dashboard metrics', () => {
     }];
     expect(calculateInventoryValueFromLatestStockCounts(rows, '2026-11-23')).toBe(5_000);
     expect(calculateInventoryValueFromLatestStockCounts(rows, '2026-11-24')).toBe(0);
+  });
+
+  it('dates a deletion in the club\'s business days', () => {
+    // 01:30 Tashkent on 24 Nov is still the 23rd's business day when the day starts at 06:00.
+    const rows = [{
+      product_id: 'kurt', date: '2026-11-23', closing_stock: 5, cost_price: 1_000,
+      products: { tracks_inventory: true, deleted_at: '2026-11-23T20:30:00+00:00' },
+    }];
+    expect(calculateInventoryValueFromLatestStockCounts(rows, '2026-11-23', 6)).toBe(0);
+    expect(calculateInventoryValueFromLatestStockCounts(rows, '2026-11-22', 6)).toBe(5_000);
+    expect(calculateDashboardInventoryValue('lastMonth', 0, rows, { from: '2026-11-01', to: '2026-11-23' }, 6)).toBe(0);
+    // A midnight start keeps it on the 24th.
+    expect(calculateInventoryValueFromLatestStockCounts(rows, '2026-11-23', 0)).toBe(5_000);
   });
 
   it('ignores an unreadable deletion time', () => {

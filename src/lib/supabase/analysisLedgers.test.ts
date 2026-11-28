@@ -118,6 +118,40 @@ describe('fetchAnalysisLedgers', () => {
     }
   });
 
+  it('reads the reserve flag on the fallback path, and reads without it on a database that predates it', async () => {
+    const expenses = [{ id: 'e1', date: '2026-10-02', amount: 5, category: 'repair', payment_method: 'cash', payment_source: 'game_club', paid_from_reserve: true }];
+    const { supabase, reads } = fakeClient(missingRpc, { expenses: { data: expenses, error: null } });
+    const ledgers = await fetchAnalysisLedgers(supabase, 'club-1', range);
+    expect(ledgers.expenseRows).toEqual(expenses);
+    const select = (read: { calls: Call[] }) => String(read.calls.find(([name]) => name === 'select')?.[1][0]);
+    expect(select(reads.find((read) => read.table === 'expenses')!)).toContain('paid_from_reserve');
+
+    // Before migration 136 the column is missing: the same rows are read without it.
+    const older = fakeClient(missingRpc);
+    const plain = [{ id: 'e2', date: '2026-10-03', amount: 7, category: 'rent' }];
+    older.from.mockImplementation((table: string) => {
+      const calls: Call[] = [];
+      older.reads.push({ table, calls });
+      const chain: Record<string, unknown> = {};
+      for (const method of ['select', 'eq', 'gte', 'lte', 'order', 'range']) {
+        chain[method] = (...args: unknown[]) => { calls.push([method, args]); return chain; };
+      }
+      chain.then = (resolve: (value: unknown) => unknown) => {
+        const withFlag = table === 'expenses' && String(calls[0]?.[1][0]).includes('paid_from_reserve');
+        const result = withFlag
+          ? { data: null, error: { code: '42703', message: 'column expenses.paid_from_reserve does not exist' } }
+          : { data: table === 'expenses' ? plain : [], error: null };
+        return Promise.resolve(result).then(resolve);
+      };
+      return chain;
+    });
+    await expect(fetchAnalysisLedgers(older.supabase, 'club-1', range)).resolves.toMatchObject({ expenseRows: plain });
+    const expenseReads = older.reads.filter((read) => read.table === 'expenses');
+    expect(expenseReads).toHaveLength(2);
+    expect(select(expenseReads[1])).not.toContain('paid_from_reserve');
+    expect(expenseReads[1].calls).toContainEqual(['eq', ['club_id', 'club-1']]);
+  });
+
   it('returns empty ledgers when the fallback tables have no rows', async () => {
     const none = { data: null, error: null };
     const { supabase } = fakeClient(missingRpc, {

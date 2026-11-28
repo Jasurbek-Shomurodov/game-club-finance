@@ -88,13 +88,38 @@ describe('/api/reserve', () => {
     expect(mocks.sendTelegramMessage).not.toHaveBeenCalled();
   });
 
-  it('reports what was saved before a refusal and returns the refusal', async () => {
+  it('names the stored and the refused parts, and returns the refusal', async () => {
     mockSupabase({ rpc: [{}, { data: null, error: { hint: 'reserve_exceeds_available' } }] });
     const response = await flush(POST(request('POST', deposit)));
 
     expect(response.status).toBe(409);
-    expect(await response.json()).toEqual({ failure: 'exceeds_available' });
+    expect(await response.json()).toEqual({
+      failure: 'exceeds_available',
+      saved: [{ id: ID_1, method: 'cash', amount: 649_200 }],
+      failed: [{ id: ID_2, method: 'playstation', amount: 210_000, failure: 'exceeds_available' }],
+    });
     expect(mocks.sendTelegramMessage.mock.calls[0][0].text).toContain('🏦 В резерв: 649 200 сум');
+  });
+
+  it('still stores the parts after a refused one: each method has its own balance', async () => {
+    const { rpc } = mockSupabase({ rpc: [{ data: null, error: { hint: 'reserve_insufficient' } }, {}] });
+    const response = await flush(POST(request('POST', deposit)));
+
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      failure: 'insufficient',
+      saved: [{ id: ID_2, method: 'playstation', amount: 210_000 }],
+      failed: [{ id: ID_1, method: 'cash', amount: 649_200, failure: 'insufficient' }],
+    });
+    expect(mocks.sendTelegramMessage.mock.calls[0][0].text).toContain('🏦 В резерв: 210 000 сум');
+  });
+
+  it('lists a retried part as stored though nothing new was recorded', async () => {
+    mockSupabase({ rpc: [{ data: false }, { data: true }] });
+    const response = await flush(POST(request('POST', deposit)));
+
+    expect(await response.json()).toEqual({ recorded: 1, saved: deposit.parts, failed: [] });
   });
 
   it('refuses a signed-out caller, a Bar part with a method, and a Game Club part without one', async () => {

@@ -39,6 +39,47 @@ export interface ReserveMoveRequest {
 
 export const requestReserveMove = (clubId: string, move: ReserveMoveRequest) => send('POST', { clubId, ...move });
 
+type ReserveMovePart = ReserveMoveRequest['parts'][number];
+
+export interface ReserveMovePartsResult {
+  /** Parts stored by this request (a retried one included), in the order sent. */
+  saved: ReserveMovePart[];
+  /** Parts refused, each with its reason. */
+  failed: Array<ReserveMovePart & { failure: ReserveErrorCode }>;
+}
+
+/**
+ * Sends a move of several parts ("Put all in") and says which parts were
+ * stored and which were refused, so the page can name both. A reply without
+ * the part lists (a refused request as a whole) refuses every part with its
+ * code. A request that never got an answer throws: what it stored is unknown.
+ */
+export async function requestReserveMoveParts(clubId: string, move: ReserveMoveRequest): Promise<ReserveMovePartsResult> {
+  const response = await mutateFinanceRequest('/api/reserve', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ clubId, ...move }),
+  });
+  const payload = await response.json().catch(() => null) as { failure?: unknown; saved?: unknown; failed?: unknown } | null;
+  const code = (value: unknown): ReserveErrorCode => (CODES.includes(value as ReserveErrorCode) ? value as ReserveErrorCode : 'failed');
+  if (!Array.isArray(payload?.saved) || !Array.isArray(payload?.failed)) {
+    return response.ok
+      ? { saved: [...move.parts], failed: [] }
+      : { saved: [], failed: move.parts.map((part) => ({ ...part, failure: code(payload?.failure) })) };
+  }
+  // The parts as sent, matched by id: the reply only names them.
+  const listed = (value: unknown[]) => new Map(value.map((item) => {
+    const row = item as { id?: unknown; failure?: unknown } | null;
+    return [typeof row?.id === 'string' ? row.id : '', row?.failure] as const;
+  }));
+  const saved = listed(payload.saved);
+  const failed = listed(payload.failed);
+  return {
+    saved: move.parts.filter((part) => saved.has(part.id)),
+    failed: move.parts.filter((part) => failed.has(part.id)).map((part) => ({ ...part, failure: code(failed.get(part.id)) })),
+  };
+}
+
 export interface ReserveDepositByMethodResult {
   /** The methods stored by this call, in the order sent. */
   saved: OwnerWithdrawalPaymentMethod[];

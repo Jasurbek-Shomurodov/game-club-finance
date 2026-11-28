@@ -144,6 +144,31 @@ export function summarizeMoneyWhereabouts(input: {
   };
 }
 
+/**
+ * The days whose money the till and collected money hold today: the business
+ * month's first day through today. Both start each month at zero, so a period
+ * reaching back into an earlier month says nothing about where money is now.
+ */
+export function monthToDateRange(today: string): { from: string; to: string } {
+  return { from: `${today.slice(0, 7)}-01`, to: today };
+}
+
+/**
+ * Whether a Reports period's own figures already are where the money is today.
+ * Its method cards and collected money run from its month's first day through
+ * its end, so a period that starts in today's month and reaches today has
+ * counted every day so far (nothing is ever dated after the business today).
+ */
+export function periodCoversMoneyNow(range: { from: string; to: string }, today: string): boolean {
+  return range.from.slice(0, 7) === today.slice(0, 7) && range.to >= today;
+}
+
+/** Whether a period is the current business month: its first day through today or later in the month. */
+export function isCurrentMonthPeriod(range: { from: string; to: string }, today: string): boolean {
+  const month = today.slice(0, 7);
+  return range.from === `${month}-01` && range.to.slice(0, 7) === month && range.to >= today;
+}
+
 /** Moves from the RPC payload, or none when it is missing or malformed (before migration 169). */
 export function parseCollectedMoneyMoves(value: unknown): CollectedMoneyMove[] {
   if (!Array.isArray(value)) return [];

@@ -1246,6 +1246,14 @@ test.describe('on a phone', () => {
 test('REP-010 a collector takes money from the admin, and a bill is paid from what was collected', async ({ page }) => {
   // Today's Arcade money left: cash 1 200 000 + 200 000 debt payment - 120 000 cleaning = 1 280 000,
   // terminal 850 000, card 350 000 - 80 000 = 270 000, PlayStation 250 000: 2 650 000 with the admin.
+  // The three places are always today's money: last month's report shows the same, named as now.
+  const [year, monthNumber] = today.split('-').map(Number);
+  const lastMonthEnd = new Date(Date.UTC(year, monthNumber - 1, 0)).toISOString().slice(0, 10);
+  await page.goto(`/reports?from=${lastMonthEnd.slice(0, 8)}01&to=${lastMonthEnd}`);
+  const whereNow = page.locator('section').filter({ hasText: 'Where the money is now' }).first();
+  await expect(whereNow).toContainText('Money still in the club’s kassa');
+  await expect(whereNow).toContainText(uzs(expected.gameClubMoneyLeft));
+
   await page.goto('/reports');
   const whereabouts = page.locator('section').filter({ hasText: 'Money still in the club’s kassa' }).first();
   await expect(whereabouts).toContainText(uzs(expected.gameClubMoneyLeft));
