@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
 import { Skeleton } from '@/components/PresentationFoundation';
 import { SkeletonCard } from '@/components/charts/ChartSkeletons';
+import { OWNER_BOT_USERNAME } from '@/lib/ownerTelegramLink';
 import { cn } from '@/lib/utils';
+import { OwnerTelegramCardSkeleton } from './OwnerTelegramCard';
 
 /** A `SettingsSection`: its small heading above its card. */
 function SectionSkeleton({ children }: { children: ReactNode }) {
@@ -33,9 +35,9 @@ function SettingRowsSkeleton({ rows, stacked = [] }: { rows: number; stacked?: n
 }
 
 /**
- * Settings while the route loads: the account card, the selected club's
- * settings, the club cards and the expense presets. Keep it in step with
- * SettingsPageClient.
+ * Settings while the route loads: the account card, the owner bot link (once
+ * the bot is set up), the selected club's settings, the club cards and the
+ * expense presets. Keep it in step with SettingsPageClient.
  */
 export function SettingsSkeleton() {
   return (
@@ -50,6 +52,7 @@ export function SettingsSkeleton() {
         </div>
         <Skeleton className="h-10 w-28 rounded-lg bg-gray-100" />
       </SkeletonCard>
+      {OWNER_BOT_USERNAME && <OwnerTelegramCardSkeleton />}
       {/* Club details and payment methods put their control under the label. */}
       <SectionSkeleton><SettingRowsSkeleton rows={4} stacked={[0, 2]} /></SectionSkeleton>
       <SectionSkeleton>

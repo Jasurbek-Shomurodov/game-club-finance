@@ -32,3 +32,9 @@ export async function mutateFinanceRequest(input: RequestInfo | URL, init: Reque
     cachedFetch?.invalidate();
   }
 }
+
+/** Drops every cached read, for data written outside the app (the owner
+ * Telegram bot), so the next read asks the database again. */
+export function invalidateReadCache(): void {
+  cachedFetch?.invalidate();
+}

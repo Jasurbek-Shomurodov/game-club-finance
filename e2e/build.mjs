@@ -3,11 +3,11 @@
 // hoggish-assistant) does not run. Every key from the local env files is blanked so no real service is reached.
 import { spawnSync } from 'node:child_process';
 import { blankedEnv } from './env.mjs';
-import { anonKey, supabaseUrl } from './settings.mjs';
+import { anonKey, ownerBotUsername, supabaseUrl } from './settings.mjs';
 
 // `--no --` keeps npx (npm 11.17) from reading --webpack as its own option, which left the build on Turbopack.
 const result = spawnSync('npx', ['--no', '--', 'next', 'build', '--webpack'], {
   stdio: 'inherit',
-  env: { ...process.env, ...blankedEnv(), NEXT_PUBLIC_SUPABASE_URL: supabaseUrl, NEXT_PUBLIC_SUPABASE_ANON_KEY: anonKey },
+  env: { ...process.env, ...blankedEnv(), NEXT_PUBLIC_SUPABASE_URL: supabaseUrl, NEXT_PUBLIC_SUPABASE_ANON_KEY: anonKey, NEXT_PUBLIC_TELEGRAM_OWNER_BOT_USERNAME: ownerBotUsername },
 });
 process.exit(result.status ?? 1);

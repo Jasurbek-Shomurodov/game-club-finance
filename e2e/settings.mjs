@@ -5,6 +5,8 @@ export const appUrl = process.env.E2E_APP_URL ?? 'http://localhost:5156';
 export const supabaseUrl = process.env.E2E_SUPABASE_URL ?? 'http://127.0.0.1:54330';
 export const anonKey = 'e2e-anon-key';
 export const serviceKey = 'sb_secret_e2e_only';
+/** The owner money bot's username the test build shows in Settings; no such bot is ever contacted. */
+export const ownerBotUsername = 'e2e_owner_bot';
 
 export const accounts = {
   owner: { id: '00000000-0000-4000-8000-0000000000a1', email: 'owner@example.test', password: 'e2e-owner-password', name: 'E2E Owner' },

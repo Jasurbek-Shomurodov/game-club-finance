@@ -5509,5 +5509,236 @@
         "md5": "4d37a5851de5c39b9b55b0630f8b7907"
       }
     ]
+  },
+  {
+    "file": "190_owner_telegram_bot.sql",
+    "probes": [
+      {
+        "kind": "relation",
+        "name": "public.owner_telegram_links"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_telegram_links",
+        "column": "user_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_telegram_links",
+        "column": "telegram_user_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_telegram_links",
+        "column": "telegram_username"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_telegram_links",
+        "column": "linked_at"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_telegram_links",
+        "name": "owner_telegram_links_telegram_user"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_telegram_links",
+        "name": "owner_telegram_links_telegram_user_positive"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_telegram_links",
+        "name": "owner_telegram_links_username_length"
+      },
+      {
+        "kind": "policy",
+        "table": "public.owner_telegram_links",
+        "name": "owner_telegram_links_own_read"
+      },
+      {
+        "kind": "policy",
+        "table": "public.owner_telegram_links",
+        "name": "owner_telegram_links_own_delete"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_telegram_link_codes"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_telegram_link_codes",
+        "column": "code"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_telegram_link_codes",
+        "column": "user_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_telegram_link_codes",
+        "column": "created_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_telegram_link_codes",
+        "column": "expires_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_telegram_link_codes",
+        "column": "used_at"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_telegram_link_codes",
+        "name": "owner_telegram_link_codes_format"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_telegram_link_codes",
+        "name": "owner_telegram_link_codes_expiry"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_telegram_link_codes_user"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_money_handovers"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_money_handovers",
+        "column": "id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_money_handovers",
+        "column": "club_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_money_handovers",
+        "column": "business_date"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_money_handovers",
+        "column": "side"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_money_handovers",
+        "column": "payment_method"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_money_handovers",
+        "column": "amount"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_money_handovers",
+        "column": "action"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_money_handovers",
+        "column": "request_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_money_handovers",
+        "column": "telegram_chat_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_money_handovers",
+        "column": "telegram_message_id"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_money_handovers",
+        "column": "created_by"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_money_handovers",
+        "column": "created_at"
+      },
+      {
+        "kind": "column",
+        "table": "public.owner_money_handovers",
+        "column": "undone_at"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_money_handovers",
+        "name": "owner_money_handovers_side"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_money_handovers",
+        "name": "owner_money_handovers_method"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_money_handovers",
+        "name": "owner_money_handovers_action"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_money_handovers",
+        "name": "owner_money_handovers_action_side"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_money_handovers",
+        "name": "owner_money_handovers_amount"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_money_handovers",
+        "name": "owner_money_handovers_undone"
+      },
+      {
+        "kind": "constraint",
+        "table": "public.owner_money_handovers",
+        "name": "owner_money_handovers_request"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_money_handovers_club_date"
+      },
+      {
+        "kind": "relation",
+        "name": "public.owner_money_handovers_created_by"
+      },
+      {
+        "kind": "policy",
+        "table": "public.owner_money_handovers",
+        "name": "owner_money_handovers_owner_read"
+      },
+      {
+        "kind": "trigger",
+        "table": "public.owner_money_handovers",
+        "name": "record_activity_audit"
+      },
+      {
+        "kind": "function",
+        "signature": "public.create_owner_telegram_link_code()"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_redeem_link_code(text,bigint,text)"
+      },
+      {
+        "kind": "function",
+        "signature": "public.owner_bot_owner_clubs(bigint)"
+      }
+    ]
   }
 ]

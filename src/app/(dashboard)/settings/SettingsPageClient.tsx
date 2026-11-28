@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { Check, LogOut, Plus } from 'lucide-react';
 import { ExpensePresetsSection } from './ExpensePresetsSection';
 import { MigrationHealthPanel } from './MigrationHealthPanel';
+import { OwnerTelegramSection } from './OwnerTelegramSection';
 import { SettingsSection } from './SettingsSection';
 import { ClubLogoField } from './ClubLogoField';
 import {
@@ -398,6 +399,9 @@ export function SettingsPageClient() {
           {tNav('signOut')}
         </Button>
       </Card>
+
+      {/* The owner bot is linked per person, not per club. */}
+      <OwnerTelegramSection />
 
       <SettingsSection title={selectedClub?.name ?? t('tabClub')}>
         <Card padding="none" className="divide-y divide-gray-100 overflow-hidden">

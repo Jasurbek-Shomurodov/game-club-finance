@@ -55,3 +55,14 @@ it('invalidates after a lost API response because the write may have committed',
   await expect(mutateFinanceRequest('/api/expenses',{method:'POST'})).rejects.toThrow('connection lost');
   expect(await read()).toBe(1);
 });
+it('reads again after invalidateReadCache, for data written outside the app',async()=>{
+  let value=0;
+  vi.stubGlobal('window',{fetch:async()=>Response.json(value)});
+  const {createClient,invalidateReadCache}=await import('./client'); createClient();
+  const read=()=>capture.fetch!('https://db.test/rest/v1/owner_telegram_links').then(r=>r.json());
+  expect(await read()).toBe(0);
+  value=1;
+  expect(await read()).toBe(0);
+  invalidateReadCache();
+  expect(await read()).toBe(1);
+});

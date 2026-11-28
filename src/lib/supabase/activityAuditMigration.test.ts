@@ -73,7 +73,8 @@ beforeAll(async () => {
     grant usage on schema public, auth, extensions, cron, net to authenticated, anon, service_role;
   `);
   const files = readdirSync(migrationsDir).filter((file) => file.endsWith('.sql')).sort();
-  for (const name of files.filter((file) => file !== MIGRATION)) {
+  // Later migrations may build on 183 (190 audits its own table), so they run after it.
+  for (const name of files.filter((file) => file < MIGRATION)) {
     await db.exec(readMigration(name));
   }
   entryAuditBefore = await functionDef('public.record_entry_audit()');
@@ -90,6 +91,9 @@ beforeAll(async () => {
   `);
   await db.exec(readMigration(MIGRATION));
   await db.exec(readMigration(MIGRATION));
+  for (const name of files.filter((file) => file > MIGRATION)) {
+    await db.exec(readMigration(name));
+  }
 }, 180_000);
 
 afterAll(async () => { await db?.close(); });
@@ -200,6 +204,7 @@ describe('activity audit (183)', () => {
     expect(rows.map((row) => `${row.table}.${row.name}`)).toEqual([
       'club_memberships.record_activity_audit', 'clubs.record_activity_audit', 'daily_stock_counts.record_activity_audit',
       'debt_payments.record_activity_audit', 'expense_presets.record_activity_audit', 'new_debts.record_activity_audit',
+      'owner_money_handovers.record_activity_audit',
       'owner_profit_carryovers.record_activity_audit', 'owner_reserve_entries.record_activity_audit_collected',
       'owner_withdrawals.record_activity_audit', 'products.record_activity_audit', 'promotions.record_activity_audit',
       'salary_employees.record_activity_audit', 'salary_entries.record_activity_audit',
@@ -212,6 +217,7 @@ describe('activity audit (183)', () => {
     expect(def('owner_withdrawals.record_activity_audit')).toMatch(/AFTER INSERT ON .*record_activity_audit\('club_id', 'id'\)/);
     expect(def('salary_entries.record_activity_audit_recovery')).toMatch(/WHEN \(\(new\.cash_shortage_id IS NOT NULL\)\)/);
     expect(def('owner_reserve_entries.record_activity_audit_collected')).toMatch(/WHEN \(new\.from_collected\)/);
+    expect(def('owner_money_handovers.record_activity_audit')).toMatch(/AFTER INSERT OR UPDATE .*record_activity_audit\('club_id', 'id', 'undone_at'\)/);
   });
 
   it('labels in /history every table the log keeps, and shows only the creations that are not money', async () => {
@@ -220,9 +226,11 @@ describe('activity audit (183)', () => {
       from pg_trigger t join pg_class c on c.oid = t.tgrelid
       where not t.tgisinternal and (t.tgname = 'record_entry_audit' or t.tgname like 'record_activity_audit%')
       group by c.relname order by 1`);
-    expect(rows.map((row) => row.table)).toEqual([...AUDITED_TABLES].sort());
+    // The owner bot's button records (190) are logged but not shown: the money rows they made are in History.
+    const logOnly = ['owner_money_handovers'];
+    expect(rows.map((row) => row.table).filter((table) => !logOnly.includes(table))).toEqual([...AUDITED_TABLES].sort());
     // Money entries appear in History once edited or deleted, never when recorded.
-    const creations = rows.filter((row) => row.inserts).map((row) => row.table);
+    const creations = rows.filter((row) => row.inserts && !logOnly.includes(row.table)).map((row) => row.table);
     expect(creations.filter((table) => !AUDIT_CREATION_TABLES.includes(table as never)).sort()).toEqual([
       'debt_payments', 'new_debts', 'owner_profit_carryovers', 'owner_reserve_entries', 'owner_withdrawals', 'salary_entries', 'stock_purchases',
     ]);

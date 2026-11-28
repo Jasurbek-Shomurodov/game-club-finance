@@ -435,3 +435,11 @@ export interface ShowcaseOffer {
   is_active: boolean;
   created_at: string;
 }
+
+/** The owner bot's Telegram account for one app user (190); the user reads and deletes only their own. */
+export interface OwnerTelegramLink {
+  user_id: string;
+  telegram_user_id: number;
+  telegram_username: string | null;
+  linked_at: string;
+}

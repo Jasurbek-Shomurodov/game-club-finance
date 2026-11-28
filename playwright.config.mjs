@@ -3,7 +3,7 @@
 // `npm run test:e2e`; `npm run test:e2e:full` does both.
 import { defineConfig, devices } from '@playwright/test';
 import { blankedEnv } from './e2e/env.mjs';
-import { anonKey, appUrl, serviceKey, storageStatePath, supabaseUrl } from './e2e/settings.mjs';
+import { anonKey, appUrl, ownerBotUsername, serviceKey, storageStatePath, supabaseUrl } from './e2e/settings.mjs';
 
 export default defineConfig({
   testDir: 'e2e',
@@ -41,7 +41,7 @@ export default defineConfig({
       url: appUrl + '/login',
       reuseExistingServer: false,
       timeout: 120_000,
-      env: { ...blankedEnv(), NEXT_PUBLIC_SUPABASE_URL: supabaseUrl, NEXT_PUBLIC_SUPABASE_ANON_KEY: anonKey, SUPABASE_SERVICE_ROLE_KEY: serviceKey },
+      env: { ...blankedEnv(), NEXT_PUBLIC_SUPABASE_URL: supabaseUrl, NEXT_PUBLIC_SUPABASE_ANON_KEY: anonKey, NEXT_PUBLIC_TELEGRAM_OWNER_BOT_USERNAME: ownerBotUsername, SUPABASE_SERVICE_ROLE_KEY: serviceKey },
     },
   ],
 });

@@ -6,7 +6,7 @@ import ExcelJS from 'exceljs';
 import { test, expect } from '@playwright/test';
 import { englishCookie, expectDashboardAmount, expectGameClubExpenses, open, openCommandPalette, pageText, resetDatabase, restAs, signIn, uzs, openTab } from './helpers.mjs';
 import { clubs, dailyCash, debts, expected, expenses, products, purchase, today } from './fixture.mjs';
-import { accounts, pendingAccount, storageStatePath } from './settings.mjs';
+import { accounts, pendingAccount, serviceKey, storageStatePath, supabaseUrl } from './settings.mjs';
 
 test.beforeEach(async () => { await resetDatabase(); });
 
@@ -534,6 +534,38 @@ test('SET-001 the Settings health check shows every migration applied and confir
   await expect(health.getByText('Not applied', { exact: true })).toHaveCount(1);
   await expect(health.getByText('Function missing')).toHaveCount(0);
   expect(calls).toEqual([{ p_club_id: clubs.arcade.id }]);
+});
+
+test('SET-009 an owner links the owner Telegram bot with a one-time code, and unlinks it', async ({ page }) => {
+  await page.goto('/settings');
+  const section = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Telegram', exact: true }) });
+  await section.getByRole('button', { name: 'Get link code' }).click();
+  const command = section.getByText(/^\/link [A-HJ-NP-Z2-9]{8}$/);
+  await expect(command).toBeVisible();
+  await expect(section.getByRole('link', { name: 'Open @e2e_owner_bot' })).toHaveAttribute('href', 'https://t.me/e2e_owner_bot');
+  const code = (await command.textContent()).slice('/link '.length);
+
+  // Only the bot, under the service role, can redeem a code; the browser's own session cannot.
+  const redeem = { p_code: code, p_telegram_user_id: 5550001, p_username: 'e2e_owner' };
+  expect((await restAs(accounts.owner, 'POST', 'rpc/owner_bot_redeem_link_code', redeem)).status).toBe(403);
+  await section.getByRole('button', { name: 'Check link' }).click();
+  await expect(section.getByText('Not linked yet. Send the message to the bot, then check again.')).toBeVisible();
+  const asBot = await fetch(`${supabaseUrl}/rest/v1/rpc/owner_bot_redeem_link_code`, {
+    method: 'POST', headers: { 'content-type': 'application/json', apikey: serviceKey, authorization: `Bearer ${serviceKey}` }, body: JSON.stringify(redeem),
+  });
+  expect(await asBot.json()).toBe('linked');
+
+  await section.getByRole('button', { name: 'Check link' }).click();
+  await expect(page.getByText('Telegram linked')).toBeVisible();
+  await expect(section).toContainText('Linked to @e2e_owner since');
+  await page.reload();
+  await expect(section).toContainText('Linked to @e2e_owner since');
+
+  await section.getByRole('button', { name: 'Unlink' }).click();
+  await page.getByRole('dialog', { name: 'Unlink Telegram?' }).getByRole('button', { name: 'Unlink' }).click();
+  await expect(page.getByText('Telegram unlinked')).toBeVisible();
+  await expect(section.getByRole('button', { name: 'Get link code' })).toBeVisible();
+  expect(await (await restAs(accounts.owner, 'GET', 'owner_telegram_links?select=user_id')).json()).toEqual([]);
 });
 
 test('REP-008 each side has its own money flow, and a category in it opens its payments', async ({ page }) => {
