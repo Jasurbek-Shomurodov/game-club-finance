@@ -157,6 +157,33 @@ describe('buildYandexPriceItems', () => {
     expect(again.items.map((entry) => entry.picture)).toEqual(items.map((entry) => entry.picture));
   });
 
+  it("writes the zone's hardware after each of its items' text, and only there", () => {
+    const base = club();
+    const zones = base.zones.map((zone) => (zone.id === ZONE_A
+      ? { ...zone, kind: 'pc' as const, cpu: 'Intel Core i5-12400F', gpu: 'GeForce GTX 1660 Super', ram: '16 GB', monitor: 'MSI', monitor_size_inches: 25, monitor_refresh_hz: 300 }
+      : { ...zone, kind: 'playstation' as const, console: 'PlayStation 5', controllers: 2 }));
+    const { items } = buildYandexPriceItems({ ...base, zones });
+    expect(items.map((entry) => [entry.name, entry.description])).toEqual([
+      ['Игровой час — VIP зал', 'Intel Core i5-12400F, GeForce GTX 1660 Super, 16 GB RAM, монитор 25″ MSI 300 Гц.'],
+      ['VIP — 3 часа (10:00–18:00)', 'Три часа днём. Intel Core i5-12400F, GeForce GTX 1660 Super, 16 GB RAM, монитор 25″ MSI 300 Гц.'],
+      ['Игровой час — PlayStation', 'PlayStation 5, 2 геймпада.'],
+      ['Ночной пакет', null],
+    ]);
+  });
+
+  it('leaves the descriptions as they were for zones without spec fields', () => {
+    expect(buildYandexPriceItems(club()).items.map((entry) => entry.description)).toEqual([null, 'Три часа днём.', null, null]);
+  });
+
+  it('keeps the price card pictures (and their version) whatever the description says', () => {
+    const cardPictures = { baseUrl: 'https://pixelgaming.uz/api/showcase/price-card', slug: 'pixel-game-club', isCardImage: () => true };
+    const plain = buildYandexPriceItems(club(), { cardPictures }).items;
+    const base = club();
+    const described = buildYandexPriceItems({ ...base, zones: base.zones.map((zone) => ({ ...zone, cpu: 'Ryzen 7 7800X3D', gpu: 'RTX 4070', mouse: 'Logitech G102' })) }, { cardPictures }).items;
+    expect(described.map((entry) => entry.description)).not.toEqual(plain.map((entry) => entry.description));
+    expect(described.map((entry) => entry.picture)).toEqual(plain.map((entry) => entry.picture));
+  });
+
   it('skips zones without an hourly price and keeps ids stable', () => {
     const { items, skipped } = buildYandexPriceItems(club({ zones: [{ id: ZONE_A, name: 'VIP', price_per_hour: null, image_url: null, sort_order: 1 }], offers: [] }));
     expect(items).toEqual([]);
@@ -356,6 +383,25 @@ describe('yandexPriceClubFromShowcase', () => {
     }]);
     expect(parsed?.club.games).toEqual([{ id: 'g-1', title: 'Dota 2', image_url: 'https://cdn.example.com/dota.jpg', sort_order: 0 }]);
     expect(buildYandexPriceItems(parsed!.club).items.map((entry) => entry.name)).toEqual(['VIP — 1 час', 'Игровой час — PS5']);
+  });
+
+  it('reads the zone hardware so the card route describes items as the script does', () => {
+    const zone = {
+      id: '11111111-2222-3333-4444-555555555555', name: 'VIP', kind: 'pc', price_per_hour: 25000, image_url: null,
+      cpu: 'Intel Core i5-12400F', gpu: 'GeForce GTX 1660 Super', ram: '16 GB', monitor: '', monitor_size_inches: '25', monitor_refresh_hz: 300,
+      mouse: 'Logitech G102', keyboard: null, headset: null, chair: null, console: null, controllers: null, peripherals: 'Описание зоны',
+    };
+    const parsed = yandexPriceClubFromShowcase({ slug: 'pixel-game-club', zones: [zone], offers: [] })!;
+    expect(parsed.club.zones[0]).toMatchObject({
+      cpu: 'Intel Core i5-12400F', gpu: 'GeForce GTX 1660 Super', ram: '16 GB', monitor: null, monitor_size_inches: 25, monitor_refresh_hz: 300,
+      mouse: 'Logitech G102', keyboard: null, console: null, controllers: null,
+    });
+    const fromRow = buildYandexPriceItems({
+      logoUrl: null, offers: [],
+      zones: [{ ...zone, kind: 'pc', monitor: null, monitor_size_inches: 25, sort_order: 0, translations: undefined }],
+    }).items;
+    expect(buildYandexPriceItems(parsed.club).items).toEqual(fromRow);
+    expect(fromRow[0].description).toBe('Intel Core i5-12400F, GeForce GTX 1660 Super, 16 GB RAM, монитор 25″ 300 Гц, мышь Logitech G102.');
   });
 
   it('is null for an unknown or unpublished page', () => {

@@ -8,6 +8,7 @@ import { formatCurrency } from '@/lib/formatters';
 import { normalizeExternalUrl, packageHours, pickLocalized, splitOfferTitle } from '@/lib/showcase';
 import type { ShowcaseGame, ShowcaseOffer, ShowcasePcZone } from '@/types';
 import { priceCardUrl, yandexPriceCards } from './priceCard';
+import { describeWithZoneSpecs, YANDEX_ZONE_SPEC_NUMBER_FIELDS, YANDEX_ZONE_SPEC_TEXT_FIELDS, type YandexZoneSpecs } from './zoneSpecs';
 
 /** A section of the list: one per zone in zone order, then combos and promotions. `id` is the YML `categoryId`. */
 export interface YandexPriceCategory {
@@ -22,7 +23,8 @@ export interface YandexPriceClub {
   /** Drawn on the price cards; the brand wordmark when absent. */
   clubName?: string;
   logoUrl: string | null;
-  zones: Array<Pick<ShowcasePcZone, 'id' | 'kind' | 'name' | 'translations' | 'price_per_hour' | 'image_url' | 'sort_order'>>;
+  /** With the zone's hardware when known: it is written into its items' descriptions. */
+  zones: Array<Pick<ShowcasePcZone, 'id' | 'kind' | 'name' | 'translations' | 'price_per_hour' | 'image_url' | 'sort_order'> & YandexZoneSpecs>;
   offers: Array<Pick<ShowcaseOffer, 'id' | 'title' | 'description' | 'translations' | 'price' | 'time_window' | 'is_active' | 'sort_order'>>;
   /** The club's games: their covers are the price cards' backgrounds. */
   games?: Array<Pick<ShowcaseGame, 'id' | 'title' | 'image_url' | 'sort_order'>>;
@@ -44,6 +46,7 @@ export interface YandexPriceItem {
   /** Whole UZS. */
   price: number;
   category: YandexPriceCategory;
+  /** The offer's text, then the zone's hardware (zoneSpecs.ts); at most 250 characters. */
   description: string | null;
   picture: string | null;
   /** The zone it is sold in; null for a combo or promotion. */
@@ -181,7 +184,10 @@ export function buildYandexPriceItems(club: YandexPriceClub, options: { cardPict
     if (packageHours(split.length) === 1) zonesWithHourPackage.add(zone.zone.id);
     const headline = (shown.zone ? shown.length : split.length).trim();
     const list = packagesByZone.get(zone.zone.id) ?? [];
-    list.push({ ...base, category: zone.category, picture: zone.picture ?? logo, zoneId: zone.zone.id, card: { label: zone.label, headline, timeWindow } });
+    list.push({
+      ...base, description: describeWithZoneSpecs(description, zone.zone), category: zone.category, picture: zone.picture ?? logo, zoneId: zone.zone.id,
+      card: { label: zone.label, headline, timeWindow },
+    });
     packagesByZone.set(zone.zone.id, list);
   }
 
@@ -192,7 +198,7 @@ export function buildYandexPriceItems(club: YandexPriceClub, options: { cardPict
     else if (!price) skipped.push({ kind: 'zone', id: zone.id, name: label, reason: 'no_price' });
     else {
       items.push({
-        id: yandexItemId('zone', zone.id), name: `Игровой час — ${label}`, price, category, description: null,
+        id: yandexItemId('zone', zone.id), name: `Игровой час — ${label}`, price, category, description: describeWithZoneSpecs(null, zone),
         picture: picture ?? logo, zoneId: zone.id, card: { label, headline: '1 час', timeWindow: null },
       });
     }
@@ -407,6 +413,14 @@ const payloadNumber = (value: unknown) => {
 const payloadRows = (value: unknown) => (Array.isArray(value) ? value.filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object') : []);
 const payloadTranslations = (value: unknown) => (value && typeof value === 'object' && !Array.isArray(value) ? value as YandexPriceClub['zones'][number]['translations'] : undefined);
 
+/** The zone's hardware fields from the page payload, so the route describes items as the script does. */
+function payloadZoneSpecs(zone: Record<string, unknown>): YandexZoneSpecs {
+  const specs: YandexZoneSpecs = {};
+  for (const field of YANDEX_ZONE_SPEC_TEXT_FIELDS) specs[field] = payloadText(zone[field]);
+  for (const field of YANDEX_ZONE_SPEC_NUMBER_FIELDS) specs[field] = payloadNumber(zone[field]);
+  return specs;
+}
+
 /**
  * The club's price list input from its published page (`get_public_showcase`),
  * the only data the public price-card route reads. The payload holds active
@@ -428,6 +442,7 @@ export function yandexPriceClubFromShowcase(raw: unknown): { slug: string; club:
         return id && name ? [{
           id, name, kind: zone.kind === 'playstation' ? 'playstation' as const : 'pc' as const, translations: payloadTranslations(zone.translations),
           price_per_hour: payloadNumber(zone.price_per_hour), image_url: payloadText(zone.image_url), sort_order: index,
+          ...payloadZoneSpecs(zone),
         }] : [];
       }),
       offers: payloadRows(data.offers).flatMap((offer, index) => {

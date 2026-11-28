@@ -136,7 +136,8 @@ async function plan(supabase: SupabaseClient, clubs: SyncClub[], args: YandexSyn
   const isCardImage = (url: string) => isPriceCardImageUrl(url, process.env.NEXT_PUBLIC_SUPABASE_URL);
   for (const club of clubs) {
     // The public page's order (sort_order, then created_at), so the local cards and category ids
-    // are the ones the price-card route serves.
+    // are the ones the price-card route serves. Every zone column, hardware included: it goes into
+    // the item descriptions, as the route reads it from the page payload.
     const [zones, offers, games] = await Promise.all([
       supabase.from('showcase_pc_zones').select('*').eq('club_id', club.clubId).order('sort_order').order('created_at'),
       supabase.from('showcase_offers').select('*').eq('club_id', club.clubId).order('sort_order').order('created_at'),

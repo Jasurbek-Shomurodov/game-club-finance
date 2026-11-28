@@ -97,7 +97,13 @@ skips that club for the rest of the business date unless `--resend` is given.
      the zone's active offers with a price, named by the Russian title with
      the app's " · " written as " — " and the time window in brackets:
      "Стандарт — 1 час (06:00–18:00)". The full name is kept (zone included).
-     The description is the offer's text only. Names are unique: if two still
+     The description is the offer's text followed by one sentence naming the
+     zone's hardware from its own fields ("Intel Core i5-12400F, GeForce GTX
+     1660 Super, 16 GB RAM, монитор 25″ MSI 300 Гц."; a PlayStation zone:
+     "PlayStation 5, 2 геймпада."); "Игровой час — <zone>" gets that sentence
+     alone. Empty fields are left out, and within 250 characters the
+     peripherals go first. To change it, fill in the zone's specs in the app,
+     not the card. Names are unique: if two still
      match, the price is added ("… — 10 000 сум"), then a number;
    - **pictures are the branded price cards**,
      `https://www.pixelgaming.uz/api/showcase/price-card/<slug>/<itemId>.png?v=<hash>`

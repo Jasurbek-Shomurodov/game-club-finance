@@ -161,3 +161,20 @@ logo (Pro, Комбо), and sit in a single "Пакеты и акции" categor
      `новых A, убрано R, цена изменена C, переименовано M`.
 4. Tests for all of the above; runbook updated (cards step, Google products
    note).
+
+## Slice 3: hardware in the price item descriptions
+
+Why: Colizeum Tashkent City, the best-run card in Tashkent, names the hardware in every price item ("ПК на базе
+RTX 4060, мониторы 27″, 280 Гц…"). Ours only repeat the package.
+
+- `buildYandexPriceItems`: when the item's zone has specs, the description becomes the offer text (as today)
+  followed by one spec sentence built from the zone's own fields, in Russian, e.g.
+  "Intel Core i5-12400F, GeForce GTX 1660 Super, 16 GB RAM, монитор 25″ MSI 300 Гц." Use cpu, gpu, ram, monitor
+  (or monitor_size_inches + monitor_refresh_hz when monitor text is empty); for a PlayStation zone use console and
+  controllers ("PlayStation 5, 2 геймпада"). Skip empty parts; no spec fields → description unchanged. The hourly
+  zone item ("Игровой час — …") gets the spec sentence as its description. Keep the whole description within 250
+  characters (drop peripherals first). Never invent a value.
+- Widen `YandexPriceClub.zones` and both loaders (the script's select in `plan()` and
+  `yandexPriceClubFromShowcase`, which already has these fields in the public payload) so the script and the route
+  build identical items. The price-card image and its version hash do not use the description and must not change.
+- Tests for each rule. Runbook line.
