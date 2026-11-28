@@ -290,7 +290,7 @@ function dayMethodSection(methods: DailyFinanceDayMethod[], y: number): { svg: s
     height,
     svg: `${card(PAGE_X, y, PAGE_WIDTH, height)}
     <text x="${innerX}" y="${y + 50}" font-size="19" font-weight="800" fill="${INK}">ОПЛАТЫ ЗА ДЕНЬ</text>
-    <text x="${PAGE_X + PAGE_WIDTH - 28}" y="${y + 50}" text-anchor="end" font-size="16" fill="${MUTED}">клуб · без бара · итог = приход − расход · % от прихода дня</text>
+    <text x="${PAGE_X + PAGE_WIDTH - 28}" y="${y + 50}" text-anchor="end" font-size="16" fill="${MUTED}">клуб · без бара · итог = приход - расход · % от прихода дня</text>
     ${tiles}`,
   };
 }
@@ -610,7 +610,7 @@ function stockWriteOffSection(items: DailyFinanceStockWriteOff[], y: number): { 
     <text x="${right}" y="${rowY}" text-anchor="end" font-size="18" fill="${MUTED}">${escapeXml(money(item.cost))}</text>`;
   }).join('\n    ');
   const more = hidden > 0
-    ? `<text x="${x}" y="${y + 100 + visible.length * PROMO_ROW_HEIGHT}" font-size="18" fill="${MUTED}">и ещё ${hidden} — см. «Отчёты → Списания» в приложении</text>`
+    ? `<text x="${x}" y="${y + 100 + visible.length * PROMO_ROW_HEIGHT}" font-size="18" fill="${MUTED}">и ещё ${hidden} — см. «Отчёты / Списания» в приложении</text>`
     : '';
 
   return {
@@ -901,7 +901,10 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
     : [{ name: 'Нет расходов', amount: 0 }];
   const barExpenseRows = limitCategories(input.barExpenseCategories, 3);
   const detailY = todayY + todayHeight + 24;
-  const clubContentHeight = 350 + visibleClubExpenseRows.length * 38;
+  // Debt repayments sit under the income rows, outside the income total.
+  const hasDebtPayments = input.debtPaymentsReceived !== undefined;
+  const debtPaymentsShift = hasDebtPayments ? 64 : 0;
+  const clubContentHeight = 350 + debtPaymentsShift + visibleClubExpenseRows.length * 38;
   const barContentHeight = 190 + 3 * 42 + barExpenseRows.length * 34;
   const detailHeight = Math.max(clubContentHeight, barContentHeight) + 112;
   const detailWidth = (PAGE_WIDTH - 24) / 2;
@@ -931,9 +934,13 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
   const clubRows = [
     leaderRow(PAGE_X + 28, PAGE_X + detailWidth - 28, detailY + 170, 'Компьютеры', input.computerIncome, BLUE),
     leaderRow(PAGE_X + 28, PAGE_X + detailWidth - 28, detailY + 210, 'PlayStation', input.playstationIncome, BLUE),
-    leaderRow(PAGE_X + 28, PAGE_X + detailWidth - 28, detailY + 250, 'Долги', input.debtIncome, BLUE),
+    leaderRow(PAGE_X + 28, PAGE_X + detailWidth - 28, detailY + 250, 'Новые долги', input.debtIncome, BLUE),
   ].join('\n    ');
-  const clubExpenseHeadingY = detailY + 310;
+  const debtPaymentsRow = hasDebtPayments
+    ? `${leaderRow(PAGE_X + 28, PAGE_X + detailWidth - 28, detailY + 314, 'Погашение долгов', input.debtPaymentsReceived ?? 0, GREEN, true)}
+    <line x1="${PAGE_X + 28}" y1="${detailY + 338}" x2="${PAGE_X + detailWidth - 28}" y2="${detailY + 338}" stroke="${BORDER}" stroke-width="2"/>`
+    : '';
+  const clubExpenseHeadingY = detailY + 310 + debtPaymentsShift;
   const clubExpenseRowsSvg = visibleClubExpenseRows
     .map((category, index) => leaderRow(
       PAGE_X + 28,
@@ -988,6 +995,7 @@ export function buildDailyFinanceReportSvg(input: DailyFinanceReportInput): stri
     <text x="${PAGE_X + 130}" y="${detailY + 126}" font-size="18" fill="${MUTED}">Доход за день</text>
     ${clubRows}
     <line x1="${PAGE_X + 28}" y1="${detailY + 274}" x2="${PAGE_X + detailWidth - 28}" y2="${detailY + 274}" stroke="${BORDER}" stroke-width="2"/>
+    ${debtPaymentsRow}
     <text x="${PAGE_X + 28}" y="${clubExpenseHeadingY}" font-size="20" font-weight="800" fill="${RED}">РАСХОДЫ КЛУБА</text>
     <text x="${PAGE_X + detailWidth - 28}" y="${clubExpenseHeadingY}" text-anchor="end" font-size="20" font-weight="800" fill="${RED}">${escapeXml(money(input.gameClubExpenses))}</text>
     ${clubExpenseRowsSvg}

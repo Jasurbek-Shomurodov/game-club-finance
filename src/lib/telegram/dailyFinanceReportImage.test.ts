@@ -101,6 +101,18 @@ function fontHasCodePoint(font: Buffer, codePoint: number): boolean {
 }
 
 describe('daily finance report image', () => {
+  it('shows the day\'s debt repayments under the club income, outside the income rows', () => {
+    const without = buildDailyFinanceReportSvg(reportInput());
+    const svg = buildDailyFinanceReportSvg({ ...reportInput(), debtIncome: 40_000, debtPaymentsReceived: 175_000 });
+
+    expect(without).not.toContain('Погашение долгов');
+    expect(svg).toContain('Новые долги');
+    expect(svg).toContain('Погашение долгов');
+    expect(svg).toContain('175 000 UZS');
+    const height = (value: string) => Number(/height="(\d+)"/.exec(value)?.[1]);
+    expect(height(svg)).toBeGreaterThanOrEqual(height(without));
+  });
+
   it('builds the day image: today per business, its breakdown and nothing monthly', () => {
     const svg = buildDailyFinanceReportSvg(reportInput());
 
@@ -322,6 +334,26 @@ describe('daily finance report image', () => {
       expect(fontHasCodePoint(font, 'Ё'.codePointAt(0)!)).toBe(true);
       expect(fontHasCodePoint(font, 'я'.codePointAt(0)!)).toBe(true);
     }
+  });
+
+  it('uses only characters the bundled font can draw on the day and stock images', () => {
+    const font = readFileSync(resolve(process.cwd(), 'src/assets/fonts', 'NotoSans-Regular.ttf'));
+    const input: DailyFinanceReportInput = {
+      ...reportInput(),
+      debtPaymentsReceived: 100_000,
+      dayByMethod: [{ method: 'cash', moneyIn: 100_000, moneyOut: 0, net: 100_000 }],
+      stockWriteOffs: Array.from({ length: 12 }, (_, index) => ({
+        productName: `Item ${index}`, kind: 'shortage' as const, note: '', quantity: 1, cost: 1_000,
+      })),
+      stockCorrections: [{ productName: 'Snickers', note: 'в коробке', quantity: 4, value: 16_000 }],
+    };
+    const svgs = [buildDailyFinanceReportSvg(input), buildStockAdjustmentsReportSvg(input)];
+    const drawn = svgs
+      .flatMap((svg) => [...svg.matchAll(/<text[^>]*>([\s\S]*?)<\/text>/g)].map((match) => match[1].replace(/<[^>]+>/g, '')))
+      .join('');
+    const missing = [...new Set(drawn)].filter((character) => !fontHasCodePoint(font, character.codePointAt(0)!));
+
+    expect(missing).toEqual([]);
   });
 
   it('draws write-offs and corrections on their own image, not on the report', async () => {

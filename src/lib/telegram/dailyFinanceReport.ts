@@ -36,7 +36,14 @@ export interface DailyFinanceReportInput {
   businessDateLabel: string;
   gameClubIncome: number;
   computerIncome: number;
+  /** Debts recorded on the report date: sold on credit, counted in game club income. */
   debtIncome: number;
+  /**
+   * Debt payments received on the report date. Money in, but not income: the
+   * debt was income on the day it was recorded. Always set by the builder, so
+   * admins see 0 too; absent (hand-built inputs only) means no line.
+   */
+  debtPaymentsReceived?: number;
   playstationIncome: number;
   barSales: number;
   barCost: number;
@@ -909,6 +916,7 @@ export function buildDailyFinanceReportInput(rows: DailyFinanceReportRows): Dail
     gameClubIncome: dailyTotals.gameClubIncome,
     computerIncome: dailyTotals.computerIncome,
     debtIncome: dailyTotals.debtIncome,
+    debtPaymentsReceived: dailyTotals.debtPaymentsCollected,
     playstationIncome: dailyTotals.playstationIncome,
     barSales: dailyTotals.barSales,
     barCost: dailyTotals.barCost,
@@ -992,8 +1000,11 @@ export function formatRussianDailyFinanceReport(input: DailyFinanceReportInput):
     '',
     `🎮 Доход клуба: ${money(input.gameClubIncome)}`,
     `  • Компьютеры: ${money(input.computerIncome)} (${percent(input.computerIncome, input.gameClubIncome)})`,
-    `  • Долги: ${money(input.debtIncome)} (${percent(input.debtIncome, input.gameClubIncome)})`,
+    `  • Новые долги: ${money(input.debtIncome)} (${percent(input.debtIncome, input.gameClubIncome)})`,
     `  • PlayStation: ${money(input.playstationIncome)} (${percent(input.playstationIncome, input.gameClubIncome)})`,
+    ...(input.debtPaymentsReceived === undefined
+      ? []
+      : [`🤝 Погашение долгов: ${money(input.debtPaymentsReceived)} (не входит в доход)`]),
     `💸 Расходы из денег клуба: ${money(input.gameClubExpenses)}`,
     ...categoryLines(input.gameClubExpenseCategories),
     `🎮 Прибыль клуба: ${money(input.gameClubProfit)}`,

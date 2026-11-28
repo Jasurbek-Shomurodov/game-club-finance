@@ -233,6 +233,29 @@ describe('formatRussianDailyFinanceReport', () => {
     });
   });
 
+  it('carries the day\'s debt repayments apart from income and prints them as their own line', () => {
+    const base = {
+      businessDate: '2026-07-04',
+      businessDateLabel: '4 июля 2026',
+      clubName: 'Club',
+      cashRows: [{ date: '2026-07-04', cash_income: 100_000, terminal_income: 0, card_income: 0, playstation_income: 0 }],
+      stockRows: [],
+      stockPurchaseRows: [],
+      expenseRows: [],
+      debtRows: [{ date: '2026-07-01', amount: 200_000, remaining_amount: 50_000, status: 'partial' }],
+      debtPaymentRows: [
+        { id: 'p1', date: '2026-07-04', amount: 150_000, payment_method: 'cash' },
+        { id: 'p2', date: '2026-07-02', amount: 30_000, payment_method: 'card' },
+      ],
+    };
+    const input = buildDailyFinanceReportInput(base as never);
+
+    expect(input.debtPaymentsReceived).toBe(150_000);
+    expect(input.debtIncome).toBe(0);
+    expect(input.gameClubIncome).toBe(100_000);
+    expect(formatRussianDailyFinanceReport(input)).toContain('🤝 Погашение долгов: 150 000 UZS (не входит в доход)');
+  });
+
   it('formats each business with its own expenses and profit, never a combined total', () => {
     const message = formatRussianDailyFinanceReport({
         clubName: 'Main Game Club',
@@ -263,7 +286,7 @@ describe('formatRussianDailyFinanceReport', () => {
 
     expect(message).toContain(`🎮 Доход клуба: 1 904 000 UZS
   • Компьютеры: 1 904 000 UZS (100%)
-  • Долги: 0 UZS (0%)
+  • Новые долги: 0 UZS (0%)
   • PlayStation: 0 UZS (0%)
 💸 Расходы из денег клуба: 564 000 UZS
   - Зарплата: 340 000 UZS
