@@ -6,7 +6,8 @@ import {
   earlierDaysRange,
   expensesFromSource,
   moneyLeftByMethod,
-  openingBalanceRange,
+  openingBalanceSpan,
+  periodOwnLeft,
   openingBalanceTotal,
   withOpeningBalances,
 } from './moneyReport';
@@ -435,11 +436,47 @@ describe('expensesFromSource', () => {
 });
 
 describe('opening balances', () => {
-  it('covers the days of the month before a mid-month start', () => {
-    expect(openingBalanceRange('2026-11-11')).toEqual({ from: '2026-11-01', to: '2026-11-10' });
-    expect(openingBalanceRange('2026-11-02')).toEqual({ from: '2026-11-01', to: '2026-11-01' });
-    expect(openingBalanceRange('2026-11-01')).toBeNull();
-    expect(openingBalanceRange('not a date')).toBeNull();
+  it('needs nothing when the period starts on the 1st of its last month', () => {
+    expect(openingBalanceSpan({ from: '2026-11-01', to: '2026-11-30' })).toBeNull();
+    expect(openingBalanceSpan({ from: '2026-11-01', to: '2026-11-01' })).toBeNull();
+    expect(openingBalanceSpan({ from: 'not a date', to: '2026-11-30' })).toBeNull();
+    expect(openingBalanceSpan({ from: '2026-11-20', to: '2026-11-10' })).toBeNull();
+  });
+
+  it('adds the days of the month before a mid-month start', () => {
+    expect(openingBalanceSpan({ from: '2026-11-11', to: '2026-11-30' })).toEqual({ kind: 'earlier', from: '2026-11-01', to: '2026-11-10' });
+    expect(openingBalanceSpan({ from: '2026-11-02', to: '2026-11-02' })).toEqual({ kind: 'earlier', from: '2026-11-01', to: '2026-11-01' });
+  });
+
+  it('takes off the period\'s days before the 1st of its last month when it crosses months', () => {
+    expect(openingBalanceSpan({ from: '2026-10-12', to: '2026-11-30' })).toEqual({ kind: 'reset', from: '2026-10-12', to: '2026-10-31' });
+    expect(openingBalanceSpan({ from: '2026-09-01', to: '2026-11-05' })).toEqual({ kind: 'reset', from: '2026-09-01', to: '2026-10-31' });
+    expect(openingBalanceSpan({ from: '2026-12-20', to: '2027-01-10' })).toEqual({ kind: 'reset', from: '2026-12-20', to: '2026-12-31' });
+    expect(openingBalanceSpan({ from: '2028-02-10', to: '2028-03-04' })).toEqual({ kind: 'reset', from: '2028-02-10', to: '2028-02-29' });
+  });
+
+  it('makes a cross-month period\'s cards the last month\'s own balance', () => {
+    const cash = (date: string, amount: number) => ({ date, cash_income: amount, terminal_income: 0, card_income: 0, playstation_income: 0 });
+    const expense = (id: string, date: string, amount: number) => ({ id, date, amount, category: 'supplies', payment_method: 'cash', comment: '', created_at: `${date}T10:00:00Z` });
+    const october = { cash: [cash('2026-10-12', 900_000), cash('2026-10-20', 300_000)], expenses: [expense('e1', '2026-10-25', 200_000)] };
+    const november = { cash: [cash('2026-11-03', 500_000)], expenses: [expense('e2', '2026-11-04', 150_000)] };
+    // The whole range, 12 Oct - 30 Nov, as Reports reads it.
+    const period = buildMoneyReport([...october.cash, ...november.cash], [...october.expenses, ...november.expenses]);
+    const span = openingBalanceSpan({ from: '2026-10-12', to: '2026-11-30' });
+    expect(span?.kind).toBe('reset');
+    const spanFlows = buildMoneyReport(october.cash, october.expenses).paymentMethods;
+    const cards = withOpeningBalances(period.paymentMethods, { kind: 'reset', methods: spanFlows });
+
+    expect(cards.cash).toMatchObject({ opening: -1_000_000, collected: 1_700_000, expenses: 350_000, left: 350_000 });
+    expect(cards.cash.left).toBe(buildMoneyReport(november.cash, november.expenses).paymentMethods.cash.left);
+    // The period's own flow, without the opening: 12 Oct - 30 Nov in full.
+    expect(periodOwnLeft(cards.cash)).toBe(period.paymentMethods.cash.left);
+    expect(periodOwnLeft(cards.cash)).toBe(1_350_000);
+    // Methods without earlier-month money stay at +0, not -0.
+    expect(Object.is(cards.terminal.opening, 0)).toBe(true);
+    expect(openingBalanceTotal({ kind: 'reset', methods: spanFlows })).toBe(-1_000_000);
+    const cardsTotal = Object.values(cards).reduce((sum, method) => sum + method.left, 0);
+    expect(cardsTotal).toBe(period.gameClubLeft - 1_000_000);
   });
 
   it('keeps an exchange paid with money from earlier in the month from showing as negative', () => {
@@ -456,9 +493,11 @@ describe('opening balances', () => {
     ).paymentMethods;
     expect(period.cash.left).toBe(-5_047_000);
 
-    const cards = withOpeningBalances(period, opening);
+    const cards = withOpeningBalances(period, { kind: 'earlier', methods: opening });
     expect(cards.cash).toMatchObject({ opening: 8_472_000, collected: 7_288_000, expenses: 5_135_000, exchangedOut: 7_200_000, left: 3_425_000 });
     expect(cards.terminal).toMatchObject({ opening: 0, left: 0 });
+    expect(periodOwnLeft(cards.cash)).toBe(-5_047_000);
+    expect(periodOwnLeft(period.cash)).toBe(period.cash.left);
     expect(withOpeningBalances(period, null)).toBe(period);
   });
 });
@@ -473,10 +512,10 @@ describe('opening balance total', () => {
       [{ date: '2026-11-12', cash_income: 400_000, terminal_income: 0, card_income: 100_000, playstation_income: 0 }],
       [],
     );
-    const cards = withOpeningBalances(period.paymentMethods, opening);
+    const cards = withOpeningBalances(period.paymentMethods, { kind: 'earlier', methods: opening });
     const cardsTotal = Object.values(cards).reduce((sum, method) => sum + method.left, 0);
 
-    expect(openingBalanceTotal(opening)).toBe(950_000);
+    expect(openingBalanceTotal({ kind: 'earlier', methods: opening })).toBe(950_000);
     expect(cardsTotal).toBe(period.gameClubLeft + 950_000);
     expect(openingBalanceTotal(null)).toBeNull();
   });

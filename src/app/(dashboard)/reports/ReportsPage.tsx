@@ -57,10 +57,11 @@ import {
   earlierDaysRange,
   expensesFromSource,
   moneyLeftByMethod,
-  openingBalanceRange,
+  openingBalanceSpan,
   openingBalanceTotal,
   withOpeningBalances,
   type MoneyReport,
+  type OpeningBalances,
   type MoneyReportActivity,
   type MoneyReportCategoryFilter,
   type MoneyReportCashRow,
@@ -99,10 +100,11 @@ import { fetchReserveMoves } from '@/lib/supabase/reserveMoves';
 import type { ReserveMove } from '@/lib/calculations/reserveMoves';
 import { requestCollectionChange } from '@/lib/collectionsApi';
 import {
+  collectedMovesHeldOn,
   isCurrentMonthPeriod,
   monthToDateRange,
   periodCoversMoneyNow,
-  summarizeCollectedMoney,
+  summarizeCollectedMoneyThrough,
   summarizeMoneyWhereabouts,
   type CollectedMethod,
   type CollectedMoneyMove,
@@ -154,9 +156,18 @@ const emptyReportRows = {
   /** Money moved into or out of the owner reserve (156): kept out of money left. */
   reserveMoves: [] as ReserveMove[],
   collections: [] as DailyCashCollection[],
-  /** What each method held when the period began; null when it starts on the 1st or is unknown. */
-  opening: null as MoneyReport['paymentMethods'] | null,
-  /** Collected money moves (169) from the month's first day through the period's end, like the cards' money left. */
+  /**
+   * The `openingBalanceSpan` flows that turn the period's own method flows into
+   * each method's balance on its last day; null when it starts on the 1st of
+   * that month or is unknown.
+   */
+  opening: null as OpeningBalances | null,
+  /**
+   * Collected money moves (169) from the first day of the period's first month
+   * through its end, so the Collected ledger's running balance is right; the
+   * tab shows only the period's own days. What is held counts only the last
+   * month's (`collectedMovesHeldOn`), like the cards' money left.
+   */
   collectedMoves: [] as CollectedMoneyMove[],
   collectorNames: new Map<string, string | null>() as ReadonlyMap<string, string | null>,
   /** The owner reserve's sums, for owners; null when it cannot be read. */
@@ -362,7 +373,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     if (!selectedClubId || !hasReportsAccess) return emptyReportRows;
 
     const supabase = createClient();
-    const collectedFrom = openingBalanceRange(range.from)?.from ?? range.from;
+    const collectedFrom = `${range.from.slice(0, 7)}-01`;
     const nowRange = monthToDateRange(businessToday);
     const [snapshotResult, exchangeRows, collections, dollarExpenses, { opening }, reserveMoves, collectedMoves, reserveHoldings, now, earlierDollars] = await Promise.all([
       supabase.rpc('get_money_report_snapshot', {
@@ -541,26 +552,28 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     }
 
     /**
-     * Money is counted per month, so a period starting mid-month begins with
-     * what the month's earlier days left in each method. Null before the
-     * snapshot RPC (047) exists: the cards then show the period alone.
+     * Money is counted per month, so the cards show each method's balance on
+     * the period's last day from the 1st of that month (`openingBalanceSpan`):
+     * a period starting mid-month adds what the month's earlier days left, one
+     * starting in an earlier month takes off its days before that 1st. Null
+     * before the snapshot RPC (047) exists: the cards then show the period alone.
      */
     async function loadOpening(clubId: string): Promise<Pick<typeof emptyReportRows, 'opening'>> {
       const none = { opening: null };
-      const earlier = openingBalanceRange(range.from);
-      if (!earlier) return none;
-      const [result, earlierExchanges, earlierMoves] = await Promise.all([
-        supabase.rpc('get_money_report_snapshot', { p_club_id: clubId, p_range_from: earlier.from, p_range_to: earlier.to }),
-        fetchMoneyExchanges(supabase, clubId, earlier.from, earlier.to),
-        fetchReserveMoves(supabase, clubId, earlier.from, earlier.to),
+      const span = openingBalanceSpan({ from: range.from, to: range.to });
+      if (!span) return none;
+      const [result, spanExchanges, spanMoves] = await Promise.all([
+        supabase.rpc('get_money_report_snapshot', { p_club_id: clubId, p_range_from: span.from, p_range_to: span.to }),
+        fetchMoneyExchanges(supabase, clubId, span.from, span.to),
+        fetchReserveMoves(supabase, clubId, span.from, span.to),
       ]);
       if (result.error) {
         if (isMissingDatabaseFunction(result.error, 'get_money_report_snapshot')) return none;
         throw result.error;
       }
       const rows = result.data as MoneyReportSnapshotPayload;
-      const earlierReport = buildMoneyReport(rows.cash ?? [], rows.expenses ?? [], rows.debtPayments ?? [], [], [], earlierExchanges, earlierMoves);
-      return { opening: earlierReport.paymentMethods };
+      const spanReport = buildMoneyReport(rows.cash ?? [], rows.expenses ?? [], rows.debtPayments ?? [], [], [], spanExchanges, spanMoves);
+      return { opening: { kind: span.kind, methods: spanReport.paymentMethods } };
     }
 
     /** The snapshot names its own rows' creators; exchanges need the same lookup. */
@@ -619,15 +632,25 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     () => withOpeningBalances(report.paymentMethods, reportRows.opening),
     [report.paymentMethods, reportRows.opening],
   );
-  // What the cards add from the period's month before it starts: the cards sum to the headline plus this.
+  // What the cards add (from earlier in the month) or take off (earlier months, reset on the 1st):
+  // the cards sum to the headline plus this.
   const openingTotal = openingBalanceTotal(reportRows.opening);
+  const openingResets = reportRows.opening?.kind === 'reset';
+  // Each method's own flows over the period, the tiles' second line when an opening applies.
+  const periodChange = reportRows.opening ? moneyLeftByMethod(report.paymentMethods) : null;
   // Dollars held on the period's last day; the period's own movement is the tile's second line.
   const usdHeld = useMemo(
     () => dollarsHeldAtPeriodEnd(reportRows.earlierDollars.exchanges, reportRows.earlierDollars.dollarExpenses, report.usd),
     [report.usd, reportRows.earlierDollars],
   );
-  // Collected money over the same span as the cards' money left: the month's first day through the period's end.
-  const collectedSummary = useMemo(() => summarizeCollectedMoney(reportRows.collectedMoves), [reportRows.collectedMoves]);
+  // Collected money held over the same span as the cards' money left: the first day of the period's
+  // last month through its end (collected money also resets on the 1st). What was collected, spent
+  // and moved counts only the period's own days.
+  const heldCollectedMoves = useMemo(() => collectedMovesHeldOn(reportRows.collectedMoves, range.to), [range.to, reportRows.collectedMoves]);
+  const collectedSummary = useMemo(
+    () => summarizeCollectedMoneyThrough(reportRows.collectedMoves, { from: range.from, to: range.to }),
+    [range.from, range.to, reportRows.collectedMoves],
+  );
   const collectedByMethod = collectedSummary.held;
   // Where the money is today, whatever the period: the till and collected money start each month
   // at zero, so they come from this month's first day through today (the period's own figures
@@ -635,9 +658,9 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
   // what the collector holds of it; the Telegram report's caption counts it with the same function.
   const moneyNow = useMemo(() => summarizeMoneyWhereabouts({
     left: moneyLeftByMethod(reportRows.now?.methods ?? paymentCardData),
-    collectedMoves: reportRows.now?.collectedMoves ?? reportRows.collectedMoves,
+    collectedMoves: reportRows.now?.collectedMoves ?? heldCollectedMoves,
     reserve: { sums: reportRows.reserveSums ?? 0, usd: 0 },
-  }), [paymentCardData, reportRows.collectedMoves, reportRows.now, reportRows.reserveSums]);
+  }), [heldCollectedMoves, paymentCardData, reportRows.now, reportRows.reserveSums]);
   // Named "now" when the period is not this month; not before 047, when only the period's figures exist.
   const whereaboutsNow = (periodCoversMoneyNow(range, businessToday) || reportRows.now !== null)
     && !isCurrentMonthPeriod(range, businessToday);
@@ -1277,7 +1300,8 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
     <MoneyWhereabouts
       loading={loading}
       title={whereaboutsNow ? t('collectMoney.whereTitleNow') : t('collectMoney.whereTitle')}
-      description={whereaboutsNow ? t('collectMoney.whereNowHint', { date: formatDateOnly(businessToday, locale) }) : undefined}
+      // Always today's, whatever the period: say so in every period.
+      description={t('collectMoney.whereNowHint', { date: formatDateOnly(businessToday, locale) })}
       kassa={moneyNow.kassa}
       collected={moneyNow.collected}
       reserve={reportRows.reserveSums}
@@ -1368,6 +1392,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         <CollectedTab
           summary={collectedSummary}
           moves={reportRows.collectedMoves}
+          range={range}
           collectorNames={reportRows.collectorNames}
           enabledPaymentMethods={enabledPaymentMethods}
           loading={loading}
@@ -1389,8 +1414,9 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
               value={report.gameClubLeft}
               icon={CircleDollarSign}
               tone={toneForAmount(report.gameClubLeft, 'default')}
-              // The method cards also hold what the month's earlier days left: name it, so they add up.
-              helper={openingTotal ? <>{t('fromEarlierThisMonth')}: <Money amount={openingTotal} /></> : undefined}
+              // The method cards also hold what the month's earlier days left, or leave out what earlier
+              // months held before the reset on the 1st: name it, so they add up.
+              helper={openingTotal ? <>{t(openingResets ? 'earlierMonthsReset' : 'fromEarlierThisMonth')}: <Money amount={openingTotal} /></> : undefined}
             />
             <SummaryCard loading={loading} href={moneyDetailsHref('bar', range)} label={t('barCashLeft')} value={report.barLeft} icon={Banknote} tone={toneForAmount(report.barLeft, 'default')} />
           </section>
@@ -1400,10 +1426,14 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
           <PaymentMethodTiles
             loading={loading}
             skeletonCount={enabledPaymentMethods.length + 1}
+            // Known from the dates alone, so the loading tiles already have the second line.
+            skeletonTall={openingBalanceSpan(range) !== null}
             title={t('moneyLeftByPaymentMethod')}
-            description={t('moneyLeftDescription')}
+            description={t('moneyLeftDescription', { date: formatDateOnly(range.to, locale) })}
             methods={shownPaymentCards}
             data={paymentCardData}
+            change={periodChange}
+            changeLabel={t('periodChange')}
             usd={usdHeld}
             usdChange={report.usd}
             usdLabel={t('usd')}
@@ -1553,6 +1583,7 @@ export default function ReportsPage({ requestedFrom, requestedTo, requestedCateg
         label={paymentCards.find((card) => card.method === methodDays)?.label ?? ''}
         days={report.days}
         data={methodDays ? paymentCardData[methodDays] : null}
+        openingLabel={t(openingResets ? 'earlierMonthsReset' : 'openingBalance')}
         taken={methodDays ? collectedByMethod[methodDays] : 0}
         onSelectDay={(date) => methodDays && setDayBreakdown({ date, figure: methodDays })}
         onClose={() => setMethodDays(null)}

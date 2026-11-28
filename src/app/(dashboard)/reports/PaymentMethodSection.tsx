@@ -71,19 +71,26 @@ export interface PaymentMethodTile {
 }
 
 /**
- * What each payment method has left for the period, one tile per method. A
- * tile opens the method's full breakdown and its days (`MethodDaysModal`);
- * the dollars tile, dollars held at the period's end over the period's own
- * movement, opens the exchanges behind it.
+ * Each payment method's balance on the period's last day, one tile per
+ * method; when the period's own flows differ from it (`change`), they are the
+ * tile's second line. A tile opens the method's full breakdown and its days
+ * (`MethodDaysModal`); the dollars tile, dollars held at the period's end over
+ * the period's own movement, opens the exchanges behind it.
  */
-export function PaymentMethodTiles({ loading, skeletonCount, title, description, methods, data, usd, usdChange, usdLabel, usdChangeLabel, usdNote, onSelectMethod, onSelectUsd }: {
+export function PaymentMethodTiles({ loading, skeletonCount, skeletonTall = false, title, description, methods, data, change, changeLabel, usd, usdChange, usdLabel, usdChangeLabel, usdNote, onSelectMethod, onSelectUsd }: {
   loading: boolean;
   /** Tiles to draw while loading. */
   skeletonCount: number;
+  /** The loading tiles have the second line (`change` will be given). */
+  skeletonTall?: boolean;
   title: string;
   description: string;
   methods: readonly PaymentMethodTile[];
   data: Record<PaymentMethodFigure, MoneyReportPaymentBreakdown>;
+  /** Each method's own net flow over the period; null when it equals the balance (no opening applies). */
+  change: Record<PaymentMethodFigure, number> | null;
+  /** Names `change` on the tile's second line. */
+  changeLabel: string;
   /** Dollars held at the period's end; the tile is drawn when it or `usdChange` is not zero. */
   usd: number;
   /** Dollars bought minus sold and spent in the period. */
@@ -102,7 +109,7 @@ export function PaymentMethodTiles({ loading, skeletonCount, title, description,
     <Card as="section">
       <SectionHeading size="sm" title={title} description={description} />
       {loading ? (
-        <SkeletonStatus><MoneyTilesSkeleton count={skeletonCount} className="mt-3" /></SkeletonStatus>
+        <SkeletonStatus><MoneyTilesSkeleton count={skeletonCount} tall={skeletonTall} className="mt-3" /></SkeletonStatus>
       ) : (
         <>
           <div className={cn(moneyTilesGridClassName(count), 'mt-3')}>
@@ -111,7 +118,9 @@ export function PaymentMethodTiles({ loading, skeletonCount, title, description,
                 key={method}
                 variant="soft"
                 icon={icon}
-                label={label}
+                label={change ? (
+                  <>{label}<span className="block font-normal">{changeLabel}: <Money amount={change[method]} showPlus currency={null} /></span></>
+                ) : label}
                 value={<Money amount={data[method].left} currencyClassName="text-xs tracking-normal text-gray-500" />}
                 tone={data[method].left < 0 ? 'danger' : 'success'}
                 onClick={() => onSelectMethod(method)}

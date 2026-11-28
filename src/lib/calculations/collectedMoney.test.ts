@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  collectedMovesHeldOn,
+  collectedMovesWithin,
   isCurrentMonthPeriod,
   monthToDateRange,
   moneyStillHeld,
@@ -8,6 +10,7 @@ import {
   parseCollectionBalances,
   periodCoversMoneyNow,
   summarizeCollectedMoney,
+  summarizeCollectedMoneyThrough,
   summarizeMoneyWhereabouts,
   type CollectedMoneyMove,
 } from './collectedMoney';
@@ -111,13 +114,13 @@ describe('where the money is now', () => {
     expect(monthToDateRange('2026-12-01')).toEqual({ from: '2026-12-01', to: '2026-12-01' });
   });
 
-  it('reuses a period\'s own figures only when it starts in today\'s month and reaches today', () => {
+  it('reuses a period\'s own figures only when it ends in today\'s month on or after today', () => {
     expect(periodCoversMoneyNow({ from: '2026-11-01', to: '2026-11-30' }, today)).toBe(true);
     expect(periodCoversMoneyNow({ from: '2026-11-10', to: today }, today)).toBe(true);
+    // Starts last month: its cards and collected money still count from 1 November.
+    expect(periodCoversMoneyNow({ from: '2026-10-15', to: today }, today)).toBe(true);
     // Ends before today: the days since are missing.
     expect(periodCoversMoneyNow({ from: '2026-11-01', to: '2026-11-20' }, today)).toBe(false);
-    // Starts last month: the cards would add October's leftover to a till that starts November at zero.
-    expect(periodCoversMoneyNow({ from: '2026-10-15', to: today }, today)).toBe(false);
     expect(periodCoversMoneyNow({ from: '2026-10-01', to: '2026-10-31' }, today)).toBe(false);
   });
 
@@ -128,5 +131,61 @@ describe('where the money is now', () => {
     expect(isCurrentMonthPeriod({ from: '2026-11-01', to: '2026-11-20' }, today)).toBe(false);
     expect(isCurrentMonthPeriod({ from: '2026-11-01', to: '2026-12-05' }, today)).toBe(false);
     expect(isCurrentMonthPeriod({ from: '2026-10-01', to: '2026-10-31' }, today)).toBe(false);
+  });
+});
+
+describe('collected money held at a period end', () => {
+  const moves = [
+    move({ id: 'r1', date: '2026-10-20', method: 'cash', amount: 1_500_000, createdAt: '2026-10-20T10:00:00Z' }),
+    move({ kind: 'expense', id: 'e1', date: '2026-10-22', method: 'cash', amount: -400_000, createdAt: '2026-10-22T10:00:00Z' }),
+    move({ id: 'r2', date: '2026-11-03', method: 'cash', amount: 700_000, createdAt: '2026-11-03T10:00:00Z' }),
+    move({ kind: 'reserve', id: 'v1', date: '2026-11-04', method: 'cash', amount: -200_000, createdAt: '2026-11-04T10:00:00Z' }),
+    move({ id: 'r3', date: '2026-11-05', method: 'card', amount: 100_000, createdAt: '2026-11-05T10:00:00Z' }),
+  ];
+
+  it('keeps only the moves of the period end\'s month, through that day', () => {
+    expect(collectedMovesHeldOn(moves, '2026-11-30').map((entry) => entry.id)).toEqual(['r2', 'v1', 'r3']);
+    expect(collectedMovesHeldOn(moves, '2026-11-04').map((entry) => entry.id)).toEqual(['r2', 'v1']);
+    expect(collectedMovesHeldOn(moves, '2026-10-31').map((entry) => entry.id)).toEqual(['r1', 'e1']);
+  });
+
+  it('counts held for a cross-month period from the 1st of its last month only', () => {
+    // 12 Oct - 30 Nov: October's 1 100 000 still held on 31 Oct was reset on 1 November.
+    const summary = summarizeCollectedMoneyThrough(moves, { from: '2026-10-12', to: '2026-11-30' });
+    expect(summary.held).toEqual({ cash: 500_000, terminal: 0, card: 100_000, playstation: 0, total: 600_000 });
+    // What was collected, spent and moved covers the whole period.
+    expect(summary.collected.total).toBe(2_300_000);
+    expect(summary.spent.total).toBe(400_000);
+    expect(summary.toReserve.total).toBe(200_000);
+    expect(summary.collections).toHaveLength(3);
+  });
+
+  it('counts collected, spent, moved and the collections only within the period', () => {
+    // Fetched from 1 October; the period is 21 Oct - 4 Nov.
+    const summary = summarizeCollectedMoneyThrough(moves, { from: '2026-10-21', to: '2026-11-04' });
+    expect(summary.collected.total).toBe(700_000);
+    expect(summary.spent.total).toBe(400_000);
+    expect(summary.toReserve.total).toBe(200_000);
+    expect(summary.collections.map((group) => group.id)).toEqual(['r2']);
+    // Held is still the balance on 4 November, counted from 1 November.
+    expect(summary.held.total).toBe(500_000);
+  });
+
+  it('keeps held counted from the 1st when a period starts mid-month', () => {
+    // 5 - 30 Nov: only card was collected in the period's own days, yet 3 Nov's cash is still held.
+    const summary = summarizeCollectedMoneyThrough(moves, { from: '2026-11-05', to: '2026-11-30' });
+    expect(summary.collected).toEqual({ cash: 0, terminal: 0, card: 100_000, playstation: 0, total: 100_000 });
+    expect(summary.toReserve.total).toBe(0);
+    expect(summary.held).toEqual({ cash: 500_000, terminal: 0, card: 100_000, playstation: 0, total: 600_000 });
+  });
+
+  it('is the plain summary for a whole month', () => {
+    const november = moves.slice(2);
+    expect(summarizeCollectedMoneyThrough(november, { from: '2026-11-01', to: '2026-11-30' })).toEqual(summarizeCollectedMoney(november));
+  });
+
+  it('keeps the moves dated within a period, both ends included', () => {
+    expect(collectedMovesWithin(moves, { from: '2026-10-22', to: '2026-11-04' }).map((entry) => entry.id)).toEqual(['e1', 'r2', 'v1']);
+    expect(collectedMovesWithin(moves, { from: '2026-12-01', to: '2026-12-31' })).toEqual([]);
   });
 });

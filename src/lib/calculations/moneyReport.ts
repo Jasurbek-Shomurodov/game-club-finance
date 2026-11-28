@@ -18,9 +18,11 @@ import {
 
 export interface MoneyReportPaymentBreakdown {
   /**
-   * Money left in the method from earlier days of the period's first month,
-   * before the period starts; already included in `left`. 0 unless set by
-   * `withOpeningBalances`.
+   * What `withOpeningBalances` adds so `left` is the balance on the period's
+   * last day, counted from the 1st of that month (`openingBalanceSpan`): what
+   * the month's earlier days left in the method, or, for a period crossing
+   * into a new month, minus the period's own flows before that 1st (balances
+   * reset on the 1st). Already included in `left`; 0 unless set.
    */
   opening: number;
   collected: number;
@@ -459,28 +461,71 @@ export function buildFilteredMoneyReport(
   return buildMoneyReport(cashRows, expenseRows, debtPaymentRows, barSalesRows, stockPurchaseRows, exchangeRows, reserveMoves);
 }
 
-/**
- * The days of the month before `from` that a period starting mid-month leaves
- * out, or null when it starts on the 1st. Money is counted per month, so what
- * those days left in each method is still there when the period begins.
- */
-export function openingBalanceRange(from: string): { from: string; to: string } | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(from);
-  if (!match) return null;
-  const day = Number(match[3]);
-  if (day <= 1) return null;
-  const previous = String(day - 1).padStart(2, '0');
-  return { from: `${match[1]}-${match[2]}-01`, to: `${match[1]}-${match[2]}-${previous}` };
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** The day before an ISO date, across month and year ends. */
+function previousIsoDay(date: string): string {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day - 1)).toISOString().slice(0, 10);
+}
+
+/** Days whose money adjusts a period's method cards; see `openingBalanceSpan`. */
+export interface OpeningBalanceSpan {
+  kind: 'earlier' | 'reset';
+  from: string;
+  to: string;
 }
 
 /**
- * What `withOpeningBalances` adds to the method cards from the earlier days of
- * the period's month, all methods together, or null when no opening applies.
- * The cards sum to `gameClubLeft` plus this.
+ * The days whose money `withOpeningBalances` adjusts a period's method cards
+ * by, so each card is the method's balance on the period's last day. UZS
+ * method balances run from the 1st of a month and reset to zero on the next
+ * 1st, so that balance always counts from the 1st of `to`'s month:
+ * - `earlier`: the period starts mid-month; the month's days before it
+ *   (1st through `from` - 1) left money the method still holds, and is added.
+ * - `reset`: the period starts in an earlier month; its own days before the
+ *   1st of `to`'s month (`from` through that 1st - 1) were reset away, and are
+ *   taken off.
+ * Null when the period starts on the 1st of `to`'s month (or is malformed).
  */
-export function openingBalanceTotal(opening: MoneyReport['paymentMethods'] | null): number | null {
+export function openingBalanceSpan(range: { from: string; to: string }): OpeningBalanceSpan | null {
+  if (!ISO_DATE.test(range.from) || !ISO_DATE.test(range.to) || range.from > range.to) return null;
+  const monthStart = `${range.to.slice(0, 7)}-01`;
+  if (range.from === monthStart) return null;
+  if (range.from > monthStart) return { kind: 'earlier', from: monthStart, to: previousIsoDay(range.from) };
+  return { kind: 'reset', from: range.from, to: previousIsoDay(monthStart) };
+}
+
+/** What each method's money did over an `OpeningBalanceSpan`, as `buildMoneyReport` counts it. */
+export interface OpeningBalances {
+  kind: OpeningBalanceSpan['kind'];
+  methods: MoneyReport['paymentMethods'];
+}
+
+/** The signed amount an opening span puts on a method's card: added for `earlier`, taken off for `reset`. */
+function openingAmount(opening: OpeningBalances, key: keyof MoneyReport['paymentMethods']): number {
+  const left = opening.methods[key].left;
+  // `0 - left` keeps an empty method at +0, never -0.
+  return opening.kind === 'reset' ? 0 - left : left;
+}
+
+/**
+ * What `withOpeningBalances` puts on the method cards, all methods together,
+ * or null when no opening applies. The cards sum to `gameClubLeft` plus this.
+ */
+export function openingBalanceTotal(opening: OpeningBalances | null): number | null {
   if (!opening) return null;
-  return Object.values(opening).reduce((sum, method) => sum + method.left, 0);
+  return (Object.keys(opening.methods) as Array<keyof MoneyReport['paymentMethods']>)
+    .reduce((sum, key) => sum + openingAmount(opening, key), 0);
+}
+
+/**
+ * A method's own net flow over the period's days, without the opening
+ * adjustment: what `left` was before `withOpeningBalances`. The tiles'
+ * "This period" line and the method breakdown's share bar.
+ */
+export function periodOwnLeft(method: MoneyReportPaymentBreakdown): number {
+  return method.left - method.opening;
 }
 
 /** Each payment method's money left, as `moneyStillHeldByMethod` and `summarizeMoneyWhereabouts` take it. */
@@ -522,19 +567,22 @@ export function dollarsHeldAtPeriodEnd(
 }
 
 /**
- * Adds what each method held when the period began (the money left by
- * `openingBalanceRange`) to its card, so an exchange or expense paid with
- * money collected earlier in the month does not show the method as negative.
+ * Each method's balance on the period's last day: its own flows over the
+ * period plus the `openingBalanceSpan` adjustment. A period starting mid-month
+ * adds what the month's earlier days left, so an exchange or expense paid with
+ * money collected earlier in the month does not show the method as negative;
+ * one crossing into a new month takes off its days before that 1st, which
+ * the monthly reset cleared. `opening` records the adjustment, so the method's
+ * breakdown still adds up to `left`.
  */
 export function withOpeningBalances(
   methods: MoneyReport['paymentMethods'],
-  opening: MoneyReport['paymentMethods'] | null,
+  opening: OpeningBalances | null,
 ): MoneyReport['paymentMethods'] {
   if (!opening) return methods;
-  const add = (key: keyof MoneyReport['paymentMethods']): MoneyReportPaymentBreakdown => ({
-    ...methods[key],
-    opening: opening[key].left,
-    left: methods[key].left + opening[key].left,
-  });
+  const add = (key: keyof MoneyReport['paymentMethods']): MoneyReportPaymentBreakdown => {
+    const amount = openingAmount(opening, key);
+    return { ...methods[key], opening: amount, left: methods[key].left + amount };
+  };
   return { cash: add('cash'), terminal: add('terminal'), card: add('card'), playstation: add('playstation') };
 }

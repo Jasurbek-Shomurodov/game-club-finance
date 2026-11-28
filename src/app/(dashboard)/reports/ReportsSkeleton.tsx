@@ -29,11 +29,18 @@ export function MoneyTilesSkeleton({ count, tall = false, className }: { count: 
 }
 
 /** A card with a small heading over a row of money tiles (where the money is, money left by method). */
-function MoneyTilesCardSkeleton({ count, description = false, action = false }: { count: number; description?: boolean; /** The heading has a button (the owner's "Put in"). */ action?: boolean }) {
+function MoneyTilesCardSkeleton({ count, description = false, tall = false, action = false }: {
+  count: number;
+  description?: boolean;
+  /** Tiles whose label has a second line. */
+  tall?: boolean;
+  /** The heading has a button (the owner's "Put in"). */
+  action?: boolean;
+}) {
   return (
     <SkeletonCard>
       <HeadingSkeleton description={description} action={action} />
-      <MoneyTilesSkeleton count={count} tall={!description} className="mt-3" />
+      <MoneyTilesSkeleton count={count} tall={tall} className="mt-3" />
     </SkeletonCard>
   );
 }
@@ -63,8 +70,10 @@ export function CloseoutTableSkeleton() {
  * two charts and the list. Write-offs: the ledger. Keep it in step with
  * ReportsPage, CollectedTab and StockAdjustmentsLedger.
  */
-export function ReportsSkeleton({ view = 'closeout', whereabouts = 3 }: {
+export function ReportsSkeleton({ view = 'closeout', whereabouts = 3, tallMethodTiles = false }: {
   view?: ReportsView;
+  /** The money-left tiles carry their "This period" line: the period needs an opening (`openingBalanceSpan`). */
+  tallMethodTiles?: boolean;
   /** Places shown in "where the money is": three for an owner (with the reserve and its "Put in"), two for everyone else. */
   whereabouts?: 2 | 3;
 }) {
@@ -79,7 +88,7 @@ export function ReportsSkeleton({ view = 'closeout', whereabouts = 3 }: {
   if (view === 'collected') {
     return (
       <div className="space-y-5">
-        <MoneyTilesCardSkeleton count={whereabouts} action={whereabouts === 3} />
+        <MoneyTilesCardSkeleton count={whereabouts} description tall action={whereabouts === 3} />
         <MetricGridSkeleton count={4} className={cn(metricGridClassName, 'sm:grid-cols-2 xl:grid-cols-4')} />
         <CollectedSplitSkeleton />
         <CollectedGlanceSkeleton />
@@ -90,8 +99,8 @@ export function ReportsSkeleton({ view = 'closeout', whereabouts = 3 }: {
   return (
     <div className="space-y-5">
       <MetricGridSkeleton count={4} className={cn(metricGridClassName, 'sm:grid-cols-2 xl:grid-cols-4')} />
-      <MoneyTilesCardSkeleton count={whereabouts} action={whereabouts === 3} />
-      <MoneyTilesCardSkeleton count={4} description />
+      <MoneyTilesCardSkeleton count={whereabouts} description tall action={whereabouts === 3} />
+      <MoneyTilesCardSkeleton count={4} description tall={tallMethodTiles} />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         <InOutChartCardSkeleton />
         <DonutCardSkeleton />

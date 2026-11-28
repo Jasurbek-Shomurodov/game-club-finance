@@ -3,7 +3,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { describe, expect, it } from 'vitest';
 import { AppLocaleContext } from '@/components/i18n/AppLocaleContext';
 import messages from '@/messages/en.json';
-import { summarizeCollectedMoney, type CollectedMoneyMove } from '@/lib/calculations/collectedMoney';
+import { summarizeCollectedMoneyThrough, type CollectedMoneyMove } from '@/lib/calculations/collectedMoney';
 import CollectedTab from './CollectedTab';
 
 const move = (values: Partial<CollectedMoneyMove>): CollectedMoneyMove => ({
@@ -26,14 +26,18 @@ const moves = [
   move({ kind: 'reserve', id: 'v1', date: '2026-11-05', method: 'terminal', amount: -200_000 }),
 ];
 
-function render(props: { moves?: CollectedMoneyMove[]; isOwner?: boolean; loading?: boolean } = {}) {
+const NOVEMBER = { from: '2026-11-01', to: '2026-11-30' };
+
+function render(props: { moves?: CollectedMoneyMove[]; isOwner?: boolean; loading?: boolean; range?: { from: string; to: string } } = {}) {
   const list = props.moves ?? moves;
+  const range = props.range ?? NOVEMBER;
   return renderToStaticMarkup(
     <AppLocaleContext.Provider value={{ locale: 'en', setLocale: () => undefined }}>
       <NextIntlClientProvider locale="en" messages={messages}>
         <CollectedTab
-          summary={summarizeCollectedMoney(list)}
+          summary={summarizeCollectedMoneyThrough(list, range)}
           moves={list}
+          range={range}
           collectorNames={new Map([['u1', 'Dilya'], ['u2', 'Aziz']])}
           enabledPaymentMethods={['cash', 'terminal']}
           loading={props.loading ?? false}
@@ -62,6 +66,22 @@ describe('CollectedTab', () => {
     expect(html).toContain('All movements (4)');
     expect(html).toContain('Give back to the kassa');
     expect(html).toContain('Move to reserve');
+  });
+
+  it('lists only the collections and movements dated within the period', () => {
+    const html = render({ range: { from: '2026-11-03', to: '2026-11-30' } });
+    // 2 Nov's collect is before the period: neither listed nor counted.
+    expect(html).not.toContain('for 3 days');
+    expect(html).toContain('Collections (1)');
+    expect(html).toContain('All movements (3)');
+  });
+
+  it('splits what the period collected by its own moves, while still held stays the end balance', () => {
+    // 4 - 30 Nov: 1 000 000 terminal collected, 200 000 of it to the reserve, 800 000 left (80%).
+    // The end balance also holds 2 Nov's cash and PlayStation: 1 800 000, which would read 90%.
+    const html = render({ range: { from: '2026-11-04', to: '2026-11-30' } });
+    expect(html).toContain('aria-label="Total taken: Moved to the reserve 20%, Still with the collector 80%"');
+    expect(html).toContain('1 800 000');
   });
 
   it('hides owner actions from a collector', () => {

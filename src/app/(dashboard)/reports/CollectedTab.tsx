@@ -33,7 +33,9 @@ import { ShareBar } from '@/components/charts/ShareBar';
 import { chartColors } from '@/components/dashboard/ChartCard';
 import {
   COLLECTED_METHODS,
-  buildCollectedLedger,
+  buildCollectedLedgerWithin,
+  collectedMovesWithin,
+  summarizeCollectedMoney,
   sumCollectedRows,
   summarizeByCollector,
   type ByCollectedMethod,
@@ -64,6 +66,7 @@ const KIND_BADGE: Record<CollectedMoneyMove['kind'], BadgeVariant> = { collect: 
 export default function CollectedTab({
   summary,
   moves,
+  range,
   collectorNames,
   enabledPaymentMethods,
   loading,
@@ -73,8 +76,14 @@ export default function CollectedTab({
   onMoveToReserve,
 }: {
   summary: CollectedMoneySummary;
-  /** The moves `summary` was built from, for the ledger view. */
+  /**
+   * Every move fetched, from the 1st of the period's first month through its
+   * end: the ledger's running balance counts them all, but the ledger and the
+   * chart show only those dated within `range`, as `summary` counts them.
+   */
   moves: readonly CollectedMoneyMove[];
+  /** The Reports period. */
+  range: { from: string; to: string };
   /** Names of everyone who saved a move (collectors, and who paid or moved collected money). */
   collectorNames: ReadonlyMap<string, string | null>;
   enabledPaymentMethods: readonly string[];
@@ -101,7 +110,11 @@ export default function CollectedTab({
   const methods = COLLECTED_METHODS.filter((method) => (method !== 'playstation' && enabledPaymentMethods.includes(method))
     || summary.collected[method] !== 0 || summary.held[method] !== 0);
 
-  const ledger = useMemo(() => buildCollectedLedger(moves), [moves]);
+  const ledger = useMemo(() => buildCollectedLedgerWithin(moves, range), [moves, range]);
+  const periodMoves = useMemo(() => collectedMovesWithin(moves, range), [moves, range]);
+  // The split bar's "still held" is what the period's own moves left, so its parts add up to what
+  // the period collected; `summary.held` (the balance on the period's end) stays on the card and actions.
+  const periodHeld = useMemo(() => summarizeCollectedMoney(periodMoves).held, [periodMoves]);
   const collectors = useMemo(() => summarizeByCollector(summary.collections), [summary.collections]);
 
   const methodLabel = useCallback(
@@ -407,7 +420,7 @@ export default function CollectedTab({
             parts={[
               { key: 'spent', label: tm('paidFromCollected'), value: summary.spent.total, color: chartColors.danger },
               { key: 'reserve', label: tm('movedToReserve'), value: summary.toReserve.total, color: chartColors.purple },
-              { key: 'held', label: tv('stillHeld'), value: summary.held.total, color: chartColors.warning },
+              { key: 'held', label: tv('stillHeld'), value: periodHeld.total, color: chartColors.warning },
             ]}
           />
         </Card>
@@ -419,7 +432,7 @@ export default function CollectedTab({
           <CollectedGlanceSkeleton />
         </>
       )}
-      {!loading && <CollectedGlance moves={moves} summary={summary} methods={methods} methodLabel={methodLabel} />}
+      {!loading && <CollectedGlance moves={periodMoves} summary={summary} methods={methods} methodLabel={methodLabel} />}
 
       {!loading && summary.collections.length > 0 && (
         <Card as="section" padding="none" className="overflow-hidden">

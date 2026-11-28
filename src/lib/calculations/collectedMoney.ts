@@ -51,7 +51,11 @@ export interface CollectedMoneySummary {
   spent: ByCollectedMethod;
   /** Moved into the owner reserve (positive figures). */
   toReserve: ByCollectedMethod;
-  /** Still with the collector: collected - spent - toReserve. */
+  /**
+   * Still with the collector: collected - spent - toReserve. Collected money
+   * resets each month, so for moves spanning months use
+   * `summarizeCollectedMoneyThrough`, whose `held` is the last month's alone.
+   */
   held: ByCollectedMethod;
   /** Newest first. */
   collections: CollectionGroup[];
@@ -90,6 +94,39 @@ export function summarizeCollectedMoney(moves: readonly CollectedMoneyMove[]): C
   );
   const collections = [...groups.values()].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
   return { collected, spent, toReserve, held, collections };
+}
+
+/**
+ * The moves behind what collected money holds on `day`: from the 1st of its
+ * month through it. Collected money starts each month at zero (169), so a
+ * move of an earlier month holds nothing any more.
+ */
+export function collectedMovesHeldOn(moves: readonly CollectedMoneyMove[], day: string): CollectedMoneyMove[] {
+  const monthStart = `${day.slice(0, 7)}-01`;
+  return moves.filter((move) => move.date >= monthStart && move.date <= day);
+}
+
+/** The moves dated within a period, first and last day included. */
+export function collectedMovesWithin(
+  moves: readonly CollectedMoneyMove[],
+  range: { from: string; to: string },
+): CollectedMoneyMove[] {
+  return moves.filter((move) => move.date >= range.from && move.date <= range.to);
+}
+
+/**
+ * A period's collected money, as Reports shows it: what was collected, spent
+ * and moved to the reserve, and the collections, count only moves dated
+ * within the period, but `held` is what is left on its last day
+ * (`collectedMovesHeldOn`), the same span as the method cards' money left.
+ * `moves` may reach back before the period (to the 1st of its first month).
+ */
+export function summarizeCollectedMoneyThrough(
+  moves: readonly CollectedMoneyMove[],
+  range: { from: string; to: string },
+): CollectedMoneySummary {
+  const summary = summarizeCollectedMoney(collectedMovesWithin(moves, range));
+  return { ...summary, held: summarizeCollectedMoney(collectedMovesHeldOn(moves, range.to)).held };
 }
 
 /** What a method still has in the admin's till: its money left minus what collected money holds. */
@@ -155,12 +192,13 @@ export function monthToDateRange(today: string): { from: string; to: string } {
 
 /**
  * Whether a Reports period's own figures already are where the money is today.
- * Its method cards and collected money run from its month's first day through
- * its end, so a period that starts in today's month and reaches today has
- * counted every day so far (nothing is ever dated after the business today).
+ * Its method cards and collected money held run from the first day of its
+ * last month through its end (`openingBalanceSpan`, `collectedMovesHeldOn`),
+ * so a period that ends in today's month on or after today has counted every
+ * day so far (nothing is ever dated after the business today).
  */
 export function periodCoversMoneyNow(range: { from: string; to: string }, today: string): boolean {
-  return range.from.slice(0, 7) === today.slice(0, 7) && range.to >= today;
+  return range.to.slice(0, 7) === today.slice(0, 7) && range.to >= today;
 }
 
 /** Whether a period is the current business month: its first day through today or later in the month. */
@@ -223,7 +261,8 @@ export interface CollectedLedgerEntry extends ByCollectedMethod {
 /**
  * Every move of collected money as ledger lines, newest first. Amounts are
  * signed (a collect adds, an expense or a reserve move takes away) and each
- * line carries the running balance, which ends at the summary's held total.
+ * line carries the running balance, which starts again at zero each month
+ * (collected money resets on the 1st) and ends at the summary's held total.
  */
 export function buildCollectedLedger(moves: readonly CollectedMoneyMove[]): CollectedLedgerEntry[] {
   const lines = new Map<string, CollectedLedgerEntry>();
@@ -245,10 +284,28 @@ export function buildCollectedLedger(moves: readonly CollectedMoneyMove[]): Coll
     a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)
   ));
   let held = 0;
+  let month = '';
   return oldestFirst.map((line) => {
+    if (line.date.slice(0, 7) !== month) {
+      month = line.date.slice(0, 7);
+      held = 0;
+    }
     held += line.total;
     return { ...line, heldAfter: held };
   }).reverse();
+}
+
+/**
+ * The ledger lines dated within a period. The running balance is still
+ * counted from every move given (restarting each month), so a line's
+ * `heldAfter` is what collected money really held then, and the last line on
+ * the period's end is its `held`.
+ */
+export function buildCollectedLedgerWithin(
+  moves: readonly CollectedMoneyMove[],
+  range: { from: string; to: string },
+): CollectedLedgerEntry[] {
+  return buildCollectedLedger(moves).filter((line) => line.date >= range.from && line.date <= range.to);
 }
 
 /** What one person collected over the period. */

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildCollectedLedger,
+  buildCollectedLedgerWithin,
   sumCollectedRows,
   summarizeByCollector,
   summarizeCollectedMoney,
@@ -77,5 +78,29 @@ describe('sumCollectedRows', () => {
     const ledger = buildCollectedLedger(moves);
     expect(sumCollectedRows(ledger)).toEqual({ cash: 800_000, terminal: 1_000_000, card: 300_000, playstation: 0, total: 2_100_000 });
     expect(sumCollectedRows([]).total).toBe(0);
+  });
+});
+
+describe('collected ledger across months', () => {
+  it('starts the running balance again on the 1st', () => {
+    const ledger = buildCollectedLedger([
+      move({ id: 'r1', date: '2026-10-20', method: 'cash', amount: 1_000_000, createdAt: '2026-10-20T10:00:00Z' }),
+      move({ kind: 'expense', id: 'e1', date: '2026-10-25', method: 'cash', amount: -300_000, createdAt: '2026-10-25T10:00:00Z' }),
+      move({ id: 'r2', date: '2026-11-02', method: 'cash', amount: 400_000, createdAt: '2026-11-02T10:00:00Z' }),
+    ]);
+    expect(ledger.map((line) => [line.id, line.heldAfter])).toEqual([['r2', 400_000], ['e1', 700_000], ['r1', 1_000_000]]);
+  });
+});
+
+describe('collected ledger within a period', () => {
+  it('shows only the period\'s lines with the running balance of every move', () => {
+    const ledger = buildCollectedLedgerWithin([
+      move({ id: 'r1', date: '2026-11-02', method: 'cash', amount: 1_000_000, createdAt: '2026-11-02T10:00:00Z' }),
+      move({ kind: 'expense', id: 'e1', date: '2026-11-12', method: 'cash', amount: -300_000, createdAt: '2026-11-12T10:00:00Z' }),
+      move({ id: 'r2', date: '2026-11-15', method: 'cash', amount: 400_000, createdAt: '2026-11-15T10:00:00Z' }),
+      move({ id: 'r3', date: '2026-11-25', method: 'cash', amount: 50_000, createdAt: '2026-11-25T10:00:00Z' }),
+    ], { from: '2026-11-12', to: '2026-11-20' });
+    // 2 Nov's collect is before the period: not listed, but still in the balance.
+    expect(ledger.map((line) => [line.id, line.heldAfter])).toEqual([['r2', 1_100_000], ['e1', 700_000]]);
   });
 });
